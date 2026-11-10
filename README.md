@@ -44,7 +44,7 @@ For sync, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, run `supabase/sc
 
 Stack: React, TypeScript, Vite, Dexie (IndexedDB), Supabase, vite-plugin-pwa. Sync is last-write-wins on `updatedAt`.
 
-Official rules content must come from ORC-licensed sources.
+Official (designer-made) content for both PF2e and SF2e is sourced from the Archives of Nethys (2e.aonprd.com and Starfinder's AoN). Respect Paizo's Community Use/ORC licensing and attribution terms when importing it. Homebrew entries are kept separate (`source: 'homebrew'`).
 
 ## License
 

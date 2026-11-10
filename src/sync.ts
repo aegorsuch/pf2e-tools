@@ -71,7 +71,10 @@ export function startAutoSync(onStatus: (s: string) => void) {
   ]).subscribe({ next: schedule })
   window.addEventListener('online', schedule)
   window.addEventListener('focus', schedule)
+  // Periodic pull so an open device picks up changes made elsewhere
+  const poll = setInterval(schedule, 60_000)
   return () => {
+    clearInterval(poll)
     clearTimeout(timer)
     sub.unsubscribe()
     window.removeEventListener('online', schedule)

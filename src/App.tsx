@@ -2,6 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { db, exportHomebrew, importHomebrew, newId, removeEntry, saveEntry } from './db'
 import { EffectsEditor } from './EffectsEditor'
+import { parsePathbuilder } from './pathbuilder'
+import { importFromAon } from './aon'
 import { onAuthChange, signInWithGoogle, signOut, startAutoSync, syncAll, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import './App.css'
@@ -28,6 +30,7 @@ export default function App() {
   useEffect(() => onAuthChange(setEmail), [])
   // Start backups only once signed in; the first run also pulls data from other devices
   useEffect(() => (email ? startAutoSync(setStatus) : undefined), [email])
+  const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
   const entries = useLiveQuery(
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => enabled.includes(s))).toArray(),
     [enabled],
@@ -50,9 +53,31 @@ export default function App() {
           </label>
         ))}
         <button onClick={() => setDraft(blank(enabled))}>+ Homebrew</button>
+        <button onClick={async () => {
+          try {
+            for (const sys of enabled) {
+              const n = await importFromAon(sys, (c) => setStatus(`Importing ${sys}: ${c}`))
+              setStatus(`Imported ${n} ${sys} entries from Archives of Nethys`)
+            }
+          } catch (err) { setStatus(String(err)) }
+        }}>Import official (AoN)</button>
         <button onClick={download}>Export homebrew</button>
         <label>
-          Import
+          Import Pathbuilder character
+          <input type="file" accept="application/json,.json" hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              try {
+                const c = parsePathbuilder(await f.text())
+                await db.characters.put(c)
+                setStatus(`Imported ${c.name}` + (c.imported?.unmapped.length ? ` (kept raw: ${c.imported.unmapped.join(', ')})` : ''))
+              } catch (err) { setStatus(String(err)) }
+              e.target.value = ''
+            }} />
+        </label>
+        <label>
+          Import homebrew
           <input type="file" accept="application/json" hidden
             onChange={async (e) => { const f = e.target.files?.[0]; if (f) await importHomebrew(await f.text()) }} />
         </label>
@@ -100,6 +125,16 @@ export default function App() {
         </form>
       )}
 
+      <h2>Characters</h2>
+      <ul>
+        {characters?.map((c) => (
+          <li key={c.id}>
+            <b>{c.name}</b> - L{c.level} {c.ancestry} {c.className} ({c.feats.length} feats, {c.equipment.length} items)
+            <button onClick={() => db.characters.put({ ...c, deleted: true, updatedAt: Date.now() })}>Delete</button>
+          </li>
+        ))}
+      </ul>
+      <h2>Content</h2>
       <ul>
         {entries?.map((e) => (
           <li key={e.id}>

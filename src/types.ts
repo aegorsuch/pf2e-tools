@@ -49,7 +49,17 @@ export interface Character {
   level: number
   ancestry?: string
   className?: string
+  heritage?: string
+  background?: string
+  deity?: string
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
+  // Imported/picked feats by name; entryIds links to ContentEntry once matched
+  feats: { name: string; type: string; level: number; choice?: string }[]
+  equipment: { name: string; qty: number }[]
+  lores: { name: string; rank: number }[]
+  languages: string[]
+  // Original Pathbuilder data kept so nothing is lost on import
+  imported?: { source: 'pathbuilder'; raw: unknown; unmapped: string[] }
   // IDs of ContentEntry picked (feats, gear, etc.)
   entryIds: string[]
   // Manually added slots on top of those from class/ancestry and granted effects
