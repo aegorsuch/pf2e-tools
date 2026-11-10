@@ -41,7 +41,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     description: text(s.summary) || text(s.text),
     data: { url: text(s.url), sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source) },
     effects: [],
-    updatedAt: Date.now(),
+    // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
+    updatedAt: 1,
   }
 }
 
