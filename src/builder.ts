@@ -178,6 +178,9 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
   'General Training': { category: 'general', level: 1 },
   'Natural Ambition': { category: 'class', level: 1 },
 }
+// House rule: Rangers get Snarecrafter Dedication at level 2 in a locked Dedications slot
+export const SNARECRAFTER = { name: 'Snarecrafter Dedication', slot: 'archetype:2:g99' }
+export const snarecrafterApplies = (c: Character) => getSettings().rangerSnarecrafter && c.className === 'Ranger' && c.level >= 2
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key)
 
 export function plannedSlots(c: Character): PlannedSlot[] {
@@ -204,6 +207,10 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
     slots.push({ key: `${id}:g${i}`, category: g.category, level: g.level })
   })
+  if (snarecrafterApplies(c)) {
+    if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
+    slots.push({ key: SNARECRAFTER.slot, category: 'archetype', level: 2 })
+  }
   return slots.sort((a, b) => a.level - b.level
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
@@ -244,6 +251,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Order Explorer' || c.feats.some((f) => f.slot === slot.key && f.name === e.name) || availableOrders(c).length > 0)
       && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key)))
     .filter((e) => !trait || e.traits.some((t) => t.toLowerCase() === trait))
+    .filter((e) => !(slot.category === 'general' && getSettings().generalFeatsOnly) || !e.traits.some((t) => t.toLowerCase() === 'skill'))
     .filter(archetypeAllowed)
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 }

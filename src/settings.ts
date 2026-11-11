@@ -7,10 +7,14 @@ export interface Settings {
   autoLores: boolean
   // Variant rule: Free Archetype grants an archetype feat at every even level
   freeArchetype: boolean
+  // House rule: Rangers get Snarecrafter Dedication for free at level 2, locked in the Dedications section
+  rangerSnarecrafter: boolean
+  // House rule: General feat pickers hide skill feats
+  generalFeatsOnly: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true }
+const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, generalFeatsOnly: false }
 
 function load(): Settings {
   try {

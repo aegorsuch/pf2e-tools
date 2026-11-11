@@ -1,8 +1,8 @@
 import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed } from './builder'
+import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, SNARECRAFTER, snarecrafterApplies } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -84,6 +84,18 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     if (next.boosts) next.abilities = computeAbilities(next, entries)
     return db.characters.put(next)
   }
+  // House rule: keep the Ranger's free Snarecrafter Dedication in step with the rule, class and level
+  const snareEntry = entries.find((e) => e.kind === 'feat' && e.name === SNARECRAFTER.name)
+  const hasSnare = c.feats.some((f) => f.slot === SNARECRAFTER.slot)
+  const wantsSnare = snarecrafterApplies(c)
+  useEffect(() => {
+    if (wantsSnare && !hasSnare && snareEntry) {
+      const feats = [...c.feats, { name: SNARECRAFTER.name, type: 'Dedication Feat', level: snareEntry.level, slot: SNARECRAFTER.slot }]
+      void save({ feats, entryIds: c.entryIds.includes(snareEntry.id) ? c.entryIds : [...c.entryIds, snareEntry.id] })
+    } else if (!wantsSnare && hasSnare) {
+      void save({ feats: c.feats.filter((f) => f.slot !== SNARECRAFTER.slot) })
+    }
+  })
   const [featSearch, setFeatSearch] = useState<Record<string, string>>({})
   const section = { c, entries, save }
   const searchProps = { search: featSearch, onSearch: (key: string, text: string) => setFeatSearch((prev) => ({ ...prev, [key]: text })) }

@@ -210,6 +210,16 @@ export default function App() {
               onChange={(e) => updateSettings({ freeArchetype: e.target.checked })} />{' '}
             Free Archetype
           </label>
+          <label>
+            <input type="checkbox" checked={settings.rangerSnarecrafter}
+              onChange={(e) => updateSettings({ rangerSnarecrafter: e.target.checked })} />{' '}
+            Ranger Snarecrafter Dedication
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.generalFeatsOnly}
+              onChange={(e) => updateSettings({ generalFeatsOnly: e.target.checked })} />{' '}
+            General Feats Only
+          </label>
         </section>
       )}
 

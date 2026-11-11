@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { eligibleFeats, featType, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
+import { eligibleFeats, featType, SNARECRAFTER, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
 import { actionOptionLabel } from './actionCost'
@@ -108,7 +108,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           return (
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
               <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
-              {picksType ? (
+              {s.key === SNARECRAFTER.slot ? (
+                <button type="button" className="feat-picker-button" aria-label={`${label} feat`} disabled>{SNARECRAFTER.name}</button>
+              ) : picksType ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} onClick={() => onSearch?.(`${s.key}:open`, '1')}>
                   {current || '- empty -'}
                 </button>

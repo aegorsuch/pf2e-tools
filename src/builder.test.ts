@@ -381,3 +381,23 @@ describe('armor specialization from feats', () => {
     expect(armorSpecialization(wear('Chain Mail'), all)).toBeUndefined()
   })
 })
+
+describe('homebrew feat rules', () => {
+  it('adds a locked Snarecrafter Dedication slot for Rangers at level 2 when enabled', () => {
+    const ranger = { ...base, className: 'Ranger', level: 2 }
+    updateSettings({ rangerSnarecrafter: true })
+    expect(plannedSlots(ranger).some((s) => s.key === 'archetype:2:g99')).toBe(true)
+    expect(plannedSlots({ ...ranger, level: 1 }).some((s) => s.key === 'archetype:2:g99')).toBe(false)
+    expect(plannedSlots({ ...ranger, className: 'Wizard' }).some((s) => s.key === 'archetype:2:g99')).toBe(false)
+    updateSettings({ rangerSnarecrafter: false })
+    expect(plannedSlots(ranger).some((s) => s.key === 'archetype:2:g99')).toBe(false)
+  })
+  it('hides skill feats from General pickers when General Feats Only is on', () => {
+    const list = [entry('feat', 'Toughness', {}, 1, ['General']), entry('feat', 'Assurance', {}, 1, ['General', 'Skill'])]
+    const slot = { key: 'general:3:0', category: 'general' as const, level: 3 }
+    updateSettings({ generalFeatsOnly: true })
+    expect(eligibleFeats(list, base, slot).map((e) => e.name)).toEqual(['Toughness'])
+    updateSettings({ generalFeatsOnly: false })
+    expect(eligibleFeats(list, base, slot).map((e) => e.name)).toEqual(['Assurance', 'Toughness'])
+  })
+})
