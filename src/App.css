@@ -328,6 +328,11 @@
   padding: 8px 0;
 }
 
+.character-subsection {
+  margin-inline-start: 12px;
+  min-width: 0;
+}
+
 .character-subsection > summary {
   cursor: pointer;
   display: flex;
