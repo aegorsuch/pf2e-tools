@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ancestryLabel, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
+import { additionalSkillCount, ancestryLabel, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt, skillRankBudget } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -128,7 +128,20 @@ describe('skills', () => {
   it('combines sources, increases and overrides', () => {
     const c = { ...base, level: 3, skillPicks: ['Society'], skillIncreases: { 3: 'Society' }, rankOverrides: { Reflex: 2 } }
     const r = ranksAt(c, entries)
-    expect(r).toMatchObject({ Arcana: 1, Society: 2, 'Academia Lore': 1, Perception: 1, Will: 2, Reflex: 2 })
+    expect(r).toMatchObject({ Arcana: 1, Society: 2, 'Academia Lore': 1, Perception: 1, Will: 2, Reflex: 0 })
+  })
+  it('adds Natural Skill picks and groups available skill increases by rank ceiling', () => {
+    const naturalSkill = entry('feat', 'Natural Skill')
+    const ranger = entry('class', 'Ranger', {
+      skill_proficiency: 'Trained in a number of additional skills equal to 4 plus your Intelligence modifier',
+    })
+    const c = { ...base, className: 'Ranger', level: 7, feats: [{ name: 'Natural Skill', type: 'Ancestry Feat', level: 1 }] }
+    const withFeat = [...entries.filter((e) => !(e.kind === 'class' && e.name === 'Ranger')), naturalSkill, ranger]
+    expect(classSkills(ranger)).toEqual({ fixed: [], additional: 4 })
+    expect(additionalSkillCount(c, withFeat)).toBe(6)
+    expect(skillRankBudget(c, withFeat)).toEqual({ trained: 6, expert: 2, master: 1, legendary: 0 })
+    expect(skillRankBudget({ ...c, skillPicks: ['Acrobatics'], skillIncreases: { 3: 'Nature' } }, withFeat))
+      .toEqual({ trained: 5, expert: 1, master: 1, legendary: 0 })
   })
 })
 

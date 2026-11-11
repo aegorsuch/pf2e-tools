@@ -311,14 +311,19 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
   return ranks
 }
 
-// Ranks from class/background/picks plus skill increases below `beforeLevel`; manual overrides win when final.
+// Ranks from class/background/picks plus skill increases below `beforeLevel`; legacy overrides apply only to skills.
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
   const ranks = baseRanks(c, entries)
   for (const l of skillIncreaseLevels(c).filter((x) => x < beforeLevel)) {
     const skill = c.skillIncreases?.[l]
     if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
   }
-  if (withOverrides) Object.assign(ranks, c.rankOverrides)
+  if (withOverrides) {
+    const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
+    for (const [name, rank] of Object.entries(c.rankOverrides ?? {})) {
+      if (skillNames.has(name)) ranks[name] = rank
+    }
+  }
   for (const name of [
     ...classSkills(byName(entries, 'class', c.className)).fixed,
     ...backgroundSkills(byName(entries, 'background', c.background)),
@@ -329,7 +334,33 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
 
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
-  Math.max(0, classSkills(byName(entries, 'class', c.className)).additional + abilityMod(c.abilities.int))
+  Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
+    + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries))
+
+function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
+  return c.feats.reduce((total, selected) => {
+    if (selected.name === 'Natural Skill') return total + 2
+    const feat = byName(entries, 'feat', selected.name)
+    const text = `${feat?.description ?? ''} ${String(feat?.data.skill ?? '')}`
+    const grant = /(?:trained|become trained)\s+in\s+(one|two|three|four|1|2|3|4)\s+(?:additional\s+)?skills?\s+of\s+your\s+choice/i.exec(text)
+    if (!grant) return total
+    const counts: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, '1': 1, '2': 2, '3': 3, '4': 4 }
+    return total + counts[grant[1].toLowerCase()]
+  }, 0)
+}
+
+export function skillRankBudget(c: Character, entries: ContentEntry[]) {
+  const picks = c.skillPicks?.length ?? 0
+  const remaining = { trained: Math.max(0, additionalSkillCount(c, entries) - picks), expert: 0, master: 0, legendary: 0 }
+  for (const level of skillIncreaseLevels(c)) {
+    if (c.skillIncreases?.[level]) continue
+    const rank = rankCap(level)
+    if (rank === 2) remaining.expert++
+    else if (rank === 3) remaining.master++
+    else remaining.legendary++
+  }
+  return remaining
+}
 
 // ---------- Spells ----------
 
