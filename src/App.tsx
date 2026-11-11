@@ -18,13 +18,26 @@ const SYSTEMS: { id: GameSystem; label: string }[] = [
 const toggle = (list: GameSystem[], s: GameSystem) =>
   list.includes(s) ? list.filter((x) => x !== s) : [...list, s]
 
+const ENABLED_KEY = 'enabled-systems'
+const ALL_SYSTEMS = SYSTEMS.map((s) => s.id)
+
+// Both systems are on by default; an explicit opt-out is remembered
+function loadEnabled(): GameSystem[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ENABLED_KEY) ?? 'null') as unknown
+    if (Array.isArray(saved)) return ALL_SYSTEMS.filter((s) => saved.includes(s))
+  } catch { /* fall back to default */ }
+  return ALL_SYSTEMS
+}
+
 const blank = (systems: GameSystem[]): ContentEntry => ({
   id: newId(), systems, kind: 'feat', source: 'homebrew', name: '', level: 1,
   traits: [], description: '', data: {}, effects: [], updatedAt: 0,
 })
 
 export default function App() {
-  const [enabled, setEnabled] = useState<GameSystem[]>(['pf2e'])
+  const [enabled, setEnabled] = useState<GameSystem[]>(loadEnabled)
+  useEffect(() => localStorage.setItem(ENABLED_KEY, JSON.stringify(enabled)), [enabled])
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [status, setStatus] = useState('')
