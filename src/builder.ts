@@ -183,6 +183,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key)
 export function plannedSlots(c: Character): PlannedSlot[] {
   const base: FeatSlot[] = [
     ...SLOT_RULES.flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: 1 }))),
+    ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: 1 }))) : []),
     ...c.extraSlots,
   ]
   const slots: PlannedSlot[] = []

@@ -5,10 +5,12 @@ export interface Settings {
   autoClassSkills: boolean
   // House rule: the character's Lore skills also rank up for free as the level allows
   autoLores: boolean
+  // Variant rule: Free Archetype grants an archetype feat at every even level
+  freeArchetype: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false }
+const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true }
 
 function load(): Settings {
   try {

@@ -86,9 +86,14 @@ describe('computeAbilities', () => {
 
 describe('plannedSlots', () => {
   it('follows the standard progression up to the character level', () => {
+    updateSettings({ freeArchetype: false })
     const keys = (level: number) => plannedSlots({ ...base, level }).map((s) => `${s.category}${s.level}`)
     expect(keys(1)).toEqual(['ancestry1', 'class1'])
     expect(keys(3)).toEqual(['ancestry1', 'class1', 'class2', 'skill2', 'general3'])
+  })
+  it('adds a Free Archetype slot at every even level when enabled', () => {
+    updateSettings({ freeArchetype: true })
+    expect(plannedSlots({ ...base, level: 5 }).filter((s) => s.category === 'archetype').map((s) => s.level)).toEqual([2, 4])
   })
   it('includes extra slots', () => {
     const slots = plannedSlots({ ...base, extraSlots: [{ category: 'class', level: 1, count: 1 }] })

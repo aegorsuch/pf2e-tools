@@ -205,6 +205,11 @@ export default function App() {
               onChange={(e) => updateSettings({ autoLores: e.target.checked })} />{' '}
             Auto-Advance Lores
           </label>
+          <label>
+            <input type="checkbox" checked={settings.freeArchetype}
+              onChange={(e) => updateSettings({ freeArchetype: e.target.checked })} />{' '}
+            Free Archetype
+          </label>
         </section>
       )}
 

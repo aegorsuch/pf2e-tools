@@ -104,8 +104,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
 
-  const featSection = (category: 'general' | 'skill') => {
-    const title = category === 'general' ? 'General Feats' : 'Skill Feats'
+  const featSection = (category: 'general' | 'skill' | 'archetype') => {
+    const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
     const slots = plannedSlots(c).filter((slot) => slot.category === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key)).length
     return (
@@ -116,6 +116,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <FeatSlots {...section} categories={[category]} title={title} bare />
+          {category === 'archetype' && slots.length === 0 && (
+            <button type="button" onClick={() => save({ extraSlots: [...c.extraSlots, { category: 'archetype', level: Math.max(2, c.level), count: 1 }] })}>
+              Add Dedication feat slot
+            </button>
+          )}
         </div>
       </details>
     )
@@ -198,6 +203,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
+      {featSection('archetype')}
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Defense</strong>

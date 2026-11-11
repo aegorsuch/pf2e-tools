@@ -13,7 +13,7 @@ interface FeatSlotsProps extends SectionProps {
 }
 
 const LABEL: Record<FeatSlotCategory, string> = {
-  class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Archetype', bonus: 'Bonus',
+  class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare }: FeatSlotsProps) {
