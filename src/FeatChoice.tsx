@@ -1,10 +1,23 @@
 import { hasWardenChoice, wardenSpellOptions } from './featChoices'
-import { DRUID_ORDERS, availableOrders } from './builder'
+import { CANNY_STATS, DRUID_ORDERS, availableOrders } from './builder'
 import type { SectionProps } from './builder'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === 'Canny Acumen') {
+    return (
+      <label className="feat-choice">
+        <select aria-label="Canny Acumen statistic" value={feat.choice ?? ''} onChange={(e) => {
+          const choice = e.target.value || undefined
+          save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+        }}>
+          <option value="">Choose statistic…</option>
+          {CANNY_STATS.map((stat) => <option key={stat} value={stat}>{stat}</option>)}
+        </select>
+      </label>
+    )
+  }
   if (feat.name === 'Order Explorer') {
     return (
       <label className="feat-choice">

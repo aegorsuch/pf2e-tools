@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, speed, initiativeBonus, armorSpecialization,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
@@ -134,6 +134,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
+        <small>Speed: {speed(c, entries)} ft.</small>
+        {c.feats.some((f) => f.name === 'Incredible Initiative') && <small>Initiative: {signed(initiativeBonus(c, entries))} (Incredible Initiative +2)</small>}
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         <WeaponList c={c} entries={entries} save={save} />

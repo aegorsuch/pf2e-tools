@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -179,6 +179,17 @@ describe('defenses', () => {
     expect(armorClass(c, data)).toBe(24)
     expect(maxHp(c, data)).toBe(56)
     expect(maxHp({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(61)
+  })
+
+  it('applies Fleet, Incredible Initiative and Canny Acumen', () => {
+    const feat = (name: string, choice?: string) => ({ name, type: 'General Feat', level: 3, choice })
+    const data = [...entries, entry('ancestry', 'Zephyr', { speed: 30 })]
+    const c = { ...base, ancestry: 'Zephyr', level: 3 }
+    expect(speed(c, data)).toBe(30)
+    expect(speed({ ...c, feats: [feat('Fleet')] }, data)).toBe(35)
+    expect(initiativeBonus({ ...c, feats: [feat('Incredible Initiative')] }, data) - initiativeBonus(c, data)).toBe(2)
+    expect(ranksAt({ ...c, feats: [feat('Canny Acumen', 'Will')] }, data).Will).toBe(2)
+    expect(ranksAt({ ...c, level: 17, feats: [feat('Canny Acumen', 'Will')] }, data).Will).toBe(3)
   })
 })
 

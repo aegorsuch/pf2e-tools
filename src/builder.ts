@@ -14,8 +14,18 @@ export const signed = (n: number) => (n >= 0 ? `+${n}` : String(n))
 
 const num = (v: unknown) => (typeof v === 'number' ? v : Number.isFinite(parseFloat(String(v))) ? parseFloat(String(v)) : 0)
 
-const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name?: string) =>
-  name ? entries.find((e) => e.kind === kind && e.name === name) : undefined
+// O(1) lookups: the content list has tens of thousands of entries and these run many times per render
+const nameCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
+const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name?: string) => {
+  if (!name) return undefined
+  let map = nameCache.get(entries)
+  if (!map) {
+    map = new Map()
+    for (const e of entries) { const k = `${e.kind}\0${e.name}`; if (!map.has(k)) map.set(k, e) }
+    nameCache.set(entries, map)
+  }
+  return map.get(`${kind}\0${name}`)
+}
 
 // Level 1 HP = ancestry HP + class HP + Con; each later level adds class HP + Con
 export function maxHp(c: Character, entries: ContentEntry[]) {
@@ -342,6 +352,17 @@ export function featureRanks(features: ContentEntry[]) {
 
 // ---------- Skills & proficiencies ----------
 
+export const CANNY_STATS = ['Fortitude', 'Perception', 'Reflex', 'Will']
+
+const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === name)
+
+// Land Speed: ancestry speed (25 if unknown) plus Fleet's 5 feet
+export const speed = (c: Character, entries: ContentEntry[]) =>
+  (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + (hasFeat(c, 'Fleet') ? 5 : 0)
+
+export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>
+  defenseSummary(c, entries).perception + (hasFeat(c, 'Incredible Initiative') ? 2 : 0)
+
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
 export interface StatDef { name: string; ability: Ability; kind: 'skill' | 'save' | 'perception' }
@@ -446,6 +467,8 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
   ranks.Reflex = rankFromText(klass?.data.reflex_proficiency)
   ranks.Will = rankFromText(klass?.data.will_proficiency)
   for (const [stat, rank] of Object.entries(featureRanks(classFeatures(entries, c)))) ranks[stat] = Math.max(ranks[stat] ?? 0, rank)
+  const canny = c.feats.find((f) => f.name === 'Canny Acumen')?.choice
+  if (canny && CANNY_STATS.includes(canny)) ranks[canny] = Math.max(ranks[canny] ?? 0, c.level >= 17 ? 3 : 2)
   return ranks
 }
 
