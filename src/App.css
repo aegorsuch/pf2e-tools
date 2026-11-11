@@ -444,3 +444,23 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
   gap: 8px;
   margin-bottom: 6px;
 }
+
+.feat-type-tabs {
+  display: flex;
+  gap: 14px;
+  flex: none;
+}
+.feat-slot-row > .feat-type-tabs > button {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 2px 0;
+  opacity: 0.7;
+}
+.feat-slot-row > .feat-type-tabs > button.active {
+  border-bottom-color: currentColor;
+  opacity: 1;
+}
+
+.feat-slot-row:has(.feat-type-tabs) { flex-wrap: wrap; }

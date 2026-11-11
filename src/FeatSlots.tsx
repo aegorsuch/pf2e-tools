@@ -108,11 +108,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
               <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
               {picksType && (
-                <select aria-label={`${label} feat type`} value={type} onChange={(e) => onSearch?.(`${s.key}:type`, e.target.value)}>
-                  <option value="" disabled>Type…</option>
-                  <option value="dedication">Dedication feat</option>
-                  <option value="archetype">Archetype feat</option>
-                </select>
+                <div className="feat-type-tabs" role="tablist" aria-label={`${label} feat type`}>
+                  {([['archetype', 'Archetype'], ['dedication', 'Dedication']] as const).map(([value, text]) => (
+                    <button key={value} type="button" role="tab" aria-selected={type === value} className={type === value ? 'active' : undefined}
+                      onClick={() => onSearch?.(`${s.key}:type`, value)}>{text}</button>
+                  ))}
+                </div>
               )}
               {(!picksType || type) && <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
