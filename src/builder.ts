@@ -208,6 +208,26 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
 
+const archetypeOf = (e?: ContentEntry) => {
+  const a = e?.data.archetype
+  return (Array.isArray(a) ? a[0] : a)?.toString()
+}
+const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase() === 'dedication')
+
+// Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
+// two other feats from every Dedication already taken
+function archetypeAllowed(e: ContentEntry, c: Character, entries: ContentEntry[], slotKey: string) {
+  const archetype = archetypeOf(e)
+  if (!archetype || !e.traits.some((t) => t.toLowerCase() === 'archetype')) return true
+  const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
+    const entry = byName(entries, 'feat', f.name)
+    return entry && archetypeOf(entry) ? [entry] : []
+  })
+  if (!isDedication(e)) return taken.some((t) => isDedication(t) && archetypeOf(t) === archetype)
+  return taken.filter(isDedication).every((d) =>
+    archetypeOf(d) === archetype || taken.filter((t) => !isDedication(t) && archetypeOf(t) === archetypeOf(d)).length >= 2)
+}
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
@@ -219,6 +239,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     .filter((e) => e.kind === 'feat' && e.level <= slot.level
       && (e.name !== 'Order Explorer' || c.feats.some((f) => f.slot === slot.key && f.name === e.name) || availableOrders(c).length > 0)
       && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key)))
+    .filter((e) => archetypeAllowed(e, c, entries, slot.key))
     .filter((e) => !trait || e.traits.some((t) => t.toLowerCase() === trait))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 }

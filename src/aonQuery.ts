@@ -8,7 +8,7 @@ export const AON_ENDPOINTS: Record<GameSystem, string> = {
 
 // Scalar/array fields copied into entry.data (arrays are joined with ", ")
 export const DATA_FIELDS = [
-  'hp', 'size', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite',
+  'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite',
   'actions', 'trigger', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'ac', 'dex_cap', 'strength',
   'check_penalty', 'range', 'tradition', 'school', 'item_category', 'perception_proficiency',
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',

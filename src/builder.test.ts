@@ -345,3 +345,16 @@ describe('feat-granted slots', () => {
     expect(plannedSlots({ ...c, feats: [] }).some((s) => s.category === 'general')).toBe(false)
   })
 })
+
+describe('archetype rules', () => {
+  const ded = entry('feat', 'Wild Hunter Dedication', { archetype: 'Wild Hunter' }, 2, ['Archetype', 'Dedication'])
+  const other = entry('feat', 'Living Weapon', { archetype: 'Wild Hunter' }, 2, ['Archetype'])
+  const ded2 = entry('feat', 'Medic Dedication', { archetype: 'Medic' }, 2, ['Archetype', 'Dedication'])
+  const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+  const has = (...names: string[]) => ({ ...base, level: 4, feats: names.map((name, i) => ({ name, type: 'Dedication Feat', level: 2, slot: `archetype:2:${i}` })) })
+  const names = (c: Character) => eligibleFeats([ded, other, ded2], c, slot).map((e) => e.name)
+  it('needs the Dedication before other archetype feats', () => {
+    expect(names(has())).toEqual(['Medic Dedication', 'Wild Hunter Dedication'])
+    expect(names(has('Wild Hunter Dedication'))).toEqual(['Living Weapon'])
+  })
+})
