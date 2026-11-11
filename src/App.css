@@ -464,3 +464,38 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 }
 
 .feat-slot-row:has(.feat-type-tabs) { flex-wrap: wrap; }
+
+.feat-picker-button { flex: 1 1 10rem; min-width: 0; text-align: left; }
+.feat-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.feat-modal {
+  background: #1a1b22;
+  color: inherit;
+  width: min(32rem, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+}
+.feat-modal > .feat-type-tabs { padding-bottom: 4px; }
+.feat-modal .feat-type-tabs > button {
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  opacity: 0.7;
+}
+.feat-modal .feat-type-tabs > button.active { border-bottom-color: currentColor; opacity: 1; }
+.feat-modal-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.feat-modal-list button { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #333; padding: 10px 6px; }
+.feat-modal-list button.active { font-weight: bold; }
+.feat-modal-level { padding: 8px 6px 2px; opacity: 0.7; }

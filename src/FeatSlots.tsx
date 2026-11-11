@@ -96,7 +96,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const currentEntry = entries.find((e) => e.kind === 'feat' && e.name === current)
           const picksType = s.category === 'archetype'
-          const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : '')
+          const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'dedication')
+          const open = search[`${s.key}:open`] === '1'
           const options = eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
@@ -107,15 +108,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           return (
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
               <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
-              {picksType && (
-                <div className="feat-type-tabs" role="tablist" aria-label={`${label} feat type`}>
-                  {([['archetype', 'Archetype'], ['dedication', 'Dedication']] as const).map(([value, text]) => (
-                    <button key={value} type="button" role="tab" aria-selected={type === value} className={type === value ? 'active' : undefined}
-                      onClick={() => onSearch?.(`${s.key}:type`, value)}>{text}</button>
-                  ))}
-                </div>
-              )}
-              {(!picksType || type) && <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
+              {picksType ? (
+                <button type="button" className="feat-picker-button" aria-label={`${label} feat`} onClick={() => onSearch?.(`${s.key}:open`, '1')}>
+                  {current || '- empty -'}
+                </button>
+              ) : <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && (
                   <option value={current}>{actionOptionLabel(current, entries.find((entry) => entry.kind === 'feat' && entry.name === current))}</option>
@@ -126,6 +123,33 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </optgroup>
                 ))}
               </select>}
+              {picksType && open && (
+                <div className="feat-modal-backdrop" onClick={() => onSearch?.(`${s.key}:open`, '')}>
+                  <div className="feat-modal" role="dialog" aria-label={`${label} feat picker`} onClick={(e) => e.stopPropagation()}>
+                    <div className="feat-type-tabs" role="tablist">
+                      {([['archetype', 'Archetype'], ['dedication', 'Dedication']] as const).map(([value, text]) => (
+                        <button key={value} type="button" role="tab" aria-selected={type === value} className={type === value ? 'active' : undefined}
+                          onClick={() => onSearch?.(`${s.key}:type`, value)}>{text}</button>
+                      ))}
+                    </div>
+                    <ul className="feat-modal-list">
+                      <li><button type="button" onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>- empty -</button></li>
+                      {[...optionsByLevel].map(([level, levelOptions]) => [
+                        <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,
+                        ...levelOptions.map((option) => (
+                          <li key={option.id}>
+                            <button type="button" className={option.name === current ? 'active' : undefined}
+                              onClick={() => { choose(s.key, s.category, s.level, option.name); onSearch?.(`${s.key}:open`, '') }}>
+                              {actionOptionLabel(option.name, option)}
+                            </button>
+                          </li>
+                        )),
+                      ])}
+                    </ul>
+                    <button type="button" onClick={() => onSearch?.(`${s.key}:open`, '')}>Cancel</button>
+                  </div>
+                </div>
+              )}
               {current && (entries.find((e) => e.kind === 'feat' && e.name === current)?.description) && <Info>{entries.find((e) => e.kind === 'feat' && e.name === current)!.description}</Info>}
               {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {extra
