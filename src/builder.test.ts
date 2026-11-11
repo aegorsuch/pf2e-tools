@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
+import { boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -8,11 +8,14 @@ const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['dat
 
 const entries = [
   entry('ancestry', 'Elf', { attribute: 'Dexterity, Intelligence, Free', attribute_flaw: 'Constitution', hp: 6 }),
+  entry('ancestry', 'Human', { attribute: 'Two free ability boosts' }),
   entry('background', 'Scholar', { attribute: 'Intelligence, Wisdom', skill: 'Arcana, Academia Lore' }),
+  entry('background', 'Scout', { attribute: 'Dexterity, Wisdom' }),
   entry('class', 'Wizard', {
     attribute: 'Intelligence', perception_proficiency: 'Trained', will_proficiency: 'Expert',
     skill_proficiency: 'Trained in Arcana, Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
   }),
+  entry('class', 'Ranger', { attribute: 'Dexterity, Strength' }),
   entry('classFeature', 'Arcane School', { class: 'Wizard' }),
   entry('classFeature', 'Will Expertise', { class: 'Wizard' }, 9),
   entry('classFeature', 'Wizard Feats', { class: 'Wizard' }),
@@ -38,6 +41,29 @@ describe('computeAbilities', () => {
     expect(a.wis).toBe(12)
     // ancestry +2, class +2, background +2, free +2 = 18; the last free boost adds only 1
     expect(a.int).toBe(19)
+  })
+
+  it('creates two free ancestry boosts for Human in addition to the four level-1 boosts', () => {
+    const ranger: Character = { ...base, ancestry: 'Human', className: 'Ranger', background: 'Scout' }
+    const slots = boostSlots(ranger, entries)
+    expect(slots.filter((s) => s.group === 'ancestry')).toHaveLength(2)
+    expect(slots.filter((s) => s.group === 'free1')).toHaveLength(4)
+    expect(slots.find((s) => s.key === 'ancestry:0')?.fixed).toBeUndefined()
+    const scores = computeAbilities({
+      ...ranger,
+      boosts: {
+        'ancestry:0': 'wis',
+        'ancestry:1': 'con',
+        'background:0': 'dex',
+        'background:1': 'cha',
+        class: 'dex',
+        'free1:0': 'str',
+        'free1:1': 'int',
+        'free1:2': 'wis',
+        'free1:3': 'cha',
+      },
+    }, entries)
+    expect(scores).toEqual({ str: 12, dex: 14, con: 12, int: 12, wis: 14, cha: 14 })
   })
 })
 
@@ -65,7 +91,7 @@ describe('eligibleFeats', () => {
 
 describe('skills', () => {
   it('parses class skills', () => {
-    expect(classSkills(entries[2])).toEqual({ fixed: ['Arcana'], additional: 2 })
+    expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toEqual({ fixed: ['Arcana'], additional: 2 })
   })
   it('ignores choice lines', () => {
     const k = entry('class', 'Fighter', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })

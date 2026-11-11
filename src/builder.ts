@@ -58,6 +58,18 @@ const ABILITY_NAMES: Record<string, Ability> = {
 const tokens = (v: unknown) => (typeof v === 'string' ? v.split(',').map((t) => t.trim()).filter(Boolean) : [])
 const parseAbilities = (v: unknown) =>
   tokens(v).flatMap((t) => (ABILITY_NAMES[t.toLowerCase()] ? [ABILITY_NAMES[t.toLowerCase()]] : []))
+const FREE_BOOST_COUNTS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+}
+
+function ancestryBoosts(v: unknown) {
+  return tokens(v).flatMap((token) => {
+    const count = /^(one|two|three|four|five|six|\d+) free ability boosts?$/i.exec(token)
+    if (!count) return [token]
+    const n = FREE_BOOST_COUNTS[count[1].toLowerCase()] ?? Number(count[1])
+    return Array.from({ length: n }, () => 'Free')
+  })
+}
 
 export interface BoostSlot {
   key: string
@@ -73,7 +85,7 @@ export const BOOST_LEVELS = [5, 10, 15, 20]
 export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   const slots: BoostSlot[] = []
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  tokens(ancestry?.data.attribute).forEach((t, i) => {
+  ancestryBoosts(ancestry?.data.attribute).forEach((t, i) => {
     const fixed = ABILITY_NAMES[t.toLowerCase()]
     slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed, group: 'ancestry' })
   })

@@ -30,8 +30,8 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
   }
 
   return (
-    <>
-      <h3>Ability scores</h3>
+    <details className="ability-section" open>
+      <summary><h3>Ability Scores</h3></summary>
       <label>
         <input type="checkbox" checked={builderOn}
           onChange={(e) => save(e.target.checked ? { boosts: {} } : { boosts: undefined })} />
@@ -91,6 +91,6 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
           <small>Scores: {ABILITIES.map((a) => `${a.toUpperCase()} ${scores[a]} (${signed(abilityMod(scores[a]))})`).join(', ')}</small>
         </div>
       )}
-    </>
+    </details>
   )
 }
