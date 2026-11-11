@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  effectiveWeapon, handwrapRuneOptions, type SectionProps,
+  armorGauntlet, effectiveWeapon, handwrapRuneOptions, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { Info } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS } from './supplemental'
+import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS } from './supplemental'
 import type { ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
@@ -201,6 +201,7 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
 
 export function WeaponList({ c, entries, save }: SectionProps) {
   const weapons = ownedWeapons(c, entries)
+  const gauntlet = armorGauntlet(c, entries)
   const hasLivingWeapon = c.feats.some((feat) => feat.name === 'Living Weapon')
   const saveWeapons = (next: OwnedWeapon[]) => save({
     weapons: [...next, ...(c.weapons ?? []).filter((weapon) =>
@@ -230,6 +231,14 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         return (
           <details key={w.id} className="gear-card" aria-label={displayName} open>
             <summary><strong>{displayName}</strong> <small>Attack {signed(a.attack)}{damage && `, Damage ${compactDamage}`}</small></summary>
+            {gauntlet && w.name === gauntlet.name && <label>Armor gauntlet{' '}
+              <select aria-label="Armor gauntlet" value={gauntlet.name} onChange={(e) => {
+                const choice = ARMOR_GAUNTLETS.find((name) => name === e.target.value)
+                if (choice) save({ armors: ownedArmors(c, entries).map((armor) => armor.id === gauntlet.armor.id ? { ...armor, gauntlet: choice } : armor) })
+              }}>
+                {[...ARMOR_GAUNTLETS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
+              </select>
+            </label>}
             {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">

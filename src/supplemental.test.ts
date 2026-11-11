@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewWeapons, IRON_FIST, ORC_TUSKS } from './supplemental'
 import { effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 
 const base: Character = {
@@ -28,7 +28,7 @@ it('grants Haft Striker Stance from its feat without duplicating configured weap
   expect(ownedWeapons({ ...c, weapons: [configured] }, []).find((weapon) => weapon.name === configured.name)).toBe(configured)
 })
 
-it('derives and locks one gauntlet only while full plate is worn, preserving independent weapon runes', () => {
+it('derives and locks one gauntlet while eligible armor is worn, preserving independent weapon runes', () => {
   const plate = { id: 'plate', name: 'Full Plate', potency: 0, resilient: 0, runes: [], worn: true }
   const c: Character = { ...base, armors: [plate], handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }
   const gauntlet = ownedWeapons(c, []).find((weapon) => weapon.name === 'Gauntlet')!
@@ -44,7 +44,12 @@ it('derives and locks one gauntlet only while full plate is worn, preserving ind
   expect(ownedWeapons(unworn, []).map((weapon) => weapon.name)).not.toContain('Gauntlet')
   expect(isLockedWeapon(unworn, 'Gauntlet')).toBe(false)
   expect(ownedWeapons({ ...unworn, armors: [plate] }, []).find((weapon) => weapon.name === 'Gauntlet')).toEqual(configured)
-  expect(ownedWeapons({ ...base, armors: [{ ...plate, name: 'Half Plate' }] }, []).map((weapon) => weapon.name)).not.toContain('Gauntlet')
+  for (const name of ['Full Plate', 'Half Plate', 'Splint Mail']) {
+    const wearer = { ...base, armors: [{ ...plate, name }] }
+    expect(ownedWeapons(wearer, []).map((weapon) => weapon.name)).toContain('Gauntlet')
+    expect(isLockedWeapon(wearer, 'Gauntlet')).toBe(true)
+  }
+  expect(ownedWeapons({ ...base, armors: [{ ...plate, name: 'Chain Mail' }] }, []).map((weapon) => weapon.name)).not.toContain('Gauntlet')
   const manual = { ...configured, id: 'purchased-gauntlet' }
   expect(ownedWeapons({ ...c, weapons: [manual] }, []).filter((weapon) => weapon.name === 'Gauntlet')).toEqual([manual])
   expect(ownedWeapons({ ...base, weapons: [manual] }, [])).toContain(manual)
@@ -52,6 +57,39 @@ it('derives and locks one gauntlet only while full plate is worn, preserving ind
   const entry: ContentEntry = { ...GAUNTLET, id: 'full-plate', kind: 'armor', name: 'Full Plate', data: { ac: 6, dex_cap: 0 } }
   expect(ownedWeapons(imported, [entry]).map((weapon) => weapon.name)).toContain('Gauntlet')
   expect(isLockedWeapon(imported, 'Gauntlet', [entry])).toBe(true)
+})
+
+it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor text', () => {
+  const tekko: ContentEntry = {
+    ...GAUNTLET, id: 'aon:pf2e:weapon-304', name: 'Tekko-Kagi',
+    traits: ['Agile', 'Disarm', 'Finesse', 'Free-Hand', 'Monk', 'Parry', 'Uncommon'],
+    description: 'Four curved blades resemble claws. Adherents of Bastet favor this weapon.',
+    data: { weapon_category: 'Martial', weapon_group: 'Brawling', weapon_type: 'Melee', damage: '1d4 slashing', hands: '1', bulk: 0.1, price: 20, rarity: 'uncommon', url: 'https://2e.aonprd.com/Weapons.aspx?ID=304' },
+  }
+  const [clawed] = homebrewWeapons([{ ...tekko, id: 'aon:pf2e:weapon-101', name: 'Tekko-kagi', traits: ['Trip'] }, tekko])
+  expect(clawed).toMatchObject({
+    id: 'homebrew:clawed-gauntlet', name: 'Clawed Gauntlet', source: 'homebrew', updatedAt: 1,
+    traits: tekko.traits, data: tekko.data,
+  })
+  expect(clawed.description).not.toContain('Bastet')
+  expect(weaponCategory(clawed)).toBe('Martial')
+  const c: Character = {
+    ...base, armors: [{ id: 'splint', name: 'Splint Mail', worn: true, gauntlet: 'Clawed Gauntlet', potency: 0, resilient: 0, runes: [] }],
+    handwraps: { potency: 3, striking: 3, runes: ['Flaming'] },
+    weapons: [{ id: GAUNTLET.id, name: 'Gauntlet', potency: 1, striking: 1, runes: ['Wounding'] }],
+  }
+  const attacks = ownedWeapons(c, [clawed])
+  const provided = attacks.find((weapon) => weapon.id === GAUNTLET.id)!
+  expect(provided).toMatchObject({ name: 'Clawed Gauntlet', potency: 1, striking: 1, runes: ['Wounding'] })
+  expect(isLockedWeapon(c, 'Clawed Gauntlet', [clawed])).toBe(true)
+  expect(isLockedWeapon(c, 'Gauntlet', [clawed])).toBe(false)
+  expect(weaponAttack(c, [clawed], provided)).toMatchObject({ ability: 'dex', item: 1, damage: '2d4+1 slashing', traits: tekko.traits })
+  const regular: Character = { ...c, armors: c.armors!.map((armor) => ({ ...armor, gauntlet: 'Gauntlet' })) }
+  const back = ownedWeapons(regular, [clawed]).find((weapon) => weapon.id === GAUNTLET.id)!
+  expect(effectiveWeapon(regular, [clawed], back).runes).toEqual([])
+  expect(c.weapons![0].runes).toEqual(['Wounding'])
+  expect(homebrewWeapons([{ ...tekko, deleted: true }])).toEqual([])
+  expect(homebrewWeapons([{ ...tekko, id: 'aon:pf2e:weapon-101' }])).toEqual([])
 })
 
 it('provides a default fist until a different unarmed attack is available', () => {

@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { expect, it } from 'vitest'
 import { ArmorList, HandwrapsGear, WeaponList } from './GearSection'
 import type { Character, ContentEntry } from './types'
-import { GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
+import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
 const weapon: ContentEntry = {
   id: 'longsword', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Longsword', level: 0,
@@ -163,6 +163,37 @@ it('locks full plate gauntlets and keeps their saved configuration when other we
   if (!remove) throw new Error('Missing weapon removal')
   ;(remove.props.onClick as () => void)()
   expect(c.weapons).toContainEqual(gauntlet)
+})
+
+it('selects armor-provided gauntlet variants without changing separately purchased gauntlets or other armor choices', () => {
+  let c: Character = {
+    ...character([]),
+    armors: [
+      { id: 'half', name: 'Half Plate', worn: true, potency: 0, resilient: 0, runes: [] },
+      { id: 'splint', name: 'Splint Mail', worn: false, gauntlet: 'Spiked Gauntlet', potency: 0, resilient: 0, runes: [] },
+    ],
+    weapons: [{ id: GAUNTLET.id, name: 'Gauntlet', potency: 2, striking: 1, runes: ['Flaming'] }],
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  for (const name of ARMOR_GAUNTLETS) {
+    const select = findElement(WeaponList({ c, entries: [], save }), (element) => element.props['aria-label'] === 'Armor gauntlet')
+    if (!select) throw new Error('Missing armor gauntlet selector')
+    ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: name } })
+    expect(c.armors?.find((armor) => armor.id === 'half')?.gauntlet).toBe(name)
+    expect(c.armors?.find((armor) => armor.id === 'splint')?.gauntlet).toBe('Spiked Gauntlet')
+    expect(c.weapons![0]).toMatchObject({ potency: 2, striking: 1, runes: ['Flaming'] })
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)
+    expect(markup).toContain(`<strong>${name}</strong>`)
+    expect(markup).not.toContain(`aria-label="Remove ${name}"`)
+    expect(markup.indexOf('>Bladed Gauntlet</option>')).toBeLessThan(markup.indexOf('>Clawed Gauntlet</option>'))
+    expect(markup.indexOf('>Gauntlet</option>')).toBeLessThan(markup.indexOf('>Spiked Gauntlet</option>'))
+  }
+  c = { ...c, weapons: [...c.weapons!, { id: 'purchased', name: 'Gauntlet', potency: 0, striking: 0, runes: [] }] }
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)).toContain('aria-label="Remove Gauntlet"')
+  c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, worn: false })) }
+  const unworn = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)
+  expect(unworn).not.toContain('aria-label="Armor gauntlet"')
+  expect(unworn).not.toContain('<strong>Clawed Gauntlet</strong>')
 })
 
 function findElement(node: ReactNode, matches: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {

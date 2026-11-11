@@ -1,4 +1,4 @@
-import type { ContentEntry, HardlightGrade } from './types'
+import type { ContentEntry, HardlightGrade, OwnedArmor } from './types'
 
 export const HAFT_STRIKER_WEAPON: ContentEntry = {
   id: 'supplemental:haft-striker-stance',
@@ -37,8 +37,19 @@ export const ORC_TUSKS: ContentEntry = {
 export const GAUNTLET: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
   traits: ['Agile', 'Free-Hand'],
-  description: 'Full plate includes gauntlets that can be used as simple weapons dealing 1d4 bludgeoning damage.',
+  description: 'Full plate, half plate, and splint mail include gauntlets that can be used as simple weapons dealing 1d4 bludgeoning damage.',
   data: { weapon_category: 'Simple', weapon_group: 'Brawling', weapon_type: 'Melee', damage: '1d4 bludgeoning' },
+}
+
+export const ARMOR_GAUNTLETS: NonNullable<OwnedArmor['gauntlet']>[] = ['Gauntlet', 'Spiked Gauntlet', 'Bladed Gauntlet', 'Clawed Gauntlet']
+
+export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
+  const base = entries.find((entry) => entry.id === 'aon:pf2e:weapon-304' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
+  return base ? [{
+    ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew', name: 'Clawed Gauntlet',
+    description: 'Four curved blades mounted over the fist give this close-combat gauntlet the appearance of claws.',
+    updatedAt: 1,
+  }] : []
 }
 
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {

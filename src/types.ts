@@ -39,6 +39,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   worn: boolean
+  gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 export interface OwnedShield {
   id: string

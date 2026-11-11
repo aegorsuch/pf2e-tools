@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { getSettings } from './settings'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -804,15 +804,16 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
   const haftStriker = isLockedWeapon(c, HAFT_STRIKER_WEAPON.name)
-  const gauntlet = isLockedWeapon(c, GAUNTLET.name, entries)
+  const gauntlet = armorGauntlet(c, entries)
   const animalFeature = isSpellActive(c, entries, 'Animal Feature')
   const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.id !== HAFT_STRIKER_WEAPON.id || haftStriker)
-    && (weapon.id !== GAUNTLET.id || gauntlet)
+    && (weapon.id !== GAUNTLET.id || !!gauntlet)
     && (animalFeature || !animalAttacks.some((entry) => entry.name === weapon.name)))
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(animalFeature ? animalAttacks : []), ...(gauntlet ? [GAUNTLET] : [])]) {
+    .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(animalFeature ? animalAttacks : []), ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -836,7 +837,7 @@ export function isSpellActive(c: Character, entries: ContentEntry[], name: strin
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = []) => isAutomaticUnarmed(name)
   || name === HAFT_STRIKER_WEAPON.name && c.feats.some((feat) => feat.name === HAFT_STRIKER_WEAPON.name)
-  || name === GAUNTLET.name && ownedArmors(c, entries).some((armor) => armor.worn && armor.name === 'Full Plate')
+  || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
@@ -848,6 +849,12 @@ export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[]
     .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
   return c.equipment.filter((g) => byName(entries, 'armor', g.name))
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+}
+
+export function armorGauntlet(c: Character, entries: ContentEntry[]) {
+  const armor = ownedArmors(c, entries).find((armor) => armor.worn)
+  return armor && ['Full Plate', 'Half Plate', 'Splint Mail'].includes(armor.name)
+    ? { armor, name: armor.gauntlet ?? GAUNTLET.name } : undefined
 }
 
 // ---------- Weapons ----------
@@ -947,7 +954,9 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
-  if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') return weapon
+  if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') {
+    return weapon.id === GAUNTLET.id ? { ...weapon, runes: weapon.runes.filter((rune) => weaponRuneApplies(entries, weapon, rune)) } : weapon
+  }
   const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
   const enhanced = { ...weapon, potency: fundamentals?.potency ?? 0, striking: fundamentals?.striking ?? 0, runes: c.handwraps?.runes ?? [] }
   return { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) }
