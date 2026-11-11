@@ -16,9 +16,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   }
   return (
     <div className="col language-picker">
-      <small>
-        {left >= 0 ? `${left} more language${left === 1 ? '' : 's'} to choose` : `${-left} too many selected`}
-      </small>
+      {left < 0 && <small>{-left} too many selected</small>}
       {Object.entries(groups).map(([category, langs]) => (
         <fieldset key={category}>
           <legend>{category} Languages</legend>

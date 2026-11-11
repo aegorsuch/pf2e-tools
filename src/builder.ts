@@ -554,9 +554,12 @@ export function baseItems(items: ContentEntry[]) {
 // Specific magic weapons/armor (Fractal Hook, ...) are not bases; AoN marks them by trait, subcategory or level above 0
 export function isMagicItem(e: ContentEntry) {
   if (e.source === 'homebrew') return false
+  const sub = String(e.data.item_subcategory ?? '')
   if (e.traits.some((t) => t.toLowerCase() === 'magical')) return true
-  if (/specific|magic/i.test(String(e.data.item_subcategory ?? ''))) return true
-  return e.level > 0 && !e.systems.includes('sf2e')
+  if (/specific|magic/i.test(sub)) return true
+  // Base weapons/armor (Composite Longbow, ...) can carry a level but are still bases
+  if (/base/i.test(sub)) return false
+  return e.level > 0 && !e.systems.includes('sf2e') && !e.data.weapon_category && !e.data.armor_category
 }
 
 // ---------- Languages ----------

@@ -227,6 +227,7 @@ describe('isMagicItem', () => {
     expect(isMagicItem(entry('weapon', 'Fractal Hook', {}, 12))).toBe(true)
     expect(isMagicItem(entry('armor', 'Some Armor', {}, 1, ['Magical']))).toBe(true)
     expect(isMagicItem(entry('weapon', 'Longsword', {}, 0))).toBe(false)
+    expect(isMagicItem(entry('weapon', 'Composite Longbow', { weapon_category: 'Martial', item_subcategory: 'Base Weapons' }, 1))).toBe(false)
   })
 })
 
