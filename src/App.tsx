@@ -4,8 +4,8 @@ import type { User } from '@supabase/supabase-js'
 import { db, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
-import { ensureAonImported, importFromAon } from './aon'
-import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase, syncAll } from './sync'
+import { ensureAonImported } from './aon'
+import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import './App.css'
 
@@ -96,15 +96,6 @@ export default function App() {
             {s.label}
           </label>
         ))}
-        <button onClick={() => setDraft(blank(enabled))}>+ Homebrew</button>
-        <button onClick={async () => {
-          try {
-            for (const sys of enabled) {
-              const n = await importFromAon(sys, (c) => setStatus(`Importing ${sys}: ${c}`))
-              setStatus(`Imported ${n} ${sys} entries from Archives of Nethys`)
-            }
-          } catch (err) { setStatus(String(err)) }
-        }}>Refresh official data</button>
         {supabase && (user
           ? <button onClick={async () => {
             try { await signOut(); setAuthError('') } catch (e) { setAuthError(String(e)) }
@@ -122,10 +113,6 @@ export default function App() {
               }}>Email me a sign-in link</button>
             </>
           ))}
-        <button disabled={!supabase || !user}
-          onClick={async () => { try { await syncAll(); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
-          Sync
-        </button>
         <span>{status || (supabase ? '' : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync')}</span>
         {authError && <span role="alert">Sign-in error: {authError}</span>}
       </div>
@@ -192,7 +179,11 @@ export default function App() {
         </ul>
       </details>
 
-      <h2>Homebrew Content ({homebrew.length})</h2>
+      <div className="row">
+        <h2>Homebrew Content ({homebrew.length})</h2>
+        <button type="button" title="Add homebrew content" aria-label="Add homebrew content"
+          onClick={() => setDraft(blank(enabled))}>+</button>
+      </div>
       <ul>
         {homebrew.map((e) => (
           <li key={e.id}>

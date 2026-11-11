@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { AbilitiesSection } from './AbilitiesSection'
-import { computeAbilities, featType, heritagesFor, maxHp } from './builder'
+import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
+import { ancestryFlaws, computeAbilities, featType, heritagesFor, maxHp } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { SkillsSection } from './SkillsSection'
@@ -73,6 +73,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const ancestry = named('ancestry', c.ancestry)
   const klass = named('class', c.className)
   const background = named('background', c.background)
+  const flaws = ancestryFlaws(c, entries)
 
   return (
     <section className="col">
@@ -88,19 +89,94 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
         <b>HP {maxHp(c, entries)}</b>
       </div>
-      <div className="row">
-        <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
-        <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
-        <Pick label="Background" kind="background" value={c.background} options={of('background')} onChange={(v) => save({ background: v })} />
-        <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
-        <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
-      </div>
-      {[ancestry, klass, background].map((e) => e && <small key={e.id}><b>{e.name}</b>: {detail(e)}</small>)}
-
       <AbilitiesSection {...section} />
+      <details className="character-section" open={!c.ancestry}>
+        <summary className="character-section-summary">
+          <strong>Ancestry</strong>
+          <span>{[c.heritage, c.ancestry].filter(Boolean).join(' ') || 'Choose ancestry'}</span>
+        </summary>
+        <div className="character-section-content">
+          <div className="row">
+            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
+            <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
+          </div>
+          {ancestry && <small><b>{ancestry.name}</b>: {detail(ancestry)}</small>}
+          {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
+          <AbilityBoostChoices {...section} groups={['ancestry']} />
+          <FeatSlots {...section} categories={['ancestry']} title="Select Feats" />
+        </div>
+      </details>
+
+      <details className="character-section" open={!c.background}>
+        <summary className="character-section-summary">
+          <strong>Background</strong>
+          <span>{c.background || 'Choose background'}</span>
+        </summary>
+        <div className="character-section-content">
+          <Pick label="Background" kind="background" value={c.background} options={of('background')} onChange={(v) => save({ background: v })} />
+          {background && <small><b>{background.name}</b>: {detail(background)}</small>}
+          <AbilityBoostChoices {...section} groups={['background']} />
+          {background?.data.skill && <small>Trained skills: <b>{String(background.data.skill)}</b></small>}
+          {background?.data.feat && <small>Background grants: <b>{String(background.data.feat)}</b></small>}
+        </div>
+      </details>
+
+      <details className="character-section" open={!c.className}>
+        <summary className="character-section-summary">
+          <strong>Class</strong>
+          <span>{c.className || 'Choose class'}</span>
+        </summary>
+        <div className="character-section-content">
+          <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
+          {klass && <small><b>{klass.name}</b>: {detail(klass)}</small>}
+          <AbilityBoostChoices {...section} groups={['class']} />
+          <ClassFeatures {...section} />
+          <FeatSlots {...section} categories={['class']} title="Select Feats" />
+        </div>
+      </details>
+
+      <details className="character-section">
+        <summary className="character-section-summary">
+          <strong>Deity</strong>
+          <span>{c.deity || 'Optional'}</span>
+        </summary>
+        <div className="character-section-content">
+          <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
+        </div>
+      </details>
+
+      <details className="character-section">
+        <summary className="character-section-summary">
+          <strong>Equipment</strong>
+          <span>{c.equipment.length} items</span>
+        </summary>
+        <div className="character-section-content">
+          <ul>
+            {c.equipment.map((g, i) => (
+              <li key={`${g.name}-${i}`}>
+                {g.name} x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
+                  onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
+                <button onClick={() => save({ equipment: c.equipment.filter((_, j) => j !== i) })}>Remove</button>
+              </li>
+            ))}
+          </ul>
+          <input placeholder="Search weapons, armor and gear" value={gearQuery} onChange={(e) => setGearQuery(e.target.value)} />
+          <ul>
+            {gearMatches.map((g) => (
+              <li key={g.id}>
+                <b>{g.name}</b> ({g.kind}{g.level ? ` ${g.level}` : ''}) {detail(g)}{' '}
+                <button onClick={() => {
+                  const have = c.equipment.find((x) => x.name === g.name)
+                  save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })
+                }}>Add</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
+
       <SkillsSection {...section} />
-      <ClassFeatures {...section} />
-      <FeatSlots {...section} />
+      <FeatSlots {...section} categories={['skill', 'general', 'archetype', 'bonus']} title="Other Feat Slots" manageExtraSlots />
       <SpellsSection {...section} />
 
       <h3>All feats ({c.feats.length})</h3>
@@ -125,29 +201,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
               entryIds: [...c.entryIds, f.id],
             })}>Add</button>
             <br /><small>{f.description}</small>
-          </li>
-        ))}
-      </ul>
-
-      <h3>Equipment ({c.equipment.length})</h3>
-      <ul>
-        {c.equipment.map((g, i) => (
-          <li key={`${g.name}-${i}`}>
-            {g.name} x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
-              onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
-            <button onClick={() => save({ equipment: c.equipment.filter((_, j) => j !== i) })}>Remove</button>
-          </li>
-        ))}
-      </ul>
-      <input placeholder="Search weapons, armor and gear" value={gearQuery} onChange={(e) => setGearQuery(e.target.value)} />
-      <ul>
-        {gearMatches.map((g) => (
-          <li key={g.id}>
-            <b>{g.name}</b> ({g.kind}{g.level ? ` ${g.level}` : ''}) {detail(g)}{' '}
-            <button onClick={() => {
-              const have = c.equipment.find((x) => x.name === g.name)
-              save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })
-            }}>Add</button>
           </li>
         ))}
       </ul>

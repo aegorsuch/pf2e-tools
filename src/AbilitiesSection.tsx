@@ -1,18 +1,17 @@
-import { ABILITIES, ABILITY_LABEL, abilityMod, ancestryFlaws, boostSlots, computeAbilities, duplicateBoosts, signed, type Ability, type BoostSlot, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, boostSlots, computeAbilities, duplicateBoosts, signed, type Ability, type BoostSlot, type SectionProps } from './builder'
 
 const GROUP_TITLE: Record<string, string> = { ancestry: 'Ancestry Boosts', background: 'Background Boosts', class: 'Class Boost', free1: 'Free Boosts' }
 const groupTitle = (g: string) => GROUP_TITLE[g] ?? `Level ${g.slice(3)} Boosts`
 // Ancestry/background/class boosts are dropdowns; the free groups are ability checkboxes
 const isPick = (g: string) => g in GROUP_TITLE && g !== 'free1'
 
-export function AbilitiesSection({ c, entries, save }: SectionProps) {
+export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }: SectionProps & { groups: string[] }) {
   const slots = boostSlots(c, entries)
   const dupes = duplicateBoosts(c, entries)
-  const flaws = ancestryFlaws(c, entries)
-  const builderOn = !!c.boosts
+  if (!c.boosts) return null
   const scores = computeAbilities(c, entries)
-
-  const groups = slots.reduce((m, s) => m.set(s.group, [...(m.get(s.group) ?? []), s]), new Map<string, BoostSlot[]>())
+  const groupedSlots = slots.reduce((m, s) => m.set(s.group, [...(m.get(s.group) ?? []), s]), new Map<string, BoostSlot[]>())
+  const groups = [...groupedSlots].filter(([group]) => visibleGroups.includes(group))
 
   const setBoost = (key: string, a: Ability | '') => {
     const boosts = { ...c.boosts }
@@ -30,6 +29,55 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
   }
 
   return (
+    <div className="boost-panels">
+      {groups.map(([group, gs]) => (
+        <section key={group} className="boost-panel">
+          <h4>{groupTitle(group)}</h4>
+          {isPick(group) ? (
+            <div className="boost-picks">
+              {gs.map((s) => (
+                <div key={s.key} className="boost-pick">
+                  <span className="boost-plus">+</span>
+                  {s.fixed ? <b>{ABILITY_LABEL[s.fixed]}</b> : (
+                    <select value={c.boosts?.[s.key] ?? ''} aria-label={s.label}
+                      style={dupes.has(s.key) ? { outline: '2px solid red' } : undefined}
+                      onChange={(e) => setBoost(s.key, e.target.value as Ability | '')}>
+                      <option value="">Choose…</option>
+                      {(s.options ?? ABILITIES).map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="boost-checks">
+              {ABILITIES.map((a) => {
+                const checked = gs.some((s) => c.boosts?.[s.key] === a)
+                const full = !checked && gs.every((s) => c.boosts?.[s.key])
+                return (
+                  <label key={a} className={full ? 'disabled' : undefined}>
+                    <input type="checkbox" checked={checked} disabled={full} onChange={() => toggleFree(gs, a)} />
+                    <span>{a.toUpperCase()}</span>
+                    <b>{signed(abilityMod(scores[a]))}</b>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      ))}
+    </div>
+  )
+}
+
+export function AbilitiesSection({ c, entries, save }: SectionProps) {
+  const slots = boostSlots(c, entries)
+  const builderOn = !!c.boosts
+  const scores = computeAbilities(c, entries)
+  const sharedGroups = [...new Set(slots.map((slot) => slot.group))]
+    .filter((group) => !['ancestry', 'background', 'class'].includes(group))
+
+  return (
     <details className="ability-section" open>
       <summary><h3>Ability Scores</h3></summary>
       {!builderOn && (
@@ -45,46 +93,10 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
         </div>
       )}
       {builderOn && (
-        <div className="boost-panels">
-          {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((f) => f.toUpperCase()).join(', ')}</small>}
-          {[...groups].map(([group, gs]) => (
-            <section key={group} className="boost-panel">
-              <h4>{groupTitle(group)}</h4>
-              {isPick(group) ? (
-                <div className="boost-picks">
-                  {gs.map((s) => (
-                    <div key={s.key} className="boost-pick">
-                      <span className="boost-plus">+</span>
-                      {s.fixed ? <b>{ABILITY_LABEL[s.fixed]}</b> : (
-                        <select value={c.boosts?.[s.key] ?? ''} aria-label={s.label}
-                          style={dupes.has(s.key) ? { outline: '2px solid red' } : undefined}
-                          onChange={(e) => setBoost(s.key, e.target.value as Ability | '')}>
-                          <option value="">Choose…</option>
-                          {(s.options ?? ABILITIES).map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="boost-checks">
-                  {ABILITIES.map((a) => {
-                    const checked = gs.some((s) => c.boosts?.[s.key] === a)
-                    const full = !checked && gs.every((s) => c.boosts?.[s.key])
-                    return (
-                      <label key={a} className={full ? 'disabled' : undefined}>
-                        <input type="checkbox" checked={checked} disabled={full} onChange={() => toggleFree(gs, a)} />
-                        <span>{a.toUpperCase()}</span>
-                        <b>{signed(abilityMod(scores[a]))}</b>
-                      </label>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
-          ))}
+        <>
+          <AbilityBoostChoices c={c} entries={entries} save={save} groups={sharedGroups} />
           <small>Scores: {ABILITIES.map((a) => `${a.toUpperCase()} ${scores[a]} (${signed(abilityMod(scores[a]))})`).join(', ')}</small>
-        </div>
+        </>
       )}
     </details>
   )

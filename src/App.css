@@ -254,3 +254,30 @@
     margin-block: 0.6em;
   }
 }
+
+.character-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.character-section > summary {
+  align-items: baseline;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 36px;
+
+  span {
+    color: var(--text-h);
+    opacity: 0.75;
+  }
+}
+
+.character-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}

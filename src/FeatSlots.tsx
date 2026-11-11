@@ -1,14 +1,24 @@
 import { eligibleFeats, plannedSlots, type SectionProps } from './builder'
 import type { FeatSlotCategory } from './types'
 
+interface FeatSlotsProps extends SectionProps {
+  categories?: FeatSlotCategory[]
+  title?: string
+  manageExtraSlots?: boolean
+}
+
 const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Archetype', bonus: 'Bonus',
 }
 
-export function FeatSlots({ c, entries, save }: SectionProps) {
-  const slots = plannedSlots(c)
-  const bg = entries.find((e) => e.kind === 'background' && e.name === c.background)
-  const slotted = new Set(slots.map((s) => s.key))
+export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', manageExtraSlots = false }: FeatSlotsProps) {
+  const allSlots = plannedSlots(c)
+  const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
+  const aboveLevel = c.feats.filter((f) => {
+    if (!f.slot) return false
+    const category = f.slot.split(':')[0] as FeatSlotCategory
+    return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
+  })
   const choose = (key: string, category: FeatSlotCategory, name: string) => {
     const feat = entries.find((e) => e.kind === 'feat' && e.name === name && eligibleFeats(entries, c, { key, category, level: 20 }).includes(e))
     const old = c.feats.find((f) => f.slot === key)
@@ -24,8 +34,7 @@ export function FeatSlots({ c, entries, save }: SectionProps) {
 
   return (
     <>
-      <h3>Feat slots</h3>
-      {bg?.data.feat && <small>Background grants: <b>{String(bg.data.feat)}</b></small>}
+      <h4>{title}</h4>
       <ul>
         {slots.map((s) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
@@ -42,18 +51,18 @@ export function FeatSlots({ c, entries, save }: SectionProps) {
           )
         })}
       </ul>
-      {c.feats.some((f) => f.slot && !slotted.has(f.slot)) && (
-        <small>Some feats sit in slots above your current level: {c.feats.filter((f) => f.slot && !slotted.has(f.slot)).map((f) => f.name).join(', ')}</small>
+      {aboveLevel.length > 0 && (
+        <small>Some feats sit in slots above your current level: {aboveLevel.map((f) => f.name).join(', ')}</small>
       )}
-      <div className="row">
-        <small>Extra slots (class bonus feats, etc.): {c.extraSlots.map((x) => `L${x.level} ${LABEL[x.category]} x${x.count}`).join('; ') || 'none'}</small>
-        <button onClick={() => {
-          const category = window.prompt('Slot category? (class, ancestry, skill, general, archetype, bonus)', 'class')?.trim() as FeatSlotCategory | undefined
-          const level = Number(window.prompt('Slot level?', '1'))
-          if (category && LABEL[category] && level >= 1 && level <= 20) save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
-        }}>+ Extra slot</button>
-        {c.extraSlots.length > 0 && <button onClick={() => save({ extraSlots: c.extraSlots.slice(0, -1) })}>Remove last</button>}
-      </div>
+      {manageExtraSlots && <div className="row">
+          <small>Extra slots (class bonus feats, etc.): {c.extraSlots.map((x) => `L${x.level} ${LABEL[x.category]} x${x.count}`).join('; ') || 'none'}</small>
+          <button onClick={() => {
+            const category = window.prompt('Slot category? (class, ancestry, skill, general, archetype, bonus)', 'class')?.trim() as FeatSlotCategory | undefined
+            const level = Number(window.prompt('Slot level?', '1'))
+            if (category && LABEL[category] && level >= 1 && level <= 20) save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
+          }}>+ Extra slot</button>
+          {c.extraSlots.length > 0 && <button onClick={() => save({ extraSlots: c.extraSlots.slice(0, -1) })}>Remove last</button>}
+        </div>}
     </>
   )
 }
