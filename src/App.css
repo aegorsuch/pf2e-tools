@@ -422,9 +422,6 @@
 .language-picker fieldset { border: 1px solid var(--border, #2c3340); border-radius: 8px; }
 .language-grid { display: grid; grid-template-columns: 1fr; gap: 0.25rem 1rem; }
 
-.settings-panel { padding: 0.5rem 0.75rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; margin-bottom: 0.5rem; }
 
-.gear-button { display: inline-grid; place-items: center; }
-.gear-button svg { width: 1em; height: 1em; }
 details.info { display: inline-block; vertical-align: top; }
 details.info > summary { cursor: pointer; font-size: 0.85em; }

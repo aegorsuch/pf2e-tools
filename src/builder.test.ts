@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
-import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -129,7 +128,7 @@ describe('skills', () => {
   it('combines sources, increases and overrides', () => {
     const c = { ...base, level: 3, skillPicks: ['Society'], skillIncreases: { 3: 'Society' }, rankOverrides: { Reflex: 2 } }
     const r = ranksAt(c, entries)
-    expect(r).toMatchObject({ Arcana: 1, Society: 2, 'Academia Lore': 1, Perception: 1, Will: 2, Reflex: 0 })
+    expect(r).toMatchObject({ Arcana: 2, Society: 2, 'Academia Lore': 2, Perception: 1, Will: 2, Reflex: 0 })
   })
   it('adds Natural Skill picks and groups available skill increases by rank ceiling', () => {
     const naturalSkill = entry('feat', 'Natural Skill')
@@ -253,18 +252,12 @@ describe('automatic class skill training', () => {
   const druid = entry('class', 'Druid', { skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' })
   const c = { ...base, className: 'Druid', order: 'Animal' }
 
-  it('trains class and druidic order skills, and ranks them up with level only under the house rule', () => {
-    expect(ranksAt({ ...c, level: 7 }, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
-    updateSettings({ autoClassSkills: true })
-    try {
-      expect(ranksAt(c, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
-      expect(ranksAt({ ...c, level: 3 }, [druid])).toMatchObject({ Nature: 2, Athletics: 2 })
-      expect(ranksAt({ ...c, level: 6 }, [druid])).toMatchObject({ Nature: 2, Athletics: 2 })
-      expect(ranksAt({ ...c, level: 7 }, [druid])).toMatchObject({ Nature: 3, Athletics: 3 })
-      expect(ranksAt({ ...c, level: 15 }, [druid])).toMatchObject({ Nature: 4, Athletics: 4 })
-    } finally {
-      updateSettings({ autoClassSkills: false })
-    }
+  it('trains class and druidic order skills and ranks them up with level', () => {
+    expect(ranksAt(c, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
+    expect(ranksAt({ ...c, level: 3 }, [druid])).toMatchObject({ Nature: 2, Athletics: 2 })
+    expect(ranksAt({ ...c, level: 6 }, [druid])).toMatchObject({ Nature: 2, Athletics: 2 })
+    expect(ranksAt({ ...c, level: 7 }, [druid])).toMatchObject({ Nature: 3, Athletics: 3 })
+    expect(ranksAt({ ...c, level: 15 }, [druid])).toMatchObject({ Nature: 4, Athletics: 4 })
   })
 })
 
@@ -287,11 +280,9 @@ describe('Order Explorer', () => {
 })
 
 describe('auto-advance lores', () => {
-  it('ranks background lore up with level only when enabled', () => {
+  it('ranks background lore up with level', () => {
     const bg = entry('background', 'Scholar', { skill: 'Academia Lore' })
     const c = { ...base, level: 7, background: 'Scholar' }
-    expect(ranksAt(c, [bg])['Academia Lore']).toBe(1)
-    updateSettings({ autoLores: true })
-    try { expect(ranksAt(c, [bg])['Academia Lore']).toBe(3) } finally { updateSettings({ autoLores: false }) }
+    expect(ranksAt(c, [bg])['Academia Lore']).toBe(3)
   })
 })

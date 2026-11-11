@@ -66,7 +66,7 @@ it('locks class/background grants and derives defense proficiency without overri
   const entries = [ranger, feyBound]
   const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
   const buttons = findButtons(SkillsSection(props()))
-  expect(ranksAt(c, entries)).toMatchObject({ Nature: 1, 'Fey Lore': 1, Perception: 1, Fortitude: 2, Reflex: 1 })
+  expect(ranksAt(c, entries)).toMatchObject({ Nature: 2, 'Fey Lore': 2, Perception: 1, Fortitude: 2, Reflex: 1 })
 
   for (const name of ['Nature', 'Fey Lore']) {
     const trained = buttons.get(`${name} Trained`)
@@ -80,20 +80,12 @@ it('locks class/background grants and derives defense proficiency without overri
   }
   expect(c.skillPicks).toEqual(['Society'])
 
-  const natureExpert = buttons.get('Nature Expert')
-  if (!natureExpert) throw new Error('Missing Nature expert control')
-  ;(natureExpert.onClick as () => void)()
-  expect(ranksAt(c, entries).Nature).toBe(2)
-  expect(c.skillIncreases).toEqual({ 3: 'Nature' })
-
-  c = { ...c, level: 7 }
-  const masterButtons = findButtons(SkillsSection(props()))
-  const natureMaster = masterButtons.get('Nature Master')
-  if (!natureMaster) throw new Error('Missing Nature master control')
-  expect(natureMaster.disabled).toBe(false)
-  ;(natureMaster.onClick as () => void)()
-  expect(ranksAt(c, entries).Nature).toBe(3)
-  expect(c.skillIncreases).toEqual({ 3: 'Nature', 7: 'Nature' })
+  const societyExpert = buttons.get('Society Expert')
+  if (!societyExpert) throw new Error('Missing Society expert control')
+  ;(societyExpert.onClick as () => void)()
+  expect(ranksAt(c, entries).Society).toBe(2)
+  expect(c.skillIncreases).toEqual({ 3: 'Society' })
+  expect(ranksAt({ ...c, level: 7 }, entries)).toMatchObject({ Nature: 3, 'Fey Lore': 3 })
 })
 
 it('sorts all skills with Lore and allows trained and Lore rank increases', () => {
@@ -113,15 +105,17 @@ it('sorts all skills with Lore and allows trained and Lore rank increases', () =
 
   const buttons = findButtons(SkillsSection(props()))
   const acrobatics = buttons.get('Acrobatics Trained')
+  const societyExpert = buttons.get('Society Expert')
   const loreExpert = buttons.get('Fey Lore Expert')
-  if (!acrobatics || !loreExpert) throw new Error('Missing skill proficiency controls')
+  if (!acrobatics || !societyExpert || !loreExpert) throw new Error('Missing skill proficiency controls')
   expect(acrobatics.disabled).toBe(false)
-  expect(loreExpert.disabled).toBe(false)
+  expect(societyExpert.disabled).toBe(false)
+  expect(loreExpert.disabled).toBe(true)
   ;(acrobatics.onClick as () => void)()
-  ;(loreExpert.onClick as () => void)()
+  ;(societyExpert.onClick as () => void)()
   expect(c.skillPicks).toEqual(['Society', 'Acrobatics'])
-  expect(c.skillIncreases).toEqual({ 3: 'Fey Lore' })
-  expect(ranksAt(c, entries)['Fey Lore']).toBe(2)
+  expect(c.skillIncreases).toEqual({ 3: 'Society' })
+  expect(ranksAt(c, entries)['Fey Lore']).toBe(3)
 })
 
 it('raises save and Perception ranks from class feature text and summarizes defenses', () => {

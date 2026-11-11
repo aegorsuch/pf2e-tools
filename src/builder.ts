@@ -1,6 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat } from './featChoices'
-import { getSettings } from './settings'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -320,7 +319,7 @@ export function availableOrders(c: Character, exceptIndex = -1) {
 }
 
 // Skills the class grants: fixed, chosen, or tied to a druidic order. They are always trained; the house rule
-// (autoClassSkills) also ranks them up at every skill increase the level cap allows, without using the character's own increases.
+// also ranks them up at every skill increase the level cap allows, without using the character's own increases.
 export function autoClassSkills(c: Character, entries: ContentEntry[]) {
   const { fixed, choices } = classSkills(byName(entries, 'class', c.className))
   const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
@@ -356,13 +355,11 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
   const ranks = baseRanks(c, entries)
   const autoSkills = autoClassSkills(c, entries)
-  const rankUp = getSettings().autoClassSkills
-  const loreUp = getSettings().autoLores
-  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name)] : []
+  const lores = [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name)]
   for (const l of skillIncreaseLevels(c).filter((x) => x < beforeLevel)) {
     const skill = c.skillIncreases?.[l]
     if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
-    if (rankUp) for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+    for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
     for (const name of lores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
   }
   if (withOverrides) {
@@ -371,6 +368,9 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
       if (skillNames.has(name)) ranks[name] = rank
     }
   }
+  // Free rank-ups are granted by the rules, so legacy manual overrides cannot undercut them
+  const lastIncrease = skillIncreaseLevels(c).filter((x) => x < beforeLevel).pop()
+  if (lastIncrease) for (const name of [...autoSkills, ...lores]) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(lastIncrease))
   for (const name of [
     ...autoClassSkills(c, entries),
     ...backgroundSkills(byName(entries, 'background', c.background)),
