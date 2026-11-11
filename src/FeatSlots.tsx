@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { eligibleFeats, featType, homebrewDedication, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
+import { eligibleFeats, featByName, featType, homebrewDedication, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
 import { actionOptionLabel } from './actionCost'
@@ -96,12 +96,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
-          const currentEntry = entries.find((e) => e.kind === 'feat' && e.name === current)
+          const currentEntry = featByName(entries).get(current)
           const picksType = s.category === 'archetype'
           const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
           const open = search[`${s.key}:open`] === '1'
           // Archetype pickers only build their (very long) list while the popup is open
-          const options = picksType && !open ? [] : eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
+          // Lists are only built while a picker is open; selects open on focus
+          const lazy = !!onSearch && !open
+          const options = lazy ? [] : eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
           const shown = picksType ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of shown) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
@@ -118,10 +120,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} onClick={() => onSearch?.(`${s.key}:open`, '1')}>
                   {current || '- empty -'}
                 </button>
-              ) : <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
+              ) : <select aria-label={`${label} feat`} value={current}
+                onFocus={onSearch ? () => onSearch(`${s.key}:open`, '1') : undefined}
+                onBlur={onSearch ? () => onSearch(`${s.key}:open`, '') : undefined} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && (
-                  <option value={current}>{actionOptionLabel(current, entries.find((entry) => entry.kind === 'feat' && entry.name === current))}</option>
+                  <option value={current}>{actionOptionLabel(current, currentEntry)}</option>
                 )}
                 {[...optionsByLevel].map(([level, levelOptions]) => (
                   <optgroup key={level} label={`L${String(level).padStart(2, '0')}`}>
@@ -159,7 +163,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </div>
                 </div>
               )}
-              {current && (entries.find((e) => e.kind === 'feat' && e.name === current)?.description) && <Info>{entries.find((e) => e.kind === 'feat' && e.name === current)!.description}</Info>}
+              {currentEntry?.description && <Info>{currentEntry.description}</Info>}
               {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {extra
                 ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}

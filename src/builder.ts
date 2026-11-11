@@ -248,6 +248,16 @@ function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string) {
 }
 
 // Feats only, with lowercased traits, cached per entries array so each picker render skips the full scan
+const featNameCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
+export function featByName(entries: ContentEntry[]) {
+  let map = featNameCache.get(entries)
+  if (!map) {
+    map = new Map()
+    for (const e of entries) if (e.kind === 'feat' && !map.has(e.name)) map.set(e.name, e)
+    featNameCache.set(entries, map)
+  }
+  return map
+}
 const featIndexCache = new WeakMap<ContentEntry[], { entry: ContentEntry; traits: Set<string> }[]>()
 function featIndex(entries: ContentEntry[]) {
   let index = featIndexCache.get(entries)
