@@ -1,4 +1,5 @@
 import { byName, proficiencyBonus, signed, type Ability } from './builder'
+import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
@@ -35,13 +36,13 @@ const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: '
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
   const has = (prefix: string) => c.feats.filter((f) => f.name.startsWith(prefix))
-  const advanced = has('Incredible Companion').map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
-  const specializations = [...new Set(has('Specialized Companion').flatMap((f) => (f.choice ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
-  return { mature: has('Mature Animal Companion').length > 0 || !!advanced, advanced, specializations }
+  const advanced = c.feats.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
+  const specializations = [...new Set(c.feats.filter((feat) => isCompanionSpecialization(feat.name)).flatMap((f) => (f.choice ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
+  return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0 || !!advanced, advanced, specializations }
 }
 
 export function specializationOptions(c: Character, entries: ContentEntry[], exceptIndex: number) {
-  const used = new Set(c.feats.flatMap((f, i) => f.name.startsWith('Specialized Companion') && i !== exceptIndex && f.choice ? [f.choice] : []))
+  const used = new Set(c.feats.flatMap((f, i) => isCompanionSpecialization(f.name) && i !== exceptIndex && f.choice ? [f.choice] : []))
   const names = new Set([...Object.keys(COMPANION_SPECS), ...entries.filter((e) => e.kind === 'companionSpec').map((e) => e.name)])
   return [...names].filter((n) => !used.has(n)).sort((a, b) => a.localeCompare(b))
 }

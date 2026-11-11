@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
-import { canSelectWardenFeat, hasWardenChoice, wardenSpellOptions } from './featChoices'
+import { canSelectWardenFeat, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { getSettings } from './settings'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
@@ -327,6 +327,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const trait = wanted[slot.category]?.toLowerCase()
   if (slot.category !== 'bonus' && !trait) return []
   const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
+  const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
   const archetypeAllowed = archetypeRule(c, entries, slot.key, slot.category === 'archetype')
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const orderExplorerOk = availableOrders(c).length > 0
@@ -335,7 +336,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (!trait || traits.has(trait) || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
-      && (!taken.has(e.name) || (e.data.repeatable === true || /^Specialized Companion/.test(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key) && c.feats.filter((f) => f.slot !== slot.key && f.name === e.name).length < (/^Specialized Companion/.test(e.name) ? 3 : Infinity))
+      && (!isCompanionSpecialization(e.name) || specializations < 3)
+      && (!taken.has(e.name) || (e.data.repeatable === true || isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key))
       && archetypeAllowed(e))
     .map(({ entry }) => entry)
 }

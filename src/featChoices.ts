@@ -8,6 +8,9 @@ const WARDEN_TIERS: Record<string, string> = {
 }
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 
+export const isCompanionAdvancement = (name: string) => /^Incredible (?:Companion|Mount)(?: \(|$)/.test(name)
+export const isCompanionSpecialization = (name: string) => /^Specialized (?:Companion|Mount)(?: \(|$)/.test(name)
+
 export function compareFeatSelections(a: Pick<Character['feats'][number], 'name' | 'choice'>, b: Pick<Character['feats'][number], 'name' | 'choice'>) {
   return a.name.localeCompare(b.name)
     || Number(!a.choice) - Number(!b.choice)

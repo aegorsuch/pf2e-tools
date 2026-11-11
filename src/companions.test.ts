@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { eligibleFeats } from './builder'
-import { companionAdvancement, companionStats } from './companions'
+import { companionAdvancement, companionStats, specializationOptions } from './companions'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -51,5 +51,34 @@ describe('animal companions', () => {
     const take = (n: number) => ({ ...base, level: 14, feats: Array.from({ length: n }, (_, i) => feat(spec.name, undefined, `class:12:${i}`)) })
     expect(eligibleFeats([spec], take(2), slot)).toHaveLength(1)
     expect(eligibleFeats([spec], take(3), slot)).toHaveLength(0)
+  })
+
+  it('lets Specialized Mount be taken three times only, including unassigned specialization choices', () => {
+    const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+    const spec = entry('feat', 'Specialized Mount', { archetype: 'Cavalier', repeatable: true }, 14, ['Archetype'])
+    const slot = { key: 'archetype:14:4', category: 'archetype' as const, level: 14 }
+    const take = (n: number) => ({
+      ...base, level: 14, feats: [feat(dedication.name, undefined, 'archetype:2:0'),
+        ...Array.from({ length: n }, (_, i) => feat(spec.name, undefined, `archetype:14:${i}`))],
+    })
+    expect(eligibleFeats([dedication, spec], take(2), slot)).toContain(spec)
+    expect(eligibleFeats([dedication, spec], take(3), slot)).not.toContain(spec)
+  })
+
+  it('applies mount advancement and specialization through the companion calculator', () => {
+    const mount = { ...base, feats: [feat('Impressive Mount'), feat('Incredible Mount', 'Nimble'), feat('Specialized Mount', 'Ambusher')] }
+    const companion = { ...base, feats: [feat('Mature Animal Companion'), feat('Incredible Companion', 'Nimble'), feat('Specialized Companion', 'Ambusher')] }
+    expect(companionAdvancement({ ...base, feats: [feat('Impressive Mount')] }).mature).toBe(true)
+    expect(companionAdvancement(mount)).toEqual({ mature: true, advanced: 'Nimble', specializations: ['Ambusher'] })
+    expect(companionStats(mount, [bear], 'Bear', companionAdvancement(mount)))
+      .toEqual(companionStats(companion, [bear], 'Bear', companionAdvancement(companion)))
+  })
+
+  it('shares distinct specialization options between mount and companion feats', () => {
+    const c = { ...base, feats: [feat('Specialized Companion', 'Ambusher'), feat('Specialized Mount', 'Racer')] }
+    expect(specializationOptions(c, [], 1)).not.toContain('Ambusher')
+    expect(specializationOptions(c, [], 1)).toContain('Racer')
+    expect(specializationOptions(c, [], 0)).not.toContain('Racer')
+    expect(companionAdvancement(c).specializations).toEqual(['Ambusher', 'Racer'])
   })
 })

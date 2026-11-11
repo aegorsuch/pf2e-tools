@@ -274,9 +274,13 @@ it('opens known spells and spell-picker results in description dialogs', () => {
 })
 
 it('keeps companion and granted general-feat choices out of feat rows', () => {
-  for (const name of ['Incredible Companion', 'Specialized Companion', 'General Training', 'Advanced General Training']) {
+  for (const name of ['Incredible Companion', 'Specialized Companion', 'Incredible Mount', 'Specialized Mount', 'General Training', 'Advanced General Training']) {
     const c = { ...base, feats: [{ name, type: 'Class Feat', level: 1 }] }
-    expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)).toBe('')
+    const entry: ContentEntry = {
+      id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+      traits: [], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+    }
+    expect(renderToStaticMarkup(<FeatChoice c={c} entries={[entry]} save={() => {}} index={0} />)).toBe('')
   }
 })
 

@@ -1,6 +1,7 @@
 import { Info } from './Info'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
 import { signed, type SectionProps } from './builder'
+import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
 const ABILITY_NAMES = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' } as const
@@ -37,12 +38,12 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   <button type="button" className="spell-remove" aria-label={`Remove ${comp.name || comp.type}`} title="Remove"
                     onClick={() => save({ companions: companions.filter((x) => x.id !== comp.id) })}>×</button>
                 </header>
-                {index === 0 && c.feats.some((feat) => feat.name.startsWith('Incredible Companion') || feat.name.startsWith('Specialized Companion')) && (
+                {index === 0 && c.feats.some((feat) => isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) && (
                   <div className="row companion-choices">
                     {c.feats.map((feat, featIndex) => {
-                      if (feat.name.startsWith('Incredible Companion')) {
+                      if (isCompanionAdvancement(feat.name)) {
                         return (
-                          <label key={`${feat.name}:${featIndex}`}>Incredible Companion{' '}
+                          <label key={`${feat.name}:${featIndex}`}>{feat.name.replace(/ \([^)]+\)$/, '')}{' '}
                             <select aria-label="Companion advancement" value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
                               <option value="">Choose…</option>
                               {feat.choice && !ADVANCED_TYPES.includes(feat.choice as typeof ADVANCED_TYPES[number]) && <option value={feat.choice}>{feat.choice}</option>}
@@ -51,10 +52,10 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                           </label>
                         )
                       }
-                      if (feat.name.startsWith('Specialized Companion')) {
+                      if (isCompanionSpecialization(feat.name)) {
                         const options = specializationOptions(c, entries, featIndex)
                         return (
-                          <label key={`${feat.name}:${featIndex}`}>Specialized Companion{' '}
+                          <label key={`${feat.name}:${featIndex}`}>{feat.name.replace(/ \([^)]+\)$/, '')}{' '}
                             <select aria-label={`Companion specialization ${featIndex + 1}`} value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
                               <option value="">Choose…</option>
                               {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}

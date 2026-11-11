@@ -1,4 +1,4 @@
-import { hasWardenChoice, wardenSpellOptions } from './featChoices'
+import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { CANNY_STATS, cannyAcumenOptions, availableOrders, orderMagicOptions } from './builder'
 import type { SectionProps } from './builder'
 
@@ -6,7 +6,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   const feat = c.feats[index]
   if (!feat) return null
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
-    || feat.name.startsWith('Incredible Companion') || feat.name.startsWith('Specialized Companion')) return null
+    || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null
   if (feat.name === 'Canny Acumen') {
     const available = cannyAcumenOptions(c, entries)
     return (
