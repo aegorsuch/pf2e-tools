@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, plannedSlots, signed } from './builder'
+import { ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -51,6 +51,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     return db.characters.put(next)
   }
   const section = { c, entries, save }
+  const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
+  const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
+  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}, ${knownLanguages.join(', ')}`
   const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
 
@@ -196,7 +199,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Languages</strong>
-          <span>{c.languages.length} known</span>
+          <span>{languageSummary}</span>
         </summary>
         <div className="character-section-content">
           <LanguagesSection {...section} />
