@@ -154,8 +154,9 @@ describe('ability score boost controls', () => {
     }
     const tree = AbilityBoostChoices({ ...props, groups: ['ancestry'] })
     const button = findElement(tree, (type) => type === 'button')
-    expect(button).toBeDefined()
-    ;(button?.onClick as () => void)()
+    if (!button) throw new Error('Missing duplicate cleanup control')
+    const clearDuplicates = button.onClick as () => void
+    clearDuplicates()
     expect(c.boosts).toEqual({ 'free1:0': 'wis' })
     expect(computeAbilities(c, elfEntries).dex).toBe(12)
   })
