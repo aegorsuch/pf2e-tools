@@ -3,6 +3,8 @@ import {
   proficiencyBonus, ranksAt, signed, skillIncreaseLevels, statDefs, type SectionProps,
 } from './builder'
 
+const RANK_LETTERS = ['T', 'E', 'M', 'L']
+
 export function ClassSkills({ c, entries, save }: SectionProps) {
   const skillNames = statDefs(c).filter((s) => s.kind === 'skill').map((s) => s.name)
   const klass = entries.find((e) => e.kind === 'class' && e.name === c.className)
@@ -41,6 +43,22 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
   const bg = entries.find((e) => e.kind === 'background' && e.name === c.background)
   const ranks = ranksAt(c, entries)
   const lores = [...new Set([...c.lores.map((l) => l.name), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s))])]
+  const picks = c.skillPicks ?? []
+  const remaining = additionalSkillCount(c, entries) - picks.length
+  const fixed = new Set([...classSkills(klass).fixed, ...backgroundSkills(bg)])
+  const auto = ranksAt(c, entries, 99, false)
+  // Trained circle syncs with the class skill picker; other circles are manual overrides
+  const setRank = (name: string, r: number) => {
+    if (r === 1 && picks.includes(name)) return save({ skillPicks: picks.filter((p) => p !== name) })
+    if (r === 1 && !fixed.has(name) && (auto[name] ?? 0) === 0 && remaining > 0 && c.rankOverrides?.[name] === undefined) {
+      return save({ skillPicks: [...picks, name] })
+    }
+    const o = { ...c.rankOverrides }
+    // Clicking the current rank steps down one; reverting to the computed rank drops the override
+    o[name] = (ranks[name] ?? 0) === r ? r - 1 : r
+    if (o[name] === (auto[name] ?? 0)) delete o[name]
+    save({ rankOverrides: o })
+  }
   const setIncrease = (level: number, name: string) => {
     const next = { ...c.skillIncreases }
     if (name) next[level] = name
@@ -70,33 +88,36 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
           })}
         </div>
       )}
-      <table>
-        <thead><tr><th>Stat</th><th>Rank</th><th>Mod</th><th>Override</th></tr></thead>
-        <tbody>
-          {[...stats, ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const }))].map((s) => {
-            const rank = ranks[s.name] ?? 0
-            const mod = abilityMod(c.abilities[s.ability]) + proficiencyBonus(rank, c.level)
-            return (
-              <tr key={s.name}>
-                <td>{s.name} <small>({ABILITY_LABEL[s.ability]})</small></td>
-                <td>{RANKS[rank]}</td>
-                <td>{signed(mod)}</td>
-                <td>
-                  <select value={c.rankOverrides?.[s.name] ?? ''} onChange={(e) => {
-                    const o = { ...c.rankOverrides }
-                    if (e.target.value === '') delete o[s.name]
-                    else o[s.name] = +e.target.value
-                    save({ rankOverrides: o })
-                  }}>
-                    <option value="">auto</option>
-                    {RANKS.map((r, i) => <option key={r} value={i}>{r}</option>)}
-                  </select>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <div className="skill-grid" role="table" aria-label="Skill proficiencies">
+        <div className="skill-grid-head" role="row">
+          <strong>{remaining} skill{remaining === 1 ? '' : 's'} remaining</strong>
+        </div>
+        {[...stats, ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const }))].map((s) => {
+          const rank = ranks[s.name] ?? 0
+          const abil = abilityMod(c.abilities[s.ability])
+          const prof = proficiencyBonus(rank, c.level)
+          return (
+            <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''}`} role="row">
+              <span className="skill-name">{s.name} <b>{signed(abil + prof)}</b></span>
+              <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
+                {RANK_LETTERS.map((letter, i) => (
+                  <button
+                    key={letter}
+                    type="button"
+                    className={rank >= i + 1 ? 'on' : ''}
+                    aria-pressed={rank === i + 1}
+                    aria-label={`${s.name} ${RANKS[i + 1]}`}
+                    title={RANKS[i + 1]}
+                    onClick={() => setRank(s.name, i + 1)}
+                  >{letter}</button>
+                ))}
+              </span>
+              <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
+              <span className="skill-part"><small>Prof</small>{signed(prof)}</span>
+            </div>
+          )
+        })}
+      </div>
     </>
   )
 }
