@@ -1,4 +1,3 @@
-import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -42,6 +41,13 @@ function GearIcon() {
   </svg>
 }
 
+function AccountIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+  </svg>
+}
+
 function DeleteIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 6h18M8 6V4h8v2m-11 0 1 14h10l1-14M10 11v5m4-5v5" />
@@ -52,6 +58,7 @@ export default function App() {
   const enabled = ALL_SYSTEMS
   const settings = useSettings()
   const [showSettings, setShowSettings] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [status, setStatus] = useState('')
@@ -100,28 +107,49 @@ export default function App() {
 
   return (
     <main>
-      <h1>PF2E Tools</h1>
-      <div className="row">
-        {supabase && (user
-          ? <button onClick={async () => {
-            try { await signOut(); setAuthError('') } catch (e) { setAuthError(String(e)) }
-          }}>Sign out ({user.email ?? user.id})</button>
-          : (
-            <>
-              <button onClick={async () => {
-                setAuthError('')
-                try { await signInWithGitHub() } catch (e) { setAuthError(String(e)) }
-              }}>Sign in with GitHub</button>
-              <button onClick={async () => {
-                const addr = window.prompt('Email address for a sign-in link?')?.trim()
-                if (!addr) return
-                try { await signInWithEmail(addr); setStatus('Check your email for the sign-in link') } catch (e) { setStatus(String(e)) }
-              }}>Email me a sign-in link</button>
-            </>
-          ))}
-        <span>{status || (supabase ? '' : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync')}</span>
-        {authError && <span role="alert">Sign-in error: {authError}</span>}
-      </div>
+      <header className="top-bar">
+        <h1>PF2E Tools</h1>
+        <div className="top-actions">
+          <button type="button" className="gear-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
+            onClick={() => setShowSettings((v) => !v)}><GearIcon /></button>
+          {supabase && (
+            <div className="account">
+              <button type="button" className="gear-button" title={user ? `Account (${user.email ?? user.id})` : 'Sign in'} aria-label="Account"
+                aria-expanded={showAccount} onClick={() => setShowAccount((v) => !v)}><AccountIcon /></button>
+              {showAccount && (
+                <div className="account-menu col" role="menu">
+                  {user
+                    ? (
+                      <>
+                        <small>{user.email ?? user.id}</small>
+                        <button onClick={async () => {
+                          setShowAccount(false)
+                          try { await signOut(); setAuthError('') } catch (e) { setAuthError(String(e)) }
+                        }}>Sign out</button>
+                      </>
+                    )
+                    : (
+                      <>
+                        <button onClick={async () => {
+                          setShowAccount(false); setAuthError('')
+                          try { await signInWithGitHub() } catch (e) { setAuthError(String(e)) }
+                        }}>Sign in with GitHub</button>
+                        <button onClick={async () => {
+                          setShowAccount(false)
+                          const addr = window.prompt('Email address for a sign-in link?')?.trim()
+                          if (!addr) return
+                          try { await signInWithEmail(addr); setStatus('Check your email for the sign-in link') } catch (e) { setStatus(String(e)) }
+                        }}>Email me a sign-in link</button>
+                      </>
+                    )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
+      {authError && <p role="alert">Sign-in error: {authError}</p>}
+      {(status || !supabase) && <small>{status || 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</small>}
 
       {draft && (
         <form className="col" onSubmit={async (e) => { e.preventDefault(); await saveEntry(draft); setDraft(null) }}>
@@ -165,28 +193,24 @@ export default function App() {
         <CharacterBuilder character={characters.find((c) => c.id === editingId)!} onClose={() => setEditingId(null)} />
       )}
 
-      {!editingId && showSettings && (
+      {showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
           <label>
             <input type="checkbox" checked={settings.autoClassSkills}
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
             Auto-Advance Class-Specific Skills
           </label>
-          <Info label="Rule summary">Skills your class grants (a ranger's Nature and Survival, a druid's order skill, a chosen class skill) are trained automatically and rank up for free as your level allows (house rule), without using your skill picks or increases.</Info>
           <label>
             <input type="checkbox" checked={settings.autoLores}
               onChange={(e) => updateSettings({ autoLores: e.target.checked })} />{' '}
             Auto-Advance Lores
           </label>
-          <Info label="Rule summary">Your Lore skills (such as your background's Lore) rank up for free as your level allows (house rule), without using your skill increases.</Info>
         </section>
       )}
 
       {!editingId && <>
       <h2>
         Characters{' '}
-        <button type="button" className="gear-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
-          onClick={() => setShowSettings((v) => !v)}><GearIcon /></button>{' '}
         <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
       </h2>
       <ul className="character-list">
