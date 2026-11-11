@@ -134,9 +134,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
-        <small>Speed: {speed(c, entries)} ft.</small>
         {c.feats.some((f) => f.name === 'Incredible Initiative') && <small>Initiative: {signed(initiativeBonus(c, entries))} (Perception + 2 circumstance, Incredible Initiative)</small>}
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
+        <small>Speed: {speed(c, entries)} ft.</small>
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         <WeaponList c={c} entries={entries} save={save} />
       </>
