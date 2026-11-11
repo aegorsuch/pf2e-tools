@@ -4,7 +4,7 @@ import { db, exportHomebrew, importHomebrew, newId, removeEntry, saveEntry } fro
 import { EffectsEditor } from './EffectsEditor'
 import { parsePathbuilder } from './pathbuilder'
 import { importFromAon } from './aon'
-import { onAuthChange, signInWithGoogle, signOut, startAutoSync, syncAll, supabase } from './sync'
+import { connectDrive, disconnectDrive, driveConfigured, onAuthChange, startAutoSync, syncAll } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import './App.css'
 
@@ -26,15 +26,26 @@ export default function App() {
   const [enabled, setEnabled] = useState<GameSystem[]>(['pf2e'])
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [status, setStatus] = useState('')
-  const [email, setEmail] = useState<string | null>(null)
-  useEffect(() => onAuthChange(setEmail), [])
-  // Start backups only once signed in; the first run also pulls data from other devices
-  useEffect(() => (email ? startAutoSync(setStatus) : undefined), [email])
+  const [connected, setConnected] = useState(false)
+  useEffect(() => onAuthChange(setConnected), [])
+  // Start backups only once Drive is connected; the first run also pulls data from other devices
+  useEffect(() => (connected ? startAutoSync(setStatus) : undefined), [connected])
   const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
   const entries = useLiveQuery(
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => enabled.includes(s))).toArray(),
     [enabled],
   )
+
+  const newCharacter = async () => {
+    const name = window.prompt('Character name?')?.trim()
+    if (!name) return
+    await db.characters.put({
+      id: newId(), systems: enabled, name, level: 1,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [],
+      updatedAt: Date.now(),
+    })
+  }
 
   const download = async () => {
     const url = URL.createObjectURL(new Blob([await exportHomebrew()], { type: 'application/json' }))
@@ -81,14 +92,16 @@ export default function App() {
           <input type="file" accept="application/json" hidden
             onChange={async (e) => { const f = e.target.files?.[0]; if (f) await importHomebrew(await f.text()) }} />
         </label>
-        {supabase && (email
-          ? <button onClick={() => signOut()}>Sign out ({email})</button>
-          : <button onClick={() => signInWithGoogle()}>Sign in with Google</button>)}
-        <button disabled={!supabase || !email}
-          onClick={async () => { try { await syncAll(); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
+        {driveConfigured && (connected
+          ? <button onClick={() => disconnectDrive()}>Disconnect Google Drive</button>
+          : <button onClick={async () => { try { await connectDrive(); setStatus('Connected') } catch (e) { setStatus(String(e)) } }}>
+              Connect Google Drive
+            </button>)}
+        <button disabled={!driveConfigured || !connected}
+          onClick={async () => { try { await syncAll(true); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
           Sync
         </button>
-        <span>{supabase ? status : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</span>
+        <span>{driveConfigured ? status : 'Set VITE_GOOGLE_CLIENT_ID to enable Google Drive sync'}</span>
       </div>
 
       {draft && (
@@ -125,7 +138,10 @@ export default function App() {
         </form>
       )}
 
-      <h2>Characters</h2>
+      <h2>
+        Characters{' '}
+        <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
+      </h2>
       <ul>
         {characters?.map((c) => (
           <li key={c.id}>
