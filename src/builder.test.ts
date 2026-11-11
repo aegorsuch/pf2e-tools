@@ -51,7 +51,7 @@ describe('ancestryLabel', () => {
 
 describe('computeAbilities', () => {
   it('applies flaw, fixed and chosen boosts, slowing past 18', () => {
-    const c = { ...base, boosts: { 'ancestry:2': 'dex', 'background:0': 'int', 'background:1': 'wis', 'free1:0': 'int', 'free1:1': 'int' } as Character['boosts'] }
+    const c = { ...base, boosts: { class: 'int', 'ancestry:2': 'dex', 'background:0': 'int', 'background:1': 'wis', 'free1:0': 'int', 'free1:1': 'int' } as Character['boosts'] }
     const a = computeAbilities(c, entries)
     expect(a.con).toBe(8)
     expect(a.dex).toBe(14)

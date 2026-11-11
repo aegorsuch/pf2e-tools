@@ -126,8 +126,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   if (klass) {
     const opts = parseAbilities(klass.data.attribute)
     slots.push({
-      key: 'class', label: 'Class key attribute', fixed: opts.length === 1 ? opts[0] : undefined,
-      options: opts.length > 1 ? opts : undefined, group: 'class',
+      key: 'class', label: 'Class key attribute', options: opts.length > 1 ? opts : undefined, group: 'class',
     })
   }
   for (let i = 0; i < 4; i++) slots.push({ key: `free1:${i}`, label: 'Level 1 free', group: 'free1' })

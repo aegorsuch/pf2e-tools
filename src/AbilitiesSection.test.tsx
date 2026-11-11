@@ -51,14 +51,15 @@ describe('ability score boost controls', () => {
     expect(markup.match(/type="checkbox"/g)).toHaveLength(24)
   })
 
-  it('shows fixed class boosts in ability scores', () => {
+  it('leaves a single-attribute class boost unlocked', () => {
     const fixedEntries = [...entries, entry('class', 'Wizard', 'Intelligence')]
     const c = { ...character, className: 'Wizard' }
     const props = { c, entries: fixedEntries, save: () => {} }
     const markup = renderToStaticMarkup(<AbilitiesSection {...props} />)
     expect(markup).toContain('<h4>Class Boost</h4>')
-    expect(checkbox(props, ['class'], 'Class Boost: Intelligence (fixed)')).toMatchObject({ checked: true, disabled: true })
-    expect(checkbox(props, ['class'], 'Class Boost: Strength')).toMatchObject({ checked: false, disabled: true })
+    expect(markup).not.toContain('Class Boost: Intelligence (fixed)')
+    expect(checkbox(props, ['class'], 'Class Boost: Intelligence')).toMatchObject({ checked: false, disabled: false })
+    expect(checkbox(props, ['class'], 'Class Boost: Strength')).toMatchObject({ checked: false, disabled: false })
   })
 
   it('pads single-digit boost levels without changing double-digit levels', () => {
