@@ -16,7 +16,7 @@ export const DATA_FIELDS = [
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
   'domain_primary', 'sanctification', 'warden_spell_tier',
-  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells',
+  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
@@ -56,6 +56,12 @@ export function parseClericSpells(md: string) {
   return [...section.matchAll(/-\s*\*\*([^*]+)\*\*\s*\n([^\n]+)/g)].map((m) => `${m[1].trim()}: ${plain(m[2])}`).join('; ')
 }
 
+// Full deity description (the summary field is truncated): paragraphs between the Source line and the Category block
+export function parseDeityAbout(md: string) {
+  const body = /\*\*Source\*\*[^\n]*\n([\s\S]*?)<column gap="tiny">/.exec(md)?.[1] ?? ''
+  return body.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n')
+}
+
 // Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
 export function parseResistances(t: string) {
   const out: string[] = []
@@ -86,6 +92,8 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         if (category === 'deity' && typeof s.markdown === 'string') {
           const spells = parseClericSpells(s.markdown)
           if (spells) s.cleric_spells = spells
+          const about = parseDeityAbout(s.markdown)
+          if (about) s.about = about
         }
         if (category !== 'feat' && category !== 'class-feature') delete s.markdown
       }

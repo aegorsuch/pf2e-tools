@@ -1,4 +1,4 @@
-import { parseClericSpells } from './aonQuery'
+import { parseClericSpells, parseDeityAbout } from './aonQuery'
 import { describe, expect, it } from 'vitest'
 import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
@@ -301,5 +301,12 @@ describe('deity cleric spells', () => {
   it('parses spells by rank from a deity page', () => {
     const md = '**Cleric Spells**\n\n- **1st**\n[Summon Animal](/Spells.aspx?ID=1694)\n\n- **2nd**\n[Speak with Animals](/Spells.aspx?ID=1680)\n\n</column>'
     expect(parseClericSpells(md)).toBe('1st: Summon Animal; 2nd: Speak with Animals')
+  })
+})
+
+describe('deity description', () => {
+  it('keeps every paragraph before the category block', () => {
+    const md = '<title>x</title>\n**Source** [Book](/S.aspx?ID=1) pg. 2\n\nFirst paragraph.\n\n Second [para](/x).\n\n<column gap="tiny">\n**Category** y'
+    expect(parseDeityAbout(md)).toBe('First paragraph.\n\nSecond para.')
   })
 })

@@ -42,7 +42,7 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
   return (
     <div className="deity-card">
       <h4>{deity.name}</h4>
-      {deity.description && <p>{deity.description}</p>}
+      {String(d.about || deity.description).split('\n\n').map((p) => <p key={p}>{p}</p>)}
       {line('Category', d.deity_category)}
       {line('Edicts', d.edict)}
       {line('Anathema', d.anathema)}
