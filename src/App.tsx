@@ -4,7 +4,7 @@ import { db, importHomebrew, newId, removeEntry, saveEntry } from './db'
 import { EffectsEditor } from './EffectsEditor'
 import { parsePathbuilder } from './pathbuilder'
 import { importFromAon } from './aon'
-import { connectDrive, disconnectDrive, driveConfigured, onAuthChange, startAutoSync, syncAll } from './sync'
+import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase, syncAll } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import './App.css'
 
@@ -26,10 +26,10 @@ export default function App() {
   const [enabled, setEnabled] = useState<GameSystem[]>(['pf2e'])
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [status, setStatus] = useState('')
-  const [connected, setConnected] = useState(false)
-  useEffect(() => onAuthChange(setConnected), [])
-  // Start backups only once Drive is connected; the first run also pulls data from other devices
-  useEffect(() => (connected ? startAutoSync(setStatus) : undefined), [connected])
+  const [email, setEmail] = useState<string | null>(null)
+  useEffect(() => onAuthChange(setEmail), [])
+  // Start backups only once signed in; the first run also pulls data from other devices
+  useEffect(() => (email ? startAutoSync(setStatus) : undefined), [email])
   const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
   const entries = useLiveQuery(
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => enabled.includes(s))).toArray(),
@@ -86,16 +86,23 @@ export default function App() {
           <input type="file" accept="application/json" hidden
             onChange={async (e) => { const f = e.target.files?.[0]; if (f) await importHomebrew(await f.text()) }} />
         </label>
-        {driveConfigured && (connected
-          ? <button onClick={() => disconnectDrive()}>Disconnect Google Drive</button>
-          : <button onClick={async () => { try { await connectDrive(); setStatus('Connected') } catch (e) { setStatus(String(e)) } }}>
-              Connect Google Drive
-            </button>)}
-        <button disabled={!driveConfigured || !connected}
-          onClick={async () => { try { await syncAll(true); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
+        {supabase && (email
+          ? <button onClick={() => signOut()}>Sign out ({email})</button>
+          : (
+            <>
+              <button onClick={() => signInWithGitHub()}>Sign in with GitHub</button>
+              <button onClick={async () => {
+                const addr = window.prompt('Email address for a sign-in link?')?.trim()
+                if (!addr) return
+                try { await signInWithEmail(addr); setStatus('Check your email for the sign-in link') } catch (e) { setStatus(String(e)) }
+              }}>Email me a sign-in link</button>
+            </>
+          ))}
+        <button disabled={!supabase || !email}
+          onClick={async () => { try { await syncAll(); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
           Sync
         </button>
-        <span>{driveConfigured ? status : 'Set VITE_GOOGLE_CLIENT_ID to enable Google Drive sync'}</span>
+        <span>{supabase ? status : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</span>
       </div>
 
       {draft && (
