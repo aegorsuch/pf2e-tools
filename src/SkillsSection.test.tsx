@@ -164,6 +164,6 @@ it('shows weapon and armor proficiency badges from class text and features', () 
   expect(weaponRanks(c, entries)).toEqual({ Simple: 3, Martial: 3, Advanced: 0, Unarmed: 3 })
   expect(armorRanks(c, entries)).toEqual({ Light: 2, Medium: 2, Heavy: 0, Unarmored: 2 })
   const props = { c, entries, save: () => {} }
-  expect(renderToStaticMarkup(<SkillsSection {...props} part="offense" />)).toContain('Initiative bonus')
+  expect(renderToStaticMarkup(<SkillsSection {...props} part="offense" />)).not.toContain('Initiative bonus')
   expect(renderToStaticMarkup(<SkillsSection {...props} part="defense" />)).toContain('Unarmored')
 })

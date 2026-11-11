@@ -134,7 +134,6 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
-        <small>Initiative bonus <b>{signed(abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level))}</b></small>
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         <WeaponList c={c} entries={entries} save={save} />
