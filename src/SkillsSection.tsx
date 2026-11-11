@@ -122,7 +122,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           })}
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
-        <span className="skill-part"><small>Prof</small>{signed(prof)}</span>
+        <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
         {item !== undefined && <span className="skill-part"><small>Item</small>{signed(item)}</span>}
       </div>
     )
@@ -144,8 +144,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     return (
       <>
         <div className="defense-summary">
-          <span><small>AC</small><b>{armorClass(c, entries)}</b></span>
-          <span><small>HP</small><b>{maxHp(c, entries)}</b></span>
+          <span><small>Armor Class</small><b>{armorClass(c, entries)}</b></span>
+          <span><small>Hit Points</small><b>{maxHp(c, entries)}</b></span>
         </div>
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}

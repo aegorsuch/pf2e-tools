@@ -157,9 +157,9 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
               <span><small>Attack</small><b>{signed(a.attack)}</b></span>
-              {a.range > 0 && <span><small>Range</small><b>{a.range} ft.</b></span>}
+              {a.range > 0 && <span><small>Range</small><b>{a.range} feet</b></span>}
               <span><small>{a.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(a.mod)}</span>
-              <span><small>Prof</small>{signed(a.prof)}</span>
+              <span><small>Proficiency</small>{signed(a.prof)}</span>
               <span><small>Item</small>{signed(a.item)}</span>
             </div>
             {a.damage && <div className="gear-damage">{a.damage}{w.runes.length > 0 && ` + ${w.runes.join(', ')}`}</div>}
@@ -202,8 +202,8 @@ export function ArmorList({ c, entries, save }: SectionProps) {
             {entry && entry.traits.length > 0 && <div className="gear-traits">{entry.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             {entry && (
               <div className="gear-stats">
-                <span><small>AC</small><b>{String(entry.data.ac ?? '—')}</b></span>
-                <span><small>Dex cap</small>{String(entry.data.dex_cap ?? '—')}</span>
+                <span><small>Armor Class</small><b>{String(entry.data.ac ?? '—')}</b></span>
+                <span><small>Dexterity cap</small>{String(entry.data.dex_cap ?? '—')}</span>
                 <span><small>Check</small>{String(entry.data.check_penalty ?? '—')}</span>
                 <span><small>Strength</small>{String(entry.data.strength ?? '—')}</span>
               </div>
@@ -229,7 +229,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
           </header>
           <div className="row">
             <label>Hardness <input type="number" min={0} value={shield.hardness} onChange={(e) => save({ shield: { ...shield, hardness: Math.max(0, +e.target.value || 0) } })} /></label>
-            <label>HP <input type="number" min={0} value={shield.hp} onChange={(e) => save({ shield: { ...shield, hp: Math.max(0, +e.target.value || 0) } })} /></label>
+            <label>Hit Points <input type="number" min={0} value={shield.hp} onChange={(e) => save({ shield: { ...shield, hp: Math.max(0, +e.target.value || 0) } })} /></label>
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
           </div>
           <button type="button" onClick={() => save({ shield: undefined })}>Remove</button>
