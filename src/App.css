@@ -200,6 +200,10 @@
   }
 }
 
+.ability-name {
+  font-size: 0.85em;
+}
+
 .boost-checks {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

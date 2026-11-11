@@ -158,7 +158,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             <div className="gear-stats">
               <span><small>Attack</small><b>{signed(a.attack)}</b></span>
               {a.range > 0 && <span><small>Range</small><b>{a.range} ft.</b></span>}
-              <span><small>{a.ability === 'dex' ? 'Dex' : 'Str'}</small>{signed(a.mod)}</span>
+              <span><small>{a.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(a.mod)}</span>
               <span><small>Prof</small>{signed(a.prof)}</span>
               <span><small>Item</small>{signed(a.item)}</span>
             </div>
@@ -205,7 +205,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
                 <span><small>AC</small><b>{String(entry.data.ac ?? '—')}</b></span>
                 <span><small>Dex cap</small>{String(entry.data.dex_cap ?? '—')}</span>
                 <span><small>Check</small>{String(entry.data.check_penalty ?? '—')}</span>
-                <span><small>Str</small>{String(entry.data.strength ?? '—')}</span>
+                <span><small>Strength</small>{String(entry.data.strength ?? '—')}</span>
               </div>
             )}
             <div className="row">

@@ -57,7 +57,7 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
                         save({ boosts })
                       }
                     }} />
-                  <span>{a.toUpperCase()}</span>
+                  <span className="ability-name">{ABILITY_LABEL[a]}</span>
                   <b>{signed(abilityMod(scores[a]))}</b>
                 </label>
               )
@@ -95,7 +95,7 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
           <div className="row">
             {ABILITIES.map((a) => (
               <label key={a}>
-                {a.toUpperCase()}{' '}
+                <span className="ability-name">{ABILITY_LABEL[a]}</span>{' '}
                 <input type="number" min={1} max={30} value={c.abilities[a]}
                   onChange={(e) => save({ abilities: { ...c.abilities, [a]: +e.target.value || 10 } })} />
                 {' '}{signed(abilityMod(c.abilities[a]))}
@@ -106,7 +106,7 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
         {builderOn && (
           <>
             <AbilityBoostChoices c={c} entries={entries} save={save} groups={sharedGroups} />
-            <small>Scores: {ABILITIES.map((a) => `${a.toUpperCase()} ${scores[a]} (${signed(abilityMod(scores[a]))})`).join(', ')}</small>
+            <small>Scores: {ABILITIES.map((a) => `${ABILITY_LABEL[a]} ${scores[a]} (${signed(abilityMod(scores[a]))})`).join(', ')}</small>
           </>
         )}
       </div>
