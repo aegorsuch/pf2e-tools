@@ -240,8 +240,9 @@ describe('languageAllowance', () => {
 
 describe('languageGroups', () => {
   it('groups synced AoN languages by rarity in order and falls back when none are synced', () => {
-    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' })]
-    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Uncommon', 'Secret'])
+    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' }), entry('language', 'Sussuran', { rarity: 'Secret' })]
+    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Uncommon', 'Secret', 'Rare'])
+    expect(languageGroups(synced).Secret.map(([n]) => n)).toEqual(['Wildsong'])
     expect(Object.keys(languageGroups([]))).toContain('Rare')
   })
 })

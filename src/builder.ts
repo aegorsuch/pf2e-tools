@@ -598,7 +598,9 @@ export function languageGroups(entries: ContentEntry[]): Record<string, [string,
     const key = e.name.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    const rarity = titleCase(String(e.data.rarity || e.traits.find((t) => RARITY_ORDER.includes(titleCase(t))) || 'Common'))
+    const listed = titleCase(String(e.data.rarity || e.traits.find((t) => RARITY_ORDER.includes(titleCase(t))) || 'Common'))
+    // Wildsong is the only secret language; AoN's other "secret"-flagged ones are rare
+    const rarity = key === 'wildsong' ? 'Secret' : listed === 'Secret' ? 'Rare' : listed
     const who = e.description.replace(/\.$/, '')
     ;(groups[rarity] ??= []).push([e.name, who])
   }
