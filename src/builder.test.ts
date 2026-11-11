@@ -285,3 +285,13 @@ describe('Order Explorer', () => {
     expect(ranksAt(c, [druid])).toMatchObject({ Athletics: 1, Acrobatics: 1 })
   })
 })
+
+describe('auto-advance lores', () => {
+  it('ranks background lore up with level only when enabled', () => {
+    const bg = entry('background', 'Scholar', { skill: 'Academia Lore' })
+    const c = { ...base, level: 7, background: 'Scholar' }
+    expect(ranksAt(c, [bg])['Academia Lore']).toBe(1)
+    updateSettings({ autoLores: true })
+    try { expect(ranksAt(c, [bg])['Academia Lore']).toBe(3) } finally { updateSettings({ autoLores: false }) }
+  })
+})

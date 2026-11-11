@@ -188,9 +188,15 @@ export default function App() {
           <label>
             <input type="checkbox" checked={settings.autoClassSkills}
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
-            Automatically advance class skills
+            Auto-Advance Class-Specific Skills
           </label>
           <Info label="Rule summary">Skills your class grants (a ranger's Nature and Survival, a druid's order skill, a chosen class skill) are trained automatically and rank up for free as your level allows (house rule), without using your skill picks or increases.</Info>
+          <label>
+            <input type="checkbox" checked={settings.autoLores}
+              onChange={(e) => updateSettings({ autoLores: e.target.checked })} />{' '}
+            Auto-Advance Lores
+          </label>
+          <Info label="Rule summary">Your Lore skills (such as your background's Lore) rank up for free as your level allows (house rule), without using your skill increases.</Info>
         </section>
       )}
 

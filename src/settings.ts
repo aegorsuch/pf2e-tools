@@ -3,10 +3,12 @@ import { useSyncExternalStore } from 'react'
 export interface Settings {
   // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
+  // House rule: the character's Lore skills also rank up for free as the level allows
+  autoLores: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false }
+const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false }
 
 function load(): Settings {
   try {

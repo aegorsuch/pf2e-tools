@@ -357,10 +357,13 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const ranks = baseRanks(c, entries)
   const autoSkills = autoClassSkills(c, entries)
   const rankUp = getSettings().autoClassSkills
+  const loreUp = getSettings().autoLores
+  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name)] : []
   for (const l of skillIncreaseLevels(c).filter((x) => x < beforeLevel)) {
     const skill = c.skillIncreases?.[l]
     if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
     if (rankUp) for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+    for (const name of lores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
   }
   if (withOverrides) {
     const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
