@@ -150,7 +150,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}
         </div>
-        <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} labels={{ Unarmored: 'Unarmored defense' }} />
+        <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
         <ArmorList c={c} entries={entries} save={save} />
       </>
     )

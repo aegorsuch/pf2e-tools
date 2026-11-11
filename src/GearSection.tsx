@@ -23,7 +23,7 @@ const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
     { label: 'Traits', values: (e) => e.traits },
   ],
   armor: [
-    { label: 'Categories', values: (e) => [e.traits.find((t) => CATEGORY.test(t))?.replace(/ armor$/i, '') ?? 'Unarmored'] },
+    { label: 'Categories', values: (e) => [e.traits.find((t) => CATEGORY.test(t))?.replace(/ armor$/i, '') ?? 'Unarmored'], fixed: ['Heavy', 'Light', 'Medium', 'Unarmored'] },
     { label: 'Rarities', values: (e) => text(e.data.rarity) },
     { label: 'Groups', values: (e) => text(e.data.armor_group) },
     { label: 'Traits', values: (e) => e.traits.filter((t) => !CATEGORY.test(t)) },
@@ -221,7 +221,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
           </article>
         )
       })}
-      {!worn && <small>No armor worn: using unarmored defense.</small>}
+      {!worn && <small>No armor worn: unarmored.</small>}
 
       {shield ? (
         <article className="gear-card">

@@ -9,6 +9,14 @@ export const AON_SITES: Record<GameSystem, string> = {
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
+// Class feature summaries often omit the proficiency sentences, so keep the full text without markup
+const plain = (md: string) => md
+  .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+  .replace(/<[^>]*>/g, ' ')
+  .replace(/[*_`]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+
 export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const s = hit._source
   if (!s) return null
@@ -45,7 +53,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: text(s.summary),
+    description: kind === 'classFeature' && text(s.markdown) ? plain(text(s.markdown)) : text(s.summary),
     data,
     effects: [],
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
@@ -81,7 +89,7 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
 }
 
 // Bump when the mapping changes so existing installs re-import automatically
-export const AON_IMPORT_VERSION = 5
+export const AON_IMPORT_VERSION = 6
 const REFRESH_MS = 7 * 24 * 3600 * 1000
 const inFlight = new Map<GameSystem, Promise<number>>()
 
