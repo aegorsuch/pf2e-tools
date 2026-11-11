@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, baseItems, armorCategory, isRanged, weaponDamage, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
+  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -34,10 +34,8 @@ const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
   ],
 }
 const TABS = ['Standard', 'Magic', 'Custom', 'All'] as const
-const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) => {
-  const magical = e.traits.some((t) => t.toLowerCase() === 'magical')
-  return tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? magical : e.source !== 'homebrew' && !magical)
-}
+const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
+  tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? isMagicItem(e) : e.source !== 'homebrew' && !isMagicItem(e))
 
 export function Search({ entries, kind, label, onPick }: {
   entries: ContentEntry[]

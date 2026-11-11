@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, heritagesFor, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -219,5 +219,13 @@ describe('baseItems', () => {
     const list = ['Armored Coat', 'Advanced Armored Coat', 'Laser Pistol', 'Laser Pistol, Tactical', 'Advanced Rifle', 'Hand Crossbow', 'Crossbow']
       .map((n) => entry('armor', n))
     expect(baseItems(list).map((e) => e.name)).toEqual(['Armored Coat', 'Laser Pistol', 'Advanced Rifle', 'Hand Crossbow', 'Crossbow'])
+  })
+})
+
+describe('isMagicItem', () => {
+  it('treats specific/leveled PF2e items and magical-trait items as magic, not bases', () => {
+    expect(isMagicItem(entry('weapon', 'Fractal Hook', {}, 12))).toBe(true)
+    expect(isMagicItem(entry('armor', 'Some Armor', {}, 1, ['Magical']))).toBe(true)
+    expect(isMagicItem(entry('weapon', 'Longsword', {}, 0))).toBe(false)
   })
 })
