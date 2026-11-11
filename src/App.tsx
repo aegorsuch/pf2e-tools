@@ -1,9 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { db, importHomebrew, newId, removeEntry, saveEntry } from './db'
+import { db, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
-import { parsePathbuilder } from './pathbuilder'
 import { ensureAonImported, importFromAon } from './aon'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase, syncAll } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
@@ -99,25 +98,6 @@ export default function App() {
             }
           } catch (err) { setStatus(String(err)) }
         }}>Refresh official data</button>
-        <label>
-          Import Pathbuilder character
-          <input type="file" accept="application/json,.json" hidden
-            onChange={async (e) => {
-              const f = e.target.files?.[0]
-              if (!f) return
-              try {
-                const c = parsePathbuilder(await f.text())
-                await db.characters.put(c)
-                setStatus(`Imported ${c.name}` + (c.imported?.unmapped.length ? ` (kept raw: ${c.imported.unmapped.join(', ')})` : ''))
-              } catch (err) { setStatus(String(err)) }
-              e.target.value = ''
-            }} />
-        </label>
-        <label>
-          Import homebrew
-          <input type="file" accept="application/json" hidden
-            onChange={async (e) => { const f = e.target.files?.[0]; if (f) await importHomebrew(await f.text()) }} />
-        </label>
         {supabase && (email
           ? <button onClick={() => signOut()}>Sign out ({email})</button>
           : (
