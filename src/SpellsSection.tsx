@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ABILITIES, ABILITY_LABEL, RANKS, SPELL_TRADITIONS, abilityMod, proficiencyBonus, signed, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character } from './types'
 import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 
@@ -7,24 +7,31 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const sc = c.spellcasting
+  const casting = classSpellcasting(c, entries)
+  const traditions = casting?.traditions ?? []
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
-  const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) =>
-    save({ spellcasting: { ability: 'int', tradition: '', rank: 1, slots: {}, ...sc, ...patch } })
+  const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
+    if (!casting) return
+    save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch, rank: casting.rank } })
+  }
+  const selectedTradition = traditions.length === 1
+    ? traditions[0]
+    : traditions.includes(tradition) ? tradition : ''
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q && !tradition) return []
+    if (!q && !selectedTradition) return []
     return entries
       .filter((e) => e.kind === 'spell')
       .filter((e) => !q || e.name.toLowerCase().includes(q))
-      .filter((e) => !tradition || String(e.data.tradition ?? '').toLowerCase().includes(tradition.toLowerCase()))
+      .filter((e) => !selectedTradition || String(e.data.tradition ?? '').toLowerCase().includes(selectedTradition.toLowerCase()))
       .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
       .slice(0, 40)
-  }, [entries, query, tradition])
+  }, [entries, query, selectedTradition])
 
-  const mod = sc ? abilityMod(c.abilities[sc.ability]) + proficiencyBonus(sc.rank, c.level) : 0
+  const mod = casting && sc ? abilityMod(c.abilities[sc.ability]) + proficiencyBonus(casting.rank, c.level) : 0
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
     const entry = entries.find((e) => e.kind === 'spell' && (entryId ? e.id === entryId : e.name === name))
     return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
@@ -39,8 +46,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
 
   return (
-    <>
-      <h3>Spells ({manualSpells.length + granted.length})</h3>
+    <details className="character-subsection">
+      <summary><h4>Spells ({manualSpells.length + granted.length})</h4></summary>
+      {casting && <>
       <div className="row">
         <label>Casting ability{' '}
           <select value={sc?.ability ?? ''} onChange={(e) => setSc({ ability: e.target.value as never })}>
@@ -48,22 +56,15 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
             {ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
           </select>
         </label>
-        {sc && (
-          <>
-            <label>Tradition{' '}
-              <select value={sc.tradition} onChange={(e) => { setSc({ tradition: e.target.value }); setTradition(e.target.value) }}>
-                <option value="">-</option>
-                {SPELL_TRADITIONS.map((t) => <option key={t}>{t}</option>)}
+        {traditions.length > 1 && <label>Tradition{' '}
+              <select value={selectedTradition} onChange={(e) => { setSc({ tradition: e.target.value }); setTradition(e.target.value) }}>
+                <option value="">Choose…</option>
+                {traditions.map((t) => <option key={t}>{t}</option>)}
               </select>
-            </label>
-            <label>Proficiency{' '}
-              <select value={sc.rank} onChange={(e) => setSc({ rank: +e.target.value })}>
-                {RANKS.map((r, i) => <option key={r} value={i}>{r}</option>)}
-              </select>
-            </label>
-            <b>Attack {signed(mod)} | DC {10 + mod}</b>
-          </>
-        )}
+            </label>}
+        {traditions.length === 1 && <b>{traditions[0]} tradition</b>}
+        <b>Spellcasting {['Untrained', 'Trained', 'Expert', 'Master', 'Legendary'][casting.rank]}</b>
+        {sc && <b>Attack {signed(mod)} | DC {10 + mod}</b>}
       </div>
       {sc && (
         <div className="row">
@@ -76,6 +77,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           ))}
         </div>
       )}
+      </>}
       {groups.map((g) => (
         <div key={g}>
           <b>{g}</b>
@@ -91,10 +93,10 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       ))}
       <div className="row">
         <input placeholder="Search spells" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <select value={tradition} onChange={(e) => setTradition(e.target.value)}>
+        {casting && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
           <option value="">Any tradition</option>
-          {SPELL_TRADITIONS.map((t) => <option key={t}>{t}</option>)}
-        </select>
+          {(traditions.length ? traditions : SPELL_TRADITIONS).map((t) => <option key={t}>{t}</option>)}
+        </select>}
       </div>
       <ul>
         {matches.map((m) => {
@@ -113,6 +115,6 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           )
         })}
       </ul>
-    </>
+    </details>
   )
 }

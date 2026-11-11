@@ -214,6 +214,24 @@ export function classFeatures(entries: ContentEntry[], c: Character) {
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 }
 
+export function classSpellcasting(c: Character, entries: ContentEntry[]) {
+  const klass = byName(entries, 'class', c.className)
+  const traditions = tokens(klass?.data.tradition)
+  if (!traditions.length) return undefined
+
+  const progression: Record<string, number> = {
+    'expert spellcaster': 2,
+    'expert spellcasting': 2,
+    'master spellcaster': 3,
+    'master spellcasting': 3,
+    'legendary spellcaster': 4,
+    'legendary spellcasting': 4,
+  }
+  const rank = classFeatures(entries, c).reduce((best, feature) =>
+    Math.max(best, progression[feature.name.toLowerCase()] ?? 0), 1)
+  return { traditions, rank }
+}
+
 const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend: 4 }
 
 // "Reflex Expertise", "Perception Mastery" and similar raise that statistic's rank

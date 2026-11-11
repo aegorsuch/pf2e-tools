@@ -6,6 +6,7 @@ import { FeatChoice } from './FeatChoice'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { eligibleFeats } from './builder'
+import { classSpellcasting } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const spell = (name: string, tier: string): ContentEntry => ({
@@ -114,6 +115,35 @@ it('uses Warden tier headings without changing ordinary spell rank groups', () =
   expect(markup).toContain('<b>Peerless Warden</b>')
   expect(markup).toContain('<b>Rank 5</b>')
   expect(markup).not.toContain('(Peerless Warden)')
+})
+
+it('derives caster status, traditions and spell proficiency from class features', () => {
+  const classes: ContentEntry[] = [
+    { id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 1 },
+    { id: 'wizard', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Wizard', level: 1, traits: [], description: '', data: { tradition: 'Arcane' }, effects: [], updatedAt: 1 },
+    { id: 'witch', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Witch', level: 1, traits: [], description: '', data: { tradition: 'Arcane, Divine, Occult, Primal' }, effects: [], updatedAt: 1 },
+    { id: 'expert', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Expert Spellcaster', level: 7, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
+    { id: 'master', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Master Spellcaster', level: 15, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
+  ]
+  expect(classSpellcasting({ ...base, className: 'Ranger' }, classes)).toBeUndefined()
+  expect(classSpellcasting({ ...base, className: 'Wizard', level: 1 }, classes)).toEqual({ traditions: ['Arcane'], rank: 1 })
+  expect(classSpellcasting({ ...base, className: 'Wizard', level: 8 }, classes)).toEqual({ traditions: ['Arcane'], rank: 2 })
+  expect(classSpellcasting({ ...base, className: 'Wizard', level: 15 }, classes)).toEqual({ traditions: ['Arcane'], rank: 3 })
+  expect(classSpellcasting({ ...base, className: 'Witch' }, classes)?.traditions).toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
+})
+
+it('hides manual casting configuration for noncasters and collapses the spell section', () => {
+  const ranger = { ...base, className: 'Ranger', spellcasting: { ability: 'wis' as const, tradition: '', rank: 1, slots: {} } }
+  const classes: ContentEntry[] = [{
+    id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
+    traits: [], description: '', data: {}, effects: [], updatedAt: 1,
+  }]
+  const markup = renderToStaticMarkup(<SpellsSection c={ranger} entries={classes} save={() => {}} />)
+  expect(markup).toContain('<details class="character-subsection">')
+  expect(markup).toContain('<h4>Spells (0)</h4>')
+  expect(markup).not.toContain('Casting ability')
+  expect(markup).not.toContain('Slots per rank')
+  expect(markup).not.toContain('Spellcasting Trained')
 })
 
 it('alphabetizes repeated feat selections by choice, leaving unchosen copies last', () => {
