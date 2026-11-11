@@ -49,6 +49,7 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
   const auto = ranksAt(c, entries, 99, false)
   // Trained circle syncs with the class skill picker; other circles are manual overrides
   const setRank = (name: string, r: number) => {
+    if (r === 1 && fixed.has(name)) return
     if (r === 1 && picks.includes(name)) return save({ skillPicks: picks.filter((p) => p !== name) })
     if (r === 1 && !fixed.has(name) && (auto[name] ?? 0) === 0 && remaining > 0 && c.rankOverrides?.[name] === undefined) {
       return save({ skillPicks: [...picks, name] })
@@ -107,7 +108,8 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
                     className={rank >= i + 1 ? 'on' : ''}
                     aria-pressed={rank === i + 1}
                     aria-label={`${s.name} ${RANKS[i + 1]}`}
-                    title={RANKS[i + 1]}
+                    disabled={i === 0 && fixed.has(s.name)}
+                    title={i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
                     onClick={() => setRank(s.name, i + 1)}
                   >{letter}</button>
                 ))}

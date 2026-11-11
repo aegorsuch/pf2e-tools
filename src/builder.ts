@@ -319,6 +319,10 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
     if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
   }
   if (withOverrides) Object.assign(ranks, c.rankOverrides)
+  for (const name of [
+    ...classSkills(byName(entries, 'class', c.className)).fixed,
+    ...backgroundSkills(byName(entries, 'background', c.background)),
+  ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
   return ranks
 }
 
