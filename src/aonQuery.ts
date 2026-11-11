@@ -16,7 +16,7 @@ export const DATA_FIELDS = [
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
   'domain_primary', 'sanctification', 'warden_spell_tier',
-  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member',
+  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_armor_specialization',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
@@ -39,6 +39,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   deity: 'deity',
   'class-feature': 'classFeature',
   language: 'language',
+  'armor-group': 'armorGroup',
 }
 
 // Class feature summaries often omit the proficiency sentences, so keep the full text without markup
@@ -60,6 +61,16 @@ export function parseClericSpells(md: string) {
 export function parseDeityAbout(md: string) {
   const body = /\*\*Source\*\*[^\n]*\n([\s\S]*?)<column gap="tiny">/.exec(md)?.[1] ?? ''
   return body.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n')
+}
+
+// Languages a feat teaches its taker ("You speak and understand Fey"); sentences about allies are ignored
+export function parseFeatLanguages(md: string) {
+  const out: string[] = []
+  for (const sentence of md.split(/(?<=\.)\s+|<br\s*\/?>|\n/)) {
+    if (!/\byou (?:can |also |now )?(?:speak|learn|understand|gain|know)/i.test(sentence) || /\b(?:they|ally|allies|target|creature)\b/i.test(sentence)) continue
+    for (const m of sentence.matchAll(/\[([^\]]+)\]\(\/Languages\.aspx[^)]*\)/g)) out.push(m[1])
+  }
+  return [...new Set(out)].join(', ')
 }
 
 // Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
@@ -89,13 +100,18 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         // Only resistance text is needed from most markdown; keep the full text for feats and class features
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))
         if (found) s.resistances = found
+        if (category === 'feat' && typeof s.markdown === 'string') {
+          const langs = parseFeatLanguages(s.markdown)
+          if (langs) s.grants_languages = langs
+          if (/armor specialization/i.test(plain(s.markdown))) s.grants_armor_specialization = 'yes'
+        }
         if (category === 'deity' && typeof s.markdown === 'string') {
           const spells = parseClericSpells(s.markdown)
           if (spells) s.cleric_spells = spells
           const about = parseDeityAbout(s.markdown)
           if (about) s.about = about
         }
-        if (category !== 'feat' && category !== 'class-feature') delete s.markdown
+        if (category !== 'feat' && category !== 'class-feature' && category !== 'armor-group') delete s.markdown
       }
       hits.push(hit)
     }

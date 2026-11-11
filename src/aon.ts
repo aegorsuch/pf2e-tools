@@ -46,7 +46,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: kind === 'classFeature' && text(s.markdown) ? plain(text(s.markdown)) : text(s.summary),
+    description: (kind === 'classFeature' || kind === 'armorGroup') && text(s.markdown) ? plain(text(s.markdown)) : text(s.summary),
     data,
     effects: [],
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync

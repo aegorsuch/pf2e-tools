@@ -1,6 +1,6 @@
-import { parseClericSpells, parseDeityAbout } from './aonQuery'
+import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -308,5 +308,27 @@ describe('deity description', () => {
   it('keeps every paragraph before the category block', () => {
     const md = '<title>x</title>\n**Source** [Book](/S.aspx?ID=1) pg. 2\n\nFirst paragraph.\n\n Second [para](/x).\n\n<column gap="tiny">\n**Category** y'
     expect(parseDeityAbout(md)).toBe('First paragraph.\n\nSecond para.')
+  })
+})
+
+describe('feat grants', () => {
+  it('reads languages a feat teaches its taker but not its allies', () => {
+    const md = 'You speak and understand [Fey](/Languages.aspx?ID=119), gain darkvision. In addition, they can speak and understand [Sylvan](/Languages.aspx?ID=1).'
+    expect(parseFeatLanguages(md)).toBe('Fey')
+  })
+  it('adds feat languages to the locked languages', () => {
+    const feat = entry('feat', 'Wild Hunter Dedication', { grants_languages: 'Fey' })
+    const fey = entry('language', 'Fey', { rarity: 'Common' })
+    const c = { ...base, feats: [{ name: 'Wild Hunter Dedication', type: 'Archetype Feat', level: 8 }] }
+    expect(languageAllowance(c, [feat, fey]).locked).toContain('Fey')
+  })
+  it('shows the worn armor group effect only with a specialization source', () => {
+    const wood = { ...entry('armorGroup', 'Wood'), description: 'Source Treasure Vault pg. 9 Wood armor splinters.' }
+    const armor = entry('armor', 'Wooden Breastplate', { armor_group: 'Wood' })
+    const feat = entry('feat', 'Armor Trick', { grants_armor_specialization: 'yes' })
+    const worn = { ...base, armors: [{ id: 'a', name: 'Wooden Breastplate', worn: true, potency: 0, resilient: 0, runes: [] }] } as Character
+    expect(armorSpecialization(worn, [wood, armor, feat])).toBeUndefined()
+    const withFeat = { ...worn, feats: [{ name: 'Armor Trick', type: 'General Feat', level: 1 }] }
+    expect(armorSpecialization(withFeat, [wood, armor, feat])).toMatchObject({ group: 'Wood', effect: 'Wood armor splinters.' })
   })
 })

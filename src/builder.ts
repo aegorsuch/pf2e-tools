@@ -427,6 +427,17 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
 
 const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
 
+// Armor specialization comes from class features and feats that mention it; its effect depends on the worn armor's group
+export function armorSpecialization(c: Character, entries: ContentEntry[]) {
+  const has = classFeatures(entries, c).some((f) => /armor specialization/i.test(`${f.name} ${f.description}`))
+    || c.feats.some((f) => { const e = byName(entries, 'feat', f.name); return /armor specialization/i.test(f.name) || e?.data.grants_armor_specialization })
+  const worn = wornArmor(c)
+  if (!has || !worn) return undefined
+  const groups = tokens(byName(entries, 'armor', worn.name)?.data.armor_group)
+  const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && e.name.toLowerCase() === g.toLowerCase())).find(Boolean)
+  return group ? { group: group.name, armor: worn.name, effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, '') } : undefined
+}
+
 // Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
 export function resistances(c: Character, entries: ContentEntry[]) {
   const sources = [
@@ -707,7 +718,9 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
   const known = new Set(allLanguages(entries).map((l) => l.toLowerCase()))
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
-  const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : [])])]
+  const fromFeats = c.feats.flatMap((f) => tokens(byName(entries, 'feat', f.name)?.data.grants_languages).map(titleCase))
+    .filter((l) => known.has(l.toLowerCase()))
+  const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []), ...fromFeats])]
   const feats = c.feats.reduce((n, f) => n + (LANGUAGE_FEATS[f.name] ?? 0), 0)
   return { locked, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats }
 }

@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, armorSpecialization,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
@@ -142,6 +142,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   }
   if (part === 'defense') {
     const res = resistances(c, entries)
+    const spec = armorSpecialization(c, entries)
     return (
       <>
         <div className="defense-summary">
@@ -152,6 +153,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           {renderRows(defense)}
         </div>
         <small>Resistances: {res.length ? res.map((r) => `${r.damage} ${r.value} (${r.source})`).join(', ') : 'None'}</small>
+        {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}) - {spec.effect}</small> : <small>Armor Specialization: None</small>}
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
         <ArmorList c={c} entries={entries} save={save} />
       </>
