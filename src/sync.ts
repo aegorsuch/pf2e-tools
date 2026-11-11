@@ -29,6 +29,9 @@ export function onAuthChange(cb: (email: string | null) => void) {
 
 type Table = 'characters' | 'content'
 
+// Official (Archives of Nethys) entries are re-imported on every device, so only homebrew is synced
+const OFFICIAL_PREFIX = 'aon:'
+
 const PAGE = 1000
 const CHUNK = 200
 
@@ -38,7 +41,9 @@ const chunks = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.lengt
 async function fetchRemoteIndex(table: Table) {
   const index = new Map<string, number>()
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase!.from(table).select('id, updated_at').order('id').range(from, from + PAGE - 1)
+    let q = supabase!.from(table).select('id, updated_at')
+    if (table === 'content') q = q.not('id', 'like', `${OFFICIAL_PREFIX}%`)
+    const { data, error } = await q.order('id').range(from, from + PAGE - 1)
     if (error) throw error
     for (const r of data ?? []) index.set(r.id as string, r.updated_at as number)
     if ((data?.length ?? 0) < PAGE) return index
@@ -46,10 +51,12 @@ async function fetchRemoteIndex(table: Table) {
 }
 
 // Last-write-wins sync keyed on updatedAt. Rows are stored as { id, user_id, updated_at, body }.
-// Content includes official (Archives of Nethys) entries as well as homebrew.
 async function syncTable(table: Table, userId: string) {
   if (!supabase) return
-  const local = (await (table === 'characters' ? db.characters : db.content).toArray()) as { id: string; updatedAt: number }[]
+  const local = (await (table === 'characters' ? db.characters.toArray() : db.content.where('source').equals('homebrew').toArray())) as {
+    id: string
+    updatedAt: number
+  }[]
   const remote = await fetchRemoteIndex(table)
 
   const toPush = local
@@ -107,10 +114,21 @@ export function startAutoSync(onStatus: (s: string) => void) {
   }
 }
 
+// Earlier versions uploaded official entries; remove those rows (best effort)
+async function purgeRemoteOfficial(userId: string) {
+  await supabase!.from('content').delete().eq('user_id', userId).like('id', `${OFFICIAL_PREFIX}%`)
+}
+
+let purged = false
+
 export async function syncAll() {
   if (!supabase) return
   const { data } = await supabase.auth.getUser()
   if (!data.user) return
+  if (!purged) {
+    await purgeRemoteOfficial(data.user.id)
+    purged = true
+  }
   await syncTable('characters', data.user.id)
   await syncTable('content', data.user.id)
 }
