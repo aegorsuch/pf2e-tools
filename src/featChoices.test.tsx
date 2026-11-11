@@ -84,7 +84,7 @@ it('shows feat grants once without deleting independently added spells', () => {
   const c: Character = { ...base, feats: [{ name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' }],
     spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Spells (1)')
+  expect(markup).toContain('<strong>Spells</strong><span>1 spells</span>')
   expect(markup).toContain('Gravity Weapon')
   expect(markup).toContain('<b>Initiate Warden</b>')
   expect(markup).not.toContain('Warden feat')
@@ -139,8 +139,8 @@ it('hides manual casting configuration for noncasters and collapses the spell se
     traits: [], description: '', data: {}, effects: [], updatedAt: 1,
   }]
   const markup = renderToStaticMarkup(<SpellsSection c={ranger} entries={classes} save={() => {}} />)
-  expect(markup).toContain('<details class="character-subsection">')
-  expect(markup).toContain('<h4>Spells (0)</h4>')
+  expect(markup).toContain('<details class="character-section">')
+  expect(markup).toContain('<strong>Spells</strong><span>0 spells</span>')
   expect(markup).not.toContain('Casting ability')
   expect(markup).not.toContain('Slots per rank')
   expect(markup).not.toContain('Spellcasting Trained')

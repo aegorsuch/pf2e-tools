@@ -46,8 +46,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
 
   return (
-    <details className="character-subsection">
-      <summary><h4>Spells ({manualSpells.length + granted.length})</h4></summary>
+    <details className="character-section">
+      <summary className="character-section-summary">
+        <strong>Spells</strong>
+        <span>{manualSpells.length + granted.length} spells</span>
+      </summary>
+      <div className="character-section-content">
       {casting && <>
       <div className="row">
         <label>Casting ability{' '}
@@ -115,6 +119,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           )
         })}
       </ul>
+      </div>
     </details>
   )
 }

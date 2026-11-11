@@ -69,7 +69,6 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
 
   return (
     <>
-      <h3>Skills & proficiencies</h3>
       {!klass && <small>Pick a class to fill in class proficiencies.</small>}
       <ClassSkills c={c} entries={entries} save={save} />
       {skillIncreaseLevels(c).length > 0 && (

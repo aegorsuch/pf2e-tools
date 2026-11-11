@@ -80,6 +80,23 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const background = named('background', c.background)
   const flaws = ancestryFlaws(c, entries)
 
+  const featSection = (category: 'general' | 'skill') => {
+    const title = category === 'general' ? 'General Feats' : 'Skill Feats'
+    const slots = plannedSlots(c).filter((slot) => slot.category === category)
+    const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key)).length
+    return (
+      <details className="character-section">
+        <summary className="character-section-summary">
+          <strong>{title}</strong>
+          <span>{filled}/{slots.length} chosen</span>
+        </summary>
+        <div className="character-section-content">
+          <FeatSlots {...section} categories={[category]} title={title} bare />
+        </div>
+      </details>
+    )
+  }
+
   return (
     <section className="col">
       <div className="row">
@@ -95,6 +112,43 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <b>HP {maxHp(c, entries)}</b>
       </div>
       <AbilitiesSection {...section} />
+      <details className="character-section">
+        <summary className="character-section-summary">
+          <strong>All Feats</strong>
+          <span>{c.feats.length} chosen</span>
+        </summary>
+        <div className="character-section-content">
+          <ul className="feat-slot-list">
+            {sortedFeats.map(({ feat: f, index: i }, position) => (
+              <li className={`feat-slot-row${position > 0 && sortedFeats[position - 1].feat.level !== f.level ? ' feat-level-start' : ''}`} key={`${f.name}-${i}`}>
+                <span>L{String(f.level).padStart(2, '0')}</span> {f.name} <small>({f.type}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
+                <button onClick={() => {
+                  const feats = c.feats.filter((_, j) => j !== i)
+                  const ids = new Set(entries.filter((e) => e.kind === 'feat' && e.name === f.name).map((e) => e.id))
+                  save({ feats, entryIds: feats.some((feat) => feat.name === f.name) ? c.entryIds : c.entryIds.filter((id) => !ids.has(id)) })
+                }}>Remove</button>
+                {!f.slot && <FeatChoice {...section} index={i} />}
+              </li>
+            ))}
+          </ul>
+          <div className="row">
+            <input placeholder="Search feats by name or trait (e.g. General, Elf)" value={featQuery} onChange={(e) => setFeatQuery(e.target.value)} />
+            <label><input type="checkbox" checked={maxLevelOnly} onChange={(e) => setMaxLevelOnly(e.target.checked)} /> Up to my level</label>
+          </div>
+          <ul className="feat-slot-list">
+            {featMatches.map((f, index) => (
+              <li className={index > 0 && featMatches[index - 1].level !== f.level ? 'feat-level-start' : undefined} key={f.id}>
+                <b>L{String(f.level).padStart(2, '0')} {f.name}</b> {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
+                <button disabled={c.feats.some((feat) => feat.name === f.name) && f.data.repeatable !== true} onClick={() => save({
+                  feats: [...c.feats, { name: f.name, type: featType(f, c), level: f.level }],
+                  entryIds: c.entryIds.includes(f.id) ? c.entryIds : [...c.entryIds, f.id],
+                })}>Add</button>
+                <br /><small>{f.description}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
@@ -181,60 +235,22 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
-      <SkillsSection {...section} />
-      {(['general', 'skill'] as const).map((category) => {
-        const title = category === 'general' ? 'General Feats' : 'Skill Feats'
-        const slots = plannedSlots(c).filter((slot) => slot.category === category)
-        const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key)).length
-        return (
-          <details className="character-section" key={category}>
-            <summary className="character-section-summary">
-              <strong>{title}</strong>
-              <span>{filled}/{slots.length} chosen</span>
-            </summary>
-            <div className="character-section-content">
-              <FeatSlots {...section} categories={[category]} title={title} bare />
-            </div>
-          </details>
-        )
-      })}
-      <FeatSlots {...section} categories={['archetype', 'bonus']} title="Other Feat Slots" />
+      {featSection('general')}
+      <details className="character-section">
+        <summary className="character-section-summary"><strong>Languages</strong></summary>
+        <div className="character-section-content">
+          <input key={c.id} defaultValue={c.languages.join(', ')}
+            onBlur={(e) => save({ languages: e.target.value.split(',').map((l) => l.trim()).filter(Boolean) })} />
+        </div>
+      </details>
+      {featSection('skill')}
+      <details className="character-section">
+        <summary className="character-section-summary"><strong>Skills</strong></summary>
+        <div className="character-section-content">
+          <SkillsSection {...section} />
+        </div>
+      </details>
       <SpellsSection {...section} />
-
-      <h3>All feats ({c.feats.length})</h3>
-      <ul className="feat-slot-list">
-        {sortedFeats.map(({ feat: f, index: i }, position) => (
-          <li className={`feat-slot-row${position > 0 && sortedFeats[position - 1].feat.level !== f.level ? ' feat-level-start' : ''}`} key={`${f.name}-${i}`}>
-            <span>L{String(f.level).padStart(2, '0')}</span> {f.name} <small>({f.type}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
-            <button onClick={() => {
-              const feats = c.feats.filter((_, j) => j !== i)
-              const ids = new Set(entries.filter((e) => e.kind === 'feat' && e.name === f.name).map((e) => e.id))
-              save({ feats, entryIds: feats.some((feat) => feat.name === f.name) ? c.entryIds : c.entryIds.filter((id) => !ids.has(id)) })
-            }}>Remove</button>
-            {!f.slot && <FeatChoice {...section} index={i} />}
-          </li>
-        ))}
-      </ul>
-      <div className="row">
-        <input placeholder="Search feats by name or trait (e.g. General, Elf)" value={featQuery} onChange={(e) => setFeatQuery(e.target.value)} />
-        <label><input type="checkbox" checked={maxLevelOnly} onChange={(e) => setMaxLevelOnly(e.target.checked)} /> Up to my level</label>
-      </div>
-      <ul className="feat-slot-list">
-        {featMatches.map((f, index) => (
-          <li className={index > 0 && featMatches[index - 1].level !== f.level ? 'feat-level-start' : undefined} key={f.id}>
-            <b>L{String(f.level).padStart(2, '0')} {f.name}</b> {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
-            <button disabled={c.feats.some((feat) => feat.name === f.name) && f.data.repeatable !== true} onClick={() => save({
-              feats: [...c.feats, { name: f.name, type: featType(f, c), level: f.level }],
-              entryIds: c.entryIds.includes(f.id) ? c.entryIds : [...c.entryIds, f.id],
-            })}>Add</button>
-            <br /><small>{f.description}</small>
-          </li>
-        ))}
-      </ul>
-
-      <h3>Languages</h3>
-      <input key={c.id} defaultValue={c.languages.join(', ')}
-        onBlur={(e) => save({ languages: e.target.value.split(',').map((l) => l.trim()).filter(Boolean) })} />
     </section>
   )
 }
