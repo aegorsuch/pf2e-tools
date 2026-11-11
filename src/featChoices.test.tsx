@@ -4,7 +4,8 @@ import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { FeatChoice } from './FeatChoice'
 import { SpellsSection } from './SpellsSection'
-import { grantedWardenSpells } from './featChoices'
+import { canSelectWardenFeat, grantedWardenSpells } from './featChoices'
+import { eligibleFeats } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const spell = (name: string, tier: string): ContentEntry => ({
@@ -59,6 +60,23 @@ it('selects distinct warden spells per feat and derives grants from current choi
   expect(grantedWardenSpells(c, entries).map((s) => s.name)).toEqual(['Gravity Weapon', 'Heal Companion'])
   c = { ...c, feats: c.feats.slice(1) }
   expect(grantedWardenSpells(c, entries).map((s) => s.name)).toEqual(['Heal Companion'])
+})
+
+it('hides another Warden feat when all distinct spells are chosen', () => {
+  const allSpells = Array.from({ length: 3 }, (_, i) => spell(`Initiate ${i}`, 'Initiate'))
+  const initiate: ContentEntry = {
+    id: 'initiate', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Initiate Warden', level: 1,
+    traits: ['Ranger'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }
+  const choices = allSpells.map((s, i) => ({
+    name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: `class:1:${i}`, choice: s.name,
+  }))
+  const c: Character = { ...base, feats: choices }
+  expect(canSelectWardenFeat('Initiate Warden', c, [...allSpells, initiate])).toBe(false)
+  expect(eligibleFeats([initiate], c, { key: 'class:1:3', category: 'class', level: 1 })).toEqual([])
+  const almostFull = { ...c, feats: choices.slice(0, -1) }
+  expect(eligibleFeats([initiate, ...allSpells], almostFull, { key: 'class:1:3', category: 'class', level: 1 }))
+    .toContainEqual(initiate)
 })
 
 it('shows feat grants once without deleting independently added spells', () => {

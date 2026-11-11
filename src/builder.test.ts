@@ -106,14 +106,14 @@ describe('eligibleFeats', () => {
     const feats = [
       entry('feat', 'Zeal', {}, 1, ['Ranger']),
       entry('feat', 'Alpha', {}, 1, ['Ranger']),
-      entry('feat', 'Initiate Warden', { repeatable: true }, 1, ['Ranger']),
+      entry('feat', 'Multifarious Muse', { repeatable: true }, 1, ['Ranger']),
     ]
     const c: Character = { ...base, className: 'Ranger', feats: [
       { name: 'Zeal', type: 'Class Feat', level: 1, slot: 'class:1:0' },
-      { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:1' },
+      { name: 'Multifarious Muse', type: 'Class Feat', level: 1, slot: 'class:1:1' },
     ] }
     expect(eligibleFeats(feats, c, { key: 'class:1:2', category: 'class', level: 1 }).map((f) => f.name))
-      .toEqual(['Alpha', 'Initiate Warden'])
+      .toEqual(['Alpha', 'Multifarious Muse'])
   })
 })
 

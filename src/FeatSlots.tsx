@@ -60,6 +60,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const options = eligibleFeats(entries, c, s)
+          const optionsByLevel = new Map<number, typeof options>()
+          for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
           const first = slots.find((slot) => slot.category === s.category && slot.level === s.level)?.key === s.key
           const extra = !standardKeys.has(s.key)
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
@@ -69,7 +71,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
               <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && <option>{current}</option>}
-                {options.map((o) => <option key={o.id} value={o.name}>L{String(o.level).padStart(2, '0')} {o.name}</option>)}
+                {[...optionsByLevel].map(([level, levelOptions]) => (
+                  <optgroup key={level} label={`L${String(level).padStart(2, '0')}`}>
+                    {levelOptions.map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}
+                  </optgroup>
+                ))}
               </select>
               {first && current && <button type="button" aria-label={`Add ${label} feat slot`}
                 onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>}

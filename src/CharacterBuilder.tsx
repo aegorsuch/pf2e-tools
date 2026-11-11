@@ -5,6 +5,7 @@ import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor,
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
+import { canSelectWardenFeat } from './featChoices'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { db } from './db'
@@ -59,10 +60,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     const q = featQuery.trim().toLowerCase()
     return entries
       .filter((e) => e.kind === 'feat' && (!maxLevelOnly || e.level <= c.level))
+      .filter((e) => e.data.repeatable !== true || canSelectWardenFeat(e.name, c, entries))
       .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some((t) => t.toLowerCase().includes(q)))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 40)
-  }, [entries, featQuery, maxLevelOnly, c.level])
+  }, [entries, featQuery, maxLevelOnly, c])
 
   const gearMatches = useMemo(() => {
     const q = gearQuery.trim().toLowerCase()

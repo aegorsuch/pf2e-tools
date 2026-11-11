@@ -39,9 +39,26 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   expect(markup).toContain('Ancestry Feats')
   expect(markup).toContain('L01 Ancestry')
   expect(markup).toContain('L13 Ancestry')
-  expect(markup).toContain('L01 Natural Ambition')
+  expect(markup).toContain('<option value="Natural Ambition">Natural Ambition</option>')
   expect(markup).toContain('class="feat-slot-list"')
   expect(markup).toContain('class="feat-slot-row"')
+})
+
+it('groups feat options by level, alphabetically within each level', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 4, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const entries: ContentEntry[] = [
+    { id: 'zeal', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Zeal', level: 1, traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 0 },
+    { id: 'alpha', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Alpha', level: 1, traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 0 },
+    { id: 'middle', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Middle', level: 2, traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 0 },
+  ]
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['class']} />)
+  expect(markup.indexOf('<optgroup label="L01">')).toBeLessThan(markup.indexOf('<optgroup label="L02">'))
+  expect(markup.indexOf('>Alpha</option>')).toBeLessThan(markup.indexOf('>Zeal</option>'))
+  expect(markup).toContain('<optgroup label="L02"><option value="Middle">Middle</option></optgroup>')
 })
 
 it('allows repeatable feats in multiple slots and retains their entry link until the final copy is removed', () => {
@@ -54,6 +71,12 @@ it('allows repeatable feats in multiple slots and retains their entry link until
   const entries: ContentEntry[] = [{
     id: 'warden', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Initiate Warden', level: 1,
     traits: ['Ranger'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }, {
+    id: 'spell-one', systems: ['pf2e'], kind: 'spell', source: 'official', name: 'Spell One', level: 1,
+    traits: ['Focus', 'Ranger'], description: '', data: { warden_spell_tier: 'Initiate' }, effects: [], updatedAt: 1,
+  }, {
+    id: 'spell-two', systems: ['pf2e'], kind: 'spell', source: 'official', name: 'Spell Two', level: 1,
+    traits: ['Focus', 'Ranger'], description: '', data: { warden_spell_tier: 'Initiate' }, effects: [], updatedAt: 1,
   }]
   const tree = () => FeatSlots({ c, entries, save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
   const select = () => findSelect(tree(), 'L01 Class feat')
