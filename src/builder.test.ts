@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -179,6 +179,16 @@ describe('defenses', () => {
     expect(armorClass(c, data)).toBe(24)
     expect(maxHp(c, data)).toBe(56)
     expect(maxHp({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(61)
+  })
+
+  it('finds archetype feats whose Dedication is missing', () => {
+    const data = [
+      entry('feat', 'Archaeologist Dedication', { archetype: 'Archaeologist' }, 2, ['Archetype', 'Dedication']),
+      entry('feat', 'Scholastic Identification', { archetype: 'Archaeologist' }, 4, ['Archetype', 'Skill']),
+    ]
+    const feat = (name: string) => ({ name, type: 'Skill Feat', level: 4 })
+    expect(orphanedArchetypeFeats({ ...base, feats: [feat('Scholastic Identification')] }, data).map((f) => f.name)).toEqual(['Scholastic Identification'])
+    expect(orphanedArchetypeFeats({ ...base, feats: [feat('Archaeologist Dedication'), feat('Scholastic Identification')] }, data)).toEqual([])
   })
 
   it('applies Fleet, Incredible Initiative and Canny Acumen', () => {

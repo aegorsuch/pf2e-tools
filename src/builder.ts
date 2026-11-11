@@ -257,6 +257,14 @@ function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string) {
   }
 }
 
+// Archetype feats whose archetype's Dedication isn't taken (e.g. the Dedication was removed or never picked)
+export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
+  const info = c.feats.map((f) => ({ f, e: byName(entries, 'feat', f.name) }))
+  const dedications = new Set(info.flatMap(({ e }) => e && isDedication(e) && archetypeOf(e) ? [archetypeOf(e)] : []))
+  return info.filter(({ e }) => e && !isDedication(e) && archetypeOf(e) && e.traits.some((t) => t.toLowerCase() === 'archetype') && !dedications.has(archetypeOf(e)))
+    .map(({ f }) => f)
+}
+
 // Feats only, with lowercased traits, cached per entries array so each picker render skips the full scan
 const featNameCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
 export function featByName(entries: ContentEntry[]) {
