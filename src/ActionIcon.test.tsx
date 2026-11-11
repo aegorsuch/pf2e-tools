@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { ActionIcon } from './ActionIcon'
+import { actionOptionLabel } from './actionCost'
 import type { ContentEntry } from './types'
 
 const entry: ContentEntry = {
@@ -19,4 +20,13 @@ it('shows accessible action icons for AoN action costs and preserves mixed costs
     if (actions.includes(' or ')) expect(markup).toContain(' or ')
   }
   expect(renderToStaticMarkup(<ActionIcon entry={{ ...entry, data: { actions: '10 minutes' } }} />)).toBe('')
+})
+
+it('formats picker action costs as inline symbols while retaining action labels', () => {
+  expect(actionOptionLabel('Quick Draw', { ...entry, data: { actions: 'Single Action' } }))
+    .toBe('Quick Draw ◆ (Single Action)')
+  expect(actionOptionLabel('Reactive Strike', { ...entry, data: { actions: 'Reaction' } }))
+    .toBe('Reactive Strike ↶ (Reaction)')
+  expect(actionOptionLabel('Long Ritual', { ...entry, data: { actions: '10 minutes' } }))
+    .toBe('Long Ritual (10 minutes)')
 })

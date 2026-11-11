@@ -42,7 +42,8 @@ it('alphabetizes selected feat rows within each level without moving their slot 
   expect(markup.indexOf('>Zeal</option>')).toBeLessThan(markup.indexOf('>Aardvark</option>'))
   expect(markup.indexOf('>Zeal</option>')).toBeLessThan(markup.indexOf('Remove L01 Class extra feat slot 2'))
   expect(markup.slice(0, markup.indexOf('>Zeal</option>'))).toContain('Remove L01 Class extra feat slot 1')
-  expect(markup.slice(markup.indexOf('>Zeal</option>'))).toContain('Add L01 Class feat slot')
+  expect(markup.slice(0, markup.indexOf('>Zeal</option>'))).toContain('Add L01 Class feat slot')
+  expect(markup.slice(markup.indexOf('>Aardvark</option>'))).toContain('Add L02 Class feat slot')
 })
 
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
@@ -84,8 +85,23 @@ it('shows the current background skill feat above level-based skill feats', () =
   expect(markup).toContain('Background Skill Feat')
   expect(markup).toContain('Survey Wildlife')
   expect(markup.indexOf('Background Skill Feat')).toBeLessThan(markup.indexOf('L02 Skill Feats'))
-  expect(markup).toContain('aria-label="Single Action"')
   expect(render({ ...c, background: undefined })).not.toContain('Background Skill Feat')
+})
+
+it('includes action symbols in feat choices and shows add control on each level top row', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const entries: ContentEntry[] = [{
+    id: 'quick-draw', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Quick Draw', level: 1,
+    traits: ['Ranger'], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0,
+  }]
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['class']} bare />)
+  expect(markup).toContain('Quick Draw ◆ (Single Action)')
+  expect(markup).not.toContain('class="action-cost"')
+  expect((markup.match(/aria-label="Add L\d{2} Class feat slot"/g) ?? [])).toHaveLength(2)
 })
 
 it('routes mixed background grants to their own feat sections and hides rows when no feats are granted', () => {

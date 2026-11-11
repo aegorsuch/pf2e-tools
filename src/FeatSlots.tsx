@@ -1,6 +1,7 @@
 import { eligibleFeats, featType, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
+import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
 import type { FeatSlotCategory } from './types'
 
@@ -86,7 +87,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const options = eligibleFeats(entries, c, s)
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
-          const first = allSlots.find((slot) => slot.category === s.category && slot.level === s.level)?.key === s.key
+          const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
           const extra = !standardKeys.has(s.key)
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (
@@ -94,19 +95,20 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
               <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
-                {current && !options.some((o) => o.name === current) && <option>{current}</option>}
+                {current && !options.some((o) => o.name === current) && (
+                  <option value={current}>{actionOptionLabel(current, entries.find((entry) => entry.kind === 'feat' && entry.name === current))}</option>
+                )}
                 {[...optionsByLevel].map(([level, levelOptions]) => (
                   <optgroup key={level} label={`L${String(level).padStart(2, '0')}`}>
-                    {levelOptions.map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}
+                    {levelOptions.map((option) => <option key={option.id} value={option.name}>{actionOptionLabel(option.name, option)}</option>)}
                   </optgroup>
                 ))}
               </select>
-              {current && <ActionIcon entry={entries.find((entry) => entry.kind === 'feat' && entry.name === current)} />}
-              {first && current && <button type="button" aria-label={`Add ${label} feat slot`}
+              {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
+              {firstAtLevel && <button type="button" aria-label={`Add ${label} feat slot`}
                 onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>}
               {extra && <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
                 onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>}
-              {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
             </li>
           )
         })}

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { FeatChoice } from './FeatChoice'
+import { FeatSlots } from './FeatSlots'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { eligibleFeats } from './builder'
@@ -78,6 +79,29 @@ it('hides another Warden feat when all distinct spells are chosen', () => {
   const almostFull = { ...c, feats: choices.slice(0, -1) }
   expect(eligibleFeats([initiate, ...allSpells], almostFull, { key: 'class:1:3', category: 'class', level: 1 }))
     .toContainEqual(initiate)
+})
+
+it('places Warden spell choices before add and remove slot controls', () => {
+  const c: Character = {
+    ...base,
+    feats: [
+      { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Gravity Weapon' },
+      { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:1', choice: 'Heal Companion' },
+    ],
+    extraSlots: [{ category: 'class', level: 1, count: 1 }],
+  }
+  const feat: ContentEntry = {
+    id: 'initiate', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Initiate Warden', level: 1,
+    traits: ['Ranger'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }
+  const rows = [...renderToStaticMarkup(<FeatSlots c={c} entries={[feat, ...entries]} save={() => {}} categories={['class']} bare />)
+    .matchAll(/<li class="feat-slot-row[^"]*">([\s\S]*?)<\/li>/g)].map((match) => match[1])
+  const addRow = rows.find((row) => row.includes('aria-label="Add L01 Class feat slot"'))
+  const removeRow = rows.find((row) => row.includes('aria-label="Remove L01 Class extra feat slot 1"'))
+  expect(addRow).toBeDefined()
+  expect(removeRow).toBeDefined()
+  expect(addRow!.indexOf('class="feat-choice"')).toBeLessThan(addRow!.indexOf('aria-label="Add L01 Class feat slot"'))
+  expect(removeRow!.indexOf('class="feat-choice"')).toBeLessThan(removeRow!.indexOf('aria-label="Remove L01 Class extra feat slot 1"'))
 })
 
 it('shows feat grants once without deleting independently added spells', () => {
