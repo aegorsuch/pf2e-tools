@@ -25,8 +25,14 @@ export function wardenSpellOptions(feat: Character['feats'][number], entries: Co
   return wardenSpellsAtTier(tier, entries)
 }
 
+// House addition: Snare Hopping is offered alongside the Initiate Warden spells
+const EXTRA_WARDEN_SPELLS: Record<string, string[]> = { Initiate: ['Snare Hopping'] }
+
+export const wardenTierOf = (entry: ContentEntry) =>
+  entry.data.warden_spell_tier ?? Object.entries(EXTRA_WARDEN_SPELLS).find(([, names]) => names.includes(entry.name))?.[0]
+
 function wardenSpellsAtTier(tier: string, entries: ContentEntry[]) {
-  return entries.filter((entry) => entry.kind === 'spell' && entry.systems.includes('pf2e') && entry.data.warden_spell_tier === tier)
+  return entries.filter((entry) => entry.kind === 'spell' && entry.systems.includes('pf2e') && wardenTierOf(entry) === tier)
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 

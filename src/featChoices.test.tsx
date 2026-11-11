@@ -5,7 +5,7 @@ import { mapAonHit } from './aon'
 import { FeatChoice } from './FeatChoice'
 import { FeatSlots } from './FeatSlots'
 import { SpellsSection } from './SpellsSection'
-import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel } from './featChoices'
+import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats } from './builder'
 import { classSpellcasting } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -201,4 +201,11 @@ it('allows a text choice for other repeatable feats without granting an unrelate
   field.props.onBlur({ target: { value: 'Leaf' } })
   expect(c.feats[0].choice).toBe('Leaf')
   expect(grantedWardenSpells(c, [feat])).toEqual([])
+})
+
+it('offers Snare Hopping with the Initiate Warden spells', () => {
+  const snare: ContentEntry = { ...spell('Snare Hopping', 'Initiate'), data: {} }
+  const options = wardenSpellOptions({ name: 'Initiate Warden', type: 'Class Feat', level: 1 }, [...entries, snare])
+  expect(options.map((o) => o.name)).toEqual(['Gravity Weapon', 'Heal Companion', 'Snare Hopping'])
+  expect(wardenSpellOptions({ name: 'Advanced Warden', type: 'Class Feat', level: 4 }, [...entries, snare]).map((o) => o.name)).toEqual(['Animal Feature'])
 })

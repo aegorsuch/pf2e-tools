@@ -2,7 +2,7 @@ import { Info } from './Info'
 import { useMemo, useState } from 'react'
 import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character } from './types'
-import { grantedWardenSpells, spellWardenLabel } from './featChoices'
+import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 
 export function SpellsSection({ c, entries, save }: SectionProps) {
@@ -37,7 +37,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
   }
   const listedSpells = [
-    ...granted.map((s) => ({ name: s.name, entryId: s.id, group: spellWardenLabel(s.data.warden_spell_tier) ?? `Rank ${s.level}`, index: -1 })),
+    ...granted.map((s) => ({ name: s.name, entryId: s.id, group: spellWardenLabel(wardenTierOf(s)) ?? `Rank ${s.level}`, index: -1 })),
     ...spells.flatMap((s, index) => manualSpells.includes(s) ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const groupOrder = ['Cantrips', ...Array.from({ length: 10 }, (_, i) => `Rank ${i + 1}`),
