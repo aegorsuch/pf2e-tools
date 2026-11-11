@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import {
-  propertyRunes, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
+  propertyRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -93,20 +93,42 @@ export function Search({ entries, kind, label, onPick }: {
   )
 }
 
-function Runes({ runes, options, limit, freeRunes = [], onChange }: {
+function Rune({ name, entry, onRemove }: { name: string; entry?: ContentEntry; onRemove?: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  return (
+    <span className="rune" title={onRemove ? undefined : 'Granted by Living Weapon'}>
+      <button type="button" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>{name}</button>
+      {onRemove && <button type="button" aria-label={`Remove ${name} rune`} onClick={onRemove}>×</button>}
+      <dialog ref={dialog} className="rune-dialog" aria-labelledby={titleId}
+        onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
+        <h4 id={titleId}>{name}{entry && <small> (Level {entry.level})</small>}</h4>
+        <p>{entry?.description || 'Rune description unavailable. Sync Archives of Nethys content to load it.'}</p>
+        {typeof entry?.data.url === 'string' && <p><a href={entry.data.url} target="_blank" rel="noreferrer">Archives of Nethys</a></p>}
+        <form method="dialog"><button autoFocus>Close</button></form>
+      </dialog>
+    </span>
+  )
+}
+
+function Runes({ runes, options, entries, limit, freeRunes = [], onChange }: {
   runes: string[]
   options: { name: string; level?: number }[]
+  entries: ContentEntry[]
   limit: number
   freeRunes?: string[]
   onChange: (r: string[]) => void
 }) {
   const sortedRunes = [...runes].sort((a, b) => a.localeCompare(b))
+  const entryFor = (name: string) => entries.find((entry) => entry.kind === 'item'
+    && /Property Runes$/.test(String(entry.data.item_subcategory))
+    && runeName(entry.name) === runeName(name).split(':')[0])
   return (
     <div className="gear-runes">
       {sortedRunes.map((r) => (
-        <button key={r} type="button" className="rune" title="Remove rune" onClick={() => onChange(runes.filter((x) => x !== r))}>{r} ×</button>
+        <Rune key={r} name={r} entry={entryFor(r)} onRemove={() => onChange(runes.filter((x) => x !== r))} />
       ))}
-      {[...freeRunes].sort((a, b) => a.localeCompare(b)).map((r) => <span key={r} className="rune" title="Granted by Living Weapon">{r}</span>)}
+      {[...freeRunes].sort((a, b) => a.localeCompare(b)).map((r) => <Rune key={r} name={r} entry={entryFor(r)} />)}
       {runes.length < limit && (
         <select aria-label="Add property rune" value="" onChange={(e) => e.target.value && onChange([...runes, e.target.value].sort((a, b) => a.localeCompare(b)))}>
           <option value="">Add rune…</option>
@@ -146,7 +168,8 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         onPick={(e) => save({ weapons: [...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }] })} />
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
-        const freeShifting = hasLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
+        const canUseLivingWeapon = hasLivingWeapon && !a.traits.some((trait) => /^free[- ]hand$/i.test(trait.trim()))
+        const freeShifting = canUseLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
         const damageRunes = w.runes.filter((rune) => rune !== 'Shifting').sort((x, y) => x.localeCompare(y))
           .map((rune) => /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force' : rune)
         return (
@@ -168,10 +191,10 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <Level label="Striking" value={w.striking} options={POTENCY} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />
             </div>
-            <Runes runes={w.runes} options={propertyRunes(entries, 'Weapon').filter((rune) => !freeShifting || rune.name !== 'Shifting')}
+            <Runes runes={w.runes} entries={entries} options={propertyRunes(entries, 'Weapon').filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={maxPropertyRunes(w.potency)} freeRunes={freeShifting ? ['Shifting'] : []} onChange={(runes) => update(w.id, { runes })} />
             <div className="row">
-              {hasLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
+              {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
               <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>×</button>
             </div>
@@ -215,7 +238,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
               <Level label="Resilient" value={a.resilient} options={POTENCY} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />
             </div>
-            <Runes runes={a.runes} options={propertyRunes(entries, 'Armor')} limit={maxPropertyRunes(a.potency)} onChange={(runes) => update(a.id, { runes })} />
+            <Runes runes={a.runes} entries={entries} options={propertyRunes(entries, 'Armor')} limit={maxPropertyRunes(a.potency)} onChange={(runes) => update(a.id, { runes })} />
             <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove" onClick={() => save({ armors: armors.filter((x) => x.id !== a.id) })}>×</button>
           </article>
         )

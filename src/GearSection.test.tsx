@@ -23,7 +23,7 @@ it('shows rune levels and sorts existing weapon runes alphabetically', () => {
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
 
   expect(markup).toContain('<option value="Shifting">Shifting (Level 6)</option>')
-  expect(markup.indexOf('Flaming ×')).toBeLessThan(markup.indexOf('Wounding ×'))
+  expect(markup.indexOf('Remove Flaming rune')).toBeLessThan(markup.indexOf('Remove Wounding rune'))
   expect(markup).not.toContain('>Stow</button>')
   expect(markup).not.toContain('>Draw</button>')
 })
@@ -32,17 +32,27 @@ it('adds free Shifting only when Living Weapon is selected on the weapon', () =>
   const feat = { name: 'Living Weapon', type: 'General Feat', level: 1 }
   const enabled = renderToStaticMarkup(<WeaponList c={character([feat], true)} entries={[weapon, shifting]} save={() => {}} />)
   expect(enabled).toContain('aria-label="Living Weapon: grant Shifting rune" checked=""')
-  expect(enabled).toContain('title="Granted by Living Weapon">Shifting</span>')
+  expect(enabled).toContain('title="Granted by Living Weapon"')
   expect(enabled).not.toContain('<option value="Shifting">')
 
   const disabled = renderToStaticMarkup(<WeaponList c={character([], true)} entries={[weapon, shifting]} save={() => {}} />)
   expect(disabled).not.toContain('Living Weapon: grant Shifting rune')
-  expect(disabled).not.toContain('title="Granted by Living Weapon">Shifting</span>')
+  expect(disabled).not.toContain('title="Granted by Living Weapon"')
 })
 
 it('omits the no-armor helper text', () => {
   const markup = renderToStaticMarkup(<ArmorList c={character([])} entries={[]} save={() => {}} />)
   expect(markup).not.toContain('No armor worn')
+})
+
+it('blocks Living Weapon on free-hand weapons even when previously enabled', () => {
+  for (const trait of ['Free-Hand', 'free-hand', 'Free Hand']) {
+    const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], true)
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[{ ...weapon, traits: [trait] }, shifting]} save={() => {}} />)
+    expect(markup).not.toContain('Living Weapon: grant Shifting rune')
+    expect(markup).not.toContain('title="Granted by Living Weapon"')
+    expect(markup).toContain('<option value="Shifting">')
+  }
 })
 
 it('keeps purchased and free Shifting runes out of weapon damage', () => {
@@ -52,7 +62,7 @@ it('keeps purchased and free Shifting runes out of weapon damage', () => {
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
     const damage = /<div class="gear-damage">([^<]+)<\/div>/.exec(markup)?.[1]
     expect(damage).toBe('2d8 slashing + Flaming')
-    expect(markup).toContain(free ? 'title="Granted by Living Weapon">Shifting</span>' : '>Shifting ×</button>')
+    expect(markup).toContain(free ? 'title="Granted by Living Weapon"' : 'aria-label="Remove Shifting rune"')
   }
 })
 
@@ -64,7 +74,24 @@ it('shows Impactful force damage without scaling it with striking', () => {
       const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
       const damage = /<div class="gear-damage">([^<]+)<\/div>/.exec(markup)?.[1]
       expect(damage).toBe(`${1 + striking}d8 slashing + 1d6 force`)
-      expect(markup).toContain(`>${rune} ×</button>`)
+      expect(markup).toContain(`aria-label="Remove ${rune} rune"`)
     }
   }
+})
+
+it('provides graded rune descriptions and AoN links separately from removal', () => {
+  const c = character([])
+  c.weapons![0].runes = ['Impactful (Greater)']
+  const impactful: ContentEntry = {
+    ...shifting, id: 'impactful', name: 'Greater Impactful', level: 17,
+    description: 'Greater Impactful description from synced content.',
+    data: { ...shifting.data, url: 'https://2e.aonprd.com/Equipment.aspx?ID=1062' },
+  }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, impactful]} save={() => {}} />)
+  expect(markup).toContain('aria-haspopup="dialog">Impactful (Greater)</button>')
+  expect(markup).toContain('aria-label="Remove Impactful (Greater) rune"')
+  expect(markup).toContain('<dialog')
+  expect(markup).toContain(impactful.description)
+  expect(markup).toContain('href="https://2e.aonprd.com/Equipment.aspx?ID=1062"')
+  expect(markup).toContain('method="dialog"')
 })

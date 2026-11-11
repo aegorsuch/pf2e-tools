@@ -425,6 +425,10 @@
 .gear-stats small { opacity: 0.7; font-size: 0.8em; }
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+.rune { display: inline-flex; align-items: center; }
+.rune-dialog { background: #1a1b22; color: inherit; border: 1px solid var(--border, #2c3340); border-radius: 8px; width: min(32rem, 85vw); max-height: 80vh; overflow-y: auto; }
+.rune-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.rune-dialog p { white-space: pre-wrap; }
 .gear-add { width: 100%; }
 .gear-picker { gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; }
 .gear-tabs { display: flex; gap: 0.25rem; }

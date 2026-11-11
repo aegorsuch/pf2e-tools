@@ -5,7 +5,7 @@ import type { SectionProps } from './builder'
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'General Training' || feat.name === 'Advanced General Training'
+  if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
     || feat.name.startsWith('Incredible Companion') || feat.name.startsWith('Specialized Companion')) return null
   if (feat.name === 'Canny Acumen') {
     return (

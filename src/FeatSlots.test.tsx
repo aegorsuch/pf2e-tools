@@ -280,3 +280,20 @@ it('keeps an existing Advanced General Training choice selected under level 09',
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} save={() => {}} categories={['general']} />)
   expect(markup).toContain('aria-label="L09 General feat"><option value="">- empty -</option><option value="Fleet" selected="">Fleet</option>')
 })
+
+it('omits the Living Weapon summary and inline choice', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Living Weapon', type: 'Class Feat', level: 1, slot: 'class:1:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const feat: ContentEntry = {
+    id: 'living-weapon', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Living Weapon', level: 1,
+    traits: ['Ranger'], description: 'Living Weapon rules summary.', data: { repeatable: true }, effects: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['class']} />)
+  expect(markup).toContain('Living Weapon</option>')
+  expect(markup).not.toContain('Summary')
+  expect(markup).not.toContain('Living Weapon choice')
+})
