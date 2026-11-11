@@ -154,7 +154,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}
         </div>
-        {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}) - {spec.effect}</small> : <small>Armor Specialization: None</small>}
+        {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}{spec.feat ? ` via ${spec.feat} feat` : ''})</small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r) => `${r.damage} ${r.value} (${r.source})`).join(', ') : 'None'}</small>
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
         <ArmorList c={c} entries={entries} save={save} />

@@ -23,6 +23,29 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows armor specialization with armor and granting feat, without rules summary', () => {
+  const armor: ContentEntry = {
+    ...ranger, id: 'wooden-breastplate', kind: 'armor', name: 'Wooden Breastplate',
+    data: { armor_group: 'Wood' },
+  }
+  const group: ContentEntry = {
+    ...ranger, id: 'wood', kind: 'armorGroup', name: 'Wood',
+    description: 'Wood armor splinters, protecting you from critical hits.', data: {},
+  }
+  const feat: ContentEntry = {
+    ...ranger, id: 'skins', kind: 'feat', name: 'Skins of the Slain',
+    data: { grants_armor_specialization: true, grants_armor_groups: 'Wood' },
+  }
+  const c: Character = {
+    ...base,
+    feats: [{ name: feat.name, type: 'Class Feat', level: 1 }],
+    armors: [{ id: 'armor', name: armor.name, worn: true, potency: 0, resilient: 0, runes: [] }],
+  }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger, armor, group, feat]} save={() => {}} part="defense" />)
+  expect(markup).toContain('Armor Specialization: Wood (Wooden Breastplate via Skins of the Slain feat)')
+  expect(markup).not.toContain(group.description)
+})
+
 function findButtons(node: ReactNode) {
   const buttons = new Map<string, Record<string, unknown>>()
   Children.forEach(node, (child) => {

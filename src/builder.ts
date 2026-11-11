@@ -631,7 +631,7 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const category = String(armor?.data.armor_category ?? '').toLowerCase()
   // Class features apply to every group; feats may limit it to named groups and armor categories
   const anyGroup = classFeatures(entries, c).some((f) => /armor specialization/i.test(`${f.name} ${f.description}`))
-  const fromFeat = c.feats.some((f) => {
+  const fromFeat = c.feats.find((f) => {
     const e = byName(entries, 'feat', f.name)
     if (!e?.data.grants_armor_specialization && !/armor specialization/i.test(f.name)) return false
     const allowed = tokens(e?.data.grants_armor_groups).map((g) => g.toLowerCase())
@@ -640,7 +640,7 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   })
   if (!anyGroup && !fromFeat) return undefined
   const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && e.name.toLowerCase() === g)).find(Boolean)
-  return group ? { group: group.name, armor: worn.name, effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, '') } : undefined
+  return group ? { group: group.name, armor: worn.name, feat: anyGroup ? undefined : fromFeat?.name, effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, '') } : undefined
 }
 
 // Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
