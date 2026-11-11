@@ -1,47 +1,11 @@
 import { db } from './db'
-import type { ContentEntry, EntryKind, GameSystem } from './types'
-
-// Verified live: both systems share one Elasticsearch host, split by index (pf2e: aon, sf2e: aonsf).
-export const AON_ENDPOINTS: Record<GameSystem, string> = {
-  pf2e: 'https://elasticsearch.aonprd.com/aon/_search',
-  sf2e: 'https://elasticsearch.aonprd.com/aonsf/_search',
-}
+import { CATEGORY_TO_KIND, DATA_FIELDS, fetchAonHits, type Hit } from './aonQuery.ts'
+import type { ContentEntry, GameSystem } from './types'
 
 export const AON_SITES: Record<GameSystem, string> = {
   pf2e: 'https://2e.aonprd.com',
   sf2e: 'https://2e.aonsrd.com',
 }
-
-// Scalar/array fields copied into entry.data (arrays are joined with ", ")
-const DATA_FIELDS = [
-  'hp', 'size', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite',
-  'actions', 'trigger', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'ac', 'dex_cap', 'strength',
-  'check_penalty', 'range', 'tradition', 'school', 'item_category', 'perception_proficiency',
-  'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency', 'divine_font',
-  'domain_primary', 'sanctification',
-]
-const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
-
-// Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
-const REMASTER_ONLY = (category: string) => ({
-  bool: { filter: [{ term: { category } }], must_not: [{ exists: { field: 'remaster_id' } }] },
-})
-
-const CATEGORY_TO_KIND: Record<string, EntryKind> = {
-  feat: 'feat',
-  weapon: 'weapon',
-  armor: 'armor',
-  spell: 'spell',
-  equipment: 'item',
-  ancestry: 'ancestry',
-  class: 'class',
-  background: 'background',
-  heritage: 'heritage',
-  deity: 'deity',
-  'class-feature': 'classFeature',
-}
-
-type Hit = { _id?: string; _source?: Record<string, unknown> }
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
@@ -85,23 +49,25 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   }
 }
 
-// Fetch every category page from AoN and store as official entries (replaces prior AoN copies).
-export async function importFromAon(system: GameSystem, onProgress?: (n: number) => void) {
-  const categories = Object.keys(CATEGORY_TO_KIND)
-  const entries: ContentEntry[] = []
-  for (const category of categories) {
-    const res = await fetch(AON_ENDPOINTS[system], {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: SOURCE_FIELDS }),
-    })
-    if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
-    const json = (await res.json()) as { hits?: { hits?: Hit[] } }
-    for (const h of json.hits?.hits ?? []) {
-      const e = mapAonHit(h, system)
-      if (e) entries.push(e)
+// Hits come from the snapshot built at deploy time. AoN's Elasticsearch only allows CORS from its own
+// sites and localhost, so the deployed app cannot query it directly; direct queries are the fallback.
+async function loadHits(system: GameSystem, onProgress?: (n: number) => void) {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}data/aon-${system}.json`)
+    if (res.ok) {
+      const hits = (await res.json()) as unknown
+      if (Array.isArray(hits) && hits.length) return hits as Hit[]
     }
-    onProgress?.(entries.length)
+  } catch { /* no snapshot; query AoN directly */ }
+  return fetchAonHits(system, fetch, onProgress)
+}
+
+// Store every AoN entry as official content (replaces prior AoN copies).
+export async function importFromAon(system: GameSystem, onProgress?: (n: number) => void) {
+  const entries: ContentEntry[] = []
+  for (const h of await loadHits(system, onProgress)) {
+    const e = mapAonHit(h, system)
+    if (e) entries.push(e)
   }
   // Tombstone previously imported entries that are no longer in the (remaster-only) results
   const fresh = new Set(entries.map((e) => e.id))

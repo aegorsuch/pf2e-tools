@@ -22,7 +22,7 @@ export default defineConfig({
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,json,svg}'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,json,svg}'], globIgnores: ['data/**'] },
     }),
   ],
 })

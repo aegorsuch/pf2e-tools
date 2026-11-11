@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "fetch-aon": "node scripts/fetch-aon.ts",
+    "build": "npm run fetch-aon && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },

@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Weekly rebuild refreshes the bundled Archives of Nethys snapshot
+  schedule:
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
@@ -24,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run build
