@@ -407,3 +407,10 @@
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .gear-add { width: 100%; }
+.gear-picker { gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; }
+.gear-tabs { display: flex; gap: 0.25rem; }
+.gear-tabs button { border: 0; background: none; border-bottom: 2px solid transparent; border-radius: 0; }
+.gear-tabs button.on { border-bottom-color: var(--accent, #7c6cf0); }
+.gear-filters { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.gear-results { max-height: 20rem; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.gear-results li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack,
+  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -8,7 +8,38 @@ import type { ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
 
-function Search({ entries, kind, label, onPick }: {
+type Filter = { label: string; values: (e: ContentEntry) => string[] }
+
+const text = (v: unknown) => (v === undefined || v === '' ? [] : [String(v)])
+const CATEGORY = /^(light|medium|heavy)( armor)?$/i
+const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
+  weapon: [
+    { label: 'Proficiencies', values: (e) => [weaponCategory(e)] },
+    { label: 'Rarities', values: (e) => text(e.data.rarity) },
+    { label: 'Types', values: (e) => [Number(e.data.range) > 0 ? 'Ranged' : 'Melee'] },
+    { label: 'Groups', values: (e) => text(e.data.weapon_group) },
+    { label: 'Hands', values: (e) => text(e.data.hands) },
+    { label: 'Dice', values: (e) => text(/\d+(d\d+)/.exec(String(e.data.damage ?? ''))?.[1]) },
+    { label: 'Traits', values: (e) => e.traits },
+  ],
+  armor: [
+    { label: 'Categories', values: (e) => [e.traits.find((t) => CATEGORY.test(t))?.replace(/ armor$/i, '') ?? 'Unarmored'] },
+    { label: 'Rarities', values: (e) => text(e.data.rarity) },
+    { label: 'Groups', values: (e) => text(e.data.armor_group) },
+    { label: 'Traits', values: (e) => e.traits.filter((t) => !CATEGORY.test(t)) },
+  ],
+  shield: [
+    { label: 'Rarities', values: (e) => text(e.data.rarity) },
+    { label: 'Traits', values: (e) => e.traits },
+  ],
+}
+const TABS = ['Standard', 'Magic', 'Custom', 'All'] as const
+const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) => {
+  const magical = e.traits.some((t) => t.toLowerCase() === 'magical')
+  return tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? magical : e.source !== 'homebrew' && !magical)
+}
+
+export function Search({ entries, kind, label, onPick }: {
   entries: ContentEntry[]
   kind: 'weapon' | 'armor' | 'shield'
   label: string
@@ -16,25 +47,48 @@ function Search({ entries, kind, label, onPick }: {
 }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
+  const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const pool = entries.filter((e) => e.kind === kind)
+  const filters = FILTERS[kind].map((f) => ({ ...f, options: [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort() }))
   const query = q.trim().toLowerCase()
-  const matches = query
-    ? entries.filter((e) => e.kind === kind && e.name.toLowerCase().includes(query))
-      .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 30)
-    : []
+  const matches = [...new Map(
+    pool
+      .filter((e) => inTab(e, tab) && (!query || e.name.toLowerCase().includes(query)))
+      .filter((e) => filters.every((f) => !picked[f.label] || f.values(e).includes(picked[f.label])))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((m) => [m.name, m]),
+  ).values()]
+  const close = () => { setOpen(false); setQ(''); setPicked({}) }
   if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
   return (
-    <div className="col">
+    <div className="col gear-picker">
+      <div className="gear-tabs" role="tablist">
+        {TABS.map((t) => (
+          <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
+        ))}
+      </div>
+      <div className="gear-filters">
+        {filters.filter((f) => f.options.length > 0).map((f) => (
+          <select key={f.label} aria-label={f.label} value={picked[f.label] ?? ''}
+            onChange={(e) => setPicked({ ...picked, [f.label]: e.target.value })}>
+            <option value="">All {f.label}</option>
+            {f.options.map((o) => <option key={o}>{o}</option>)}
+          </select>
+        ))}
+      </div>
       <div className="row">
         <input autoFocus placeholder={`Search ${kind}s`} value={q} onChange={(e) => setQ(e.target.value)} />
-        <button type="button" onClick={() => { setOpen(false); setQ('') }}>Cancel</button>
+        <button type="button" onClick={close}>Cancel</button>
       </div>
-      <ul>
-        {[...new Map(matches.map((m) => [m.name, m])).values()].map((m) => (
+      <ul className="gear-results">
+        {matches.map((m) => (
           <li key={m.id}>
-            <b>{m.name}</b>{m.level ? ` (level ${m.level})` : ''}{' '}
-            <button type="button" onClick={() => { onPick(m); setOpen(false); setQ('') }}>Add</button>
+            <span><b>{m.name}</b>{m.data.damage ? ` (${m.data.damage})` : ''}{m.level ? ` (level ${m.level})` : ''}</span>
+            <button type="button" onClick={() => { onPick(m); close() }}>Add</button>
           </li>
         ))}
+        {matches.length === 0 && <li><small>No {kind}s match.</small></li>}
       </ul>
     </div>
   )

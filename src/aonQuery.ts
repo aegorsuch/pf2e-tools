@@ -14,7 +14,7 @@ export const DATA_FIELDS = [
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
-  'defense_proficiency', 'divine_font', 'hardness',
+  'defense_proficiency', 'divine_font', 'hardness', 'weapon_group', 'armor_group',
   'domain_primary', 'sanctification', 'warden_spell_tier',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
