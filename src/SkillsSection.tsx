@@ -10,7 +10,7 @@ const RANK_LETTERS = ['T', 'E', 'M', 'L']
 function ProficiencyBadges({ groups, ranks, labels }: { groups: readonly string[]; ranks: Record<string, number>; labels?: Record<string, string> }) {
   return (
     <div className="prof-badges">
-      {groups.map((group) => (
+      {[...groups].sort((a, b) => a.localeCompare(b)).map((group) => (
         <span key={group} title={RANKS[ranks[group]]}>
           <b className={`prof-badge${ranks[group] > 0 ? ' trained' : ''}`}>{ranks[group] > 0 ? RANK_LETTERS[ranks[group] - 1] : 'U'}</b>
           {labels?.[group] ?? group}
