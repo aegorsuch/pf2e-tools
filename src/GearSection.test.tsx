@@ -24,6 +24,8 @@ it('shows rune levels and sorts existing weapon runes alphabetically', () => {
 
   expect(markup).toContain('<option value="Shifting">Shifting (Level 6)</option>')
   expect(markup.indexOf('Flaming ×')).toBeLessThan(markup.indexOf('Wounding ×'))
+  expect(markup).not.toContain('>Stow</button>')
+  expect(markup).not.toContain('>Draw</button>')
 })
 
 it('adds free Shifting only when Living Weapon is selected on the weapon', () => {
@@ -41,4 +43,15 @@ it('adds free Shifting only when Living Weapon is selected on the weapon', () =>
 it('omits the no-armor helper text', () => {
   const markup = renderToStaticMarkup(<ArmorList c={character([])} entries={[]} save={() => {}} />)
   expect(markup).not.toContain('No armor worn')
+})
+
+it('keeps purchased and free Shifting runes out of weapon damage', () => {
+  for (const free of [false, true]) {
+    const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], free)
+    c.weapons![0].runes = free ? ['Flaming'] : ['Shifting', 'Flaming']
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
+    const damage = /<div class="gear-damage">([^<]+)<\/div>/.exec(markup)?.[1]
+    expect(damage).toBe('2d8 slashing + Flaming')
+    expect(markup).toContain(free ? 'title="Granted by Living Weapon">Shifting</span>' : '>Shifting ×</button>')
+  }
 })

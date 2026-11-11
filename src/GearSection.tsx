@@ -147,7 +147,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
         const freeShifting = hasLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
-        const shownRunes = [...w.runes, ...(freeShifting ? ['Shifting'] : [])].sort((x, y) => x.localeCompare(y))
+        const damageRunes = w.runes.filter((rune) => rune !== 'Shifting').sort((x, y) => x.localeCompare(y))
         return (
           <details key={w.id} className="gear-card" open>
             <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}</small></summary>
@@ -160,7 +160,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <span><small>Proficiency</small>{signed(a.prof)}</span>
               <span><small>Item</small>{signed(a.item)}</span>
             </div>
-            {a.damage && <div className="gear-damage">{a.damage}{shownRunes.length > 0 && ` + ${shownRunes.join(', ')}`}</div>}
+            {a.damage && <div className="gear-damage">{a.damage}{damageRunes.length > 0 && ` + ${damageRunes.join(', ')}`}</div>}
             <div className="row">
               <Level label="Potency" value={w.potency} options={POTENCY} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(w.id, { potency, runes: w.runes.slice(0, maxPropertyRunes(potency)) })} />
@@ -172,7 +172,6 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             <div className="row">
               {hasLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
-              <button type="button" aria-pressed={!!w.stowed} onClick={() => update(w.id, { stowed: !w.stowed })}>{w.stowed ? 'Draw' : 'Stow'}</button>
               <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>×</button>
             </div>
           </details>
