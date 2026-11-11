@@ -245,19 +245,6 @@
   }
 }
 
-.ability-section > summary {
-  cursor: pointer;
-  width: fit-content;
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-
-  h3 {
-    display: inline-block;
-    margin-block: 0.6em;
-  }
-}
-
 .character-section {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -285,7 +272,6 @@
   padding: 8px 0;
 }
 
-.ability-section > summary,
 .character-section > summary {
   list-style: none;
 
@@ -305,7 +291,6 @@
   }
 }
 
-.ability-section[open] > summary::before,
 .character-section[open] > summary::before {
   transform: rotate(45deg);
 }
