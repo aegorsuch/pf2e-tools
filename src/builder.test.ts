@@ -1,3 +1,4 @@
+import { parseClericSpells } from './aonQuery'
 import { describe, expect, it } from 'vitest'
 import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
@@ -293,5 +294,12 @@ describe('auto-advance lores', () => {
     expect(ranksAt(c, [bg])['Academia Lore']).toBe(1)
     updateSettings({ autoLores: true })
     try { expect(ranksAt(c, [bg])['Academia Lore']).toBe(3) } finally { updateSettings({ autoLores: false }) }
+  })
+})
+
+describe('deity cleric spells', () => {
+  it('parses spells by rank from a deity page', () => {
+    const md = '**Cleric Spells**\n\n- **1st**\n[Summon Animal](/Spells.aspx?ID=1694)\n\n- **2nd**\n[Speak with Animals](/Spells.aspx?ID=1680)\n\n</column>'
+    expect(parseClericSpells(md)).toBe('1st: Summon Animal; 2nd: Speak with Animals')
   })
 })

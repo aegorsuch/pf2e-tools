@@ -16,6 +16,7 @@ export const DATA_FIELDS = [
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
   'domain_primary', 'sanctification', 'warden_spell_tier',
+  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
@@ -49,6 +50,12 @@ export const plain = (md: string) => md
   .trim()
 
 const DAMAGE_TYPES = 'acid|cold|electricity|fire|sonic|poison|mental|force|negative|positive|vitality|void|bludgeoning|piercing|slashing|physical|spirit'
+// Cleric spells by rank from a deity page: "1st: Summon Animal; 2nd: Speak with Animals"
+export function parseClericSpells(md: string) {
+  const section = /\*\*Cleric Spells\*\*([\s\S]*?)(?:<\/column>|$)/.exec(md)?.[1] ?? ''
+  return [...section.matchAll(/-\s*\*\*([^*]+)\*\*\s*\n([^\n]+)/g)].map((m) => `${m[1].trim()}: ${plain(m[2])}`).join('; ')
+}
+
 // Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
 export function parseResistances(t: string) {
   const out: string[] = []
@@ -76,6 +83,10 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         // Only resistance text is needed from most markdown; keep the full text for feats and class features
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))
         if (found) s.resistances = found
+        if (category === 'deity' && typeof s.markdown === 'string') {
+          const spells = parseClericSpells(s.markdown)
+          if (spells) s.cleric_spells = spells
+        }
         if (category !== 'feat' && category !== 'class-feature') delete s.markdown
       }
       hits.push(hit)

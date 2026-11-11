@@ -35,6 +35,38 @@ function Pick({ label, kind, value, options, onChange }: {
   )
 }
 
+function DeityCard({ deity }: { deity?: ContentEntry }) {
+  if (!deity) return null
+  const d = deity.data
+  const line = (label: string, value: unknown) => value ? <p><b>{label}</b> {String(value)}</p> : null
+  return (
+    <div className="deity-card">
+      <h4>{deity.name}</h4>
+      {deity.description && <p>{deity.description}</p>}
+      {line('Category', d.deity_category)}
+      {line('Edicts', d.edict)}
+      {line('Anathema', d.anathema)}
+      {line('Area of Concern', d.area_of_concern)}
+      {line('Religious Symbol', d.religious_symbol)}
+      <h5>Devotee Benefits</h5>
+      {line('Divine Attribute', String(d.attribute ?? '').replace(/, /g, ' or '))}
+      {line('Divine Font', String(d.divine_font ?? '').replace(/, /g, ' or '))}
+      {line('Divine Sanctification', d.sanctification)}
+      {line('Divine Skill', d.skill)}
+      {line('Favored Weapon', String(d.favored_weapon ?? '').replace(/, /g, ' or '))}
+      {line('Domains', d.domain_primary ?? d.domain)}
+      {line('Alternate Domains', d.domain_alternate)}
+      {d.cleric_spells && (
+        <>
+          <p><b>Cleric Spells</b></p>
+          <ul>{String(d.cleric_spells).split('; ').map((s) => <li key={s}>{s}</li>)}</ul>
+        </>
+      )}
+      {d.url && <small><a href={String(d.url)} target="_blank" rel="noreferrer">Archives of Nethys</a></small>}
+    </div>
+  )
+}
+
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
@@ -181,6 +213,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
+          <DeityCard deity={c.deity ? of('deity').find((d) => d.name === c.deity) : undefined} />
         </div>
       </details>
 

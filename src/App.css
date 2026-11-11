@@ -434,3 +434,7 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .top-actions { display: flex; gap: 0.4rem; align-items: center; }
 .account { position: relative; }
 .account-menu { position: absolute; right: 0; top: 100%; z-index: 10; min-width: 12rem; padding: 0.5rem; background: var(--bg, #16171d); border: 1px solid var(--border, #2c3340); border-radius: 8px; }
+
+.deity-card { margin-top: 0.5rem; text-align: left; }
+.deity-card p { margin: 0.35rem 0; }
+.deity-card h4, .deity-card h5 { margin: 0.6rem 0 0.2rem; }
