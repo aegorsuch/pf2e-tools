@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
+import { classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -13,6 +13,10 @@ const entries = [
     attribute: 'Intelligence', perception_proficiency: 'Trained', will_proficiency: 'Expert',
     skill_proficiency: 'Trained in Arcana, Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
   }),
+  entry('classFeature', 'Arcane School', { class: 'Wizard' }),
+  entry('classFeature', 'Will Expertise', { class: 'Wizard' }, 9),
+  entry('classFeature', 'Wizard Feats', { class: 'Wizard' }),
+  entry('classFeature', 'Rage', { class: 'Barbarian' }),
   entry('feat', 'Toughness', {}, 1, ['General']),
   entry('feat', 'Fleet', {}, 1, ['General']),
   entry('feat', 'Counterspell', {}, 1, ['Wizard']),
@@ -71,5 +75,18 @@ describe('skills', () => {
     const c = { ...base, level: 3, skillPicks: ['Society'], skillIncreases: { 3: 'Society' }, rankOverrides: { Reflex: 2 } }
     const r = ranksAt(c, entries)
     expect(r).toMatchObject({ Arcana: 1, Society: 2, 'Academia Lore': 1, Perception: 1, Will: 2, Reflex: 2 })
+  })
+})
+
+describe('classFeatures', () => {
+  it('lists own-class features up to level, skipping planner-covered ones', () => {
+    expect(classFeatures(entries, base).map((f) => f.name)).toEqual(['Arcane School'])
+    expect(classFeatures(entries, { ...base, level: 9 }).map((f) => f.name)).toEqual(['Arcane School', 'Will Expertise'])
+  })
+  it('raises save ranks from expertise features', () => {
+    expect(ranksAt(base, entries).Will).toBe(2)
+    expect(ranksAt({ ...base, level: 9 }, entries).Will).toBe(2)
+    const e = entries.map((x) => (x.name === 'Will Expertise' ? { ...x, name: 'Reflex Expertise' } : x))
+    expect(ranksAt({ ...base, level: 9 }, e).Reflex).toBe(2)
   })
 })

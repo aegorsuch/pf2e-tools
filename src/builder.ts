@@ -175,6 +175,35 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 }
 
+// ---------- Class features ----------
+
+// Covered by the boost, slot and skill planners rather than listed as features
+const PLANNER_FEATURE = /^(ancestry and background|attribute boosts|skill increases|(.+ )?feats?)$/i
+
+// Features the class grants automatically up to the character's level
+export function classFeatures(entries: ContentEntry[], c: Character) {
+  if (!c.className) return []
+  const seen = new Set<string>()
+  return entries
+    .filter((e) => e.kind === 'classFeature' && e.data.class === c.className && e.level <= c.level && !PLANNER_FEATURE.test(e.name))
+    .filter((e) => !seen.has(`${e.level}:${e.name}`) && seen.add(`${e.level}:${e.name}`))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+}
+
+const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend: 4 }
+
+// "Reflex Expertise", "Perception Mastery" and similar raise that statistic's rank
+export function featureRanks(features: ContentEntry[]) {
+  const ranks: Record<string, number> = {}
+  for (const f of features) {
+    const m = /^(Perception|Fortitude|Reflex|Will) (Expertise|Mastery|Legend)$/i.exec(f.name)
+    if (!m) continue
+    const stat = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()
+    ranks[stat] = Math.max(ranks[stat] ?? 0, FEATURE_RANK[m[2].toLowerCase()])
+  }
+  return ranks
+}
+
 // ---------- Skills & proficiencies ----------
 
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
@@ -236,6 +265,7 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
   ranks.Fortitude = rankFromText(klass?.data.fortitude_proficiency)
   ranks.Reflex = rankFromText(klass?.data.reflex_proficiency)
   ranks.Will = rankFromText(klass?.data.will_proficiency)
+  for (const [stat, rank] of Object.entries(featureRanks(classFeatures(entries, c)))) ranks[stat] = Math.max(ranks[stat] ?? 0, rank)
   return ranks
 }
 

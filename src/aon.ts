@@ -20,7 +20,7 @@ const DATA_FIELDS = [
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency', 'divine_font',
   'domain_primary', 'sanctification',
 ]
-const SOURCE_FIELDS = ['name', 'category', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
+const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
 // Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
 const REMASTER_ONLY = (category: string) => ({
@@ -38,6 +38,7 @@ const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   background: 'background',
   heritage: 'heritage',
   deity: 'deity',
+  'class-feature': 'classFeature',
 }
 
 type Hit = { _id?: string; _source?: Record<string, unknown> }
@@ -66,6 +67,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (typeof land === 'number') data.speed = land
   // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
+  if (kind === 'classFeature') data.class = text(s.class)
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
   return {
     id: `aon:${system}:${hit._id ?? `${kind}:${name}`}`,

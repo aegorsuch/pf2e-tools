@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection } from './AbilitiesSection'
 import { computeAbilities, featType, heritagesFor, maxHp } from './builder'
+import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
@@ -98,6 +99,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
 
       <AbilitiesSection {...section} />
       <SkillsSection {...section} />
+      <ClassFeatures {...section} />
       <FeatSlots {...section} />
       <SpellsSection {...section} />
 
