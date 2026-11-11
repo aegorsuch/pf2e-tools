@@ -7,6 +7,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   const listed = new Set(Object.values(groups).flat().map(([l]) => l.toLowerCase()))
   const picked = c.languages.filter((l) => !lockedKeys.has(l.toLowerCase()))
   const custom = picked.filter((l) => !listed.has(l.toLowerCase()))
+  const grantOnly = new Set(['wildsong'])
   const left = slots - picked.length
   const toggle = (lang: string) => {
     const on = picked.some((l) => l.toLowerCase() === lang.toLowerCase())
@@ -16,7 +17,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   return (
     <div className="col language-picker">
       <small>
-        {locked.join(', ')} are granted. {left >= 0 ? `${left} more language${left === 1 ? '' : 's'} to choose` : `${-left} too many selected`}
+        {left >= 0 ? `${left} more language${left === 1 ? '' : 's'} to choose` : `${-left} too many selected`}
       </small>
       {Object.entries(groups).map(([category, langs]) => (
         <fieldset key={category}>
@@ -27,7 +28,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
               const on = isLocked || picked.some((l) => l.toLowerCase() === lang.toLowerCase())
               return (
                 <label key={lang}>
-                  <input type="checkbox" checked={on} disabled={isLocked || (!on && left <= 0)} onChange={() => toggle(lang)} /> {lang} {who && who !== lang && <small>({who})</small>}
+                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && left <= 0)} onChange={() => toggle(lang)} /> {lang} {who && who !== lang && <small>({who})</small>}
                 </label>
               )
             })}
