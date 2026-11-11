@@ -105,12 +105,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 ))}
               </select>
               {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
-              {firstAtLevel && <button type="button" aria-label={`Add ${label} feat slot`}
-                onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>}
-              {!firstAtLevel && <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
-              {extra && <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
-                onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>}
-              {!extra && <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>−</button>}
+              {extra
+                ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
+                  onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>
+                : <button type="button" aria-label={`${label} slot is granted by level`} title="Granted by level" disabled>−</button>}
+              {firstAtLevel
+                ? <button type="button" aria-label={`Add ${label} feat slot`}
+                  onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>
+                : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
             </li>
           )
         })}
