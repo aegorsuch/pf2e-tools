@@ -5,7 +5,6 @@ import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 
 export function SpellsSection({ c, entries, save }: SectionProps) {
-  const [query, setQuery] = useState('')
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const sc = c.spellcasting
   const casting = classSpellcasting(c, entries)
@@ -22,15 +21,13 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     : traditions.includes(tradition) ? tradition : ''
 
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q && !selectedTradition) return []
+    if (!selectedTradition) return []
     return entries
       .filter((e) => e.kind === 'spell')
-      .filter((e) => !q || e.name.toLowerCase().includes(q))
       .filter((e) => !selectedTradition || String(e.data.tradition ?? '').toLowerCase().includes(selectedTradition.toLowerCase()))
       .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
       .slice(0, 40)
-  }, [entries, query, selectedTradition])
+  }, [entries, selectedTradition])
 
   const mod = casting && sc ? abilityMod(c.abilities[sc.ability]) + proficiencyBonus(casting.rank, c.level) : 0
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
@@ -97,7 +94,6 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </div>
       ))}
       <div className="row">
-        <input placeholder="Search spells" value={query} onChange={(e) => setQuery(e.target.value)} />
         {casting && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
           <option value="">Any tradition</option>
           {(traditions.length ? traditions : SPELL_TRADITIONS).map((t) => <option key={t}>{t}</option>)}
