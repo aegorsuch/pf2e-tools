@@ -558,3 +558,26 @@ export function isMagicItem(e: ContentEntry) {
   if (/specific|magic/i.test(String(e.data.item_subcategory ?? ''))) return true
   return e.level > 0 && !e.systems.includes('sf2e')
 }
+
+// ---------- Languages ----------
+
+export const LANGUAGE_CATEGORIES: Record<string, string[]> = {
+  Common: ['Common', 'Draconic', 'Dwarven', 'Elven', 'Fey', 'Gnomish', 'Goblin', 'Halfling', 'Jotun', 'Orcish', 'Sakaran', 'Sign Language'],
+  Uncommon: ['Abyssal', 'Aquan', 'Auran', 'Celestial', 'Diabolic', 'Empyrean', 'Hallit', 'Ignan', 'Kovintal', 'Muan', 'Necril', 'Petran', 'Shadowtongue', 'Terran', 'Utopian', 'Vanara'],
+  Secret: ['Aklo', 'Protean', 'Requian', 'Sussuran', 'Wildsong'],
+}
+// Languages a class always teaches
+const CLASS_LANGUAGES: Record<string, string[]> = { Druid: ['Wildsong'] }
+const LANGUAGE_FEATS: Record<string, number> = { Multilingual: 2 }
+
+const titleCase = (v: string) => v.trim().replace(/\b\w/g, (ch) => ch.toUpperCase())
+
+// Fixed languages (Common, ancestry, class) plus how many more the character may pick
+export function languageAllowance(c: Character, entries: ContentEntry[]) {
+  const ancestry = byName(entries, 'ancestry', c.ancestry)
+  const known = new Set(Object.values(LANGUAGE_CATEGORIES).flat().map((l) => l.toLowerCase()))
+  const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
+  const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : [])])]
+  const feats = c.feats.reduce((n, f) => n + (LANGUAGE_FEATS[f.name] ?? 0), 0)
+  return { locked, slots: Math.max(0, abilityMod(c.abilities.int)) + feats }
+}

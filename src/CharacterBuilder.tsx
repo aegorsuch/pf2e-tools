@@ -5,6 +5,7 @@ import { ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritag
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
+import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { db } from './db'
@@ -193,10 +194,12 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
 
       {featSection('general')}
       <details className="character-section">
-        <summary className="character-section-summary"><strong>Languages</strong></summary>
+        <summary className="character-section-summary">
+          <strong>Languages</strong>
+          <span>{c.languages.length} known</span>
+        </summary>
         <div className="character-section-content">
-          <input key={c.id} defaultValue={c.languages.join(', ')}
-            onBlur={(e) => save({ languages: e.target.value.split(',').map((l) => l.trim()).filter(Boolean) })} />
+          <LanguagesSection {...section} />
         </div>
       </details>
       <details className="character-section">
