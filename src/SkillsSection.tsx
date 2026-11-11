@@ -92,10 +92,10 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const baseRank = baseRanks[s.name] ?? 0
     const abil = abilityMod(c.abilities[s.ability])
     const prof = proficiencyBonus(rank, c.level)
-    const item = s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient : undefined
+    const item = s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
     return (
-      <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''}${item !== undefined ? ' with-item' : ''}`} role="row">
-        <span className="skill-name">{s.name} <b>{signed(abil + prof + (item ?? 0))}</b></span>
+      <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
+        <span className="skill-name">{s.name} <b>{signed(abil + prof + item)}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
@@ -123,7 +123,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
-        {item !== undefined && <span className="skill-part"><small>Item</small>{signed(item)}</span>}
+        <span className="skill-part"><small>Item</small>{signed(item)}</span>
       </div>
     )
   })
