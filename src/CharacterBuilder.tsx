@@ -103,7 +103,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {ancestry && <small><b>{ancestry.name}</b>: {detail(ancestry)}</small>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />
-          <FeatSlots {...section} categories={['ancestry']} title="Select Feats" />
+          <FeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
         </div>
       </details>
 
