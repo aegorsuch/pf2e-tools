@@ -248,6 +248,9 @@
 .ability-section > summary {
   cursor: pointer;
   width: fit-content;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 
   h3 {
     display: inline-block;
@@ -280,4 +283,29 @@
   flex-direction: column;
   gap: 10px;
   padding: 8px 0;
+}
+
+.ability-section > summary,
+.character-section > summary {
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::before {
+    content: '';
+    display: inline-block;
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+}
+
+.ability-section[open] > summary::before,
+.character-section[open] > summary::before {
+  transform: rotate(45deg);
 }

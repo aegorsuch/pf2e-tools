@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, computeAbilities, featType, heritagesFor, maxHp } from './builder'
+import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, maxHp } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { SkillsSection } from './SkillsSection'
@@ -90,10 +90,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <b>HP {maxHp(c, entries)}</b>
       </div>
       <AbilitiesSection {...section} />
-      <details className="character-section" open={!c.ancestry}>
+      <details className="character-section">
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
-          <span>{[c.heritage, c.ancestry].filter(Boolean).join(' ') || 'Choose ancestry'}</span>
+          <span>{ancestryLabel(c.ancestry, c.heritage) || 'Choose ancestry'}</span>
         </summary>
         <div className="character-section-content">
           <div className="row">
@@ -107,7 +107,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
-      <details className="character-section" open={!c.background}>
+      <details className="character-section">
         <summary className="character-section-summary">
           <strong>Background</strong>
           <span>{c.background || 'Choose background'}</span>
@@ -121,7 +121,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
-      <details className="character-section" open={!c.className}>
+      <details className="character-section">
         <summary className="character-section-summary">
           <strong>Class</strong>
           <span>{c.className || 'Choose class'}</span>

@@ -78,7 +78,7 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
     .filter((group) => !['ancestry', 'background', 'class'].includes(group))
 
   return (
-    <details className="ability-section" open>
+    <details className="ability-section">
       <summary><h3>Ability Scores</h3></summary>
       {!builderOn && (
         <div className="row">

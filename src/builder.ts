@@ -24,6 +24,13 @@ export function maxHp(c: Character, entries: ContentEntry[]) {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
+export function ancestryLabel(ancestry?: string, heritage?: string) {
+  if (!ancestry) return heritage ?? ''
+  if (!heritage) return ancestry
+  const includesAncestry = `-${slug(heritage)}-`.includes(`-${slug(ancestry)}-`)
+  return includesAncestry ? heritage : `${heritage} ${ancestry}`
+}
+
 // Heritages link to an ancestry only on SF2e; elsewhere every heritage is offered.
 export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
   const all = entries.filter((e) => e.kind === 'heritage')

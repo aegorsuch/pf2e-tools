@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
+import { ancestryLabel, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -31,6 +31,21 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+describe('ancestryLabel', () => {
+  it('does not repeat an ancestry already in the heritage name', () => {
+    expect(ancestryLabel('Human', 'Pioneer Human')).toBe('Pioneer Human')
+    expect(ancestryLabel('Human', 'Pioneer human')).toBe('Pioneer human')
+    expect(ancestryLabel('Human', 'Winterborn')).toBe('Winterborn Human')
+    expect(ancestryLabel('Human', 'Humanity')).toBe('Humanity Human')
+  })
+
+  it('handles incomplete selections', () => {
+    expect(ancestryLabel('Human')).toBe('Human')
+    expect(ancestryLabel(undefined, 'Pioneer')).toBe('Pioneer')
+    expect(ancestryLabel()).toBe('')
+  })
+})
 
 describe('computeAbilities', () => {
   it('applies flaw, fixed and chosen boosts, slowing past 18', () => {
