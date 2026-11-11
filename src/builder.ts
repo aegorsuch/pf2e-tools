@@ -216,16 +216,19 @@ const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase
 
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
-function archetypeAllowed(e: ContentEntry, c: Character, entries: ContentEntry[], slotKey: string) {
-  const archetype = archetypeOf(e)
-  if (!archetype || !e.traits.some((t) => t.toLowerCase() === 'archetype')) return true
+function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string) {
   const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
     const entry = byName(entries, 'feat', f.name)
     return entry && archetypeOf(entry) ? [entry] : []
   })
-  if (!isDedication(e)) return taken.some((t) => isDedication(t) && archetypeOf(t) === archetype)
-  return taken.filter(isDedication).every((d) =>
-    archetypeOf(d) === archetype || taken.filter((t) => !isDedication(t) && archetypeOf(t) === archetypeOf(d)).length >= 2)
+  const dedications = taken.filter(isDedication)
+  return (e: ContentEntry) => {
+    const archetype = archetypeOf(e)
+    if (!archetype || !e.traits.some((t) => t.toLowerCase() === 'archetype')) return true
+    if (!isDedication(e)) return dedications.some((t) => archetypeOf(t) === archetype)
+    return dedications.every((d) =>
+      archetypeOf(d) === archetype || taken.filter((t) => !isDedication(t) && archetypeOf(t) === archetypeOf(d)).length >= 2)
+  }
 }
 
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
@@ -235,12 +238,13 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const trait = wanted[slot.category]?.toLowerCase()
   if (slot.category !== 'bonus' && !trait) return []
   const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
+  const archetypeAllowed = archetypeRule(c, entries, slot.key)
   return entries
     .filter((e) => e.kind === 'feat' && e.level <= slot.level
       && (e.name !== 'Order Explorer' || c.feats.some((f) => f.slot === slot.key && f.name === e.name) || availableOrders(c).length > 0)
       && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key)))
-    .filter((e) => archetypeAllowed(e, c, entries, slot.key))
     .filter((e) => !trait || e.traits.some((t) => t.toLowerCase() === trait))
+    .filter(archetypeAllowed)
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 }
 

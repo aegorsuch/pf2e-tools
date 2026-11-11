@@ -113,7 +113,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (spec) {
             const groups = [...spec.matchAll(/\[([^\]]+)\]\(\/ArmorGroups\.aspx[^)]*\)/g)].map((m) => m[1])
             if (groups.length) s.grants_armor_groups = groups.join(', ')
-            const cats = (/for ((?:(?:light|medium|heavy|unarmored)(?:,| and| or|\s)+)+)armor/i.exec(spec)?.[1].match(/light|medium|heavy|unarmored/gi) ?? [])
+            const cats = spec.split('[')[0].match(/light|medium|heavy|unarmored/gi) ?? []
             if (cats.length) s.grants_armor_categories = cats.join(', ')
           }
         }
