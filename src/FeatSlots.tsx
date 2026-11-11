@@ -56,7 +56,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
     <>
       <h4>{title}</h4>
       <ul className="feat-slot-list">
-        {slots.map((s) => {
+        {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const options = eligibleFeats(entries, c, s)
@@ -66,7 +66,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
           const extra = !standardKeys.has(s.key)
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (
-            <li className="feat-slot-row" key={s.key}>
+            <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
               <span>{label}</span>
               <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>

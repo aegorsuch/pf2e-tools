@@ -42,6 +42,7 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   expect(markup).toContain('<option value="Natural Ambition">Natural Ambition</option>')
   expect(markup).toContain('class="feat-slot-list"')
   expect(markup).toContain('class="feat-slot-row"')
+  expect((markup.match(/class="feat-slot-row feat-level-start"/g) ?? [])).toHaveLength(3)
 })
 
 it('groups feat options by level, alphabetically within each level', () => {
