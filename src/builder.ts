@@ -393,12 +393,16 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
 
 const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
 
-// Resistances from the chosen heritage, ancestry and background (structured effects or synced "damage=value" data)
+// Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
 export function resistances(c: Character, entries: ContentEntry[]) {
   const sources = [
-    ...[c.heritage ? entries.find((e) => e.kind === 'heritage' && e.name === c.heritage) : undefined,
-      c.ancestry ? byName(entries, 'ancestry', c.ancestry) : undefined,
-      c.background ? byName(entries, 'background', c.background) : undefined],
+    c.heritage ? entries.find((e) => e.kind === 'heritage' && e.name === c.heritage) : undefined,
+    c.ancestry ? byName(entries, 'ancestry', c.ancestry) : undefined,
+    c.background ? byName(entries, 'background', c.background) : undefined,
+    ...classFeatures(entries, c),
+    ...c.feats.map((f) => byName(entries, 'feat', f.name)),
+    ...c.equipment.map((g) => byName(entries, 'item', g.name)),
+    wornArmor(c) ? byName(entries, 'armor', wornArmor(c)!.name) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []

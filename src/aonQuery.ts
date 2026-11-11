@@ -40,6 +40,23 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   language: 'language',
 }
 
+// Class feature summaries often omit the proficiency sentences, so keep the full text without markup
+export const plain = (md: string) => md
+  .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+  .replace(/<[^>]*>/g, ' ')
+  .replace(/[*_`]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const DAMAGE_TYPES = 'acid|cold|electricity|fire|sonic|poison|mental|force|negative|positive|vitality|void|bludgeoning|piercing|slashing|physical|spirit'
+// Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
+export function parseResistances(t: string) {
+  const out: string[] = []
+  const re = new RegExp(`(?:\\b(${DAMAGE_TYPES}) resistance|resistance to (${DAMAGE_TYPES}))\\s+(?:equal to half your level|(?:of )?(\\d+))`, 'gi')
+  for (const m of t.matchAll(re)) out.push(`${(m[1] ?? m[2]).toLowerCase()}=${m[3] ?? 'half'}`)
+  return [...new Set(out)].join(',')
+}
+
 export type Hit = { _id?: string; _source?: Record<string, unknown> }
 
 // Fetch every category from AoN (remaster only). `fetchFn` is injectable for Node and browser use.
@@ -49,11 +66,20 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     const res = await fetchFn(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: category === 'feat' || category === 'class-feature' || category === 'heritage' ? [...SOURCE_FIELDS, 'markdown'] : SOURCE_FIELDS }),
+      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: [...SOURCE_FIELDS, 'markdown'] }),
     })
     if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
     const json = (await res.json()) as { hits?: { hits?: Hit[] } }
-    hits.push(...(json.hits?.hits ?? []))
+    for (const hit of json.hits?.hits ?? []) {
+      const s = hit._source
+      if (s) {
+        // Only resistance text is needed from most markdown; keep the full text for feats and class features
+        const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))
+        if (found) s.resistances = found
+        if (category !== 'feat' && category !== 'class-feature') delete s.markdown
+      }
+      hits.push(hit)
+    }
     onProgress?.(hits.length)
   }
   return hits
