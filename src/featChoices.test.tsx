@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { FeatChoice } from './FeatChoice'
 import { SpellsSection } from './SpellsSection'
-import { canSelectWardenFeat, grantedWardenSpells } from './featChoices'
+import { canSelectWardenFeat, grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { eligibleFeats } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -85,10 +85,21 @@ it('shows feat grants once without deleting independently added spells', () => {
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('Spells (1)')
   expect(markup).toContain('Gravity Weapon')
-  expect(markup).toContain('(warden feat)')
+  expect(markup).toContain('(Initiate Warden feat)')
   expect((markup.match(/Gravity Weapon/g) ?? [])).toHaveLength(1)
   expect(grantedWardenSpells({ ...c, feats: [] }, entries)).toEqual([])
   expect(c.spells).toHaveLength(1)
+})
+
+it('labels Warden spells in spell listings by tier', () => {
+  expect(spellWardenLabel('Initiate')).toBe('Initiate Warden')
+  expect(spellWardenLabel('Advanced')).toBe('Advanced Warden')
+  expect(spellWardenLabel('Master')).toBe('Master Warden')
+  expect(spellWardenLabel('Peerless')).toBe('Peerless Warden')
+  expect(spellWardenLabel(undefined)).toBeUndefined()
+  const c: Character = { ...base, spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('(Initiate Warden)')
 })
 
 it('allows a text choice for other repeatable feats without granting an unrelated spell', () => {

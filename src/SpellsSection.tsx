@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ABILITIES, ABILITY_LABEL, RANKS, SPELL_TRADITIONS, abilityMod, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character } from './types'
-import { grantedWardenSpells } from './featChoices'
+import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 
 export function SpellsSection({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
@@ -70,12 +70,14 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <b>{g === 0 ? 'Cantrips' : `Rank ${g}`}</b>
           <ul>
             {granted.filter((s) => (s.traits.some((t) => t.toLowerCase() === 'cantrip') ? 0 : s.level) === g).map((s) => (
-              <li key={s.id}>{s.name} <small>(warden feat)</small></li>
+              <li key={s.id}>{s.name} <small>({spellWardenLabel(s.data.warden_spell_tier) ?? 'Warden'} feat)</small></li>
             ))}
             {spells.map((s, i) => (s.cantrip ? 0 : s.rank) === g && (
               !granted.some((entry) => entry.id === s.entryId || entry.name === s.name) &&
               <li key={`${s.name}-${i}`}>
-                {s.name}{' '}
+                {s.name} {spellWardenLabel(entries.find((entry) => entry.id === s.entryId)?.data.warden_spell_tier) && (
+                  <small>({spellWardenLabel(entries.find((entry) => entry.id === s.entryId)?.data.warden_spell_tier)})</small>
+                )}{' '}
                 <button onClick={() => save({ spells: spells.filter((_, j) => j !== i) })}>Remove</button>
               </li>
             ))}
@@ -95,7 +97,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           const have = spells.some((s) => s.entryId === m.id) || granted.some((s) => s.id === m.id)
           return (
             <li key={m.id}>
-              <b>{m.name}</b> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {m.data.actions ?? ''} {m.data.tradition ?? ''}{' '}
+              <b>{m.name}</b> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
+                <small>({spellWardenLabel(m.data.warden_spell_tier)})</small>
+              )} {m.data.actions ?? ''} {m.data.tradition ?? ''}{' '}
               <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>
                 {have ? 'Added' : 'Add'}
               </button>

@@ -7,6 +7,12 @@ const WARDEN_TIERS: Record<string, string> = {
   'Peerless Warden': 'Peerless',
 }
 
+export function spellWardenLabel(tier: unknown) {
+  return typeof tier === 'string' && ['Initiate', 'Advanced', 'Master', 'Peerless'].includes(tier)
+    ? `${tier} Warden`
+    : undefined
+}
+
 export function wardenSpellOptions(feat: Character['feats'][number], entries: ContentEntry[]) {
   const tier = WARDEN_TIERS[feat.name]
   if (!tier) return []
