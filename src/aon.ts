@@ -1,12 +1,18 @@
 import { db } from './db'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 
-// UNVERIFIED: endpoints and field names are based on the Archives of Nethys public
-// Elasticsearch index and must be checked against live data. Base URLs are overridable.
+// Verified live: both systems share one Elasticsearch host, split by index (pf2e: aon, sf2e: aonsf).
 export const AON_ENDPOINTS: Record<GameSystem, string> = {
   pf2e: 'https://elasticsearch.aonprd.com/aon/_search',
-  sf2e: 'https://elasticsearch.aonsrd.com/aon/_search',
+  sf2e: 'https://elasticsearch.aonprd.com/aonsf/_search',
 }
+
+export const AON_SITES: Record<GameSystem, string> = {
+  pf2e: 'https://2e.aonprd.com',
+  sf2e: 'https://2e.aonsrd.com',
+}
+
+const SOURCE_FIELDS = ['name', 'category', 'level', 'trait', 'summary', 'url', 'source']
 
 const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   feat: 'feat',
@@ -38,8 +44,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: text(s.summary) || text(s.text),
-    data: { url: text(s.url), sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source) },
+    description: text(s.summary),
+    data: { url: s.url ? AON_SITES[system] + text(s.url) : '', sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source) },
     effects: [],
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
     updatedAt: 1,
@@ -54,7 +60,7 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
     const res = await fetch(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: { term: { category } } }),
+      body: JSON.stringify({ size: 10000, query: { term: { category } }, _source: SOURCE_FIELDS }),
     })
     if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
     const json = (await res.json()) as { hits?: { hits?: Hit[] } }
