@@ -35,6 +35,19 @@ const blank = (systems: GameSystem[]): ContentEntry => ({
   traits: [], description: '', data: {}, effects: [], updatedAt: 0,
 })
 
+function EditIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+  </svg>
+}
+
+function DeleteIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18M8 6V4h8v2m-11 0 1 14h10l1-14M10 11v5m4-5v5" />
+  </svg>
+}
+
 export default function App() {
   const [enabled, setEnabled] = useState<GameSystem[]>(loadEnabled)
   useEffect(() => localStorage.setItem(ENABLED_KEY, JSON.stringify(enabled)), [enabled])
@@ -71,6 +84,7 @@ export default function App() {
 
   const official = entries?.filter((e) => e.source === 'official') ?? []
   const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
+  const sortedCharacters = [...(characters ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
   const newCharacter = async () => {
     const name = window.prompt('Character name?')?.trim()
@@ -163,12 +177,16 @@ export default function App() {
         Characters{' '}
         <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
       </h2>
-      <ul>
-        {characters?.map((c) => (
-          <li key={c.id}>
-            <b>{c.name}</b> - L{c.level} {c.ancestry} {c.className} ({c.feats.length} feats, {c.equipment.length} items)
-            <button onClick={() => setEditingId(c.id)}>Edit</button>
-            <button onClick={() => db.characters.put({ ...c, deleted: true, updatedAt: Date.now() })}>Delete</button>
+      <ul className="character-list">
+        {sortedCharacters.map((c) => (
+          <li className="character-row" key={c.id}>
+            <span><b>{c.name}</b> - L{c.level} {c.ancestry} {c.className}</span>
+            <span className="character-actions">
+              <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
+                onClick={() => setEditingId(c.id)}><EditIcon /></button>
+              <button type="button" className="icon-button" title="Delete character" aria-label={`Delete ${c.name}`}
+                onClick={() => db.characters.put({ ...c, deleted: true, updatedAt: Date.now() })}><DeleteIcon /></button>
+            </span>
           </li>
         ))}
       </ul>

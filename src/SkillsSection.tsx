@@ -1,5 +1,6 @@
 import {
-  ABILITY_LABEL, RANKS, abilityMod, backgroundSkills, canIncreaseTo, classSkills,
+  ABILITY_LABEL, RANKS, abilityMod, armorClass, backgroundSkills, canIncreaseTo, classSkills,
+  maxHp,
   proficiencyBonus, ranksAt, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
 
@@ -15,7 +16,13 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
   const budget = skillRankBudget(c, entries)
   const remaining = budget.trained
   const fixed = new Set([...classSkills(klass).fixed, ...backgroundSkills(bg)])
-  const skillNames = new Set(stats.filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
+  const skills = [
+    ...stats.filter((stat) => stat.kind === 'skill'),
+    ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
+  ].sort((a, b) => a.name.localeCompare(b.name))
+  const skillNames = new Set(skills.map((stat) => stat.name))
+  const offense = stats.filter((stat) => stat.kind === 'perception')
+  const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const baseRanks = ranksAt({ ...c, skillIncreases: {}, rankOverrides: undefined }, entries, 99, false)
   const canReachRank = (name: string, target: number) => {
@@ -66,6 +73,44 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
     delete overrides[name]
     save({ skillIncreases: next, rankOverrides: overrides })
   }
+  const renderRows = (rows: typeof stats) => rows.map((s) => {
+    const rank = ranks[s.name] ?? 0
+    const baseRank = baseRanks[s.name] ?? 0
+    const abil = abilityMod(c.abilities[s.ability])
+    const prof = proficiencyBonus(rank, c.level)
+    return (
+      <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''}`} role="row">
+        <span className="skill-name">{s.name} <b>{signed(abil + prof)}</b></span>
+        <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
+          {RANK_LETTERS.map((letter, i) => {
+            const target = rank === i + 1 ? i : i + 1
+            const trainedDisabled = i === 0 && (
+              rank === 0 ? remaining <= 0
+                : rank === 1 ? fixed.has(s.name) || !picks.includes(s.name)
+                  : baseRank > 1
+            )
+            const disabled = s.kind !== 'skill' || i + 1 > maxRank || (i === 0
+              ? trainedDisabled
+              : target < baseRank || (target > rank && !canReachRank(s.name, target)))
+            return (
+              <button
+                key={letter}
+                type="button"
+                className={rank >= i + 1 ? 'on' : ''}
+                aria-pressed={rank === i + 1}
+                aria-label={`${s.name} ${RANKS[i + 1]}`}
+                disabled={disabled}
+                title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
+                onClick={() => setRank(s.name, i + 1)}
+              >{letter}</button>
+            )
+          })}
+        </span>
+        <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
+        <span className="skill-part"><small>Prof</small>{signed(prof)}</span>
+      </div>
+    )
+  })
 
   return (
     <>
@@ -77,35 +122,24 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
           </span>
         ))}
       </div>
-      <div className="skill-grid" role="table" aria-label="Skill proficiencies">
-        {[...stats, ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const }))].map((s) => {
-          const rank = ranks[s.name] ?? 0
-          const abil = abilityMod(c.abilities[s.ability])
-          const prof = proficiencyBonus(rank, c.level)
-          return (
-            <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''}`} role="row">
-              <span className="skill-name">{s.name} <b>{signed(abil + prof)}</b></span>
-              <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
-                {RANK_LETTERS.map((letter, i) => (
-                  <button
-                    key={letter}
-                    type="button"
-                    className={rank >= i + 1 ? 'on' : ''}
-                    aria-pressed={rank === i + 1}
-                    aria-label={`${s.name} ${RANKS[i + 1]}`}
-                    disabled={s.kind !== 'skill' || i + 1 > maxRank
-                      || (i === 0 && fixed.has(s.name) && rank <= 1)
-                      || (i + 1 > rank && !canReachRank(s.name, i + 1))}
-                    title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
-                    onClick={() => setRank(s.name, i + 1)}
-                  >{letter}</button>
-                ))}
-              </span>
-              <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
-              <span className="skill-part"><small>Prof</small>{signed(prof)}</span>
-            </div>
-          )
-        })}
+      <section className="skill-group">
+        <h4>Offense</h4>
+        <div className="skill-grid" role="table" aria-label="Offense">
+          {renderRows(offense)}
+        </div>
+      </section>
+      <section className="skill-group">
+        <h4>Defense</h4>
+        <div className="defense-summary">
+          <span><small>AC</small><b>{armorClass(c, entries)}</b></span>
+          <span><small>HP</small><b>{maxHp(c, entries)}</b></span>
+        </div>
+        <div className="skill-grid" role="table" aria-label="Defense">
+          {renderRows(defense)}
+        </div>
+      </section>
+      <div className="skill-grid" role="table" aria-label="Skills">
+        {renderRows(skills)}
       </div>
     </>
   )

@@ -20,7 +20,8 @@ const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name?: stri
 export function maxHp(c: Character, entries: ContentEntry[]) {
   const ancestry = num(byName(entries, 'ancestry', c.ancestry)?.data.hp)
   const cls = num(byName(entries, 'class', c.className)?.data.hp)
-  return ancestry + (cls + abilityMod(c.abilities.con)) * c.level
+  const toughness = c.feats.some((feat) => feat.name.toLowerCase() === 'toughness') ? c.level : 0
+  return ancestry + (cls + abilityMod(c.abilities.con)) * c.level + toughness
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -332,6 +333,39 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 }
 
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
+
+export function armorClass(c: Character, entries: ContentEntry[]) {
+  const armor = c.equipment
+    .map((item) => byName(entries, 'armor', item.name))
+    .filter((entry): entry is ContentEntry => !!entry)
+    .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
+  const armorCategory = armor
+    ? armor.traits.find((trait) => /^(light|medium|heavy)( armor)?$/i.test(trait))?.toLowerCase().replace(/ armor$/, '') ?? 'light'
+    : 'unarmored'
+  const categoryKey = armorCategory === 'unarmored' ? 'unarmored' : `${armorCategory}_armor`
+  const klass = byName(entries, 'class', c.className)
+  const proficiencyFields = [
+    klass?.data[`${categoryKey}_proficiency`],
+    klass?.data.armor_proficiency,
+    klass?.data.armor_class_proficiency,
+    klass?.data.ac_proficiency,
+  ]
+  let rank = proficiencyFields.reduce<number>((best, value) => Math.max(best, rankFromText(value)), 0)
+  const featureRank = classFeatures(entries, c).reduce<number>((best, feature) => {
+    const name = feature.name.toLowerCase()
+    const applies = name.includes('armor expertise')
+      || (armorCategory === 'unarmored' ? name.includes('unarmored') : name.includes(`${armorCategory} armor`))
+    if (!applies) return best
+    if (name.includes('legendary')) return Math.max(best, 4)
+    if (name.includes('master')) return Math.max(best, 3)
+    if (name.includes('expert')) return Math.max(best, 2)
+    return best
+  }, 0)
+  rank = Math.max(rank, featureRank)
+  const dexterity = abilityMod(c.abilities.dex)
+  const dexCap = armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY
+  return 10 + num(armor?.data.ac) + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level)
+}
 
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
   Math.max(0, classSkills(byName(entries, 'class', c.className)).additional

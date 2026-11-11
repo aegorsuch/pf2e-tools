@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, plannedSlots, ranksAt, skillRankBudget } from './builder'
+import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, maxHp, plannedSlots, ranksAt, skillRankBudget } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -150,10 +150,27 @@ describe('classFeatures', () => {
     expect(classFeatures(entries, base).map((f) => f.name)).toEqual(['Arcane School'])
     expect(classFeatures(entries, { ...base, level: 9 }).map((f) => f.name)).toEqual(['Arcane School', 'Will Expertise'])
   })
+
   it('raises save ranks from expertise features', () => {
     expect(ranksAt(base, entries).Will).toBe(2)
     expect(ranksAt({ ...base, level: 9 }, entries).Will).toBe(2)
     const e = entries.map((x) => (x.name === 'Will Expertise' ? { ...x, name: 'Reflex Expertise' } : x))
     expect(ranksAt({ ...base, level: 9 }, e).Reflex).toBe(2)
+  })
+})
+
+describe('defenses', () => {
+  it('calculates HP with Toughness and AC from worn armor and class proficiency', () => {
+    const ranger = entry('class', 'Ranger', { hp: 8, medium_armor_proficiency: 'Trained' })
+    const plate = entry('armor', 'Half Plate', { ac: 4, dex_cap: 1 }, 0, ['Medium'])
+    const expertise = entry('classFeature', 'Medium Armor Expertise', { class: 'Ranger' }, 5)
+    const c = {
+      ...base, className: 'Ranger', level: 5, abilities: { ...base.abilities, dex: 16, con: 14 },
+      equipment: [{ name: 'Half Plate', qty: 1 }],
+    }
+    const data = [...entries.filter((e) => !(e.kind === 'class' && e.name === 'Ranger')), ranger, plate, expertise]
+    expect(armorClass(c, data)).toBe(24)
+    expect(maxHp(c, data)).toBe(56)
+    expect(maxHp({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(61)
   })
 })

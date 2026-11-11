@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, maxHp, plannedSlots } from './builder'
+import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, plannedSlots } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
@@ -109,7 +109,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <label>Name <input value={c.name} onChange={(e) => save({ name: e.target.value })} /></label>
         <label>Level <input type="number" min={1} max={20} value={c.level}
           onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
-        <b>HP {maxHp(c, entries)}</b>
       </div>
       <AbilitiesSection {...section} />
       <details className="character-section">

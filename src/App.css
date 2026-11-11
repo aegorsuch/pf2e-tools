@@ -350,7 +350,15 @@
 }
 
 .skill-grid { display: grid; gap: 2px; margin-top: 0.75rem; }
-.skill-grid-head { padding: 0.5rem 0.75rem; background: var(--border, #2c3340); border-radius: 6px; }
+.skill-group { margin-top: 1rem; }
+.skill-group h4 { margin: 0.25rem 0; text-align: left; }
+.defense-summary { display: flex; gap: 1rem; margin-block: 0.5rem; }
+.defense-summary span { display: flex; align-items: baseline; gap: 0.4rem; }
+.character-list { display: grid; gap: 0.4rem; }
+.character-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.character-actions { display: inline-flex; gap: 0.25rem; }
+.icon-button { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0.5rem; }
+.icon-button svg { width: 1.1rem; height: 1.1rem; }
 .skill-rank-budget { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 0.5rem; }
 .skill-rank-budget span { display: inline-flex; gap: 0.3rem; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 5px; }
 .skill-rank-budget b { color: var(--text-h); }

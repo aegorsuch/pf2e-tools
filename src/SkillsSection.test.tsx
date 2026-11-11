@@ -94,3 +94,28 @@ it('locks class/background grants and derives defense proficiency without overri
   expect(ranksAt(c, entries).Nature).toBe(3)
   expect(c.skillIncreases).toEqual({ 3: 'Nature', 7: 'Nature' })
 })
+
+it('sorts all skills with Lore and allows trained and Lore rank increases', () => {
+  let c: Character = { ...base, level: 8, background: 'Fey Bound', skillPicks: ['Society'] }
+  const entries = [ranger, feyBound]
+  const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
+  const markup = renderToStaticMarkup(<SkillsSection {...props()} />)
+  expect(markup.indexOf('Diplomacy')).toBeLessThan(markup.indexOf('Fey Lore'))
+  expect(markup.indexOf('Fey Lore')).toBeLessThan(markup.indexOf('Intimidation'))
+  expect(markup.indexOf('<h4>Offense</h4>')).toBeLessThan(markup.indexOf('Perception'))
+  expect(markup.indexOf('<h4>Defense</h4>')).toBeLessThan(markup.indexOf('Fortitude'))
+  expect(markup.indexOf('Fortitude')).toBeLessThan(markup.indexOf('Reflex'))
+  expect(markup.indexOf('Reflex')).toBeLessThan(markup.indexOf('Will'))
+
+  const buttons = findButtons(SkillsSection(props()))
+  const acrobatics = buttons.get('Acrobatics Trained')
+  const loreExpert = buttons.get('Fey Lore Expert')
+  if (!acrobatics || !loreExpert) throw new Error('Missing skill proficiency controls')
+  expect(acrobatics.disabled).toBe(false)
+  expect(loreExpert.disabled).toBe(false)
+  ;(acrobatics.onClick as () => void)()
+  ;(loreExpert.onClick as () => void)()
+  expect(c.skillPicks).toEqual(['Society', 'Acrobatics'])
+  expect(c.skillIncreases).toEqual({ 3: 'Fey Lore' })
+  expect(ranksAt(c, entries)['Fey Lore']).toBe(2)
+})
