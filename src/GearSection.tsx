@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
+  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, armorCategory, isRanged, weaponDamage, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -16,14 +16,14 @@ const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
   weapon: [
     { label: 'Proficiencies', values: (e) => [weaponCategory(e)], fixed: ['Advanced', 'Martial', 'Simple', 'Unarmed'] },
     { label: 'Rarities', values: (e) => text(e.data.rarity) },
-    { label: 'Types', values: (e) => [Number(e.data.range) > 0 ? 'Ranged' : 'Melee'] },
+    { label: 'Types', values: (e) => [isRanged(e) ? 'Ranged' : 'Melee'] },
     { label: 'Groups', values: (e) => text(e.data.weapon_group) },
     { label: 'Hands', values: (e) => text(e.data.hands) },
     { label: 'Dice', values: (e) => text(/\d+(d\d+)/.exec(String(e.data.damage ?? ''))?.[1]) },
     { label: 'Traits', values: (e) => e.traits },
   ],
   armor: [
-    { label: 'Categories', values: (e) => [e.traits.find((t) => CATEGORY.test(t))?.replace(/ armor$/i, '') ?? 'Unarmored'], fixed: ['Heavy', 'Light', 'Medium', 'Unarmored'] },
+    { label: 'Categories', values: (e) => [armorCategory(e)], fixed: ['Heavy', 'Light', 'Medium', 'Unarmored'] },
     { label: 'Rarities', values: (e) => text(e.data.rarity) },
     { label: 'Groups', values: (e) => text(e.data.armor_group) },
     { label: 'Traits', values: (e) => e.traits.filter((t) => !CATEGORY.test(t)) },
@@ -84,7 +84,7 @@ export function Search({ entries, kind, label, onPick }: {
       <ul className="gear-results">
         {matches.map((m) => (
           <li key={m.id}>
-            <span><b>{m.name}</b>{m.data.damage ? ` (${m.data.damage})` : ''}{m.level ? ` (level ${m.level})` : ''}</span>
+            <span><b>{m.name}</b>{weaponDamage(m) ? ` (${weaponDamage(m)})` : ''}{m.level ? ` (level ${m.level})` : ''}</span>
             <button type="button" onClick={() => { onPick(m); close() }}>Add</button>
           </li>
         ))}

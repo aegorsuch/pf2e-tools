@@ -386,6 +386,8 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
 
 export const wornArmor = (c: Character): OwnedArmor | undefined => c.armors?.find((a) => a.worn)
 
+const armorCategory_ = (e: ContentEntry) => armorCategory(e).toLowerCase()
+
 export function armorClass(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c)
   const armor = worn
@@ -396,9 +398,7 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
         .map((item) => byName(entries, 'armor', item.name))
         .filter((entry): entry is ContentEntry => !!entry)
         .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
-  const armorCategory = armor
-    ? armor.traits.find((trait) => /^(light|medium|heavy)( armor)?$/i.test(trait))?.toLowerCase().replace(/ armor$/, '') ?? 'light'
-    : 'unarmored'
+  const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
   const categoryKey = armorCategory === 'unarmored' ? 'unarmored' : `${armorCategory}_armor`
   const klass = byName(entries, 'class', c.className)
   const proficiencyFields = [
@@ -455,18 +455,26 @@ export const ARMOR_PROPERTY_RUNES = [
 ]
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
 
-export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_GROUPS)[number] {
-  const text = `${entry?.data.weapon_type ?? ''} ${(entry?.traits ?? []).join(' ')}`.toLowerCase()
-  if (text.includes('unarmed') || entry?.traits.some((t) => t.toLowerCase() === 'unarmed')) return 'Unarmed'
-  if (text.includes('advanced')) return 'Advanced'
-  if (text.includes('martial')) return 'Martial'
-  return 'Simple'
+const WEAPON_CATEGORIES = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const
+export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_CATEGORIES)[number] {
+  const text = `${entry?.data.weapon_category ?? ''} ${entry?.data.weapon_type ?? ''} ${(entry?.traits ?? []).join(' ')}`.toLowerCase()
+  return WEAPON_CATEGORIES.find((cat) => text.includes(cat.toLowerCase())) ?? 'Simple'
+}
+export const isRanged = (entry?: ContentEntry) => /ranged/i.test(String(entry?.data.weapon_type ?? '')) || num(entry?.data.range) > 0
+export const weaponDamage = (entry?: ContentEntry) => {
+  const damage = String(entry?.data.damage ?? '').trim()
+  return /[a-z]$/i.test(damage) || !entry?.data.damage_type ? damage : `${damage} ${String(entry.data.damage_type).charAt(0).toUpperCase()}`
+}
+
+export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy' | 'Unarmored' {
+  const text = `${entry?.data.armor_category ?? ''} ${(entry?.traits ?? []).join(' ')}`.toLowerCase()
+  return (['Light', 'Medium', 'Heavy'] as const).find((cat) => new RegExp(`\\b${cat.toLowerCase()}\\b`).test(text)) ?? (/unarmored/.test(text) || !entry ? 'Unarmored' : 'Light')
 }
 
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
   const entry = byName(entries, 'weapon', w.name)
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
-  const ranged = num(entry?.data.range) > 0 || /ranged/i.test(String(entry?.data.weapon_type ?? ''))
+  const ranged = isRanged(entry)
   const thrown = traits.some((t) => t.startsWith('thrown'))
   const str = abilityMod(c.abilities.str)
   const dex = abilityMod(c.abilities.dex)
