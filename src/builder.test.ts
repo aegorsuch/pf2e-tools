@@ -231,9 +231,9 @@ describe('isMagicItem', () => {
 })
 
 describe('languageAllowance', () => {
-  it('locks Common, ancestry and class languages and counts Int and Multilingual', () => {
+  it('locks Common, ancestry and class languages and counts 1 + Int and Multilingual', () => {
     const list = [entry('ancestry', 'Elf', { language: 'Common, Elven' })]
     const c = { ...base, ancestry: 'Elf', className: 'Druid', abilities: { ...base.abilities, int: 14 }, feats: [{ name: 'Multilingual', type: 'General Feat', level: 1 }] }
-    expect(languageAllowance(c, list)).toEqual({ locked: ['Common', 'Elven', 'Wildsong'], slots: 4 })
+    expect(languageAllowance(c, list)).toEqual({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
   })
 })

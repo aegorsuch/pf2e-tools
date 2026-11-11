@@ -561,11 +561,30 @@ export function isMagicItem(e: ContentEntry) {
 
 // ---------- Languages ----------
 
-export const LANGUAGE_CATEGORIES: Record<string, string[]> = {
-  Common: ['Common', 'Draconic', 'Dwarven', 'Elven', 'Fey', 'Gnomish', 'Goblin', 'Halfling', 'Jotun', 'Orcish', 'Sakaran', 'Sign Language'],
-  Uncommon: ['Abyssal', 'Aquan', 'Auran', 'Celestial', 'Diabolic', 'Empyrean', 'Hallit', 'Ignan', 'Kovintal', 'Muan', 'Necril', 'Petran', 'Shadowtongue', 'Terran', 'Utopian', 'Vanara'],
-  Secret: ['Aklo', 'Protean', 'Requian', 'Sussuran', 'Wildsong'],
+// [language, who speaks it]
+export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
+  Common: [
+    ['Common', 'Humans, dwarves, elves, halflings, and other common ancestries'], ['Draconic', 'Dragons, reptilian humanoids'],
+    ['Dwarven', 'Dwarves'], ['Elven', 'Elves, aiuvarins'], ['Fey', 'Fey, centaurs, plant and fungus creatures'],
+    ['Gnomish', 'Gnomes'], ['Goblin', 'Goblins, hobgoblins, bugbears'], ['Halfling', 'Halflings'],
+    ['Jotun', 'Giants, ogres, trolls, cyclopes'], ['Orcish', 'Orcs, dromaars'], ['Sakvroth', 'Subterranean civilizations, serpentfolk'],
+  ],
+  Uncommon: [
+    ['Aklo', 'Evil fey, otherworldly monsters'], ['Amurrun', 'Catfolk'], ['Anugobu', 'Anugobu'], ['Aquan', 'Water elementals'],
+    ['Auran', 'Air elementals'], ['Chthonian', 'Demons'], ['Diabolic', 'Devils'], ['Empyrean', 'Angels and other celestials'],
+    ['Ignan', 'Fire elementals'], ['Iruxi', 'Lizardfolk'], ['Kholo', 'The hyena-like kholos'], ['Kitsune', 'Kitsune'],
+    ['Muan', 'Wood elemental creatures'], ['Nagaji', 'Nagaji'], ['Necril', 'Ghouls, intelligent undead'], ['Petran', 'Metal elementals'],
+    ['Shadowtongue', 'Nidalese, shadow creatures'], ['Terran', 'Earth elementals'],
+  ],
+  Secret: [['Wildsong', 'Druids']],
+  Rare: [
+    ['Anadi', 'Anadi'], ['Androffan', 'Androids'], ['Goloma', 'Goloma'], ['Grioth', 'Grioth'], ['Kovintal', 'Kovintus'],
+    ['Mi-Go', 'Mi-Go'], ['Munavri', 'Munavri'], ['Rasu', 'Conrasu'], ['Samsaran', 'Samsaran'], ['Sasquatch', 'Sasquatch'],
+    ['Shae', 'Shae'], ['Shisk', 'Shisk'], ['Shoony', 'Shoony'], ['Strix', 'Strix'], ['Surki', 'Surki'], ['Vanara', 'Vanara'],
+    ['Vishkanyan', 'Vishkanya'], ['Yithian', 'Yithian'],
+  ],
 }
+export const ALL_LANGUAGES = Object.values(LANGUAGE_CATEGORIES).flat().map(([name]) => name)
 // Languages a class always teaches
 const CLASS_LANGUAGES: Record<string, string[]> = { Druid: ['Wildsong'] }
 const LANGUAGE_FEATS: Record<string, number> = { Multilingual: 2 }
@@ -575,9 +594,9 @@ const titleCase = (v: string) => v.trim().replace(/\b\w/g, (ch) => ch.toUpperCas
 // Fixed languages (Common, ancestry, class) plus how many more the character may pick
 export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  const known = new Set(Object.values(LANGUAGE_CATEGORIES).flat().map((l) => l.toLowerCase()))
+  const known = new Set(ALL_LANGUAGES.map((l) => l.toLowerCase()))
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
   const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : [])])]
   const feats = c.feats.reduce((n, f) => n + (LANGUAGE_FEATS[f.name] ?? 0), 0)
-  return { locked, slots: Math.max(0, abilityMod(c.abilities.int)) + feats }
+  return { locked, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats }
 }
