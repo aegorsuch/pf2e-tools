@@ -158,9 +158,9 @@ it('derives caster status, traditions and spell proficiency from class features'
     { id: 'master', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Master Spellcaster', level: 15, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
   ]
   expect(classSpellcasting({ ...base, className: 'Ranger' }, classes)).toBeUndefined()
-  expect(classSpellcasting({ ...base, className: 'Wizard', level: 1 }, classes)).toEqual({ traditions: ['Arcane'], rank: 1 })
-  expect(classSpellcasting({ ...base, className: 'Wizard', level: 8 }, classes)).toEqual({ traditions: ['Arcane'], rank: 2 })
-  expect(classSpellcasting({ ...base, className: 'Wizard', level: 15 }, classes)).toEqual({ traditions: ['Arcane'], rank: 3 })
+  expect(classSpellcasting({ ...base, className: 'Wizard', level: 1 }, classes)).toEqual({ traditions: ['Arcane'], rank: 1, ability: 'int' })
+  expect(classSpellcasting({ ...base, className: 'Wizard', level: 8 }, classes)).toEqual({ traditions: ['Arcane'], rank: 2, ability: 'int' })
+  expect(classSpellcasting({ ...base, className: 'Wizard', level: 15 }, classes)).toEqual({ traditions: ['Arcane'], rank: 3, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Witch' }, classes)?.traditions).toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
 })
 

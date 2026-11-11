@@ -340,7 +340,13 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   }
   const rank = classFeatures(entries, c).reduce((best, feature) =>
     Math.max(best, progression[feature.name.toLowerCase()] ?? 0), 1)
-  return { traditions, rank }
+  return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
+}
+
+// Spellcasting attribute is set by the class, not chosen
+const CASTING_ABILITY: Record<string, Ability> = {
+  Animist: 'wis', Bard: 'cha', Cleric: 'wis', Druid: 'wis', Magus: 'int', Oracle: 'cha', Psychic: 'int',
+  Ranger: 'wis', Sorcerer: 'cha', Summoner: 'cha', Thaumaturge: 'cha', Witch: 'int', Wizard: 'int', Champion: 'cha', Kineticist: 'con',
 }
 
 const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend: 4 }

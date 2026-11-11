@@ -16,7 +16,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
-    save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch, rank: casting.rank } })
+    save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch, rank: casting.rank, ...(casting.ability ? { ability: casting.ability } : {}) } })
   }
   const selectedTradition = traditions.length === 1
     ? traditions[0]
@@ -31,7 +31,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       .slice(0, 40)
   }, [entries, selectedTradition])
 
-  const mod = casting && sc ? abilityMod(c.abilities[sc.ability]) + proficiencyBonus(casting.rank, c.level) : 0
+  const mod = casting && sc ? abilityMod(c.abilities[casting.ability ?? sc.ability]) + proficiencyBonus(casting.rank, c.level) : 0
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
     const entry = entries.find((e) => e.kind === 'spell' && (entryId ? e.id === entryId : e.name === name))
     return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
@@ -54,12 +54,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       <div className="character-section-content">
       {casting && <>
       <div className="row">
-        <label>Casting ability{' '}
+        {casting.ability ? <b>Casting ability: {ABILITY_LABEL[casting.ability]}</b> : <label>Casting ability{' '}
           <select value={sc?.ability ?? ''} onChange={(e) => setSc({ ability: e.target.value as never })}>
             <option value="">none</option>
             {ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
           </select>
-        </label>
+        </label>}
         {traditions.length > 1 && <label>Tradition{' '}
               <select value={selectedTradition} onChange={(e) => { setSc({ tradition: e.target.value }); setTradition(e.target.value) }}>
                 <option value="">Choose…</option>
