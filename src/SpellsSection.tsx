@@ -5,6 +5,8 @@ import type { Character } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 
+const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
+
 export function SpellsSection({ c, entries, save }: SectionProps) {
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const sc = c.spellcasting
@@ -68,15 +70,18 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
               </select>
             </label>}
         {traditions.length === 1 && <b>{traditions[0]} tradition</b>}
-        <b>Spellcasting {['Untrained', 'Trained', 'Expert', 'Master', 'Legendary'][casting.rank]}</b>
-        <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${['Untrained', 'Trained', 'Expert', 'Master', 'Legendary'][casting.rank]}`}>
-          {['T', 'E', 'M', 'L'].map((letter, i) => <button key={letter} type="button" tabIndex={-1} disabled className={casting.rank >= i + 1 ? 'on' : ''}>{letter}</button>)}
-        </span>
-        {(sc || casting.ability) && <>
-          <span className="skill-part"><small>Spell attack</small><b>{signed(mod)}</b></span>
-          <span className="skill-part"><small>Spell DC</small><b>{10 + mod}</b></span>
-        </>}
       </div>
+      {(sc || casting.ability) && (
+        <div className="skill-row with-item spell-dc-row">
+          <span className="skill-name">DC {10 + mod} <small>(Attack {signed(mod)})</small></span>
+          <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${RANK_NAMES[casting.rank]}`} title={RANK_NAMES[casting.rank]}>
+            {['T', 'E', 'M', 'L'].map((letter, i) => <button key={letter} type="button" tabIndex={-1} disabled className={casting.rank >= i + 1 ? 'on' : ''}>{letter}</button>)}
+          </span>
+          <span className="skill-part"><small>{castAbility ? ABILITY_LABEL[castAbility] : ''}</small>{signed(castAbility ? abilityMod(c.abilities[castAbility]) : 0)}</span>
+          <span className="skill-part"><small>Prof</small>{signed(proficiencyBonus(casting.rank, c.level))}</span>
+          <span className="skill-part"><small>Item</small>{signed(0)}</span>
+        </div>
+      )}
       {sc && (
         <div className="row">
           <small>Slots per rank:</small>
