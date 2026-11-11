@@ -13,7 +13,7 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
   const headings = [...markup.matchAll(/<summary class="character-section-summary"><strong>([^<]+)<\/strong>/g)]
     .map((match) => match[1])
   expect(headings).toEqual([
-    'Ability Scores', 'All Feats', 'Ancestry', 'Background', 'Class', 'Deity', 'Equipment',
+    'Ability Scores', 'Ancestry', 'Background', 'Class', 'Deity', 'Equipment',
     'General Feats', 'Languages', 'Skill Feats', 'Skills', 'Spells',
   ])
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)

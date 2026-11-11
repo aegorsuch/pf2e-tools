@@ -1,12 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, plannedSlots } from './builder'
+import { ancestryFlaws, ancestryLabel, computeAbilities, heritagesFor, plannedSlots } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
-import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
-import { canSelectWardenFeat, compareFeatSelections } from './featChoices'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { db } from './db'
@@ -39,9 +37,7 @@ const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
 export function CharacterBuilder({ character: c, onClose }: { character: Character; onClose: () => void }) {
-  const [featQuery, setFeatQuery] = useState('')
   const [gearQuery, setGearQuery] = useState('')
-  const [maxLevelOnly, setMaxLevelOnly] = useState(true)
   const systemsKey = c.systems.join()
   const entries = useLiveQuery(
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => c.systems.includes(s))).toArray(),
@@ -56,18 +52,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const section = { c, entries, save }
   const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
-  const sortedFeats = c.feats.map((feat, index) => ({ feat, index }))
-    .sort((a, b) => a.feat.level - b.feat.level || compareFeatSelections(a.feat, b.feat))
-
-  const featMatches = useMemo(() => {
-    const q = featQuery.trim().toLowerCase()
-    return entries
-      .filter((e) => e.kind === 'feat' && (!maxLevelOnly || e.level <= c.level))
-      .filter((e) => e.data.repeatable !== true || canSelectWardenFeat(e.name, c, entries))
-      .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
-      .slice(0, 40)
-  }, [entries, featQuery, maxLevelOnly, c])
 
   const gearMatches = useMemo(() => {
     const q = gearQuery.trim().toLowerCase()
@@ -112,43 +96,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
       </div>
       <AbilitiesSection {...section} />
-      <details className="character-section">
-        <summary className="character-section-summary">
-          <strong>All Feats</strong>
-          <span>{c.feats.length} chosen</span>
-        </summary>
-        <div className="character-section-content">
-          <ul className="feat-slot-list">
-            {sortedFeats.map(({ feat: f, index: i }, position) => (
-              <li className={`feat-slot-row${position > 0 && sortedFeats[position - 1].feat.level !== f.level ? ' feat-level-start' : ''}`} key={`${f.name}-${i}`}>
-                <span>L{String(f.level).padStart(2, '0')}</span> {f.name} <ActionIcon entry={entries.find((entry) => entry.kind === 'feat' && entry.name === f.name)} /> <small>({f.type}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
-                <button onClick={() => {
-                  const feats = c.feats.filter((_, j) => j !== i)
-                  const ids = new Set(entries.filter((e) => e.kind === 'feat' && e.name === f.name).map((e) => e.id))
-                  save({ feats, entryIds: feats.some((feat) => feat.name === f.name) ? c.entryIds : c.entryIds.filter((id) => !ids.has(id)) })
-                }}>Remove</button>
-                {!f.slot && <FeatChoice {...section} index={i} />}
-              </li>
-            ))}
-          </ul>
-          <div className="row">
-            <input placeholder="Search feats by name or trait (e.g. General, Elf)" value={featQuery} onChange={(e) => setFeatQuery(e.target.value)} />
-            <label><input type="checkbox" checked={maxLevelOnly} onChange={(e) => setMaxLevelOnly(e.target.checked)} /> Up to my level</label>
-          </div>
-          <ul className="feat-slot-list">
-            {featMatches.map((f, index) => (
-              <li className={index > 0 && featMatches[index - 1].level !== f.level ? 'feat-level-start' : undefined} key={f.id}>
-                <b>L{String(f.level).padStart(2, '0')} {f.name}</b> <ActionIcon entry={f} /> {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
-                <button disabled={c.feats.some((feat) => feat.name === f.name) && f.data.repeatable !== true} onClick={() => save({
-                  feats: [...c.feats, { name: f.name, type: featType(f, c), level: f.level }],
-                  entryIds: c.entryIds.includes(f.id) ? c.entryIds : [...c.entryIds, f.id],
-                })}>Add</button>
-                <br /><small>{f.description}</small>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </details>
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
