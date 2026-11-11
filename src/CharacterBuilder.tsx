@@ -53,7 +53,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const section = { c, entries, save }
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
-  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}, ${knownLanguages.join(', ')}`
+  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${knownLanguages.join(', ')}`
   const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
 
