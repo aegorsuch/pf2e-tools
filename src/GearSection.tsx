@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
-  propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed,
+  propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { Info } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { HAFT_STRIKER_WEAPON } from './supplemental'
 import type { ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
@@ -158,13 +159,13 @@ export function WeaponList({ c, entries, save }: SectionProps) {
   const hasLivingWeapon = c.feats.some((feat) => feat.name === 'Living Weapon')
   const saveWeapons = (next: OwnedWeapon[]) => save({
     weapons: [...next, ...(c.weapons ?? []).filter((weapon) =>
-      isAutomaticUnarmed(weapon.name) && !weapons.some((visible) => visible.id === weapon.id))],
+      (isAutomaticUnarmed(weapon.name) || weapon.id === HAFT_STRIKER_WEAPON.id) && !weapons.some((visible) => visible.id === weapon.id))],
   })
   const update = (id: string, patch: Partial<OwnedWeapon>) => saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   return (
     <div className="col gear-list">
-      <Search entries={entries.filter((entry) => !isAutomaticUnarmed(entry.name))} kind="weapon" label="Add Weapon"
+      <Search entries={entries.filter((entry) => !isLockedWeapon(c, entry.name))} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
@@ -200,7 +201,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             <div className="row">
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
-              {!isAutomaticUnarmed(w.name) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => saveWeapons(weapons.filter((x) => x.id !== w.id))}>×</button>}
+              {!isLockedWeapon(c, w.name) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => saveWeapons(weapons.filter((x) => x.id !== w.id))}>×</button>}
             </div>
           </details>
         )

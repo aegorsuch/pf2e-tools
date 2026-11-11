@@ -18,6 +18,16 @@ it('uses simple proficiency and finesse for the haft while retaining Strength da
   expect(attack).toMatchObject({ ability: 'dex', attack: 16, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse'] })
 })
 
+it('grants Haft Striker Stance from its feat without duplicating configured weapons', () => {
+  const c = { ...base, feats: [{ name: 'Haft Striker Stance', type: 'Class Feat', level: 2 }] }
+  const weapons = ownedWeapons(c, [])
+  expect(weapons.filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
+  expect(ownedWeapons({ ...c, weapons }, []).filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
+  expect(ownedWeapons({ ...c, weapons, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+  const configured = { id: 'manual-haft', name: HAFT_STRIKER_WEAPON.name, potency: 2, striking: 1, runes: ['Flaming'] }
+  expect(ownedWeapons({ ...c, weapons: [configured] }, []).find((weapon) => weapon.name === configured.name)).toBe(configured)
+})
+
 it('provides a default fist until a different unarmed attack is available', () => {
   expect(ownedWeapons(base, []).map((weapon) => weapon.name)).toEqual(['Fist'])
   const c = { ...base, feats: [{ name: 'Tusks', type: 'Ancestry Feat', level: 1 }] }

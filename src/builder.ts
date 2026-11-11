@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat } from './featChoices'
 import { getSettings } from './settings'
-import { FIST, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
+import { FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -725,9 +725,11 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, striking: 0, runes: [] }))
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
+  const haftStriker = isLockedWeapon(c, HAFT_STRIKER_WEAPON.name)
   const available = weapons.filter((weapon) =>
-    (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks))
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : [])]) {
+    (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
+    && (weapon.id !== HAFT_STRIKER_WEAPON.id || haftStriker))
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -742,6 +744,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name].includes(name)
+export const isLockedWeapon = (c: Character, name: string) => isAutomaticUnarmed(name)
+  || name === HAFT_STRIKER_WEAPON.name && c.feats.some((feat) => feat.name === HAFT_STRIKER_WEAPON.name)
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)

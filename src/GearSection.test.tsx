@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { ArmorList, WeaponList } from './GearSection'
 import type { Character, ContentEntry } from './types'
+import { HAFT_STRIKER_WEAPON } from './supplemental'
 
 const weapon: ContentEntry = {
   id: 'longsword', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Longsword', level: 0,
@@ -118,4 +119,14 @@ it('keeps Grievous visible as a rune but excludes it from both damage displays',
   expect(markup).toContain('<div class="gear-damage">2d8 slashing + 1d6 force</div>')
   expect(markup).toContain('Damage 2d8 S + 1d6 force')
   expect(markup).toContain('aria-label="Remove Grievous rune"')
+})
+
+it('locks the feat-granted Haft Striker weapon while retaining manual removal without the feat', () => {
+  const c = character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 2 }])
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, HAFT_STRIKER_WEAPON]} save={() => {}} />)
+  expect(markup).toContain('<strong>Haft Striker Stance</strong>')
+  expect(markup).not.toContain('aria-label="Remove Haft Striker Stance"')
+  const manual = { ...c, feats: [], weapons: [{ id: 'manual', name: HAFT_STRIKER_WEAPON.name, potency: 0, striking: 0, runes: [] }] }
+  expect(renderToStaticMarkup(<WeaponList c={manual} entries={[HAFT_STRIKER_WEAPON]} save={() => {}} />))
+    .toContain('aria-label="Remove Haft Striker Stance"')
 })
