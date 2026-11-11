@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -356,5 +356,15 @@ describe('archetype rules', () => {
   it('needs the Dedication before other archetype feats', () => {
     expect(names(has())).toEqual(['Medic Dedication', 'Wild Hunter Dedication'])
     expect(names(has('Wild Hunter Dedication'))).toEqual(['Living Weapon'])
+  })
+})
+
+describe('feat grants beyond languages', () => {
+  it('adds lores and senses from feats', () => {
+    const feat = entry('feat', 'Wild Hunter Dedication', { grants_lore: 'Hunting Lore', grants_vision: 'Darkvision' })
+    const c = { ...base, feats: [{ name: 'Wild Hunter Dedication', type: 'Dedication Feat', level: 8 }] }
+    expect(featLores(c, [feat])).toEqual(['Hunting Lore'])
+    expect(ranksAt(c, [feat])['Hunting Lore']).toBe(1)
+    expect(senses(c, [feat])).toEqual([{ value: 'Darkvision', source: 'Wild Hunter Dedication' }])
   })
 })

@@ -4,7 +4,7 @@ import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
-import type { FeatSlotCategory } from './types'
+import type { ContentEntry, FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
@@ -36,6 +36,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
       return compareFeatSelections(aFeat, bFeat)
     })
+  const section = categories?.join(',') ?? 'all'
+  const q = (search[section] ?? '').trim().toLowerCase()
+  const type = search[`${section}:type`] || 'all'
+  const matches = (o: ContentEntry) => !q || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(q))
+  const matchesType = (o: ContentEntry) => type === 'all' || type === 'dedication' === o.traits.some((t) => /^dedication$/i.test(t))
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
     if (!f.slot) return false
@@ -81,6 +86,17 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
+      <div className="feat-filters">
+        <input type="search" className="feat-search" placeholder="Search feats" aria-label={`${title} search`}
+          value={search[section] ?? ''} onChange={(e) => onSearch?.(section, e.target.value)} />
+        {categories?.includes('archetype') && (
+          <select aria-label="Archetype feat filter" value={type} onChange={(e) => onSearch?.(`${section}:type`, e.target.value)}>
+            <option value="all">All</option>
+            <option value="archetype">Archetype feats</option>
+            <option value="dedication">Dedication feats</option>
+          </select>
+        )}
+      </div>
       <ul className="feat-slot-list">
         {backgroundFeats.map((feat) => (
           <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
@@ -91,9 +107,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
-          const q = (search[s.key] ?? '').trim().toLowerCase()
-          const options = eligibleFeats(entries, c, s).filter((o) => !q
-            || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(q)))
+          const options = eligibleFeats(entries, c, s).filter((o) => matches(o) && matchesType(o))
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
@@ -103,8 +117,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           return (
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
               <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
-              <input type="search" className="feat-search" placeholder="Search" aria-label={`${label} feat search`}
-                value={search[s.key] ?? ''} onChange={(e) => onSearch?.(s.key, e.target.value)} />
               <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && (

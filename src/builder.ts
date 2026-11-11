@@ -371,6 +371,23 @@ export const skillIncreaseLevels = (c: Character) => range(3, 19, 2).filter((l) 
 const rankCap = (level: number) => (level >= 15 ? 4 : level >= 7 ? 3 : 2)
 export const canIncreaseTo = (level: number, currentRank: number) => currentRank < rankCap(level)
 
+const featData = (c: Character, entries: ContentEntry[], field: string) =>
+  c.feats.flatMap((f) => {
+    const v = byName(entries, 'feat', f.name)?.data[field]
+    return typeof v === 'string' && v ? [{ value: v, source: f.name }] : []
+  })
+
+// Lore skills taught by feats such as Wild Hunter Dedication (Additional Lore)
+export const featLores = (c: Character, entries: ContentEntry[]) => featData(c, entries, 'grants_lore').map((g) => g.value)
+
+// Senses from the ancestry and from feats
+export function senses(c: Character, entries: ContentEntry[]) {
+  const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
+  const out = typeof ancestry === 'string' && ancestry ? [{ value: ancestry, source: c.ancestry }] : []
+  for (const g of featData(c, entries, 'grants_vision')) if (!out.some((o) => o.value.toLowerCase() === g.value.toLowerCase())) out.push(g)
+  return out
+}
+
 function baseRanks(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
   const ranks: Record<string, number> = {}
@@ -378,6 +395,7 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
   autoClassSkills(c, entries).forEach(bump)
   backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
   c.skillPicks?.forEach(bump)
+  featLores(c, entries).forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
   ranks.Perception = rankFromText(klass?.data.perception_proficiency)
   ranks.Fortitude = rankFromText(klass?.data.fortitude_proficiency)
@@ -393,7 +411,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const autoSkills = autoClassSkills(c, entries)
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
-  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name)] : []
+  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries)] : []
   for (const l of skillIncreaseLevels(c).filter((x) => x < beforeLevel)) {
     const skill = c.skillIncreases?.[l]
     if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)

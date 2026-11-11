@@ -269,11 +269,6 @@
   max-width: 100%;
 }
 
-.feat-slot-row > .feat-search {
-  flex: 0 1 6rem;
-  min-width: 0;
-}
-
 .feat-slot-row > button {
   flex: none;
 }
@@ -443,3 +438,13 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .deity-card { margin-top: 0.5rem; text-align: left; }
 .deity-card p { margin: 0.35rem 0; }
 .deity-card h4, .deity-card h5 { margin: 0.6rem 0 0.2rem; }
+
+.feat-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.feat-filters .feat-search {
+  flex: 1 1 8rem;
+  min-width: 0;
+}

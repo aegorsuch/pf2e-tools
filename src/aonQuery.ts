@@ -16,7 +16,7 @@ export const DATA_FIELDS = [
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
   'domain_primary', 'sanctification', 'warden_spell_tier',
-  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_armor_specialization',
+  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_vision', 'grants_armor_specialization',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
@@ -103,6 +103,11 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         if (category === 'feat' && typeof s.markdown === 'string') {
           const langs = parseFeatLanguages(s.markdown)
           if (langs) s.grants_languages = langs
+          const text = plain(s.markdown)
+          const lore = /Additional Lore feat for ([A-Z][\w' -]*? Lore)/.exec(text)?.[1]
+          if (lore) s.grants_lore = lore
+          const sight = /\byou(?:[^.]*?)\b(?:gain|have) (darkvision|low-light vision)/i.exec(text)?.[1]
+          if (sight) s.grants_vision = sight.replace(/\b\w/g, (m) => m.toUpperCase())
           if (/armor specialization/i.test(plain(s.markdown))) s.grants_armor_specialization = 'yes'
         }
         if (category === 'deity' && typeof s.markdown === 'string') {

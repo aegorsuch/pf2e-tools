@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, armorSpecialization,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
@@ -25,7 +25,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const klass = entries.find((e) => e.kind === 'class' && e.name === c.className)
   const bg = entries.find((e) => e.kind === 'background' && e.name === c.background)
   const ranks = ranksAt(c, entries)
-  const lores = [...new Set([...c.lores.map((l) => l.name), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s))])]
+  const lores = [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s))])]
   const picks = c.skillPicks ?? []
   const budget = skillRankBudget(c, entries)
   const remaining = budget.trained
@@ -135,6 +135,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           {renderRows(offense)}
         </div>
         <small>Initiative bonus <b>{signed(abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level))}</b></small>
+        {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         <WeaponList c={c} entries={entries} save={save} />
       </>
