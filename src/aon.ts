@@ -82,7 +82,7 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
 }
 
 // Bump when the mapping changes so existing installs re-import automatically
-export const AON_IMPORT_VERSION = 10
+export const AON_IMPORT_VERSION = 11
 const REFRESH_MS = 7 * 24 * 3600 * 1000
 const inFlight = new Map<GameSystem, Promise<number>>()
 
