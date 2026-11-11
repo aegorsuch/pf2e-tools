@@ -55,3 +55,16 @@ it('keeps purchased and free Shifting runes out of weapon damage', () => {
     expect(markup).toContain(free ? 'title="Granted by Living Weapon">Shifting</span>' : '>Shifting ×</button>')
   }
 })
+
+it('shows Impactful force damage without scaling it with striking', () => {
+  for (const rune of ['Impactful', 'Impactful (Greater)', 'Greater Impactful']) {
+    for (const striking of [1, 3]) {
+      const c = character([])
+      c.weapons![0] = { ...c.weapons![0], striking, runes: [rune, 'Shifting'] }
+      const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
+      const damage = /<div class="gear-damage">([^<]+)<\/div>/.exec(markup)?.[1]
+      expect(damage).toBe(`${1 + striking}d8 slashing + 1d6 force`)
+      expect(markup).toContain(`>${rune} ×</button>`)
+    }
+  }
+})

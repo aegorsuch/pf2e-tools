@@ -148,6 +148,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const a = weaponAttack(c, entries, w)
         const freeShifting = hasLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
         const damageRunes = w.runes.filter((rune) => rune !== 'Shifting').sort((x, y) => x.localeCompare(y))
+          .map((rune) => /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force' : rune)
         return (
           <details key={w.id} className="gear-card" open>
             <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}</small></summary>
