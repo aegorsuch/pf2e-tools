@@ -7,7 +7,7 @@ export function ClassFeatures({ c, entries }: SectionProps) {
   return (
     <>
       <h3>Class features ({features.length})</h3>
-      {!imported && <p>No class feature data yet. Re-run "Import official (AoN)".</p>}
+      {!imported && <p>Class feature data is still loading.</p>}
       <ul>
         {features.map((f) => (
           <li key={f.id}>

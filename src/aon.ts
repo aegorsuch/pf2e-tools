@@ -109,3 +109,26 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
   await db.content.bulkPut([...entries, ...stale.map((e) => ({ ...e, deleted: true, updatedAt: Date.now() }))])
   return entries.length
 }
+
+// Bump when the mapping changes so existing installs re-import automatically
+export const AON_IMPORT_VERSION = 2
+const REFRESH_MS = 7 * 24 * 3600 * 1000
+const inFlight = new Map<GameSystem, Promise<number>>()
+
+// Import official content when it is missing, outdated or older than a week; no-op otherwise.
+export async function ensureAonImported(system: GameSystem, onProgress?: (n: number) => void) {
+  const key = `aon-import:${system}`
+  const [version, at] = (localStorage.getItem(key) ?? '').split(':').map(Number)
+  const fresh = version === AON_IMPORT_VERSION && Date.now() - at < REFRESH_MS
+  if (fresh && (await db.content.where('id').startsWith(`aon:${system}:`).count()) > 0) return 0
+  let run = inFlight.get(system)
+  if (!run) {
+    run = importFromAon(system, onProgress).then((n) => {
+      localStorage.setItem(key, `${AON_IMPORT_VERSION}:${Date.now()}`)
+      return n
+    })
+    inFlight.set(system, run)
+    run.then(() => inFlight.delete(system), () => inFlight.delete(system))
+  }
+  return run
+}

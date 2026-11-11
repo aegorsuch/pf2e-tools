@@ -80,7 +80,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <h2>{c.name}</h2>
         <button onClick={onClose}>Close</button>
       </div>
-      {!entries.some((e) => e.kind === 'class') && <p>No class data yet. Use "Import official (AoN)" first.</p>}
+      {!entries.some((e) => e.kind === 'class') && <p>No class data yet. Official content is still loading.</p>}
 
       <div className="row">
         <label>Name <input value={c.name} onChange={(e) => save({ name: e.target.value })} /></label>

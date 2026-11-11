@@ -4,7 +4,7 @@ import { db, importHomebrew, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
 import { parsePathbuilder } from './pathbuilder'
-import { importFromAon } from './aon'
+import { ensureAonImported, importFromAon } from './aon'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase, syncAll } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import './App.css'
@@ -32,6 +32,21 @@ export default function App() {
   useEffect(() => onAuthChange(setEmail), [])
   // Start backups only once signed in; the first run also pulls data from other devices
   useEffect(() => (email ? startAutoSync(setStatus) : undefined), [email])
+  // Official content is part of the app: load it in the background for enabled systems
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      for (const sys of enabled) {
+        try {
+          const n = await ensureAonImported(sys, (c) => live && setStatus(`Loading ${sys} content: ${c}`))
+          if (live && n) setStatus(`Loaded ${n} ${sys} entries from Archives of Nethys`)
+        } catch (err) {
+          if (live) setStatus(`Could not load ${sys} content (${err instanceof Error ? err.message : err}); using saved data`)
+        }
+      }
+    })()
+    return () => { live = false }
+  }, [enabled])
   const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
   const entries = useLiveQuery(
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => enabled.includes(s))).toArray(),
@@ -70,7 +85,7 @@ export default function App() {
               setStatus(`Imported ${n} ${sys} entries from Archives of Nethys`)
             }
           } catch (err) { setStatus(String(err)) }
-        }}>Import official (AoN)</button>
+        }}>Refresh official data</button>
         <label>
           Import Pathbuilder character
           <input type="file" accept="application/json,.json" hidden
