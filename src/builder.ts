@@ -203,6 +203,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
   return entries
     .filter((e) => e.kind === 'feat' && e.level <= slot.level
+      && (e.name !== 'Order Explorer' || c.feats.some((f) => f.slot === slot.key && f.name === e.name) || availableOrders(c).length > 0)
       && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key)))
     .filter((e) => !trait || e.traits.some((t) => t.toLowerCase() === trait))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
@@ -310,6 +311,12 @@ const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/,\s(?=Trai
 // The skill each druidic order grants
 export const DRUID_ORDERS: Record<string, string> = {
   Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Athletics', Wild: 'Intimidation',
+}
+
+// Orders not yet used by the main order or another Order Explorer feat
+export function availableOrders(c: Character, exceptIndex = -1) {
+  const used = new Set([c.order, ...c.feats.flatMap((f, i) => f.name === 'Order Explorer' && i !== exceptIndex ? [f.choice] : [])])
+  return Object.keys(DRUID_ORDERS).filter((o) => !used.has(o))
 }
 
 // Skills the class grants: fixed, chosen, or tied to a druidic order. They are always trained; the house rule

@@ -154,7 +154,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
               Druidic Order{' '}
               <select value={c.order ?? ''} onChange={(e) => save({ order: e.target.value || undefined })}>
                 <option value="">No order</option>
-                {Object.entries(DRUID_ORDERS).map(([o, skill]) => <option key={o} value={o}>{o} ({skill})</option>)}
+                {Object.keys(DRUID_ORDERS).filter((o) => o === c.order || !c.feats.some((f) => f.name === 'Order Explorer' && f.choice === o)).map((o) => <option key={o} value={o}>{o} ({DRUID_ORDERS[o]})</option>)}
               </select>
             </label>
           )}
