@@ -17,6 +17,15 @@ const plain = (md: string) => md
   .replace(/\s+/g, ' ')
   .trim()
 
+const DAMAGE_TYPES = 'acid|cold|electricity|fire|sonic|poison|mental|force|negative|positive|vitality|void|bludgeoning|piercing|slashing|physical|spirit'
+// Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
+export function parseResistances(t: string) {
+  const out: string[] = []
+  const re = new RegExp(`(?:\\b(${DAMAGE_TYPES}) resistance|resistance to (${DAMAGE_TYPES}))\\s+(?:equal to half your level|(?:of )?(\\d+))`, 'gi')
+  for (const m of t.matchAll(re)) out.push(`${(m[1] ?? m[2]).toLowerCase()}=${m[3] ?? 'half'}`)
+  return [...new Set(out)].join(',')
+}
+
 export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const s = hit._source
   if (!s) return null
@@ -43,6 +52,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (typeof land === 'number') data.speed = land
   // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
+  if (kind === 'heritage') {
+    const found = parseResistances(plain(text(s.markdown)))
+    if (found) data.resistances = found
+  }
   if (kind === 'classFeature') data.class = text(s.class)
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
   return {

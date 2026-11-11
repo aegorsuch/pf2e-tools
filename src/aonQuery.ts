@@ -49,7 +49,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     const res = await fetchFn(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: category === 'feat' || category === 'class-feature' ? [...SOURCE_FIELDS, 'markdown'] : SOURCE_FIELDS }),
+      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: category === 'feat' || category === 'class-feature' || category === 'heritage' ? [...SOURCE_FIELDS, 'markdown'] : SOURCE_FIELDS }),
     })
     if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
     const json = (await res.json()) as { hits?: { hits?: Hit[] } }

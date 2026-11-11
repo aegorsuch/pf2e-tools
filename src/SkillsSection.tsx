@@ -1,4 +1,4 @@
-import {
+import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, canIncreaseTo, classSkills,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
@@ -141,6 +141,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     )
   }
   if (part === 'defense') {
+    const res = resistances(c, entries)
     return (
       <>
         <div className="defense-summary">
@@ -150,6 +151,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}
         </div>
+        <small>Resistances: {res.length ? res.map((r) => `${r.damage} ${r.value} (${r.source})`).join(', ') : 'None'}</small>
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
         <ArmorList c={c} entries={entries} save={save} />
       </>

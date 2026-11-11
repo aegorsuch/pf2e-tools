@@ -391,6 +391,27 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
   }
 }
 
+const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
+
+// Resistances from the chosen heritage, ancestry and background (structured effects or synced "damage=value" data)
+export function resistances(c: Character, entries: ContentEntry[]) {
+  const sources = [
+    ...[c.heritage ? entries.find((e) => e.kind === 'heritage' && e.name === c.heritage) : undefined,
+      c.ancestry ? byName(entries, 'ancestry', c.ancestry) : undefined,
+      c.background ? byName(entries, 'background', c.background) : undefined],
+  ].filter((e): e is ContentEntry => !!e)
+  const half = Math.max(1, Math.floor(c.level / 2))
+  const out: { damage: string; value: number; source: string }[] = []
+  for (const e of sources) {
+    for (const f of e.effects) if (f.type === 'resistance') out.push({ damage: f.damage, value: f.value, source: e.name })
+    for (const part of String(e.data.resistances ?? '').split(',').filter(Boolean)) {
+      const [damage, v] = part.split('=')
+      out.push({ damage, value: v === 'half' ? half : +v, source: e.name })
+    }
+  }
+  return out.map((r) => ({ ...r, damage: cap(r.damage) }))
+}
+
 export const wornArmor = (c: Character): OwnedArmor | undefined => c.armors?.find((a) => a.worn)
 
 const armorCategory_ = (e: ContentEntry) => armorCategory(e).toLowerCase()
