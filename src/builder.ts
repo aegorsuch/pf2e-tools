@@ -425,6 +425,27 @@ export const DRUID_ORDERS: Record<string, string> = {
   Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Athletics', Wild: 'Intimidation',
 }
 
+// The initial order spell (a focus spell) each druidic order grants
+export const ORDER_SPELLS: Record<string, string> = {
+  Animal: 'Heal Animal', Flame: 'Wildfire', Leaf: 'Goodberry', Stone: 'Crushing Ground', Storm: 'Tempest Surge', Wave: 'Rising Surf', Wild: 'Untamed Form',
+}
+
+// Orders picked with Order Explorer that an Order Magic feat can still take the spell of
+export const orderMagicOptions = (c: Character, exceptIndex = -1) => {
+  const used = new Set(c.feats.flatMap((f, i) => f.name === 'Order Magic' && i !== exceptIndex && f.choice ? [f.choice] : []))
+  return c.feats.flatMap((f) => f.name === 'Order Explorer' && f.choice && !used.has(f.choice) ? [f.choice] : [])
+}
+
+// Focus spells from the druid's order and from Order Magic feats
+export function focusSpells(c: Character) {
+  if (c.className !== 'Druid') return []
+  const out: { name: string; source: string }[] = []
+  const add = (order?: string) => { if (order && ORDER_SPELLS[order]) out.push({ name: ORDER_SPELLS[order], source: `${order} Order` }) }
+  add(c.order)
+  for (const f of c.feats) if (f.name === 'Order Magic') add(f.choice)
+  return out.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 // Orders not yet used by the main order or another Order Explorer feat
 export function availableOrders(c: Character, exceptIndex = -1) {
   const used = new Set([c.order, ...c.feats.flatMap((f, i) => f.name === 'Order Explorer' && i !== exceptIndex ? [f.choice] : [])])

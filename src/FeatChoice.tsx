@@ -1,5 +1,5 @@
 import { hasWardenChoice, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, availableOrders } from './builder'
+import { CANNY_STATS, availableOrders, orderMagicOptions } from './builder'
 import type { SectionProps } from './builder'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
@@ -14,6 +14,21 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         }}>
           <option value="">Choose statistic…</option>
           {CANNY_STATS.map((stat) => <option key={stat} value={stat}>{stat}</option>)}
+        </select>
+      </label>
+    )
+  }
+  if (feat.name === 'Order Magic') {
+    const options = orderMagicOptions(c, index)
+    return (
+      <label className="feat-choice">
+        <select aria-label="Order Magic order" value={feat.choice ?? ''} onChange={(e) => {
+          const choice = e.target.value || undefined
+          save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+        }}>
+          <option value="">Choose order…</option>
+          {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       </label>
     )

@@ -1,6 +1,6 @@
 import { Info } from './Info'
 import { useMemo, useState } from 'react'
-import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, proficiencyBonus, signed, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character } from './types'
 import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
@@ -12,6 +12,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const traditions = casting?.traditions ?? []
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
+  const focus = focusSpells(c)
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
@@ -48,7 +49,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     <details className="character-section">
       <summary className="character-section-summary">
         <strong>Spells</strong>
-        <span>{manualSpells.length + granted.length} spells</span>
+        <span>{manualSpells.length + granted.length + focus.length} spells</span>
       </summary>
       <div className="character-section-content">
       {casting && <>
@@ -81,6 +82,16 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </div>
       )}
       </>}
+      {focus.length > 0 && (
+        <div>
+          <b>Focus Spells</b>
+          <ul>
+            {focus.map((s) => (
+              <li key={s.name}>{s.name} <ActionIcon entry={entries.find((e) => e.kind === 'spell' && e.name === s.name)} /> <small>({s.source})</small></li>
+            ))}
+          </ul>
+        </div>
+      )}
       {groups.map((g) => (
         <div key={g}>
           <b>{g}</b>

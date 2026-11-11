@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -196,6 +196,16 @@ describe('defenses', () => {
     const ranger = { ...base, className: 'Ranger', level: 2, extraSlots: [{ category: 'archetype' as const, level: 2, count: 1 }] }
     expect(plannedSlots(ranger).filter((s) => s.category === 'archetype').map((s) => s.key)).toEqual(['archetype:2:0', 'archetype:2:g99'])
     updateSettings({ rangerSnarecrafter: false })
+  })
+
+  it('gives druids focus spells from their order and Order Magic', () => {
+    const feat = (name: string, choice?: string) => ({ name, type: 'Class Feat', level: 4, choice })
+    const druid = { ...base, className: 'Druid', order: 'Leaf', feats: [feat('Order Explorer', 'Storm'), feat('Order Magic')] }
+    expect(focusSpells(druid).map((s) => s.name)).toEqual(['Goodberry'])
+    expect(orderMagicOptions(druid)).toEqual(['Storm'])
+    const chosen = { ...druid, feats: [feat('Order Explorer', 'Storm'), feat('Order Magic', 'Storm')] }
+    expect(focusSpells(chosen).map((s) => s.name)).toEqual(['Goodberry', 'Tempest Surge'])
+    expect(focusSpells({ ...chosen, className: 'Ranger' })).toEqual([])
   })
 
   it('finds feats stranded in slots that no longer exist', () => {
