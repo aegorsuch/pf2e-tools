@@ -191,6 +191,13 @@ describe('defenses', () => {
     expect(orphanedArchetypeFeats({ ...base, feats: [feat('Archaeologist Dedication'), feat('Scholastic Identification')] }, data)).toEqual([])
   })
 
+  it('lets a house-rule Dedication level keep an extra level 2 Dedication slot', () => {
+    updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
+    const ranger = { ...base, className: 'Ranger', level: 2, extraSlots: [{ category: 'archetype' as const, level: 2, count: 1 }] }
+    expect(plannedSlots(ranger).filter((s) => s.category === 'archetype').map((s) => s.key)).toEqual(['archetype:2:0', 'archetype:2:g99'])
+    updateSettings({ rangerSnarecrafter: false })
+  })
+
   it('finds feats stranded in slots that no longer exist', () => {
     updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
     const ranger = { ...base, className: 'Ranger', level: 2 }

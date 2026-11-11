@@ -174,7 +174,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
                   onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>
                 : <button type="button" aria-label={`${label} slot is granted by ${granted ? 'a feat' : 'level'}`} title={granted ? 'Granted by a feat' : 'Granted by level'} disabled>−</button>}
-              {firstAtLevel && !granted
+              {firstAtLevel && (!granted || !slots.some((o) => o.category === s.category && o.level === s.level && !isGrantedSlot(o.key)))
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
                   onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
