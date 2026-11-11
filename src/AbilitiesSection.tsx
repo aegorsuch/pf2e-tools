@@ -1,7 +1,7 @@
 import { ABILITIES, ABILITY_LABEL, abilityMod, boostSlots, computeAbilities, duplicateBoosts, signed, type Ability, type BoostSlot, type SectionProps } from './builder'
 
 const GROUP_TITLE: Record<string, string> = { ancestry: 'Ancestry Boosts', background: 'Background Boosts', class: 'Class Boost', free1: 'Free Boosts' }
-const groupTitle = (g: string) => GROUP_TITLE[g] ?? `Level ${g.slice(3)} Boosts`
+const groupTitle = (g: string) => GROUP_TITLE[g] ?? `Level ${g.slice(3).padStart(2, '0')} Boosts`
 // Ancestry/background/class boosts are dropdowns; the free groups are ability checkboxes
 const isPick = (g: string) => g in GROUP_TITLE && g !== 'free1'
 

@@ -47,6 +47,12 @@ describe('ability score boost controls', () => {
     expect(markup).not.toContain('Class Boost')
   })
 
+  it('pads single-digit boost levels without changing double-digit levels', () => {
+    const markup = renderToStaticMarkup(<AbilitiesSection c={{ ...character, level: 10 }} entries={entries} save={() => {}} />)
+    expect(markup).toContain('Level 05 Boosts')
+    expect(markup).toContain('Level 10 Boosts')
+  })
+
   it('shares choices in both directions and keeps other boosts intact', () => {
     let c: Character = { ...character, boosts: { 'free1:0': 'str' } }
     const props = () => ({
