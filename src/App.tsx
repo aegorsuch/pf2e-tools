@@ -79,7 +79,7 @@ export default function App() {
     await db.characters.put({
       id, systems: enabled, name, level: 1,
       abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-      feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [],
+      boosts: {}, feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [],
       updatedAt: Date.now(),
     })
     setEditingId(id)

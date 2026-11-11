@@ -32,11 +32,6 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
   return (
     <details className="ability-section" open>
       <summary><h3>Ability Scores</h3></summary>
-      <label>
-        <input type="checkbox" checked={builderOn}
-          onChange={(e) => save(e.target.checked ? { boosts: {} } : { boosts: undefined })} />
-        {' '}Build from boosts
-      </label>
       {!builderOn && (
         <div className="row">
           {ABILITIES.map((a) => (
