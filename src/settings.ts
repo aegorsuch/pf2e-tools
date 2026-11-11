@@ -19,26 +19,81 @@ export interface Settings {
 const KEY = 'app-settings'
 const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, generalFeatsOnly: false }
 
-function load(): Settings {
+const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
+
+function normalize(value: unknown): Settings | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  const settings = { ...DEFAULTS }
+  for (const key of settingKeys) {
+    if (key in record) {
+      if (typeof record[key] !== 'boolean') return null
+      settings[key] = record[key]
+    }
+  }
+  return settings
+}
+
+function load(): { settings: Settings; updatedAt: number } {
   try {
-    return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Settings> | null) }
+    const stored = JSON.parse(localStorage.getItem(KEY) ?? 'null') as unknown
+    if (!stored || typeof stored !== 'object') return { settings: DEFAULTS, updatedAt: 0 }
+    const record = stored as Record<string, unknown>
+    if ('settings' in record) {
+      const settings = normalize(record.settings)
+      const updatedAt = record.updatedAt
+      return settings && typeof updatedAt === 'number' && Number.isSafeInteger(updatedAt)
+        ? { settings, updatedAt }
+        : { settings: DEFAULTS, updatedAt: 0 }
+    }
+    // Migrate settings saved by earlier versions, which stored values without a timestamp.
+    const settings = normalize(record)
+    return settings ? { settings, updatedAt: 1 } : { settings: DEFAULTS, updatedAt: 0 }
   } catch {
-    return DEFAULTS
+    return { settings: DEFAULTS, updatedAt: 0 }
   }
 }
 
-let current = load()
+const initial = load()
+let current = initial.settings
+let currentUpdatedAt = initial.updatedAt
 const listeners = new Set<() => void>()
 
 export const getSettings = () => current
+export const getSettingsUpdatedAt = () => currentUpdatedAt
+export const subscribeSettings = (listener: () => void) => {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ settings: current, updatedAt: currentUpdatedAt })) } catch { /* settings stay in memory */ }
+}
+
+function notify() {
+  listeners.forEach((listener) => listener())
+}
 
 export function updateSettings(patch: Partial<Settings>) {
   current = { ...current, ...patch }
-  try { localStorage.setItem(KEY, JSON.stringify(current)) } catch { /* settings stay in memory */ }
-  listeners.forEach((l) => l())
+  currentUpdatedAt = Math.max(Date.now(), currentUpdatedAt + 1)
+  save()
+  notify()
+}
+
+export function applySyncedSettings(value: unknown, updatedAt: number) {
+  const settings = normalize(value)
+  if (!settings || !Number.isSafeInteger(updatedAt) || updatedAt < 0) {
+    throw new Error('Invalid synced settings')
+  }
+  if (updatedAt < currentUpdatedAt) return
+  if (updatedAt === currentUpdatedAt && settingKeys.every((key) => settings[key] === current[key])) return
+  current = settings
+  currentUpdatedAt = updatedAt
+  save()
+  notify()
 }
 
 export const useSettings = () => useSyncExternalStore((cb) => {
-  listeners.add(cb)
-  return () => listeners.delete(cb)
+  return subscribeSettings(cb)
 }, getSettings)

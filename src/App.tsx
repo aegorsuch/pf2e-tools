@@ -9,6 +9,7 @@ import { ensureAonImported } from './aon'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import { updateSettings, useSettings } from './settings'
+import { refreshApp } from './refresh'
 import './App.css'
 
 const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity']
@@ -64,6 +65,8 @@ export default function App() {
   const [status, setStatus] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [authError, setAuthError] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState('')
   const userId = user?.id
   useEffect(() => onAuthChange(setUser, setAuthError), [])
   // Start backups only once signed in; the first run also pulls data from other devices
@@ -110,6 +113,16 @@ export default function App() {
       <header className="top-bar">
         <h1>PF2E Tools</h1>
         <div className="top-actions">
+          <button type="button" disabled={refreshing} title="Refresh app and check for updates" onClick={async () => {
+            setRefreshing(true)
+            setRefreshError('')
+            try {
+              await refreshApp()
+            } catch (error) {
+              setRefreshError(`Refresh failed: ${error instanceof Error ? error.message : String(error)}`)
+              setRefreshing(false)
+            }
+          }}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
           <button type="button" className="gear-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
             onClick={() => setShowSettings((v) => !v)}><GearIcon /></button>
           {supabase && (
@@ -149,6 +162,7 @@ export default function App() {
         </div>
       </header>
       {authError && <p role="alert">Sign-in error: {authError}</p>}
+      {refreshError && <p role="alert">{refreshError}</p>}
       {(status || !supabase) && <small>{status || 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</small>}
 
       {draft && (

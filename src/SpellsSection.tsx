@@ -1,6 +1,6 @@
 import { Info } from './Info'
 import { useMemo, useState } from 'react'
-import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
@@ -130,9 +130,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </div>
       ))}
       <div className="row">
-        {casting && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
+        {casting && traditions.length > 0 && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
           <option value="">Any tradition</option>
-          {(traditions.length ? traditions : SPELL_TRADITIONS).map((t) => <option key={t}>{t}</option>)}
+          {traditions.map((t) => <option key={t}>{t}</option>)}
         </select>}
       </div>
       <ul>

@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -403,6 +403,22 @@ describe('feat-granted slots', () => {
     expect(plannedSlots(c).filter((s) => s.category === 'general').map((s) => s.key)).toEqual(['general:1:g0'])
     expect(plannedSlots({ ...c, feats: [] }).some((s) => s.category === 'general')).toBe(false)
   })
+
+  it('adds Advanced General Training slot at feat level', () => {
+    const c = { ...base, level: 7, feats: [{ name: 'Advanced General Training', type: 'Ancestry Feat', level: 7, slot: 'ancestry:7:0' }] }
+    expect(plannedSlots(c).filter((s) => s.category === 'general' && s.level === 7).map((s) => s.key)).toContain('general:7:g2')
+  })
+})
+
+it('keeps rune levels attached to rune-picker options', () => {
+  const runes = [
+    entry('item', 'Greater Moonweave', { item_subcategory: 'Weapon Property Runes' }, 8),
+    entry('item', 'Major Moonweave', { item_subcategory: 'Weapon Property Runes' }, 17),
+  ]
+  expect(propertyRunes(runes, 'Weapon')).toEqual([
+    { name: 'Moonweave (Greater)', level: 8 },
+    { name: 'Moonweave (Major)', level: 17 },
+  ])
 })
 
 describe('archetype rules', () => {

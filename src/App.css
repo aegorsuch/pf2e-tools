@@ -414,6 +414,10 @@
 .skill-row.with-item { grid-template-columns: minmax(0, 1fr) auto 2.2rem 2.2rem 2.2rem; }
 .gear-list { gap: 0.5rem; }
 .gear-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; }
+.gear-card > summary { align-items: baseline; cursor: pointer; display: flex; gap: 0.75rem; list-style: none; }
+.gear-card > summary::-webkit-details-marker { display: none; }
+.gear-card > summary::before { border-bottom: 2px solid currentColor; border-right: 2px solid currentColor; content: ''; display: inline-block; flex-shrink: 0; height: 7px; transform: rotate(-45deg); width: 7px; }
+.gear-card[open] > summary::before { transform: rotate(45deg); }
 .gear-traits { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .gear-traits span { padding: 0.1rem 0.5rem; border-radius: 4px; background: var(--border, #2c3340); font-size: 0.8rem; }
 .gear-stats { display: flex; flex-wrap: wrap; gap: 1rem; }

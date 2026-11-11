@@ -156,21 +156,45 @@ it('derives caster status, traditions and spell proficiency from class features'
     { id: 'witch', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Witch', level: 1, traits: [], description: '', data: { tradition: 'Arcane, Divine, Occult, Primal' }, effects: [], updatedAt: 1 },
     { id: 'expert', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Expert Spellcaster', level: 7, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
     { id: 'master', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Master Spellcaster', level: 15, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
+    { id: 'ranger-expert', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Ranger Expertise', level: 9, traits: [], description: 'Your proficiency rank for your ranger class DC increases to expert.', data: { class: 'Ranger' }, effects: [], updatedAt: 1 },
   ]
-  expect(classSpellcasting({ ...base, className: 'Ranger' }, classes)).toBeUndefined()
+  expect(classSpellcasting({ ...base, className: 'Ranger' }, classes)).toEqual({ traditions: [], rank: 1, ability: 'wis' })
+  expect(classSpellcasting({ ...base, className: 'Ranger', level: 9 }, classes)).toEqual({ traditions: [], rank: 2, ability: 'wis' })
   expect(classSpellcasting({ ...base, className: 'Wizard', level: 1 }, classes)).toEqual({ traditions: ['Arcane'], rank: 1, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Wizard', level: 8 }, classes)).toEqual({ traditions: ['Arcane'], rank: 2, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Wizard', level: 15 }, classes)).toEqual({ traditions: ['Arcane'], rank: 3, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Witch' }, classes)?.traditions).toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
 })
 
+it('shows spell DC proficiency for focus-only casters using their class progression', () => {
+  const ranger = { ...base, feats: [{ name: 'Gravity Weapon', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const classes: ContentEntry[] = [
+    { id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 1 },
+    { id: 'gravity-feat', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Gravity Weapon', level: 1, traits: [], description: '', data: { grants_focus_spells: 'Gravity Weapon' }, effects: [], updatedAt: 1 },
+    spell('Gravity Weapon', 'Initiate'),
+  ]
+  const markup = renderToStaticMarkup(<SpellsSection c={ranger} entries={classes} save={() => {}} />)
+  expect(markup).toContain('Casting ability: Wisdom')
+  expect(markup).toContain('DC 13 <small>(Attack +3)</small>')
+  expect(markup).toContain('Spellcasting proficiency: Trained')
+  expect(markup).toContain('Gravity Weapon')
+  expect(markup).not.toContain('Filter spells by tradition')
+})
+
+it('keeps companion and granted general-feat choices out of feat rows', () => {
+  for (const name of ['Incredible Companion', 'Specialized Companion', 'General Training', 'Advanced General Training']) {
+    const c = { ...base, feats: [{ name, type: 'Class Feat', level: 1 }] }
+    expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)).toBe('')
+  }
+})
+
 it('hides manual casting configuration for noncasters and collapses the spell section', () => {
-  const ranger = { ...base, className: 'Ranger', spellcasting: { ability: 'wis' as const, tradition: '', rank: 1, slots: {} } }
+  const noncaster = { ...base, className: 'Fighter', spellcasting: { ability: 'wis' as const, tradition: '', rank: 1, slots: {} } }
   const classes: ContentEntry[] = [{
-    id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
+    id: 'fighter', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Fighter', level: 1,
     traits: [], description: '', data: {}, effects: [], updatedAt: 1,
   }]
-  const markup = renderToStaticMarkup(<SpellsSection c={ranger} entries={classes} save={() => {}} />)
+  const markup = renderToStaticMarkup(<SpellsSection c={noncaster} entries={classes} save={() => {}} />)
   expect(markup).toContain('<details class="character-section">')
   expect(markup).toContain('<strong>Spells</strong><span>0 spells</span>')
   expect(markup).not.toContain('Casting ability')

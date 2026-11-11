@@ -1,6 +1,6 @@
 import { Info } from './Info'
 import { newId } from './db'
-import { companionAdvancement, companionStats } from './companions'
+import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
 import { signed, type SectionProps } from './builder'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -12,6 +12,8 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
   const advancement = companionAdvancement(c)
   const update = (id: string, patch: Partial<NonNullable<typeof c.companions>[number]>) =>
     save({ companions: companions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
+  const setFeatChoice = (featIndex: number, choice: string) =>
+    save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
 
   return (
@@ -36,6 +38,36 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   <button type="button" className="spell-remove" aria-label={`Remove ${comp.name || comp.type}`} title="Remove"
                     onClick={() => save({ companions: companions.filter((x) => x.id !== comp.id) })}>×</button>
                 </header>
+                {index === 0 && c.feats.some((feat) => feat.name.startsWith('Incredible Companion') || feat.name.startsWith('Specialized Companion')) && (
+                  <div className="row companion-choices">
+                    {c.feats.map((feat, featIndex) => {
+                      if (feat.name.startsWith('Incredible Companion')) {
+                        return (
+                          <label key={`${feat.name}:${featIndex}`}>Incredible Companion{' '}
+                            <select aria-label="Companion advancement" value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
+                              <option value="">Choose…</option>
+                              {feat.choice && !ADVANCED_TYPES.includes(feat.choice as typeof ADVANCED_TYPES[number]) && <option value={feat.choice}>{feat.choice}</option>}
+                              {ADVANCED_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                          </label>
+                        )
+                      }
+                      if (feat.name.startsWith('Specialized Companion')) {
+                        const options = specializationOptions(c, entries, featIndex)
+                        return (
+                          <label key={`${feat.name}:${featIndex}`}>Specialized Companion{' '}
+                            <select aria-label={`Companion specialization ${featIndex + 1}`} value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
+                              <option value="">Choose…</option>
+                              {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}
+                              {options.map((option) => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                          </label>
+                        )
+                      }
+                      return null
+                    })}
+                  </div>
+                )}
                 {stats ? <>
                   <div className="gear-traits">
                     <span>{index === 0 ? stage : 'Young'}</span><span>{stats.size}</span>

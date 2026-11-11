@@ -187,6 +187,7 @@ const SLOT_RULES: { category: FeatSlotCategory; levels: number[] }[] = [
 export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: number }> = {
   'General Training': { category: 'general', level: 1 },
   'Natural Ambition': { category: 'class', level: 1 },
+  'Advanced General Training': { category: 'general', level: 7 },
 }
 // House rule: Rangers get Snarecrafter Dedication at level 2 in a locked Dedications slot
 export const HOMEBREW_DEDICATIONS = [
@@ -328,7 +329,8 @@ export function classFeatures(entries: ContentEntry[], c: Character) {
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
   const traditions = tokens(klass?.data.tradition)
-  if (!traditions.length) return undefined
+  const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
+  if (!traditions.length && !focusOnlyCaster) return undefined
 
   const progression: Record<string, number> = {
     'expert spellcaster': 2,
@@ -338,15 +340,21 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
     'legendary spellcaster': 4,
     'legendary spellcasting': 4,
   }
-  const rank = classFeatures(entries, c).reduce((best, feature) =>
-    Math.max(best, progression[feature.name.toLowerCase()] ?? 0), 1)
+  const features = classFeatures(entries, c)
+  const rank = traditions.length
+    ? features.reduce((best, feature) => Math.max(best, progression[feature.name.toLowerCase()] ?? 0), 1)
+    : features.reduce((best, feature) => {
+      const m = /proficiency ranks? for (?:your )?[\w ]*class DC increases to (expert|master|legendary)/i.exec(feature.description)
+      const rank = m ? { expert: 2, master: 3, legendary: 4 }[m[1].toLowerCase() as 'expert' | 'master' | 'legendary'] : 0
+      return Math.max(best, rank)
+    }, 1)
   return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
 }
 
 // Spellcasting attribute is set by the class, not chosen
 const CASTING_ABILITY: Record<string, Ability> = {
   Animist: 'wis', Bard: 'cha', Cleric: 'wis', Druid: 'wis', Magus: 'int', Oracle: 'cha', Psychic: 'int',
-  Ranger: 'wis', Sorcerer: 'cha', Summoner: 'cha', Thaumaturge: 'cha', Witch: 'int', Wizard: 'int', Champion: 'cha', Kineticist: 'con',
+  Monk: 'wis', Ranger: 'wis', Sorcerer: 'cha', Summoner: 'cha', Thaumaturge: 'cha', Witch: 'int', Wizard: 'int', Champion: 'cha', Kineticist: 'con',
 }
 
 const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend: 4 }
@@ -742,16 +750,17 @@ const runeSort = (a: string, b: string) => {
   return a.replace(/ \(\w+\)/, '').localeCompare(b.replace(/ \(\w+\)/, '')) || grade(a) - grade(b)
 }
 export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
-  const names = [...new Set(entries
-    .filter((e) => e.kind === 'item' && e.data.item_subcategory === `${kind} Property Runes`)
-    .map((e) => runeName(e.name)))]
-  if (!names.length) return kind === 'Armor' ? ARMOR_PROPERTY_RUNES : WEAPON_PROPERTY_RUNES
-  return names
-    .flatMap((n) => {
-      const m = /^Energy-Resistant( \(Greater\))?$/.exec(n)
-      return m ? ENERGY_TYPES.map((t) => `Energy-Resistant${m[1] ?? ''}: ${t}`) : [n]
-    })
-    .sort(runeSort)
+  const names = new Map<string, number>()
+  for (const entry of entries.filter((e) => e.kind === 'item' && e.data.item_subcategory === `${kind} Property Runes`)) {
+    const name = runeName(entry.name)
+    if (!names.has(name) || entry.level < names.get(name)!) names.set(name, entry.level)
+  }
+  if (!names.size) return (kind === 'Armor' ? ARMOR_PROPERTY_RUNES : WEAPON_PROPERTY_RUNES).map((name) => ({ name }))
+  return [...names].flatMap(([name, level]) => {
+    const m = /^Energy-Resistant( \(Greater\))?$/.exec(name)
+    return (m ? ENERGY_TYPES.map((type) => `Energy-Resistant${m[1] ?? ''}: ${type}`) : [name])
+      .map((option) => ({ name: option, level }))
+  }).sort((a, b) => runeSort(a.name, b.name))
 }
 
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))

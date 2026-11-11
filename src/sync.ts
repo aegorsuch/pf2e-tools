@@ -1,6 +1,7 @@
 import { createClient, type User } from '@supabase/supabase-js'
 import { liveQuery } from 'dexie'
 import { db } from './db'
+import { applySyncedSettings, getSettings, getSettingsUpdatedAt, subscribeSettings } from './settings'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -128,6 +129,7 @@ export function startAutoSync(onStatus: (s: string) => void) {
     await db.characters.orderBy('updatedAt').last(),
     await db.content.orderBy('updatedAt').last(),
   ]).subscribe({ next: schedule })
+  const unsubscribeSettings = subscribeSettings(schedule)
   window.addEventListener('online', schedule)
   window.addEventListener('focus', schedule)
   // Periodic pull so an open device picks up changes made elsewhere
@@ -136,6 +138,7 @@ export function startAutoSync(onStatus: (s: string) => void) {
     clearInterval(poll)
     clearTimeout(timer)
     sub.unsubscribe()
+    unsubscribeSettings()
     window.removeEventListener('online', schedule)
     window.removeEventListener('focus', schedule)
   }
@@ -148,6 +151,33 @@ async function purgeRemoteOfficial(userId: string) {
 
 let purged = false
 
+export async function syncUserSettings(userId: string) {
+  if (!supabase) return
+  const localSettings = getSettings()
+  const localUpdatedAt = getSettingsUpdatedAt()
+  const { data, error } = await supabase.from('user_settings')
+    .select('updated_at, body')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+
+  const remoteUpdatedAt = typeof data?.updated_at === 'number' ? data.updated_at : -1
+  if (data && remoteUpdatedAt >= localUpdatedAt) {
+    if (getSettingsUpdatedAt() === localUpdatedAt) {
+      applySyncedSettings(data.body, remoteUpdatedAt)
+    }
+    return
+  }
+  if (localUpdatedAt > remoteUpdatedAt && localUpdatedAt > 0 && getSettingsUpdatedAt() === localUpdatedAt) {
+    const { error: saveError } = await supabase.from('user_settings').upsert({
+      user_id: userId,
+      updated_at: localUpdatedAt,
+      body: localSettings,
+    })
+    if (saveError) throw saveError
+  }
+}
+
 export async function syncAll() {
   if (!supabase) throw new Error('Supabase is not configured')
   const { data, error } = await supabase.auth.getUser()
@@ -157,6 +187,7 @@ export async function syncAll() {
     await purgeRemoteOfficial(data.user.id)
     purged = true
   }
+  await syncUserSettings(data.user.id)
   await syncTable('characters', data.user.id)
   await syncTable('content', data.user.id)
 }

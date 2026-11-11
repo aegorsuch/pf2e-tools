@@ -93,21 +93,26 @@ export function Search({ entries, kind, label, onPick }: {
   )
 }
 
-function Runes({ runes, options, limit, onChange }: {
+function Runes({ runes, options, limit, freeRunes = [], onChange }: {
   runes: string[]
-  options: string[]
+  options: { name: string; level?: number }[]
   limit: number
+  freeRunes?: string[]
   onChange: (r: string[]) => void
 }) {
+  const sortedRunes = [...runes].sort((a, b) => a.localeCompare(b))
   return (
     <div className="gear-runes">
-      {runes.map((r) => (
+      {sortedRunes.map((r) => (
         <button key={r} type="button" className="rune" title="Remove rune" onClick={() => onChange(runes.filter((x) => x !== r))}>{r} ×</button>
       ))}
+      {[...freeRunes].sort((a, b) => a.localeCompare(b)).map((r) => <span key={r} className="rune" title="Granted by Living Weapon">{r}</span>)}
       {runes.length < limit && (
-        <select aria-label="Add property rune" value="" onChange={(e) => e.target.value && onChange([...runes, e.target.value])}>
+        <select aria-label="Add property rune" value="" onChange={(e) => e.target.value && onChange([...runes, e.target.value].sort((a, b) => a.localeCompare(b)))}>
           <option value="">Add rune…</option>
-          {options.filter((o) => !runes.includes(o)).map((o) => <option key={o}>{o}</option>)}
+          {options.filter((o) => !runes.includes(o.name)).map((o) => (
+            <option key={o.name} value={o.name}>{o.name}{o.level !== undefined ? ` (Level ${o.level})` : ''}</option>
+          ))}
         </select>
       )}
     </div>
@@ -132,6 +137,7 @@ function Level({ label, value, options, format, onChange }: {
 
 export function WeaponList({ c, entries, save }: SectionProps) {
   const weapons = ownedWeapons(c, entries)
+  const hasLivingWeapon = c.feats.some((feat) => feat.name === 'Living Weapon')
   const update = (id: string, patch: Partial<OwnedWeapon>) => save({ weapons: weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)) })
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   return (
@@ -140,11 +146,11 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         onPick={(e) => save({ weapons: [...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }] })} />
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
+        const freeShifting = hasLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
+        const shownRunes = [...w.runes, ...(freeShifting ? ['Shifting'] : [])].sort((x, y) => x.localeCompare(y))
         return (
-          <article key={w.id} className="gear-card">
-            <header className="row">
-              <strong>{w.name}</strong>
-            </header>
+          <details key={w.id} className="gear-card" open>
+            <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}</small></summary>
             {entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description && <Info label="Summary">{entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description}</Info>}
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
@@ -154,19 +160,22 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <span><small>Proficiency</small>{signed(a.prof)}</span>
               <span><small>Item</small>{signed(a.item)}</span>
             </div>
-            {a.damage && <div className="gear-damage">{a.damage}{w.runes.length > 0 && ` + ${w.runes.join(', ')}`}</div>}
+            {a.damage && <div className="gear-damage">{a.damage}{shownRunes.length > 0 && ` + ${shownRunes.join(', ')}`}</div>}
             <div className="row">
               <Level label="Potency" value={w.potency} options={POTENCY} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(w.id, { potency, runes: w.runes.slice(0, maxPropertyRunes(potency)) })} />
               <Level label="Striking" value={w.striking} options={POTENCY} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />
             </div>
-            <Runes runes={w.runes} options={propertyRunes(entries, 'Weapon')} limit={maxPropertyRunes(w.potency)} onChange={(runes) => update(w.id, { runes })} />
+            <Runes runes={w.runes} options={propertyRunes(entries, 'Weapon').filter((rune) => !freeShifting || rune.name !== 'Shifting')}
+              limit={maxPropertyRunes(w.potency)} freeRunes={freeShifting ? ['Shifting'] : []} onChange={(runes) => update(w.id, { runes })} />
             <div className="row">
+              {hasLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
+                onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
               <button type="button" aria-pressed={!!w.stowed} onClick={() => update(w.id, { stowed: !w.stowed })}>{w.stowed ? 'Draw' : 'Stow'}</button>
               <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>×</button>
             </div>
-          </article>
+          </details>
         )
       })}
     </div>
@@ -177,7 +186,6 @@ export function ArmorList({ c, entries, save }: SectionProps) {
   const armors = ownedArmors(c, entries)
   const update = (id: string, patch: Partial<OwnedArmor>) => save({ armors: armors.map((a) => (a.id === id ? { ...a, ...patch } : a)) })
   const shield = c.shield
-  const worn = armors.find((a) => a.worn)
   return (
     <div className="col gear-list">
       <Search entries={entries} kind="armor" label="Add Armor"
@@ -212,8 +220,6 @@ export function ArmorList({ c, entries, save }: SectionProps) {
           </article>
         )
       })}
-      {!worn && <small>No armor worn: unarmored.</small>}
-
       {shield ? (
         <article className="gear-card">
           <header className="row">

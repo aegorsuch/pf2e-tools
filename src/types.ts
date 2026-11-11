@@ -27,6 +27,7 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
+  livingWeapon?: boolean
   stowed?: boolean
 }
 export interface OwnedArmor {

@@ -10,7 +10,14 @@ create table content (
   updated_at bigint not null,
   body jsonb not null
 );
+create table user_settings (
+  user_id uuid primary key references auth.users on delete cascade,
+  updated_at bigint not null,
+  body jsonb not null
+);
 alter table characters enable row level security;
 alter table content enable row level security;
+alter table user_settings enable row level security;
 create policy "own characters" on characters for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own content" on content for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own user settings" on user_settings for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

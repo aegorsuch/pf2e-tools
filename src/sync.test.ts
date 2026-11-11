@@ -1,16 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const auth = vi.hoisted(() => ({
-  initialize: vi.fn(),
-  getSession: vi.fn(),
-  getUser: vi.fn(),
-  onAuthStateChange: vi.fn(),
-  signInWithOAuth: vi.fn(),
-  signOut: vi.fn(),
+const backend = vi.hoisted(() => ({
+  auth: {
+    initialize: vi.fn(),
+    getSession: vi.fn(),
+    getUser: vi.fn(),
+    onAuthStateChange: vi.fn(),
+    signInWithOAuth: vi.fn(),
+    signOut: vi.fn(),
+  },
+  from: vi.fn(),
 }))
 
-vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth }) }))
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => backend }))
 vi.mock('./db', () => ({ db: {} }))
+const auth = backend.auth
 
 beforeEach(() => {
   vi.resetModules()
@@ -18,6 +22,7 @@ beforeEach(() => {
   vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key')
   vi.stubGlobal('window', { location: { origin: 'https://example.com' } })
+  vi.stubGlobal('localStorage', { getItem: vi.fn(() => null), setItem: vi.fn() })
   auth.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
   auth.initialize.mockResolvedValue({ error: null })
 })
@@ -70,5 +75,62 @@ describe('authentication', () => {
     auth.getUser.mockResolvedValue({ data: { user: null }, error: null })
     const { syncAll } = await import('./sync')
     await expect(syncAll()).rejects.toThrow('Sign in before syncing')
+  })
+})
+
+describe('settings sync', () => {
+  it('pulls newer settings from the signed-in account', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => JSON.stringify({ rangerSnarecrafter: false })),
+      setItem: vi.fn(),
+    })
+    const remote = { rangerSnarecrafter: true }
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { updated_at: 20, body: remote }, error: null })
+    const select = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) }))
+    backend.from.mockReturnValue({ select, upsert: vi.fn() })
+
+    const { syncUserSettings } = await import('./sync')
+    await syncUserSettings('github-user')
+
+    const { getSettings, getSettingsUpdatedAt } = await import('./settings')
+    expect(getSettings().rangerSnarecrafter).toBe(true)
+    expect(getSettingsUpdatedAt()).toBe(20)
+    expect(backend.from).toHaveBeenCalledWith('user_settings')
+  })
+
+  it('uses remote settings to resolve equal timestamps from legacy installs', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn(() => JSON.stringify({ rangerSnarecrafter: false })),
+      setItem: vi.fn(),
+    })
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { updated_at: 1, body: { rangerSnarecrafter: true } },
+      error: null,
+    })
+    const select = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) }))
+    backend.from.mockReturnValue({ select, upsert: vi.fn() })
+
+    const { syncUserSettings } = await import('./sync')
+    await syncUserSettings('github-user')
+
+    const { getSettings } = await import('./settings')
+    expect(getSettings().rangerSnarecrafter).toBe(true)
+  })
+
+  it('pushes changed local settings when they are newer than remote settings', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null })
+    const select = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle })) }))
+    const upsert = vi.fn().mockResolvedValue({ error: null })
+    backend.from.mockReturnValue({ select, upsert })
+    const { updateSettings } = await import('./settings')
+    updateSettings({ rangerSnarecrafter: true })
+
+    const { syncUserSettings } = await import('./sync')
+    await syncUserSettings('github-user')
+
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'github-user',
+      body: expect.objectContaining({ rangerSnarecrafter: true }),
+    }))
   })
 })
