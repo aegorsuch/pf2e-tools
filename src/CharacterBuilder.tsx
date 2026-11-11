@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, ancestryLabel, computeAbilities, heritagesFor, plannedSlots } from './builder'
+import { ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, plannedSlots, signed } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -64,6 +64,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const klass = named('class', c.className)
   const background = named('background', c.background)
   const flaws = ancestryFlaws(c, entries)
+  const defense = defenseSummary(c, entries)
 
   const featSection = (category: 'general' | 'skill') => {
     const title = category === 'general' ? 'General Feats' : 'Skill Feats'
@@ -142,7 +143,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       </details>
 
       <details className="character-section">
-        <summary className="character-section-summary"><strong>Defense</strong></summary>
+        <summary className="character-section-summary">
+          <strong>Defense</strong>
+          <span>AC {defense.ac}, HP {defense.hp}, Fort {signed(defense.fortitude)}, Ref {signed(defense.reflex)}, Will {signed(defense.will)}</span>
+        </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="defense" />
         </div>

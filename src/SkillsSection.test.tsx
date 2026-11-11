@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { SkillsSection } from './SkillsSection'
-import { ranksAt } from './builder'
+import { defenseSummary, ranksAt } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const ranger: ContentEntry = {
@@ -122,4 +122,22 @@ it('sorts all skills with Lore and allows trained and Lore rank increases', () =
   expect(c.skillPicks).toEqual(['Society', 'Acrobatics'])
   expect(c.skillIncreases).toEqual({ 3: 'Fey Lore' })
   expect(ranksAt(c, entries)['Fey Lore']).toBe(2)
+})
+
+it('raises save and Perception ranks from class feature text and summarizes defenses', () => {
+  const feature = (name: string, level: number, description: string): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'classFeature', source: 'official', name, level, traits: [],
+    description, data: { class: 'Ranger' }, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    ranger,
+    feature('Iron Will', 3, 'Your proficiency rank for Will saves increases to expert.'),
+    feature('Evasion', 7, 'Your proficiency rank for Reflex saves increases to master.'),
+    feature('Juggernaut', 11, 'Your proficiency rank for Fortitude saves increases to master.'),
+    feature('Greater Natural Reflexes', 15, 'Your proficiency rank for Reflex saves increases to legendary.'),
+    feature('Ranger Expertise', 9, 'Your proficiency rank for your ranger class DC increases to expert.'),
+  ]
+  const c: Character = { ...base, level: 20 }
+  expect(ranksAt(c, entries)).toMatchObject({ Fortitude: 3, Reflex: 4, Will: 2 })
+  expect(defenseSummary(c, entries)).toMatchObject({ fortitude: 26, reflex: 28, will: 24 })
 })

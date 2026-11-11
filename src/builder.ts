@@ -238,11 +238,16 @@ const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend:
 // "Reflex Expertise", "Perception Mastery" and similar raise that statistic's rank
 export function featureRanks(features: ContentEntry[]) {
   const ranks: Record<string, number> = {}
+  const raise = (stat: string, rank: number) => { ranks[stat] = Math.max(ranks[stat] ?? 0, rank) }
   for (const f of features) {
     const m = /^(Perception|Fortitude|Reflex|Will) (Expertise|Mastery|Legend)$/i.exec(f.name)
-    if (!m) continue
-    const stat = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase()
-    ranks[stat] = Math.max(ranks[stat] ?? 0, FEATURE_RANK[m[2].toLowerCase()])
+    if (m) raise(m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), FEATURE_RANK[m[2].toLowerCase()])
+    // Features like Juggernaut or Evasion are named freely, but state the rank increase in their text
+    for (const grant of f.description.matchAll(/proficiency ranks? for ([^.]*?) increases? to (expert|master|legendary)/gi)) {
+      for (const stat of grant[1].matchAll(/\b(Perception|Fortitude|Reflex|Will)\b/gi)) {
+        raise(stat[1][0].toUpperCase() + stat[1].slice(1).toLowerCase(), RANKS.findIndex((r) => r.toLowerCase() === grant[2].toLowerCase()))
+      }
+    }
   }
   return ranks
 }
@@ -333,6 +338,19 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 }
 
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
+
+export function defenseSummary(c: Character, entries: ContentEntry[]) {
+  const ranks = ranksAt(c, entries)
+  const save = (name: string, ability: Ability) =>
+    abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level)
+  return {
+    ac: armorClass(c, entries),
+    hp: maxHp(c, entries),
+    fortitude: save('Fortitude', 'con'),
+    reflex: save('Reflex', 'dex'),
+    will: save('Will', 'wis'),
+  }
+}
 
 export function armorClass(c: Character, entries: ContentEntry[]) {
   const armor = c.equipment
