@@ -95,7 +95,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <span className="skill-part"><small>Item</small>{signed(0)}</span>
         </div>
       )}
-      {sc && (
+      {sc && traditions.length > 0 && (
         <div className="row">
           <small>Slots per rank:</small>
           {Array.from({ length: 10 }, (_, i) => i + 1).map((r) => (

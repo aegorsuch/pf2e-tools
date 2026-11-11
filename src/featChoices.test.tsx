@@ -166,8 +166,12 @@ it('derives caster status, traditions and spell proficiency from class features'
   expect(classSpellcasting({ ...base, className: 'Witch' }, classes)?.traditions).toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
 })
 
-it('shows spell DC proficiency for focus-only casters using their class progression', () => {
-  const ranger = { ...base, feats: [{ name: 'Gravity Weapon', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+it('shows spell DC proficiency but no spell slots for focus-only casters', () => {
+  const ranger: Character = {
+    ...base,
+    spellcasting: { ability: 'wis', tradition: '', rank: 1, slots: { 1: 2 } },
+    feats: [{ name: 'Gravity Weapon', type: 'Class Feat', level: 1, slot: 'class:1:0' }],
+  }
   const classes: ContentEntry[] = [
     { id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 1 },
     { id: 'gravity-feat', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Gravity Weapon', level: 1, traits: [], description: '', data: { grants_focus_spells: 'Gravity Weapon' }, effects: [], updatedAt: 1 },
@@ -179,6 +183,21 @@ it('shows spell DC proficiency for focus-only casters using their class progress
   expect(markup).toContain('Spellcasting proficiency: Trained')
   expect(markup).toContain('Gravity Weapon')
   expect(markup).not.toContain('Filter spells by tradition')
+  expect(markup).not.toContain('Slots per rank')
+})
+
+it('retains spell slots for slotted casters such as Druids', () => {
+  const c: Character = {
+    ...base, className: 'Druid',
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: { 1: 2 } },
+  }
+  const druid: ContentEntry = {
+    id: 'druid', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Druid', level: 1,
+    traits: [], description: '', data: { tradition: 'Primal' }, effects: [], updatedAt: 1,
+  }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid]} save={() => {}} />)
+  expect(markup).toContain('Slots per rank')
+  expect(markup).toContain('value="2"')
 })
 
 it('keeps companion and granted general-feat choices out of feat rows', () => {
