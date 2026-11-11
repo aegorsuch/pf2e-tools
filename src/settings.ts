@@ -9,12 +9,15 @@ export interface Settings {
   freeArchetype: boolean
   // House rule: Rangers get Snarecrafter Dedication for free at level 2, locked in the Dedications section
   rangerSnarecrafter: boolean
+  // House rules: Champions and Druids get Cavalier Dedication for free at level 2
+  championCavalier: boolean
+  druidCavalier: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, generalFeatsOnly: false }
+const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, generalFeatsOnly: false }
 
 function load(): Settings {
   try {

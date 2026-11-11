@@ -2,7 +2,7 @@ import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, SNARECRAFTER, snarecrafterApplies } from './builder'
+import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -84,17 +84,17 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     if (next.boosts) next.abilities = computeAbilities(next, entries)
     return db.characters.put(next)
   }
-  // House rule: keep the Ranger's free Snarecrafter Dedication in step with the rule, class and level
-  const snareEntry = entries.find((e) => e.kind === 'feat' && e.name === SNARECRAFTER.name)
-  const hasSnare = c.feats.some((f) => f.slot === SNARECRAFTER.slot)
-  const wantsSnare = snarecrafterApplies(c)
+  // House rules: keep the free Dedications (e.g. Ranger's Snarecrafter) in step with the rule, class and level
+  const wanted = activeHomebrewDedications(c)
+  const missing = wanted.filter((d) => !c.feats.some((f) => f.slot === d.slot) && entries.some((e) => e.kind === 'feat' && e.name === d.name))
+  const stale = c.feats.filter((f) => homebrewDedication(f.slot ?? '') && !wanted.some((d) => d.slot === f.slot))
   useEffect(() => {
-    if (wantsSnare && !hasSnare && snareEntry) {
-      const feats = [...c.feats, { name: SNARECRAFTER.name, type: 'Dedication Feat', level: snareEntry.level, slot: SNARECRAFTER.slot }]
-      void save({ feats, entryIds: c.entryIds.includes(snareEntry.id) ? c.entryIds : [...c.entryIds, snareEntry.id] })
-    } else if (!wantsSnare && hasSnare) {
-      void save({ feats: c.feats.filter((f) => f.slot !== SNARECRAFTER.slot) })
-    }
+    if (!missing.length && !stale.length) return
+    const added = missing.map((d) => ({ d, entry: entries.find((e) => e.kind === 'feat' && e.name === d.name)! }))
+    void save({
+      feats: [...c.feats.filter((f) => !stale.includes(f)), ...added.map(({ d, entry }) => ({ name: d.name, type: 'Dedication Feat', level: entry.level, slot: d.slot }))],
+      entryIds: [...new Set([...c.entryIds, ...added.map(({ entry }) => entry.id)])],
+    })
   })
   const [featSearch, setFeatSearch] = useState<Record<string, string>>({})
   const section = { c, entries, save }

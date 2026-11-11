@@ -391,6 +391,10 @@ describe('homebrew feat rules', () => {
     expect(plannedSlots({ ...ranger, className: 'Wizard' }).some((s) => s.key === 'archetype:2:g99')).toBe(false)
     updateSettings({ rangerSnarecrafter: false })
     expect(plannedSlots(ranger).some((s) => s.key === 'archetype:2:g99')).toBe(false)
+    updateSettings({ championCavalier: true, druidCavalier: true })
+    expect(plannedSlots({ ...ranger, className: 'Champion' }).map((s) => s.key)).toContain('archetype:2:g98')
+    expect(plannedSlots({ ...ranger, className: 'Druid' }).map((s) => s.key)).toContain('archetype:2:g97')
+    updateSettings({ championCavalier: false, druidCavalier: false })
   })
   it('hides skill feats from General pickers when General Feats Only is on', () => {
     const list = [entry('feat', 'Toughness', {}, 1, ['General']), entry('feat', 'Assurance', {}, 1, ['General', 'Skill'])]

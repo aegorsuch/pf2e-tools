@@ -216,6 +216,16 @@ export default function App() {
             Ranger Snarecrafter Dedication
           </label>
           <label>
+            <input type="checkbox" checked={settings.championCavalier}
+              onChange={(e) => updateSettings({ championCavalier: e.target.checked })} />{' '}
+            Champion Cavalier Dedication
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.druidCavalier}
+              onChange={(e) => updateSettings({ druidCavalier: e.target.checked })} />{' '}
+            Druid Cavalier Dedication
+          </label>
+          <label>
             <input type="checkbox" checked={settings.generalFeatsOnly}
               onChange={(e) => updateSettings({ generalFeatsOnly: e.target.checked })} />{' '}
             General Feats Only

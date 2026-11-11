@@ -179,8 +179,14 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
   'Natural Ambition': { category: 'class', level: 1 },
 }
 // House rule: Rangers get Snarecrafter Dedication at level 2 in a locked Dedications slot
-export const SNARECRAFTER = { name: 'Snarecrafter Dedication', slot: 'archetype:2:g99' }
-export const snarecrafterApplies = (c: Character) => getSettings().rangerSnarecrafter && c.className === 'Ranger' && c.level >= 2
+export const HOMEBREW_DEDICATIONS = [
+  { setting: 'rangerSnarecrafter', className: 'Ranger', name: 'Snarecrafter Dedication', slot: 'archetype:2:g99' },
+  { setting: 'championCavalier', className: 'Champion', name: 'Cavalier Dedication', slot: 'archetype:2:g98' },
+  { setting: 'druidCavalier', className: 'Druid', name: 'Cavalier Dedication', slot: 'archetype:2:g97' },
+] as const
+export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
+export const activeHomebrewDedications = (c: Character) =>
+  HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key)
 
 export function plannedSlots(c: Character): PlannedSlot[] {
@@ -207,9 +213,9 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
     slots.push({ key: `${id}:g${i}`, category: g.category, level: g.level })
   })
-  if (snarecrafterApplies(c)) {
+  for (const d of activeHomebrewDedications(c)) {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
-    slots.push({ key: SNARECRAFTER.slot, category: 'archetype', level: 2 })
+    slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
   return slots.sort((a, b) => a.level - b.level
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
