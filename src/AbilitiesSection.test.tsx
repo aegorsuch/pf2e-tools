@@ -39,12 +39,19 @@ function select(props: SectionProps, groups: string[], label: string) {
 }
 
 describe('ability score boost controls', () => {
-  it('shows ancestry and background boosts alongside free boosts, without class boosts', () => {
+  it('shows ancestry, background, and class boosts alongside free boosts', () => {
     const markup = renderToStaticMarkup(<AbilitiesSection c={character} entries={entries} save={() => {}} />)
     expect(markup).toContain('Ancestry Boosts')
     expect(markup).toContain('Background Boosts')
     expect(markup).toContain('Free Boosts')
-    expect(markup).not.toContain('Class Boost')
+    expect(markup).toContain('Class Boost')
+  })
+
+  it('shows fixed class boosts in ability scores', () => {
+    const fixedEntries = [...entries, entry('class', 'Wizard', 'Intelligence')]
+    const markup = renderToStaticMarkup(<AbilitiesSection c={{ ...character, className: 'Wizard' }} entries={fixedEntries} save={() => {}} />)
+    expect(markup).toContain('<h4>Class Boost</h4>')
+    expect(markup).toContain('<b>Intelligence</b>')
   })
 
   it('pads single-digit boost levels without changing double-digit levels', () => {
@@ -62,7 +69,9 @@ describe('ability score boost controls', () => {
         c.abilities = computeAbilities(c, entries)
       },
     })
-    const scoreGroups = ['ancestry', 'background', 'free1']
+    const scorePanel = findElement(AbilitiesSection(props()), (type) => type === AbilityBoostChoices)
+    const scoreGroups = scorePanel?.groups as string[]
+    expect(scoreGroups).toContain('class')
 
     select(props(), scoreGroups, 'Ancestry (free)').onChange({ target: { value: 'wis' } })
     expect(select(props(), ['ancestry'], 'Ancestry (free)').value).toBe('wis')
@@ -73,7 +82,11 @@ describe('ability score boost controls', () => {
     expect(select(props(), ['background'], 'Background').value).toBe('dex')
     select(props(), ['background'], 'Background').onChange({ target: { value: 'wis' } })
     expect(select(props(), scoreGroups, 'Background').value).toBe('wis')
-    expect(c.boosts).toMatchObject({ 'free1:0': 'str', 'ancestry:0': 'con', 'background:0': 'wis' })
-    expect(c.abilities).toMatchObject({ str: 12, con: 12, wis: 12 })
+    select(props(), scoreGroups, 'Class key attribute').onChange({ target: { value: 'dex' } })
+    expect(select(props(), ['class'], 'Class key attribute').value).toBe('dex')
+    select(props(), ['class'], 'Class key attribute').onChange({ target: { value: 'str' } })
+    expect(select(props(), scoreGroups, 'Class key attribute').value).toBe('str')
+    expect(c.boosts).toMatchObject({ 'free1:0': 'str', 'ancestry:0': 'con', 'background:0': 'wis', class: 'str' })
+    expect(c.abilities).toMatchObject({ str: 14, con: 12, wis: 12 })
   })
 })

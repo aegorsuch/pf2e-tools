@@ -75,7 +75,6 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
   const builderOn = !!c.boosts
   const scores = computeAbilities(c, entries)
   const sharedGroups = [...new Set(slots.map((slot) => slot.group))]
-    .filter((group) => group !== 'class')
 
   return (
     <details className="character-section">
