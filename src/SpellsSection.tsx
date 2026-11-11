@@ -15,7 +15,7 @@ function SpellItem({ name, entry, note, onRemove }: { name: string; entry?: Cont
         <summary>{name} <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}</summary>
         <small>{entry?.description || 'No summary available.'}</small>
       </details>
-      {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove" onClick={onRemove}>🗑</button>}
+      {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove" onClick={onRemove}>×</button>}
     </li>
   )
 }
