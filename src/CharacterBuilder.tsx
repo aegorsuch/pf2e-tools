@@ -200,7 +200,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
       <details className="character-section">
-        <summary className="character-section-summary"><strong>Offense</strong></summary>
+        <summary className="character-section-summary">
+          <strong>Offense</strong>
+          <span>Perception {signed(defense.perception)}</span>
+        </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />
         </div>

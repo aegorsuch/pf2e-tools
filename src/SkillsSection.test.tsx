@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { SkillsSection } from './SkillsSection'
-import { defenseSummary, ranksAt } from './builder'
+import { armorRanks, defenseSummary, ranksAt, weaponRanks } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const ranger: ContentEntry = {
@@ -140,4 +140,30 @@ it('raises save and Perception ranks from class feature text and summarizes defe
   const c: Character = { ...base, level: 20 }
   expect(ranksAt(c, entries)).toMatchObject({ Fortitude: 3, Reflex: 4, Will: 2 })
   expect(defenseSummary(c, entries)).toMatchObject({ fortitude: 26, reflex: 28, will: 24 })
+})
+
+it('shows weapon and armor proficiency badges from class text and features', () => {
+  const klass: ContentEntry = {
+    ...ranger,
+    data: {
+      ...ranger.data,
+      attack_proficiency: 'Trained in simple weapons, Trained in martial weapons, Trained in unarmed attacks',
+      defense_proficiency: 'Trained in light armor, Trained in medium armor, Trained in unarmored defense',
+    },
+  }
+  const upgrades = (name: string, level: number, description: string): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'classFeature', source: 'official', name, level, traits: [],
+    description, data: { class: 'Ranger' }, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    klass,
+    upgrades('Weapon Mastery', 13, 'Your proficiency ranks for simple and martial weapons and unarmed attacks increase to master.'),
+    upgrades('Medium Armor Expertise', 11, 'Your proficiency ranks for light armor, medium armor, and unarmored defense increase to expert.'),
+  ]
+  const c: Character = { ...base, level: 13 }
+  expect(weaponRanks(c, entries)).toEqual({ Simple: 3, Martial: 3, Advanced: 0, Unarmed: 3 })
+  expect(armorRanks(c, entries)).toEqual({ Light: 2, Medium: 2, Heavy: 0, Unarmored: 2 })
+  const props = { c, entries, save: () => {} }
+  expect(renderToStaticMarkup(<SkillsSection {...props} part="offense" />)).toContain('Initiative bonus')
+  expect(renderToStaticMarkup(<SkillsSection {...props} part="defense" />)).toContain('Unarmored defense')
 })

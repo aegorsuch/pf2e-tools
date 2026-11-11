@@ -339,11 +339,42 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
 
+export const WEAPON_GROUPS = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const
+export const ARMOR_GROUPS = ['Light', 'Medium', 'Heavy', 'Unarmored'] as const
+
+// Class text such as "Trained in simple weapons" plus feature text such as
+// "Your proficiency ranks for light armor and unarmored defense increase to expert"
+function groupRanks<G extends string>(c: Character, entries: ContentEntry[], groups: readonly G[], field: string, applies: (text: string) => boolean) {
+  const ranks = Object.fromEntries(groups.map((g) => [g, 0])) as Record<G, number>
+  const mentioned = (text: string) => groups.filter((g) => new RegExp(`\\b${g}\\b`, 'i').test(text))
+  const klass = byName(entries, 'class', c.className)
+  const base = klass?.data[field]
+  if (typeof base === 'string') {
+    for (const m of base.matchAll(/(untrained|trained|expert|master|legendary) in ([^,]+)/gi)) {
+      if (!applies(m[2])) continue
+      for (const g of mentioned(m[2])) ranks[g] = Math.max(ranks[g], rankFromText(m[1]))
+    }
+  }
+  for (const f of classFeatures(entries, c)) {
+    for (const m of f.description.matchAll(/proficiency ranks? for ([^.]*?) increases? to (expert|master|legendary)/gi)) {
+      if (!applies(m[1])) continue
+      for (const g of mentioned(m[1])) ranks[g] = Math.max(ranks[g], rankFromText(m[2]))
+    }
+  }
+  return ranks
+}
+
+export const weaponRanks = (c: Character, entries: ContentEntry[]) =>
+  groupRanks(c, entries, WEAPON_GROUPS, 'attack_proficiency', (t) => /weapons?|unarmed attacks?/i.test(t))
+export const armorRanks = (c: Character, entries: ContentEntry[]) =>
+  groupRanks(c, entries, ARMOR_GROUPS, 'defense_proficiency', (t) => /armor|unarmored defense/i.test(t))
+
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
   const save = (name: string, ability: Ability) =>
     abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level)
   return {
+    perception: save('Perception', 'wis'),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
     fortitude: save('Fortitude', 'con'),
@@ -379,7 +410,7 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
     if (name.includes('expert')) return Math.max(best, 2)
     return best
   }, 0)
-  rank = Math.max(rank, featureRank)
+  rank = Math.max(rank, featureRank, armorRanks(c, entries)[armorCategory === 'unarmored' ? 'Unarmored' : armorCategory === 'light' ? 'Light' : armorCategory === 'medium' ? 'Medium' : 'Heavy'])
   const dexterity = abilityMod(c.abilities.dex)
   const dexCap = armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY
   return 10 + num(armor?.data.ac) + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level)

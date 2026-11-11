@@ -1,10 +1,23 @@
 import {
-  ABILITY_LABEL, RANKS, abilityMod, armorClass, backgroundSkills, canIncreaseTo, classSkills,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, canIncreaseTo, classSkills,
   maxHp,
   proficiencyBonus, ranksAt, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
+
+function ProficiencyBadges({ groups, ranks, labels }: { groups: readonly string[]; ranks: Record<string, number>; labels?: Record<string, string> }) {
+  return (
+    <div className="prof-badges">
+      {groups.map((group) => (
+        <span key={group} title={RANKS[ranks[group]]}>
+          <b className={`prof-badge${ranks[group] > 0 ? ' trained' : ''}`}>{ranks[group] > 0 ? RANK_LETTERS[ranks[group] - 1] : 'U'}</b>
+          {labels?.[group] ?? group}
+        </span>
+      ))}
+    </div>
+  )
+}
 
 export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const stats = statDefs(c)
@@ -114,9 +127,13 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
 
   if (part === 'offense') {
     return (
-      <div className="skill-grid" role="table" aria-label="Offense">
-        {renderRows(offense)}
-      </div>
+      <>
+        <div className="skill-grid" role="table" aria-label="Offense">
+          {renderRows(offense)}
+        </div>
+        <small>Initiative bonus <b>{signed(abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level))}</b></small>
+        <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
+      </>
     )
   }
   if (part === 'defense') {
@@ -129,6 +146,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}
         </div>
+        <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} labels={{ Unarmored: 'Unarmored defense' }} />
       </>
     )
   }
