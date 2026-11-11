@@ -1,3 +1,4 @@
+import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
@@ -111,7 +112,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
             <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
           </div>
-          {ancestry && <small><b>{ancestry.name}</b>: {detail(ancestry)}</small>}
+          {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />
           <FeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
@@ -125,7 +126,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <Pick label="Background" kind="background" value={c.background} options={of('background')} onChange={(v) => save({ background: v })} />
-          {background && <small><b>{background.name}</b>: {detail(background)}</small>}
+          {background && <Info label={background.name}>{detail(background)}</Info>}
           <AbilityBoostChoices {...section} groups={['background']} />
           {background?.data.skill && <small>Trained skills: <b>{String(background.data.skill)}</b></small>}
           {background?.data.feat && <small>Background grants: <b>{String(background.data.feat)}</b></small>}
@@ -157,7 +158,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
               </select>
             </label>
           )}
-          {klass && <small><b>{klass.name}</b>: {detail(klass)}</small>}
+          {klass && <Info label={klass.name}>{detail(klass)}</Info>}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
           <FeatSlots {...section} categories={['class']} title="Class Feats" />
@@ -202,7 +203,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ul>
             {gearMatches.map((g) => (
               <li key={g.id}>
-                <b>{g.name}</b> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}) {detail(g)}{' '}
+                <b>{g.name}</b> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}{detail(g) && <Info>{detail(g)}</Info>}{' '}
                 <button onClick={() => {
                   const have = c.equipment.find((x) => x.name === g.name)
                   save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })

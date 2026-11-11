@@ -1,3 +1,4 @@
+import { Info } from './Info'
 import { classFeatures, type SectionProps } from './builder'
 import { ActionIcon } from './ActionIcon'
 
@@ -13,7 +14,7 @@ export function ClassFeatures({ c, entries }: SectionProps) {
         {features.map((f) => (
           <li key={f.id}>
             <b>L{String(f.level).padStart(2, '0')} {f.name}</b> <ActionIcon entry={f} />
-            {f.description && <><br /><small>{f.description}</small></>}
+            {f.description && <Info>{f.description}</Info>}
           </li>
         ))}
       </ul>

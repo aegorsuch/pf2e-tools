@@ -1,3 +1,4 @@
+import { Info } from './Info'
 import { eligibleFeats, featType, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
@@ -104,6 +105,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </optgroup>
                 ))}
               </select>
+              {current && (entries.find((e) => e.kind === 'feat' && e.name === current)?.description) && <Info>{entries.find((e) => e.kind === 'feat' && e.name === current)!.description}</Info>}
               {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {extra
                 ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}

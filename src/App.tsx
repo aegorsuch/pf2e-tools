@@ -1,3 +1,4 @@
+import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -189,13 +190,13 @@ export default function App() {
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
             Automatically advance class skills
           </label>
-          <small>Skills your class grants (a ranger's Nature and Survival, a druid's order skill, a chosen class skill) are trained automatically and rank up for free as your level allows (house rule), without using your skill picks or increases.</small>
+          <Info label="Rule summary">Skills your class grants (a ranger's Nature and Survival, a druid's order skill, a chosen class skill) are trained automatically and rank up for free as your level allows (house rule), without using your skill picks or increases.</Info>
         </section>
       )}
 
       <h2>
         Characters{' '}
-        <button type="button" className="icon-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
+        <button type="button" className="gear-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
           onClick={() => setShowSettings((v) => !v)}><GearIcon /></button>{' '}
         <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
       </h2>

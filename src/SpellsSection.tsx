@@ -1,3 +1,4 @@
+import { Info } from './Info'
 import { useMemo, useState } from 'react'
 import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character } from './types'
@@ -111,7 +112,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
               <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>
                 {have ? 'Added' : 'Add'}
               </button>
-              <br /><small>{m.description}</small>
+              {m.description && <Info>{m.description}</Info>}
             </li>
           )
         })}
