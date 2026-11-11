@@ -538,3 +538,15 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
 // ---------- Spells ----------
 
 export const SPELL_TRADITIONS = ['Arcane', 'Divine', 'Occult', 'Primal']
+
+// SF2e lists every grade of a base item ("Advanced Armored Coat", "Azimuth Laser Pistol, Tactical"); keep the bases
+const GRADES = ['commercial', 'tactical', 'advanced', 'superior', 'elite', 'ultimate', 'paragon']
+const normalName = (n: string) => n.toLowerCase().replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim()
+export function baseItems(items: ContentEntry[]) {
+  const names = new Set(items.map((e) => normalName(e.name)))
+  return items.filter((e) => {
+    const words = normalName(e.name).split(' ')
+    const stripped = words.filter((w) => !GRADES.includes(w)).join(' ')
+    return stripped === words.join(' ') || !stripped || !names.has(stripped)
+  })
+}

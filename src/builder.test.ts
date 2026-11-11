@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, heritagesFor, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, heritagesFor, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -211,5 +211,13 @@ describe('heritagesFor', () => {
       entry('heritage', 'Changeling', {}, 1, ['Heritage']),
     ]
     expect(heritagesFor(list, 'Gnome').map((h) => h.name).sort()).toEqual(['Aquazoan Gnome', 'Chameleon Gnome', 'Changeling'])
+  })
+})
+
+describe('baseItems', () => {
+  it('drops graded upgrades of an existing base item', () => {
+    const list = ['Armored Coat', 'Advanced Armored Coat', 'Laser Pistol', 'Laser Pistol, Tactical', 'Advanced Rifle', 'Hand Crossbow', 'Crossbow']
+      .map((n) => entry('armor', n))
+    expect(baseItems(list).map((e) => e.name)).toEqual(['Armored Coat', 'Laser Pistol', 'Advanced Rifle', 'Hand Crossbow', 'Crossbow'])
   })
 })

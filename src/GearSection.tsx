@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, armorCategory, isRanged, weaponDamage, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
+  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, baseItems, armorCategory, isRanged, weaponDamage, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -49,7 +49,7 @@ export function Search({ entries, kind, label, onPick }: {
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
-  const pool = entries.filter((e) => e.kind === kind)
+  const pool = baseItems(entries.filter((e) => e.kind === kind))
   const filters = FILTERS[kind].map((f) => ({ ...f, options: f.fixed ?? [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort((a, b) => a.localeCompare(b)) }))
   const query = q.trim().toLowerCase()
   const matches = [...new Map(
