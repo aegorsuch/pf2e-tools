@@ -4,6 +4,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, maxHp } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
+import { FeatChoice } from './FeatChoice'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { db } from './db'
@@ -59,7 +60,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     return entries
       .filter((e) => e.kind === 'feat' && (!maxLevelOnly || e.level <= c.level))
       .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 40)
   }, [entries, featQuery, maxLevelOnly, c.level])
 
@@ -180,11 +181,16 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <SpellsSection {...section} />
 
       <h3>All feats ({c.feats.length})</h3>
-      <ul>
-        {c.feats.map((f, i) => (
-          <li key={`${f.name}-${i}`}>
+      <ul className="feat-slot-list">
+        {c.feats.map((feat, index) => ({ feat, index })).sort((a, b) => a.feat.name.localeCompare(b.feat.name)).map(({ feat: f, index: i }) => (
+          <li className="feat-slot-row" key={`${f.name}-${i}`}>
             {f.name} <small>({f.type}, L{f.level}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
-            <button onClick={() => save({ feats: c.feats.filter((_, j) => j !== i) })}>Remove</button>
+            <button onClick={() => {
+              const feats = c.feats.filter((_, j) => j !== i)
+              const ids = new Set(entries.filter((e) => e.kind === 'feat' && e.name === f.name).map((e) => e.id))
+              save({ feats, entryIds: feats.some((feat) => feat.name === f.name) ? c.entryIds : c.entryIds.filter((id) => !ids.has(id)) })
+            }}>Remove</button>
+            {!f.slot && <FeatChoice {...section} index={i} />}
           </li>
         ))}
       </ul>
@@ -196,9 +202,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         {featMatches.map((f) => (
           <li key={f.id}>
             <b>{f.name}</b> (L{f.level}) {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
-            <button onClick={() => save({
+            <button disabled={c.feats.some((feat) => feat.name === f.name) && f.data.repeatable !== true} onClick={() => save({
               feats: [...c.feats, { name: f.name, type: featType(f, c), level: f.level }],
-              entryIds: [...c.entryIds, f.id],
+              entryIds: c.entryIds.includes(f.id) ? c.entryIds : [...c.entryIds, f.id],
             })}>Add</button>
             <br /><small>{f.description}</small>
           </li>

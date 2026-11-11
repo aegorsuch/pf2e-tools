@@ -15,6 +15,16 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
   return result
 }
 
+function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
+  let result: ((event: { target: { value: string } }) => void) | undefined
+  Children.forEach(node, (child) => {
+    if (result || !isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'select' && child.props['aria-label'] === label) result = child.props.onChange as (event: { target: { value: string } }) => void
+    else result = findSelect(child.props.children as ReactNode, label)
+  })
+  return result
+}
+
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 13, ancestry: 'Human',
@@ -30,6 +40,47 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   expect(markup).toContain('L01 Ancestry')
   expect(markup).toContain('L13 Ancestry')
   expect(markup).toContain('L01 Natural Ambition')
+  expect(markup).toContain('class="feat-slot-list"')
+  expect(markup).toContain('class="feat-slot-row"')
+})
+
+it('allows repeatable feats in multiple slots and retains their entry link until the final copy is removed', () => {
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [],
+    extraSlots: [{ category: 'class', level: 1, count: 1 }], updatedAt: 0,
+  }
+  const entries: ContentEntry[] = [{
+    id: 'warden', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Initiate Warden', level: 1,
+    traits: ['Ranger'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }]
+  const tree = () => FeatSlots({ c, entries, save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
+  const select = () => findSelect(tree(), 'L01 Class feat')
+  const chooseFirst = select()
+  if (!chooseFirst) throw new Error('Missing first slot')
+  chooseFirst({ target: { value: 'Initiate Warden' } })
+  const removeExtra = findButton(tree(), 'Remove L01 Class extra feat slot 1')
+  expect(removeExtra).toBeDefined()
+  const chooseExtra = (() => {
+    let selects: Array<(event: { target: { value: string } }) => void> = []
+    const visit = (node: ReactNode) => Children.forEach(node, (child) => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'select' && child.props['aria-label'] === 'L01 Class feat') selects.push(child.props.onChange as (event: { target: { value: string } }) => void)
+      visit(child.props.children as ReactNode)
+    })
+    visit(tree())
+    return selects[1]
+  })()
+  if (!chooseExtra) throw new Error('Missing extra slot')
+  chooseExtra({ target: { value: 'Initiate Warden' } })
+  expect(c.feats).toHaveLength(2)
+  expect(c.entryIds).toEqual(['warden'])
+  const remove = findButton(tree(), 'Remove L01 Class extra feat slot 1')
+  if (!remove) throw new Error('Missing remove button')
+  remove()
+  expect(c.feats).toHaveLength(1)
+  expect(c.entryIds).toEqual(['warden'])
 })
 
 it('adds slots beside a selected feat and removes only the chosen extra slot', () => {

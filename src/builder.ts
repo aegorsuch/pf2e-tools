@@ -190,11 +190,11 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   }
   const trait = wanted[slot.category]?.toLowerCase()
   if (slot.category !== 'bonus' && !trait) return []
-  const taken = new Set(c.feats.filter((f) => f.slot && f.slot !== slot.key).map((f) => f.name))
+  const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
   return entries
-    .filter((e) => e.kind === 'feat' && e.level <= slot.level && !taken.has(e.name))
+    .filter((e) => e.kind === 'feat' && e.level <= slot.level && (!taken.has(e.name) || e.data.repeatable === true))
     .filter((e) => !trait || e.traits.some((t) => t.toLowerCase() === trait))
-    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // ---------- Class features ----------

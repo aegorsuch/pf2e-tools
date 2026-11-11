@@ -234,6 +234,47 @@
   }
 }
 
+.feat-slot-list {
+  list-style: none;
+  padding: 0;
+}
+
+.feat-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.feat-slot-row > span {
+  white-space: nowrap;
+}
+
+.feat-slot-row > select {
+  flex: 1 1 10rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.feat-slot-row > button {
+  flex: none;
+}
+
+.feat-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 9rem;
+  min-width: 0;
+}
+
+.feat-choice select,
+.feat-choice input {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
 .character-section {
   border: 1px solid var(--border);
   border-radius: 10px;

@@ -27,6 +27,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     else if (typeof v === 'string' && v) data[f] = v
     else if (Array.isArray(v) && v.length) data[f] = v.join(', ')
   }
+  if (kind === 'feat') {
+    const special = /\*\*Special\*\*\s*([^\n]*)/i.exec(text(s.markdown))?.[1] ?? ''
+    data.repeatable = /\b(?:take|select|choose) this (?:ancestry |class |skill |general )?feat (?:multiple times|more than once)\b/i.test(special)
+  }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land
   // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
@@ -77,7 +81,7 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
 }
 
 // Bump when the mapping changes so existing installs re-import automatically
-export const AON_IMPORT_VERSION = 2
+export const AON_IMPORT_VERSION = 3
 const REFRESH_MS = 7 * 24 * 3600 * 1000
 const inFlight = new Map<GameSystem, Promise<number>>()
 

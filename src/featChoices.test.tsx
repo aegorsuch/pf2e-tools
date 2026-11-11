@@ -1,0 +1,90 @@
+import { Children, isValidElement, type ReactNode } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { expect, it } from 'vitest'
+import { mapAonHit } from './aon'
+import { FeatChoice } from './FeatChoice'
+import { SpellsSection } from './SpellsSection'
+import { grantedWardenSpells } from './featChoices'
+import type { Character, ContentEntry } from './types'
+
+const spell = (name: string, tier: string): ContentEntry => ({
+  id: name, systems: ['pf2e'], kind: 'spell', source: 'official', name, level: tier === 'Initiate' ? 1 : 2,
+  traits: ['Focus', 'Ranger'], description: '', data: { warden_spell_tier: tier }, effects: [], updatedAt: 1,
+})
+const entries = [spell('Gravity Weapon', 'Initiate'), spell('Heal Companion', 'Initiate'), spell('Animal Feature', 'Advanced')]
+const base: Character = {
+  id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
+  abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+  feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+}
+
+function findSelect(node: ReactNode): { onChange: (event: { target: { value: string } }) => void } | undefined {
+  let found: { onChange: (event: { target: { value: string } }) => void } | undefined
+  Children.forEach(node, (child) => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'select') found = { onChange: child.props.onChange as (event: { target: { value: string } }) => void }
+    else found = findSelect(child.props.children as ReactNode)
+  })
+  return found
+}
+
+it('imports repeatability from feat special rules without guessing from summaries', () => {
+  const hit = { _id: 'feat-4862', _source: {
+    name: 'Initiate Warden', category: 'feat', summary: 'You gain a spell.',
+    markdown: '**Special** You can take this feat multiple times, choosing a different initial warden spell each time.',
+  } }
+  expect(mapAonHit(hit, 'pf2e')?.data.repeatable).toBe(true)
+  expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '**Special** You can take this ancestry feat multiple times.' } }, 'pf2e')?.data.repeatable).toBe(true)
+  expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '', summary: 'You can take this feat multiple times.' } }, 'pf2e')?.data.repeatable).toBe(false)
+  expect(mapAonHit({ _source: { category: 'spell', name: 'Gravity Weapon', warden_spell_tier: 'Initiate' } }, 'pf2e')?.data.warden_spell_tier).toBe('Initiate')
+})
+
+it('selects distinct warden spells per feat and derives grants from current choices', () => {
+  let c: Character = { ...base, feats: [
+    { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+    { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:1' },
+  ] }
+  const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
+  const first = findSelect(FeatChoice({ ...props(), index: 0 }))
+  if (!first) throw new Error('Missing first spell selection')
+  first.onChange({ target: { value: 'Gravity Weapon' } })
+  expect(grantedWardenSpells(c, entries).map((s) => s.name)).toEqual(['Gravity Weapon'])
+  const markup = renderToStaticMarkup(<FeatChoice {...props()} index={1} />)
+  expect(markup).toContain('Heal Companion')
+  expect(markup).not.toContain('Gravity Weapon')
+  expect(markup).not.toContain('Animal Feature')
+  const second = findSelect(FeatChoice({ ...props(), index: 1 }))
+  if (!second) throw new Error('Missing second spell selection')
+  second.onChange({ target: { value: 'Heal Companion' } })
+  expect(grantedWardenSpells(c, entries).map((s) => s.name)).toEqual(['Gravity Weapon', 'Heal Companion'])
+  c = { ...c, feats: c.feats.slice(1) }
+  expect(grantedWardenSpells(c, entries).map((s) => s.name)).toEqual(['Heal Companion'])
+})
+
+it('shows feat grants once without deleting independently added spells', () => {
+  const c: Character = { ...base, feats: [{ name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' }],
+    spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Spells (1)')
+  expect(markup).toContain('Gravity Weapon')
+  expect(markup).toContain('(warden feat)')
+  expect((markup.match(/Gravity Weapon/g) ?? [])).toHaveLength(1)
+  expect(grantedWardenSpells({ ...c, feats: [] }, entries)).toEqual([])
+  expect(c.spells).toHaveLength(1)
+})
+
+it('allows a text choice for other repeatable feats without granting an unrelated spell', () => {
+  let c: Character = { ...base, feats: [{ name: 'Order Explorer', type: 'Class Feat', level: 2 }] }
+  const feat: ContentEntry = {
+    id: 'order', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Order Explorer', level: 2,
+    traits: ['Druid'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }
+  const tree = FeatChoice({ c, entries: [feat], index: 0, save: (patch) => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree)).toContain('Order Explorer choice')
+  if (!isValidElement<{ children: ReactNode }>(tree)) throw new Error('Missing choice field')
+  const field = Children.toArray(tree.props.children).find((child) => isValidElement(child) && child.type === 'input')
+  if (!isValidElement<{ onBlur: (event: { target: { value: string } }) => void }>(field)) throw new Error('Missing choice input')
+  field.props.onBlur({ target: { value: 'Leaf' } })
+  expect(c.feats[0].choice).toBe('Leaf')
+  expect(grantedWardenSpells(c, [feat])).toEqual([])
+})

@@ -1,4 +1,5 @@
 import { eligibleFeats, plannedSlots, type SectionProps } from './builder'
+import { FeatChoice } from './FeatChoice'
 import type { FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
@@ -19,15 +20,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
     const category = f.slot.split(':')[0] as FeatSlotCategory
     return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
   })
-  const choose = (key: string, category: FeatSlotCategory, name: string) => {
-    const feat = entries.find((e) => e.kind === 'feat' && e.name === name && eligibleFeats(entries, c, { key, category, level: 20 }).includes(e))
+  const choose = (key: string, category: FeatSlotCategory, level: number, name: string) => {
+    const feat = entries.find((e) => e.kind === 'feat' && e.name === name && eligibleFeats(entries, c, { key, category, level }).includes(e))
     const old = c.feats.find((f) => f.slot === key)
     const oldId = old && entries.find((e) => e.kind === 'feat' && e.name === old.name)?.id
     const feats = c.feats.filter((f) => f.slot !== key)
-    const entryIds = c.entryIds.filter((id) => id !== oldId)
+    const entryIds = c.entryIds.filter((id) => id !== oldId || feats.some((f) => f.name === old?.name))
     if (feat) {
       feats.push({ name: feat.name, type: `${LABEL[category]} Feat`, level: feat.level, slot: key })
-      entryIds.push(feat.id)
+      if (!entryIds.includes(feat.id)) entryIds.push(feat.id)
     }
     save({ feats, entryIds })
   }
@@ -54,17 +55,18 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
   return (
     <>
       <h4>{title}</h4>
-      <ul>
+      <ul className="feat-slot-list">
         {slots.map((s) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
+          const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const options = eligibleFeats(entries, c, s)
           const first = slots.find((slot) => slot.category === s.category && slot.level === s.level)?.key === s.key
           const extra = !standardKeys.has(s.key)
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (
-            <li key={s.key}>
-              {label}{' '}
-              <select value={current} onChange={(e) => choose(s.key, s.category, e.target.value)}>
+            <li className="feat-slot-row" key={s.key}>
+              <span>{label}</span>
+              <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && <option>{current}</option>}
                 {options.map((o) => <option key={o.id} value={o.name}>L{String(o.level).padStart(2, '0')} {o.name}</option>)}
@@ -73,6 +75,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
                 onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>}
               {extra && <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
                 onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>}
+              {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
             </li>
           )
         })}

@@ -136,6 +136,10 @@ export default function App() {
           <input placeholder="Traits (comma separated)" value={draft.traits.join(', ')}
             onChange={(e) => setDraft({ ...draft, traits: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} />
           <textarea placeholder="Description" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+          {draft.kind === 'feat' && <label>
+            <input type="checkbox" checked={draft.data.repeatable === true}
+              onChange={(e) => setDraft({ ...draft, data: { ...draft.data, repeatable: e.target.checked } })} /> Repeatable feat
+          </label>}
           <EffectsEditor effects={draft.effects} onChange={(effects) => setDraft({ ...draft, effects })} />
           {(draft.kind === 'armor' || draft.kind === 'weapon') && (
             <select value={String(draft.data.group ?? '')}

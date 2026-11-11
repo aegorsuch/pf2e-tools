@@ -52,6 +52,8 @@ Stack: React, TypeScript, Vite, Dexie (IndexedDB), Supabase, vite-plugin-pwa. Sy
 
 Official (designer-made) content for both PF2e and SF2e is sourced from the Archives of Nethys (2e.aonprd.com and Starfinder's AoN). Respect Paizo's Community Use/ORC licensing and attribution terms when importing it. Homebrew entries are kept separate (`source: 'homebrew'`).
 
+Feat repeatability is imported from AoN's special rules; homebrew feats can be marked repeatable. Warden feats offer distinct spell choices and grant those spells while the feat remains selected. Other repeatable feats can record a text choice; their effects are not applied automatically.
+
 ## License
 
 GPLv3. See [LICENSE](LICENSE).

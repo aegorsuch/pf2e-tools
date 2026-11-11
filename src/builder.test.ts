@@ -102,6 +102,19 @@ describe('eligibleFeats', () => {
     const used = { ...base, feats: [{ name: 'Fleet', type: 'x', level: 1, slot: 'general:7:0' }] }
     expect(eligibleFeats(entries, used, general).map((f) => f.name)).toEqual(['Toughness'])
   })
+  it('sorts feats alphabetically and allows only marked feats to repeat', () => {
+    const feats = [
+      entry('feat', 'Zeal', {}, 1, ['Ranger']),
+      entry('feat', 'Alpha', {}, 1, ['Ranger']),
+      entry('feat', 'Initiate Warden', { repeatable: true }, 1, ['Ranger']),
+    ]
+    const c: Character = { ...base, className: 'Ranger', feats: [
+      { name: 'Zeal', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+      { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:1' },
+    ] }
+    expect(eligibleFeats(feats, c, { key: 'class:1:2', category: 'class', level: 1 }).map((f) => f.name))
+      .toEqual(['Alpha', 'Initiate Warden'])
+  })
 })
 
 describe('skills', () => {
