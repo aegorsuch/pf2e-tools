@@ -74,8 +74,9 @@ it('locks class/background grants and derives defense proficiency without overri
     expect(trained.disabled).toBe(true)
     ;(trained.onClick as () => void)()
   }
-  for (const name of ['Perception', 'Fortitude', 'Reflex']) {
-    expect(buttons.get(`${name} Expert`)?.disabled).toBe(true)
+  for (const [part, names] of [['offense', ['Perception']], ['defense', ['Fortitude', 'Reflex']]] as const) {
+    const partButtons = findButtons(SkillsSection({ ...props(), part }))
+    for (const name of names) expect(partButtons.get(`${name} Expert`)?.disabled).toBe(true)
   }
   expect(c.skillPicks).toEqual(['Society'])
 
@@ -102,10 +103,13 @@ it('sorts all skills with Lore and allows trained and Lore rank increases', () =
   const markup = renderToStaticMarkup(<SkillsSection {...props()} />)
   expect(markup.indexOf('Diplomacy')).toBeLessThan(markup.indexOf('Fey Lore'))
   expect(markup.indexOf('Fey Lore')).toBeLessThan(markup.indexOf('Intimidation'))
-  expect(markup.indexOf('<h4>Offense</h4>')).toBeLessThan(markup.indexOf('Perception'))
-  expect(markup.indexOf('<h4>Defense</h4>')).toBeLessThan(markup.indexOf('Fortitude'))
-  expect(markup.indexOf('Fortitude')).toBeLessThan(markup.indexOf('Reflex'))
-  expect(markup.indexOf('Reflex')).toBeLessThan(markup.indexOf('Will'))
+  expect(markup).not.toContain('Perception')
+  expect(markup).not.toContain('Fortitude')
+  const offense = renderToStaticMarkup(<SkillsSection {...props()} part="offense" />)
+  expect(offense).toContain('Perception')
+  const defense = renderToStaticMarkup(<SkillsSection {...props()} part="defense" />)
+  expect(defense.indexOf('Fortitude')).toBeLessThan(defense.indexOf('Reflex'))
+  expect(defense.indexOf('Reflex')).toBeLessThan(defense.indexOf('Will'))
 
   const buttons = findButtons(SkillsSection(props()))
   const acrobatics = buttons.get('Acrobatics Trained')

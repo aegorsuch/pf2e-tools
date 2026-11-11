@@ -142,6 +142,12 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       </details>
 
       <details className="character-section">
+        <summary className="character-section-summary"><strong>Defense</strong></summary>
+        <div className="character-section-content">
+          <SkillsSection {...section} part="defense" />
+        </div>
+      </details>
+      <details className="character-section">
         <summary className="character-section-summary">
           <strong>Deity</strong>
           <span>{c.deity || 'Optional'}</span>
@@ -187,6 +193,12 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <input key={c.id} defaultValue={c.languages.join(', ')}
             onBlur={(e) => save({ languages: e.target.value.split(',').map((l) => l.trim()).filter(Boolean) })} />
+        </div>
+      </details>
+      <details className="character-section">
+        <summary className="character-section-summary"><strong>Offense</strong></summary>
+        <div className="character-section-content">
+          <SkillsSection {...section} part="offense" />
         </div>
       </details>
       {featSection('skill')}

@@ -6,7 +6,7 @@ import {
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 
-export function SkillsSection({ c, entries, save }: SectionProps) {
+export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const stats = statDefs(c)
   const klass = entries.find((e) => e.kind === 'class' && e.name === c.className)
   const bg = entries.find((e) => e.kind === 'background' && e.name === c.background)
@@ -112,6 +112,27 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
     )
   })
 
+  if (part === 'offense') {
+    return (
+      <div className="skill-grid" role="table" aria-label="Offense">
+        {renderRows(offense)}
+      </div>
+    )
+  }
+  if (part === 'defense') {
+    return (
+      <>
+        <div className="defense-summary">
+          <span><small>AC</small><b>{armorClass(c, entries)}</b></span>
+          <span><small>HP</small><b>{maxHp(c, entries)}</b></span>
+        </div>
+        <div className="skill-grid" role="table" aria-label="Defense">
+          {renderRows(defense)}
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       {!klass && <small>Pick a class to fill in class proficiencies.</small>}
@@ -122,22 +143,6 @@ export function SkillsSection({ c, entries, save }: SectionProps) {
           </span>
         ))}
       </div>
-      <section className="skill-group">
-        <h4>Offense</h4>
-        <div className="skill-grid" role="table" aria-label="Offense">
-          {renderRows(offense)}
-        </div>
-      </section>
-      <section className="skill-group">
-        <h4>Defense</h4>
-        <div className="defense-summary">
-          <span><small>AC</small><b>{armorClass(c, entries)}</b></span>
-          <span><small>HP</small><b>{maxHp(c, entries)}</b></span>
-        </div>
-        <div className="skill-grid" role="table" aria-label="Defense">
-          {renderRows(defense)}
-        </div>
-      </section>
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}
       </div>
