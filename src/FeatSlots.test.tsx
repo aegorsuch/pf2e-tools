@@ -106,6 +106,26 @@ it('includes action symbols in feat choices and shows add control on each level 
   expect((markup.match(/aria-label="Add L\d{2} Class feat slot"/g) ?? [])).toHaveLength(2)
 })
 
+it('retains action icons on selected feat names and description headings', () => {
+  for (const actions of ['Single Action', 'Two Actions', 'Three Actions', 'Free Action', 'Reaction']) {
+    const c: Character = {
+      id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      feats: [{ name: 'Action Feat', type: 'Class Feat', level: 1, slot: 'class:1:0' }],
+      equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    }
+    const feat: ContentEntry = {
+      id: 'action-feat', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Action Feat', level: 1,
+      traits: ['Ranger'], description: 'Full feat description.', data: { actions }, effects: [], updatedAt: 0,
+    }
+    const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['class']} bare />)
+    const nameButton = /<button[^>]*class="feat-name"[^>]*>([\s\S]*?)<\/button>/.exec(markup)?.[1]
+    const heading = /<h4[^>]*>([\s\S]*?)<\/h4>/.exec(markup)?.[1]
+    expect(nameButton).toContain(`class="action-cost" aria-label="${actions}"`)
+    expect(heading).toContain(`class="action-cost" aria-label="${actions}"`)
+  }
+})
+
 it('routes mixed background grants to their own feat sections and hides rows when no feats are granted', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 3, background: 'Mixed Grants',

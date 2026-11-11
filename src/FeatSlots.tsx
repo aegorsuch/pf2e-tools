@@ -2,7 +2,6 @@ import { Fragment } from 'react'
 import { EntryDescription } from './EntryDescription'
 import { eligibleFeats, featByName, featType, homebrewDedication, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
-import { ActionIcon } from './ActionIcon'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
 import type { ContentEntry, FeatSlotCategory } from './types'
@@ -100,7 +99,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
             <span>Background {featType(feat, c)}</span>
             <EntryDescription name={feat.name} entry={feat} className="feat-name" />
-            <ActionIcon entry={feat} />
           </li>
         ))}
         {slots.map((s, index) => {
