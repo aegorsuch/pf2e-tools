@@ -33,12 +33,19 @@ export function ancestryLabel(ancestry?: string, heritage?: string) {
   return includesAncestry ? heritage : `${heritage} ${ancestry}`
 }
 
-// Heritages link to an ancestry only on SF2e; elsewhere every heritage is offered.
+// A heritage belongs to an ancestry via its ancestry field (SF2e id or AoN field) or ancestry trait;
+// heritages naming no ancestry (versatile ones) are offered to everyone. Both systems' heritages are merged.
 export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
   const all = entries.filter((e) => e.kind === 'heritage')
-  const target = ancestry ? slug(ancestry) : ''
-  const linked = all.filter((e) => e.data.ancestry === target)
-  return linked.length ? linked : all.filter((e) => !e.data.ancestry)
+  if (!ancestry) return all
+  const target = slug(ancestry)
+  const names = new Set(entries.filter((e) => e.kind === 'ancestry').map((e) => slug(e.name)))
+  return all.filter((e) => {
+    const linked = e.data.ancestry ? slug(String(e.data.ancestry)) : ''
+    if (linked) return linked === target
+    const tagged = e.traits.map(slug).filter((t) => names.has(t))
+    return tagged.length === 0 || tagged.includes(target)
+  })
 }
 
 // Best-effort feat category from AoN traits

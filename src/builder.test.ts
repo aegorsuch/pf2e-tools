@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, heritagesFor, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -198,5 +198,18 @@ describe('configured gear', () => {
     expect(a.ability).toBe('dex')
     expect(a.attack).toBe(3 + 7 + 2)
     expect(a.damage).toBe('2d8 P')
+  })
+})
+
+describe('heritagesFor', () => {
+  it('offers PF2e (trait-tagged) and SF2e (linked) heritages together, plus versatile ones', () => {
+    const list = [
+      entry('ancestry', 'Gnome'), entry('ancestry', 'Elf'),
+      entry('heritage', 'Chameleon Gnome', {}, 1, ['Gnome', 'Heritage']),
+      entry('heritage', 'Woodland Elf', {}, 1, ['Elf', 'Heritage']),
+      entry('heritage', 'Aquazoan Gnome', { ancestry: 'gnome' }),
+      entry('heritage', 'Changeling', {}, 1, ['Heritage']),
+    ]
+    expect(heritagesFor(list, 'Gnome').map((h) => h.name).sort()).toEqual(['Aquazoan Gnome', 'Chameleon Gnome', 'Changeling'])
   })
 })
