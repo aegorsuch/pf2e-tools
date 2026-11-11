@@ -1,7 +1,7 @@
 import { languageAllowance, languageGroups, type SectionProps } from './builder'
 
 export function LanguagesSection({ c, entries, save }: SectionProps) {
-  const { locked, slots } = languageAllowance(c, entries)
+  const { locked, slots, sources } = languageAllowance(c, entries)
   const groups = languageGroups(entries)
   const lockedKeys = new Set(locked.map((l) => l.toLowerCase()))
   const listed = new Set(Object.values(groups).flat().map(([l]) => l.toLowerCase()))
@@ -26,7 +26,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
               const on = isLocked || picked.some((l) => l.toLowerCase() === lang.toLowerCase())
               return (
                 <label key={lang}>
-                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && left <= 0)} onChange={() => toggle(lang)} /> {lang} {who && who !== lang && <small>({who})</small>}
+                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && left <= 0)} onChange={() => toggle(lang)} /> {lang} {sources[lang.toLowerCase()] ? <small>({sources[lang.toLowerCase()]})</small> : who && who !== lang && <small>({who})</small>}
                 </label>
               )
             })}

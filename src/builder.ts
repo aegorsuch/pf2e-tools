@@ -785,9 +785,11 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
   const known = new Set(allLanguages(entries).map((l) => l.toLowerCase()))
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
-  const fromFeats = c.feats.flatMap((f) => tokens(byName(entries, 'feat', f.name)?.data.grants_languages).map(titleCase))
-    .filter((l) => known.has(l.toLowerCase()))
+  const featGrants = c.feats.flatMap((f) => tokens(byName(entries, 'feat', f.name)?.data.grants_languages).map((l) => ({ lang: titleCase(l), source: f.name })))
+    .filter((g) => known.has(g.lang.toLowerCase()))
+  const fromFeats = featGrants.map((g) => g.lang)
+  const sources: Record<string, string> = Object.fromEntries(featGrants.map((g) => [g.lang.toLowerCase(), g.source]))
   const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []), ...fromFeats])]
   const feats = c.feats.reduce((n, f) => n + (LANGUAGE_FEATS[f.name] ?? 0), 0)
-  return { locked, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats }
+  return { locked, sources, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats }
 }

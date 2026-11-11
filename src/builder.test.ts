@@ -242,7 +242,7 @@ describe('languageAllowance', () => {
   it('locks Common, ancestry and class languages and counts 1 + Int and Multilingual', () => {
     const list = [entry('ancestry', 'Elf', { language: 'Common, Elven' })]
     const c = { ...base, ancestry: 'Elf', className: 'Druid', abilities: { ...base.abilities, int: 14 }, feats: [{ name: 'Multilingual', type: 'General Feat', level: 1 }] }
-    expect(languageAllowance(c, list)).toEqual({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
+    expect(languageAllowance(c, list)).toMatchObject({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
   })
 })
 
@@ -326,6 +326,7 @@ describe('feat grants', () => {
     const fey = entry('language', 'Fey', { rarity: 'Common' })
     const c = { ...base, feats: [{ name: 'Wild Hunter Dedication', type: 'Archetype Feat', level: 8 }] }
     expect(languageAllowance(c, [feat, fey]).locked).toContain('Fey')
+    expect(languageAllowance(c, [feat, fey]).sources.fey).toBe('Wild Hunter Dedication')
   })
   it('shows the worn armor group effect only with a specialization source', () => {
     const wood = { ...entry('armorGroup', 'Wood'), description: 'Source Treasure Vault pg. 9 Wood armor splinters.' }
