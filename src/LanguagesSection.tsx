@@ -11,12 +11,12 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   const left = slots - picked.length
   const toggle = (lang: string) => {
     const on = picked.some((l) => l.toLowerCase() === lang.toLowerCase())
+    if (!on && left <= 0) return
     const next = on ? picked.filter((l) => l.toLowerCase() !== lang.toLowerCase()) : [...picked, lang]
     save({ languages: [...locked, ...next] })
   }
   return (
     <div className="col language-picker">
-      {left < 0 && <small>{-left} too many selected</small>}
       {Object.entries(groups).map(([category, langs]) => (
         <fieldset key={category}>
           <legend>{category} Languages</legend>
