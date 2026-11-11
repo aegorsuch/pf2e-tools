@@ -149,7 +149,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Defense</strong>
-          <span>Armor Class {defense.ac}, Hit Points {defense.hp}, Fortitude {signed(defense.fortitude)}, Reflex {signed(defense.reflex)}, Will {signed(defense.will)}</span>
+          <span>Armor Class {defense.ac}, Hit Points {defense.hp}</span>
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="defense" />
