@@ -14,6 +14,13 @@ const LABEL: Record<FeatSlotCategory, string> = {
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
+    .sort((a, b) => {
+      if (a.level !== b.level) return a.level - b.level
+      const aName = c.feats.find((feat) => feat.slot === a.key)?.name ?? ''
+      const bName = c.feats.find((feat) => feat.slot === b.key)?.name ?? ''
+      if (!aName || !bName) return Number(!aName) - Number(!bName)
+      return aName.localeCompare(bName)
+    })
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
     if (!f.slot) return false
@@ -62,7 +69,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
           const options = eligibleFeats(entries, c, s)
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
-          const first = slots.find((slot) => slot.category === s.category && slot.level === s.level)?.key === s.key
+          const first = allSlots.find((slot) => slot.category === s.category && slot.level === s.level)?.key === s.key
           const extra = !standardKeys.has(s.key)
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (

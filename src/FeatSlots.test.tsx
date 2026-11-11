@@ -25,6 +25,26 @@ function findSelect(node: ReactNode, label: string): ((event: { target: { value:
   return result
 }
 
+it('alphabetizes selected feat rows within each level without moving their slot controls', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Zeal', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+      { name: 'Alpha', type: 'Class Feat', level: 1, slot: 'class:1:1' },
+      { name: 'Aardvark', type: 'Class Feat', level: 2, slot: 'class:2:0' },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], updatedAt: 0,
+    extraSlots: [{ category: 'class', level: 1, count: 2 }],
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} save={() => {}} categories={['class']} />)
+  expect(markup.indexOf('>Alpha</option>')).toBeLessThan(markup.indexOf('>Zeal</option>'))
+  expect(markup.indexOf('>Zeal</option>')).toBeLessThan(markup.indexOf('>Aardvark</option>'))
+  expect(markup.indexOf('>Zeal</option>')).toBeLessThan(markup.indexOf('Remove L01 Class extra feat slot 2'))
+  expect(markup.slice(0, markup.indexOf('>Zeal</option>'))).toContain('Remove L01 Class extra feat slot 1')
+  expect(markup.slice(markup.indexOf('>Zeal</option>'))).toContain('Add L01 Class feat slot')
+})
+
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 13, ancestry: 'Human',
