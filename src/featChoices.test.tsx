@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { FeatChoice } from './FeatChoice'
 import { SpellsSection } from './SpellsSection'
-import { canSelectWardenFeat, grantedWardenSpells, spellWardenLabel } from './featChoices'
+import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { eligibleFeats } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -85,7 +85,8 @@ it('shows feat grants once without deleting independently added spells', () => {
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('Spells (1)')
   expect(markup).toContain('Gravity Weapon')
-  expect(markup).toContain('(Initiate Warden feat)')
+  expect(markup).toContain('<b>Initiate Warden</b>')
+  expect(markup).not.toContain('Warden feat')
   expect((markup.match(/Gravity Weapon/g) ?? [])).toHaveLength(1)
   expect(grantedWardenSpells({ ...c, feats: [] }, entries)).toEqual([])
   expect(c.spells).toHaveLength(1)
@@ -99,7 +100,29 @@ it('labels Warden spells in spell listings by tier', () => {
   expect(spellWardenLabel(undefined)).toBeUndefined()
   const c: Character = { ...base, spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('(Initiate Warden)')
+  expect(markup).toContain('<b>Initiate Warden</b>')
+  expect(markup).not.toContain('<b>Rank 1</b>')
+})
+
+it('uses Warden tier headings without changing ordinary spell rank groups', () => {
+  const spells = [
+    spell('Gluttonous Growth', 'Peerless'),
+    { ...spell('Ordinary Spell', ''), data: {}, level: 5 },
+  ]
+  const c: Character = { ...base, spells: spells.map((s) => ({ name: s.name, rank: 5, cantrip: false, entryId: s.id })) }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+  expect(markup).toContain('<b>Peerless Warden</b>')
+  expect(markup).toContain('<b>Rank 5</b>')
+  expect(markup).not.toContain('(Peerless Warden)')
+})
+
+it('alphabetizes repeated feat selections by choice, leaving unchosen copies last', () => {
+  const selections = [
+    { name: 'Initiate Warden', choice: 'Heal Companion' },
+    { name: 'Initiate Warden' },
+    { name: 'Initiate Warden', choice: 'Gravity Weapon' },
+  ]
+  expect(selections.sort(compareFeatSelections).map((f) => f.choice)).toEqual(['Gravity Weapon', 'Heal Companion', undefined])
 })
 
 it('allows a text choice for other repeatable feats without granting an unrelated spell', () => {

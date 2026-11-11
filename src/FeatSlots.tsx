@@ -1,5 +1,6 @@
 import { eligibleFeats, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
+import { compareFeatSelections } from './featChoices'
 import type { FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
@@ -16,10 +17,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
-      const aName = c.feats.find((feat) => feat.slot === a.key)?.name ?? ''
-      const bName = c.feats.find((feat) => feat.slot === b.key)?.name ?? ''
-      if (!aName || !bName) return Number(!aName) - Number(!bName)
-      return aName.localeCompare(bName)
+      const aFeat = c.feats.find((feat) => feat.slot === a.key)
+      const bFeat = c.feats.find((feat) => feat.slot === b.key)
+      if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
+      return compareFeatSelections(aFeat, bFeat)
     })
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {

@@ -7,6 +7,12 @@ const WARDEN_TIERS: Record<string, string> = {
   'Peerless Warden': 'Peerless',
 }
 
+export function compareFeatSelections(a: Pick<Character['feats'][number], 'name' | 'choice'>, b: Pick<Character['feats'][number], 'name' | 'choice'>) {
+  return a.name.localeCompare(b.name)
+    || Number(!a.choice) - Number(!b.choice)
+    || (a.choice ?? '').localeCompare(b.choice ?? '')
+}
+
 export function spellWardenLabel(tier: unknown) {
   return typeof tier === 'string' && ['Initiate', 'Advanced', 'Master', 'Peerless'].includes(tier)
     ? `${tier} Warden`

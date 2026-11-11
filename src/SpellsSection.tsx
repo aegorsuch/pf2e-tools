@@ -25,7 +25,18 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   }, [entries, query, tradition])
 
   const mod = sc ? abilityMod(c.abilities[sc.ability]) + proficiencyBonus(sc.rank, c.level) : 0
-  const groups = [...new Set([...manualSpells.map((s) => (s.cantrip ? 0 : s.rank)), ...granted.map((s) => s.traits.some((t) => t.toLowerCase() === 'cantrip') ? 0 : s.level)])].sort((a, b) => a - b)
+  const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
+    const entry = entries.find((e) => e.kind === 'spell' && (entryId ? e.id === entryId : e.name === name))
+    return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
+  }
+  const listedSpells = [
+    ...granted.map((s) => ({ name: s.name, group: spellWardenLabel(s.data.warden_spell_tier) ?? `Rank ${s.level}`, index: -1 })),
+    ...spells.flatMap((s, index) => manualSpells.includes(s) ? [{ name: s.name, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
+  ].sort((a, b) => a.name.localeCompare(b.name))
+  const groupOrder = ['Cantrips', ...Array.from({ length: 10 }, (_, i) => `Rank ${i + 1}`),
+    'Initiate Warden', 'Advanced Warden', 'Master Warden', 'Peerless Warden']
+  const groups = [...new Set(listedSpells.map((s) => s.group))]
+    .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
 
   return (
     <>
@@ -67,18 +78,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       )}
       {groups.map((g) => (
         <div key={g}>
-          <b>{g === 0 ? 'Cantrips' : `Rank ${g}`}</b>
+          <b>{g}</b>
           <ul>
-            {granted.filter((s) => (s.traits.some((t) => t.toLowerCase() === 'cantrip') ? 0 : s.level) === g).map((s) => (
-              <li key={s.id}>{s.name} <small>({spellWardenLabel(s.data.warden_spell_tier) ?? 'Warden'} feat)</small></li>
-            ))}
-            {spells.map((s, i) => (s.cantrip ? 0 : s.rank) === g && (
-              !granted.some((entry) => entry.id === s.entryId || entry.name === s.name) &&
-              <li key={`${s.name}-${i}`}>
-                {s.name} {spellWardenLabel(entries.find((entry) => entry.id === s.entryId)?.data.warden_spell_tier) && (
-                  <small>({spellWardenLabel(entries.find((entry) => entry.id === s.entryId)?.data.warden_spell_tier)})</small>
-                )}{' '}
-                <button onClick={() => save({ spells: spells.filter((_, j) => j !== i) })}>Remove</button>
+            {listedSpells.filter((s) => s.group === g).map((s) => (
+              <li key={`${s.name}-${s.index}`}>
+                {s.name}{' '}
+                {s.index >= 0 && <button onClick={() => save({ spells: spells.filter((_, j) => j !== s.index) })}>Remove</button>}
               </li>
             ))}
           </ul>

@@ -5,7 +5,7 @@ import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor,
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
-import { canSelectWardenFeat } from './featChoices'
+import { canSelectWardenFeat, compareFeatSelections } from './featChoices'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { db } from './db'
@@ -56,7 +56,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
   const sortedFeats = c.feats.map((feat, index) => ({ feat, index }))
-    .sort((a, b) => a.feat.level - b.feat.level || a.feat.name.localeCompare(b.feat.name))
+    .sort((a, b) => a.feat.level - b.feat.level || compareFeatSelections(a.feat, b.feat))
 
   const featMatches = useMemo(() => {
     const q = featQuery.trim().toLowerCase()
