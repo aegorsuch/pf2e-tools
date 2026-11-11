@@ -56,6 +56,21 @@ it('blocks Living Weapon on free-hand weapons even when previously enabled', () 
   }
 })
 
+it('allows Living Weapon on ranged weapons while keeping the free-hand exclusion', () => {
+  const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], true)
+  c.weapons![0] = { ...c.weapons![0], name: 'Longbow', runes: [] }
+  const bow: ContentEntry = {
+    ...weapon, name: 'Longbow',
+    data: { weapon_category: 'Martial', weapon_type: 'Ranged', range: 100, damage: '1d8 piercing' },
+  }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[bow, shifting]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Living Weapon: grant Shifting rune" checked=""')
+  expect(markup).toContain('title="Granted by Living Weapon"')
+  const freeHand = renderToStaticMarkup(<WeaponList c={c} entries={[{ ...bow, traits: ['Free-Hand'] }, shifting]} save={() => {}} />)
+  expect(freeHand).not.toContain('Living Weapon: grant Shifting rune')
+  expect(freeHand).not.toContain('title="Granted by Living Weapon"')
+})
+
 it('keeps purchased and free Shifting runes out of weapon damage', () => {
   for (const free of [false, true]) {
     const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], free)

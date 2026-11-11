@@ -170,7 +170,6 @@ export function WeaponList({ c, entries, save }: SectionProps) {
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
         const canUseLivingWeapon = hasLivingWeapon && weaponCategory(a.entry) !== 'Unarmed'
-          && !isRanged(a.entry)
           && !a.traits.some((trait) => /^free[- ]hand$/i.test(trait.trim()))
         const freeShifting = canUseLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
         const damageRunes = w.runes.filter((rune) => !['Shifting', 'Grievous'].includes(rune)).sort((x, y) => x.localeCompare(y))
