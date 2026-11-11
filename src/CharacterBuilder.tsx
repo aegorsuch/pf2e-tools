@@ -78,7 +78,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>{title}</strong>
-          <span>{filled}/{slots.length} chosen</span>
+          <span>{filled}/{slots.length}</span>
         </summary>
         <div className="character-section-content">
           <FeatSlots {...section} categories={[category]} title={title} bare />
