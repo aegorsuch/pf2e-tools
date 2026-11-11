@@ -1,5 +1,4 @@
 import { Info } from './Info'
-import { newId } from './db'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
 import { signed, type SectionProps } from './builder'
 
@@ -98,14 +97,6 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
               </article>
             )
           })}
-          <div className="row">
-            <select aria-label="Add animal companion" value="" onChange={(e) => {
-              if (e.target.value) save({ companions: [...companions, { id: newId(), name: '', type: e.target.value }] })
-            }}>
-              <option value="">Add animal companion…</option>
-              {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
-            </select>
-          </div>
         </details>
       </div>
     </details>

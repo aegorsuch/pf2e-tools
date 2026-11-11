@@ -26,4 +26,8 @@ it('places companion advancement choices on the companion card', () => {
   expect(markup).toContain('aria-label="Companion specialization 2"')
   expect(markup).toContain('<option value="Nimble" selected="">Nimble</option>')
   expect(markup).toContain('<option value="Ambusher" selected="">Ambusher</option>')
+  expect(markup).not.toContain('Add animal companion')
+  expect(markup).toContain('aria-label="Companion type"')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
+    .not.toContain('Add animal companion')
 })
