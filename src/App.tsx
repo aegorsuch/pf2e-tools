@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
-import { db, exportHomebrew, importHomebrew, newId, removeEntry, saveEntry } from './db'
+import { db, importHomebrew, newId, removeEntry, saveEntry } from './db'
 import { EffectsEditor } from './EffectsEditor'
 import { parsePathbuilder } from './pathbuilder'
 import { importFromAon } from './aon'
@@ -47,11 +47,6 @@ export default function App() {
     })
   }
 
-  const download = async () => {
-    const url = URL.createObjectURL(new Blob([await exportHomebrew()], { type: 'application/json' }))
-    Object.assign(document.createElement('a'), { href: url, download: 'homebrew.json' }).click()
-  }
-
   return (
     <main>
       <h1>PF2E Tools</h1>
@@ -72,7 +67,6 @@ export default function App() {
             }
           } catch (err) { setStatus(String(err)) }
         }}>Import official (AoN)</button>
-        <button onClick={download}>Export homebrew</button>
         <label>
           Import Pathbuilder character
           <input type="file" accept="application/json,.json" hidden
