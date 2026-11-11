@@ -21,17 +21,7 @@ const SYSTEMS: { id: GameSystem; label: string }[] = [
 const toggle = (list: GameSystem[], s: GameSystem) =>
   list.includes(s) ? list.filter((x) => x !== s) : [...list, s]
 
-const ENABLED_KEY = 'enabled-systems'
 const ALL_SYSTEMS = SYSTEMS.map((s) => s.id)
-
-// Both systems are on by default; an explicit opt-out is remembered
-function loadEnabled(): GameSystem[] {
-  try {
-    const saved = JSON.parse(localStorage.getItem(ENABLED_KEY) ?? 'null') as unknown
-    if (Array.isArray(saved)) return ALL_SYSTEMS.filter((s) => saved.includes(s))
-  } catch { /* fall back to default */ }
-  return ALL_SYSTEMS
-}
 
 const blank = (systems: GameSystem[]): ContentEntry => ({
   id: newId(), systems, kind: 'feat', source: 'homebrew', name: '', level: 1,
@@ -59,8 +49,7 @@ function DeleteIcon() {
 }
 
 export default function App() {
-  const [enabled, setEnabled] = useState<GameSystem[]>(loadEnabled)
-  useEffect(() => localStorage.setItem(ENABLED_KEY, JSON.stringify(enabled)), [enabled])
+  const enabled = ALL_SYSTEMS
   const settings = useSettings()
   const [showSettings, setShowSettings] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
@@ -113,13 +102,6 @@ export default function App() {
     <main>
       <h1>PF2E Tools</h1>
       <div className="row">
-        {SYSTEMS.map((s) => (
-          <label key={s.id}>
-            <input type="checkbox" checked={enabled.includes(s.id)}
-              onChange={() => setEnabled(toggle(enabled, s.id))} />
-            {s.label}
-          </label>
-        ))}
         {supabase && (user
           ? <button onClick={async () => {
             try { await signOut(); setAuthError('') } catch (e) { setAuthError(String(e)) }
@@ -183,7 +165,7 @@ export default function App() {
         <CharacterBuilder character={characters.find((c) => c.id === editingId)!} onClose={() => setEditingId(null)} />
       )}
 
-      {showSettings && (
+      {!editingId && showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
           <label>
             <input type="checkbox" checked={settings.autoClassSkills}
@@ -200,6 +182,7 @@ export default function App() {
         </section>
       )}
 
+      {!editingId && <>
       <h2>
         Characters{' '}
         <button type="button" className="gear-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
@@ -233,6 +216,7 @@ export default function App() {
           </li>
         ))}
       </ul>
+      </>}
     </main>
   )
 }
