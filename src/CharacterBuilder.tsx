@@ -46,8 +46,9 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
       {line('Category', d.deity_category)}
       {line('Edicts', d.edict)}
       {line('Anathema', d.anathema)}
-      {line('Area of Concern', d.area_of_concern)}
+      {line('Areas of Concern', d.area_of_concern)}
       {line('Religious Symbol', d.religious_symbol)}
+      {line('Pantheon Members', d.pantheon_member)}
       <h5>Devotee Benefits</h5>
       {line('Divine Attribute', String(d.attribute ?? '').replace(/, /g, ' or '))}
       {line('Divine Font', String(d.divine_font ?? '').replace(/, /g, ' or '))}
