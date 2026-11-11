@@ -2,8 +2,9 @@ export type GameSystem = 'pf2e' | 'sf2e'
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
-  | 'companion' | 'companionSpec' | 'companionAdv'
+  | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass'
 export type Source = 'official' | 'homebrew'
+export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
 export type FeatSlotCategory = 'class' | 'ancestry' | 'skill' | 'general' | 'archetype' | 'bonus'
@@ -79,6 +80,7 @@ export interface Character {
   level: number
   ancestry?: string
   className?: string
+  subclass?: string
   heritage?: string
   // Druidic order, which grants a skill
   order?: string
@@ -95,7 +97,7 @@ export interface Character {
   equipment: { name: string; qty: number }[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
-  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
+  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
   shield?: OwnedShield
   lores: { name: string; rank: number }[]

@@ -84,7 +84,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const total = (k: string, ability: Ability) => mods[ability] + prof(k)
   const hp = num(d.hp) + (6 + mods.con) * level
   const baseSize = String(d.size ?? '').split(',')[0].trim()
-  const size = mature && baseSize ? growSize(baseSize) : baseSize
+  const size = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
   const flat = (advanced === 'Savage' ? 3 : advanced === 'Nimble' ? 2 : 0)
 
   const attacks = String(d.companion_attacks ?? '').split(';').filter(Boolean).map((a) => {

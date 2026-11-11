@@ -41,6 +41,8 @@ it.each([
   expect(markup).toContain('aria-label="Companion specialization 2"')
   expect(markup).toContain('<option value="Nimble" selected="">Nimble</option>')
   expect(markup).toContain('<option value="Ambusher" selected="">Ambusher</option>')
+  expect(markup).not.toContain(advanced)
+  expect(markup).not.toContain(specialized)
   expect(markup).not.toContain('Add animal companion')
   expect(markup).toContain('aria-label="Companion type"')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
@@ -51,4 +53,27 @@ it.each([
   choose({ target: { value: 'Racer' } })
   expect(c.feats[1]).toMatchObject({ name: specialized, choice: 'Racer' })
   expect(renderToStaticMarkup(<MinionsSection c={c} entries={[wolf]} save={save} />)).toContain('<span>Racer</span>')
+  c = { ...c, feats: [...c.feats].reverse() }
+  const reordered = renderToStaticMarkup(<MinionsSection c={c} entries={[wolf]} save={save} />)
+  expect(reordered.indexOf('aria-label="Companion advancement"')).toBeLessThan(reordered.indexOf('aria-label="Companion specialization 1"'))
+  const advance = findSelect(MinionsSection({ c, entries: [wolf], save }), 'Companion advancement')
+  if (!advance) throw new Error('Missing advancement dropdown')
+  advance({ target: { value: 'Savage' } })
+  expect(c.feats[1]).toMatchObject({ name: advanced, choice: 'Savage' })
+  expect(c.feats[0]).toMatchObject({ name: specialized, choice: 'Racer' })
+  c = { ...c, feats: [...c.feats,
+    { name: specialized, type: 'Class Feat', level: 10, choice: 'Wrecker' },
+    { name: specialized, type: 'Class Feat', level: 10, choice: 'Ambusher' },
+  ] }
+  const sorted = renderToStaticMarkup(<MinionsSection c={c} entries={[wolf]} save={save} />)
+  expect(sorted.indexOf('aria-label="Companion advancement"')).toBeLessThan(sorted.indexOf('aria-label="Companion specialization 4"'))
+  expect(sorted.indexOf('aria-label="Companion specialization 4"')).toBeLessThan(sorted.indexOf('aria-label="Companion specialization 1"'))
+  expect(sorted.indexOf('aria-label="Companion specialization 1"')).toBeLessThan(sorted.indexOf('aria-label="Companion specialization 3"'))
+  expect(sorted.indexOf('<span>Ambusher</span>')).toBeLessThan(sorted.indexOf('<span>Racer</span>'))
+  expect(sorted.indexOf('<span>Racer</span>')).toBeLessThan(sorted.indexOf('<span>Wrecker</span>'))
+  const changeFirst = findSelect(MinionsSection({ c, entries: [wolf], save }), 'Companion specialization 4')
+  if (!changeFirst) throw new Error('Missing alphabetized specialization')
+  changeFirst({ target: { value: 'Bully' } })
+  expect(c.feats[3]).toMatchObject({ name: specialized, choice: 'Bully' })
+  expect(c.feats[0]).toMatchObject({ name: specialized, choice: 'Racer' })
 })

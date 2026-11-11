@@ -10,6 +10,11 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
   const companions = c.companions ?? []
   const types = entries.filter((e) => e.kind === 'companion').sort((a, b) => a.name.localeCompare(b.name))
   const advancement = companionAdvancement(c)
+  const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
+    .filter(({ feat }) => isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name))
+    .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
+      || Number(!a.feat.choice) - Number(!b.feat.choice)
+      || (a.feat.choice ?? '').localeCompare(b.feat.choice ?? ''))
   const update = (id: string, patch: Partial<NonNullable<typeof c.companions>[number]>) =>
     save({ companions: companions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
   const setFeatChoice = (featIndex: number, choice: string) =>
@@ -38,40 +43,26 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   <button type="button" className="spell-remove" aria-label={`Remove ${comp.name || comp.type}`} title="Remove"
                     onClick={() => save({ companions: companions.filter((x) => x.id !== comp.id) })}>×</button>
                 </header>
-                {index === 0 && c.feats.some((feat) => isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) && (
+                {index === 0 && choices.length > 0 && (
                   <div className="row companion-choices">
-                    {c.feats.map((feat, featIndex) => {
-                      if (isCompanionAdvancement(feat.name)) {
-                        return (
-                          <label key={`${feat.name}:${featIndex}`}>{feat.name.replace(/ \([^)]+\)$/, '')}{' '}
-                            <select aria-label="Companion advancement" value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
-                              <option value="">Choose…</option>
-                              {feat.choice && !ADVANCED_TYPES.includes(feat.choice as typeof ADVANCED_TYPES[number]) && <option value={feat.choice}>{feat.choice}</option>}
-                              {ADVANCED_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
-                            </select>
-                          </label>
-                        )
-                      }
-                      if (isCompanionSpecialization(feat.name)) {
-                        const options = specializationOptions(c, entries, featIndex)
-                        return (
-                          <label key={`${feat.name}:${featIndex}`}>{feat.name.replace(/ \([^)]+\)$/, '')}{' '}
-                            <select aria-label={`Companion specialization ${featIndex + 1}`} value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
-                              <option value="">Choose…</option>
-                              {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}
-                              {options.map((option) => <option key={option} value={option}>{option}</option>)}
-                            </select>
-                          </label>
-                        )
-                      }
-                      return null
+                    {choices.map(({ feat, featIndex }) => {
+                      const advanced = isCompanionAdvancement(feat.name)
+                      const options: string[] = advanced ? [...ADVANCED_TYPES] : specializationOptions(c, entries, featIndex)
+                      return (
+                        <select key={`${feat.name}:${featIndex}`} aria-label={advanced ? 'Companion advancement' : `Companion specialization ${featIndex + 1}`}
+                          value={feat.choice ?? ''} onChange={(e) => setFeatChoice(featIndex, e.target.value)}>
+                          <option value="">{advanced ? 'Choose advancement…' : 'Choose specialization…'}</option>
+                          {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}
+                          {options.map((option) => <option key={option} value={option}>{option}</option>)}
+                        </select>
+                      )
                     })}
                   </div>
                 )}
                 {stats ? <>
                   <div className="gear-traits">
                     <span>{index === 0 ? stage : 'Young'}</span><span>{stats.size}</span>
-                    {index === 0 && advancement.specializations.map((s) => <span key={s}>{s}</span>)}
+                    {index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
                   </div>
                   <div className="gear-stats">

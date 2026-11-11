@@ -1,4 +1,4 @@
-import type { ContentEntry } from './types'
+import type { ContentEntry, HardlightGrade } from './types'
 
 export const HAFT_STRIKER_WEAPON: ContentEntry = {
   id: 'supplemental:haft-striker-stance',
@@ -34,6 +34,13 @@ export const ORC_TUSKS: ContentEntry = {
   data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonprd.com/Feats.aspx?ID=4519' },
 }
 
+export const GAUNTLET: ContentEntry = {
+  ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
+  traits: ['Agile', 'Free-Hand'],
+  description: 'Full plate includes gauntlets that can be used as simple weapons dealing 1d4 bludgeoning damage.',
+  data: { weapon_category: 'Simple', weapon_group: 'Brawling', weapon_type: 'Melee', damage: '1d4 bludgeoning' },
+}
+
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {
   ...FIST, id: 'supplemental:animal-feature-claws', name: 'Claws (Animal Feature)',
   traits: ['Agile', 'Finesse', 'Unarmed'],
@@ -55,4 +62,40 @@ export const HANDWRAPS: ContentEntry = {
   data: { usage: 'worn gloves' },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, FIST, IRON_FIST, ORC_TUSKS, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
+export const HARDLIGHT_HANDWRAPS: ContentEntry = {
+  ...HANDWRAPS, id: 'supplemental:hardlight-handwraps', systems: ['sf2e'], name: 'Hardlight Handwraps', level: 0,
+  traits: ['Invested', 'Magical', 'Tech'],
+  description: 'Hardlight handwraps enhance unarmed attacks. Their grade determines tracking, damage dice, and upgrade capacity.',
+  data: { usage: 'worn gloves', url: 'https://2e.aonsrd.com/treasure/112-hardlight-handwraps' },
+}
+
+export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; striking: number; upgrades: number }> = {
+  Commercial: { potency: 0, striking: 0, upgrades: 1 },
+  Tactical: { potency: 1, striking: 0, upgrades: 1 },
+  Advanced: { potency: 1, striking: 1, upgrades: 2 },
+  Superior: { potency: 2, striking: 1, upgrades: 2 },
+  Elite: { potency: 2, striking: 2, upgrades: 3 },
+  Ultimate: { potency: 3, striking: 2, upgrades: 3 },
+  Paragon: { potency: 3, striking: 3, upgrades: 4 },
+}
+
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, FIST, IRON_FIST, ORC_TUSKS, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, GAUNTLET]
+
+export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
+  const variants = [
+    { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Large' },
+    { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Medium' },
+  ]
+  return variants.flatMap<ContentEntry>((variant) => {
+    const base = entries.find((entry) => entry.kind === 'companion' && entry.source === 'official' && entry.systems.includes('pf2e') && !entry.deleted && entry.name === variant.base)
+    if (!base) return []
+    return [{
+      ...base, id: variant.id, name: variant.name, source: 'homebrew',
+      traits: [...new Set([...base.traits, 'Mount'])],
+      description: `Based on ${base.name}. Starts ${variant.size} and never grows larger; has the Mount trait.\n\n${base.description}`,
+      data: { ...base.data, size: variant.size, mount: true, fixed_size: true },
+      // Fresh-device defaults must not supersede synced user edits or deletions.
+      updatedAt: 1,
+    }]
+  })
+}

@@ -2,7 +2,7 @@ import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
+import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { HandwrapsGear } from './GearSection'
@@ -17,6 +17,10 @@ import type { Character, ContentEntry, EntryKind } from './types'
 const GEAR: EntryKind[] = ['item', 'weapon', 'armor']
 const NONE: ContentEntry[] = []
 
+const deityLabel = (deity: ContentEntry) => typeof deity.data.epithet === 'string' && deity.data.epithet.trim()
+  ? `${deity.name}, ${deity.data.epithet.trim().replace(/^The /, 'the ')}`
+  : deity.name
+
 function Pick({ label, kind, value, options, onChange }: {
   label: string
   kind: string
@@ -24,14 +28,15 @@ function Pick({ label, kind, value, options, onChange }: {
   options: ContentEntry[]
   onChange: (v: string | undefined) => void
 }) {
-  const names = [...new Set(options.map((o) => o.name))].sort()
+  const labels = new Map(options.map((entry) => [entry.name, kind === 'deity' ? deityLabel(entry) : entry.name]))
+  const names = [...labels.keys()].sort()
   return (
     <label>
       {label}{' '}
       <select value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
         <option value="">No {kind}</option>
         {value && !names.includes(value) && <option>{value}</option>}
-        {names.map((n) => <option key={n}>{n}</option>)}
+        {names.map((n) => <option key={n} value={n}>{labels.get(n)}</option>)}
       </select>
     </label>
   )
@@ -43,7 +48,7 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
   const line = (label: string, value: unknown) => value ? <p><b>{label}</b> {String(value)}</p> : null
   return (
     <div className="deity-card">
-      <h4>{deity.name}</h4>
+      <h4>{deityLabel(deity)}</h4>
       {String(d.about || deity.description).split('\n\n').map((p) => <p key={p}>{p}</p>)}
       {line('Category', d.deity_category)}
       {line('Edicts', d.edict)}
@@ -116,6 +121,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
   const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
+  const deity = named('deity', c.deity)
 
   const gearMatches = useMemo(() => {
     const q = gearQuery.trim().toLowerCase()
@@ -126,6 +132,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
 
   const ancestry = named('ancestry', c.ancestry)
   const klass = named('class', c.className)
+  const subclasses = subclassOptions(c, entries)
+  const subclassName = selectedSubclass(c, entries)
+  const subclass = subclasses.find((entry) => entry.name === subclassName)
   const background = named('background', c.background)
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
@@ -200,10 +209,15 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Class</strong>
-          <span>{c.className || 'Choose class'}</span>
+          <span>{classLabel(c, entries) || 'Choose class'}</span>
         </summary>
         <div className="character-section-content">
-          <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
+          <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
+          {subclasses.length > 0 && <>
+            <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : 'Subclass'}
+              kind="subclass" value={subclassName} options={subclasses} onChange={(v) => save({ subclass: v ?? '' })} />
+            {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
+          </>}
           {classSkills(klass).choices.length > 0 && (
             <label>
               Class skill{' '}
@@ -216,7 +230,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {c.className === 'Druid' && (
             <label>
               Druidic Order{' '}
-              <select value={c.order ?? ''} onChange={(e) => save({ order: e.target.value || undefined })}>
+              <select value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
                 {Object.keys(DRUID_ORDERS).filter((o) => o === c.order || !c.feats.some((f) => f.name === 'Order Explorer' && f.choice === o)).map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -242,11 +256,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Deity</strong>
-          <span>{c.deity || 'Optional'}</span>
+          <span>{deity ? deityLabel(deity) : c.deity || 'Optional'}</span>
         </summary>
         <div className="character-section-content">
           <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
-          <DeityCard deity={c.deity ? of('deity').find((d) => d.name === c.deity) : undefined} />
+          <DeityCard deity={deity} />
         </div>
       </details>
 

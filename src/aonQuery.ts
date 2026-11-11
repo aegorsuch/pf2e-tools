@@ -16,7 +16,7 @@ export const DATA_FIELDS = [
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
   'domain_primary', 'sanctification', 'warden_spell_tier',
-  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
+  'deity_category', 'epithet', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
   'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'sense', 'speed_raw', 'mount', 'companion_attacks', 'companion_support', 'companion_maneuver',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
@@ -25,6 +25,14 @@ const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary',
 const REMASTER_ONLY = (category: string) => ({
   bool: { filter: [{ term: { category } }], must_not: [{ exists: { field: 'remaster_id' } }] },
 })
+
+export const SUBCLASS_CLASSES: Record<string, string> = {
+  'hunters-edge': 'Ranger', cause: 'Champion', instinct: 'Barbarian', muse: 'Bard',
+  doctrine: 'Cleric', 'research-field': 'Alchemist', racket: 'Rogue', bloodline: 'Sorcerer',
+  patron: 'Witch', 'arcane-school': 'Wizard', mystery: 'Oracle', methodology: 'Investigator',
+  innovation: 'Inventor', way: 'Gunslinger', 'hybrid-study': 'Magus', 'conscious-mind': 'Psychic',
+  practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler',
+}
 
 export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   feat: 'feat',
@@ -44,6 +52,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   'animal-companion': 'companion',
   'animal-companion-specialization': 'companionSpec',
   'animal-companion-advanced': 'companionAdv',
+  ...Object.fromEntries(Object.keys(SUBCLASS_CLASSES).map((category) => [category, 'subclass' as const])),
 }
 
 // Class feature summaries often omit the proficiency sentences, so keep the full text without markup
@@ -111,6 +120,7 @@ export type Hit = { _id?: string; _source?: Record<string, unknown> }
 export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, onProgress?: (n: number) => void) {
   const hits: Hit[] = []
   for (const category of Object.keys(CATEGORY_TO_KIND)) {
+    if (system !== 'pf2e' && SUBCLASS_CLASSES[category]) continue
     const res = await fetchFn(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -157,7 +167,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.support) s.companion_support = comp.support
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
         }
-        if (!['feat', 'spell', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category)
+        if (!['feat', 'spell', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
           && !(category === 'equipment' && /Property Runes/i.test(String(s.item_subcategory)))) delete s.markdown
       }
       hits.push(hit)

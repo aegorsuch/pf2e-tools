@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS } from './supplemental'
-import { effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS } from './supplemental'
+import { effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
@@ -26,6 +26,32 @@ it('grants Haft Striker Stance from its feat without duplicating configured weap
   expect(ownedWeapons({ ...c, weapons, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
   const configured = { id: 'manual-haft', name: HAFT_STRIKER_WEAPON.name, potency: 2, striking: 1, runes: ['Flaming'] }
   expect(ownedWeapons({ ...c, weapons: [configured] }, []).find((weapon) => weapon.name === configured.name)).toBe(configured)
+})
+
+it('derives and locks one gauntlet only while full plate is worn, preserving independent weapon runes', () => {
+  const plate = { id: 'plate', name: 'Full Plate', potency: 0, resilient: 0, runes: [], worn: true }
+  const c: Character = { ...base, armors: [plate], handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }
+  const gauntlet = ownedWeapons(c, []).find((weapon) => weapon.name === 'Gauntlet')!
+  expect(isLockedWeapon(c, gauntlet.name)).toBe(true)
+  expect(weaponCategory(GAUNTLET)).toBe('Simple')
+  expect(weaponAttack(c, [], gauntlet)).toMatchObject({
+    ability: 'str', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Free-Hand'],
+  })
+  const configured = { ...gauntlet, potency: 2, striking: 1, runes: ['Flaming'] }
+  const saved = { ...c, weapons: [configured] }
+  expect(ownedWeapons(saved, []).filter((weapon) => weapon.name === 'Gauntlet')).toEqual([configured])
+  const unworn = { ...saved, armors: [{ ...plate, worn: false }] }
+  expect(ownedWeapons(unworn, []).map((weapon) => weapon.name)).not.toContain('Gauntlet')
+  expect(isLockedWeapon(unworn, 'Gauntlet')).toBe(false)
+  expect(ownedWeapons({ ...unworn, armors: [plate] }, []).find((weapon) => weapon.name === 'Gauntlet')).toEqual(configured)
+  expect(ownedWeapons({ ...base, armors: [{ ...plate, name: 'Half Plate' }] }, []).map((weapon) => weapon.name)).not.toContain('Gauntlet')
+  const manual = { ...configured, id: 'purchased-gauntlet' }
+  expect(ownedWeapons({ ...c, weapons: [manual] }, []).filter((weapon) => weapon.name === 'Gauntlet')).toEqual([manual])
+  expect(ownedWeapons({ ...base, weapons: [manual] }, [])).toContain(manual)
+  const imported = { ...base, equipment: [{ name: 'Full Plate', qty: 1 }] }
+  const entry: ContentEntry = { ...GAUNTLET, id: 'full-plate', kind: 'armor', name: 'Full Plate', data: { ac: 6, dex_cap: 0 } }
+  expect(ownedWeapons(imported, [entry]).map((weapon) => weapon.name)).toContain('Gauntlet')
+  expect(isLockedWeapon(imported, 'Gauntlet', [entry])).toBe(true)
 })
 
 it('provides a default fist until a different unarmed attack is available', () => {
@@ -106,6 +132,30 @@ it('offers handwrap runes for compatible unarmed attacks without requiring the b
   expect(options).toContain('Wounding')
   expect(options).not.toContain('Shifting')
   expect(options).not.toContain('Returning')
+})
+
+it('ignores directly configured unarmed runes while leaving saved data and manufactured weapons unchanged', () => {
+  const unarmed = { id: FIST.id, name: FIST.name, potency: 3, striking: 3, runes: ['Flaming'] }
+  expect(effectiveWeapon(base, [], unarmed)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  expect(weaponAttack(base, [], unarmed)).toMatchObject({ item: 0, damage: '1d4+1 bludgeoning' })
+  expect(unarmed).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
+  const c: Character = { ...base, handwraps: { potency: 1, striking: 1, runes: ['Impactful'] } }
+  expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 1, striking: 1, runes: ['Impactful'] })
+  expect(effectiveWeapon(c, [], { ...unarmed, name: 'Gauntlet' })).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
+  expect(effectiveWeapon({ ...c, handwraps: undefined }, [], unarmed)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+})
+
+it('derives hardlight tracking and damage dice from its saved grade, not directly configured attack runes', () => {
+  const c: Character = {
+    ...base, handwraps: { kind: 'hardlight', grade: 'Advanced', potency: 0, striking: 0, runes: ['Wounding'] },
+    activeSpells: ['Animal Feature'],
+    feats: [{ name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }],
+  }
+  const attack = ownedWeapons(c, []).find((weapon) => weapon.name === ANIMAL_FEATURE_CLAWS.name)!
+  expect(weaponAttack(c, [], attack)).toMatchObject({ item: 1, damage: '2d6+1 slashing' })
+  expect(effectiveWeapon(c, [], attack).runes).toEqual(['Wounding'])
+  expect(weaponAttack({ ...c, handwraps: { ...c.handwraps!, grade: 'Paragon' } }, [], attack))
+    .toMatchObject({ item: 3, damage: '4d6+1 slashing' })
 })
 
 it('filters runes using AoN weapon, damage, trait, and named-weapon requirements', () => {

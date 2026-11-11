@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { getSettings } from './settings'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -320,6 +320,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   return available.length ? Math.min(...available) : entry.level
 }
 
+const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed']]
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
@@ -337,6 +339,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(generalOnly && traits.has('skill'))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (!isCompanionSpecialization(e.name) || specializations < 3)
+      && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
       && (!taken.has(e.name) || (e.data.repeatable === true || isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key))
       && archetypeAllowed(e))
     .map(({ entry }) => entry)
@@ -466,7 +469,7 @@ const rankFromText = (v: unknown) => {
 export function classSkills(klass?: ContentEntry) {
   const lines = tokensLoose(klass?.data.skill_proficiency)
   const fixed = lines.flatMap((l) => {
-    const m = /^trained in (?!a number|one or more|your choice)(.+)$/i.exec(l)
+    const m = /^trained in (?!a number|one (?:or more|of|skill determined)|your choice)(.+)$/i.exec(l)
     return m ? m[1].split(/,| and /).map((s) => s.trim()).filter(Boolean) : []
   })
   const choices = lines.flatMap((l) => {
@@ -540,15 +543,47 @@ export function availableOrders(c: Character, exceptIndex = -1) {
   return Object.keys(DRUID_ORDERS).filter((o) => !used.has(o))
 }
 
-// Skills the class grants: fixed, chosen, or tied to a druidic order. They are always trained; the house rule
+// Skills the class grants: fixed, chosen, or tied to an order or Champion deity. They are always trained; the house rule
 // (autoClassSkills) also ranks them up at every skill increase the level cap allows, without using the character's own increases.
 export function autoClassSkills(c: Character, entries: ContentEntry[]) {
   const { fixed, choices } = classSkills(byName(entries, 'class', c.className))
   const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
   const picked = c.classSkill && choices.includes(c.classSkill) ? c.classSkill : undefined
+  const divine = c.className === 'Champion' ? tokens(byName(entries, 'deity', c.deity)?.data.skill) : []
   // Order Explorer adds a second druidic order, whose skill is also trained
   const explored = c.className === 'Druid' ? c.feats.flatMap((f) => f.name === 'Order Explorer' && f.choice && DRUID_ORDERS[f.choice] ? [DRUID_ORDERS[f.choice]] : []) : []
-  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...explored])]
+  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...explored, ...divine])]
+}
+
+export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
+  const saved = c.className === 'Druid' ? c.order : c.subclass
+  if (saved !== undefined) return saved
+  const raw = c.imported?.raw
+  const build = raw && typeof raw === 'object' && 'build' in raw ? raw.build : raw
+  const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
+    && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
+  const names = new Set([...c.feats.flatMap((feat) => [feat.name, feat.choice]), ...specials]
+    .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
+  if (c.className === 'Druid') {
+    const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []))
+    return [...names].find((order) => Object.hasOwn(DRUID_ORDERS, order) && !explored.has(order))
+  }
+  return subclassOptions(c, entries).find((entry) => names.has(entry.name))?.name
+}
+
+export function classLabel(c: Character, entries: ContentEntry[] = []) {
+  if (!c.className) return ''
+  const subclass = selectedSubclass(c, entries)
+  if (!subclass) return c.className
+  if (c.className === 'Champion') return `Champion of ${subclass}`
+  if (c.className === 'Druid') return `Druid of the ${subclass} Order`
+  if (c.className === 'Barbarian') return `${subclass.replace(/ Instinct$/, '')} Instinct Barbarian`
+  return `${subclass} ${c.className}`
+}
+
+export function subclassOptions(c: Character, entries: ContentEntry[]) {
+  return entries.filter((entry) => entry.kind === 'subclass' && !entry.deleted && entry.data.class === c.className)
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export const backgroundSkills = (bg?: ContentEntry) => tokens(bg?.data.skill)
@@ -769,13 +804,15 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
   const haftStriker = isLockedWeapon(c, HAFT_STRIKER_WEAPON.name)
+  const gauntlet = isLockedWeapon(c, GAUNTLET.name, entries)
   const animalFeature = isSpellActive(c, entries, 'Animal Feature')
   const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.id !== HAFT_STRIKER_WEAPON.id || haftStriker)
+    && (weapon.id !== GAUNTLET.id || gauntlet)
     && (animalFeature || !animalAttacks.some((entry) => entry.name === weapon.name)))
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(animalFeature ? animalAttacks : [])]) {
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(animalFeature ? animalAttacks : []), ...(gauntlet ? [GAUNTLET] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -797,8 +834,9 @@ export function isSpellActive(c: Character, entries: ContentEntry[], name: strin
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
-export const isLockedWeapon = (c: Character, name: string) => isAutomaticUnarmed(name)
+export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = []) => isAutomaticUnarmed(name)
   || name === HAFT_STRIKER_WEAPON.name && c.feats.some((feat) => feat.name === HAFT_STRIKER_WEAPON.name)
+  || name === GAUNTLET.name && ownedArmors(c, entries).some((armor) => armor.worn && armor.name === 'Full Plate')
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
@@ -909,8 +947,9 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
-  if (!c.handwraps || weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') return weapon
-  const enhanced = { ...weapon, ...c.handwraps }
+  if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') return weapon
+  const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
+  const enhanced = { ...weapon, potency: fundamentals?.potency ?? 0, striking: fundamentals?.striking ?? 0, runes: c.handwraps?.runes ?? [] }
   return { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) }
 }
 

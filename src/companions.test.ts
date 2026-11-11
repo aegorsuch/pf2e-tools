@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { eligibleFeats } from './builder'
 import { companionAdvancement, companionStats, specializationOptions } from './companions'
+import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -19,6 +20,33 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('seeds fixed-size mount variants without changing base stats or normal companion growth', () => {
+    const originals = [
+      entry('companion', 'Isgeri Boarhound', { ...bear.data, strength: 2, dexterity: 3, mount: false }),
+      entry('companion', 'Cat', { ...bear.data, strength: 2, dexterity: 3, constitution: 1, mount: false }),
+    ]
+    const variants = homebrewCompanions(originals)
+    expect(variants.map((variant) => variant.name)).toEqual(['Sarkorian Direwolf', 'Snow Leopard'])
+    for (const [index, variant] of variants.entries()) {
+      const size = index === 0 ? 'Large' : 'Medium'
+      expect(variant).toMatchObject({
+        source: 'homebrew', traits: ['Mount'],
+        data: { ...originals[index].data, size, mount: true, fixed_size: true },
+      })
+      for (const feats of [[], [feat('Impressive Mount')], [feat('Incredible Mount', 'Nimble')], [feat('Incredible Mount', 'Savage'), feat('Specialized Mount', 'Racer')]]) {
+        const c = { ...base, feats }
+        const advancement = companionAdvancement(c)
+        const original = companionStats(c, originals, originals[index].name, advancement)!
+        expect(companionStats(c, variants, variant.name, advancement)).toEqual({
+          ...original, entry: variant, size, mount: true,
+        })
+        expect(original.size).toBe(advancement.mature ? 'Medium' : 'Small')
+      }
+    }
+    expect(originals.every((original) => original.data.size === 'Small' && original.data.mount === false)).toBe(true)
+    expect(homebrewCompanions([{ ...originals[0], deleted: true }, { ...originals[1], kind: 'item' }])).toEqual([])
+  })
+
   it('parses attacks, support benefit and maneuver from AoN markdown', () => {
     const md = `**Melee**\n<actions string="Single Action" />\njaws,\n**Damage** 1d8 piercing\n\n**Melee**\n<actions string="Single Action" />\nclaw ([Agile](/Traits.aspx?ID=170)),\n**Damage** 1d6 slashing\n\n**Support Benefit** Your bear [mauls](/x) foes.\n\n**Advanced Maneuver** Bear Hug`
     expect(parseCompanion(md)).toEqual({ attacks: 'jaws|1d8 piercing|;claw|1d6 slashing|agile', support: 'Your bear mauls foes.', maneuver: 'Bear Hug' })

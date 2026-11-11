@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { expect, it } from 'vitest'
 import { ArmorList, HandwrapsGear, WeaponList } from './GearSection'
 import type { Character, ContentEntry } from './types'
-import { HAFT_STRIKER_WEAPON, HANDWRAPS } from './supplemental'
+import { GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
 const weapon: ContentEntry = {
   id: 'longsword', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Longsword', level: 0,
@@ -147,6 +147,24 @@ it('locks the feat-granted Haft Striker weapon while retaining manual removal wi
     .toContain('aria-label="Remove Haft Striker Stance"')
 })
 
+it('locks full plate gauntlets and keeps their saved configuration when other weapons change while armor is unworn', () => {
+  let c: Character = {
+    ...character([]),
+    armors: [{ id: 'plate', name: 'Full Plate', potency: 0, resilient: 0, runes: [], worn: true }],
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
+  expect(markup).toContain('<strong>Gauntlet</strong>')
+  expect(markup).not.toContain('aria-label="Remove Gauntlet"')
+  const gauntlet = { id: GAUNTLET.id, name: 'Gauntlet', potency: 2, striking: 1, runes: ['Flaming'] }
+  c = { ...c, weapons: [...c.weapons!, gauntlet], armors: c.armors!.map((armor) => ({ ...armor, worn: false })) }
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)).not.toContain('<strong>Gauntlet</strong>')
+  const remove = findElement(WeaponList({ c, entries: [weapon], save }), (element) => element.props['aria-label'] === 'Remove Longsword')
+  if (!remove) throw new Error('Missing weapon removal')
+  ;(remove.props.onClick as () => void)()
+  expect(c.weapons).toContainEqual(gauntlet)
+})
+
 function findElement(node: ReactNode, matches: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
   let found: ReactElement<Record<string, unknown>> | undefined
   Children.forEach(node, (child) => {
@@ -200,4 +218,51 @@ it('shows only compatible inherited runes on buff attacks and no removal control
   expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={() => {}} />).match(/aria-label="Remove Wounding rune"/g)).toHaveLength(1)
   expect(markup).not.toContain('Granted by Living Weapon')
   expect(markup).toContain(`title="Inherited from ${HANDWRAPS.name}"`)
+})
+
+it('never offers direct unarmed rune, potency, or striking controls, including without handwraps', () => {
+  const c: Character = {
+    ...character([]),
+    weapons: [{ id: 'legacy-fist', name: 'Fist', potency: 3, striking: 3, runes: ['Flaming'] }],
+  }
+  const tree = WeaponList({ c, entries: [], save: () => {} })
+  const fist = findElement(tree, (element) => element.type === 'details' && element.props['aria-label'] === 'Fist')
+  expect(fist).toBeDefined()
+  expect(findElement(fist, (element) => element.props.label === 'Potency' || element.props.label === 'Striking')).toBeUndefined()
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('through handwraps in Gear')
+  expect(markup).not.toContain('aria-label="Add property rune"')
+  expect(markup).not.toContain('aria-label="Remove Flaming rune"')
+  expect(markup).not.toContain('Flaming')
+  expect(markup).toContain('Damage 1d4 B')
+})
+
+it('adds and configures hardlight handwraps in Gear with grade-based capacity and read-only inherited attack runes', () => {
+  let c: Character = { ...character([]), systems: ['pf2e', 'sf2e'], weapons: [] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => HandwrapsGear({ c, entries: [], save })
+  const add = findElement(tree(), (element) => element.type === 'button'
+    && Children.toArray(element.props.children as ReactNode).join('') === `Add ${HARDLIGHT_HANDWRAPS.name}`)
+  if (!add) throw new Error('Missing Add Hardlight Handwraps button')
+  ;(add.props.onClick as () => void)()
+  const selectGrade = (value: string) => {
+    const grade = findElement(tree(), (element) => element.props['aria-label'] === 'Hardlight handwraps grade')
+    if (!grade) throw new Error('Missing Hardlight grade selector')
+    ;(grade.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } })
+  }
+  selectGrade('Advanced')
+  expect(c.handwraps).toMatchObject({ kind: 'hardlight', grade: 'Advanced', potency: 1, striking: 1 })
+  c = { ...c, handwraps: { ...c.handwraps!, runes: ['Flaming', 'Impactful'] } }
+  const attack = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)
+  expect(attack).toContain('inherited from Hardlight Handwraps')
+  expect(attack).toContain('Damage 2d4 B')
+  expect(attack).not.toContain('aria-label="Remove Flaming rune"')
+  expect(attack).not.toContain('aria-label="Add property rune"')
+  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('aria-label="Remove Flaming rune"')
+  selectGrade('Commercial')
+  expect(c.handwraps?.runes).toEqual(['Flaming'])
+  const remove = findElement(tree(), (element) => element.props['aria-label'] === 'Remove Hardlight Handwraps')
+  if (!remove) throw new Error('Missing Hardlight removal')
+  ;(remove.props.onClick as () => void)()
+  expect(c.handwraps).toBeUndefined()
 })

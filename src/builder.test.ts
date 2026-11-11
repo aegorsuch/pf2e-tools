@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, autoClassSkills, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -40,6 +40,46 @@ describe('ancestryLabel', () => {
     expect(ancestryLabel('Human', 'Pioneer human')).toBe('Pioneer human')
     expect(ancestryLabel('Human', 'Winterborn')).toBe('Winterborn Human')
     expect(ancestryLabel('Human', 'Humanity')).toBe('Humanity Human')
+  })
+
+  describe('class labels', () => {
+    it.each([
+      ['Ranger', 'Outwit', 'Outwit Ranger'],
+      ['Champion', 'Justice', 'Champion of Justice'],
+      ['Barbarian', 'Giant', 'Giant Instinct Barbarian'],
+      ['Barbarian', 'Giant Instinct', 'Giant Instinct Barbarian'],
+      ['Inventor', 'Construct', 'Construct Inventor'],
+      ['Druid', 'Animal', 'Druid of the Animal Order'],
+      ['Druid', 'Storm', 'Druid of the Storm Order'],
+    ])('labels %s with selected %s specialization', (className, subclass, expected) => {
+      expect(classLabel({ ...base, className, subclass, ...(className === 'Druid' ? { order: subclass } : {}) })).toBe(expected)
+      expect(classLabel({ ...base, className })).toBe(className)
+    })
+
+    it('recognizes imported subclass choices while allowing explicit changes and clearing', () => {
+      const outwit = entry('subclass', 'Outwit', { class: 'Ranger' })
+      const data = [outwit, entry('subclass', 'Justice', { class: 'Champion' }), { ...outwit, id: 'deleted', name: 'Deleted', deleted: true }]
+      const c: Character = {
+        ...base, className: 'Ranger',
+        imported: { source: 'pathbuilder', raw: { build: { class: 'Ranger', specials: ['Hunt Prey', 'Outwit'] } }, unmapped: [] },
+      }
+      expect(subclassOptions(c, data)).toEqual([outwit])
+      expect(classLabel(c, data)).toBe('Outwit Ranger')
+      expect(classLabel({ ...c, subclass: 'Precision' }, data)).toBe('Precision Ranger')
+      expect(classLabel({ ...c, subclass: '' }, data)).toBe('Ranger')
+      expect(classLabel({ ...c, className: 'Champion' }, data)).toBe('Champion')
+      expect(classLabel({ ...c, imported: undefined, feats: [{ name: "Hunter's Edge", type: 'Class Feature', level: 1, choice: 'Outwit' }] }, data))
+        .toBe('Outwit Ranger')
+      expect(classLabel({ ...base, className: 'Druid', imported: { source: 'pathbuilder', raw: { class: 'Druid', specials: ['Animal Order'] }, unmapped: [] } }))
+        .toBe('Druid of the Animal Order')
+    const explorer = { name: 'Order Explorer', type: 'Class Feat', level: 2, choice: 'Animal' }
+    expect(classLabel({ ...base, className: 'Druid', order: 'Storm', feats: [explorer] })).toBe('Druid of the Storm Order')
+    expect(classLabel({
+        ...base, className: 'Druid', feats: [explorer],
+        imported: { source: 'pathbuilder', raw: { class: 'Druid', specials: ['Storm Order', 'Animal Order'] }, unmapped: [] },
+    })).toBe('Druid of the Storm Order')
+    expect(classLabel({ ...base, className: 'Druid', feats: [explorer] })).toBe('Druid')
+    })
   })
 
   it('handles incomplete selections', () => {
@@ -125,6 +165,28 @@ describe('eligibleFeats', () => {
 })
 
 describe('skills', () => {
+  it('grants Champions their selected deity skill alongside Religion without spending additional picks', () => {
+    const champion = entry('class', 'Champion', {
+      skill_proficiency: 'Trained in Religion, Trained in one skill determined by your choice of deity, Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
+    })
+    const divine = [champion, entry('deity', 'Iomedae', { skill: 'Intimidation' }), entry('deity', 'Sarenrae', { skill: 'Medicine' })]
+    const c = { ...base, className: 'Champion', background: undefined, deity: 'Iomedae', level: 7 }
+    expect(classSkills(champion)).toEqual({ fixed: ['Religion'], choices: [], additional: 2 })
+    expect(autoClassSkills(c, divine)).toEqual(['Religion', 'Intimidation'])
+    expect(additionalSkillCount(c, divine)).toBe(2)
+    for (const enabled of [false, true]) {
+      updateSettings({ autoClassSkills: enabled })
+      expect(ranksAt(c, divine)).toMatchObject({ Religion: enabled ? 3 : 1, Intimidation: enabled ? 3 : 1 })
+    }
+    updateSettings({ autoClassSkills: false })
+    const changed = { ...c, deity: 'Sarenrae' }
+    expect(autoClassSkills(changed, divine)).toEqual(['Religion', 'Medicine'])
+    expect(ranksAt(changed, divine).Intimidation).toBeUndefined()
+    expect(autoClassSkills({ ...c, deity: undefined }, divine)).toEqual(['Religion'])
+    expect(autoClassSkills({ ...base, deity: 'Iomedae' }, [...entries, ...divine])).toEqual(['Arcana'])
+    expect(autoClassSkills(c, [champion, entry('deity', 'Iomedae', { skill: 'Religion' })])).toEqual(['Religion'])
+  })
+
   it('parses class skills', () => {
     expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toMatchObject({ fixed: ['Arcana'], additional: 2 })
   })
@@ -434,6 +496,27 @@ it('keeps rune levels attached to rune-picker options', () => {
 })
 
 describe('archetype rules', () => {
+  it('prevents incompatible steed breeds across class and archetype slots but allows replacing the current breed', () => {
+    const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+    const breeds = ['Chiardmar Steed', 'Nidarrmar Steed'].map((name) =>
+      entry('feat', name, { archetype: 'Cavalier', archetype_levels: 'Cavalier:8' }, 6, ['Champion']))
+    const data = [dedication, ...breeds]
+    for (const [index, chosen] of breeds.entries()) {
+      const incompatible = breeds[1 - index]
+      const c: Character = {
+        ...base, className: 'Champion', level: 8,
+        feats: [
+          { name: dedication.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' },
+          { name: chosen.name, type: 'Class Feat', level: 6, slot: 'class:6:0' },
+        ],
+      }
+      expect(eligibleFeats(data, c, { key: 'archetype:8:0', category: 'archetype', level: 8 })).not.toContain(incompatible)
+      expect(eligibleFeats(data, c, { key: 'class:8:0', category: 'class', level: 8 })).not.toContain(incompatible)
+      expect(eligibleFeats(data, c, { key: 'class:6:0', category: 'class', level: 6 })).toEqual(breeds)
+      expect(eligibleFeats(data, { ...c, feats: c.feats.slice(0, 1) }, { key: 'archetype:8:0', category: 'archetype', level: 8 })).toEqual(breeds)
+    }
+  })
+
   const ded = entry('feat', 'Wild Hunter Dedication', { archetype: 'Wild Hunter' }, 2, ['Archetype', 'Dedication'])
   const other = entry('feat', 'Living Weapon', { archetype: 'Wild Hunter' }, 2, ['Archetype'])
   const ded2 = entry('feat', 'Medic Dedication', { archetype: 'Medic' }, 2, ['Archetype', 'Dedication'])

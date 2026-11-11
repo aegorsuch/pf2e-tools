@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
+import { classLabel } from './builder'
 import { EffectsEditor } from './EffectsEditor'
 import { ActionIcon } from './ActionIcon'
 import { ensureAonImported } from './aon'
@@ -12,7 +13,7 @@ import { updateSettings, useSettings } from './settings'
 import { refreshApp } from './refresh'
 import './App.css'
 
-const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity']
+const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'subclass']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
   { id: 'sf2e', label: 'Starfinder 2e' },
@@ -260,7 +261,7 @@ export default function App() {
       <ul className="character-list">
         {sortedCharacters.map((c) => (
           <li className="character-row" key={c.id}>
-            <span><b>{c.name}</b> - L{c.level} {c.ancestry} {c.className}</span>
+            <span><b>{c.name}</b> - L{c.level} {c.ancestry} {classLabel(c, entries ?? [])}</span>
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
                 onClick={() => setEditingId(c.id)}><EditIcon /></button>

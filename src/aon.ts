@@ -1,5 +1,5 @@
-import { db } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, fetchAonHits, plain, type Hit } from './aonQuery.ts'
+import { db, ensureSupplementalContent } from './db'
+import { CATEGORY_TO_KIND, DATA_FIELDS, SUBCLASS_CLASSES, fetchAonHits, plain, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 
 export const AON_SITES: Record<GameSystem, string> = {
@@ -40,6 +40,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
   if (text(s.resistances)) data.resistances = text(s.resistances)
   if (kind === 'classFeature') data.class = text(s.class)
+  if (kind === 'subclass') data.class = SUBCLASS_CLASSES[text(s.category).toLowerCase()]
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
   return {
     id: `aon:${system}:${hit._id ?? `${kind}:${name}`}`,
@@ -49,7 +50,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: (['feat', 'spell', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv'].includes(kind)
+    description: (['feat', 'spell', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
       || kind === 'item' && /Property Runes/i.test(String(s.item_subcategory))) && text(s.markdown).trim()
       ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
     data,
@@ -83,6 +84,7 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
   const fresh = new Set(entries.map((e) => e.id))
   const stale = await db.content.where('id').startsWith(`aon:${system}:`).filter((e) => !e.deleted && !fresh.has(e.id)).toArray()
   await db.content.bulkPut([...entries, ...stale.map((e) => ({ ...e, deleted: true, updatedAt: Date.now() }))])
+  await ensureSupplementalContent()
   return entries.length
 }
 
