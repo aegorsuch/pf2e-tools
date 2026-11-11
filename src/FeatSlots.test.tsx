@@ -76,6 +76,7 @@ it('shows the current background skill feat above level-based skill feats', () =
   }
   const entries: ContentEntry[] = [
     { id: 'hunter', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Hunter', level: 1, traits: [], description: '', data: { feat: 'Survey Wildlife' }, effects: [], updatedAt: 0 },
+    { id: 'survey', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Survey Wildlife', level: 1, traits: ['General', 'Skill'], description: '', data: {}, effects: [], updatedAt: 0 },
     { id: 'quick', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Quick Draw', level: 1, traits: [], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0 },
   ]
   const render = (character: Character) => renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={['skill']} bare />)
@@ -84,8 +85,42 @@ it('shows the current background skill feat above level-based skill feats', () =
   expect(markup).toContain('Survey Wildlife')
   expect(markup.indexOf('Background Skill Feat')).toBeLessThan(markup.indexOf('L02 Skill Feats'))
   expect(markup).toContain('aria-label="Single Action"')
-  expect(render({ ...c, background: undefined })).toContain('Choose a background')
-  expect(render({ ...c, background: undefined })).not.toContain('Survey Wildlife')
+  expect(render({ ...c, background: undefined })).not.toContain('Background Skill Feat')
+})
+
+it('routes mixed background grants to their own feat sections and hides rows when no feats are granted', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 3, background: 'Mixed Grants',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const base: ContentEntry = {
+    id: 'mixed', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Mixed Grants',
+    level: 1, traits: [], description: '', data: { feat: 'Toughness, Assurance' }, effects: [], updatedAt: 0,
+  }
+  const entries: ContentEntry[] = [
+    base,
+    { ...base, id: 'toughness', kind: 'feat', name: 'Toughness', traits: ['General'], data: {} },
+    { ...base, id: 'assurance', kind: 'feat', name: 'Assurance', traits: ['General', 'Skill'], data: {} },
+    { ...base, id: 'none', name: 'No Grants', data: {} },
+  ]
+  const render = (category: 'skill' | 'general', background = c.background) =>
+    renderToStaticMarkup(<FeatSlots c={{ ...c, background }} entries={entries} save={() => {}} categories={[category]} bare />)
+  const general = render('general')
+  expect(general).toContain('Background General Feat')
+  expect(general).toContain('Toughness')
+  expect(general).not.toContain('Background Skill Feat')
+  expect(general.indexOf('Background General Feat')).toBeLessThan(general.indexOf('L03 General'))
+  const skill = render('skill')
+  expect(skill).toContain('Background Skill Feat')
+  expect(skill).toContain('Assurance')
+  expect(skill).not.toContain('Toughness')
+  for (const category of ['skill', 'general'] as const) {
+    expect(render(category, 'No Grants')).not.toContain('Background ')
+  }
+  const generalOnly = entries.map((entry) => entry.id === 'mixed' ? { ...entry, data: { feat: 'Toughness' } } : entry)
+  expect(renderToStaticMarkup(<FeatSlots c={c} entries={generalOnly} save={() => {}} categories={['skill']} bare />))
+    .not.toContain('Background Skill Feat')
 })
 
 it('groups feat options by level, alphabetically within each level', () => {

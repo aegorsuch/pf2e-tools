@@ -1,4 +1,4 @@
-import { eligibleFeats, plannedSlots, type SectionProps } from './builder'
+import { eligibleFeats, featType, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
 import { compareFeatSelections } from './featChoices'
@@ -18,7 +18,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const allSlots = plannedSlots(c)
   const background = entries.find((entry) => entry.kind === 'background' && entry.name === c.background)
   const backgroundFeats = typeof background?.data.feat === 'string'
-    ? background.data.feat.split(',').map((name) => name.trim()).filter(Boolean) : []
+    ? background.data.feat.split(',').flatMap((name) => {
+      const feat = entries.find((entry) => entry.kind === 'feat' && entry.name === name.trim())
+      return feat && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
+        ? [feat] : []
+    }) : []
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
@@ -70,14 +74,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
       <ul className="feat-slot-list">
-        {categories?.includes('skill') && (
-          <li className="feat-slot-row background-feat-row">
-            <span>Background Skill Feat</span>
-            <span>{backgroundFeats.length ? backgroundFeats.map((name, index) => (
-              <span key={name}>{index > 0 && ', '}{name} <ActionIcon entry={entries.find((entry) => entry.kind === 'feat' && entry.name === name)} /></span>
-            )) : background ? 'No feat listed' : 'Choose a background'}</span>
+        {backgroundFeats.map((feat) => (
+          <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
+            <span>Background {featType(feat, c)}</span>
+            <span>{feat.name} <ActionIcon entry={feat} /></span>
           </li>
-        )}
+        ))}
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
