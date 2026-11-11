@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import { db, importHomebrew, newId, removeEntry, saveEntry } from './db'
+import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
 import { parsePathbuilder } from './pathbuilder'
 import { importFromAon } from './aon'
@@ -8,7 +9,7 @@ import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import './App.css'
 
-const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup']
+const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
   { id: 'sf2e', label: 'Starfinder 2e' },
@@ -25,6 +26,7 @@ const blank = (systems: GameSystem[]): ContentEntry => ({
 export default function App() {
   const [enabled, setEnabled] = useState<GameSystem[]>(['pf2e'])
   const [draft, setDraft] = useState<ContentEntry | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [status, setStatus] = useState('')
   const [email, setEmail] = useState<string | null>(null)
   useEffect(() => onAuthChange(setEmail), [])
@@ -39,12 +41,14 @@ export default function App() {
   const newCharacter = async () => {
     const name = window.prompt('Character name?')?.trim()
     if (!name) return
+    const id = newId()
     await db.characters.put({
-      id: newId(), systems: enabled, name, level: 1,
+      id, systems: enabled, name, level: 1,
       abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
       feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [],
       updatedAt: Date.now(),
     })
+    setEditingId(id)
   }
 
   return (
@@ -102,7 +106,7 @@ export default function App() {
           onClick={async () => { try { await syncAll(); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
           Sync
         </button>
-        <span>{supabase ? status : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</span>
+        <span>{status || (supabase ? '' : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync')}</span>
       </div>
 
       {draft && (
@@ -139,6 +143,10 @@ export default function App() {
         </form>
       )}
 
+      {characters?.find((c) => c.id === editingId) && (
+        <CharacterBuilder character={characters.find((c) => c.id === editingId)!} onClose={() => setEditingId(null)} />
+      )}
+
       <h2>
         Characters{' '}
         <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
@@ -147,6 +155,7 @@ export default function App() {
         {characters?.map((c) => (
           <li key={c.id}>
             <b>{c.name}</b> - L{c.level} {c.ancestry} {c.className} ({c.feats.length} feats, {c.equipment.length} items)
+            <button onClick={() => setEditingId(c.id)}>Edit</button>
             <button onClick={() => db.characters.put({ ...c, deleted: true, updatedAt: Date.now() })}>Delete</button>
           </li>
         ))}

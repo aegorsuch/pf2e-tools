@@ -12,7 +12,15 @@ export const AON_SITES: Record<GameSystem, string> = {
   sf2e: 'https://2e.aonsrd.com',
 }
 
-const SOURCE_FIELDS = ['name', 'category', 'level', 'trait', 'summary', 'url', 'source']
+// Scalar/array fields copied into entry.data (arrays are joined with ", ")
+const DATA_FIELDS = [
+  'hp', 'size', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite',
+  'actions', 'trigger', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'ac', 'dex_cap', 'strength',
+  'check_penalty', 'range', 'tradition', 'school', 'item_category', 'perception_proficiency',
+  'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency', 'divine_font',
+  'domain_primary', 'sanctification',
+]
+const SOURCE_FIELDS = ['name', 'category', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
 // Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
 const REMASTER_ONLY = (category: string) => ({
@@ -27,6 +35,9 @@ const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   equipment: 'item',
   ancestry: 'ancestry',
   class: 'class',
+  background: 'background',
+  heritage: 'heritage',
+  deity: 'deity',
 }
 
 type Hit = { _id?: string; _source?: Record<string, unknown> }
@@ -41,6 +52,21 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (!kind || !name) return null
   const traits = Array.isArray(s.trait) ? s.trait.filter((t): t is string => typeof t === 'string') : []
   const level = typeof s.level === 'number' ? s.level : 0
+  const data: Record<string, string | number | boolean> = {
+    url: s.url ? AON_SITES[system] + text(s.url) : '',
+    sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source),
+  }
+  for (const f of DATA_FIELDS) {
+    const v = s[f]
+    if (typeof v === 'number' || typeof v === 'boolean') data[f] = v
+    else if (typeof v === 'string' && v) data[f] = v
+    else if (Array.isArray(v) && v.length) data[f] = v.join(', ')
+  }
+  const land = (s.speed as { land?: unknown } | undefined)?.land
+  if (typeof land === 'number') data.speed = land
+  // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
+  const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
+  if (kind === 'heritage' && parent) data.ancestry = parent[1]
   return {
     id: `aon:${system}:${hit._id ?? `${kind}:${name}`}`,
     systems: [system],
@@ -50,7 +76,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     level,
     traits,
     description: text(s.summary),
-    data: { url: s.url ? AON_SITES[system] + text(s.url) : '', sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source) },
+    data,
     effects: [],
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
     updatedAt: 1,
@@ -75,6 +101,9 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
     }
     onProgress?.(entries.length)
   }
-  await db.content.bulkPut(entries)
+  // Tombstone previously imported entries that are no longer in the (remaster-only) results
+  const fresh = new Set(entries.map((e) => e.id))
+  const stale = await db.content.where('id').startsWith(`aon:${system}:`).filter((e) => !e.deleted && !fresh.has(e.id)).toArray()
+  await db.content.bulkPut([...entries, ...stale.map((e) => ({ ...e, deleted: true, updatedAt: Date.now() }))])
   return entries.length
 }

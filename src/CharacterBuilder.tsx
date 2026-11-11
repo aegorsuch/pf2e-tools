@@ -1,0 +1,155 @@
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useMemo, useState } from 'react'
+import { ABILITIES, abilityMod, featType, heritagesFor, maxHp, signed } from './builder'
+import { db } from './db'
+import type { Character, ContentEntry, EntryKind } from './types'
+
+const GEAR: EntryKind[] = ['item', 'weapon', 'armor']
+const NONE: ContentEntry[] = []
+
+function Pick({ label, kind, value, options, onChange }: {
+  label: string
+  kind: string
+  value?: string
+  options: ContentEntry[]
+  onChange: (v: string | undefined) => void
+}) {
+  const names = [...new Set(options.map((o) => o.name))].sort()
+  return (
+    <label>
+      {label}{' '}
+      <select value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
+        <option value="">No {kind}</option>
+        {value && !names.includes(value) && <option>{value}</option>}
+        {names.map((n) => <option key={n}>{n}</option>)}
+      </select>
+    </label>
+  )
+}
+
+const detail = (e?: ContentEntry) =>
+  e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
+
+export function CharacterBuilder({ character: c, onClose }: { character: Character; onClose: () => void }) {
+  const [featQuery, setFeatQuery] = useState('')
+  const [gearQuery, setGearQuery] = useState('')
+  const [maxLevelOnly, setMaxLevelOnly] = useState(true)
+  const systemsKey = c.systems.join()
+  const entries = useLiveQuery(
+    () => db.content.filter((e) => !e.deleted && e.systems.some((s) => c.systems.includes(s))).toArray(),
+    [systemsKey],
+  ) ?? NONE
+  const save = (patch: Partial<Character>) => db.characters.put({ ...c, ...patch, updatedAt: Date.now() })
+  const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
+  const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
+
+  const featMatches = useMemo(() => {
+    const q = featQuery.trim().toLowerCase()
+    return entries
+      .filter((e) => e.kind === 'feat' && (!maxLevelOnly || e.level <= c.level))
+      .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some((t) => t.toLowerCase().includes(q)))
+      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+      .slice(0, 40)
+  }, [entries, featQuery, maxLevelOnly, c.level])
+
+  const gearMatches = useMemo(() => {
+    const q = gearQuery.trim().toLowerCase()
+    return q
+      ? entries.filter((e) => GEAR.includes(e.kind) && e.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
+      : []
+  }, [entries, gearQuery])
+
+  const ancestry = named('ancestry', c.ancestry)
+  const klass = named('class', c.className)
+  const background = named('background', c.background)
+
+  return (
+    <section className="col">
+      <div className="row">
+        <h2>{c.name}</h2>
+        <button onClick={onClose}>Close</button>
+      </div>
+      {!entries.some((e) => e.kind === 'class') && <p>No class data yet. Use "Import official (AoN)" first.</p>}
+
+      <div className="row">
+        <label>Name <input value={c.name} onChange={(e) => save({ name: e.target.value })} /></label>
+        <label>Level <input type="number" min={1} max={20} value={c.level}
+          onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
+        <b>HP {maxHp(c, entries)}</b>
+      </div>
+      <div className="row">
+        <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
+        <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
+        <Pick label="Background" kind="background" value={c.background} options={of('background')} onChange={(v) => save({ background: v })} />
+        <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
+        <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
+      </div>
+      {[ancestry, klass, background].map((e) => e && <small key={e.id}><b>{e.name}</b>: {detail(e)}</small>)}
+
+      <h3>Ability scores</h3>
+      <div className="row">
+        {ABILITIES.map((a) => (
+          <label key={a}>
+            {a.toUpperCase()}{' '}
+            <input type="number" min={1} max={30} value={c.abilities[a]}
+              onChange={(e) => save({ abilities: { ...c.abilities, [a]: +e.target.value || 10 } })} />
+            {' '}{signed(abilityMod(c.abilities[a]))}
+          </label>
+        ))}
+      </div>
+
+      <h3>Feats ({c.feats.length})</h3>
+      <ul>
+        {c.feats.map((f, i) => (
+          <li key={`${f.name}-${i}`}>
+            {f.name} <small>({f.type}, L{f.level}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
+            <button onClick={() => save({ feats: c.feats.filter((_, j) => j !== i) })}>Remove</button>
+          </li>
+        ))}
+      </ul>
+      <div className="row">
+        <input placeholder="Search feats by name or trait (e.g. General, Elf)" value={featQuery} onChange={(e) => setFeatQuery(e.target.value)} />
+        <label><input type="checkbox" checked={maxLevelOnly} onChange={(e) => setMaxLevelOnly(e.target.checked)} /> Up to my level</label>
+      </div>
+      <ul>
+        {featMatches.map((f) => (
+          <li key={f.id}>
+            <b>{f.name}</b> (L{f.level}) {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
+            <button onClick={() => save({
+              feats: [...c.feats, { name: f.name, type: featType(f, c), level: f.level }],
+              entryIds: [...c.entryIds, f.id],
+            })}>Add</button>
+            <br /><small>{f.description}</small>
+          </li>
+        ))}
+      </ul>
+
+      <h3>Equipment ({c.equipment.length})</h3>
+      <ul>
+        {c.equipment.map((g, i) => (
+          <li key={`${g.name}-${i}`}>
+            {g.name} x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
+              onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
+            <button onClick={() => save({ equipment: c.equipment.filter((_, j) => j !== i) })}>Remove</button>
+          </li>
+        ))}
+      </ul>
+      <input placeholder="Search weapons, armor and gear" value={gearQuery} onChange={(e) => setGearQuery(e.target.value)} />
+      <ul>
+        {gearMatches.map((g) => (
+          <li key={g.id}>
+            <b>{g.name}</b> ({g.kind}{g.level ? ` ${g.level}` : ''}) {detail(g)}{' '}
+            <button onClick={() => {
+              const have = c.equipment.find((x) => x.name === g.name)
+              save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })
+            }}>Add</button>
+          </li>
+        ))}
+      </ul>
+
+      <h3>Languages</h3>
+      <input key={c.id} defaultValue={c.languages.join(', ')}
+        onBlur={(e) => save({ languages: e.target.value.split(',').map((l) => l.trim()).filter(Boolean) })} />
+    </section>
+  )
+}

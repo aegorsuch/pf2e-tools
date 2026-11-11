@@ -1,7 +1,7 @@
 export type GameSystem = 'pf2e' | 'sf2e'
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
-  | 'armorGroup' | 'weaponGroup'
+  | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity'
 export type Source = 'official' | 'homebrew'
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
