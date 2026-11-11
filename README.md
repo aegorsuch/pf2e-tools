@@ -40,6 +40,10 @@ npm run build   # production build in dist/
 
 For sync, create a free Supabase project, run `supabase/schema.sql` in its SQL editor, and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (GitHub Actions secrets for the Pages deploy). Enable the Email provider (on by default) and optionally the GitHub provider, and add the site URL (e.g. `https://aegorsuch.github.io/pf2e-tools/`) under Authentication → URL Configuration.
 
+For GitHub sign-in, register a GitHub OAuth application with callback URL `https://<project-ref>.supabase.co/auth/v1/callback`. Save its Client ID and Client Secret in Supabase's GitHub provider settings and enable the provider. Set both Supabase's Site URL and an allowed Redirect URL to `https://aegorsuch.github.io/pf2e-tools/`; otherwise sign-in can redirect to the default `localhost:3000`. Keep the OAuth secret in Supabase, never in the frontend.
+
+After adding Actions secrets, rerun the deploy. A successful sign-in shows **Sign out**, even for accounts without an email address. **Sync** reports errors instead of claiming success when signed out. Confirm character and homebrew changes appear in a second signed-in browser; official AoN content is not synced.
+
 ## Developer Notes
 
 Stack: React, TypeScript, Vite, Dexie (IndexedDB), Supabase, vite-plugin-pwa. Sync is last-write-wins on `updatedAt`.

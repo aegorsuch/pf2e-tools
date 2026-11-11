@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type User } from '@supabase/supabase-js'
 import { liveQuery } from 'dexie'
 import { db } from './db'
 
@@ -9,8 +9,11 @@ export const supabase = url && key ? createClient(url, key) : null
 
 const redirectTo = () => window.location.origin + import.meta.env.BASE_URL
 
-export const signInWithGitHub = () =>
-  supabase?.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: redirectTo() } })
+export async function signInWithGitHub() {
+  if (!supabase) throw new Error('Supabase is not configured')
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: redirectTo() } })
+  if (error) throw error
+}
 
 // Emails a one-time sign-in link; no password or third-party app registration needed.
 export async function signInWithEmail(email: string) {
@@ -18,13 +21,31 @@ export async function signInWithEmail(email: string) {
   if (error) throw error
 }
 
-export const signOut = () => supabase?.auth.signOut()
+export async function signOut() {
+  if (!supabase) throw new Error('Supabase is not configured')
+  const { error } = await supabase.auth.signOut()
+  if (error) throw error
+}
 
-export function onAuthChange(cb: (email: string | null) => void) {
+export function onAuthChange(cb: (user: User | null) => void, onError: (message: string) => void) {
   if (!supabase) return () => {}
-  supabase.auth.getSession().then(({ data }) => cb(data.session?.user.email ?? null))
-  const { data } = supabase.auth.onAuthStateChange((_e, session) => cb(session?.user.email ?? null))
-  return () => data.subscription.unsubscribe()
+  let live = true
+  let receivedEvent = false
+  supabase.auth.getSession().then(({ data, error }) => {
+    if (!live) return
+    if (error) onError(error.message)
+    else if (!receivedEvent) cb(data.session?.user ?? null)
+  }).catch((error: unknown) => {
+    if (live) onError(error instanceof Error ? error.message : String(error))
+  })
+  const { data } = supabase.auth.onAuthStateChange((_e, session) => {
+    receivedEvent = true
+    if (live) cb(session?.user ?? null)
+  })
+  return () => {
+    live = false
+    data.subscription.unsubscribe()
+  }
 }
 
 type Table = 'characters' | 'content'
@@ -122,9 +143,10 @@ async function purgeRemoteOfficial(userId: string) {
 let purged = false
 
 export async function syncAll() {
-  if (!supabase) return
-  const { data } = await supabase.auth.getUser()
-  if (!data.user) return
+  if (!supabase) throw new Error('Supabase is not configured')
+  const { data, error } = await supabase.auth.getUser()
+  if (error) throw error
+  if (!data.user) throw new Error('Sign in before syncing')
   if (!purged) {
     await purgeRemoteOfficial(data.user.id)
     purged = true

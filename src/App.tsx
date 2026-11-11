@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { db, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
@@ -41,10 +42,12 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showOfficial, setShowOfficial] = useState(false)
   const [status, setStatus] = useState('')
-  const [email, setEmail] = useState<string | null>(null)
-  useEffect(() => onAuthChange(setEmail), [])
+  const [user, setUser] = useState<User | null>(null)
+  const [authError, setAuthError] = useState('')
+  const userId = user?.id
+  useEffect(() => onAuthChange(setUser, setAuthError), [])
   // Start backups only once signed in; the first run also pulls data from other devices
-  useEffect(() => (email ? startAutoSync(setStatus) : undefined), [email])
+  useEffect(() => (userId ? startAutoSync(setStatus) : undefined), [userId])
   // Official content is part of the app: load it in the background for enabled systems
   useEffect(() => {
     let live = true
@@ -102,11 +105,16 @@ export default function App() {
             }
           } catch (err) { setStatus(String(err)) }
         }}>Refresh official data</button>
-        {supabase && (email
-          ? <button onClick={() => signOut()}>Sign out ({email})</button>
+        {supabase && (user
+          ? <button onClick={async () => {
+            try { await signOut(); setAuthError('') } catch (e) { setAuthError(String(e)) }
+          }}>Sign out ({user.email ?? user.id})</button>
           : (
             <>
-              <button onClick={() => signInWithGitHub()}>Sign in with GitHub</button>
+              <button onClick={async () => {
+                setAuthError('')
+                try { await signInWithGitHub() } catch (e) { setAuthError(String(e)) }
+              }}>Sign in with GitHub</button>
               <button onClick={async () => {
                 const addr = window.prompt('Email address for a sign-in link?')?.trim()
                 if (!addr) return
@@ -114,11 +122,12 @@ export default function App() {
               }}>Email me a sign-in link</button>
             </>
           ))}
-        <button disabled={!supabase || !email}
+        <button disabled={!supabase || !user}
           onClick={async () => { try { await syncAll(); setStatus('Synced') } catch (e) { setStatus(String(e)) } }}>
           Sync
         </button>
         <span>{status || (supabase ? '' : 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync')}</span>
+        {authError && <span role="alert">Sign-in error: {authError}</span>}
       </div>
 
       {draft && (
