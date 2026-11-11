@@ -39,6 +39,7 @@ export default function App() {
   useEffect(() => localStorage.setItem(ENABLED_KEY, JSON.stringify(enabled)), [enabled])
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showOfficial, setShowOfficial] = useState(false)
   const [status, setStatus] = useState('')
   const [email, setEmail] = useState<string | null>(null)
   useEffect(() => onAuthChange(setEmail), [])
@@ -64,6 +65,9 @@ export default function App() {
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => enabled.includes(s))).toArray(),
     [enabled],
   )
+
+  const official = entries?.filter((e) => e.source === 'official') ?? []
+  const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
 
   const newCharacter = async () => {
     const name = window.prompt('Character name?')?.trim()
@@ -168,17 +172,24 @@ export default function App() {
           </li>
         ))}
       </ul>
-      <h2>Content</h2>
+      <details onToggle={(e) => setShowOfficial(e.currentTarget.open)}>
+        <summary><h2 style={{ display: 'inline' }}>AON Content ({official.length})</h2></summary>
+        <ul>
+          {showOfficial && official.map((e) => (
+            <li key={e.id}>
+              <b>{e.name}</b> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}
+            </li>
+          ))}
+        </ul>
+      </details>
+
+      <h2>Homebrew Content ({homebrew.length})</h2>
       <ul>
-        {entries?.map((e) => (
+        {homebrew.map((e) => (
           <li key={e.id}>
-            <b>{e.name}</b> ({e.kind} {e.level}) [{e.source}] [{e.systems.join('+')}] {e.traits.join(', ')}
-            {e.source === 'homebrew' && (
-              <>
-                {' '}<button onClick={() => setDraft(e)}>Edit</button>
-                <button onClick={() => removeEntry(e.id)}>Delete</button>
-              </>
-            )}
+            <b>{e.name}</b> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}{' '}
+            <button onClick={() => setDraft(e)}>Edit</button>
+            <button onClick={() => removeEntry(e.id)}>Delete</button>
           </li>
         ))}
       </ul>
