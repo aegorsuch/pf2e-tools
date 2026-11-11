@@ -167,7 +167,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -219,10 +219,16 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     }
   }
   Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
-    if (!c.feats.some((f) => f.name === name)) return
+    const grantingFeat = c.feats.find((f) => f.name === name)
+    if (!grantingFeat) return
+    const advanced = name === 'Advanced General Training'
+    const level = advanced ? Number(grantingFeat.slot?.split(':')[1]) || grantingFeat.level : g.level
+    if (level > c.level) return
     const id = `${g.category}:${g.level}`
-    if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
-    slots.push({ key: `${id}:g${i}`, category: g.category, level: g.level })
+    const group = `${g.category}:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    // Keep saved granted-feat selections attached to their original slot key.
+    slots.push({ key: `${id}:g${i}`, category: g.category, level, ...(advanced ? { maxFeatLevel: g.level } : {}) })
   })
   for (const d of activeHomebrewDedications(c)) {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
@@ -302,7 +308,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const orderExplorerOk = availableOrders(c).length > 0
   return featIndex(entries)
-    .filter(({ entry: e, traits }) => e.level <= slot.level
+    .filter(({ entry: e, traits }) => e.level <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
       && (!trait || traits.has(trait))
       && !(generalOnly && traits.has('skill'))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))

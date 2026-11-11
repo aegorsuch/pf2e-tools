@@ -266,3 +266,17 @@ it('keeps extra slots next to their matching standard slot', () => {
     'ancestry:1:0', 'ancestry:1:1', 'ancestry:1:2', 'class:1:0', 'class:1:1',
   ])
 })
+
+it('keeps an existing Advanced General Training choice selected under level 09', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 9, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Advanced General Training', type: 'Ancestry Feat', level: 13, slot: 'ancestry:9:0' },
+      { name: 'Fleet', type: 'General Feat', level: 1, slot: 'general:7:g2' },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} save={() => {}} categories={['general']} />)
+  expect(markup).toContain('aria-label="L09 General feat"><option value="">- empty -</option><option value="Fleet" selected="">Fleet</option>')
+})

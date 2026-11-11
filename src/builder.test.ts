@@ -404,9 +404,21 @@ describe('feat-granted slots', () => {
     expect(plannedSlots({ ...c, feats: [] }).some((s) => s.category === 'general')).toBe(false)
   })
 
-  it('adds Advanced General Training slot at feat level', () => {
-    const c = { ...base, level: 7, feats: [{ name: 'Advanced General Training', type: 'Ancestry Feat', level: 7, slot: 'ancestry:7:0' }] }
-    expect(plannedSlots(c).filter((s) => s.category === 'general' && s.level === 7).map((s) => s.key)).toContain('general:7:g2')
+  it('places Advanced General Training at its selected level while keeping its level-7 limit and saved key', () => {
+    for (const level of [9, 13]) {
+      const c = { ...base, level, feats: [{ name: 'Advanced General Training', type: 'Ancestry Feat', level: 13, slot: `ancestry:${level}:0` }] }
+      const slot = plannedSlots(c).find((s) => s.key === 'general:7:g2')!
+      expect(slot).toMatchObject({ level, maxFeatLevel: 7 })
+      const feats = [entry('feat', 'Eligible', {}, 7), entry('feat', 'Too high', {}, 8)]
+        .map((feat) => ({ ...feat, traits: ['General'] }))
+      expect(eligibleFeats(feats, c, slot).map((feat) => feat.name)).toEqual(['Eligible'])
+      expect(plannedSlots({ ...c, level: level - 1 }).some((s) => s.key === slot.key)).toBe(false)
+    }
+  })
+
+  it('uses the granting feat level when Advanced General Training has no assigned slot', () => {
+    const c = { ...base, level: 13, feats: [{ name: 'Advanced General Training', type: 'Ancestry Feat', level: 13 }] }
+    expect(plannedSlots(c).find((s) => s.key === 'general:7:g2')?.level).toBe(13)
   })
 })
 
