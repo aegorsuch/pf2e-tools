@@ -1,4 +1,4 @@
-import type { Character, ContentEntry, FeatSlot, FeatSlotCategory } from './types'
+import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat } from './featChoices'
 
 export type Ability = keyof Character['abilities']
@@ -371,8 +371,9 @@ export const armorRanks = (c: Character, entries: ContentEntry[]) =>
 
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
+  const resilient = wornArmor(c)?.resilient ?? 0
   const save = (name: string, ability: Ability) =>
-    abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level)
+    abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? 0 : resilient)
   return {
     perception: save('Perception', 'wis'),
     ac: armorClass(c, entries),
@@ -383,11 +384,18 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
   }
 }
 
+export const wornArmor = (c: Character): OwnedArmor | undefined => c.armors?.find((a) => a.worn)
+
 export function armorClass(c: Character, entries: ContentEntry[]) {
-  const armor = c.equipment
-    .map((item) => byName(entries, 'armor', item.name))
-    .filter((entry): entry is ContentEntry => !!entry)
-    .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
+  const worn = wornArmor(c)
+  const armor = worn
+    ? byName(entries, 'armor', worn.name)
+    : c.armors
+      ? undefined
+      : c.equipment
+        .map((item) => byName(entries, 'armor', item.name))
+        .filter((entry): entry is ContentEntry => !!entry)
+        .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
   const armorCategory = armor
     ? armor.traits.find((trait) => /^(light|medium|heavy)( armor)?$/i.test(trait))?.toLowerCase().replace(/ armor$/, '') ?? 'light'
     : 'unarmored'
@@ -413,7 +421,74 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
   rank = Math.max(rank, featureRank, armorRanks(c, entries)[armorCategory === 'unarmored' ? 'Unarmored' : armorCategory === 'light' ? 'Light' : armorCategory === 'medium' ? 'Medium' : 'Heavy'])
   const dexterity = abilityMod(c.abilities.dex)
   const dexCap = armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY
-  return 10 + num(armor?.data.ac) + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level)
+  const raised = c.shield?.raised ? 2 : 0
+  return 10 + num(armor?.data.ac) + (worn?.potency ?? 0) + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level) + raised
+}
+
+// Imported equipment shows up as configurable gear until the player edits it
+export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
+  return c.weapons ?? c.equipment
+    .filter((g) => byName(entries, 'weapon', g.name))
+    .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, striking: 0, runes: [] }))
+}
+export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
+  if (c.armors) return c.armors
+  const best = c.equipment
+    .map((g) => byName(entries, 'armor', g.name))
+    .filter((e): e is ContentEntry => !!e)
+    .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
+  return c.equipment.filter((g) => byName(entries, 'armor', g.name))
+    .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+}
+
+// ---------- Weapons ----------
+
+export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking']
+export const WEAPON_PROPERTY_RUNES = [
+  'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
+  'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
+  'Unholy', 'Vorpal', 'Wounding',
+]
+export const ARMOR_PROPERTY_RUNES = [
+  'Acid Resistant', 'Cold Resistant', 'Electricity Resistant', 'Fire Resistant', 'Fortification', 'Glamered',
+  'Invisibility', 'Magnetic', 'Malleable', 'Ready', 'Shadow', 'Sinister Knight', 'Slick', 'Winged',
+]
+export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
+
+export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_GROUPS)[number] {
+  const text = `${entry?.data.weapon_type ?? ''}`.toLowerCase()
+  if (text.includes('unarmed') || entry?.traits.some((t) => t.toLowerCase() === 'unarmed')) return 'Unarmed'
+  if (text.includes('advanced')) return 'Advanced'
+  if (text.includes('martial')) return 'Martial'
+  return 'Simple'
+}
+
+export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
+  const entry = byName(entries, 'weapon', w.name)
+  const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
+  const ranged = num(entry?.data.range) > 0 || /ranged/i.test(String(entry?.data.weapon_type ?? ''))
+  const thrown = traits.some((t) => t.startsWith('thrown'))
+  const str = abilityMod(c.abilities.str)
+  const dex = abilityMod(c.abilities.dex)
+  const ability: Ability = ranged ? 'dex' : traits.includes('finesse') && dex > str ? 'dex' : 'str'
+  const mod = ability === 'dex' ? dex : str
+  const rank = weaponRanks(c, entries)[weaponCategory(entry)]
+  const prof = proficiencyBonus(rank, c.level)
+  const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
+  const dice = m ? (+m[1]) * (1 + w.striking) : 0
+  const flat = !ranged || thrown ? str : traits.includes('propulsive') ? Math.floor(str / 2) : 0
+  return {
+    entry,
+    traits: entry?.traits ?? [],
+    ability,
+    mod,
+    prof,
+    rank,
+    item: w.potency,
+    attack: mod + prof + w.potency,
+    range: ranged ? num(entry?.data.range) : 0,
+    damage: m ? `${dice}d${m[2]}${flat ? signed(flat) : ''}${m[3] ? ` ${m[3]}` : ''}` : '',
+  }
 }
 
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, maxHp, plannedSlots, ranksAt, skillRankBudget } from './builder'
+import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, eligibleFeats, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -172,5 +172,31 @@ describe('defenses', () => {
     expect(armorClass(c, data)).toBe(24)
     expect(maxHp(c, data)).toBe(56)
     expect(maxHp({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(61)
+  })
+})
+
+describe('configured gear', () => {
+  const ranger = entry('class', 'Ranger', { hp: 8, medium_armor_proficiency: 'Trained', attack_proficiency: 'Trained in simple and martial weapons' })
+  const plate = entry('armor', 'Half Plate', { ac: 4, dex_cap: 1 }, 0, ['Medium'])
+  const bow = entry('weapon', 'Longbow', { damage: '1d8 P', range: 100, weapon_type: 'Martial' })
+  const data = [...entries.filter((e) => !(e.kind === 'class' && e.name === 'Ranger')), ranger, plate, bow]
+  const c: Character = {
+    ...base, className: 'Ranger', level: 5, abilities: { ...base.abilities, dex: 16, str: 12, con: 14 }, equipment: [],
+  }
+
+  it('adds potency and resilient runes to worn armor AC and saves, and raised shield', () => {
+    const armors = [{ id: 'a', name: 'Half Plate', potency: 2, resilient: 1, runes: [], worn: true }]
+    expect(armorClass({ ...c, armors }, data)).toBe(armorClass({ ...c, armors: [{ ...armors[0], potency: 0 }] }, data) + 2)
+    expect(armorClass({ ...c, armors: [{ ...armors[0], worn: false }] }, data)).toBeLessThan(armorClass({ ...c, armors }, data))
+    const shield = { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true }
+    expect(armorClass({ ...c, armors, shield }, data)).toBe(armorClass({ ...c, armors }, data) + 2)
+  })
+
+  it('computes weapon attack and striking damage', () => {
+    const w = { id: 'w', name: 'Longbow', potency: 2, striking: 1, runes: [] }
+    const a = weaponAttack(c, data, w)
+    expect(a.ability).toBe('dex')
+    expect(a.attack).toBe(3 + 7 + 2)
+    expect(a.damage).toBe('2d8 P')
   })
 })

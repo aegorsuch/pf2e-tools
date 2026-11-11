@@ -1,7 +1,7 @@
 export type GameSystem = 'pf2e' | 'sf2e'
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
-  | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature'
+  | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature'
 export type Source = 'official' | 'homebrew'
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
@@ -17,6 +17,34 @@ export type Effect =
   | { type: 'language'; name: string }
   | { type: 'featSlot'; category: FeatSlotCategory; level: number; count: number }
   | { type: 'grant'; entryId: string }
+
+// Gear the player owns and configures; names resolve to ContentEntry weapons/armor/shields
+export interface OwnedWeapon {
+  id: string
+  name: string
+  // Weapon potency (0-3) and striking (0 none, 1 striking, 2 greater, 3 major)
+  potency: number
+  striking: number
+  runes: string[]
+  stowed?: boolean
+}
+export interface OwnedArmor {
+  id: string
+  name: string
+  potency: number
+  // Resilient (0-3)
+  resilient: number
+  runes: string[]
+  worn: boolean
+}
+export interface OwnedShield {
+  id: string
+  name: string
+  hardness: number
+  hp: number
+  damage: number
+  raised: boolean
+}
 
 export interface FeatSlot {
   category: FeatSlotCategory
@@ -57,6 +85,10 @@ export interface Character {
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
   feats: { name: string; type: string; level: number; choice?: string; slot?: string }[]
   equipment: { name: string; qty: number }[]
+  // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
+  weapons?: OwnedWeapon[]
+  armors?: OwnedArmor[]
+  shield?: OwnedShield
   lores: { name: string; rank: number }[]
   languages: string[]
   // Original Pathbuilder data kept so nothing is lost on import

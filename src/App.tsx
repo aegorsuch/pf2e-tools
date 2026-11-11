@@ -54,7 +54,6 @@ export default function App() {
   useEffect(() => localStorage.setItem(ENABLED_KEY, JSON.stringify(enabled)), [enabled])
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [showOfficial, setShowOfficial] = useState(false)
   const [status, setStatus] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [authError, setAuthError] = useState('')
@@ -83,7 +82,6 @@ export default function App() {
     [enabled],
   )
 
-  const official = entries?.filter((e) => e.source === 'official') ?? []
   const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
   const sortedCharacters = [...(characters ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
@@ -191,17 +189,6 @@ export default function App() {
           </li>
         ))}
       </ul>
-      <details onToggle={(e) => setShowOfficial(e.currentTarget.open)}>
-        <summary><h2 style={{ display: 'inline' }}>AON Content ({official.length})</h2></summary>
-        <ul>
-          {showOfficial && official.map((e) => (
-            <li key={e.id}>
-              <b>{e.name}</b> <ActionIcon entry={e} /> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}
-            </li>
-          ))}
-        </ul>
-      </details>
-
       <div className="row">
         <h2>Homebrew Content ({homebrew.length})</h2>
         <button type="button" title="Add homebrew content" aria-label="Add homebrew content"

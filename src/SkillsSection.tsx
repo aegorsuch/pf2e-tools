@@ -1,8 +1,9 @@
 import {
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, canIncreaseTo, classSkills,
   maxHp,
-  proficiencyBonus, ranksAt, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
+  proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
+import { ArmorList, WeaponList } from './GearSection'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 
@@ -91,9 +92,10 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const baseRank = baseRanks[s.name] ?? 0
     const abil = abilityMod(c.abilities[s.ability])
     const prof = proficiencyBonus(rank, c.level)
+    const item = s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient : undefined
     return (
-      <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''}`} role="row">
-        <span className="skill-name">{s.name} <b>{signed(abil + prof)}</b></span>
+      <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''}${item !== undefined ? ' with-item' : ''}`} role="row">
+        <span className="skill-name">{s.name} <b>{signed(abil + prof + (item ?? 0))}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
@@ -121,6 +123,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Prof</small>{signed(prof)}</span>
+        {item !== undefined && <span className="skill-part"><small>Item</small>{signed(item)}</span>}
       </div>
     )
   })
@@ -133,6 +136,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </div>
         <small>Initiative bonus <b>{signed(abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level))}</b></small>
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
+        <WeaponList c={c} entries={entries} save={save} />
       </>
     )
   }
@@ -147,6 +151,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           {renderRows(defense)}
         </div>
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} labels={{ Unarmored: 'Unarmored defense' }} />
+        <ArmorList c={c} entries={entries} save={save} />
       </>
     )
   }
