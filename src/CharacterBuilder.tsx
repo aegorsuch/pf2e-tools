@@ -5,6 +5,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
+import { HandwrapsGear } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
@@ -251,10 +252,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
 
       <details className="character-section">
         <summary className="character-section-summary">
-          <strong>Equipment</strong>
-          <span>{c.equipment.length} items</span>
+          <strong>Gear</strong>
+          <span>{c.equipment.length + (c.handwraps ? 1 : 0)} items</span>
         </summary>
         <div className="character-section-content">
+          <HandwrapsGear {...section} />
           <ul>
             {c.equipment.map((g, i) => (
               <li key={`${g.name}-${i}`}>

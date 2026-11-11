@@ -155,20 +155,10 @@ function Level({ label, value, options, format, onChange }: {
   )
 }
 
-export function WeaponList({ c, entries, save }: SectionProps) {
-  const weapons = ownedWeapons(c, entries)
-  const hasLivingWeapon = c.feats.some((feat) => feat.name === 'Living Weapon')
-  const saveWeapons = (next: OwnedWeapon[]) => save({
-    weapons: [...next, ...(c.weapons ?? []).filter((weapon) =>
-      (isAutomaticUnarmed(weapon.name) || weapon.id === HAFT_STRIKER_WEAPON.id) && !weapons.some((visible) => visible.id === weapon.id))],
-  })
-  const update = (id: string, patch: Partial<OwnedWeapon>) => saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
-  const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
+export function HandwrapsGear({ c, entries, save }: SectionProps) {
   const handwraps = c.handwraps
   return (
     <div className="col gear-list">
-      <Search entries={entries.filter((entry) => !isLockedWeapon(c, entry.name))} kind="weapon" label="Add Weapon"
-        onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />
       {handwraps ? <details className="gear-card" aria-label={HANDWRAPS.name} open>
         <summary><strong>{HANDWRAPS.name}</strong></summary>
         <Info label="Summary">{HANDWRAPS.description}</Info>
@@ -186,7 +176,26 @@ export function WeaponList({ c, entries, save }: SectionProps) {
       </details> : <button type="button" className="gear-add" onClick={() => save({ handwraps: { potency: 0, striking: 0, runes: [] } })}>
         Add {HANDWRAPS.name}
       </button>}
+    </div>
+  )
+}
+
+export function WeaponList({ c, entries, save }: SectionProps) {
+  const weapons = ownedWeapons(c, entries)
+  const hasLivingWeapon = c.feats.some((feat) => feat.name === 'Living Weapon')
+  const saveWeapons = (next: OwnedWeapon[]) => save({
+    weapons: [...next, ...(c.weapons ?? []).filter((weapon) =>
+      (isAutomaticUnarmed(weapon.name) || weapon.id === HAFT_STRIKER_WEAPON.id) && !weapons.some((visible) => visible.id === weapon.id))],
+  })
+  const update = (id: string, patch: Partial<OwnedWeapon>) => saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
+  const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
+  const handwraps = c.handwraps
+  return (
+    <div className="col gear-list">
+      <Search entries={entries.filter((entry) => !isLockedWeapon(c, entry.name))} kind="weapon" label="Add Weapon"
+        onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />
       {sorted.map((w) => {
+        const displayName = w.name.replace(/ \(Animal Feature\)$/, '')
         const a = weaponAttack(c, entries, w)
         const enhanced = effectiveWeapon(c, entries, w)
         const inherited = !!handwraps && weaponCategory(a.entry) === 'Unarmed'
@@ -198,8 +207,8 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const damage = a.damage ? `${a.damage}${damageRunes.length > 0 ? ` + ${damageRunes.join(', ')}` : ''}` : ''
         const compactDamage = damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
         return (
-          <details key={w.id} className="gear-card" aria-label={w.name} open>
-            <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}{damage && `, Damage ${compactDamage}`}</small></summary>
+          <details key={w.id} className="gear-card" aria-label={displayName} open>
+            <summary><strong>{displayName}</strong> <small>Attack {signed(a.attack)}{damage && `, Damage ${compactDamage}`}</small></summary>
             {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
