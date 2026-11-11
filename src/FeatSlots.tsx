@@ -98,7 +98,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const currentEntry = entries.find((e) => e.kind === 'feat' && e.name === current)
           const picksType = s.category === 'archetype'
-          const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'dedication')
+          const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
           const open = search[`${s.key}:open`] === '1'
           // Archetype pickers only build their (very long) list while the popup is open
           const options = picksType && !open ? [] : eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
