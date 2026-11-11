@@ -41,9 +41,11 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
               const checked = fixed || gs.some((s) => !s.fixed && c.boosts?.[s.key] === a)
               const next = checked ? undefined : addBoost(gs, boosts, a)
               const disabled = fixed || (!checked && !next)
+              const forbidden = !checked && !gs.some((s) => !s.fixed && (!s.options || s.options.includes(a)))
               return (
                 <label key={a} className={disabled ? 'disabled' : undefined}>
                   <input type="checkbox" aria-label={`${groupTitle(group)}: ${ABILITY_LABEL[a]}${fixed ? ' (fixed)' : ''}`}
+                    className={forbidden ? 'boost-forbidden' : undefined}
                     checked={checked} disabled={disabled} onChange={() => {
                       if (disabled) return
                       if (next) save({ boosts: next })

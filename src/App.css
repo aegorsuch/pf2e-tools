@@ -215,7 +215,7 @@
   label.disabled {
     opacity: 0.5;
   }
-  input:disabled:not(:checked) {
+  input.boost-forbidden {
     appearance: none;
     width: 1em;
     height: 1em;

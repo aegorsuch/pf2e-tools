@@ -35,7 +35,7 @@ function checkbox(props: SectionProps, groups: string[], label: string) {
   const tree = AbilityBoostChoices({ ...props, groups })
   const found = findElement(tree, (type, p) => type === 'input' && p['aria-label'] === label)
   expect(found).toBeDefined()
-  return found as { checked: boolean; disabled: boolean; onChange: () => void }
+  return found as { checked: boolean; disabled: boolean; className?: string; onChange: () => void }
 }
 
 describe('ability score boost controls', () => {
@@ -101,11 +101,12 @@ describe('ability score boost controls', () => {
 
   it('respects restricted class choices and group capacity', () => {
     const props = { c: character, entries, save: () => {} }
-    expect(checkbox(props, ['class'], 'Class Boost: Wisdom').disabled).toBe(true)
-    expect(checkbox(props, ['class'], 'Class Boost: Dexterity').disabled).toBe(false)
+    expect(checkbox(props, ['class'], 'Class Boost: Wisdom')).toMatchObject({ disabled: true, className: 'boost-forbidden' })
+    expect(checkbox(props, ['class'], 'Class Boost: Dexterity')).toMatchObject({ disabled: false, className: undefined })
     const full = { ...props, c: { ...character, boosts: { class: 'dex' as const } } }
-    expect(checkbox(full, ['class'], 'Class Boost: Strength').disabled).toBe(true)
-    expect(checkbox(full, ['class'], 'Class Boost: Dexterity').disabled).toBe(false)
+    expect(checkbox(full, ['class'], 'Class Boost: Wisdom')).toMatchObject({ disabled: true, className: 'boost-forbidden' })
+    expect(checkbox(full, ['class'], 'Class Boost: Strength')).toMatchObject({ disabled: true, checked: false, className: undefined })
+    expect(checkbox(full, ['class'], 'Class Boost: Dexterity')).toMatchObject({ disabled: false, checked: true, className: undefined })
   })
 
   it('reassigns background choices between restricted and free slots without dropping choices', () => {
@@ -118,7 +119,7 @@ describe('ability score boost controls', () => {
     expect(c.boosts).toEqual({ 'background:0': 'dex', 'background:1': 'str', 'free1:0': 'con' })
     expect(checkbox(props(), ['background'], 'Background Boosts: Wisdom').disabled).toBe(true)
     checkbox(props(), ['background'], 'Background Boosts: Dexterity').onChange()
-    expect(checkbox(props(), ['background'], 'Background Boosts: Constitution').disabled).toBe(true)
+    expect(checkbox(props(), ['background'], 'Background Boosts: Constitution')).toMatchObject({ disabled: true, className: undefined })
     checkbox(props(), ['background'], 'Background Boosts: Wisdom').onChange()
     expect(c.boosts).toMatchObject({ 'background:0': 'wis', 'background:1': 'str' })
   })
@@ -130,7 +131,7 @@ describe('ability score boost controls', () => {
       c, entries: elfEntries,
       save: (patch: Partial<Character>) => { c = { ...c, ...patch } },
     })
-    expect(checkbox(props(), ['ancestry'], 'Ancestry Boosts: Dexterity (fixed)')).toMatchObject({ checked: true, disabled: true })
+    expect(checkbox(props(), ['ancestry'], 'Ancestry Boosts: Dexterity (fixed)')).toMatchObject({ checked: true, disabled: true, className: undefined })
     checkbox(props(), ['ancestry'], 'Ancestry Boosts: Wisdom').onChange()
     expect(c.boosts).toEqual({ 'ancestry:2': 'wis' })
     expect(checkbox(props(), ['ancestry'], 'Ancestry Boosts: Strength').disabled).toBe(true)
@@ -141,7 +142,7 @@ describe('ability score boost controls', () => {
   it('still limits level boosts to four distinct choices', () => {
     const c: Character = { ...character, boosts: { 'free1:0': 'str', 'free1:1': 'dex', 'free1:2': 'con', 'free1:3': 'int' } }
     const props = { c, entries, save: () => {} }
-    expect(checkbox(props, ['free1'], 'L01 Boosts: Wisdom').disabled).toBe(true)
+    expect(checkbox(props, ['free1'], 'L01 Boosts: Wisdom')).toMatchObject({ disabled: true, checked: false, className: undefined })
     expect(checkbox(props, ['free1'], 'L01 Boosts: Strength')).toMatchObject({ checked: true, disabled: false })
   })
 
