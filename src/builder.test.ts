@@ -332,3 +332,11 @@ describe('feat grants', () => {
     expect(armorSpecialization(withFeat, [wood, armor, feat])).toMatchObject({ group: 'Wood', effect: 'Wood armor splinters.' })
   })
 })
+
+describe('feat-granted slots', () => {
+  it('adds a general feat slot while General Training is taken', () => {
+    const c = { ...base, level: 1, feats: [{ name: 'General Training', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    expect(plannedSlots(c).filter((s) => s.category === 'general').map((s) => s.key)).toEqual(['general:1:g0'])
+    expect(plannedSlots({ ...c, feats: [] }).some((s) => s.category === 'general')).toBe(false)
+  })
+})

@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { eligibleFeats, featType, plannedSlots, type SectionProps } from './builder'
+import { eligibleFeats, featType, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { ActionIcon } from './ActionIcon'
 import { actionOptionLabel } from './actionCost'
@@ -49,7 +49,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       feats.push({ name: feat.name, type: `${LABEL[category]} Feat`, level: feat.level, slot: key })
       if (!entryIds.includes(feat.id)) entryIds.push(feat.id)
     }
-    save({ feats, entryIds })
+    // Dropping a granting feat also drops the feat it granted
+    const orphan = (f: { slot?: string }) => f.slot && isGrantedSlot(f.slot)
+      && !plannedSlots({ ...c, feats }).some((slot) => slot.key === f.slot)
+    save({ feats: feats.filter((f) => !orphan(f)), entryIds })
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
     const index = c.extraSlots.findIndex((slot) => slot.category === category && slot.level === level && slot.count > 0)
@@ -89,7 +92,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
-          const extra = !standardKeys.has(s.key)
+          const granted = isGrantedSlot(s.key)
+          const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
@@ -110,8 +114,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {extra
                 ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
                   onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>
-                : <button type="button" aria-label={`${label} slot is granted by level`} title="Granted by level" disabled>−</button>}
-              {firstAtLevel
+                : <button type="button" aria-label={`${label} slot is granted by ${granted ? 'a feat' : 'level'}`} title={granted ? 'Granted by a feat' : 'Granted by level'} disabled>−</button>}
+              {firstAtLevel && !granted
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
                   onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}

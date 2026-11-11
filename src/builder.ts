@@ -173,6 +173,13 @@ const SLOT_RULES: { category: FeatSlotCategory; levels: number[] }[] = [
   { category: 'general', levels: [3, 7, 11, 15, 19] },
 ]
 
+// Feats that hand out an extra feat; the slot appears while the granting feat is taken
+export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: number }> = {
+  'General Training': { category: 'general', level: 1 },
+  'Natural Ambition': { category: 'class', level: 1 },
+}
+export const isGrantedSlot = (key: string) => /:g\d+$/.test(key)
+
 export function plannedSlots(c: Character): PlannedSlot[] {
   const base: FeatSlot[] = [
     ...SLOT_RULES.flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: 1 }))),
@@ -190,6 +197,12 @@ export function plannedSlots(c: Character): PlannedSlot[] {
       slots.push({ key: `${id}:${n}`, category: s.category, level: s.level })
     }
   }
+  Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
+    if (!c.feats.some((f) => f.name === name)) return
+    const id = `${g.category}:${g.level}`
+    if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
+    slots.push({ key: `${id}:g${i}`, category: g.category, level: g.level })
+  })
   return slots.sort((a, b) => a.level - b.level
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
