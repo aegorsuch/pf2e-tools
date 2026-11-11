@@ -81,16 +81,17 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
   return entries.length
 }
 
-// Bump when the mapping changes so existing installs re-import automatically
-export const AON_IMPORT_VERSION = 11
+// Every deploy gets a new build id, so existing installs re-import the fresh snapshot after each update
+declare const __BUILD_ID__: string
+export const AON_IMPORT_VERSION = typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev'
 const REFRESH_MS = 7 * 24 * 3600 * 1000
 const inFlight = new Map<GameSystem, Promise<number>>()
 
 // Import official content when it is missing, outdated or older than a week; no-op otherwise.
 export async function ensureAonImported(system: GameSystem, onProgress?: (n: number) => void) {
   const key = `aon-import:${system}`
-  const [version, at] = (localStorage.getItem(key) ?? '').split(':').map(Number)
-  const fresh = version === AON_IMPORT_VERSION && Date.now() - at < REFRESH_MS
+  const [version, at] = (localStorage.getItem(key) ?? '').split(':')
+  const fresh = version === AON_IMPORT_VERSION && Date.now() - Number(at) < REFRESH_MS
   if (fresh && (await db.content.where('id').startsWith(`aon:${system}:`).count()) > 0) return 0
   let run = inFlight.get(system)
   if (!run) {

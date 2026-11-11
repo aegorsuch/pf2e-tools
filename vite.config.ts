@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   if (env.VITE_SUPABASE_ANON_KEY) validateSupabaseKey(env.VITE_SUPABASE_ANON_KEY)
   return {
     base: '/pf2e-tools/',
+    define: { __BUILD_ID__: JSON.stringify(String(Date.now())) },
     plugins: [
       react(),
       VitePWA({

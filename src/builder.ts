@@ -413,6 +413,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value: v === 'half' ? half : +v, source: e.name })
     }
   }
+  for (const rune of wornArmor(c)?.runes ?? []) {
+    const m = /^(\w+) Resistant$/.exec(rune)
+    if (m) out.push({ damage: m[1], value: 5, source: `${rune} rune` })
+  }
   return out.map((r) => ({ ...r, damage: cap(r.damage) }))
 }
 
