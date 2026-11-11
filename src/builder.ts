@@ -450,7 +450,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
   const out = typeof ancestry === 'string' && ancestry ? [{ value: ancestry, source: c.ancestry }] : []
   for (const g of featData(c, entries, 'grants_vision')) if (!out.some((o) => o.value.toLowerCase() === g.value.toLowerCase())) out.push(g)
-  return out
+  return out.sort((a, b) => a.value.localeCompare(b.value))
 }
 
 function baseRanks(c: Character, entries: ContentEntry[]) {
