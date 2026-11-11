@@ -269,6 +269,10 @@
   flex: none;
 }
 
+.feat-slot-row > .slot-spacer {
+  visibility: hidden;
+}
+
 .feat-choice {
   display: inline-flex;
   align-items: center;
