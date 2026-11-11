@@ -8,13 +8,13 @@ import type { ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
 
-type Filter = { label: string; values: (e: ContentEntry) => string[] }
+type Filter = { label: string; values: (e: ContentEntry) => string[]; fixed?: string[] }
 
 const text = (v: unknown) => (v === undefined || v === '' ? [] : [String(v)])
 const CATEGORY = /^(light|medium|heavy)( armor)?$/i
 const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
   weapon: [
-    { label: 'Proficiencies', values: (e) => [weaponCategory(e)] },
+    { label: 'Proficiencies', values: (e) => [weaponCategory(e)], fixed: ['Advanced', 'Martial', 'Simple', 'Unarmed'] },
     { label: 'Rarities', values: (e) => text(e.data.rarity) },
     { label: 'Types', values: (e) => [Number(e.data.range) > 0 ? 'Ranged' : 'Melee'] },
     { label: 'Groups', values: (e) => text(e.data.weapon_group) },
@@ -50,7 +50,7 @@ export function Search({ entries, kind, label, onPick }: {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
   const pool = entries.filter((e) => e.kind === kind)
-  const filters = FILTERS[kind].map((f) => ({ ...f, options: [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort() }))
+  const filters = FILTERS[kind].map((f) => ({ ...f, options: f.fixed ?? [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort((a, b) => a.localeCompare(b)) }))
   const query = q.trim().toLowerCase()
   const matches = [...new Map(
     pool

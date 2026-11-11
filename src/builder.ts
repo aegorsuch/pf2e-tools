@@ -456,7 +456,7 @@ export const ARMOR_PROPERTY_RUNES = [
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
 
 export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_GROUPS)[number] {
-  const text = `${entry?.data.weapon_type ?? ''}`.toLowerCase()
+  const text = `${entry?.data.weapon_type ?? ''} ${(entry?.traits ?? []).join(' ')}`.toLowerCase()
   if (text.includes('unarmed') || entry?.traits.some((t) => t.toLowerCase() === 'unarmed')) return 'Unarmed'
   if (text.includes('advanced')) return 'Advanced'
   if (text.includes('martial')) return 'Martial'
