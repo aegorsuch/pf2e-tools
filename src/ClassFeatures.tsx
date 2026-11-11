@@ -6,12 +6,12 @@ export function ClassFeatures({ c, entries }: SectionProps) {
   const imported = entries.some((e) => e.kind === 'classFeature')
   return (
     <>
-      <h4>Features ({features.length})</h4>
+      <h4>Class Features ({features.length})</h4>
       {!imported && <p>Class feature data is still loading.</p>}
       <ul>
         {features.map((f) => (
           <li key={f.id}>
-            <b>{f.name}</b> <small>(L{f.level})</small>
+            <b>L{String(f.level).padStart(2, '0')} {f.name}</b>
             {f.description && <><br /><small>{f.description}</small></>}
           </li>
         ))}
