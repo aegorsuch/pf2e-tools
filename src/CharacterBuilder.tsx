@@ -163,8 +163,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <label>Name <input value={c.name} onChange={(e) => save({ name: e.target.value })} /></label>
         <label>Level <input type="number" min={1} max={20} value={c.level}
           onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
-        <label>Search all feats <input type="search" className="feat-search" placeholder="Search feats" value={featSearch['*'] ?? ''}
-          onChange={(e) => searchProps.onSearch('*', e.target.value)} /></label>
       </div>
       <AbilitiesSection {...section} />
       <details className="character-section">
