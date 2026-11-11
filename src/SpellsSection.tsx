@@ -1,11 +1,24 @@
 import { Info } from './Info'
 import { useMemo, useState } from 'react'
 import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
-import type { Character } from './types'
+import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
+
+// A spell row that opens to its summary, with a trash button when it can be removed
+function SpellItem({ name, entry, note, onRemove }: { name: string; entry?: ContentEntry; note?: string; onRemove?: () => void }) {
+  return (
+    <li className="spell-item">
+      <details>
+        <summary>{name} <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}</summary>
+        <small>{entry?.description || 'No summary available.'}</small>
+      </details>
+      {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove" onClick={onRemove}>🗑</button>}
+    </li>
+  )
+}
 
 export function SpellsSection({ c, entries, save }: SectionProps) {
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
@@ -99,7 +112,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <b>Focus Spells</b> <small>(Focus Points: {focusPoints})</small>
           <ul>
             {focus.map((s) => (
-              <li key={s.name}>{s.name} <ActionIcon entry={entries.find((e) => e.kind === 'spell' && e.name === s.name)} /> <small>({s.source})</small></li>
+              <SpellItem key={s.name} entry={entries.find((e) => e.kind === 'spell' && e.name === s.name)} name={s.name} note={s.source} />
             ))}
           </ul>
         </div>
@@ -109,10 +122,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <b>{g}</b>
           <ul>
             {listedSpells.filter((s) => s.group === g).map((s) => (
-              <li key={`${s.name}-${s.index}`}>
-                {s.name} <ActionIcon entry={entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))} />{' '}
-                {s.index >= 0 && <button onClick={() => save({ spells: spells.filter((_, j) => j !== s.index) })}>Remove</button>}
-              </li>
+              <SpellItem key={`${s.name}-${s.index}`} name={s.name}
+                entry={entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))}
+                onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index) }) : undefined} />
             ))}
           </ul>
         </div>

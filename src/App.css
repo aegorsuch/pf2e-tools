@@ -509,3 +509,7 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .feat-modal-list button { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #333; padding: 10px 6px; }
 .feat-modal-list button.active { font-weight: bold; }
 .feat-modal-level { padding: 8px 6px 2px; opacity: 0.7; }
+.spell-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+.spell-item details { flex: 1; }
+.spell-item summary { cursor: pointer; }
+.spell-remove { padding: 0.1rem 0.4rem; }
