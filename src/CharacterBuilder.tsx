@@ -1,6 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
-import { ABILITIES, abilityMod, featType, heritagesFor, maxHp, signed } from './builder'
+import { AbilitiesSection } from './AbilitiesSection'
+import { computeAbilities, featType, heritagesFor, maxHp } from './builder'
+import { FeatSlots } from './FeatSlots'
+import { SkillsSection } from './SkillsSection'
+import { SpellsSection } from './SpellsSection'
 import { db } from './db'
 import type { Character, ContentEntry, EntryKind } from './types'
 
@@ -39,7 +43,13 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => c.systems.includes(s))).toArray(),
     [systemsKey],
   ) ?? NONE
-  const save = (patch: Partial<Character>) => db.characters.put({ ...c, ...patch, updatedAt: Date.now() })
+  const save = (patch: Partial<Character>) => {
+    const next = { ...c, ...patch, updatedAt: Date.now() }
+    // Boost-built characters keep their scores in sync with ancestry/background/class/level changes
+    if (next.boosts) next.abilities = computeAbilities(next, entries)
+    return db.characters.put(next)
+  }
+  const section = { c, entries, save }
   const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
 
@@ -86,19 +96,12 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       </div>
       {[ancestry, klass, background].map((e) => e && <small key={e.id}><b>{e.name}</b>: {detail(e)}</small>)}
 
-      <h3>Ability scores</h3>
-      <div className="row">
-        {ABILITIES.map((a) => (
-          <label key={a}>
-            {a.toUpperCase()}{' '}
-            <input type="number" min={1} max={30} value={c.abilities[a]}
-              onChange={(e) => save({ abilities: { ...c.abilities, [a]: +e.target.value || 10 } })} />
-            {' '}{signed(abilityMod(c.abilities[a]))}
-          </label>
-        ))}
-      </div>
+      <AbilitiesSection {...section} />
+      <SkillsSection {...section} />
+      <FeatSlots {...section} />
+      <SpellsSection {...section} />
 
-      <h3>Feats ({c.feats.length})</h3>
+      <h3>All feats ({c.feats.length})</h3>
       <ul>
         {c.feats.map((f, i) => (
           <li key={`${f.name}-${i}`}>

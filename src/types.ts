@@ -54,7 +54,8 @@ export interface Character {
   deity?: string
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
-  feats: { name: string; type: string; level: number; choice?: string }[]
+  // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
+  feats: { name: string; type: string; level: number; choice?: string; slot?: string }[]
   equipment: { name: string; qty: number }[]
   lores: { name: string; rank: number }[]
   languages: string[]
@@ -62,6 +63,15 @@ export interface Character {
   imported?: { source: 'pathbuilder'; raw: unknown; unmapped: string[] }
   // IDs of ContentEntry picked (feats, gear, etc.)
   entryIds: string[]
+  // Ability boost choices keyed by boost slot (e.g. 'ancestry:2', 'lvl5:0'); when set, abilities are derived from them
+  boosts?: Record<string, keyof Character['abilities']>
+  // Extra trained skills picked from the class allotment, and skill increases keyed by level
+  skillPicks?: string[]
+  skillIncreases?: Record<string, string>
+  // Manual rank (0-4) per skill/save/perception, for class features not modelled
+  rankOverrides?: Record<string, number>
+  spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
+  spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]
   updatedAt: number
