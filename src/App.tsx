@@ -187,9 +187,9 @@ export default function App() {
           <label>
             <input type="checkbox" checked={settings.autoClassSkills}
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
-            Automatically train class skills
+            Automatically advance class skills
           </label>
-          <small>Skills your class grants (a ranger's Nature and Survival, a druid's order skill) are trained for free, without using skill picks or increases.</small>
+          <small>Skills your class grants (a ranger's Nature and Survival, a druid's order skill, a chosen class skill) are trained automatically and rank up for free as your level allows (house rule), without using your skill picks or increases.</small>
         </section>
       )}
 

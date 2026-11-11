@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react'
 
 export interface Settings {
-  // Skills a class (and a druid's order) grants are trained automatically instead of being picked
+  // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: true }
+const DEFAULTS: Settings = { autoClassSkills: false }
 
 function load(): Settings {
   try {

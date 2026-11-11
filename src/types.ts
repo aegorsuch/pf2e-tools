@@ -78,8 +78,10 @@ export interface Character {
   ancestry?: string
   className?: string
   heritage?: string
-  // Druidic order, which grants a trained skill
+  // Druidic order, which grants a skill
   order?: string
+  // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)
+  classSkill?: string
   background?: string
   deity?: string
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>

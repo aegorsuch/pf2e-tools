@@ -120,11 +120,11 @@ describe('eligibleFeats', () => {
 
 describe('skills', () => {
   it('parses class skills', () => {
-    expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toEqual({ fixed: ['Arcana'], additional: 2 })
+    expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toMatchObject({ fixed: ['Arcana'], additional: 2 })
   })
   it('ignores choice lines', () => {
     const k = entry('class', 'Fighter', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
-    expect(classSkills(k)).toEqual({ fixed: [], additional: 3 })
+    expect(classSkills(k)).toMatchObject({ fixed: [], additional: 3 })
   })
   it('combines sources, increases and overrides', () => {
     const c = { ...base, level: 3, skillPicks: ['Society'], skillIncreases: { 3: 'Society' }, rankOverrides: { Reflex: 2 } }
@@ -138,7 +138,7 @@ describe('skills', () => {
     })
     const c = { ...base, className: 'Ranger', level: 7, feats: [{ name: 'Natural Skill', type: 'Ancestry Feat', level: 1 }] }
     const withFeat = [...entries.filter((e) => !(e.kind === 'class' && e.name === 'Ranger')), naturalSkill, ranger]
-    expect(classSkills(ranger)).toEqual({ fixed: [], additional: 4 })
+    expect(classSkills(ranger)).toMatchObject({ fixed: [], additional: 4 })
     expect(additionalSkillCount(c, withFeat)).toBe(6)
     expect(skillRankBudget(c, withFeat)).toEqual({ trained: 6, expert: 2, master: 1, legendary: 0 })
     expect(skillRankBudget({ ...c, skillPicks: ['Acrobatics'], skillIncreases: { 3: 'Nature' } }, withFeat))
@@ -253,15 +253,27 @@ describe('automatic class skill training', () => {
   const druid = entry('class', 'Druid', { skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' })
   const c = { ...base, className: 'Druid', order: 'Animal' }
 
-  it('trains class and druidic order skills, and stops when the setting is off', () => {
-    expect(ranksAt(c, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
-    updateSettings({ autoClassSkills: false })
+  it('trains class and druidic order skills, and ranks them up with level only under the house rule', () => {
+    expect(ranksAt({ ...c, level: 7 }, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
+    updateSettings({ autoClassSkills: true })
     try {
-      const off = ranksAt(c, [druid])
-      expect(off.Nature ?? 0).toBe(0)
-      expect(off.Athletics ?? 0).toBe(0)
+      expect(ranksAt(c, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
+      expect(ranksAt({ ...c, level: 3 }, [druid])).toMatchObject({ Nature: 2, Athletics: 2 })
+      expect(ranksAt({ ...c, level: 6 }, [druid])).toMatchObject({ Nature: 2, Athletics: 2 })
+      expect(ranksAt({ ...c, level: 7 }, [druid])).toMatchObject({ Nature: 3, Athletics: 3 })
+      expect(ranksAt({ ...c, level: 15 }, [druid])).toMatchObject({ Nature: 4, Athletics: 4 })
     } finally {
-      updateSettings({ autoClassSkills: true })
+      updateSettings({ autoClassSkills: false })
     }
+  })
+})
+
+describe('class skill choice', () => {
+  it('auto-trains the picked skill only', () => {
+    const fighter = entry('class', 'Fighter', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
+    expect(classSkills(fighter).choices).toEqual(['Acrobatics', 'Athletics'])
+    const c = { ...base, className: 'Fighter', classSkill: 'Athletics' }
+    expect(ranksAt(c, [fighter]).Athletics).toBe(1)
+    expect(ranksAt(c, [fighter]).Acrobatics ?? 0).toBe(0)
   })
 })

@@ -296,8 +296,12 @@ export function classSkills(klass?: ContentEntry) {
     const m = /^trained in (?!a number|one or more|your choice)(.+)$/i.exec(l)
     return m ? m[1].split(/,| and /).map((s) => s.trim()).filter(Boolean) : []
   })
+  const choices = lines.flatMap((l) => {
+    const m = /^trained in (?:your choice of|one of) (.+)$/i.exec(l)
+    return m ? [m[1].split(/,| or /).map((x) => x.trim()).filter(Boolean)] : []
+  })[0] ?? []
   const extra = lines.map((l) => /additional skills? equal to (\d+)/i.exec(l)).find(Boolean)
-  return { fixed, additional: extra ? +extra[1] : 0 }
+  return { fixed, choices, additional: extra ? +extra[1] : 0 }
 }
 
 // skill_proficiency is stored joined with ", "; the sentences themselves contain no other commas we rely on
@@ -308,11 +312,13 @@ export const DRUID_ORDERS: Record<string, string> = {
   Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Athletics', Wild: 'Intimidation',
 }
 
-// Skills trained automatically by the class (and druidic order), unless the setting is off
+// Skills the class grants: fixed, chosen, or tied to a druidic order. They are always trained; the house rule
+// (autoClassSkills) also ranks them up at every skill increase the level cap allows, without using the character's own increases.
 export function autoClassSkills(c: Character, entries: ContentEntry[]) {
-  if (!getSettings().autoClassSkills) return []
+  const { fixed, choices } = classSkills(byName(entries, 'class', c.className))
   const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
-  return [...classSkills(byName(entries, 'class', c.className)).fixed, ...(order ? [order] : [])]
+  const picked = c.classSkill && choices.includes(c.classSkill) ? c.classSkill : undefined
+  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : [])])]
 }
 
 export const backgroundSkills = (bg?: ContentEntry) => tokens(bg?.data.skill)
@@ -340,9 +346,12 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
 // Ranks from class/background/picks plus skill increases below `beforeLevel`; legacy overrides apply only to skills.
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
   const ranks = baseRanks(c, entries)
+  const autoSkills = autoClassSkills(c, entries)
+  const rankUp = getSettings().autoClassSkills
   for (const l of skillIncreaseLevels(c).filter((x) => x < beforeLevel)) {
     const skill = c.skillIncreases?.[l]
     if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
+    if (rankUp) for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
   }
   if (withOverrides) {
     const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))

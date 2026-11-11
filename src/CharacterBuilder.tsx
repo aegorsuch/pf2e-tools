@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { DRUID_ORDERS, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed } from './builder'
+import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -139,6 +139,15 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
+          {classSkills(klass).choices.length > 0 && (
+            <label>
+              Class skill{' '}
+              <select value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
+                <option value="">Choose skill</option>
+                {classSkills(klass).choices.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </label>
+          )}
           {c.className === 'Druid' && (
             <label>
               Druidic Order{' '}
