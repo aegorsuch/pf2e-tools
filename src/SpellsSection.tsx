@@ -1,4 +1,4 @@
-import { Info } from './Info'
+import { EntryDescription } from './EntryDescription'
 import { useMemo, useState } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -7,14 +7,12 @@ import { ActionIcon } from './ActionIcon'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
-// A spell row that opens to its summary, with a trash button when it can be removed
 function SpellItem({ name, entry, note, onRemove }: { name: string; entry?: ContentEntry; note?: string; onRemove?: () => void }) {
   return (
     <li className="spell-item">
-      <details>
-        <summary>{name} <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}</summary>
-        <small>{entry?.description || 'No summary available.'}</small>
-      </details>
+      <div className="spell-name">
+        <EntryDescription name={name} entry={entry} /> <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}
+      </div>
       {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove" onClick={onRemove}>×</button>}
     </li>
   )
@@ -141,7 +139,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           const have = spells.some((s) => s.entryId === m.id) || granted.some((s) => s.id === m.id)
           return (
             <li key={m.id}>
-              {m.description ? <Info label={m.name}>{m.description}</Info> : <b>{m.name}</b>} <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
+              <EntryDescription name={m.name} entry={m} /> <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
                 <small>({spellWardenLabel(m.data.warden_spell_tier)})</small>
               )} {m.data.tradition ?? ''}{' '}
               <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>

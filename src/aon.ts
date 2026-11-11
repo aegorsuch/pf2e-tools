@@ -46,7 +46,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: (kind === 'classFeature' || kind === 'armorGroup' || kind === 'companionSpec' || kind === 'companionAdv') && text(s.markdown) ? plain(text(s.markdown)) : text(s.summary),
+    description: (['feat', 'spell', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv'].includes(kind)
+      || kind === 'item' && /Property Runes/i.test(String(s.item_subcategory))) && text(s.markdown).trim()
+      ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
     data,
     effects: [],
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync

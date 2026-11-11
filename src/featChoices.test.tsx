@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
+import { fetchAonHits } from './aonQuery'
 import { FeatChoice } from './FeatChoice'
 import { FeatSlots } from './FeatSlots'
 import { SpellsSection } from './SpellsSection'
@@ -40,6 +41,29 @@ it('imports repeatability from feat special rules without guessing from summarie
   expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '**Special** You can take this ancestry feat multiple times.' } }, 'pf2e')?.data.repeatable).toBe(true)
   expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '', summary: 'You can take this feat multiple times.' } }, 'pf2e')?.data.repeatable).toBe(false)
   expect(mapAonHit({ _source: { category: 'spell', name: 'Gravity Weapon', warden_spell_tier: 'Initiate' } }, 'pf2e')?.data.warden_spell_tier).toBe('Initiate')
+})
+
+it('retains full feat, spell, and rune descriptions through snapshot fetching and mapping', async () => {
+  const markdown = '**Full rules**\n\n' + 'Long rules paragraph. '.repeat(100) + '\n\nFinal rule must remain.'
+  const fetchFn: typeof fetch = async (_url, init) => {
+    const request = JSON.parse(String(init?.body)) as { query: { bool: { filter: { term: { category: string } }[] } } }
+    const category = request.query.bool.filter[0].term.category
+    return new Response(JSON.stringify({ hits: { hits: [{
+      _id: category,
+      _source: { category, name: category, markdown, summary: 'Short summary.', item_subcategory: 'Weapon Property Runes' },
+    }] } }), { status: 200 })
+  }
+  const hits = await fetchAonHits('pf2e', fetchFn)
+  for (const category of ['feat', 'spell', 'equipment']) {
+    const hit = hits.find((h) => h._id === category)!
+    expect(hit._source?.markdown).toBe(markdown)
+    const description = mapAonHit(hit, 'pf2e')?.description
+    expect(description).toContain('Long rules paragraph. '.repeat(100).trim())
+    expect(description).toContain('Final rule must remain.')
+    expect(description).not.toContain('Short summary.')
+  }
+  expect(mapAonHit({ _source: { category: 'feat', name: 'Fallback', summary: 'Available summary.' } }, 'pf2e')?.description)
+    .toBe('Available summary.')
 })
 
 it('selects distinct warden spells per feat and derives grants from current choices', () => {
@@ -112,7 +136,7 @@ it('shows feat grants once without deleting independently added spells', () => {
   expect(markup).toContain('Gravity Weapon')
   expect(markup).toContain('<b>Initiate Warden</b>')
   expect(markup).not.toContain('Warden feat')
-  expect((markup.match(/Gravity Weapon/g) ?? [])).toHaveLength(1)
+  expect((markup.match(/aria-haspopup="dialog">Gravity Weapon<\/button>/g) ?? [])).toHaveLength(1)
   expect(grantedWardenSpells({ ...c, feats: [] }, entries)).toEqual([])
   expect(c.spells).toHaveLength(1)
 })
@@ -175,7 +199,7 @@ it('shows spell DC proficiency but no spell slots for focus-only casters', () =>
   const classes: ContentEntry[] = [
     { id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 1 },
     { id: 'gravity-feat', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Gravity Weapon', level: 1, traits: [], description: '', data: { grants_focus_spells: 'Gravity Weapon' }, effects: [], updatedAt: 1 },
-    spell('Gravity Weapon', 'Initiate'),
+    { ...spell('Gravity Weapon', 'Initiate'), description: 'Focus spell description.' },
   ]
   const markup = renderToStaticMarkup(<SpellsSection c={ranger} entries={classes} save={() => {}} />)
   expect(markup).not.toContain('Casting ability: Wisdom')
@@ -183,6 +207,8 @@ it('shows spell DC proficiency but no spell slots for focus-only casters', () =>
   expect(markup).toContain('DC 13 <small>(Attack +3)</small>')
   expect(markup).toContain('Spellcasting proficiency: Trained')
   expect(markup).toContain('Gravity Weapon')
+  expect(markup).toContain('aria-haspopup="dialog">Gravity Weapon</button>')
+  expect(markup).toContain('<p>Focus spell description.</p>')
   expect(markup).not.toContain('Filter spells by tradition')
   expect(markup).not.toContain('Slots per rank')
 })
@@ -199,6 +225,25 @@ it('retains spell slots for slotted casters such as Druids', () => {
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid]} save={() => {}} />)
   expect(markup).toContain('Slots per rank')
   expect(markup).toContain('value="2"')
+})
+
+it('opens known spells and spell-picker results in description dialogs', () => {
+  const c: Character = {
+    ...base, className: 'Druid',
+    spells: [{ name: 'Heal', rank: 1, cantrip: false, entryId: 'heal' }],
+  }
+  const heal: ContentEntry = {
+    ...spell('Heal', ''), id: 'heal', traits: [], description: 'Healing spell description.',
+    data: { tradition: 'Primal', url: 'https://2e.aonprd.com/' },
+  }
+  const druid: ContentEntry = {
+    ...heal, id: 'druid', kind: 'class', name: 'Druid', description: '', data: { tradition: 'Primal' },
+  }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid, heal]} save={() => {}} />)
+  expect(markup.match(/aria-haspopup="dialog">Heal<\/button>/g)).toHaveLength(2)
+  expect(markup.match(/<p>Healing spell description.<\/p>/g)).toHaveLength(2)
+  expect(markup).toContain('aria-label="Remove Heal"')
+  expect(markup).toContain('href="https://2e.aonprd.com/"')
 })
 
 it('keeps companion and granted general-feat choices out of feat rows', () => {

@@ -9,7 +9,7 @@ export const AON_ENDPOINTS: Record<GameSystem, string> = {
 // Scalar/array fields copied into entry.data (arrays are joined with ", ")
 export const DATA_FIELDS = [
   'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite',
-  'actions', 'trigger', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'ac', 'dex_cap', 'strength',
+  'actions', 'trigger', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'usage', 'ac', 'dex_cap', 'strength',
   'check_penalty', 'range', 'tradition', 'school', 'item_category', 'perception_proficiency',
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
@@ -121,7 +121,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     for (const hit of json.hits?.hits ?? []) {
       const s = hit._source
       if (s) {
-        // Only resistance text is needed from most markdown; keep the full text for feats and class features
+        // Keep full rules text for description popups and class features.
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))
         if (found) s.resistances = found
         if (category === 'feat' && typeof s.markdown === 'string') {
@@ -157,7 +157,8 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.support) s.companion_support = comp.support
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
         }
-        if (!['feat', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category)) delete s.markdown
+        if (!['feat', 'spell', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category)
+          && !(category === 'equipment' && /Property Runes/i.test(String(s.item_subcategory)))) delete s.markdown
       }
       hits.push(hit)
     }

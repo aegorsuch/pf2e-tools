@@ -60,8 +60,7 @@ it('keeps purchased and free Shifting runes out of weapon damage', () => {
     const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], free)
     c.weapons![0].runes = free ? ['Flaming'] : ['Shifting', 'Flaming']
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
-    const damage = /<div class="gear-damage">([^<]+)<\/div>/.exec(markup)?.[1]
-    expect(damage).toBe('2d8 slashing + Flaming')
+    expect(markup).toContain('<div class="gear-damage">2d8 slashing + Flaming</div>')
     expect(markup).toContain(free ? 'title="Granted by Living Weapon"' : 'aria-label="Remove Shifting rune"')
   }
 })
@@ -72,8 +71,7 @@ it('shows Impactful force damage without scaling it with striking', () => {
       const c = character([])
       c.weapons![0] = { ...c.weapons![0], striking, runes: [rune, 'Shifting'] }
       const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
-      const damage = /<div class="gear-damage">([^<]+)<\/div>/.exec(markup)?.[1]
-      expect(damage).toBe(`${1 + striking}d8 slashing + 1d6 force`)
+      expect(markup).toContain(`<div class="gear-damage">${1 + striking}d8 slashing + 1d6 force</div>`)
       expect(markup).toContain(`aria-label="Remove ${rune} rune"`)
     }
   }
@@ -111,4 +109,13 @@ it('shows attack and compact damage including rune damage in the weapon summary'
   expect(summary).toContain('Attack +35, Damage 4d6+4 P + 1d6 force')
   expect(summary).not.toContain('Shifting')
   expect(markup).toContain('<div class="gear-damage">4d6+4 piercing + 1d6 force</div>')
+})
+
+it('keeps Grievous visible as a rune but excludes it from both damage displays', () => {
+  const c = character([])
+  c.weapons![0].runes = ['Grievous', 'Impactful (Greater)']
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} />)
+  expect(markup).toContain('<div class="gear-damage">2d8 slashing + 1d6 force</div>')
+  expect(markup).toContain('Damage 2d8 S + 1d6 force')
+  expect(markup).toContain('aria-label="Remove Grievous rune"')
 })

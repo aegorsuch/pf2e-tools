@@ -1,6 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat } from './featChoices'
 import { getSettings } from './settings'
+import { FIST, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -719,10 +720,31 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
 
 // Imported equipment shows up as configurable gear until the player edits it
 export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
-  return c.weapons ?? c.equipment
+  const weapons = c.weapons ?? c.equipment
     .filter((g) => byName(entries, 'weapon', g.name))
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, striking: 0, runes: [] }))
+  const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
+  const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
+  const available = weapons.filter((weapon) =>
+    (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks))
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : [])]) {
+    if (!available.some((weapon) => weapon.name === entry.name)) {
+      available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
+    }
+  }
+  const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name
+    && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+  if (hasOtherUnarmed) return available.filter((weapon) => weapon.name !== FIST.name)
+  if (!available.some((weapon) => weapon.name === FIST.name)) {
+    available.push({ id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] })
+  }
+  return available
 }
+
+export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name].includes(name)
+export const weaponEntry = (entries: ContentEntry[], name: string) =>
+  SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
+  ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
   if (c.armors) return c.armors
   const best = c.equipment
@@ -769,6 +791,51 @@ export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon')
   }).sort((a, b) => runeSort(a.name, b.name))
 }
 
+const FALLBACK_RUNE_USAGE: Record<string, string> = {
+  Wounding: 'etched onto a piercing or slashing melee weapon',
+  Returning: 'etched onto a thrown weapon',
+  Shifting: 'etched onto a melee weapon',
+  Vorpal: 'etched onto a slashing melee weapon',
+  Speed: 'etched onto a melee weapon',
+  Disrupting: 'etched onto a melee weapon',
+  Holy: "etched onto a weapon that isn't unholy",
+  Unholy: "etched into a weapon that isn't holy",
+}
+
+export function eligibleWeaponRunes(entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name)
+  const traits = (entry?.traits ?? []).map((trait) => trait.toLowerCase())
+  const damage = `${weaponDamage(entry)} ${entry?.data.damage_type ?? ''} ${traits.filter((trait) => /^(versatile|modular)\b/.test(trait)).join(' ')}`.toLowerCase()
+  const baseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
+  return propertyRunes(entries, 'Weapon').filter((rune) => {
+    const name = baseName(rune.name)
+    if (weapon.runes.some((existing) => baseName(existing) === name)) return false
+    const content = entries.find((candidate) => candidate.kind === 'item'
+      && candidate.data.item_subcategory === 'Weapon Property Runes' && runeName(candidate.name) === rune.name)
+    const usage = String(content?.data.usage ?? FALLBACK_RUNE_USAGE[name] ?? 'etched onto a weapon').toLowerCase().replace(/\s+/g, ' ')
+    if (name === 'Shifting' && weaponCategory(entry) === 'Unarmed') return false
+    if (/\bmelee\b/.test(usage) && (!entry || isRanged(entry))) return false
+    if (/\branged\b/.test(usage) && !isRanged(entry)) return false
+    if (/\bthrown\b/.test(usage) && !traits.some((trait) => /^thrown\b/.test(trait))) return false
+    const damageTypes = [...usage.matchAll(/\b(bludgeoning|piercing|slashing)\b/g)].map((match) => match[1])
+    if (damageTypes.length && !damageTypes.some((type) =>
+      new RegExp(`\\b(?:${type}|${type[0]})\\b`, 'i').test(damage))) return false
+    if (/parry trait/.test(usage) && !traits.includes('parry')) return false
+    if (/monk trait/.test(usage) && !traits.includes('monk')) return false
+    if (/clan dagger/.test(usage) && entry?.name.toLowerCase() !== 'clan dagger') return false
+    if (/isn't (unholy|holy)/.test(usage)) {
+      const forbidden = /isn't (unholy|holy)/.exec(usage)![1]
+      if (traits.includes(forbidden) || weapon.runes.some((existing) => baseName(existing).toLowerCase() === forbidden)) return false
+    }
+    if (/without a disrupting rune/.test(usage) && weapon.runes.some((existing) => baseName(existing) === 'Disrupting')) return false
+    if (weapon.runes.some((existing) => {
+      const existingEntry = entries.find((candidate) => candidate.kind === 'item' && runeName(candidate.name) === runeName(existing))
+      return String(existingEntry?.data.usage).toLowerCase().replace(/\s+/g, ' ').includes(`without a ${name.toLowerCase()} rune`)
+    })) return false
+    return true
+  })
+}
+
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
 
 const WEAPON_CATEGORIES = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const
@@ -788,7 +855,7 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
 }
 
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
-  const entry = byName(entries, 'weapon', w.name)
+  const entry = weaponEntry(entries, w.name)
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)
   const thrown = traits.some((t) => t.startsWith('thrown'))
@@ -796,7 +863,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const dex = abilityMod(c.abilities.dex)
   const ability: Ability = ranged ? 'dex' : traits.includes('finesse') && dex > str ? 'dex' : 'str'
   const mod = ability === 'dex' ? dex : str
-  const rank = weaponRanks(c, entries)[weaponCategory(entry)]
+  const category = weaponCategory(entry)
+  const rank = Math.max(category === 'Unarmed' ? 1 : 0, weaponRanks(c, entries)[category])
   const prof = proficiencyBonus(rank, c.level)
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
   const dice = m ? (+m[1]) * (1 + w.striking) : 0

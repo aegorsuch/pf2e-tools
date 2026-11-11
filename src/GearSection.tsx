@@ -1,10 +1,11 @@
-import { useId, useRef, useState } from 'react'
+import { useState } from 'react'
 import {
-  propertyRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
+  propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { Info } from './Info'
+import { EntryDescription } from './EntryDescription'
 import type { ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
@@ -94,20 +95,11 @@ export function Search({ entries, kind, label, onPick }: {
 }
 
 function Rune({ name, entry, onRemove }: { name: string; entry?: ContentEntry; onRemove?: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const titleId = useId()
   return (
-    <span className="rune" title={onRemove ? undefined : 'Granted by Living Weapon'}>
-      <button type="button" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>{name}</button>
+    <div className="rune" title={onRemove ? undefined : 'Granted by Living Weapon'}>
+      <EntryDescription name={name} entry={entry} />
       {onRemove && <button type="button" aria-label={`Remove ${name} rune`} onClick={onRemove}>×</button>}
-      <dialog ref={dialog} className="rune-dialog" aria-labelledby={titleId}
-        onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-        <h4 id={titleId}>{name}{entry && <small> (Level {entry.level})</small>}</h4>
-        <p>{entry?.description || 'Rune description unavailable. Sync Archives of Nethys content to load it.'}</p>
-        {typeof entry?.data.url === 'string' && <p><a href={entry.data.url} target="_blank" rel="noreferrer">Archives of Nethys</a></p>}
-        <form method="dialog"><button autoFocus>Close</button></form>
-      </dialog>
-    </span>
+    </div>
   )
 }
 
@@ -129,8 +121,12 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange }: {
         <Rune key={r} name={r} entry={entryFor(r)} onRemove={() => onChange(runes.filter((x) => x !== r))} />
       ))}
       {[...freeRunes].sort((a, b) => a.localeCompare(b)).map((r) => <Rune key={r} name={r} entry={entryFor(r)} />)}
-      {runes.length < limit && (
-        <select aria-label="Add property rune" value="" onChange={(e) => e.target.value && onChange([...runes, e.target.value].sort((a, b) => a.localeCompare(b)))}>
+      {runes.length < limit && options.some((option) => !runes.includes(option.name)) && (
+        <select aria-label="Add property rune" value="" onChange={(e) => {
+          if (options.some((option) => option.name === e.target.value) && !runes.includes(e.target.value)) {
+            onChange([...runes, e.target.value].sort((a, b) => a.localeCompare(b)))
+          }
+        }}>
           <option value="">Add rune…</option>
           {options.filter((o) => !runes.includes(o.name)).map((o) => (
             <option key={o.name} value={o.name}>{o.name}{o.level !== undefined ? ` (Level ${o.level})` : ''}</option>
@@ -160,24 +156,30 @@ function Level({ label, value, options, format, onChange }: {
 export function WeaponList({ c, entries, save }: SectionProps) {
   const weapons = ownedWeapons(c, entries)
   const hasLivingWeapon = c.feats.some((feat) => feat.name === 'Living Weapon')
-  const update = (id: string, patch: Partial<OwnedWeapon>) => save({ weapons: weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)) })
+  const saveWeapons = (next: OwnedWeapon[]) => save({
+    weapons: [...next, ...(c.weapons ?? []).filter((weapon) =>
+      isAutomaticUnarmed(weapon.name) && !weapons.some((visible) => visible.id === weapon.id))],
+  })
+  const update = (id: string, patch: Partial<OwnedWeapon>) => saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   return (
     <div className="col gear-list">
-      <Search entries={entries} kind="weapon" label="Add Weapon"
-        onPick={(e) => save({ weapons: [...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }] })} />
+      <Search entries={entries.filter((entry) => !isAutomaticUnarmed(entry.name))} kind="weapon" label="Add Weapon"
+        onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
-        const canUseLivingWeapon = hasLivingWeapon && !a.traits.some((trait) => /^free[- ]hand$/i.test(trait.trim()))
+        const canUseLivingWeapon = hasLivingWeapon && weaponCategory(a.entry) !== 'Unarmed'
+          && !isRanged(a.entry)
+          && !a.traits.some((trait) => /^free[- ]hand$/i.test(trait.trim()))
         const freeShifting = canUseLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
-        const damageRunes = w.runes.filter((rune) => rune !== 'Shifting').sort((x, y) => x.localeCompare(y))
+        const damageRunes = w.runes.filter((rune) => !['Shifting', 'Grievous'].includes(rune)).sort((x, y) => x.localeCompare(y))
           .map((rune) => /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force' : rune)
         const damage = a.damage ? `${a.damage}${damageRunes.length > 0 ? ` + ${damageRunes.join(', ')}` : ''}` : ''
         const compactDamage = damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
         return (
           <details key={w.id} className="gear-card" open>
             <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}{damage && `, Damage ${compactDamage}`}</small></summary>
-            {entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description && <Info label="Summary">{entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description}</Info>}
+            {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
               <span><small>Attack</small><b>{signed(a.attack)}</b></span>
@@ -193,12 +195,12 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <Level label="Striking" value={w.striking} options={POTENCY} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />
             </div>
-            <Runes runes={w.runes} entries={entries} options={propertyRunes(entries, 'Weapon').filter((rune) => !freeShifting || rune.name !== 'Shifting')}
+            <Runes runes={w.runes} entries={entries} options={eligibleWeaponRunes(entries, w).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={maxPropertyRunes(w.potency)} freeRunes={freeShifting ? ['Shifting'] : []} onChange={(runes) => update(w.id, { runes })} />
             <div className="row">
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
-              <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>×</button>
+              {!isAutomaticUnarmed(w.name) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => saveWeapons(weapons.filter((x) => x.id !== w.id))}>×</button>}
             </div>
           </details>
         )

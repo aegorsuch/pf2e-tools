@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { db, newId, removeEntry, saveEntry } from './db'
+import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
 import { ActionIcon } from './ActionIcon'
@@ -68,6 +68,11 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
   const userId = user?.id
+  useEffect(() => {
+    void ensureSupplementalContent().catch((err: unknown) => {
+      setStatus(`Could not load supplemental content (${err instanceof Error ? err.message : err})`)
+    })
+  }, [])
   useEffect(() => onAuthChange(setUser, setAuthError), [])
   // Start backups only once signed in; the first run also pulls data from other devices
   useEffect(() => (userId ? startAutoSync(setStatus) : undefined), [userId])

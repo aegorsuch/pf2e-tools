@@ -426,9 +426,13 @@
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .rune { display: inline-flex; align-items: center; }
-.rune-dialog { background: #1a1b22; color: inherit; border: 1px solid var(--border, #2c3340); border-radius: 8px; width: min(32rem, 85vw); max-height: 80vh; overflow-y: auto; }
-.rune-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
-.rune-dialog p { white-space: pre-wrap; }
+.entry-dialog { background: #1a1b22; color: inherit; border: 1px solid var(--border, #2c3340); border-radius: 8px; width: min(32rem, 85vw); max-height: 80vh; overflow-y: auto; }
+.entry-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.entry-dialog p { white-space: pre-wrap; }
+.feat-slot-row > .feat-name { flex: 1 1 10rem; min-width: 0; text-align: left; }
+.feat-slot-row > span.feat-change { flex: 1 1 10rem; min-width: 0; }
+.feat-change > select { max-width: 100%; }
+.feat-change > summary { cursor: pointer; }
 .gear-add { width: 100%; }
 .gear-picker { gap: 0.5rem; padding: 0.5rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; }
 .gear-tabs { display: flex; gap: 0.25rem; }
@@ -518,8 +522,7 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .feat-modal-list button.active { font-weight: bold; }
 .feat-modal-level { padding: 8px 6px 2px; opacity: 0.7; }
 .spell-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
-.spell-item details { flex: 1; }
-.spell-item summary { cursor: pointer; }
+.spell-item .spell-name { flex: 1; }
 .spell-remove { padding: 0.1rem 0.4rem; }
 details.info > summary { list-style: none; font-weight: 600; font-size: 1em; }
 details.info > summary::-webkit-details-marker { display: none; }

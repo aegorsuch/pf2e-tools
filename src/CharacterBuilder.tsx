@@ -132,7 +132,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const featSection = (category: 'general' | 'skill' | 'archetype') => {
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
     const slots = plannedSlots(c).filter((slot) => slot.category === category)
-    const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key)).length
+    const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
     return (
       <details className="character-section">
         <summary className="character-section-summary">

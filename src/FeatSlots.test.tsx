@@ -281,7 +281,7 @@ it('keeps an existing Advanced General Training choice selected under level 09',
   expect(markup).toContain('aria-label="L09 General feat"><option value="">- empty -</option><option value="Fleet" selected="">Fleet</option>')
 })
 
-it('omits the Living Weapon summary and inline choice', () => {
+it('opens Living Weapon details from its name instead of a separate summary or inline choice', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -294,6 +294,47 @@ it('omits the Living Weapon summary and inline choice', () => {
   }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['class']} />)
   expect(markup).toContain('Living Weapon</option>')
+  expect(markup).toContain('aria-haspopup="dialog">Living Weapon</button>')
+  expect(markup).toContain('<dialog')
+  expect(markup).toContain(feat.description)
+  expect(markup).toContain('<summary>Change</summary>')
   expect(markup).not.toContain('Summary')
   expect(markup).not.toContain('Living Weapon choice')
+})
+
+it('persists N/A for a dedication slot without creating a feat and allows replacing it', () => {
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], updatedAt: 0,
+    extraSlots: [{ category: 'archetype', level: 2, count: 1 }],
+  }
+  const feat: ContentEntry = {
+    id: 'bard', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Bard Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Bard' }, effects: [], updatedAt: 0,
+  }
+  const tree = () => FeatSlots({
+    c, entries: [feat], save: (patch) => { c = { ...c, ...patch } }, categories: ['archetype'],
+    search: { 'archetype:2:0:open': '1', 'archetype:2:0:type': 'dedication' }, onSearch: () => {},
+  })
+  const skip = findButton(tree(), 'L02 Dedication N/A')
+  if (!skip) throw new Error('Missing N/A choice')
+  skip()
+  expect(c.skippedFeatSlots).toEqual(['archetype:2:0'])
+  expect(c.feats).toEqual([])
+  expect(renderToStaticMarkup(tree())).toContain('<span>N/A</span>')
+  const choose = findButton(tree(), 'L02 Dedication: Bard Dedication')
+  if (!choose) throw new Error('Missing dedication choice')
+  choose()
+  expect(c.skippedFeatSlots).toEqual([])
+  expect(c.feats.map((f) => f.name)).toEqual(['Bard Dedication'])
+  const skipAgain = findButton(tree(), 'L02 Dedication N/A')
+  if (!skipAgain) throw new Error('Missing N/A choice')
+  skipAgain()
+  expect(c.feats).toEqual([])
+  expect(c.entryIds).toEqual([])
+  const clear = findButton(tree(), 'L02 Dedication clear')
+  if (!clear) throw new Error('Missing clear choice')
+  clear()
+  expect(c.skippedFeatSlots).toEqual([])
 })

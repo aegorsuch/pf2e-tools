@@ -90,6 +90,7 @@ export interface Character {
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
   feats: { name: string; type: string; level: number; choice?: string; slot?: string }[]
+  skippedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
