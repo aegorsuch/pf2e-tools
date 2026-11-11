@@ -182,3 +182,65 @@
     border-right-color: var(--border);
   }
 }
+
+.boost-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.boost-panel {
+  background: rgba(128, 128, 128, 0.14);
+  border-radius: 14px;
+  padding: 10px 16px 14px;
+
+  h4 {
+    margin: 0 0 8px;
+  }
+}
+
+.boost-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.boost-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.boost-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e8632b;
+  border-radius: 50%;
+  color: #e8632b;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.boost-checks {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: column;
+  grid-template-rows: repeat(3, auto);
+  gap: 6px 40px;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  label.disabled {
+    opacity: 0.5;
+  }
+  b {
+    margin-left: auto;
+  }
+}
