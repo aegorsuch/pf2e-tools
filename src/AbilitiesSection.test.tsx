@@ -31,11 +31,11 @@ function findElement(node: ReactNode, predicate: (type: unknown, props: Record<s
   return result
 }
 
-function select(props: SectionProps, groups: string[], label: string) {
+function checkbox(props: SectionProps, groups: string[], label: string) {
   const tree = AbilityBoostChoices({ ...props, groups })
-  const found = findElement(tree, (type, p) => type === 'select' && p['aria-label'] === label)
+  const found = findElement(tree, (type, p) => type === 'input' && p['aria-label'] === label)
   expect(found).toBeDefined()
-  return found as { value: string; onChange: (event: { target: { value: string } }) => void }
+  return found as { checked: boolean; disabled: boolean; onChange: () => void }
 }
 
 describe('ability score boost controls', () => {
@@ -45,13 +45,18 @@ describe('ability score boost controls', () => {
     expect(markup).toContain('Background Boosts')
     expect(markup).toContain('L01 Boosts')
     expect(markup).toContain('Class Boost')
+    expect(markup).not.toContain('<select')
+    expect(markup.match(/type="checkbox"/g)).toHaveLength(24)
   })
 
   it('shows fixed class boosts in ability scores', () => {
     const fixedEntries = [...entries, entry('class', 'Wizard', 'Intelligence')]
-    const markup = renderToStaticMarkup(<AbilitiesSection c={{ ...character, className: 'Wizard' }} entries={fixedEntries} save={() => {}} />)
+    const c = { ...character, className: 'Wizard' }
+    const props = { c, entries: fixedEntries, save: () => {} }
+    const markup = renderToStaticMarkup(<AbilitiesSection {...props} />)
     expect(markup).toContain('<h4>Class Boost</h4>')
-    expect(markup).toContain('<b>Intelligence</b>')
+    expect(checkbox(props, ['class'], 'Class Boost: Intelligence (fixed)')).toMatchObject({ checked: true, disabled: true })
+    expect(checkbox(props, ['class'], 'Class Boost: Strength')).toMatchObject({ checked: false, disabled: true })
   })
 
   it('pads single-digit boost levels without changing double-digit levels', () => {
@@ -74,20 +79,84 @@ describe('ability score boost controls', () => {
     const scoreGroups = scorePanel?.groups as string[]
     expect(scoreGroups).toContain('class')
 
-    select(props(), scoreGroups, 'Ancestry (free)').onChange({ target: { value: 'wis' } })
-    expect(select(props(), ['ancestry'], 'Ancestry (free)').value).toBe('wis')
-    select(props(), ['ancestry'], 'Ancestry (free)').onChange({ target: { value: 'con' } })
-    expect(select(props(), scoreGroups, 'Ancestry (free)').value).toBe('con')
+    checkbox(props(), scoreGroups, 'Ancestry Boosts: Wisdom').onChange()
+    expect(checkbox(props(), ['ancestry'], 'Ancestry Boosts: Wisdom').checked).toBe(true)
+    checkbox(props(), ['ancestry'], 'Ancestry Boosts: Wisdom').onChange()
+    checkbox(props(), ['ancestry'], 'Ancestry Boosts: Constitution').onChange()
+    expect(checkbox(props(), scoreGroups, 'Ancestry Boosts: Constitution').checked).toBe(true)
 
-    select(props(), scoreGroups, 'Background').onChange({ target: { value: 'dex' } })
-    expect(select(props(), ['background'], 'Background').value).toBe('dex')
-    select(props(), ['background'], 'Background').onChange({ target: { value: 'wis' } })
-    expect(select(props(), scoreGroups, 'Background').value).toBe('wis')
-    select(props(), scoreGroups, 'Class key attribute').onChange({ target: { value: 'dex' } })
-    expect(select(props(), ['class'], 'Class key attribute').value).toBe('dex')
-    select(props(), ['class'], 'Class key attribute').onChange({ target: { value: 'str' } })
-    expect(select(props(), scoreGroups, 'Class key attribute').value).toBe('str')
+    checkbox(props(), scoreGroups, 'Background Boosts: Dexterity').onChange()
+    expect(checkbox(props(), ['background'], 'Background Boosts: Dexterity').checked).toBe(true)
+    checkbox(props(), ['background'], 'Background Boosts: Dexterity').onChange()
+    checkbox(props(), ['background'], 'Background Boosts: Wisdom').onChange()
+    expect(checkbox(props(), scoreGroups, 'Background Boosts: Wisdom').checked).toBe(true)
+    checkbox(props(), scoreGroups, 'Class Boost: Dexterity').onChange()
+    expect(checkbox(props(), ['class'], 'Class Boost: Dexterity').checked).toBe(true)
+    checkbox(props(), ['class'], 'Class Boost: Dexterity').onChange()
+    checkbox(props(), ['class'], 'Class Boost: Strength').onChange()
+    expect(checkbox(props(), scoreGroups, 'Class Boost: Strength').checked).toBe(true)
     expect(c.boosts).toMatchObject({ 'free1:0': 'str', 'ancestry:0': 'con', 'background:0': 'wis', class: 'str' })
     expect(c.abilities).toMatchObject({ str: 14, con: 12, wis: 12 })
+  })
+
+  it('respects restricted class choices and group capacity', () => {
+    const props = { c: character, entries, save: () => {} }
+    expect(checkbox(props, ['class'], 'Class Boost: Wisdom').disabled).toBe(true)
+    expect(checkbox(props, ['class'], 'Class Boost: Dexterity').disabled).toBe(false)
+    const full = { ...props, c: { ...character, boosts: { class: 'dex' as const } } }
+    expect(checkbox(full, ['class'], 'Class Boost: Strength').disabled).toBe(true)
+    expect(checkbox(full, ['class'], 'Class Boost: Dexterity').disabled).toBe(false)
+  })
+
+  it('reassigns background choices between restricted and free slots without dropping choices', () => {
+    let c: Character = { ...character, boosts: { 'background:1': 'dex', 'free1:0': 'con' } }
+    const props = () => ({
+      c, entries,
+      save: (patch: Partial<Character>) => { c = { ...c, ...patch } },
+    })
+    checkbox(props(), ['background'], 'Background Boosts: Strength').onChange()
+    expect(c.boosts).toEqual({ 'background:0': 'dex', 'background:1': 'str', 'free1:0': 'con' })
+    expect(checkbox(props(), ['background'], 'Background Boosts: Wisdom').disabled).toBe(true)
+    checkbox(props(), ['background'], 'Background Boosts: Dexterity').onChange()
+    expect(checkbox(props(), ['background'], 'Background Boosts: Constitution').disabled).toBe(true)
+    checkbox(props(), ['background'], 'Background Boosts: Wisdom').onChange()
+    expect(c.boosts).toMatchObject({ 'background:0': 'wis', 'background:1': 'str' })
+  })
+
+  it('keeps fixed ancestry boosts locked while allowing only distinct free boosts', () => {
+    const elfEntries = [...entries, entry('ancestry', 'Elf', 'Dexterity, Intelligence, Free')]
+    let c: Character = { ...character, ancestry: 'Elf' }
+    const props = () => ({
+      c, entries: elfEntries,
+      save: (patch: Partial<Character>) => { c = { ...c, ...patch } },
+    })
+    expect(checkbox(props(), ['ancestry'], 'Ancestry Boosts: Dexterity (fixed)')).toMatchObject({ checked: true, disabled: true })
+    checkbox(props(), ['ancestry'], 'Ancestry Boosts: Wisdom').onChange()
+    expect(c.boosts).toEqual({ 'ancestry:2': 'wis' })
+    expect(checkbox(props(), ['ancestry'], 'Ancestry Boosts: Strength').disabled).toBe(true)
+    checkbox(props(), ['ancestry'], 'Ancestry Boosts: Wisdom').onChange()
+    expect(c.boosts).toEqual({})
+  })
+
+  it('still limits level boosts to four distinct choices', () => {
+    const c: Character = { ...character, boosts: { 'free1:0': 'str', 'free1:1': 'dex', 'free1:2': 'con', 'free1:3': 'int' } }
+    const props = { c, entries, save: () => {} }
+    expect(checkbox(props, ['free1'], 'L01 Boosts: Wisdom').disabled).toBe(true)
+    expect(checkbox(props, ['free1'], 'L01 Boosts: Strength')).toMatchObject({ checked: true, disabled: false })
+  })
+
+  it('lets existing duplicate choices be cleared without removing fixed or unrelated boosts', () => {
+    const elfEntries = [...entries, entry('ancestry', 'Elf', 'Dexterity, Intelligence, Free')]
+    let c: Character = { ...character, ancestry: 'Elf', boosts: { 'ancestry:2': 'dex', 'free1:0': 'wis' } }
+    const props = {
+      c, entries: elfEntries,
+      save: (patch: Partial<Character>) => { c = { ...c, ...patch } },
+    }
+    const tree = AbilityBoostChoices({ ...props, groups: ['ancestry'] })
+    const button = findElement(tree, (type) => type === 'button')
+    expect(button).toBeDefined()
+    ;(button?.onClick as () => void)()
+    expect(c.boosts).toEqual({ 'free1:0': 'wis' })
+    expect(computeAbilities(c, elfEntries).dex).toBe(12)
   })
 })

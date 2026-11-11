@@ -2,67 +2,76 @@ import { ABILITIES, ABILITY_LABEL, abilityMod, boostSlots, computeAbilities, dup
 
 const GROUP_TITLE: Record<string, string> = { ancestry: 'Ancestry Boosts', background: 'Background Boosts', class: 'Class Boost', free1: 'L01 Boosts' }
 const groupTitle = (g: string) => GROUP_TITLE[g] ?? `L${g.slice(3).padStart(2, '0')} Boosts`
-// Ancestry/background/class boosts are dropdowns; the free groups are ability checkboxes
-const isPick = (g: string) => g in GROUP_TITLE && g !== 'free1'
+
+function addBoost(group: BoostSlot[], boosts: Record<string, Ability>, ability: Ability) {
+  const next = { ...boosts }
+  // Reassign an existing choice when it must move between a restricted and a free slot.
+  const place = (a: Ability, visited: Set<string>): boolean => {
+    for (const slot of group) {
+      if (slot.fixed || visited.has(slot.key) || (slot.options && !slot.options.includes(a))) continue
+      const held = next[slot.key]
+      if (!held || place(held, new Set([...visited, slot.key]))) {
+        next[slot.key] = a
+        return true
+      }
+    }
+    return false
+  }
+  return place(ability, new Set()) ? next : undefined
+}
 
 export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }: SectionProps & { groups: string[] }) {
   const slots = boostSlots(c, entries)
   const dupes = duplicateBoosts(c, entries)
-  if (!c.boosts) return null
+  const boosts = c.boosts
+  if (!boosts) return null
   const scores = computeAbilities(c, entries)
   const groupedSlots = slots.reduce((m, s) => m.set(s.group, [...(m.get(s.group) ?? []), s]), new Map<string, BoostSlot[]>())
   const groups = [...groupedSlots].filter(([group]) => visibleGroups.includes(group))
-
-  const setBoost = (key: string, a: Ability | '') => {
-    const boosts = { ...c.boosts }
-    if (a) boosts[key] = a
-    else delete boosts[key]
-    save({ boosts })
-  }
-
-  // Checking fills the group's first empty slot; unchecking frees the slot that holds the ability
-  const toggleFree = (group: BoostSlot[], a: Ability) => {
-    const held = group.find((s) => c.boosts?.[s.key] === a)
-    if (held) return setBoost(held.key, '')
-    const empty = group.find((s) => !c.boosts?.[s.key])
-    if (empty) setBoost(empty.key, a)
-  }
 
   return (
     <div className="boost-panels">
       {groups.map(([group, gs]) => (
         <section key={group} className="boost-panel">
           <h4>{groupTitle(group)}</h4>
-          {isPick(group) ? (
-            <div className="boost-picks">
-              {gs.map((s) => (
-                <div key={s.key} className="boost-pick">
-                  <span className="boost-plus">+</span>
-                  {s.fixed ? <b>{ABILITY_LABEL[s.fixed]}</b> : (
-                    <select value={c.boosts?.[s.key] ?? ''} aria-label={s.label}
-                      style={dupes.has(s.key) ? { outline: '2px solid red' } : undefined}
-                      onChange={(e) => setBoost(s.key, e.target.value as Ability | '')}>
-                      <option value="">Choose…</option>
-                      {(s.options ?? ABILITIES).map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
-                    </select>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="boost-checks">
-              {ABILITIES.map((a) => {
-                const checked = gs.some((s) => c.boosts?.[s.key] === a)
-                const full = !checked && gs.every((s) => c.boosts?.[s.key])
-                return (
-                  <label key={a} className={full ? 'disabled' : undefined}>
-                    <input type="checkbox" checked={checked} disabled={full} onChange={() => toggleFree(gs, a)} />
-                    <span>{a.toUpperCase()}</span>
-                    <b>{signed(abilityMod(scores[a]))}</b>
-                  </label>
-                )
-              })}
-            </div>
+          {gs.some((s) => s.fixed) && <small>Fixed: {gs.flatMap((s) => s.fixed ? [ABILITY_LABEL[s.fixed]] : []).join(', ')}</small>}
+          <div className="boost-checks">
+            {ABILITIES.map((a) => {
+              const fixed = gs.some((s) => s.fixed === a)
+              const checked = fixed || gs.some((s) => !s.fixed && c.boosts?.[s.key] === a)
+              const next = checked ? undefined : addBoost(gs, boosts, a)
+              const disabled = fixed || (!checked && !next)
+              return (
+                <label key={a} className={disabled ? 'disabled' : undefined}>
+                  <input type="checkbox" aria-label={`${groupTitle(group)}: ${ABILITY_LABEL[a]}${fixed ? ' (fixed)' : ''}`}
+                    checked={checked} disabled={disabled} onChange={() => {
+                      if (disabled) return
+                      if (next) save({ boosts: next })
+                      else {
+                        const boosts = { ...c.boosts }
+                        for (const slot of gs) {
+                          if (!slot.fixed && boosts[slot.key] === a) delete boosts[slot.key]
+                        }
+                        save({ boosts })
+                      }
+                    }} />
+                  <span>{a.toUpperCase()}</span>
+                  <b>{signed(abilityMod(scores[a]))}</b>
+                </label>
+              )
+            })}
+          </div>
+          {gs.some((s) => dupes.has(s.key)) && (
+            <small role="alert">
+              Duplicate boost.{' '}
+              <button onClick={() => {
+                const next = { ...boosts }
+                for (const slot of gs) {
+                  if (!slot.fixed && (dupes.has(slot.key) || gs.some((s) => s.fixed && s.fixed === boosts[slot.key]))) delete next[slot.key]
+                }
+                save({ boosts: next })
+              }}>Clear duplicate choices</button>
+            </small>
           )}
         </section>
       ))}

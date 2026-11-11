@@ -200,31 +200,6 @@
   }
 }
 
-.boost-picks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-
-.boost-pick {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.boost-plus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 2px solid #e8632b;
-  border-radius: 50%;
-  color: #e8632b;
-  font-weight: bold;
-  line-height: 1;
-}
-
 .boost-checks {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
