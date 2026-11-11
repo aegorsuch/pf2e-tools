@@ -16,7 +16,7 @@ export const DATA_FIELDS = [
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
   'domain_primary', 'sanctification', 'warden_spell_tier',
-  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization',
+  'deity_category', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 
@@ -73,6 +73,15 @@ export function parseFeatLanguages(md: string) {
   return [...new Set(out)].join(', ')
 }
 
+// Focus spells a feat grants ("You gain the [wild shape] order spell"), spells that depend on the taker's druidic order
+// ("if you're a member of the flame order, you gain [combustion]"), and whether it adds a Focus Point
+export function parseFeatFocus(md: string) {
+  const name = (s: string) => s.replace(/^_+|_+$/g, '').trim()
+  const spells = [...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/Spells\.aspx[^)]*\)\s+(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp) spell/gi)].map((m) => name(m[1]))
+  const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
+  return { spells: spells.join(', '), byOrder: byOrder.join(', '), point: /Increase the number of Focus Points in your focus pool by 1/i.test(md) }
+}
+
 // Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
 export function parseResistances(t: string) {
   const out: string[] = []
@@ -103,6 +112,10 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         if (category === 'feat' && typeof s.markdown === 'string') {
           const langs = parseFeatLanguages(s.markdown)
           if (langs) s.grants_languages = langs
+          const focus = parseFeatFocus(s.markdown)
+          if (focus.spells) s.grants_focus_spells = focus.spells
+          if (focus.byOrder) s.grants_order_spells = focus.byOrder
+          if (focus.point) s.grants_focus_point = 'yes'
           const text = plain(s.markdown)
           const lore = /Additional Lore feat for ([A-Z][\w' -]*? Lore)/.exec(text)?.[1]
           if (lore) s.grants_lore = lore

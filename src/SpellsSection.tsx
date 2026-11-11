@@ -12,7 +12,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const traditions = casting?.traditions ?? []
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
-  const focus = focusSpells(c)
+  const { spells: focus, points: focusPoints } = focusSpells(c, entries)
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
@@ -84,7 +84,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       </>}
       {focus.length > 0 && (
         <div>
-          <b>Focus Spells</b>
+          <b>Focus Spells</b> <small>(Focus Points: {focusPoints})</small>
           <ul>
             {focus.map((s) => (
               <li key={s.name}>{s.name} <ActionIcon entry={entries.find((e) => e.kind === 'spell' && e.name === s.name)} /> <small>({s.source})</small></li>

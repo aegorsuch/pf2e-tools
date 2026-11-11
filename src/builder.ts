@@ -436,14 +436,42 @@ export const orderMagicOptions = (c: Character, exceptIndex = -1) => {
   return c.feats.flatMap((f) => f.name === 'Order Explorer' && f.choice && !used.has(f.choice) ? [f.choice] : [])
 }
 
-// Focus spells from the druid's order and from Order Magic feats
-export function focusSpells(c: Character) {
-  if (c.className !== 'Druid') return []
-  const out: { name: string; source: string }[] = []
-  const add = (order?: string) => { if (order && ORDER_SPELLS[order]) out.push({ name: ORDER_SPELLS[order], source: `${order} Order` }) }
-  add(c.order)
-  for (const f of c.feats) if (f.name === 'Order Magic') add(f.choice)
-  return out.sort((a, b) => a.name.localeCompare(b.name))
+const spellNameCache = new WeakMap<ContentEntry[], Map<string, string>>()
+const spellName = (entries: ContentEntry[], name: string) => {
+  let map = spellNameCache.get(entries)
+  if (!map) {
+    map = new Map()
+    for (const e of entries) if (e.kind === 'spell') map.set(e.name.toLowerCase(), e.name)
+    spellNameCache.set(entries, map)
+  }
+  return map.get(name.toLowerCase()) ?? name.replace(/\b\w/g, (m) => m.toUpperCase())
+}
+
+// Focus spells from the druid's order, Order Magic and feats that grant one; plus the resulting Focus Points
+export function focusSpells(c: Character, entries: ContentEntry[]) {
+  const out = new Map<string, { name: string; source: string }>()
+  const add = (name: string, source: string) => { if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name: spellName(entries, name), source }) }
+  const orders = c.className === 'Druid' ? [c.order, ...c.feats.flatMap((f) => f.name === 'Order Explorer' ? [f.choice] : [])] : []
+  const addOrder = (order?: string) => { if (order && ORDER_SPELLS[order]) add(ORDER_SPELLS[order], `${order} Order`) }
+  if (c.className === 'Druid') {
+    addOrder(c.order)
+    for (const f of c.feats) if (f.name === 'Order Magic') addOrder(f.choice)
+  }
+  let points = 0
+  for (const f of c.feats) {
+    const data = byName(entries, 'feat', f.name)?.data
+    if (!data) continue
+    if (typeof data.grants_focus_spells === 'string') for (const n of data.grants_focus_spells.split(', ')) add(n, f.name)
+    if (typeof data.grants_order_spells === 'string') {
+      for (const pair of data.grants_order_spells.split(', ')) {
+        const [order, spell] = pair.split(':')
+        if (orders.some((o) => o?.toLowerCase() === order)) add(spell, f.name)
+      }
+    }
+    if (data.grants_focus_point) points++
+  }
+  const spells = [...out.values()].sort((a, b) => a.name.localeCompare(b.name))
+  return { spells, points: spells.length ? Math.min(3, 1 + points) : 0 }
 }
 
 // Orders not yet used by the main order or another Order Explorer feat

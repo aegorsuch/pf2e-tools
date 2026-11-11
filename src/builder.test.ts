@@ -201,11 +201,21 @@ describe('defenses', () => {
   it('gives druids focus spells from their order and Order Magic', () => {
     const feat = (name: string, choice?: string) => ({ name, type: 'Class Feat', level: 4, choice })
     const druid = { ...base, className: 'Druid', order: 'Leaf', feats: [feat('Order Explorer', 'Storm'), feat('Order Magic')] }
-    expect(focusSpells(druid).map((s) => s.name)).toEqual(['Goodberry'])
+    expect(focusSpells(druid, []).spells.map((s) => s.name)).toEqual(['Goodberry'])
     expect(orderMagicOptions(druid)).toEqual(['Storm'])
     const chosen = { ...druid, feats: [feat('Order Explorer', 'Storm'), feat('Order Magic', 'Storm')] }
-    expect(focusSpells(chosen).map((s) => s.name)).toEqual(['Goodberry', 'Tempest Surge'])
-    expect(focusSpells({ ...chosen, className: 'Ranger' })).toEqual([])
+    expect(focusSpells(chosen, []).spells.map((s) => s.name)).toEqual(['Goodberry', 'Tempest Surge'])
+    expect(focusSpells({ ...chosen, className: 'Ranger' }, []).spells).toEqual([])
+  })
+
+  it('adds feat-granted focus spells, order-specific advanced spells and focus points', () => {
+    const feat = (name: string, data: Record<string, string>) => ({ id: name, kind: 'feat' as const, name, data } as never)
+    const entries = [feat('Wild Shape', { grants_focus_spells: 'wild shape' }), feat('Advanced Elemental Spell', { grants_order_spells: 'flame:combustion, stone:stone lance' }), feat('Hedge Prison', { grants_focus_spells: 'hedge prison', grants_focus_point: 'yes' })]
+    const f = (name: string) => ({ name, type: 'Class Feat', level: 6 })
+    const druid = { ...base, className: 'Druid', order: 'Flame', feats: [f('Wild Shape'), f('Advanced Elemental Spell'), f('Hedge Prison')] }
+    const r = focusSpells(druid, entries)
+    expect(r.spells.map((s) => s.name)).toEqual(['Combustion', 'Hedge Prison', 'Wild Shape', 'Wildfire'])
+    expect(r.points).toBe(2)
   })
 
   it('finds feats stranded in slots that no longer exist', () => {
