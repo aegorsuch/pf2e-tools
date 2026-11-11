@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -235,5 +235,13 @@ describe('languageAllowance', () => {
     const list = [entry('ancestry', 'Elf', { language: 'Common, Elven' })]
     const c = { ...base, ancestry: 'Elf', className: 'Druid', abilities: { ...base.abilities, int: 14 }, feats: [{ name: 'Multilingual', type: 'General Feat', level: 1 }] }
     expect(languageAllowance(c, list)).toEqual({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
+  })
+})
+
+describe('languageGroups', () => {
+  it('groups synced AoN languages by rarity in order and falls back when none are synced', () => {
+    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' })]
+    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Uncommon', 'Secret'])
+    expect(Object.keys(languageGroups([]))).toContain('Rare')
   })
 })

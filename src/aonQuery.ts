@@ -37,6 +37,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   heritage: 'heritage',
   deity: 'deity',
   'class-feature': 'classFeature',
+  language: 'language',
 }
 
 export type Hit = { _id?: string; _source?: Record<string, unknown> }

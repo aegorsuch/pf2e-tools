@@ -561,6 +561,8 @@ export function isMagicItem(e: ContentEntry) {
 
 // ---------- Languages ----------
 
+const titleCase = (v: string) => v.trim().replace(/\b\w/g, (ch) => ch.toUpperCase())
+
 // [language, who speaks it]
 export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
   Common: [
@@ -584,17 +586,38 @@ export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
     ['Vishkanyan', 'Vishkanya'], ['Yithian', 'Yithian'],
   ],
 }
-export const ALL_LANGUAGES = Object.values(LANGUAGE_CATEGORIES).flat().map(([name]) => name)
+const RARITY_ORDER = ['Common', 'Uncommon', 'Secret', 'Rare']
+
+// Languages synced from AoN, grouped by rarity; the built-in list is the fallback until content has loaded
+export function languageGroups(entries: ContentEntry[]): Record<string, [string, string][]> {
+  const synced = entries.filter((e) => e.kind === 'language')
+  if (!synced.length) return LANGUAGE_CATEGORIES
+  const groups: Record<string, [string, string][]> = {}
+  const seen = new Set<string>()
+  for (const e of synced) {
+    const key = e.name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const rarity = titleCase(String(e.data.rarity || e.traits.find((t) => RARITY_ORDER.includes(titleCase(t))) || 'Common'))
+    const who = e.description.replace(/\.$/, '')
+    ;(groups[rarity] ??= []).push([e.name, who])
+  }
+  for (const list of Object.values(groups)) list.sort((a, b) => a[0].localeCompare(b[0]))
+  return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => {
+    const i = (k: string) => (RARITY_ORDER.includes(k) ? RARITY_ORDER.indexOf(k) : RARITY_ORDER.length)
+    return i(a) - i(b) || a.localeCompare(b)
+  }))
+}
+const allLanguages = (entries: ContentEntry[]) => Object.values(languageGroups(entries)).flat().map(([name]) => name)
 // Languages a class always teaches
 const CLASS_LANGUAGES: Record<string, string[]> = { Druid: ['Wildsong'] }
 const LANGUAGE_FEATS: Record<string, number> = { Multilingual: 2 }
 
-const titleCase = (v: string) => v.trim().replace(/\b\w/g, (ch) => ch.toUpperCase())
 
 // Fixed languages (Common, ancestry, class) plus how many more the character may pick
 export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  const known = new Set(ALL_LANGUAGES.map((l) => l.toLowerCase()))
+  const known = new Set(allLanguages(entries).map((l) => l.toLowerCase()))
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
   const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : [])])]
   const feats = c.feats.reduce((n, f) => n + (LANGUAGE_FEATS[f.name] ?? 0), 0)
