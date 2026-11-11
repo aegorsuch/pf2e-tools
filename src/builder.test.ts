@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -245,5 +246,22 @@ describe('languageGroups', () => {
     expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Rare', 'Secret', 'Uncommon'])
     expect(languageGroups(synced).Secret.map(([n]) => n)).toEqual(['Wildsong'])
     expect(Object.keys(languageGroups([]))).toContain('Rare')
+  })
+})
+
+describe('automatic class skill training', () => {
+  const druid = entry('class', 'Druid', { skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' })
+  const c = { ...base, className: 'Druid', order: 'Animal' }
+
+  it('trains class and druidic order skills, and stops when the setting is off', () => {
+    expect(ranksAt(c, [druid])).toMatchObject({ Nature: 1, Athletics: 1 })
+    updateSettings({ autoClassSkills: false })
+    try {
+      const off = ranksAt(c, [druid])
+      expect(off.Nature ?? 0).toBe(0)
+      expect(off.Athletics ?? 0).toBe(0)
+    } finally {
+      updateSettings({ autoClassSkills: true })
+    }
   })
 })

@@ -8,6 +8,7 @@ import { ActionIcon } from './ActionIcon'
 import { ensureAonImported } from './aon'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
+import { updateSettings, useSettings } from './settings'
 import './App.css'
 
 const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity']
@@ -43,6 +44,13 @@ function EditIcon() {
   </svg>
 }
 
+function GearIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" />
+  </svg>
+}
+
 function DeleteIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 6h18M8 6V4h8v2m-11 0 1 14h10l1-14M10 11v5m4-5v5" />
@@ -52,6 +60,8 @@ function DeleteIcon() {
 export default function App() {
   const [enabled, setEnabled] = useState<GameSystem[]>(loadEnabled)
   useEffect(() => localStorage.setItem(ENABLED_KEY, JSON.stringify(enabled)), [enabled])
+  const settings = useSettings()
+  const [showSettings, setShowSettings] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [status, setStatus] = useState('')
@@ -172,8 +182,21 @@ export default function App() {
         <CharacterBuilder character={characters.find((c) => c.id === editingId)!} onClose={() => setEditingId(null)} />
       )}
 
+      {showSettings && (
+        <section className="col settings-panel" aria-label="Character settings">
+          <label>
+            <input type="checkbox" checked={settings.autoClassSkills}
+              onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
+            Automatically train class skills
+          </label>
+          <small>Skills your class grants (a ranger's Nature and Survival, a druid's order skill) are trained for free, without using skill picks or increases.</small>
+        </section>
+      )}
+
       <h2>
         Characters{' '}
+        <button type="button" className="icon-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
+          onClick={() => setShowSettings((v) => !v)}><GearIcon /></button>{' '}
         <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
       </h2>
       <ul className="character-list">

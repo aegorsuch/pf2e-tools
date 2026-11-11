@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, canIncreaseTo, classSkills,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
@@ -29,7 +29,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const picks = c.skillPicks ?? []
   const budget = skillRankBudget(c, entries)
   const remaining = budget.trained
-  const fixed = new Set([...classSkills(klass).fixed, ...backgroundSkills(bg)])
+  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg)])
   const skills = [
     ...stats.filter((stat) => stat.kind === 'skill'),
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),

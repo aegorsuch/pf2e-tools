@@ -1,5 +1,6 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat } from './featChoices'
+import { getSettings } from './settings'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -302,6 +303,18 @@ export function classSkills(klass?: ContentEntry) {
 // skill_proficiency is stored joined with ", "; the sentences themselves contain no other commas we rely on
 const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/,\s(?=Trained)/i).map((t) => t.trim()) : [])
 
+// The skill each druidic order grants
+export const DRUID_ORDERS: Record<string, string> = {
+  Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Athletics', Wild: 'Intimidation',
+}
+
+// Skills trained automatically by the class (and druidic order), unless the setting is off
+export function autoClassSkills(c: Character, entries: ContentEntry[]) {
+  if (!getSettings().autoClassSkills) return []
+  const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
+  return [...classSkills(byName(entries, 'class', c.className)).fixed, ...(order ? [order] : [])]
+}
+
 export const backgroundSkills = (bg?: ContentEntry) => tokens(bg?.data.skill)
 
 export const skillIncreaseLevels = (c: Character) => range(3, 19, 2).filter((l) => l <= c.level)
@@ -312,7 +325,7 @@ function baseRanks(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
   const ranks: Record<string, number> = {}
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
-  classSkills(klass).fixed.forEach(bump)
+  autoClassSkills(c, entries).forEach(bump)
   backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
   c.skillPicks?.forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
@@ -338,7 +351,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
     }
   }
   for (const name of [
-    ...classSkills(byName(entries, 'class', c.className)).fixed,
+    ...autoClassSkills(c, entries),
     ...backgroundSkills(byName(entries, 'background', c.background)),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
   return ranks

@@ -421,3 +421,5 @@
 .gear-results li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }
 .language-picker fieldset { border: 1px solid var(--border, #2c3340); border-radius: 8px; }
 .language-grid { display: grid; grid-template-columns: 1fr; gap: 0.25rem 1rem; }
+
+.settings-panel { padding: 0.5rem 0.75rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; margin-bottom: 0.5rem; }

@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed } from './builder'
+import { DRUID_ORDERS, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -139,6 +139,15 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
+          {c.className === 'Druid' && (
+            <label>
+              Druidic Order{' '}
+              <select value={c.order ?? ''} onChange={(e) => save({ order: e.target.value || undefined })}>
+                <option value="">No order</option>
+                {Object.entries(DRUID_ORDERS).map(([o, skill]) => <option key={o} value={o}>{o} ({skill})</option>)}
+              </select>
+            </label>
+          )}
           {klass && <small><b>{klass.name}</b>: {detail(klass)}</small>}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
