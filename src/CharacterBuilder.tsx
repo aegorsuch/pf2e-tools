@@ -84,7 +84,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     if (next.boosts) next.abilities = computeAbilities(next, entries)
     return db.characters.put(next)
   }
+  const [featSearch, setFeatSearch] = useState<Record<string, string>>({})
   const section = { c, entries, save }
+  const searchProps = { search: featSearch, onSearch: (key: string, text: string) => setFeatSearch((prev) => ({ ...prev, [key]: text })) }
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
   const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${knownLanguages.join(', ')}`
@@ -115,7 +117,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <span>{filled}/{slots.length}</span>
         </summary>
         <div className="character-section-content">
-          <FeatSlots {...section} categories={[category]} title={title} bare />
+          <FeatSlots {...section} {...searchProps} categories={[category]} title={title} bare />
           {category === 'archetype' && slots.length === 0 && (
             <button type="button" onClick={() => save({ extraSlots: [...c.extraSlots, { category: 'archetype', level: Math.max(2, c.level), count: 1 }] })}>
               Add Dedication feat slot
@@ -153,7 +155,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />
-          <FeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
+          <FeatSlots {...section} {...searchProps} categories={['ancestry']} title="Ancestry Feats" />
         </div>
       </details>
 
@@ -199,7 +201,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
-          <FeatSlots {...section} categories={['class']} title="Class Feats" />
+          <FeatSlots {...section} {...searchProps} categories={['class']} title="Class Feats" />
         </div>
       </details>
 

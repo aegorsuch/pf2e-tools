@@ -10,13 +10,16 @@ interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
   title?: string
   bare?: boolean
+  // Per-slot search text, held by the parent so this stays a pure render
+  search?: Record<string, string>
+  onSearch?: (key: string, text: string) => void
 }
 
 const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
 
-export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare }: FeatSlotsProps) {
+export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
   const background = entries.find((entry) => entry.kind === 'background' && entry.name === c.background)
   const backgroundFeats = typeof background?.data.feat === 'string'
@@ -88,7 +91,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
-          const options = eligibleFeats(entries, c, s)
+          const q = (search[s.key] ?? '').trim().toLowerCase()
+          const options = eligibleFeats(entries, c, s).filter((o) => !q
+            || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(q)))
           const optionsByLevel = new Map<number, typeof options>()
           for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
@@ -98,6 +103,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           return (
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
               <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
+              <input type="search" className="feat-search" placeholder="Search" aria-label={`${label} feat search`}
+                value={search[s.key] ?? ''} onChange={(e) => onSearch?.(s.key, e.target.value)} />
               <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && (
