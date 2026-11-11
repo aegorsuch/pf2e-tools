@@ -448,7 +448,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     }
   }
   for (const rune of wornArmor(c)?.runes ?? []) {
-    const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune) ?? /^()(\w+) Resistant$/.exec(rune)
+    const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune.replace(/^Greater Energy-Resistant/, 'Energy-Resistant (Greater)')) ?? /^()(\w+) Resistant$/.exec(rune)
     if (m) out.push({ damage: m[2], value: m[1] ? 10 : 5, source: `${rune} rune` })
   }
   return out.map((r) => ({ ...r, damage: cap(r.damage) }))
@@ -526,17 +526,24 @@ export const ARMOR_PROPERTY_RUNES = [
 const ENERGY_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire']
 // Property runes come from the synced AoN content (all grades); the built-in lists are the fallback until it has loaded.
 // Energy-Resistant needs a damage type chosen when crafted, so each type gets its own option.
+// AoN names graded runes "Greater Moonweave"; show them as "Moonweave (Greater)"
+export const runeName = (name: string) => name.replace(/^(Lesser|Greater|Major|True)\s+(.+)$/, '$2 ($1)')
+const GRADE_ORDER = ['', 'Lesser', 'Greater', 'Major', 'True']
+const runeSort = (a: string, b: string) => {
+  const grade = (n: string) => GRADE_ORDER.indexOf(/ \((\w+)\)(?=$|:)/.exec(n)?.[1] ?? '')
+  return a.replace(/ \(\w+\)/, '').localeCompare(b.replace(/ \(\w+\)/, '')) || grade(a) - grade(b)
+}
 export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
   const names = [...new Set(entries
     .filter((e) => e.kind === 'item' && e.data.item_subcategory === `${kind} Property Runes`)
-    .map((e) => e.name))]
+    .map((e) => runeName(e.name)))]
   if (!names.length) return kind === 'Armor' ? ARMOR_PROPERTY_RUNES : WEAPON_PROPERTY_RUNES
   return names
     .flatMap((n) => {
       const m = /^Energy-Resistant( \(Greater\))?$/.exec(n)
       return m ? ENERGY_TYPES.map((t) => `Energy-Resistant${m[1] ?? ''}: ${t}`) : [n]
     })
-    .sort((a, b) => a.localeCompare(b))
+    .sort(runeSort)
 }
 
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
