@@ -214,6 +214,9 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     slots.push({ key: `${id}:g${i}`, category: g.category, level: g.level })
   })
   for (const d of activeHomebrewDedications(c)) {
+    // The free Dedication takes the Free Archetype level 2 slot
+    const free = getSettings().freeArchetype ? slots.findIndex((x) => x.key === 'archetype:2:0') : -1
+    if (free >= 0) slots.splice(free, 1)
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
