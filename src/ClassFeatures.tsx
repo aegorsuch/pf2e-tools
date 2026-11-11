@@ -13,8 +13,9 @@ export function ClassFeatures({ c, entries }: SectionProps) {
       <ul>
         {features.map((f) => (
           <li key={f.id}>
-            <b>L{String(f.level).padStart(2, '0')} {f.name}</b> <ActionIcon entry={f} />
-            {f.description && <Info>{f.description}</Info>}
+            {f.description
+              ? <Info label={`L${String(f.level).padStart(2, '0')} ${f.name}`}>{f.description}</Info>
+              : <b>L{String(f.level).padStart(2, '0')} {f.name}</b>} <ActionIcon entry={f} />
           </li>
         ))}
       </ul>

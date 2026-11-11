@@ -513,3 +513,5 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-item details { flex: 1; }
 .spell-item summary { cursor: pointer; }
 .spell-remove { padding: 0.1rem 0.4rem; }
+details.info > summary { list-style: none; font-weight: 600; font-size: 1em; }
+details.info > summary::-webkit-details-marker { display: none; }

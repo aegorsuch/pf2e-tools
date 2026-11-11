@@ -269,7 +269,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ul>
             {gearMatches.map((g) => (
               <li key={g.id}>
-                <b>{g.name}</b> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}{detail(g) && <Info>{detail(g)}</Info>}{' '}
+                {detail(g) ? <Info label={g.name}>{detail(g)}</Info> : <b>{g.name}</b>} <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
                 <button onClick={() => {
                   const have = c.equipment.find((x) => x.name === g.name)
                   save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })

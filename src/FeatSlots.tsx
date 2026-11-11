@@ -168,7 +168,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </div>
                 </div>
               )}
-              {currentEntry?.description && <Info>{currentEntry.description}</Info>}
+              {currentEntry?.description && <Info label="Summary">{currentEntry.description}</Info>}
               {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {extra
                 ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}

@@ -4,6 +4,7 @@ import {
   type SectionProps,
 } from './builder'
 import { newId } from './db'
+import { Info } from './Info'
 import type { ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
@@ -144,6 +145,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             <header className="row">
               <strong>{w.name}</strong>
             </header>
+            {entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description && <Info label="Summary">{entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description}</Info>}
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
               <span><small>Attack</small><b>{signed(a.attack)}</b></span>
@@ -162,7 +164,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             <Runes runes={w.runes} options={propertyRunes(entries, 'Weapon')} limit={maxPropertyRunes(w.potency)} onChange={(runes) => update(w.id, { runes })} />
             <div className="row">
               <button type="button" aria-pressed={!!w.stowed} onClick={() => update(w.id, { stowed: !w.stowed })}>{w.stowed ? 'Draw' : 'Stow'}</button>
-              <button type="button" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>Remove</button>
+              <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>🗑</button>
             </div>
           </article>
         )
@@ -189,6 +191,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
               <label><input type="checkbox" checked={a.worn}
                 onChange={(e) => save({ armors: armors.map((x) => ({ ...x, worn: x.id === a.id ? e.target.checked : e.target.checked ? false : x.worn })) })} /> Worn</label>
             </header>
+            {entry?.description && <Info label="Summary">{entry.description}</Info>}
             {entry && entry.traits.length > 0 && <div className="gear-traits">{entry.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             {entry && (
               <div className="gear-stats">
@@ -205,7 +208,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
                 onChange={(resilient) => update(a.id, { resilient })} />
             </div>
             <Runes runes={a.runes} options={propertyRunes(entries, 'Armor')} limit={maxPropertyRunes(a.potency)} onChange={(runes) => update(a.id, { runes })} />
-            <button type="button" onClick={() => save({ armors: armors.filter((x) => x.id !== a.id) })}>Remove</button>
+            <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove" onClick={() => save({ armors: armors.filter((x) => x.id !== a.id) })}>🗑</button>
           </article>
         )
       })}
@@ -222,7 +225,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
             <label>Hit Points <input type="number" min={0} value={shield.hp} onChange={(e) => save({ shield: { ...shield, hp: Math.max(0, +e.target.value || 0) } })} /></label>
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
           </div>
-          <button type="button" onClick={() => save({ shield: undefined })}>Remove</button>
+          <button type="button" className="spell-remove" aria-label={`Remove ${shield.name}`} title="Remove" onClick={() => save({ shield: undefined })}>🗑</button>
         </article>
       ) : (
         <Search entries={entries} kind="shield" label="Add Shield"

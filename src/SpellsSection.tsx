@@ -141,13 +141,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           const have = spells.some((s) => s.entryId === m.id) || granted.some((s) => s.id === m.id)
           return (
             <li key={m.id}>
-              <b>{m.name}</b> <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
+              {m.description ? <Info label={m.name}>{m.description}</Info> : <b>{m.name}</b>} <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
                 <small>({spellWardenLabel(m.data.warden_spell_tier)})</small>
               )} {m.data.tradition ?? ''}{' '}
               <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>
                 {have ? 'Added' : 'Add'}
               </button>
-              {m.description && <Info>{m.description}</Info>}
             </li>
           )
         })}
