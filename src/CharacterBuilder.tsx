@@ -6,7 +6,7 @@ import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
 import { canSelectWardenFeat, compareFeatSelections } from './featChoices'
-import { SkillsSection } from './SkillsSection'
+import { ClassSkills, SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { db } from './db'
 import type { Character, ContentEntry, EntryKind } from './types'
@@ -135,6 +135,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v })} />
           {klass && <small><b>{klass.name}</b>: {detail(klass)}</small>}
           <AbilityBoostChoices {...section} groups={['class']} />
+          <ClassSkills {...section} />
           <ClassFeatures {...section} />
           <FeatSlots {...section} categories={['class']} title="Class Feats" />
         </div>
@@ -181,7 +182,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       </details>
 
       <SkillsSection {...section} />
-      <FeatSlots {...section} categories={['skill', 'general', 'archetype', 'bonus']} title="Other Feat Slots" />
+      <FeatSlots {...section} categories={['general']} title="General Feats" />
+      <FeatSlots {...section} categories={['skill']} title="Skill Feats" />
+      <FeatSlots {...section} categories={['archetype', 'bonus']} title="Other Feat Slots" />
       <SpellsSection {...section} />
 
       <h3>All feats ({c.feats.length})</h3>
