@@ -93,6 +93,14 @@ it('shows feat grants once without deleting independently added spells', () => {
   expect(c.spells).toHaveLength(1)
 })
 
+it('shows action icons beside selected spells', () => {
+  const c: Character = { ...base, spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
+  const spellEntries = entries.map((entry) => entry.name === 'Gravity Weapon'
+    ? { ...entry, data: { ...entry.data, actions: 'Single Action' } } : entry)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spellEntries} save={() => {}} />)
+  expect(markup).toContain('aria-label="Single Action"')
+})
+
 it('labels Warden spells in spell listings by tier', () => {
   expect(spellWardenLabel('Initiate')).toBe('Initiate Warden')
   expect(spellWardenLabel('Advanced')).toBe('Advanced Warden')

@@ -5,6 +5,7 @@ import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor,
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
+import { ActionIcon } from './ActionIcon'
 import { canSelectWardenFeat, compareFeatSelections } from './featChoices'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
@@ -120,7 +121,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ul className="feat-slot-list">
             {sortedFeats.map(({ feat: f, index: i }, position) => (
               <li className={`feat-slot-row${position > 0 && sortedFeats[position - 1].feat.level !== f.level ? ' feat-level-start' : ''}`} key={`${f.name}-${i}`}>
-                <span>L{String(f.level).padStart(2, '0')}</span> {f.name} <small>({f.type}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
+                <span>L{String(f.level).padStart(2, '0')}</span> {f.name} <ActionIcon entry={entries.find((entry) => entry.kind === 'feat' && entry.name === f.name)} /> <small>({f.type}{f.choice ? `, ${f.choice}` : ''})</small>{' '}
                 <button onClick={() => {
                   const feats = c.feats.filter((_, j) => j !== i)
                   const ids = new Set(entries.filter((e) => e.kind === 'feat' && e.name === f.name).map((e) => e.id))
@@ -137,7 +138,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ul className="feat-slot-list">
             {featMatches.map((f, index) => (
               <li className={index > 0 && featMatches[index - 1].level !== f.level ? 'feat-level-start' : undefined} key={f.id}>
-                <b>L{String(f.level).padStart(2, '0')} {f.name}</b> {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
+                <b>L{String(f.level).padStart(2, '0')} {f.name}</b> <ActionIcon entry={f} /> {f.traits.join(', ')}{f.data.prerequisite ? ` - Prereq: ${f.data.prerequisite}` : ''}{' '}
                 <button disabled={c.feats.some((feat) => feat.name === f.name) && f.data.repeatable !== true} onClick={() => save({
                   feats: [...c.feats, { name: f.name, type: featType(f, c), level: f.level }],
                   entryIds: c.entryIds.includes(f.id) ? c.entryIds : [...c.entryIds, f.id],
@@ -212,7 +213,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ul>
             {c.equipment.map((g, i) => (
               <li key={`${g.name}-${i}`}>
-                {g.name} x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
+                {g.name} <ActionIcon entry={entries.find((entry) => GEAR.includes(entry.kind) && entry.name === g.name)} /> x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
                   onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
                 <button onClick={() => save({ equipment: c.equipment.filter((_, j) => j !== i) })}>Remove</button>
               </li>
@@ -222,7 +223,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ul>
             {gearMatches.map((g) => (
               <li key={g.id}>
-                <b>{g.name}</b> ({g.kind}{g.level ? ` ${g.level}` : ''}) {detail(g)}{' '}
+                <b>{g.name}</b> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}) {detail(g)}{' '}
                 <button onClick={() => {
                   const have = c.equipment.find((x) => x.name === g.name)
                   save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })

@@ -256,6 +256,9 @@
   white-space: nowrap;
 }
 
+.background-feat-row { flex-wrap: wrap; }
+.background-feat-row > span { white-space: normal; }
+
 .feat-slot-row > select {
   flex: 1 1 10rem;
   min-width: 0;
@@ -359,6 +362,8 @@
 .character-actions { display: inline-flex; gap: 0.25rem; }
 .icon-button { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; padding: 0.5rem; }
 .icon-button svg { width: 1.1rem; height: 1.1rem; }
+.action-cost { display: inline-flex; align-items: center; gap: 0.1em; white-space: nowrap; vertical-align: middle; }
+.action-icon { width: 1em; height: 1em; flex: none; }
 .skill-rank-budget { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 0.5rem; }
 .skill-rank-budget span { display: inline-flex; gap: 0.3rem; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 5px; }
 .skill-rank-budget b { color: var(--text-h); }

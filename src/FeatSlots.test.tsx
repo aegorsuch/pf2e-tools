@@ -67,6 +67,27 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   expect((markup.match(/class="feat-slot-row feat-level-start"/g) ?? [])).toHaveLength(3)
 })
 
+it('shows the current background skill feat above level-based skill feats', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, background: 'Hunter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Quick Draw', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const entries: ContentEntry[] = [
+    { id: 'hunter', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Hunter', level: 1, traits: [], description: '', data: { feat: 'Survey Wildlife' }, effects: [], updatedAt: 0 },
+    { id: 'quick', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Quick Draw', level: 1, traits: [], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0 },
+  ]
+  const render = (character: Character) => renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={['skill']} bare />)
+  const markup = render(c)
+  expect(markup).toContain('Background Skill Feat')
+  expect(markup).toContain('Survey Wildlife')
+  expect(markup.indexOf('Background Skill Feat')).toBeLessThan(markup.indexOf('L02 Skill Feats'))
+  expect(markup).toContain('aria-label="Single Action"')
+  expect(render({ ...c, background: undefined })).toContain('Choose a background')
+  expect(render({ ...c, background: undefined })).not.toContain('Survey Wildlife')
+})
+
 it('groups feat options by level, alphabetically within each level', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 4, className: 'Ranger',

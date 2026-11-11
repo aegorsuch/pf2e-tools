@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { db, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
 import { EffectsEditor } from './EffectsEditor'
+import { ActionIcon } from './ActionIcon'
 import { ensureAonImported } from './aon'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
@@ -195,7 +196,7 @@ export default function App() {
         <ul>
           {showOfficial && official.map((e) => (
             <li key={e.id}>
-              <b>{e.name}</b> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}
+              <b>{e.name}</b> <ActionIcon entry={e} /> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}
             </li>
           ))}
         </ul>
@@ -209,7 +210,7 @@ export default function App() {
       <ul>
         {homebrew.map((e) => (
           <li key={e.id}>
-            <b>{e.name}</b> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}{' '}
+            <b>{e.name}</b> <ActionIcon entry={e} /> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}{' '}
             <button onClick={() => setDraft(e)}>Edit</button>
             <button onClick={() => removeEntry(e.id)}>Delete</button>
           </li>

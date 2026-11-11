@@ -1,5 +1,6 @@
 import { eligibleFeats, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
+import { ActionIcon } from './ActionIcon'
 import { compareFeatSelections } from './featChoices'
 import type { FeatSlotCategory } from './types'
 
@@ -15,6 +16,9 @@ const LABEL: Record<FeatSlotCategory, string> = {
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
+  const background = entries.find((entry) => entry.kind === 'background' && entry.name === c.background)
+  const backgroundFeats = typeof background?.data.feat === 'string'
+    ? background.data.feat.split(',').map((name) => name.trim()).filter(Boolean) : []
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
@@ -66,6 +70,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
       <ul className="feat-slot-list">
+        {categories?.includes('skill') && (
+          <li className="feat-slot-row background-feat-row">
+            <span>Background Skill Feat</span>
+            <span>{backgroundFeats.length ? backgroundFeats.map((name, index) => (
+              <span key={name}>{index > 0 && ', '}{name} <ActionIcon entry={entries.find((entry) => entry.kind === 'feat' && entry.name === name)} /></span>
+            )) : background ? 'No feat listed' : 'Choose a background'}</span>
+          </li>
+        )}
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
@@ -77,7 +89,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (
             <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
-              <span>{label}</span>
+              <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
               <select aria-label={`${label} feat`} value={current} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {current && !options.some((o) => o.name === current) && <option>{current}</option>}
@@ -87,6 +99,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </optgroup>
                 ))}
               </select>
+              {current && <ActionIcon entry={entries.find((entry) => entry.kind === 'feat' && entry.name === current)} />}
               {first && current && <button type="button" aria-label={`Add ${label} feat slot`}
                 onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>}
               {extra && <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}

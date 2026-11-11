@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ABILITIES, ABILITY_LABEL, SPELL_TRADITIONS, abilityMod, classSpellcasting, proficiencyBonus, signed, type SectionProps } from './builder'
 import type { Character } from './types'
 import { grantedWardenSpells, spellWardenLabel } from './featChoices'
+import { ActionIcon } from './ActionIcon'
 
 export function SpellsSection({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
@@ -37,8 +38,8 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
   }
   const listedSpells = [
-    ...granted.map((s) => ({ name: s.name, group: spellWardenLabel(s.data.warden_spell_tier) ?? `Rank ${s.level}`, index: -1 })),
-    ...spells.flatMap((s, index) => manualSpells.includes(s) ? [{ name: s.name, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
+    ...granted.map((s) => ({ name: s.name, entryId: s.id, group: spellWardenLabel(s.data.warden_spell_tier) ?? `Rank ${s.level}`, index: -1 })),
+    ...spells.flatMap((s, index) => manualSpells.includes(s) ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const groupOrder = ['Cantrips', ...Array.from({ length: 10 }, (_, i) => `Rank ${i + 1}`),
     'Initiate Warden', 'Advanced Warden', 'Master Warden', 'Peerless Warden']
@@ -88,7 +89,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <ul>
             {listedSpells.filter((s) => s.group === g).map((s) => (
               <li key={`${s.name}-${s.index}`}>
-                {s.name}{' '}
+                {s.name} <ActionIcon entry={entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))} />{' '}
                 {s.index >= 0 && <button onClick={() => save({ spells: spells.filter((_, j) => j !== s.index) })}>Remove</button>}
               </li>
             ))}
@@ -108,9 +109,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           const have = spells.some((s) => s.entryId === m.id) || granted.some((s) => s.id === m.id)
           return (
             <li key={m.id}>
-              <b>{m.name}</b> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
+              <b>{m.name}</b> <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
                 <small>({spellWardenLabel(m.data.warden_spell_tier)})</small>
-              )} {m.data.actions ?? ''} {m.data.tradition ?? ''}{' '}
+              )} {m.data.tradition ?? ''}{' '}
               <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>
                 {have ? 'Added' : 'Add'}
               </button>
