@@ -1,5 +1,5 @@
 import { hasWardenChoice, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, availableOrders, orderMagicOptions } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, orderMagicOptions } from './builder'
 import type { SectionProps } from './builder'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
@@ -8,14 +8,16 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
     || feat.name.startsWith('Incredible Companion') || feat.name.startsWith('Specialized Companion')) return null
   if (feat.name === 'Canny Acumen') {
+    const available = cannyAcumenOptions(c, entries)
     return (
       <label className="feat-choice">
         <select aria-label="Canny Acumen statistic" value={feat.choice ?? ''} onChange={(e) => {
           const choice = e.target.value || undefined
+          if (choice && !available.includes(choice)) return
           save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
         }}>
           <option value="">Choose statistic…</option>
-          {CANNY_STATS.map((stat) => <option key={stat} value={stat}>{stat}</option>)}
+          {CANNY_STATS.map((stat) => <option key={stat} value={stat} disabled={!available.includes(stat)}>{stat}{!available.includes(stat) ? ' (no improvement)' : ''}</option>)}
         </select>
       </label>
     )

@@ -7,12 +7,17 @@ import { ActionIcon } from './ActionIcon'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
-function SpellItem({ name, entry, note, onRemove }: { name: string; entry?: ContentEntry; note?: string; onRemove?: () => void }) {
+function SpellItem({ name, entry, note, onRemove, active, onToggle }: {
+  name: string; entry?: ContentEntry; note?: string; onRemove?: () => void
+  active?: boolean; onToggle?: (active: boolean) => void
+}) {
   return (
     <li className="spell-item">
       <div className="spell-name">
         <EntryDescription name={name} entry={entry} /> <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}
       </div>
+      {onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
+        onChange={(e) => onToggle(e.target.checked)} /> Active</label>}
       {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove" onClick={onRemove}>×</button>}
     </li>
   )
@@ -26,6 +31,17 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
   const { spells: focus, points: focusPoints } = focusSpells(c, entries)
+  const buffProps = (name: string, entry?: ContentEntry) => {
+    const duration = entry?.data.duration
+    const timed = Number(duration) > 0 || typeof duration === 'string' && /\b(?:round|minute|hour|day|sustain|unlimited)/i.test(duration)
+    if (name !== 'Animal Feature' && !timed) return {}
+    return {
+      active: c.activeSpells?.includes(name),
+      onToggle: (active: boolean) => save({
+        activeSpells: [...(c.activeSpells ?? []).filter((spell) => spell !== name), ...(active ? [name] : [])],
+      }),
+    }
+  }
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
@@ -109,9 +125,10 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         <div>
           <b>Focus Spells</b> <small>(Focus Points: {focusPoints})</small>
           <ul>
-            {focus.map((s) => (
-              <SpellItem key={s.name} entry={entries.find((e) => e.kind === 'spell' && e.name === s.name)} name={s.name} note={s.source} />
-            ))}
+            {focus.map((s) => {
+              const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
+              return <SpellItem key={s.name} entry={entry} name={s.name} note={s.source} {...buffProps(s.name, entry)} />
+            })}
           </ul>
         </div>
       )}
@@ -119,11 +136,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         <div key={g}>
           <b>{g}</b>
           <ul>
-            {listedSpells.filter((s) => s.group === g).map((s) => (
-              <SpellItem key={`${s.name}-${s.index}`} name={s.name}
-                entry={entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))}
-                onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index) }) : undefined} />
-            ))}
+            {listedSpells.filter((s) => s.group === g).map((s) => {
+              const entry = entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))
+              return <SpellItem key={`${s.name}-${s.index}`} name={s.name} entry={entry} {...buffProps(s.name, entry)}
+                onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index),
+                  activeSpells: c.activeSpells?.filter((name) => name !== s.name) }) : undefined} />
+            })}
           </ul>
         </div>
       ))}

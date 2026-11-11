@@ -6,6 +6,7 @@ const WARDEN_TIERS: Record<string, string> = {
   'Masterful Warden': 'Master',
   'Peerless Warden': 'Peerless',
 }
+type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 
 export function compareFeatSelections(a: Pick<Character['feats'][number], 'name' | 'choice'>, b: Pick<Character['feats'][number], 'name' | 'choice'>) {
   return a.name.localeCompare(b.name)
@@ -19,7 +20,7 @@ export function spellWardenLabel(tier: unknown) {
     : undefined
 }
 
-export function wardenSpellOptions(feat: Character['feats'][number], entries: ContentEntry[]) {
+export function wardenSpellOptions(feat: NamedFeat, entries: ContentEntry[]) {
   const tier = WARDEN_TIERS[feat.name]
   if (!tier) return []
   return wardenSpellsAtTier(tier, entries)
@@ -36,7 +37,7 @@ function wardenSpellsAtTier(tier: string, entries: ContentEntry[]) {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function hasWardenChoice(feat: Character['feats'][number]) {
+export function hasWardenChoice(feat: NamedFeat) {
   return Object.hasOwn(WARDEN_TIERS, feat.name)
 }
 

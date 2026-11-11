@@ -38,12 +38,12 @@ it('alphabetizes selected feat rows within each level without moving their slot 
     extraSlots: [{ category: 'class', level: 1, count: 2 }],
   }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} save={() => {}} categories={['class']} />)
-  expect(markup.indexOf('>Alpha</option>')).toBeLessThan(markup.indexOf('>Zeal</option>'))
-  expect(markup.indexOf('>Zeal</option>')).toBeLessThan(markup.indexOf('>Aardvark</option>'))
-  expect(markup.indexOf('>Zeal</option>')).toBeLessThan(markup.indexOf('Remove L01 Class extra feat slot 2'))
-  expect(markup.slice(0, markup.indexOf('>Zeal</option>'))).toContain('Remove L01 Class extra feat slot 1')
-  expect(markup.slice(0, markup.indexOf('>Zeal</option>'))).toContain('Add L01 Class feat slot')
-  expect(markup.slice(markup.indexOf('>Aardvark</option>'))).toContain('Add L02 Class feat slot')
+  expect(markup.indexOf('>Alpha</button>')).toBeLessThan(markup.indexOf('>Zeal</button>'))
+  expect(markup.indexOf('>Zeal</button>')).toBeLessThan(markup.indexOf('>Aardvark</button>'))
+  expect(markup.indexOf('>Zeal</button>')).toBeLessThan(markup.indexOf('Remove L01 Class extra feat slot 2'))
+  expect(markup.slice(0, markup.indexOf('>Zeal</button>'))).toContain('Remove L01 Class extra feat slot 1')
+  expect(markup.slice(0, markup.indexOf('>Zeal</button>'))).toContain('Add L01 Class feat slot')
+  expect(markup.slice(markup.indexOf('>Aardvark</button>'))).toContain('Add L02 Class feat slot')
 })
 
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
@@ -199,7 +199,7 @@ it('allows repeatable feats in multiple slots and retains their entry link until
   const select = () => findSelect(tree(), 'L01 Class feat')
   const chooseFirst = select()
   if (!chooseFirst) throw new Error('Missing first slot')
-  chooseFirst({ target: { value: 'Initiate Warden' } })
+  chooseFirst({ target: { value: JSON.stringify(['Initiate Warden', 'Spell One']) } })
   const removeExtra = findButton(tree(), 'Remove L01 Class extra feat slot 1')
   expect(removeExtra).toBeDefined()
   const chooseExtra = (() => {
@@ -210,17 +210,24 @@ it('allows repeatable feats in multiple slots and retains their entry link until
       visit(child.props.children as ReactNode)
     })
     visit(tree())
-    return selects[1]
+    return selects[0]
   })()
   if (!chooseExtra) throw new Error('Missing extra slot')
-  chooseExtra({ target: { value: 'Initiate Warden' } })
+  chooseExtra({ target: { value: JSON.stringify(['Initiate Warden', 'Spell Two']) } })
   expect(c.feats).toHaveLength(2)
   expect(c.entryIds).toEqual(['warden'])
+  expect(c.feats.map((feat) => feat.choice)).toEqual(['Spell One', 'Spell Two'])
   const remove = findButton(tree(), 'Remove L01 Class extra feat slot 1')
   if (!remove) throw new Error('Missing remove button')
   remove()
   expect(c.feats).toHaveLength(1)
   expect(c.entryIds).toEqual(['warden'])
+  const clear = findButton(tree(), 'Clear L01 Class feat selection')
+  if (!clear) throw new Error('Missing clear button')
+  clear()
+  expect(c.feats).toEqual([])
+  expect(c.entryIds).toEqual([])
+  expect(plannedSlots(c).filter((slot) => slot.category === 'class' && slot.level === 1)).toHaveLength(1)
 })
 
 it('adds slots beside a selected feat and removes only the chosen extra slot', () => {
@@ -298,7 +305,9 @@ it('keeps an existing Advanced General Training choice selected under level 09',
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} save={() => {}} categories={['general']} />)
-  expect(markup).toContain('aria-label="L09 General feat"><option value="">- empty -</option><option value="Fleet" selected="">Fleet</option>')
+  expect(markup).toContain('aria-haspopup="dialog">Fleet</button>')
+  expect(markup.indexOf('Level 09')).toBeLessThan(markup.indexOf('>Fleet</button>'))
+  expect(markup).toContain('aria-label="Clear L09 General feat selection"')
 })
 
 it('opens Living Weapon details from its name instead of a separate summary or inline choice', () => {
@@ -313,13 +322,138 @@ it('opens Living Weapon details from its name instead of a separate summary or i
     traits: ['Ranger'], description: 'Living Weapon rules summary.', data: { repeatable: true }, effects: [], updatedAt: 0,
   }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['class']} />)
-  expect(markup).toContain('Living Weapon</option>')
   expect(markup).toContain('aria-haspopup="dialog">Living Weapon</button>')
   expect(markup).toContain('<dialog')
   expect(markup).toContain(feat.description)
-  expect(markup).toContain('<summary>Change</summary>')
+  expect(markup).not.toContain('<summary>Change</summary>')
+  expect(markup).toContain('aria-label="Clear L01 Class feat selection"')
   expect(markup).not.toContain('Summary')
   expect(markup).not.toContain('Living Weapon choice')
+})
+
+const emptyRanger = (): Character => ({
+  id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
+  abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+  feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+})
+
+it('removes a standard row among extra slots, clears the final row, and restores a dismissed row with plus', () => {
+  let c: Character = {
+    ...emptyRanger(), extraSlots: [{ category: 'class', level: 1, count: 1 }],
+    feats: [
+      { name: 'First', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+      { name: 'Second', type: 'Class Feat', level: 1, slot: 'class:1:1' },
+    ],
+  }
+  const tree = () => FeatSlots({ c, entries: [], save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
+  const remove = findButton(tree(), 'Remove L01 Class feat slot 0')
+  if (!remove) throw new Error('Missing standard slot minus')
+  remove()
+  expect(c.feats.map((feat) => feat.name)).toEqual(['Second'])
+  expect(plannedSlots(c).filter((slot) => slot.category === 'class').map((slot) => slot.key)).toEqual(['class:1:1'])
+  const clear = findButton(tree(), 'Clear L01 Class feat selection')
+  if (!clear) throw new Error('Missing final slot minus')
+  clear()
+  expect(c.feats).toEqual([])
+  expect(c.extraSlots).toEqual([{ category: 'class', level: 1, count: 1 }])
+  expect(findSelect(tree(), 'L01 Class feat')).toBeDefined()
+  const add = findButton(tree(), 'Add L01 Class feat slot')
+  if (!add) throw new Error('Missing plus')
+  add()
+  expect(c.dismissedFeatSlots).toEqual([])
+  expect(plannedSlots(c).filter((slot) => slot.category === 'class')).toHaveLength(2)
+})
+
+it('restores a dismissed standard slot when its remaining feat-granted row disappears', () => {
+  let c: Character = {
+    ...emptyRanger(), dismissedFeatSlots: ['class:1:0'], entryIds: ['ambition', 'child'],
+    feats: [
+      { name: 'Natural Ambition', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Child', type: 'Class Feat', level: 1, slot: 'class:1:g1' },
+    ],
+  }
+  const entries: ContentEntry[] = ['Natural Ambition', 'Child'].map((name, i) => ({
+    id: i ? 'child' : 'ambition', systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits: [], description: '', data: {}, effects: [], updatedAt: 1,
+  }))
+  const clear = findButton(FeatSlots({
+    c, entries, save: (patch) => { c = { ...c, ...patch } }, categories: ['ancestry'],
+  }), 'Clear L01 Ancestry feat selection')
+  if (!clear) throw new Error('Missing ancestry minus')
+  clear()
+  expect(c.feats).toEqual([])
+  expect(c.entryIds).toEqual([])
+  expect(c.dismissedFeatSlots).toEqual([])
+  expect(plannedSlots(c).filter((slot) => slot.category === 'class').map((slot) => slot.key)).toEqual(['class:1:0'])
+})
+
+it('clears N/A without removing the final dedication slot', () => {
+  let c: Character = { ...emptyRanger(), level: 2, skippedFeatSlots: ['archetype:2:0'] }
+  const tree = () => FeatSlots({ c, entries: [], save: (patch) => { c = { ...c, ...patch } }, categories: ['archetype'] })
+  const clear = findButton(tree(), 'Clear L02 Dedication feat selection')
+  if (!clear) throw new Error('Missing dedication minus')
+  clear()
+  expect(c.skippedFeatSlots).toEqual([])
+  expect(plannedSlots(c).some((slot) => slot.key === 'archetype:2:0')).toBe(true)
+})
+
+it.each([
+  { className: 'Ranger', feat: 'Peerless Warden', choice: 'Gluttonous Growth', label: 'Gluttonous Growth' },
+  { className: 'Druid', feat: 'Order Explorer', choice: 'Flame', label: 'Flame Order' },
+])('selects $feat and its choice together without a second picker', ({ className, feat, choice, label }) => {
+  let c: Character = { ...emptyRanger(), className, level: 20, order: className === 'Druid' ? 'Animal' : undefined }
+  const entries: ContentEntry[] = [{
+    id: 'feat', systems: ['pf2e'], kind: 'feat', source: 'official', name: feat, level: 1,
+    traits: [className], description: 'Feat rules.', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }, {
+    id: 'spell', systems: ['pf2e'], kind: 'spell', source: 'official', name: 'Gluttonous Growth', level: 9,
+    traits: ['Ranger', 'Focus'], description: '', data: { warden_spell_tier: 'Peerless' }, effects: [], updatedAt: 1,
+  }]
+  const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } }, categories: ['class' as const] })
+  expect(renderToStaticMarkup(<FeatSlots {...props()} />)).toContain(`${feat} (${label})</option>`)
+  const choose = findSelect(FeatSlots(props()), 'L01 Class feat')
+  if (!choose) throw new Error('Missing feat picker')
+  choose({ target: { value: JSON.stringify([feat, choice]) } })
+  expect(c.feats).toEqual([{ name: feat, type: 'Class Feat', level: 1, slot: 'class:1:0', choice }])
+  expect(c.entryIds).toEqual(['feat'])
+  const markup = renderToStaticMarkup(<FeatSlots {...props()} />)
+  expect(markup).toContain(`aria-haspopup="dialog">${feat} (${label})</button>`)
+  expect(markup).not.toContain('class="feat-choice"')
+})
+
+it('omits the current class suffix while preserving the saved canonical name', () => {
+  let c: Character = { ...emptyRanger(), level: 6 }
+  const entries: ContentEntry[] = [{
+    id: 'companion', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Incredible Companion (Ranger)', level: 6,
+    traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 1,
+  }]
+  const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } }, categories: ['class' as const] })
+  expect(renderToStaticMarkup(<FeatSlots {...props()} />)).toContain('value="Incredible Companion (Ranger)">Incredible Companion</option>')
+  const choose = findSelect(FeatSlots(props()), 'L06 Class feat')
+  if (!choose) throw new Error('Missing level six picker')
+  choose({ target: { value: 'Incredible Companion (Ranger)' } })
+  expect(c.feats[0].name).toBe('Incredible Companion (Ranger)')
+  expect(renderToStaticMarkup(<FeatSlots {...props()} />)).toContain('aria-haspopup="dialog">Incredible Companion</button>')
+})
+
+it('greys out ineffective Canny Acumen options and refuses their selection', () => {
+  let c: Character = { ...emptyRanger(), level: 3 }
+  const entries: ContentEntry[] = [{
+    id: 'canny', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Canny Acumen', level: 1,
+    traits: ['General'], description: '', data: {}, effects: [], updatedAt: 1,
+  }, {
+    id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
+    traits: [], description: '', data: { perception_proficiency: 'Expert', will_proficiency: 'Trained' }, effects: [], updatedAt: 1,
+  }]
+  const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } }, categories: ['general' as const] })
+  const markup = renderToStaticMarkup(<FeatSlots {...props()} />)
+  expect(markup).toMatch(/<option[^>]*disabled=""[^>]*>Canny Acumen \(Perception - no improvement\)<\/option>/)
+  const choose = findSelect(FeatSlots(props()), 'L03 General feat')
+  if (!choose) throw new Error('Missing general picker')
+  choose({ target: { value: JSON.stringify(['Canny Acumen', 'Perception']) } })
+  expect(c.feats).toEqual([])
+  choose({ target: { value: JSON.stringify(['Canny Acumen', 'Will']) } })
+  expect(c.feats[0]).toMatchObject({ name: 'Canny Acumen', choice: 'Will' })
 })
 
 it('persists N/A for a dedication slot without creating a feat and allows replacing it', () => {

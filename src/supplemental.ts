@@ -34,4 +34,25 @@ export const ORC_TUSKS: ContentEntry = {
   data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonprd.com/Feats.aspx?ID=4519' },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, FIST, IRON_FIST, ORC_TUSKS]
+export const ANIMAL_FEATURE_CLAWS: ContentEntry = {
+  ...FIST, id: 'supplemental:animal-feature-claws', name: 'Claws (Animal Feature)',
+  traits: ['Agile', 'Finesse', 'Unarmed'],
+  description: 'Animal Feature grants a claw unarmed attack dealing 1d6 slashing damage.',
+  data: { ...FIST.data, damage: '1d6 slashing' },
+}
+
+export const ANIMAL_FEATURE_JAWS: ContentEntry = {
+  ...FIST, id: 'supplemental:animal-feature-jaws', name: 'Jaws (Animal Feature)',
+  traits: ['Unarmed'],
+  description: 'Animal Feature grants a jaws unarmed attack dealing 1d8 piercing damage.',
+  data: { ...FIST.data, damage: '1d8 piercing' },
+}
+
+export const HANDWRAPS: ContentEntry = {
+  ...FIST, id: 'supplemental:handwraps', kind: 'item', name: 'Handwraps of Mighty Blows', level: 2,
+  traits: ['Invested', 'Magical'],
+  description: 'These handwraps carry weapon potency, striking, and property runes. Their benefits apply to your unarmed attacks; property runes apply only to compatible attacks.',
+  data: { usage: 'worn gloves' },
+}
+
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, FIST, IRON_FIST, ORC_TUSKS, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]

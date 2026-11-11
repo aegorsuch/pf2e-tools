@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS } from './supplemental'
-import { eligibleWeaponRunes, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS } from './supplemental'
+import { effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
@@ -54,6 +54,58 @@ it('hides an existing Fist when another configured unarmed attack is present', (
   expect(ownedWeapons(c, [jaws]).map((weapon) => weapon.name)).toEqual(['Jaws'])
   expect(ownedWeapons({ ...c, weapons: c.weapons.filter((weapon) => weapon.name !== jaws.name) }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
   expect(ownedWeapons({ ...base, weapons: [{ id: IRON_FIST.id, name: IRON_FIST.name, potency: 0, striking: 0, runes: [] }] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+})
+
+it('derives Animal Feature attacks only while the known spell is active, including after reload', () => {
+  const c: Character = {
+    ...base, activeSpells: ['Animal Feature'],
+    feats: [{ name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }],
+  }
+  expect(ownedWeapons({ ...c, activeSpells: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+  const active = ownedWeapons(c, [])
+  expect(active.map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name])
+  expect(weaponAttack(c, [], active[0])).toMatchObject({
+    attack: 16, ability: 'dex', damage: '1d6+1 slashing', traits: ['Agile', 'Finesse', 'Unarmed'],
+  })
+  expect(weaponAttack(c, [], active[1])).toMatchObject({
+    attack: 13, ability: 'str', damage: '1d8+1 piercing', traits: ['Unarmed'],
+  })
+  const reloaded: Character = JSON.parse(JSON.stringify({ ...c, weapons: active }))
+  expect(ownedWeapons(reloaded, [])).toEqual(active)
+  expect(ownedWeapons({ ...reloaded, activeSpells: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+  expect(ownedWeapons({ ...reloaded, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+  expect(ownedWeapons({ ...base, activeSpells: ['Animal Feature'], spells: [
+    { name: 'Animal Feature', rank: 2, cantrip: false },
+  ] }, []).map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name])
+})
+
+it('shares handwrap fundamentals and compatible property runes with current and future unarmed attacks only', () => {
+  const c: Character = { ...base, handwraps: { potency: 2, striking: 1, runes: ['Impactful (Greater)', 'Wounding'] } }
+  const fist = ownedWeapons(c, [])[0]
+  expect(weaponAttack(c, [], fist)).toMatchObject({ attack: 18, item: 2, damage: '2d4+1 bludgeoning' })
+  expect(effectiveWeapon(c, [], fist).runes).toEqual(['Impactful (Greater)'])
+  const buffed: Character = {
+    ...c, activeSpells: ['Animal Feature'],
+    feats: [...['Iron Fists', 'Tusks'].map((name) => ({ name, type: 'Ancestry Feat', level: 1 })),
+      { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }],
+  }
+  for (const weapon of ownedWeapons(buffed, [])) {
+    expect(weaponAttack(buffed, [], weapon).item).toBe(2)
+    expect(weaponAttack(buffed, [], weapon).damage).toMatch(/^2d[468]\+1 /)
+    expect(effectiveWeapon(buffed, [], weapon).runes).toEqual(weapon.name === IRON_FIST.name ? ['Impactful (Greater)'] : c.handwraps!.runes)
+    expect(weapon).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  }
+  const haft = { id: 'haft', name: HAFT_STRIKER_WEAPON.name, potency: 1, striking: 0, runes: [] }
+  expect(effectiveWeapon(c, [], haft)).toBe(haft)
+  expect(weaponAttack(c, [], haft)).toMatchObject({ item: 1, damage: '1d4+1 bludgeoning' })
+  expect(weaponAttack({ ...c, handwraps: undefined }, [], fist)).toMatchObject({ item: 0, damage: '1d4+1 bludgeoning' })
+})
+
+it('offers handwrap runes for compatible unarmed attacks without requiring the buff to be active', () => {
+  const options = handwrapRuneOptions({ ...base, handwraps: { potency: 3, striking: 0, runes: [] } }, []).map((rune) => rune.name)
+  expect(options).toContain('Wounding')
+  expect(options).not.toContain('Shifting')
+  expect(options).not.toContain('Returning')
 })
 
 it('filters runes using AoN weapon, damage, trait, and named-weapon requirements', () => {

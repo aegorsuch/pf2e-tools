@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { SkillsSection } from './SkillsSection'
-import { armorRanks, defenseSummary, ranksAt, weaponRanks } from './builder'
+import { armorRanks, defenseSummary, initiativeBonus, ranksAt, weaponRanks } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const ranger: ContentEntry = {
@@ -22,6 +22,25 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each([
+  ['Sunweave', 1], ['Greater Sunweave', 2], ['Sunweave (Greater)', 2],
+  ['Major Sunweave', 3], ['Sunweave (Major)', 3], ['Moonweave', 0],
+])('applies %s to worn-armor Perception, item breakdown, and initiative', (rune, bonus) => {
+  const c: Character = { ...base, armors: [{ id: 'armor', name: 'Armor', worn: true, potency: 0, resilient: 1, runes: [rune] }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)
+  expect(markup).toContain(`Perception <b>+${3 + bonus}</b>`)
+  expect(markup).toContain(`<small>Item</small>+${bonus}`)
+  expect(defenseSummary(c, [ranger]).perception).toBe(3 + bonus)
+  expect(initiativeBonus(c, [ranger])).toBe(3 + bonus)
+  expect(defenseSummary({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [ranger]).perception).toBe(3)
+})
+
+it('does not stack multiple Sunweave item bonuses', () => {
+  const c: Character = { ...base, armors: [{ id: 'armor', name: 'Armor', worn: true, potency: 0, resilient: 0,
+    runes: ['Sunweave', 'Sunweave (Major)', 'Greater Sunweave'] }] }
+  expect(defenseSummary(c, [ranger]).perception).toBe(6)
+})
 
 it('shows armor specialization with armor and granting feat, without rules summary', () => {
   const armor: ContentEntry = {

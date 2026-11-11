@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -444,6 +444,50 @@ describe('archetype rules', () => {
     expect(names(has())).toEqual(['Medic Dedication', 'Wild Hunter Dedication'])
     expect(names(has('Wild Hunter Dedication'))).toEqual(['Living Weapon'])
   })
+  it('accepts shared Cavalier feats through either dedication and counts them toward dedication requirements', () => {
+    const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+    const unicorn = entry('feat', 'Unicorn Rider Dedication', { archetype: 'Unicorn Rider' }, 2, ['Archetype', 'Dedication'])
+    const shared = entry('feat', 'Defend Mount', { archetype: 'Cavalier, Unicorn Rider' }, 6, ['Archetype'])
+    const charge = entry('feat', "Cavalier's Charge", { archetype: 'Cavalier, Unicorn Rider' }, 4, ['Archetype'])
+    const data = [cavalier, unicorn, shared, charge, ded2]
+    const target = { key: 'archetype:6:0', category: 'archetype' as const, level: 6 }
+    for (const dedication of [cavalier, unicorn]) {
+      const c = { ...has(dedication.name), level: 6 }
+      expect(eligibleFeats(data, c, target).map((feat) => feat.name)).toContain('Defend Mount')
+      const chosen = { ...c, feats: [...c.feats, { name: shared.name, type: 'Dedication Feat', level: 6 }] }
+      expect(orphanedArchetypeFeats(chosen, data)).toEqual([])
+      expect(orphanedArchetypeFeats({ ...chosen, feats: chosen.feats.filter((feat) => feat.name !== dedication.name) }, data).map((feat) => feat.name)).toEqual(['Defend Mount'])
+      expect(eligibleFeats(data, chosen, target).map((feat) => feat.name)).not.toContain('Medic Dedication')
+      const complete = { ...chosen, feats: [...chosen.feats, { name: charge.name, type: 'Dedication Feat', level: 4 }] }
+      expect(eligibleFeats(data, complete, target).map((feat) => feat.name)).toContain('Medic Dedication')
+    }
+  })
+  it('offers additional Cavalier class feats at their archetype level without restricting their normal class access', () => {
+    const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+    const launch = entry('feat', 'Galloping Launch', { archetype: 'Cavalier', archetype_levels: 'Cavalier:6' }, 4, ['Ranger'])
+    const data = [cavalier, launch]
+    const c = { ...has(cavalier.name), level: 6 }
+    expect(eligibleFeats(data, c, { key: 'archetype:4:0', category: 'archetype', level: 4 })).not.toContain(launch)
+    expect(eligibleFeats(data, c, { key: 'archetype:6:0', category: 'archetype', level: 6 })).toContain(launch)
+    expect(eligibleFeats(data, { ...c, feats: [] }, { key: 'archetype:6:0', category: 'archetype', level: 6 })).not.toContain(launch)
+    const ranger: Character = { ...base, className: 'Ranger', level: 4, feats: [{ name: launch.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+    expect(eligibleFeats(data, ranger, { key: 'class:4:0', category: 'class', level: 4 })).toContain(launch)
+    expect(orphanedArchetypeFeats(ranger, data)).toEqual([])
+    expect(orphanedArchetypeFeats({ ...ranger, feats: [{ ...ranger.feats[0], slot: 'archetype:6:0' }] }, data).map((feat) => feat.name)).toEqual([launch.name])
+  })
+})
+
+it('allows Canny Acumen only when it improves natural proficiency, excluding its own existing benefit', () => {
+  const data = [
+    entry('class', 'Druid', { perception_proficiency: 'Trained', will_proficiency: 'Expert', fortitude_proficiency: 'Trained', reflex_proficiency: 'Trained' }),
+    entry('class', 'Ranger', { perception_proficiency: 'Expert', will_proficiency: 'Trained', fortitude_proficiency: 'Trained', reflex_proficiency: 'Trained' }),
+    { ...entry('classFeature', 'Ranger Expertise', { class: 'Ranger' }, 7), description: 'Your proficiency rank for Perception increases to master.' },
+  ]
+  const druid: Character = { ...base, className: 'Druid', feats: [{ name: 'Canny Acumen', type: 'General Feat', level: 1, choice: 'Reflex' }] }
+  expect(cannyAcumenOptions(druid, data)).toEqual(['Fortitude', 'Perception', 'Reflex'])
+  expect(cannyAcumenOptions({ ...base, className: 'Ranger' }, data)).toEqual(['Fortitude', 'Reflex', 'Will'])
+  expect(cannyAcumenOptions({ ...base, className: 'Ranger', level: 17 }, data)).not.toContain('Perception')
+  expect(cannyAcumenOptions({ ...druid, level: 17 }, data)).toContain('Will')
 })
 
 describe('feat grants beyond languages', () => {

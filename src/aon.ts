@@ -30,6 +30,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (kind === 'feat') {
     const special = /\*\*Special\*\*\s*([^\n]*)/i.exec(text(s.markdown))?.[1] ?? ''
     data.repeatable = /\b(?:take|select|choose) this (?:ancestry |class |skill |general )?feat (?:multiple times|more than once|up to \w+ times)\b/i.test(special)
+    const archetypes = /^\*\*Archetypes?\*\*\s+(.+)$/im.exec(text(s.markdown))?.[1] ?? ''
+    const levels = [...archetypes.matchAll(/\[([^\]]+)\]\([^)]*\)\s*\(Level (\d+)\)/gi)]
+    if (levels.length) data.archetype_levels = levels.map((match) => `${match[1]}:${match[2]}`).join(', ')
   }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land

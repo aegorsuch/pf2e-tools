@@ -91,9 +91,11 @@ export interface Character {
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
   feats: { name: string; type: string; level: number; choice?: string; slot?: string }[]
   skippedFeatSlots?: string[]
+  dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
+  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   armors?: OwnedArmor[]
   shield?: OwnedShield
   lores: { name: string; rank: number }[]
@@ -111,6 +113,7 @@ export interface Character {
   rankOverrides?: Record<string, number>
   spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
+  activeSpells?: string[]
   // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
   companions?: { id: string; name: string; type: string }[]
   // Manually added slots on top of those from class/ancestry and granted effects

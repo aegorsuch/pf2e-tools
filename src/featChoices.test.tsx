@@ -43,6 +43,16 @@ it('imports repeatability from feat special rules without guessing from summarie
   expect(mapAonHit({ _source: { category: 'spell', name: 'Gravity Weapon', warden_spell_tier: 'Initiate' } }, 'pf2e')?.data.warden_spell_tier).toBe('Initiate')
 })
 
+it('imports archetype-specific levels for additional class feats', () => {
+  const mapped = mapAonHit({ _id: 'launch', _source: {
+    name: 'Galloping Launch', category: 'feat', level: 4, trait: ['Ranger'], archetype: ['Cavalier'],
+    markdown: '**Archetype** [Cavalier](/Archetypes.aspx?ID=244) (Level 6)\n\nFeat rules.',
+  } }, 'pf2e')
+  expect(mapped?.level).toBe(4)
+  expect(mapped?.data.archetype_levels).toBe('Cavalier:6')
+  expect(mapped?.data.archetype).toBe('Cavalier')
+})
+
 it('retains full feat, spell, and rune descriptions through snapshot fetching and mapping', async () => {
   const markdown = '**Full rules**\n\n' + 'Long rules paragraph. '.repeat(100) + '\n\nFinal rule must remain.'
   const fetchFn: typeof fetch = async (_url, init) => {
@@ -147,6 +157,23 @@ it('shows action icons beside selected spells', () => {
     ? { ...entry, data: { ...entry.data, actions: 'Single Action' } } : entry)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spellEntries} save={() => {}} />)
   expect(markup).toContain('aria-label="Single Action"')
+})
+
+it('shows persisted Active toggles for granted buffs and timed spells, not instantaneous spells', () => {
+  const c: Character = {
+    ...base, activeSpells: ['Animal Feature'], feats: [
+      { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
+      { name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' },
+      { name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Heal Companion' },
+    ],
+  }
+  const spells = entries.map((entry) => entry.name === 'Gravity Weapon' ? { ...entry, data: { ...entry.data, duration: 60 } } : entry)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+  expect(markup).toContain('aria-label="Animal Feature active" checked=""')
+  expect(markup).toContain('aria-label="Gravity Weapon active"')
+  expect(markup).not.toContain('aria-label="Heal Companion active"')
+  expect(renderToStaticMarkup(<SpellsSection c={{ ...c, activeSpells: [] }} entries={spells} save={() => {}} />))
+    .not.toContain('aria-label="Animal Feature active" checked=""')
 })
 
 it('labels Warden spells in spell listings by tier', () => {

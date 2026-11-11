@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, speed, initiativeBonus, armorSpecialization,
   maxHp,
-  proficiencyBonus, ranksAt, wornArmor, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
+  proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 
@@ -92,7 +92,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const baseRank = baseRanks[s.name] ?? 0
     const abil = abilityMod(c.abilities[s.ability])
     const prof = proficiencyBonus(rank, c.level)
-    const item = s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
+    const item = s.name === 'Perception' ? perceptionItemBonus(c)
+      : s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} <b>{signed(abil + prof + item)}</b></span>

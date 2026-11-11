@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
-import { canSelectWardenFeat } from './featChoices'
+import { canSelectWardenFeat, hasWardenChoice, wardenSpellOptions } from './featChoices'
 import { getSettings } from './settings'
-import { FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, HAFT_STRIKER_WEAPON, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -235,30 +235,36 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
-  return slots.sort((a, b) => a.level - b.level
+  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key))
+  for (const slot of slots) {
+    if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
+  }
+  return visible.sort((a, b) => a.level - b.level
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
 
-const archetypeOf = (e?: ContentEntry) => {
+const archetypesOf = (e?: ContentEntry): string[] => {
   const a = e?.data.archetype
-  return (Array.isArray(a) ? a[0] : a)?.toString()
+  return (Array.isArray(a) ? a : typeof a === 'string' ? a.split(',') : [])
+    .flatMap((name) => typeof name === 'string' && name.trim() ? [name.trim()] : [])
 }
 const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase() === 'dedication')
 
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
-function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string) {
+function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean) {
   const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
     const entry = byName(entries, 'feat', f.name)
-    return entry && archetypeOf(entry) ? [entry] : []
+    return entry && archetypesOf(entry).length ? [entry] : []
   })
   const dedications = taken.filter(isDedication)
   return (e: ContentEntry) => {
-    const archetype = archetypeOf(e)
-    if (!archetype || !e.traits.some((t) => t.toLowerCase() === 'archetype')) return true
-    if (!isDedication(e)) return dedications.some((t) => archetypeOf(t) === archetype)
+    const archetypes = archetypesOf(e)
+    if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return true
+    const shares = (entry: ContentEntry, names = archetypes) => archetypesOf(entry).some((name) => names.includes(name))
+    if (!isDedication(e)) return dedications.some((t) => shares(t))
     return dedications.every((d) =>
-      archetypeOf(d) === archetype || taken.filter((t) => !isDedication(t) && archetypeOf(t) === archetypeOf(d)).length >= 2)
+      shares(d) || taken.filter((t) => !isDedication(t) && shares(t, archetypesOf(d))).length >= 2)
   }
 }
 
@@ -272,8 +278,10 @@ export function unslottedFeats(c: Character) {
 // Archetype feats whose archetype's Dedication isn't taken (e.g. the Dedication was removed or never picked)
 export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
   const info = c.feats.map((f) => ({ f, e: byName(entries, 'feat', f.name) }))
-  const dedications = new Set(info.flatMap(({ e }) => e && isDedication(e) && archetypeOf(e) ? [archetypeOf(e)] : []))
-  return info.filter(({ e }) => e && !isDedication(e) && archetypeOf(e) && e.traits.some((t) => t.toLowerCase() === 'archetype') && !dedications.has(archetypeOf(e)))
+  const dedications = new Set(info.flatMap(({ e }) => e && isDedication(e) ? archetypesOf(e) : []))
+  return info.filter(({ f, e }) => e && !isDedication(e) && archetypesOf(e).length
+    && (e.traits.some((t) => t.toLowerCase() === 'archetype') || f.slot?.startsWith('archetype:'))
+    && !archetypesOf(e).some((name) => dedications.has(name)))
     .map(({ f }) => f)
 }
 
@@ -298,6 +306,20 @@ function featIndex(entries: ContentEntry[]) {
   return index
 }
 
+export function featSelectionLevel(entry: ContentEntry, c: Character, entries: ContentEntry[], category: FeatSlotCategory) {
+  if (category !== 'archetype' || typeof entry.data.archetype_levels !== 'string') return entry.level
+  const dedications = new Set(c.feats.flatMap((feat) => {
+    const content = featByName(entries).get(feat.name)
+    return isDedication(content) ? archetypesOf(content) : []
+  }))
+  const levels = new Map(entry.data.archetype_levels.split(', ').map((pair) => {
+    const colon = pair.lastIndexOf(':')
+    return [pair.slice(0, colon), Number(pair.slice(colon + 1))] as const
+  }))
+  const available = archetypesOf(entry).filter((name) => dedications.has(name)).map((name) => levels.get(name) ?? entry.level)
+  return available.length ? Math.min(...available) : entry.level
+}
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
@@ -305,17 +327,28 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const trait = wanted[slot.category]?.toLowerCase()
   if (slot.category !== 'bonus' && !trait) return []
   const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
-  const archetypeAllowed = archetypeRule(c, entries, slot.key)
+  const archetypeAllowed = archetypeRule(c, entries, slot.key, slot.category === 'archetype')
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const orderExplorerOk = availableOrders(c).length > 0
   return featIndex(entries)
-    .filter(({ entry: e, traits }) => e.level <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
-      && (!trait || traits.has(trait))
+    .filter(({ entry: e, traits }) => featSelectionLevel(e, c, entries, slot.category) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
+      && (!trait || traits.has(trait) || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (!taken.has(e.name) || (e.data.repeatable === true || /^Specialized Companion/.test(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key) && c.feats.filter((f) => f.slot !== slot.key && f.name === e.name).length < (/^Specialized Companion/.test(e.name) ? 3 : Infinity))
       && archetypeAllowed(e))
     .map(({ entry }) => entry)
+}
+
+export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string): string[] | undefined {
+  const index = c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Order Explorer') return availableOrders(c, index)
+  if (name === 'Order Magic') return orderMagicOptions(c, index)
+  if (name === 'Canny Acumen') return [...CANNY_STATS]
+  if (hasWardenChoice({ name }) && c.systems.includes('pf2e')) {
+    const selected = new Set(c.feats.flatMap((feat) => feat.slot !== slotKey && hasWardenChoice(feat) && feat.choice ? [feat.choice] : []))
+    return wardenSpellOptions({ name }, entries).map((spell) => spell.name).filter((choice) => !selected.has(choice))
+  }
 }
 
 // ---------- Class features ----------
@@ -386,6 +419,10 @@ export function featureRanks(features: ContentEntry[]) {
 // ---------- Skills & proficiencies ----------
 
 export const CANNY_STATS = ['Fortitude', 'Perception', 'Reflex', 'Will']
+export function cannyAcumenOptions(c: Character, entries: ContentEntry[]) {
+  const ranks = ranksAt({ ...c, feats: c.feats.filter((feat) => feat.name !== 'Canny Acumen') }, entries)
+  return CANNY_STATS.filter((stat) => (ranks[stat] ?? 0) < (c.level >= 17 ? 3 : 2))
+}
 
 const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === name)
 
@@ -616,7 +653,7 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
   const resilient = wornArmor(c)?.resilient ?? 0
   const save = (name: string, ability: Ability) =>
-    abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? 0 : resilient)
+    abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? perceptionItemBonus(c) : resilient)
   return {
     perception: save('Perception', 'wis'),
     ac: armorClass(c, entries),
@@ -678,6 +715,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
 }
 
 export const wornArmor = (c: Character): OwnedArmor | undefined => c.armors?.find((a) => a.worn)
+export const perceptionItemBonus = (c: Character) => Math.max(0, ...(wornArmor(c)?.runes ?? []).map((rune) => {
+  const name = runeName(rune)
+  return name === 'Sunweave' ? 1 : name === 'Sunweave (Greater)' ? 2 : name === 'Sunweave (Major)' ? 3 : 0
+}))
 
 const armorCategory_ = (e: ContentEntry) => armorCategory(e).toLowerCase()
 
@@ -726,10 +767,13 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
   const haftStriker = isLockedWeapon(c, HAFT_STRIKER_WEAPON.name)
+  const animalFeature = isSpellActive(c, entries, 'Animal Feature')
+  const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
-    && (weapon.id !== HAFT_STRIKER_WEAPON.id || haftStriker))
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : [])]) {
+    && (weapon.id !== HAFT_STRIKER_WEAPON.id || haftStriker)
+    && (animalFeature || !animalAttacks.some((entry) => entry.name === weapon.name)))
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(animalFeature ? animalAttacks : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -743,7 +787,14 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   return available
 }
 
-export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name].includes(name)
+export function isSpellActive(c: Character, entries: ContentEntry[], name: string) {
+  return !!c.activeSpells?.includes(name) && (
+    c.spells?.some((spell) => spell.name === name)
+    || c.feats.some((feat) => hasWardenChoice(feat) && feat.choice === name)
+    || focusSpells(c, entries).spells.some((spell) => spell.name === name))
+}
+
+export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
 export const isLockedWeapon = (c: Character, name: string) => isAutomaticUnarmed(name)
   || name === HAFT_STRIKER_WEAPON.name && c.feats.some((feat) => feat.name === HAFT_STRIKER_WEAPON.name)
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
@@ -806,38 +857,59 @@ const FALLBACK_RUNE_USAGE: Record<string, string> = {
   Unholy: "etched into a weapon that isn't holy",
 }
 
-export function eligibleWeaponRunes(entries: ContentEntry[], weapon: OwnedWeapon) {
+const runeBaseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
+
+export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, rune: string) {
   const entry = weaponEntry(entries, weapon.name)
   const traits = (entry?.traits ?? []).map((trait) => trait.toLowerCase())
   const damage = `${weaponDamage(entry)} ${entry?.data.damage_type ?? ''} ${traits.filter((trait) => /^(versatile|modular)\b/.test(trait)).join(' ')}`.toLowerCase()
-  const baseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
-  return propertyRunes(entries, 'Weapon').filter((rune) => {
-    const name = baseName(rune.name)
-    if (weapon.runes.some((existing) => baseName(existing) === name)) return false
-    const content = entries.find((candidate) => candidate.kind === 'item'
-      && candidate.data.item_subcategory === 'Weapon Property Runes' && runeName(candidate.name) === rune.name)
-    const usage = String(content?.data.usage ?? FALLBACK_RUNE_USAGE[name] ?? 'etched onto a weapon').toLowerCase().replace(/\s+/g, ' ')
-    if (name === 'Shifting' && weaponCategory(entry) === 'Unarmed') return false
-    if (/\bmelee\b/.test(usage) && (!entry || isRanged(entry))) return false
-    if (/\branged\b/.test(usage) && !isRanged(entry)) return false
-    if (/\bthrown\b/.test(usage) && !traits.some((trait) => /^thrown\b/.test(trait))) return false
-    const damageTypes = [...usage.matchAll(/\b(bludgeoning|piercing|slashing)\b/g)].map((match) => match[1])
-    if (damageTypes.length && !damageTypes.some((type) =>
-      new RegExp(`\\b(?:${type}|${type[0]})\\b`, 'i').test(damage))) return false
-    if (/parry trait/.test(usage) && !traits.includes('parry')) return false
-    if (/monk trait/.test(usage) && !traits.includes('monk')) return false
-    if (/clan dagger/.test(usage) && entry?.name.toLowerCase() !== 'clan dagger') return false
-    if (/isn't (unholy|holy)/.test(usage)) {
-      const forbidden = /isn't (unholy|holy)/.exec(usage)![1]
-      if (traits.includes(forbidden) || weapon.runes.some((existing) => baseName(existing).toLowerCase() === forbidden)) return false
-    }
-    if (/without a disrupting rune/.test(usage) && weapon.runes.some((existing) => baseName(existing) === 'Disrupting')) return false
-    if (weapon.runes.some((existing) => {
-      const existingEntry = entries.find((candidate) => candidate.kind === 'item' && runeName(candidate.name) === runeName(existing))
-      return String(existingEntry?.data.usage).toLowerCase().replace(/\s+/g, ' ').includes(`without a ${name.toLowerCase()} rune`)
-    })) return false
-    return true
-  })
+  const name = runeBaseName(rune)
+  const content = entries.find((candidate) => candidate.kind === 'item'
+    && candidate.data.item_subcategory === 'Weapon Property Runes' && runeName(candidate.name) === runeName(rune))
+  const usage = String(content?.data.usage ?? FALLBACK_RUNE_USAGE[name] ?? 'etched onto a weapon').toLowerCase().replace(/\s+/g, ' ')
+  if (name === 'Shifting' && weaponCategory(entry) === 'Unarmed') return false
+  if (/\bmelee\b/.test(usage) && (!entry || isRanged(entry))) return false
+  if (/\branged\b/.test(usage) && !isRanged(entry)) return false
+  if (/\bthrown\b/.test(usage) && !traits.some((trait) => /^thrown\b/.test(trait))) return false
+  const damageTypes = [...usage.matchAll(/\b(bludgeoning|piercing|slashing)\b/g)].map((match) => match[1])
+  if (damageTypes.length && !damageTypes.some((type) =>
+    new RegExp(`\\b(?:${type}|${type[0]})\\b`, 'i').test(damage))) return false
+  if (/parry trait/.test(usage) && !traits.includes('parry')) return false
+  if (/monk trait/.test(usage) && !traits.includes('monk')) return false
+  if (/clan dagger/.test(usage) && entry?.name.toLowerCase() !== 'clan dagger') return false
+  if (/isn't (unholy|holy)/.test(usage)) {
+    const forbidden = /isn't (unholy|holy)/.exec(usage)![1]
+    if (traits.includes(forbidden) || weapon.runes.some((existing) => runeBaseName(existing).toLowerCase() === forbidden)) return false
+  }
+  if (/without a disrupting rune/.test(usage) && weapon.runes.some((existing) => runeBaseName(existing) === 'Disrupting')) return false
+  if (weapon.runes.some((existing) => {
+    const existingEntry = entries.find((candidate) => candidate.kind === 'item' && runeName(candidate.name) === runeName(existing))
+    return String(existingEntry?.data.usage).toLowerCase().replace(/\s+/g, ' ').includes(`without a ${name.toLowerCase()} rune`)
+  })) return false
+  return true
+}
+
+export function eligibleWeaponRunes(entries: ContentEntry[], weapon: OwnedWeapon) {
+  return propertyRunes(entries, 'Weapon').filter((rune) =>
+    !weapon.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune.name))
+    && weaponRuneApplies(entries, weapon, rune.name))
+}
+
+export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
+  const unarmed = [
+    ...SUPPLEMENTAL_WEAPONS.filter((entry) => weaponCategory(entry) === 'Unarmed')
+      .map((entry) => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })),
+    ...ownedWeapons(c, entries).filter((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed'),
+  ]
+  const available = new Set(unarmed.flatMap((weapon) =>
+    eligibleWeaponRunes(entries, { ...weapon, runes: c.handwraps?.runes ?? [] }).map((rune) => rune.name)))
+  return propertyRunes(entries, 'Weapon').filter((rune) => available.has(rune.name))
+}
+
+export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  if (!c.handwraps || weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') return weapon
+  const enhanced = { ...weapon, ...c.handwraps }
+  return { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) }
 }
 
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
@@ -859,6 +931,7 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
 }
 
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
+  w = effectiveWeapon(c, entries, w)
   const entry = weaponEntry(entries, w.name)
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)

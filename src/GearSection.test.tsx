@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { ArmorList, WeaponList } from './GearSection'
 import type { Character, ContentEntry } from './types'
-import { HAFT_STRIKER_WEAPON } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, HAFT_STRIKER_WEAPON, HANDWRAPS } from './supplemental'
 
 const weapon: ContentEntry = {
   id: 'longsword', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Longsword', level: 0,
@@ -144,4 +145,52 @@ it('locks the feat-granted Haft Striker weapon while retaining manual removal wi
   const manual = { ...c, feats: [], weapons: [{ id: 'manual', name: HAFT_STRIKER_WEAPON.name, potency: 0, striking: 0, runes: [] }] }
   expect(renderToStaticMarkup(<WeaponList c={manual} entries={[HAFT_STRIKER_WEAPON]} save={() => {}} />))
     .toContain('aria-label="Remove Haft Striker Stance"')
+})
+
+function findElement(node: ReactNode, matches: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
+  let found: ReactElement<Record<string, unknown>> | undefined
+  Children.forEach(node, (child) => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = matches(child) ? child : findElement(child.props.children as ReactNode, matches)
+  })
+  return found
+}
+
+it('configures shared handwraps without copying inherited runes into stored attacks', () => {
+  let c = character([])
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => WeaponList({ c, entries: [weapon], save })
+  const add = findElement(tree(), (element) => element.type === 'button' && Children.toArray(element.props.children as ReactNode).join('') === `Add ${HANDWRAPS.name}`)
+  if (!add) throw new Error('Missing Add Handwraps button')
+  ;(add.props.onClick as () => void)()
+  const card = findElement(tree(), (element) => element.type === 'details' && element.props['aria-label'] === HANDWRAPS.name)
+  if (!card) throw new Error('Missing handwrap card')
+  const potency = findElement(card, (element) => element.props.label === 'Potency')
+  if (!potency) throw new Error('Missing shared potency control')
+  ;(potency.props.onChange as (value: number) => void)(2)
+  expect(c.handwraps).toEqual({ potency: 2, striking: 0, runes: [] })
+  const sword = findElement(tree(), (element) => element.type === 'details' && element.props['aria-label'] === 'Longsword')
+  const striking = findElement(sword, (element) => element.props.label === 'Striking')
+  if (!striking) throw new Error('Missing sword striking control')
+  ;(striking.props.onChange as (value: number) => void)(2)
+  expect(c.weapons?.find((attack) => attack.name === 'Fist')).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  expect(c.handwraps).toEqual({ potency: 2, striking: 0, runes: [] })
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
+  expect(markup).toContain(`inherited from ${HANDWRAPS.name}`)
+  expect(markup).toContain('<strong>Fist</strong> <small>Attack +14, Damage 1d4 B')
+})
+
+it('shows only compatible inherited runes on buff attacks and no removal controls on those attacks', () => {
+  const c: Character = {
+    ...character([{ name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }]),
+    weapons: [], activeSpells: ['Animal Feature'], handwraps: { potency: 2, striking: 1, runes: ['Wounding', 'Impactful (Greater)'] },
+  }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain(`<strong>${ANIMAL_FEATURE_CLAWS.name}</strong> <small>Attack +14, Damage 2d6 S + 1d6 force, Wounding`)
+  expect(markup).toContain(`<strong>${ANIMAL_FEATURE_JAWS.name}</strong> <small>Attack +14, Damage 2d8 P + 1d6 force, Wounding`)
+  expect(markup).not.toContain(`aria-label="Remove ${ANIMAL_FEATURE_CLAWS.name}"`)
+  expect(markup).not.toContain(`aria-label="Remove ${ANIMAL_FEATURE_JAWS.name}"`)
+  expect(markup.match(/aria-label="Remove Wounding rune"/g)).toHaveLength(1)
+  expect(markup).not.toContain('Granted by Living Weapon')
+  expect(markup).toContain(`title="Inherited from ${HANDWRAPS.name}"`)
 })

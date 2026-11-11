@@ -1,10 +1,10 @@
 import { Fragment } from 'react'
 import { EntryDescription } from './EntryDescription'
-import { eligibleFeats, featByName, featType, homebrewDedication, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
+import { cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
-import type { ContentEntry, FeatSlotCategory } from './types'
+import type { Character, ContentEntry, FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
@@ -20,6 +20,8 @@ const PAGE = 100
 const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
+
+type FeatOption = { entry: ContentEntry; choice?: string; value: string; label: string; disabled?: boolean }
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
@@ -47,22 +49,46 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const category = f.slot.split(':')[0] as FeatSlotCategory
     return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
   })
+  const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
+  const displayName = (name: string) => name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
+  const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
+  const cannyOptions = new Set(cannyAcumenOptions(c, entries))
+  const optionsFor = (entry: ContentEntry, slot: PlannedSlot): FeatOption[] => {
+    const label = actionOptionLabel(displayName(entry.name), entry)
+    const choices = featChoiceOptions(entry.name, c, entries, slot.key)
+    return choices?.length
+      ? choices.map((choice) => {
+        const disabled = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
+        return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${disabled ? ' - no improvement' : ''})` }
+      })
+      : [{ entry, value: entry.name, label }]
+  }
+  const saveFeatChanges = (patch: Partial<Character>) => {
+    const next = { ...c, ...patch }
+    const keys = new Set(plannedSlots({ ...next, dismissedFeatSlots: [] }).map((slot) => slot.key))
+    const feats = next.feats.filter((feat) => !feat.slot || !isGrantedSlot(feat.slot) || keys.has(feat.slot))
+    const remaining = new Set(feats.map((feat) => feat.name))
+    const removed = new Set(c.feats.filter((feat) => !remaining.has(feat.name)).map((feat) => feat.name))
+    const removedIds = new Set(entries.filter((entry) => entry.kind === 'feat' && removed.has(entry.name)).map((entry) => entry.id))
+    const visibleKeys = new Set(plannedSlots({ ...next, feats }).map((slot) => slot.key))
+    save({
+      ...patch, feats, entryIds: next.entryIds.filter((id) => !removedIds.has(id)),
+      dismissedFeatSlots: (next.dismissedFeatSlots ?? []).filter((key) => !visibleKeys.has(key) && (!isGrantedSlot(key) || keys.has(key))),
+    })
+  }
   const choose = (key: string, category: FeatSlotCategory, level: number, name: string) => {
-    const feat = entries.find((e) => e.kind === 'feat' && e.name === name && eligibleFeats(entries, c, allSlots.find((slot) => slot.key === key) ?? { key, category, level }).includes(e))
-    const old = c.feats.find((f) => f.slot === key)
-    const oldId = old && entries.find((e) => e.kind === 'feat' && e.name === old.name)?.id
+    const slot = allSlots.find((slot) => slot.key === key) ?? { key, category, level }
+    const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot)).find((option) => option.value === name && !option.disabled)
     const feats = c.feats.filter((f) => f.slot !== key)
-    const entryIds = c.entryIds.filter((id) => id !== oldId || feats.some((f) => f.name === old?.name))
-    if (feat) {
-      feats.push({ name: feat.name, type: `${LABEL[category]} Feat`, level: feat.level, slot: key })
-      if (!entryIds.includes(feat.id)) entryIds.push(feat.id)
+    const entryIds = [...c.entryIds]
+    if (option) {
+      const { entry, choice } = option
+      feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key, ...(choice ? { choice } : {}) })
+      if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
-    // Dropping a granting feat also drops the feat it granted
-    const orphan = (f: { slot?: string }) => f.slot && isGrantedSlot(f.slot)
-      && !plannedSlots({ ...c, feats }).some((slot) => slot.key === f.slot)
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
     if (category === 'archetype' && name === 'N/A') skippedFeatSlots.push(key)
-    save({ feats: feats.filter((f) => !orphan(f)), entryIds, skippedFeatSlots })
+    saveFeatChanges({ feats, entryIds, skippedFeatSlots })
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
     const index = c.extraSlots.findIndex((slot) => slot.category === category && slot.level === level && slot.count > 0)
@@ -71,22 +97,37 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       i !== index ? [slot] : slot.count > 1 ? [{ ...slot, count: slot.count - 1 }] : [])
     const prefix = `${category}:${level}:`
     const removedIndex = Number(key.slice(prefix.length))
-    const removed = c.feats.filter((feat) => feat.slot === key)
     const feats = c.feats.filter((feat) => feat.slot !== key).map((feat) => {
       if (!feat.slot?.startsWith(prefix)) return feat
       const slotIndex = Number(feat.slot.slice(prefix.length))
       return slotIndex > removedIndex ? { ...feat, slot: `${prefix}${slotIndex - 1}` } : feat
     })
-    const removedIds = new Set(removed.flatMap((feat) => {
-      if (feats.some((remaining) => remaining.name === feat.name)) return []
-      return entries.filter((entry) => entry.kind === 'feat' && entry.name === feat.name).map((entry) => entry.id)
-    }))
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key).map((slot) => {
       if (!slot.startsWith(prefix)) return slot
       const slotIndex = Number(slot.slice(prefix.length))
       return slotIndex > removedIndex ? `${prefix}${slotIndex - 1}` : slot
     })
-    save({ extraSlots, feats, entryIds: c.entryIds.filter((id) => !removedIds.has(id)), skippedFeatSlots })
+    saveFeatChanges({ extraSlots, feats, skippedFeatSlots })
+  }
+  const addSlot = (category: FeatSlotCategory, level: number) => {
+    const dismissed = plannedSlots({ ...c, dismissedFeatSlots: [] }).find((slot) =>
+      slot.category === category && slot.level === level && c.dismissedFeatSlots?.includes(slot.key) && !allSlots.some((visible) => visible.key === slot.key))
+    if (dismissed) save({ dismissedFeatSlots: c.dismissedFeatSlots?.filter((key) => key !== dismissed.key) })
+    else save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
+  }
+  const removeSlot = (slot: PlannedSlot, extra: boolean) => {
+    if (allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
+      choose(slot.key, slot.category, slot.level, '')
+    } else if (extra) {
+      removeExtra(slot.category, slot.level, slot.key)
+    } else {
+      saveFeatChanges({
+        dismissedFeatSlots: [...(c.dismissedFeatSlots ?? []), slot.key],
+        feats: c.feats.filter((feat) => feat.slot !== slot.key),
+        skippedFeatSlots: c.skippedFeatSlots?.filter((key) => key !== slot.key),
+      })
+    }
+    onSearch?.(`${slot.key}:open`, '')
   }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
@@ -98,13 +139,16 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         {backgroundFeats.map((feat) => (
           <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
             <span>Background {featType(feat, c)}</span>
-            <EntryDescription name={feat.name} entry={feat} className="feat-name" />
+            <EntryDescription name={displayName(feat.name)} entry={feat} className="feat-name" />
           </li>
         ))}
         {slots.map((s, index) => {
           const newLevel = index === 0 || slots[index - 1].level !== s.level
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? (c.skippedFeatSlots?.includes(s.key) ? 'N/A' : '')
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
+          const selection = c.feats[featIndex]
+          const selectedName = selection
+            ? `${displayName(selection.name)}${selection.choice ? ` (${choiceLabel(selection.name, selection.choice)})` : ''}` : current
           const currentEntry = featByName(entries).get(current)
           const picksType = s.category === 'archetype'
           const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
@@ -114,13 +158,17 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const lazy = !!onSearch && !open
           const options = lazy ? [] : eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
           const shown = picksType ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
-          const optionsByLevel = new Map<number, typeof options>()
-          for (const option of shown) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
+          const optionsByLevel = new Map<number, FeatOption[]>()
+          for (const option of shown) {
+            const level = featSelectionLevel(option, c, entries, s.category)
+            optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...optionsFor(option, s)])
+          }
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
           const granted = isGrantedSlot(s.key)
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
-          const PickerWrapper = current ? 'details' : 'span'
+          const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
+          const locked = !!homebrewDedication(s.key)
           return (
             <Fragment key={s.key}>
             {!multi && newLevel && <li className="feat-level-heading">Level {String(s.level).padStart(2, '0')}</li>}
@@ -128,11 +176,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
                 <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" />
-              ) : <>
-              {current === 'N/A' ? <span>N/A</span> : current && <EntryDescription name={current} entry={currentEntry} className="feat-name" />}
-              <PickerWrapper className="feat-change">
-              {current && <summary>Change</summary>}
-              {picksType ? (
+              ) : current ? (
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} className="feat-name" />
+              ) : picksType ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} onClick={() => onSearch?.(`${s.key}:open`, '1')}>
                   {current || '- empty -'}
                 </button>
@@ -140,17 +186,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 onFocus={onSearch ? () => onSearch(`${s.key}:open`, '1') : undefined}
                 onBlur={onSearch ? () => onSearch(`${s.key}:open`, '') : undefined} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
-                {current && !options.some((o) => o.name === current) && (
-                  <option value={current}>{actionOptionLabel(current, currentEntry)}</option>
-                )}
-                {[...optionsByLevel].map(([level, levelOptions]) => (
+                {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => (
                   <optgroup key={level} label={`L${String(level).padStart(2, '0')}`}>
-                    {levelOptions.map((option) => <option key={option.id} value={option.name}>{actionOptionLabel(option.name, option)}</option>)}
+                    {levelOptions.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
                   </optgroup>
                 ))}
               </select>}
-              </PickerWrapper>
-              </>}
               {picksType && open && (
                 <div className="feat-modal-backdrop" onClick={() => onSearch?.(`${s.key}:open`, '')}>
                   <div className="feat-modal" role="dialog" aria-label={`${label} feat picker`} onClick={(e) => e.stopPropagation()}>
@@ -163,13 +204,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     <ul className="feat-modal-list">
                       <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>- empty -</button></li>
                       <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>
-                      {[...optionsByLevel].map(([level, levelOptions]) => [
+                      {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => [
                         <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,
                         ...levelOptions.map((option) => (
-                          <li key={option.id}>
-                            <button type="button" aria-label={`${label}: ${option.name}`} className={option.name === current ? 'active' : undefined}
-                              onClick={() => { choose(s.key, s.category, s.level, option.name); onSearch?.(`${s.key}:open`, '') }}>
-                              {actionOptionLabel(option.name, option)}
+                          <li key={option.value}>
+                            <button type="button" aria-label={`${label}: ${option.label}`} disabled={option.disabled} className={option.entry.name === current ? 'active' : undefined}
+                              onClick={() => { choose(s.key, s.category, s.level, option.value); onSearch?.(`${s.key}:open`, '') }}>
+                              {option.label}
                             </button>
                           </li>
                         )),
@@ -182,14 +223,17 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </div>
                 </div>
               )}
-              {featIndex >= 0 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
-              {extra
-                ? <button type="button" aria-label={`Remove ${label} extra feat slot ${s.key.split(':')[2]}`}
-                  onClick={() => removeExtra(s.category, s.level, s.key)}>−</button>
-                : <button type="button" aria-label={`${label} slot is granted by ${granted ? 'a feat' : 'level'}`} title={granted ? 'Granted by a feat' : 'Granted by level'} disabled>−</button>}
+              {featIndex >= 0 && (!selection.choice || featChoiceOptions(selection.name, c, entries, s.key) === undefined)
+                && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
+              <button type="button" aria-label={locked ? `${label} slot is granted by a house rule`
+                : lastSlot ? `Clear ${label} feat selection`
+                : `Remove ${label}${extra ? ' extra' : ''} feat slot ${s.key.split(':')[2]}`}
+                title={locked ? 'Granted by a house rule' : lastSlot ? 'Clear selection' : 'Remove slot'}
+                disabled={locked || lastSlot && !current}
+                onClick={() => removeSlot(s, extra)}>−</button>
               {firstAtLevel && (!granted || !slots.some((o) => o.category === s.category && o.level === s.level && !isGrantedSlot(o.key)))
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
-                  onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>
+                  onClick={() => addSlot(s.category, s.level)}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
             </li>
             </Fragment>
