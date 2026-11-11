@@ -368,3 +368,15 @@ describe('feat grants beyond languages', () => {
     expect(senses(c, [feat])).toEqual([{ value: 'Darkvision', source: 'Wild Hunter Dedication' }])
   })
 })
+
+describe('armor specialization from feats', () => {
+  it('limits Skins of the Slain to its armor groups and categories', () => {
+    const feat = entry('feat', 'Skins Of The Slain', { grants_armor_specialization: 'yes', grants_armor_groups: 'leather, skeletal, wood', grants_armor_categories: 'light, medium' })
+    const groups = ['Leather', 'Chain'].map((n) => ({ ...entry('armorGroup', n), description: `${n} effect.` }))
+    const armors = [entry('armor', 'Leather Armor', { armor_group: 'Leather', armor_category: 'Light' }), entry('armor', 'Chain Mail', { armor_group: 'Chain', armor_category: 'Medium' })]
+    const wear = (name: string) => ({ ...base, feats: [{ name: feat.name, type: 'Archetype Feat', level: 10 }], armors: [{ id: 'a', name, worn: true, potency: 0, resilient: 0, runes: [] }] }) as Character
+    const all = [feat, ...groups, ...armors]
+    expect(armorSpecialization(wear('Leather Armor'), all)?.group).toBe('Leather')
+    expect(armorSpecialization(wear('Chain Mail'), all)).toBeUndefined()
+  })
+})

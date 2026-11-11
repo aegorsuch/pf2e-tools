@@ -37,7 +37,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       return compareFeatSelections(aFeat, bFeat)
     })
   const section = categories?.join(',') ?? 'all'
-  const q = (search[section] ?? '').trim().toLowerCase()
+  const q = (search['*'] ?? '').trim().toLowerCase()
   const type = search[`${section}:type`] || 'all'
   const matches = (o: ContentEntry) => !q || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(q))
   const matchesType = (o: ContentEntry) => type === 'all' || type === 'dedication' === o.traits.some((t) => /^dedication$/i.test(t))
@@ -86,17 +86,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
-      <div className="feat-filters">
-        <input type="search" className="feat-search" placeholder="Search feats" aria-label={`${title} search`}
-          value={search[section] ?? ''} onChange={(e) => onSearch?.(section, e.target.value)} />
-        {categories?.includes('archetype') && (
-          <select aria-label="Archetype feat filter" value={type} onChange={(e) => onSearch?.(`${section}:type`, e.target.value)}>
-            <option value="all">All</option>
-            <option value="archetype">Archetype feats</option>
-            <option value="dedication">Dedication feats</option>
-          </select>
-        )}
-      </div>
+      {categories?.includes('archetype') && <div className="feat-filters">
+        <select aria-label="Archetype feat filter" value={type} onChange={(e) => onSearch?.(`${section}:type`, e.target.value)}>
+          <option value="all">All</option>
+          <option value="archetype">Archetype feats</option>
+          <option value="dedication">Dedication feats</option>
+        </select>
+      </div>}
       <ul className="feat-slot-list">
         {backgroundFeats.map((feat) => (
           <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>

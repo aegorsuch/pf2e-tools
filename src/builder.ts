@@ -482,12 +482,22 @@ const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
 
 // Armor specialization comes from class features and feats that mention it; its effect depends on the worn armor's group
 export function armorSpecialization(c: Character, entries: ContentEntry[]) {
-  const has = classFeatures(entries, c).some((f) => /armor specialization/i.test(`${f.name} ${f.description}`))
-    || c.feats.some((f) => { const e = byName(entries, 'feat', f.name); return /armor specialization/i.test(f.name) || e?.data.grants_armor_specialization })
   const worn = wornArmor(c)
-  if (!has || !worn) return undefined
-  const groups = tokens(byName(entries, 'armor', worn.name)?.data.armor_group)
-  const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && e.name.toLowerCase() === g.toLowerCase())).find(Boolean)
+  if (!worn) return undefined
+  const armor = byName(entries, 'armor', worn.name)
+  const groups = tokens(armor?.data.armor_group).map((g) => g.toLowerCase())
+  const category = String(armor?.data.armor_category ?? '').toLowerCase()
+  // Class features apply to every group; feats may limit it to named groups and armor categories
+  const anyGroup = classFeatures(entries, c).some((f) => /armor specialization/i.test(`${f.name} ${f.description}`))
+  const fromFeat = c.feats.some((f) => {
+    const e = byName(entries, 'feat', f.name)
+    if (!e?.data.grants_armor_specialization && !/armor specialization/i.test(f.name)) return false
+    const allowed = tokens(e?.data.grants_armor_groups).map((g) => g.toLowerCase())
+    const categories = tokens(e?.data.grants_armor_categories).map((g) => g.toLowerCase())
+    return (!allowed.length || groups.some((g) => allowed.includes(g))) && (!categories.length || categories.includes(category))
+  })
+  if (!anyGroup && !fromFeat) return undefined
+  const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && e.name.toLowerCase() === g)).find(Boolean)
   return group ? { group: group.name, armor: worn.name, effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, '') } : undefined
 }
 
