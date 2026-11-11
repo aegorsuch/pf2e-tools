@@ -31,7 +31,8 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       .slice(0, 40)
   }, [entries, selectedTradition])
 
-  const mod = casting && sc ? abilityMod(c.abilities[casting.ability ?? sc.ability]) + proficiencyBonus(casting.rank, c.level) : 0
+  const castAbility = casting?.ability ?? sc?.ability
+  const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
     const entry = entries.find((e) => e.kind === 'spell' && (entryId ? e.id === entryId : e.name === name))
     return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
@@ -71,7 +72,10 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${['Untrained', 'Trained', 'Expert', 'Master', 'Legendary'][casting.rank]}`}>
           {['T', 'E', 'M', 'L'].map((letter, i) => <button key={letter} type="button" tabIndex={-1} disabled className={casting.rank >= i + 1 ? 'on' : ''}>{letter}</button>)}
         </span>
-        {sc && <b>Attack {signed(mod)} | DC {10 + mod}</b>}
+        {(sc || casting.ability) && <>
+          <span className="skill-part"><small>Spell attack</small><b>{signed(mod)}</b></span>
+          <span className="skill-part"><small>Spell DC</small><b>{10 + mod}</b></span>
+        </>}
       </div>
       {sc && (
         <div className="row">
