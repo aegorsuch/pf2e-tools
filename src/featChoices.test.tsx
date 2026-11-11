@@ -178,7 +178,8 @@ it('shows spell DC proficiency but no spell slots for focus-only casters', () =>
     spell('Gravity Weapon', 'Initiate'),
   ]
   const markup = renderToStaticMarkup(<SpellsSection c={ranger} entries={classes} save={() => {}} />)
-  expect(markup).toContain('Casting ability: Wisdom')
+  expect(markup).not.toContain('Casting ability: Wisdom')
+  expect(markup).toContain('<small>Wisdom</small>')
   expect(markup).toContain('DC 13 <small>(Attack +3)</small>')
   expect(markup).toContain('Spellcasting proficiency: Trained')
   expect(markup).toContain('Gravity Weapon')

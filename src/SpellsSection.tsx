@@ -70,7 +70,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       <div className="character-section-content">
       {casting && <>
       <div className="row">
-        {casting.ability ? <b>Casting ability: {ABILITY_LABEL[casting.ability]}</b> : <label>Casting ability{' '}
+        {!casting.ability && <label>Casting ability{' '}
           <select value={sc?.ability ?? ''} onChange={(e) => setSc({ ability: e.target.value as never })}>
             <option value="">none</option>
             {ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
