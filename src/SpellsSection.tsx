@@ -68,6 +68,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
             </label>}
         {traditions.length === 1 && <b>{traditions[0]} tradition</b>}
         <b>Spellcasting {['Untrained', 'Trained', 'Expert', 'Master', 'Legendary'][casting.rank]}</b>
+        <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${['Untrained', 'Trained', 'Expert', 'Master', 'Legendary'][casting.rank]}`}>
+          {['T', 'E', 'M', 'L'].map((letter, i) => <button key={letter} type="button" tabIndex={-1} disabled className={casting.rank >= i + 1 ? 'on' : ''}>{letter}</button>)}
+        </span>
         {sc && <b>Attack {signed(mod)} | DC {10 + mod}</b>}
       </div>
       {sc && (
