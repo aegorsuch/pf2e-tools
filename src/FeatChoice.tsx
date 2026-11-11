@@ -1,5 +1,5 @@
 import { hasWardenChoice, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, DRUID_ORDERS, availableOrders } from './builder'
+import { CANNY_STATS, availableOrders } from './builder'
 import type { SectionProps } from './builder'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
@@ -26,7 +26,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
         }}>
           <option value="">Choose order…</option>
-          {availableOrders(c, index).map((o) => <option key={o} value={o}>{o} ({DRUID_ORDERS[o]})</option>)}
+          {availableOrders(c, index).map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       </label>
     )
