@@ -414,8 +414,8 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     }
   }
   for (const rune of wornArmor(c)?.runes ?? []) {
-    const m = /^(\w+) Resistant$/.exec(rune)
-    if (m) out.push({ damage: m[1], value: 5, source: `${rune} rune` })
+    const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune) ?? /^()(\w+) Resistant$/.exec(rune)
+    if (m) out.push({ damage: m[2], value: m[1] ? 10 : 5, source: `${rune} rune` })
   }
   return out.map((r) => ({ ...r, damage: cap(r.damage) }))
 }
@@ -489,6 +489,22 @@ export const ARMOR_PROPERTY_RUNES = [
   'Acid Resistant', 'Cold Resistant', 'Electricity Resistant', 'Fire Resistant', 'Fortification', 'Glamered',
   'Invisibility', 'Magnetic', 'Malleable', 'Ready', 'Shadow', 'Sinister Knight', 'Slick', 'Winged',
 ]
+const ENERGY_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire']
+// Property runes come from the synced AoN content (all grades); the built-in lists are the fallback until it has loaded.
+// Energy-Resistant needs a damage type chosen when crafted, so each type gets its own option.
+export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
+  const names = [...new Set(entries
+    .filter((e) => e.kind === 'item' && e.data.item_subcategory === `${kind} Property Runes`)
+    .map((e) => e.name))]
+  if (!names.length) return kind === 'Armor' ? ARMOR_PROPERTY_RUNES : WEAPON_PROPERTY_RUNES
+  return names
+    .flatMap((n) => {
+      const m = /^Energy-Resistant( \(Greater\))?$/.exec(n)
+      return m ? ENERGY_TYPES.map((t) => `Energy-Resistant${m[1] ?? ''}: ${t}`) : [n]
+    })
+    .sort((a, b) => a.localeCompare(b))
+}
+
 export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
 
 const WEAPON_CATEGORIES = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const

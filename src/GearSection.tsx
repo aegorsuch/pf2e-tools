@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ARMOR_PROPERTY_RUNES, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, WEAPON_PROPERTY_RUNES, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
+  propertyRunes, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, armorClass, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory,
   type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -159,7 +159,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <Level label="Striking" value={w.striking} options={POTENCY} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />
             </div>
-            <Runes runes={w.runes} options={WEAPON_PROPERTY_RUNES} limit={maxPropertyRunes(w.potency)} onChange={(runes) => update(w.id, { runes })} />
+            <Runes runes={w.runes} options={propertyRunes(entries, 'Weapon')} limit={maxPropertyRunes(w.potency)} onChange={(runes) => update(w.id, { runes })} />
             <div className="row">
               <button type="button" aria-pressed={!!w.stowed} onClick={() => update(w.id, { stowed: !w.stowed })}>{w.stowed ? 'Draw' : 'Stow'}</button>
               <button type="button" onClick={() => save({ weapons: weapons.filter((x) => x.id !== w.id) })}>Remove</button>
@@ -204,7 +204,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
               <Level label="Resilient" value={a.resilient} options={POTENCY} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />
             </div>
-            <Runes runes={a.runes} options={ARMOR_PROPERTY_RUNES} limit={maxPropertyRunes(a.potency)} onChange={(runes) => update(a.id, { runes })} />
+            <Runes runes={a.runes} options={propertyRunes(entries, 'Armor')} limit={maxPropertyRunes(a.potency)} onChange={(runes) => update(a.id, { runes })} />
             <button type="button" onClick={() => save({ armors: armors.filter((x) => x.id !== a.id) })}>Remove</button>
           </article>
         )
