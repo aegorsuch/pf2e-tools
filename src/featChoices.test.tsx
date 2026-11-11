@@ -188,13 +188,13 @@ it('alphabetizes repeated feat selections by choice, leaving unchosen copies las
 })
 
 it('allows a text choice for other repeatable feats without granting an unrelated spell', () => {
-  let c: Character = { ...base, feats: [{ name: 'Order Explorer', type: 'Class Feat', level: 2 }] }
+  let c: Character = { ...base, feats: [{ name: 'Weapon Specialization Tweak', type: 'Class Feat', level: 2 }] }
   const feat: ContentEntry = {
-    id: 'order', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Order Explorer', level: 2,
+    id: 'order', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Weapon Specialization Tweak', level: 2,
     traits: ['Druid'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
   }
   const tree = FeatChoice({ c, entries: [feat], index: 0, save: (patch) => { c = { ...c, ...patch } } })
-  expect(renderToStaticMarkup(tree)).toContain('Order Explorer choice')
+  expect(renderToStaticMarkup(tree)).toContain('Weapon Specialization Tweak choice')
   if (!isValidElement<{ children: ReactNode }>(tree)) throw new Error('Missing choice field')
   const field = Children.toArray(tree.props.children).find((child) => isValidElement(child) && child.type === 'input')
   if (!isValidElement<{ onBlur: (event: { target: { value: string } }) => void }>(field)) throw new Error('Missing choice input')

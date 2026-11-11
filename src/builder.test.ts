@@ -277,3 +277,11 @@ describe('class skill choice', () => {
     expect(ranksAt(c, [fighter]).Acrobatics ?? 0).toBe(0)
   })
 })
+
+describe('Order Explorer', () => {
+  it('trains the second order skill', () => {
+    const druid = entry('class', 'Druid', { skill_proficiency: 'Trained in Nature' })
+    const c = { ...base, className: 'Druid', order: 'Animal', feats: [{ name: 'Order Explorer', type: 'class', level: 2, choice: 'Storm' }] }
+    expect(ranksAt(c, [druid])).toMatchObject({ Athletics: 1, Acrobatics: 1 })
+  })
+})

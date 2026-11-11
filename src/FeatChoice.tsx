@@ -1,9 +1,23 @@
 import { hasWardenChoice, wardenSpellOptions } from './featChoices'
+import { DRUID_ORDERS } from './builder'
 import type { SectionProps } from './builder'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === 'Order Explorer') {
+    return (
+      <label className="feat-choice">
+        <select aria-label="Order Explorer order" value={feat.choice ?? ''} onChange={(e) => {
+          const choice = e.target.value || undefined
+          save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+        }}>
+          <option value="">Choose order…</option>
+          {Object.entries(DRUID_ORDERS).filter(([o]) => o !== c.order).map(([o, skill]) => <option key={o} value={o}>{o} ({skill})</option>)}
+        </select>
+      </label>
+    )
+  }
   const isWarden = hasWardenChoice(feat) && c.systems.includes('pf2e')
   const repeatable = entries.some((entry) => entry.kind === 'feat' && entry.name === feat.name && entry.data.repeatable === true)
   if (!isWarden && !repeatable) return null
