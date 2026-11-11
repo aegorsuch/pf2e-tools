@@ -132,27 +132,17 @@ function Level({ label, value, options, format, onChange }: {
 export function WeaponList({ c, entries, save }: SectionProps) {
   const weapons = ownedWeapons(c, entries)
   const update = (id: string, patch: Partial<OwnedWeapon>) => save({ weapons: weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)) })
-  const move = (i: number, d: number) => {
-    const next = [...weapons]
-    const j = i + d
-    if (j < 0 || j >= next.length) return
-    ;[next[i], next[j]] = [next[j], next[i]]
-    save({ weapons: next })
-  }
+  const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   return (
     <div className="col gear-list">
       <Search entries={entries} kind="weapon" label="Add Weapon"
         onPick={(e) => save({ weapons: [...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }] })} />
-      {weapons.map((w, i) => {
+      {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
         return (
           <article key={w.id} className="gear-card">
             <header className="row">
-              <strong>{[w.potency ? `+${w.potency}` : '', STRIKING_LABEL[w.striking], w.name].filter(Boolean).join(' ')}</strong>
-              <span className="character-actions">
-                <button type="button" aria-label="Move up" onClick={() => move(i, -1)}>↑</button>
-                <button type="button" aria-label="Move down" onClick={() => move(i, 1)}>↓</button>
-              </span>
+              <strong>{w.name}</strong>
             </header>
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
@@ -190,12 +180,12 @@ export function ArmorList({ c, entries, save }: SectionProps) {
     <div className="col gear-list">
       <Search entries={entries} kind="armor" label="Add Armor"
         onPick={(e) => save({ armors: [...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }] })} />
-      {armors.map((a) => {
+      {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
         const entry = entries.find((e) => e.kind === 'armor' && e.name === a.name)
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
-              <strong>{[a.potency ? `+${a.potency}` : '', a.resilient ? ['', 'Resilient', 'Greater Resilient', 'Major Resilient'][a.resilient] : '', a.name].filter(Boolean).join(' ')}</strong>
+              <strong>{a.name}</strong>
               <label><input type="checkbox" checked={a.worn}
                 onChange={(e) => save({ armors: armors.map((x) => ({ ...x, worn: x.id === a.id ? e.target.checked : e.target.checked ? false : x.worn })) })} /> Worn</label>
             </header>
