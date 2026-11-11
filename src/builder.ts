@@ -257,6 +257,13 @@ function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string) {
   }
 }
 
+// Feats sitting in a slot that no longer exists at the current level (e.g. a Free Archetype slot taken over by a
+// house rule). Slots above the character's level are kept so lowering the level is reversible.
+export function unslottedFeats(c: Character) {
+  const keys = new Set(plannedSlots(c).map((s) => s.key))
+  return c.feats.filter((f) => f.slot && !keys.has(f.slot) && Number(f.slot.split(':')[1]) <= c.level)
+}
+
 // Archetype feats whose archetype's Dedication isn't taken (e.g. the Dedication was removed or never picked)
 export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
   const info = c.feats.map((f) => ({ f, e: byName(entries, 'feat', f.name) }))

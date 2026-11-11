@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorSpecialization, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -189,6 +189,16 @@ describe('defenses', () => {
     const feat = (name: string) => ({ name, type: 'Skill Feat', level: 4 })
     expect(orphanedArchetypeFeats({ ...base, feats: [feat('Scholastic Identification')] }, data).map((f) => f.name)).toEqual(['Scholastic Identification'])
     expect(orphanedArchetypeFeats({ ...base, feats: [feat('Archaeologist Dedication'), feat('Scholastic Identification')] }, data)).toEqual([])
+  })
+
+  it('finds feats stranded in slots that no longer exist', () => {
+    updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
+    const ranger = { ...base, className: 'Ranger', level: 2 }
+    const stranded = { name: 'Archaeologist Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }
+    expect(unslottedFeats({ ...ranger, feats: [stranded] })).toEqual([stranded])
+    expect(unslottedFeats({ ...ranger, level: 1, feats: [stranded] })).toEqual([])
+    updateSettings({ rangerSnarecrafter: false })
+    expect(unslottedFeats({ ...ranger, feats: [stranded] })).toEqual([])
   })
 
   it('applies Fleet, Incredible Initiative and Canny Acumen', () => {

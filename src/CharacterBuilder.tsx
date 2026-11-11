@@ -2,7 +2,7 @@ import { Info } from './Info'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats } from './builder'
+import { DRUID_ORDERS, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { ActionIcon } from './ActionIcon'
@@ -88,7 +88,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const wanted = activeHomebrewDedications(c)
   const missing = wanted.filter((d) => !c.feats.some((f) => f.slot === d.slot) && entries.some((e) => e.kind === 'feat' && e.name === d.name))
   const stale = c.feats.filter((f) => homebrewDedication(f.slot ?? '') && !wanted.some((d) => d.slot === f.slot))
-  const orphaned = orphanedArchetypeFeats(c, entries)
+  const unslotted = unslottedFeats(c)
+  const orphaned = [...unslotted, ...orphanedArchetypeFeats({ ...c, feats: c.feats.filter((f) => !unslotted.includes(f)) }, entries)]
   useEffect(() => {
     if (orphaned.length) {
       const feats = c.feats.filter((f) => !orphaned.includes(f))
