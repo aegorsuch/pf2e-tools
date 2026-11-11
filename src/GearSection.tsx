@@ -172,9 +172,11 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const freeShifting = canUseLivingWeapon && w.livingWeapon && !w.runes.includes('Shifting')
         const damageRunes = w.runes.filter((rune) => rune !== 'Shifting').sort((x, y) => x.localeCompare(y))
           .map((rune) => /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force' : rune)
+        const damage = a.damage ? `${a.damage}${damageRunes.length > 0 ? ` + ${damageRunes.join(', ')}` : ''}` : ''
+        const compactDamage = damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
         return (
           <details key={w.id} className="gear-card" open>
-            <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}</small></summary>
+            <summary><strong>{w.name}</strong> <small>Attack {signed(a.attack)}{damage && `, Damage ${compactDamage}`}</small></summary>
             {entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description && <Info label="Summary">{entries.find((e) => e.kind === 'weapon' && e.name === w.name)?.description}</Info>}
             {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             <div className="gear-stats">
@@ -184,7 +186,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <span><small>Proficiency</small>{signed(a.prof)}</span>
               <span><small>Item</small>{signed(a.item)}</span>
             </div>
-            {a.damage && <div className="gear-damage">{a.damage}{damageRunes.length > 0 && ` + ${damageRunes.join(', ')}`}</div>}
+            {damage && <div className="gear-damage">{damage}</div>}
             <div className="row">
               <Level label="Potency" value={w.potency} options={POTENCY} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(w.id, { potency, runes: w.runes.slice(0, maxPropertyRunes(potency)) })} />

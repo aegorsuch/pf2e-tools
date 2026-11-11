@@ -95,3 +95,20 @@ it('provides graded rune descriptions and AoN links separately from removal', ()
   expect(markup).toContain('href="https://2e.aonprd.com/Equipment.aspx?ID=1062"')
   expect(markup).toContain('method="dialog"')
 })
+
+it('shows attack and compact damage including rune damage in the weapon summary', () => {
+  const c = character([])
+  c.level = 20
+  c.abilities.str = 18
+  c.weapons![0] = { ...c.weapons![0], name: "Dancer's Spear", striking: 3, runes: ['Shifting', 'Impactful (Greater)'] }
+  const spear: ContentEntry = { ...weapon, name: "Dancer's Spear", data: { weapon_category: 'Martial', damage: '1d6 piercing' } }
+  const fighter: ContentEntry = {
+    ...weapon, id: 'fighter', kind: 'class', name: 'Fighter',
+    data: { attack_proficiency: 'Legendary in martial weapons' },
+  }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[spear, fighter]} save={() => {}} />)
+  const summary = /<summary>(.*?)<\/summary>/.exec(markup)?.[1]
+  expect(summary).toContain('Attack +35, Damage 4d6+4 P + 1d6 force')
+  expect(summary).not.toContain('Shifting')
+  expect(markup).toContain('<div class="gear-damage">4d6+4 piercing + 1d6 force</div>')
+})
