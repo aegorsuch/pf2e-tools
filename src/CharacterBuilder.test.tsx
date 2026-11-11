@@ -14,7 +14,7 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
     .map((match) => match[1])
   expect(headings).toEqual([
     'Ability Scores', 'Ancestry', 'Background', 'Class', 'Dedications', 'Defense', 'Deity', 'Equipment',
-    'General Feats', 'Languages', 'Offense', 'Skill Feats', 'Skills', 'Spells',
+    'General Feats', 'Languages', 'Minions', 'Offense', 'Skill Feats', 'Skills', 'Spells',
   ])
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
   expect(markup).not.toContain('Other Feat Slots')

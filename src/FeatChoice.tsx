@@ -1,6 +1,7 @@
 import { hasWardenChoice, wardenSpellOptions } from './featChoices'
 import { CANNY_STATS, availableOrders, orderMagicOptions } from './builder'
 import type { SectionProps } from './builder'
+import { ADVANCED_TYPES, specializationOptions } from './companions'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
@@ -28,6 +29,21 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         }}>
           <option value="">Choose order…</option>
           {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}
+          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </label>
+    )
+  }
+  if (feat.name.startsWith('Incredible Companion') || feat.name.startsWith('Specialized Companion')) {
+    const special = feat.name.startsWith('Specialized')
+    const options: string[] = special ? specializationOptions(c, entries, index) : [...ADVANCED_TYPES]
+    return (
+      <label className="feat-choice">
+        <select aria-label={special ? 'Companion specialization' : 'Companion advancement'} value={feat.choice ?? ''} onChange={(e) => {
+          const choice = e.target.value || undefined
+          save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+        }}>
+          <option value="">{special ? 'Choose specialization…' : 'Choose nimble or savage…'}</option>
           {options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       </label>

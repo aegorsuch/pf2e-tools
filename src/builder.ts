@@ -16,7 +16,7 @@ const num = (v: unknown) => (typeof v === 'number' ? v : Number.isFinite(parseFl
 
 // O(1) lookups: the content list has tens of thousands of entries and these run many times per render
 const nameCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
-const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name?: string) => {
+export const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name?: string) => {
   if (!name) return undefined
   let map = nameCache.get(entries)
   if (!map) {
@@ -305,7 +305,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (!trait || traits.has(trait))
       && !(generalOnly && traits.has('skill'))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
-      && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key))
+      && (!taken.has(e.name) || (e.data.repeatable === true || /^Specialized Companion/.test(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key) && c.feats.filter((f) => f.slot !== slot.key && f.name === e.name).length < (/^Specialized Companion/.test(e.name) ? 3 : Infinity))
       && archetypeAllowed(e))
     .map(({ entry }) => entry)
 }

@@ -2,6 +2,7 @@ export type GameSystem = 'pf2e' | 'sf2e'
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
+  | 'companion' | 'companionSpec' | 'companionAdv'
 export type Source = 'official' | 'homebrew'
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
@@ -108,6 +109,8 @@ export interface Character {
   rankOverrides?: Record<string, number>
   spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
+  // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
+  companions?: { id: string; name: string; type: string }[]
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]
   updatedAt: number

@@ -29,7 +29,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   }
   if (kind === 'feat') {
     const special = /\*\*Special\*\*\s*([^\n]*)/i.exec(text(s.markdown))?.[1] ?? ''
-    data.repeatable = /\b(?:take|select|choose) this (?:ancestry |class |skill |general )?feat (?:multiple times|more than once)\b/i.test(special)
+    data.repeatable = /\b(?:take|select|choose) this (?:ancestry |class |skill |general )?feat (?:multiple times|more than once|up to \w+ times)\b/i.test(special)
   }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land
@@ -46,7 +46,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: (kind === 'classFeature' || kind === 'armorGroup') && text(s.markdown) ? plain(text(s.markdown)) : text(s.summary),
+    description: (kind === 'classFeature' || kind === 'armorGroup' || kind === 'companionSpec' || kind === 'companionAdv') && text(s.markdown) ? plain(text(s.markdown)) : text(s.summary),
     data,
     effects: [],
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync

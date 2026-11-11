@@ -9,6 +9,7 @@ import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
+import { MinionsSection } from './MinionsSection'
 import { db } from './db'
 import type { Character, ContentEntry, EntryKind } from './types'
 
@@ -290,6 +291,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <LanguagesSection {...section} />
         </div>
       </details>
+      <MinionsSection {...section} />
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Offense</strong>
