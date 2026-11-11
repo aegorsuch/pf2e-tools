@@ -249,6 +249,15 @@
   padding-top: 12px;
 }
 
+.feat-level-heading {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 8px;
+  font-weight: 600;
+}
+
+.feat-level-heading:first-child { border-top: 0; margin-top: 0; }
+
 .feat-slot-row {
   display: flex;
   align-items: center;

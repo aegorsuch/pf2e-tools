@@ -60,12 +60,14 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   expect(markup).toContain('Ancestry Feats')
   expect(markup).toContain('<details class="character-subsection"><summary>')
   expect(markup).not.toContain('open=""')
-  expect(markup).toContain('L01 Ancestry')
-  expect(markup).toContain('L13 Ancestry')
+  expect(markup).toContain('Level 01')
+  expect(markup).toContain('Level 13')
+  expect(markup).toContain('aria-label="L13 Ancestry feat"')
   expect(markup).toContain('<option value="Natural Ambition">Natural Ambition</option>')
   expect(markup).toContain('class="feat-slot-list"')
   expect(markup).toContain('class="feat-slot-row"')
-  expect((markup.match(/class="feat-slot-row feat-level-start"/g) ?? [])).toHaveLength(3)
+  expect((markup.match(/class="feat-slot-row feat-level-start"/g) ?? [])).toHaveLength(0)
+  expect((markup.match(/class="feat-level-heading"/g) ?? [])).toHaveLength(4)
 })
 
 it('shows the current background skill feat above level-based skill feats', () => {
@@ -84,7 +86,7 @@ it('shows the current background skill feat above level-based skill feats', () =
   const markup = render(c)
   expect(markup).toContain('Background Skill Feat')
   expect(markup).toContain('Survey Wildlife')
-  expect(markup.indexOf('Background Skill Feat')).toBeLessThan(markup.indexOf('L02 Skill Feats'))
+  expect(markup.indexOf('Background Skill Feat')).toBeLessThan(markup.indexOf('Level 02'))
   expect(render({ ...c, background: undefined })).not.toContain('Background Skill Feat')
 })
 

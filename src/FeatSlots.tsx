@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Info } from './Info'
 import { eligibleFeats, featByName, featType, homebrewDedication, isGrantedSlot, plannedSlots, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
@@ -82,6 +83,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     save({ extraSlots, feats, entryIds: c.entryIds.filter((id) => !removedIds.has(id)) })
   }
 
+  const multi = new Set(slots.map((slot) => slot.category)).size > 1
   const Wrapper = bare ? 'div' : 'details'
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
@@ -94,6 +96,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           </li>
         ))}
         {slots.map((s, index) => {
+          const newLevel = index === 0 || slots[index - 1].level !== s.level
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const currentEntry = featByName(entries).get(current)
@@ -112,8 +115,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           return (
-            <li className={`feat-slot-row${index > 0 && slots[index - 1].level !== s.level ? ' feat-level-start' : ''}`} key={s.key}>
-              <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>
+            <Fragment key={s.key}>
+            {!multi && newLevel && <li className="feat-level-heading">Level {String(s.level).padStart(2, '0')}</li>}
+            <li className={`feat-slot-row${multi && index > 0 && newLevel ? ' feat-level-start' : ''}`}>
+              {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} disabled>{homebrewDedication(s.key)!.name}</button>
               ) : picksType ? (
@@ -174,6 +179,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   onClick={() => save({ extraSlots: [...c.extraSlots, { category: s.category, level: s.level, count: 1 }] })}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
             </li>
+            </Fragment>
           )
         })}
       </ul>
