@@ -14,6 +14,11 @@ export const AON_SITES: Record<GameSystem, string> = {
 
 const SOURCE_FIELDS = ['name', 'category', 'level', 'trait', 'summary', 'url', 'source']
 
+// Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
+const REMASTER_ONLY = (category: string) => ({
+  bool: { filter: [{ term: { category } }], must_not: [{ exists: { field: 'remaster_id' } }] },
+})
+
 const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   feat: 'feat',
   weapon: 'weapon',
@@ -60,7 +65,7 @@ export async function importFromAon(system: GameSystem, onProgress?: (n: number)
     const res = await fetch(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: { term: { category } }, _source: SOURCE_FIELDS }),
+      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: SOURCE_FIELDS }),
     })
     if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
     const json = (await res.json()) as { hits?: { hits?: Hit[] } }
