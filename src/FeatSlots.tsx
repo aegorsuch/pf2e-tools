@@ -15,6 +15,8 @@ interface FeatSlotsProps extends SectionProps {
   onSearch?: (key: string, text: string) => void
 }
 
+const PAGE = 100
+
 const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
@@ -98,9 +100,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const picksType = s.category === 'archetype'
           const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'dedication')
           const open = search[`${s.key}:open`] === '1'
-          const options = eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
+          // Archetype pickers only build their (very long) list while the popup is open
+          const options = picksType && !open ? [] : eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
+          const shown = picksType ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, typeof options>()
-          for (const option of options) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
+          for (const option of shown) optionsByLevel.set(option.level, [...(optionsByLevel.get(option.level) ?? []), option])
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
           const granted = isGrantedSlot(s.key)
           const extra = !standardKeys.has(s.key) && !granted
@@ -148,6 +152,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                         )),
                       ])}
                     </ul>
+                    {options.length > shown.length && (
+                      <button type="button" onClick={() => onSearch?.(`${s.key}:limit`, String(shown.length + PAGE))}>Show more ({options.length - shown.length} left, or use search)</button>
+                    )}
                     <button type="button" onClick={() => onSearch?.(`${s.key}:open`, '')}>Cancel</button>
                   </div>
                 </div>

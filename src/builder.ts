@@ -238,6 +238,17 @@ function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string) {
   }
 }
 
+// Feats only, with lowercased traits, cached per entries array so each picker render skips the full scan
+const featIndexCache = new WeakMap<ContentEntry[], { entry: ContentEntry; traits: Set<string> }[]>()
+function featIndex(entries: ContentEntry[]) {
+  let index = featIndexCache.get(entries)
+  if (!index) {
+    index = entries.filter((e) => e.kind === 'feat').sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)).map((entry) => ({ entry, traits: new Set(entry.traits.map((t) => t.toLowerCase())) }))
+    featIndexCache.set(entries, index)
+  }
+  return index
+}
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
@@ -246,14 +257,16 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   if (slot.category !== 'bonus' && !trait) return []
   const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
   const archetypeAllowed = archetypeRule(c, entries, slot.key)
-  return entries
-    .filter((e) => e.kind === 'feat' && e.level <= slot.level
-      && (e.name !== 'Order Explorer' || c.feats.some((f) => f.slot === slot.key && f.name === e.name) || availableOrders(c).length > 0)
-      && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key)))
-    .filter((e) => !trait || e.traits.some((t) => t.toLowerCase() === trait))
-    .filter((e) => !(slot.category === 'general' && getSettings().generalFeatsOnly) || !e.traits.some((t) => t.toLowerCase() === 'skill'))
-    .filter(archetypeAllowed)
-    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+  const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
+  const orderExplorerOk = availableOrders(c).length > 0
+  return featIndex(entries)
+    .filter(({ entry: e, traits }) => e.level <= slot.level
+      && (!trait || traits.has(trait))
+      && !(generalOnly && traits.has('skill'))
+      && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
+      && (!taken.has(e.name) || e.data.repeatable === true && canSelectWardenFeat(e.name, c, entries, slot.key))
+      && archetypeAllowed(e))
+    .map(({ entry }) => entry)
 }
 
 // ---------- Class features ----------
