@@ -57,6 +57,8 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['ancestry']} title="Ancestry Feats" />)
   expect(markup).toContain('Ancestry Feats')
+  expect(markup).toContain('<details class="character-subsection"><summary>')
+  expect(markup).not.toContain('open=""')
   expect(markup).toContain('L01 Ancestry')
   expect(markup).toContain('L13 Ancestry')
   expect(markup).toContain('<option value="Natural Ambition">Natural Ambition</option>')

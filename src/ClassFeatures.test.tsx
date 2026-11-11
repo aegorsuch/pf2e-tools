@@ -17,6 +17,8 @@ it('labels class features with leading, zero-padded levels', () => {
     <ClassFeatures c={c} entries={[feature('First Feature', 1), feature('Later Feature', 10)]} save={() => {}} />,
   )
   expect(markup).toContain('Class Features (2)')
+  expect(markup).toContain('<details class="character-subsection"><summary>')
+  expect(markup).not.toContain('open=""')
   expect(markup).toContain('L01 First Feature')
   expect(markup).toContain('L10 Later Feature')
 })

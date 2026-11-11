@@ -61,8 +61,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
   }
 
   return (
-    <>
-      <h4>{title}</h4>
+    <details className="character-subsection">
+      <summary><h4>{title}</h4></summary>
       <ul className="feat-slot-list">
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
@@ -97,6 +97,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
       {aboveLevel.length > 0 && (
         <small>Some feats sit in slots above your current level: {aboveLevel.map((f) => f.name).join(', ')}</small>
       )}
-    </>
+    </details>
   )
 }

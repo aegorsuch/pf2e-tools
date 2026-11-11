@@ -32,8 +32,8 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
   return (
     <div className="boost-panels">
       {groups.map(([group, gs]) => (
-        <section key={group} className="boost-panel">
-          <h4>{groupTitle(group)}</h4>
+        <details key={group} className="boost-panel character-subsection">
+          <summary><h4>{groupTitle(group)}</h4></summary>
           {gs.some((s) => s.fixed) && <small>Fixed: {gs.flatMap((s) => s.fixed ? [ABILITY_LABEL[s.fixed]] : []).join(', ')}</small>}
           <div className="boost-checks">
             {ABILITIES.map((a) => {
@@ -75,7 +75,7 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
               }}>Clear duplicate choices</button>
             </small>
           )}
-        </section>
+        </details>
       ))}
     </div>
   )

@@ -45,6 +45,8 @@ describe('ability score boost controls', () => {
     expect(markup).toContain('Background Boosts')
     expect(markup).toContain('L01 Boosts')
     expect(markup).toContain('Class Boost')
+    expect(markup.match(/<details class="boost-panel character-subsection">/g)).toHaveLength(4)
+    expect(markup).not.toContain('open=""')
     expect(markup).not.toContain('<select')
     expect(markup.match(/type="checkbox"/g)).toHaveLength(24)
   })

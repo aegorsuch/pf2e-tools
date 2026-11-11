@@ -5,8 +5,8 @@ export function ClassFeatures({ c, entries }: SectionProps) {
   const features = classFeatures(entries, c)
   const imported = entries.some((e) => e.kind === 'classFeature')
   return (
-    <>
-      <h4>Class Features ({features.length})</h4>
+    <details className="character-subsection">
+      <summary><h4>Class Features ({features.length})</h4></summary>
       {!imported && <p>Class feature data is still loading.</p>}
       <ul>
         {features.map((f) => (
@@ -16,6 +16,6 @@ export function ClassFeatures({ c, entries }: SectionProps) {
           </li>
         ))}
       </ul>
-    </>
+    </details>
   )
 }

@@ -308,7 +308,24 @@
   padding: 8px 0;
 }
 
-.character-section > summary {
+.character-subsection > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-block: 6px;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.character-subsection[open] > summary {
+  margin-bottom: 8px;
+}
+
+.character-section > summary,
+.character-subsection > summary {
   list-style: none;
 
   &::-webkit-details-marker {
@@ -327,6 +344,7 @@
   }
 }
 
-.character-section[open] > summary::before {
+.character-section[open] > summary::before,
+.character-subsection[open] > summary::before {
   transform: rotate(45deg);
 }
