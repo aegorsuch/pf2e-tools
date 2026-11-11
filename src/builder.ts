@@ -591,7 +591,7 @@ const RARITY_ORDER = ['Common', 'Uncommon', 'Secret', 'Rare']
 // Languages synced from AoN, grouped by rarity; the built-in list is the fallback until content has loaded
 export function languageGroups(entries: ContentEntry[]): Record<string, [string, string][]> {
   const synced = entries.filter((e) => e.kind === 'language')
-  if (!synced.length) return LANGUAGE_CATEGORIES
+  if (!synced.length) return Object.fromEntries(Object.entries(LANGUAGE_CATEGORIES).sort(([a], [b]) => a.localeCompare(b)))
   const groups: Record<string, [string, string][]> = {}
   const seen = new Set<string>()
   for (const e of synced) {
@@ -605,10 +605,7 @@ export function languageGroups(entries: ContentEntry[]): Record<string, [string,
     ;(groups[rarity] ??= []).push([e.name, who])
   }
   for (const list of Object.values(groups)) list.sort((a, b) => a[0].localeCompare(b[0]))
-  return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => {
-    const i = (k: string) => (RARITY_ORDER.includes(k) ? RARITY_ORDER.indexOf(k) : RARITY_ORDER.length)
-    return i(a) - i(b) || a.localeCompare(b)
-  }))
+  return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)))
 }
 const allLanguages = (entries: ContentEntry[]) => Object.values(languageGroups(entries)).flat().map(([name]) => name)
 // Languages a class always teaches
