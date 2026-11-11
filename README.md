@@ -44,6 +44,8 @@ For GitHub sign-in, register a GitHub OAuth application with callback URL `https
 
 After adding Actions secrets, rerun the deploy. A successful sign-in shows **Sign out**, even for accounts without an email address. **Sync** reports errors instead of claiming success when signed out. Confirm character and homebrew changes appear in a second signed-in browser; official AoN content is not synced.
 
+`VITE_SUPABASE_ANON_KEY` accepts a modern `sb_publishable_` key or a legacy JWT with role `anon`. Never use an `sb_secret_` or `service_role` key: Vite embeds these values in public JavaScript. The build rejects privileged keys. Revoke any privileged key previously deployed, even after replacing the repository secret.
+
 ## Developer Notes
 
 Stack: React, TypeScript, Vite, Dexie (IndexedDB), Supabase, vite-plugin-pwa. Sync is last-write-wins on `updatedAt`.

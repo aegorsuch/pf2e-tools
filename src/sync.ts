@@ -31,7 +31,13 @@ export function onAuthChange(cb: (user: User | null) => void, onError: (message:
   if (!supabase) return () => {}
   let live = true
   let receivedEvent = false
-  supabase.auth.getSession().then(({ data, error }) => {
+  // getSession() does not forward errors from the SDK's initial OAuth callback processing.
+  const loadSession = async () => {
+    const initialized = await supabase!.auth.initialize()
+    if (initialized.error) throw initialized.error
+    return supabase!.auth.getSession()
+  }
+  loadSession().then(({ data, error }) => {
     if (!live) return
     if (error) onError(error.message)
     else if (!receivedEvent) cb(data.session?.user ?? null)

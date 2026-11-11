@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({
+  initialize: vi.fn(),
   getSession: vi.fn(),
   getUser: vi.fn(),
   onAuthStateChange: vi.fn(),
@@ -18,6 +19,7 @@ beforeEach(() => {
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'public-test-key')
   vi.stubGlobal('window', { location: { origin: 'https://example.com' } })
   auth.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
+  auth.initialize.mockResolvedValue({ error: null })
 })
 
 afterEach(() => {
@@ -44,6 +46,17 @@ describe('authentication', () => {
     const failed = vi.fn()
     const stop = onAuthChange(vi.fn(), failed)
     await vi.waitFor(() => expect(failed).toHaveBeenCalledWith('Invalid callback'))
+    stop()
+  })
+
+  it('surfaces callback failures that getSession would otherwise hide', async () => {
+    auth.initialize.mockResolvedValue({ error: new Error('Invalid API key') })
+    auth.getSession.mockResolvedValue({ data: { session: null }, error: null })
+    const { onAuthChange } = await import('./sync')
+    const failed = vi.fn()
+    const stop = onAuthChange(vi.fn(), failed)
+    await vi.waitFor(() => expect(failed).toHaveBeenCalledWith('Invalid API key'))
+    expect(auth.getSession).not.toHaveBeenCalled()
     stop()
   })
 
