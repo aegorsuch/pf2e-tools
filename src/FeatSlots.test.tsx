@@ -99,7 +99,7 @@ it('includes action symbols in feat choices and shows add control on each level 
     traits: ['Ranger'], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0,
   }]
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['class']} bare />)
-  expect(markup).toContain('Quick Draw ◆ (Single Action)')
+  expect(markup).toContain('Quick Draw ◆')
   expect(markup).not.toContain('class="action-cost"')
   expect((markup.match(/aria-label="Add L\d{2} Class feat slot"/g) ?? [])).toHaveLength(2)
 })

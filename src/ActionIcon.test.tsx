@@ -22,11 +22,13 @@ it('shows accessible action icons for AoN action costs and preserves mixed costs
   expect(renderToStaticMarkup(<ActionIcon entry={{ ...entry, data: { actions: '10 minutes' } }} />)).toBe('')
 })
 
-it('formats picker action costs as inline symbols while retaining action labels', () => {
+it('formats picker action costs as inline symbols without redundant text', () => {
   expect(actionOptionLabel('Quick Draw', { ...entry, data: { actions: 'Single Action' } }))
-    .toBe('Quick Draw ◆ (Single Action)')
+    .toBe('Quick Draw ◆')
+  expect(actionOptionLabel('Hunter\'s Aim', { ...entry, data: { actions: 'Two Actions' } }))
+    .toBe('Hunter\'s Aim ◆◆')
   expect(actionOptionLabel('Reactive Strike', { ...entry, data: { actions: 'Reaction' } }))
-    .toBe('Reactive Strike ↶ (Reaction)')
+    .toBe('Reactive Strike ↶')
   expect(actionOptionLabel('Long Ritual', { ...entry, data: { actions: '10 minutes' } }))
     .toBe('Long Ritual (10 minutes)')
 })

@@ -8,5 +8,5 @@ export function actionOptionLabel(name: string, entry?: ContentEntry) {
     .replace(/three actions/gi, '◆◆◆')
     .replace(/free action/gi, '◇')
     .replace(/reaction/gi, '↶')
-  return symbols === value ? `${name} (${value})` : `${name} ${symbols} (${value})`
+  return symbols === value ? `${name} (${value})` : `${name} ${symbols}`
 }
