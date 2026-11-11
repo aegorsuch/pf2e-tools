@@ -131,7 +131,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {klass && <small><b>{klass.name}</b>: {detail(klass)}</small>}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
-          <FeatSlots {...section} categories={['class']} title="Select Feats" />
+          <FeatSlots {...section} categories={['class']} title="Class Feats" />
         </div>
       </details>
 
@@ -176,7 +176,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       </details>
 
       <SkillsSection {...section} />
-      <FeatSlots {...section} categories={['skill', 'general', 'archetype', 'bonus']} title="Other Feat Slots" manageExtraSlots />
+      <FeatSlots {...section} categories={['skill', 'general', 'archetype', 'bonus']} title="Other Feat Slots" />
       <SpellsSection {...section} />
 
       <h3>All feats ({c.feats.length})</h3>

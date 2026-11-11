@@ -170,15 +170,18 @@ export function plannedSlots(c: Character): PlannedSlot[] {
   ]
   const slots: PlannedSlot[] = []
   const counters = new Map<string, number>()
+  const groupOrder = new Map<string, number>()
   for (const s of base.filter((b) => b.level <= c.level)) {
     for (let i = 0; i < s.count; i++) {
       const id = `${s.category}:${s.level}`
+      if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
       const n = counters.get(id) ?? 0
       counters.set(id, n + 1)
       slots.push({ key: `${id}:${n}`, category: s.category, level: s.level })
     }
   }
-  return slots.sort((a, b) => a.level - b.level)
+  return slots.sort((a, b) => a.level - b.level
+    || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
 
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
