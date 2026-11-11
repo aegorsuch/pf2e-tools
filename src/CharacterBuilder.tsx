@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
-import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, maxHp } from './builder'
+import { ancestryFlaws, ancestryLabel, computeAbilities, featType, heritagesFor, maxHp, plannedSlots } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
@@ -182,8 +182,22 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       </details>
 
       <SkillsSection {...section} />
-      <FeatSlots {...section} categories={['general']} title="General Feats" />
-      <FeatSlots {...section} categories={['skill']} title="Skill Feats" />
+      {(['general', 'skill'] as const).map((category) => {
+        const title = category === 'general' ? 'General Feats' : 'Skill Feats'
+        const slots = plannedSlots(c).filter((slot) => slot.category === category)
+        const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key)).length
+        return (
+          <details className="character-section" key={category}>
+            <summary className="character-section-summary">
+              <strong>{title}</strong>
+              <span>{filled}/{slots.length} chosen</span>
+            </summary>
+            <div className="character-section-content">
+              <FeatSlots {...section} categories={[category]} title={title} bare />
+            </div>
+          </details>
+        )
+      })}
       <FeatSlots {...section} categories={['archetype', 'bonus']} title="Other Feat Slots" />
       <SpellsSection {...section} />
 

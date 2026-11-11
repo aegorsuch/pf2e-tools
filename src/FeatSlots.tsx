@@ -6,13 +6,14 @@ import type { FeatSlotCategory } from './types'
 interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
   title?: string
+  bare?: boolean
 }
 
 const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Archetype', bonus: 'Bonus',
 }
 
-export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }: FeatSlotsProps) {
+export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
@@ -60,9 +61,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
     save({ extraSlots, feats, entryIds: c.entryIds.filter((id) => !removedIds.has(id)) })
   }
 
+  const Wrapper = bare ? 'div' : 'details'
   return (
-    <details className="character-subsection">
-      <summary><h4>{title}</h4></summary>
+    <Wrapper className={bare ? undefined : 'character-subsection'}>
+      {!bare && <summary><h4>{title}</h4></summary>}
       <ul className="feat-slot-list">
         {slots.map((s, index) => {
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? ''
@@ -97,6 +99,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots' }
       {aboveLevel.length > 0 && (
         <small>Some feats sit in slots above your current level: {aboveLevel.map((f) => f.name).join(', ')}</small>
       )}
-    </details>
+    </Wrapper>
   )
 }
