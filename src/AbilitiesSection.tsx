@@ -34,7 +34,6 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
       {groups.map(([group, gs]) => (
         <details key={group} className="boost-panel character-subsection">
           <summary><h4>{groupTitle(group)}</h4></summary>
-          {gs.some((s) => s.fixed) && <small>Fixed: {gs.flatMap((s) => s.fixed ? [ABILITY_LABEL[s.fixed]] : []).join(', ')}</small>}
           <div className="boost-checks">
             {ABILITIES.map((a) => {
               const fixed = gs.some((s) => s.fixed === a)
