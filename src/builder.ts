@@ -873,14 +873,14 @@ export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
   return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
 }
 
-const hasOversizedThrow = (c: Character) => c.className === 'Barbarian' && c.level >= 4 && hasFeat(c, 'Oversized Throw')
+const canOversizedThrow = (c: Character) => c.className === 'Barbarian' && c.level >= 4 && !!c.raging && hasFeat(c, 'Oversized Throw')
 
 export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   const weapons = carriedWeapons(c, entries)
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name)) || c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
   const haftStriker = !!haftStrikerSource(c, entries)
-  const oversizedThrow = hasOversizedThrow(c)
+  const oversizedThrow = canOversizedThrow(c)
   const gauntlet = armorGauntlet(c, entries)
   const features = activeAnimalFeatures(c, entries)
   const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
@@ -967,7 +967,7 @@ export function activeAnimalFeatures(c: Character, entries: ContentEntry[]) {
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = []) => isAutomaticUnarmed(name)
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
-  || name === OVERSIZED_THROW.name && hasOversizedThrow(c)
+  || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
