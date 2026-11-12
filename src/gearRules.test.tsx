@@ -488,7 +488,17 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
     const weapon = ownedWeapons(character, []).find((weapon) => weapon.id === OVERSIZED_THROW.id)!
     expect(weaponAttack(character, [], weapon)).toMatchObject({ ability: 'dex', range: 20, damage: `${dice}d10+1 bludgeoning`, traits: ['Thrown'] })
   }
-  for (const patch of [{ level: 3 }, { raging: false }, { feats: [] }, { className: 'Ranger' }]) {
+  for (const raging of [true, false, undefined]) {
+    const character = { ...c, raging }
+    const weapon = ownedWeapons(character, []).find((weapon) => weapon.id === OVERSIZED_THROW.id)!
+    expect(weapon).toBeDefined()
+    const saved: Character = JSON.parse(JSON.stringify({ ...character, weapons: [weapon] }))
+    expect(ownedWeapons(saved, []).filter((weapon) => weapon.id === OVERSIZED_THROW.id)).toHaveLength(1)
+    const markup = renderToStaticMarkup(<WeaponList c={saved} entries={[]} save={() => {}} />)
+    expect(markup).toContain('<strong>Oversized Throw</strong>')
+    expect(markup).not.toContain('aria-label="Remove Oversized Throw"')
+  }
+  for (const patch of [{ level: 3 }, { feats: [] }, { className: 'Ranger' }]) {
     expect(ownedWeapons({ ...c, ...patch }, []).map((weapon) => weapon.name)).not.toContain(OVERSIZED_THROW.name)
   }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
