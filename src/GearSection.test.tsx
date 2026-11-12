@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, HandwrapsGear, WeaponList } from './GearSection'
+import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
@@ -23,6 +23,20 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it('shows precise Bulk thresholds and Hardy Traveler contribution without claiming to measure carried inventory', () => {
+  const c: Character = { ...character([{ name: 'Hardy Traveler', level: 9, type: 'Ancestry Feat', slot: 'ancestry:9:0' }]),
+    abilities: { ...character([]).abilities, str: 14 } }
+  const feat: ContentEntry = { ...weapon, id: 'hardy', kind: 'feat', name: 'Hardy Traveler',
+    description: 'Increase your maximum and encumbered Bulk limits by 1.', data: {}, level: 9 }
+  const markup = renderToStaticMarkup(<BulkLimits c={c} entries={[feat]} />)
+  expect(markup).toContain('aria-label="Bulk limits"')
+  expect(markup).toContain('Encumbered above <b>8</b> Bulk; maximum <b>13</b> Bulk.')
+  expect(markup).toContain('Strength +2; size Medium; Hardy Traveler +1')
+  expect(markup).toContain('Worn-item bonuses and temporary size changes are not tracked.')
+  expect(renderToStaticMarkup(<BulkLimits c={{ ...c, level: 8 }} entries={[feat]} />))
+    .toContain('Encumbered above <b>7</b> Bulk; maximum <b>12</b> Bulk.')
 })
 
 it('persists weapon and armor materials before fundamental controls, allowing a fourth Orichalcum rune', () => {

@@ -8,6 +8,28 @@ import type { Character, ContentEntry } from './types'
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
 
+it('shows ancestry-specific Lore in Skills and feat-adjusted Bulk limits inside Gear', () => {
+  content.entries = ['Ancestral Skills', 'Hardy Traveler'].map(name => ({
+    id: name, systems: ['sf2e'], name, kind: 'feat', source: 'official', traits: ['Human'], data: {},
+    level: name === 'Hardy Traveler' ? 9 : 1,
+    description: name === 'Hardy Traveler' ? 'Increase your maximum and encumbered Bulk limits by 1.' : '',
+    effects: [], updatedAt: 1,
+  }))
+  const c: Character = {
+    id: 'human', systems: ['sf2e'], name: 'Test', level: 9, ancestry: 'Human',
+    abilities: { str: 14, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: content.entries.map(feat => ({ name: feat.name, type: 'Ancestry Feat', level: feat.level, slot: `ancestry:${feat.level}:0` })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('Human Lore')
+    const gear = markup.slice(markup.indexOf('<strong>Gear</strong>'), markup.indexOf('<strong>General Feats</strong>'))
+    expect(gear).toContain('aria-label="Bulk limits"')
+    expect(gear).toContain('Encumbered above <b>8</b> Bulk; maximum <b>13</b> Bulk.')
+  } finally { content.entries = [] }
+})
+
 it('retains official access metadata and shows saved ethnicity without changing ancestry or heritage', async () => {
   const fetchFn: typeof fetch = async (_url, init) => {
     expect(JSON.parse(String(init?.body))._source).toContain('access')

@@ -40,6 +40,21 @@ it('saves and restores a valid feat spell choice without accepting another tradi
   expect(renderToStaticMarkup(tree())).toContain('<option selected="">Light</option>')
 })
 
+it('lets an existing Scrapper choose a calculated skill variant and flags variants invalidated by changed training', () => {
+  let c: Character = { ...base, level: 5, ancestry: 'Human',
+    feats: [{ name: 'Technomagical Scrapper', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }] }
+  const tree = () => FeatChoice({ c, entries: [], index: 0, save: patch => { c = { ...c, ...patch } } })
+  findSelect(tree())!.onChange({ target: { value: 'Arcana to Expert' } })
+  expect(c.feats[0].choice).toBeUndefined()
+  findSelect(tree())!.onChange({ target: { value: 'Arcana to Trained' } })
+  expect(ranksAt(c, [])).toMatchObject({ Crafting: 1, Arcana: 1 })
+  c = { ...c, skillPicks: ['Arcana'] }
+  expect(renderToStaticMarkup(tree())).toContain('Saved skill variant is unavailable')
+  findSelect(tree())!.onChange({ target: { value: 'Nature to Trained' } })
+  expect(ranksAt(c, [])).toMatchObject({ Crafting: 1, Arcana: 1, Nature: 1 })
+  expect(renderToStaticMarkup(tree())).not.toContain('Saved skill variant is unavailable')
+})
+
 function findSelect(node: ReactNode): { onChange: (event: { target: { value: string } }) => void } | undefined {
   let found: { onChange: (event: { target: { value: string } }) => void } | undefined
   Children.forEach(node, (child) => {

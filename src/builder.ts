@@ -174,7 +174,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -196,6 +196,7 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
   'Natural Ambition': { category: 'class', level: 1 },
   'Advanced General Training': { category: 'general', level: 7 },
   'Ancestral Paragon': { category: 'ancestry', level: 1 },
+  'Multitalented': { category: 'archetype', level: 2 },
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
@@ -237,14 +238,15 @@ export function plannedSlots(c: Character): PlannedSlot[] {
   Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
     const grantingFeat = c.feats.find((f) => f.name === name)
     if (!grantingFeat) return
-    const limited = name === 'Advanced General Training' || name === 'Ancestral Paragon'
+    const limited = name === 'Advanced General Training' || name === 'Ancestral Paragon' || name === 'Multitalented'
     const level = limited ? featTakenLevel(grantingFeat) : g.level
     if (level > c.level) return
-    const id = `${g.category}:${g.level}`
+    const id = `${g.category}:${name === 'Multitalented' ? level : g.level}`
     const group = `${g.category}:${level}`
     if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
     // Keep saved granted-feat selections attached to their original slot key.
-    slots.push({ key: `${id}:g${i}`, category: g.category, level, ...(limited ? { maxFeatLevel: g.level } : {}) })
+    slots.push({ key: `${id}:g${i}`, category: g.category, level, ...(limited ? { maxFeatLevel: g.level } : {}),
+      ...(name === 'Multitalented' ? { grantedBy: name } : {}) })
   })
   for (const d of activeHomebrewDedications(c)) {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
@@ -267,7 +269,7 @@ const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase
 
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
-function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean) {
+function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean, ignoreDedicationLock = false) {
   const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
     const entry = byName(entries, 'feat', f.name)
     return entry && archetypesOf(entry).length ? [entry] : []
@@ -283,6 +285,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
       const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
       return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
     }
+    if (ignoreDedicationLock) return []
     return dedications.flatMap((dedication) => {
       if (shares(dedication)) return []
       const needed = 2 - taken.filter((feat) => !isDedication(feat) && shares(feat, archetypesOf(dedication))).length
@@ -345,10 +348,11 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
 
 const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed']]
 
-export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1) {
+export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
+  options: { ignoreAttributePrerequisites?: boolean } = {}) {
   const facts = new Map<number, PrerequisiteFacts>()
   return createFeatPrerequisiteChecker(entries, {
-    level: Math.min(c.level, level), entryIds: c.entryIds, knownOrders: Object.keys(DRUID_ORDERS),
+    level: Math.min(c.level, level), entryIds: c.entryIds, knownOrders: Object.keys(DRUID_ORDERS), ...options,
     facts: (atLevel) => {
       const cached = facts.get(atLevel)
       if (cached) return cached
@@ -412,8 +416,11 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
   const excludedIndex = c.feats.findIndex((feat) => feat.slot === slot.key)
   const level = Math.min(c.level, slot.level)
   const character = { ...c, level, feats: c.feats.filter((feat, index) => index !== excludedIndex && featTakenLevel(feat) <= level) }
-  const check = featPrerequisiteChecker(c, entries, level, excludedIndex)
-  const archetype = archetypePrerequisites(character, entries, slot.key, slot.category === 'archetype')
+  const multitalented = slot.grantedBy === 'Multitalented'
+  const check = featPrerequisiteChecker(c, entries, level, excludedIndex, {
+    ignoreAttributePrerequisites: multitalented && c.heritage?.trim().toLowerCase() === 'aiuvarin',
+  })
+  const archetype = archetypePrerequisites(character, entries, slot.key, slot.category === 'archetype', multitalented)
   const requirements: Record<string, string[]> = {
     'Third Blessing': ['Second Blessing'], 'Third Innovation': ['Second Innovation'],
     'Pristine Living Weapon': ['Living Weapon', 'Wild Hunter Dedication'],
@@ -422,6 +429,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    if (multitalented && entry.name === `${character.className} Dedication`) missing.push("a multiclass dedication outside your current class")
     let manual = result.manual.filter((requirement) => !(requirements[entry.name] ?? [])
       .some((name) => name.toLowerCase() === requirement.toLowerCase()))
     if (['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)) {
@@ -459,6 +467,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
+      && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
@@ -468,8 +477,28 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     .map(({ entry }) => entry)
 }
 
+const SCRAPPER_SKILLS = ['Arcana', 'Nature', 'Occultism', 'Religion']
+
+function scrapperRanksBefore(c: Character, entries: ContentEntry[], slotKey: string, index: number, withOverrides = true) {
+  const level = Math.min(c.level, Number(slotKey.split(':')[1]) || (c.feats[index] ? featTakenLevel(c.feats[index]) : c.level))
+  // Neither this feat's grants nor later training can unlock its expert alternative.
+  return ranksAt({ ...c, level,
+    feats: c.feats.filter(feat => feat.name !== 'Technomagical Scrapper' && featTakenLevel(feat) <= level),
+  }, entries, level + 1, withOverrides)
+}
+
+function scrapperVariants(ranks: Record<string, number>) {
+  const rank = SCRAPPER_SKILLS.every(skill => (ranks[skill] ?? 0) >= 1) ? 2 : 1
+  return SCRAPPER_SKILLS.filter(skill => (ranks[skill] ?? 0) < rank)
+    .map(skill => ({ skill, rank, label: `${skill} to ${RANKS[rank]}` }))
+}
+
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Technomagical Scrapper') {
+    const variants = scrapperVariants(scrapperRanksBefore(c, entries, slotKey, index))
+    return variants.length ? variants.map(variant => variant.label) : undefined
+  }
   if (name === 'Adopted Ancestry') return [...new Set(entries.filter((entry) => entry.kind === 'ancestry' && !entry.deleted
     && entry.name !== c.ancestry && entry.systems.some((system) => c.systems.includes(system))).map((entry) => entry.name))]
     .sort((a, b) => a.localeCompare(b))
@@ -821,9 +850,10 @@ const featData = (c: Character, entries: ContentEntry[], field: string) =>
     return typeof v === 'string' && v ? [{ value: v, source: f.name }] : []
   })
 
-// Lore skills taught by feats such as Wild Hunter Dedication (Additional Lore)
+// Lore skills taught through Additional Lore, including ancestry-specific grants.
 export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set([
   ...featData({ ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level) }, entries, 'grants_lore').map((g) => g.value),
+  ...(c.ancestry?.trim() && activeFeatsNamed(c, 'Ancestral Skills').length ? [`${c.ancestry.trim()} Lore`] : []),
   ...activeFeatsNamed(c, 'Additional Lore').flatMap((feat) => {
     const choice = feat.choice?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
@@ -876,12 +906,17 @@ export function senses(c: Character, entries: ContentEntry[]) {
 }
 
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
-  if (!activeFeatsNamed(c, 'Raging Intimidation').length) return []
-  const rank = ranksAt(c, entries).Intimidation ?? 0
-  return [
-    ...(rank >= 1 ? [{ name: 'Intimidating Glare', source: 'Raging Intimidation' }] : []),
-    ...(c.level >= 15 && rank >= 4 ? [{ name: 'Scare to Death', source: 'Raging Intimidation' }] : []),
-  ]
+  const grants: { name: string; source: string }[] = []
+  if (activeFeatsNamed(c, 'Raging Intimidation').length) {
+    const rank = ranksAt(c, entries).Intimidation ?? 0
+    if (rank >= 1) grants.push({ name: 'Intimidating Glare', source: 'Raging Intimidation' })
+    if (c.level >= 15 && rank >= 4) grants.push({ name: 'Scare to Death', source: 'Raging Intimidation' })
+  }
+  const talon = activeFeatsNamed(c, 'Talon Transporter')[0]
+  if (talon && !activeFeatsNamed(c, 'Hefty Hauler').some(feat => featTakenLevel(feat) <= featTakenLevel(talon))) {
+    grants.push({ name: 'Hefty Hauler', source: 'Talon Transporter' })
+  }
+  return grants
 }
 
 function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
@@ -912,19 +947,31 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const loreUp = getSettings().autoLores
   const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries)] : []
   const additionalLores = featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
-  for (const l of skillIncreaseLevels(c).filter((x) => x < beforeLevel)) {
-    const skill = c.skillIncreases?.[l]
-    if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
-    if (rankUp) for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
-    for (const name of lores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
-    if (l === 3 || l === 7 || l === 15) {
-      for (const name of additionalLores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+  const scrapper = proficiencyFeats(c, 'Technomagical Scrapper').find(({ feat }) => featTakenLevel(feat) < beforeLevel)
+  const scrapperLevel = scrapper ? featTakenLevel(scrapper.feat) : undefined
+  const prior = scrapper && scrapperRanksBefore(c, entries, scrapper.feat.slot ?? '', scrapper.index, withOverrides)
+  const scrapperGrants: Record<string, number> = prior ? { Crafting: Math.min(2, (prior.Crafting ?? 0) + 1) } : {}
+  const variant = prior && scrapperVariants(prior).find(option => option.label === scrapper?.feat.choice || option.skill === scrapper?.feat.choice)
+  if (variant) scrapperGrants[variant.skill] = variant.rank
+  const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
+  // Feat-granted ranks must precede skill increases spent at later levels.
+  const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel])])].sort((a, b) => a - b)
+  for (const l of levels) {
+    if (increases.has(l)) {
+      const skill = c.skillIncreases?.[l]
+      if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
+      if (rankUp) for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+      for (const name of lores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+      if (l === 3 || l === 7 || l === 15) {
+        for (const name of additionalLores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+      }
     }
+    if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
   }
   if (withOverrides) {
     const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
     for (const [name, rank] of Object.entries(c.rankOverrides ?? {})) {
-      if (skillNames.has(name)) ranks[name] = rank
+      if (skillNames.has(name)) ranks[name] = Math.max(rank, scrapperGrants[name] ?? rank)
     }
   }
   for (const name of [
@@ -936,6 +983,35 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 }
 
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
+
+export function bulkLimits(c: Character, entries: ContentEntry[]) {
+  const strength = abilityMod(c.abilities.str)
+  const size = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
+  const sizeMultipliers: Record<string, number> = { tiny: 0.5, large: 2, huge: 4, gargantuan: 8 }
+  const sizeMultiplier = sizeMultipliers[size.trim().toLowerCase()] ?? 1
+  const bonuses: { source: string; encumbered: number; maximum: number }[] = []
+  const names = new Set([...c.feats.filter(feat => featTakenLevel(feat) <= c.level).map(feat => feat.name),
+    ...automaticFeatGrants(c, entries).map(feat => feat.name)])
+  const talon = activeFeatsNamed(c, 'Talon Transporter')[0]
+  const priorHefty = talon && activeFeatsNamed(c, 'Hefty Hauler').some(feat => featTakenLevel(feat) <= featTakenLevel(talon))
+  for (const name of names) {
+    const feat = byName(entries, 'feat', name)
+    const increase = /(?:^|[.!?]\s+|\n\s*)Increase your (?:maximum and encumbered|encumbered and maximum) Bulk limits by (\d+)\b/i
+      .exec(feat?.description ?? '')
+    const value = increase ? Number(increase[1])
+      : name === 'Talon Transporter' && priorHefty || name === 'Adrenaline Rush' && c.raging ? 2 : 0
+    if (value) bonuses.push({ source: name, encumbered: value, maximum: value })
+  }
+  if (classFeatures(entries, c).some(feature => feature.name === 'Walking Armory')) {
+    const constitution = abilityMod(c.abilities.con)
+    bonuses.push({ source: 'Walking Armory', encumbered: Math.ceil(constitution / 2), maximum: constitution })
+  }
+  return {
+    encumbered: Math.floor((5 + strength + bonuses.reduce((total, bonus) => total + bonus.encumbered, 0)) * sizeMultiplier),
+    maximum: Math.floor((10 + strength + bonuses.reduce((total, bonus) => total + bonus.maximum, 0)) * sizeMultiplier),
+    strength, size, sizeMultiplier, bonuses,
+  }
+}
 
 export const WEAPON_GROUPS = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const
 export const ARMOR_GROUPS = ['Light', 'Medium', 'Heavy', 'Unarmored'] as const

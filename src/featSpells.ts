@@ -52,7 +52,11 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         out.push({ entry, source: `${feat.name}: ${feat.choice}`, rule: { kind: 'focus', spells: [entry.name], tradition: 'Divine', heightened: true }, rank: Math.ceil(c.level / 2) })
       }
     }
-    for (const rule of rules) {
+    for (const baseRule of rules) {
+      const rule = feat.name === 'Forgotten in the Crowd' && baseRule.kind === 'innate'
+        && baseRule.frequency === 'once per day' && baseRule.spells.some(name => name.toLowerCase() === 'invisibility')
+        && c.feats.some(other => other.name === 'Face in the Crowd' && featTakenLevel(other) <= c.level)
+        ? { ...baseRule, frequency: 'twice per day' } : baseRule
       const names = rule.choice ? options?.filter(spell => spell.name === feat.choice).map(spell => spell.name) ?? [] : rule.spells
       for (const name of names) {
         const entry = entries.find(spell => spell.kind === 'spell' && !spell.deleted && spell.name.toLowerCase() === name.toLowerCase()

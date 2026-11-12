@@ -20,6 +20,23 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequency only with active Face in the Crowd', () => {
+  const source = feat('Forgotten in the Crowd',
+    'You can leverage your forgettable appearance to escape your pursuers. You gain _[invisibility](/spells/165-invisibility)_ as a 2nd-rank arcane innate spell once per day, targeting yourself only.\n\n**Special** If you have the [Face in the Crowd](/feats/800-face-in-the-crowd) skill feat, you can cast _[invisibility](/spells/165-invisibility)_ twice per day instead of once per day.', 9)
+  const data = [source, { ...entry('Invisibility', 'spell'), level: 2 }]
+  const c = { ...base, level: 9, feats: [taken(source.name, 9)] }
+  expect(grantedFeatSpells(c, data)).toMatchObject([{ rank: 2, rule: { tradition: 'arcane', frequency: 'once per day' } }])
+  const enhanced = { ...c, feats: [...c.feats, taken('Face in the Crowd', 1)] }
+  expect(grantedFeatSpells(enhanced, data)).toMatchObject([{ rank: 2, rule: { frequency: 'twice per day' } }])
+  expect(renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />))
+    .toContain('rank 2 arcane; twice per day')
+  expect(grantedFeatSpells({ ...enhanced, level: 20 }, data)[0].rank).toBe(2)
+  expect(grantedFeatSpells({ ...c, feats: [...c.feats, taken('Face in the Crowd', 10)] }, data)[0].rule.frequency).toBe('once per day')
+  expect(grantedFeatSpells({ ...c, level: 8 }, data)).toEqual([])
+  expect(grantedFeatSpells(c, data)[0].rule.frequency).toBe('once per day')
+  expect(source.spellGrants?.[0].frequency).toBe('once per day')
+})
+
 it('grants Empathetic Connection Mindlink at its fixed rank, with scaling innate DC and source restrictions', () => {
   const grant = feat('Empathetic Connection', 'You gain _[mindlink](/spells/188-mindlink)_ as a 1st-rank occult innate spell at-will. The target is temporarily immune for 24 hours.', 5)
   const entries = [grant, entry('Mindlink', 'spell')]

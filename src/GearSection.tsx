@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -13,6 +13,18 @@ import type { ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './ty
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood (Greater)'] as const
 const ARMOR_MATERIALS = ['Duskwood', 'Orichalcum', 'Grisantian Hide (Standard-Grade)', 'Grisantian Hide (High-Grade)'] as const
+
+export function BulkLimits({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const limits = bulkLimits(c, entries)
+  return <div aria-label="Bulk limits">
+    <p>Encumbered above <b>{limits.encumbered}</b> Bulk; maximum <b>{limits.maximum}</b> Bulk.</p>
+    <small>Strength {signed(limits.strength)}; size {limits.size}
+      {limits.sizeMultiplier !== 1 ? ` (limits ×${limits.sizeMultiplier})` : ''}
+      {limits.bonuses.map(bonus => `; ${bonus.source} ${bonus.encumbered === bonus.maximum
+        ? signed(bonus.encumbered) : `(encumbered ${signed(bonus.encumbered)}, maximum ${signed(bonus.maximum)})`}`).join('')}.
+      {' '}Worn-item bonuses and temporary size changes are not tracked.</small>
+  </div>
+}
 
 type Filter = { label: string; values: (e: ContentEntry) => string[]; fixed?: string[] }
 

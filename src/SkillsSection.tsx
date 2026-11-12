@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
-  maxHp,
+  featTakenLevel, maxHp,
   proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
@@ -53,7 +53,14 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const offense = stats.filter((stat) => stat.kind === 'perception')
   const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
-  const baseRanks = ranksAt({ ...c, skillIncreases: {}, rankOverrides: undefined }, entries, 99, false)
+  const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
+  const baseRanks = ranksAt(noPaidIncreases, entries, 99, false)
+  const scrapper = activeFeatsNamed(c, 'Technomagical Scrapper').sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
+  const withoutScrapper = scrapper ? ranksAt({
+    ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== 'Technomagical Scrapper'),
+  }, entries, 99, false) : baseRanks
+  const canSpendAt = (name: string, level: number) => !scrapper
+    || (baseRanks[name] ?? 0) <= (withoutScrapper[name] ?? 0) || level > featTakenLevel(scrapper)
   const canReachRank = (name: string, target: number) => {
     let rank = baseRanks[name] ?? 0
     if (rank < 1) return false
@@ -61,7 +68,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       Object.entries(c.skillIncreases ?? {}).filter(([, skill]) => skill !== name).map(([level]) => Number(level)),
     )
     for (const level of skillIncreaseLevels(c)) {
-      if (assigned.has(level)) continue
+      if (assigned.has(level) || !canSpendAt(name, level)) continue
       if (canIncreaseTo(level, rank)) rank++
       if (rank >= target) return true
     }
@@ -89,7 +96,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     let rank = base
     if (target > rank) {
       for (const level of skillIncreaseLevels(c)) {
-        if (next[level]) continue
+        if (next[level] || !canSpendAt(name, level)) continue
         if (canIncreaseTo(level, rank)) {
           next[level] = name
           rank++

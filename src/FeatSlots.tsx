@@ -195,6 +195,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? (c.skippedFeatSlots?.includes(s.key) ? 'N/A' : '')
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
+          const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
           const selectedName = selection
             ? `${displayName(selection.name)}${selection.choice ? ` (${choiceLabel(selection.name, selection.choice)})` : ''}` : current
           const sources = featPrerequisiteSources(entries, {
@@ -206,7 +207,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }
             : currentEntry ? prerequisitesFor(currentEntry, s) : undefined
           const picksType = s.category === 'archetype'
-          const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
+          const multiclassOnly = s.grantedBy === 'Multitalented'
+          const type = multiclassOnly ? 'dedication'
+            : search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
           const open = search[`${s.key}:open`] === '1'
           // Archetype pickers only build their (very long) list while the popup is open
           // Lists are only built while a picker is open; selects open on focus
@@ -250,12 +253,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {picksType && open && (
                 <div className="feat-modal-backdrop" onClick={() => onSearch?.(`${s.key}:open`, '')}>
                   <div className="feat-modal" role="dialog" aria-label={`${label} feat picker`} onClick={(e) => e.stopPropagation()}>
-                    <div className="feat-type-tabs" role="tablist">
+                    {!multiclassOnly && <div className="feat-type-tabs" role="tablist">
                       {([['archetype', 'Archetype'], ['dedication', 'Dedication']] as const).map(([value, text]) => (
                         <button key={value} type="button" role="tab" aria-selected={type === value} className={type === value ? 'active' : undefined}
                           onClick={() => onSearch?.(`${s.key}:type`, value)}>{text}</button>
                       ))}
-                    </div>
+                    </div>}
                     <ul className="feat-modal-list">
                       <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>- empty -</button></li>
                       <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>
@@ -278,7 +281,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </div>
                 </div>
               )}
-              {featIndex >= 0 && (!selection.choice || featChoiceOptions(selection.name, c, entries, s.key) === undefined)
+              {featIndex >= 0 && (!selection.choice || selectedChoices === undefined
+                || selection.name === 'Technomagical Scrapper' && !selectedChoices.includes(selection.choice))
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {access && !access.automatic && !access.approved && <div className="feat-access-controls">
                 <small>Access: {access.requirement} ({access.automatic ? 'met' : access.approved ? 'GM approved' : 'GM approval needed'})</small>

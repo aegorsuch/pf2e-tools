@@ -118,6 +118,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   level: number
   entryIds: string[]
   knownOrders: string[]
+  ignoreAttributePrerequisites?: boolean
   facts: (level: number) => PrerequisiteFacts
 }) {
   const index = contentIndex(entries)
@@ -137,6 +138,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const minimumLevel = /^(?:level (\d+)|(?:at least )?(\d+)(?:st|nd|rd|th) level)$/.exec(name)
     if (minimumLevel) return resultFor(level >= Number(minimumLevel[1] ?? minimumLevel[2]), text)
     if (ability) {
+      if (context.ignoreAttributePrerequisites) return met()
       const score = facts.abilities[ABILITIES[ability[1]]]
       const requirement = Number(ability[2])
       return resultFor(ability[2].startsWith('+') || requirement < 10

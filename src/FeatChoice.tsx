@@ -6,10 +6,10 @@ import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'Adopted Ancestry' || feat.name === 'Skill Training' || feat.name === 'Weapon Proficiency') {
+  if (feat.name === 'Adopted Ancestry' || feat.name === 'Skill Training' || feat.name === 'Weapon Proficiency' || feat.name === 'Technomagical Scrapper') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
-    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Skill Training' ? 'skill' : 'advanced weapon'
+    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     return <label className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
       <select aria-label={`${feat.name} ${label}`} aria-describedby={noteId} value={feat.choice ?? ''} onChange={(e) => {
@@ -22,6 +22,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {options.map((choice) => <option key={choice}>{choice}</option>)}
       </select>
       {noteId && <small id={noteId}>Ancestry access and physiological requirements need GM approval.</small>}
+      {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
+        && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}
     </label>
   }
   if (feat.name === 'Additional Lore') {
@@ -63,7 +65,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     {!spellOptions.length && <small>Spell choices unavailable. Import official spell data.</small>}
   </label>
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
-    || feat.name === 'Ancestral Paragon' || feat.name === 'Armor Proficiency' || feat.name === 'Multilingual'
+    || feat.name === 'Ancestral Paragon' || feat.name === 'Multitalented' || feat.name === 'Armor Proficiency' || feat.name === 'Multilingual'
     || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null
   if (feat.name === 'Canny Acumen') {
     const available = cannyAcumenOptions(c, entries)

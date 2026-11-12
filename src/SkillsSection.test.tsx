@@ -23,6 +23,23 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('allocates paid increases after Scrapper grants instead of spending earlier increases and invalidating the variant', () => {
+  let c: Character = { ...base, level: 5, skillPicks: ['Crafting'],
+    feats: [{ name: 'Technomagical Scrapper', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Occultism to Trained' }] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(findButtons(tree()).get('Occultism Expert')?.disabled).toBe(true)
+  c = { ...c, level: 7 }
+  expect(findButtons(tree()).get('Occultism Expert')?.disabled).toBe(false)
+  ;(findButtons(tree()).get('Occultism Expert')!.onClick as () => void)()
+  expect(c.skillIncreases).toEqual({ 7: 'Occultism' })
+  expect(ranksAt(c, [ranger])).toMatchObject({ Occultism: 2, Crafting: 2 })
+  expect(c.feats[0].choice).toBe('Occultism to Trained')
+  c = { ...c, skillIncreases: {} }
+  ;(findButtons(tree()).get('Crafting Master')!.onClick as () => void)()
+  expect(c.skillIncreases).toEqual({ 7: 'Crafting' })
+  expect(ranksAt(c, [ranger]).Crafting).toBe(3)
+})
+
 it.each([
   ['Sunweave', 1], ['Greater Sunweave', 2], ['Sunweave (Greater)', 2],
   ['Major Sunweave', 3], ['Sunweave (Major)', 3], ['Moonweave', 0],

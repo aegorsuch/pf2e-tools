@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { eligibleFeats, featPrerequisiteChecker, featSelectionPrerequisiteChecker } from './builder'
+import { eligibleFeats, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, plannedSlots } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
@@ -15,6 +15,36 @@ const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], lev
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
 describe('shared prerequisite enforcement', () => {
+  it('grants Multitalented only second-level multiclass dedications, bypassing dedication locks but preserving other prerequisites', () => {
+    const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+    const wizard = entry('feat', 'Wizard Dedication', { archetype: 'Wizard', prerequisite: 'Intelligence +2; trained in Arcana' }, 2,
+      ['Archetype', 'Dedication', 'Multiclass'])
+    const ownClass = entry('feat', 'Barbarian Dedication', { archetype: 'Barbarian' }, 2, ['Archetype', 'Dedication', 'Multiclass'])
+    const medic = entry('feat', 'Medic Dedication', { archetype: 'Medic' }, 2, ['Archetype', 'Dedication'])
+    const highLevel = entry('feat', 'High Dedication', { archetype: 'High' }, 4, ['Archetype', 'Dedication', 'Multiclass'])
+    const nonDedication = entry('feat', 'Other Archetype Feat', { archetype: 'Wizard' }, 2, ['Archetype', 'Multiclass'])
+    const data = [cavalier, wizard, ownClass, medic, highLevel, nonDedication]
+    const c: Character = { ...base, level: 9, ancestry: 'Human', skillPicks: ['Arcana'],
+      feats: [
+        { name: cavalier.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' },
+        { name: 'Multitalented', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
+      ] }
+    const slot = plannedSlots(c).find(slot => slot.grantedBy === 'Multitalented')!
+    expect(slot).toMatchObject({ category: 'archetype', level: 9, maxFeatLevel: 2 })
+    expect(featTakenLevel({ name: wizard.name, type: 'Dedication Feat', level: 2, slot: slot.key })).toBe(9)
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(wizard).missing).toEqual(['Intelligence +2'])
+    const aiuvarin = { ...c, heritage: 'Aiuvarin' }
+    expect(eligibleFeats(data, aiuvarin, slot).map(feat => feat.name)).toEqual([wizard.name])
+    expect(featSelectionPrerequisiteChecker({ ...aiuvarin, skillPicks: [] }, data, slot)(wizard).missing).toEqual(['trained in Arcana'])
+    const normal = { key: 'archetype:8:0', category: 'archetype' as const, level: 8 }
+    expect(featSelectionPrerequisiteChecker(aiuvarin, data, normal)(wizard).missing).toContain('Intelligence +2')
+    expect(featSelectionPrerequisiteChecker(aiuvarin, data, normal)(wizard).missing)
+      .toContain('2 more Cavalier archetype feats before another dedication')
+    expect(eligibleFeats(data, { ...c, abilities: { ...c.abilities, int: 14 } }, slot)).toContain(wizard)
+    expect(plannedSlots({ ...c, level: 8 }).some(slot => slot.grantedBy === 'Multitalented')).toBe(false)
+    expect(plannedSlots({ ...c, feats: c.feats.slice(0, 1) }).some(slot => slot.grantedBy === 'Multitalented')).toBe(false)
+  })
+
   it.each([['Gloomseer', 'Nidalese'], ['Dragon Spit', 'Tian-Dan'], ['Wavetouched Paragon', 'Bonuwat']])('enforces %s ethnicity as a prerequisite, not overridable access', (name, ethnicity) => {
     const feat = entry('feat', name, { prerequisite: `${ethnicity} ethnicity` }, 1, ['Human'])
     const c: Character = { ...base, level: 1, ancestry: 'Human', featAccessOverrides: [feat.id] }

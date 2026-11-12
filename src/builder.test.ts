@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -131,6 +131,67 @@ describe('official passive feat mechanics', () => {
     expect(featChoiceOptions('Skill Training', c, entries, 'general:3:0')).toContain('Stealth')
     expect(featChoiceOptions('Skill Training', c, entries, 'general:3:0')).not.toContain('Arcana')
     expect(ranksAt({ ...c, feats: [selected('Skill Training', 3, 'Fortitude')] }, entries).Fortitude).toBe(0)
+  })
+
+  it.each<{ trained: string[]; choice: string; expected: Record<string, number> }>([
+    { trained: [], choice: 'Arcana to Trained', expected: { Crafting: 1, Arcana: 1 } },
+    { trained: ['Crafting', 'Arcana'], choice: 'Nature to Trained', expected: { Crafting: 2, Arcana: 1, Nature: 1 } },
+    { trained: ['Crafting', 'Arcana', 'Nature', 'Occultism', 'Religion'], choice: 'Religion to Expert',
+      expected: { Crafting: 2, Arcana: 1, Nature: 1, Occultism: 1, Religion: 2 } },
+  ])('applies Scrapper variant $choice from pre-feat skills without spending skill increases', ({ trained, choice, expected }) => {
+    const c: Character = { ...base, systems: ['sf2e'], level: 5, ancestry: 'Human', skillPicks: trained,
+      feats: [selected('Technomagical Scrapper', 5, choice, 'ancestry:5:0')] }
+    expect(featChoiceOptions('Technomagical Scrapper', c, [], 'ancestry:5:0')).toContain(choice)
+    expect(ranksAt(JSON.parse(JSON.stringify(c)), [])).toMatchObject(expected)
+    expect(skillRankBudget(c, [])).toEqual(skillRankBudget({ ...c, feats: [] }, []))
+    expect(ranksAt({ ...c, level: 4 }, []).Crafting ?? 0).toBe(trained.includes('Crafting') ? 1 : 0)
+    if (trained.includes('Arcana') && !trained.includes('Religion')) {
+      expect(featChoiceOptions('Technomagical Scrapper', c, [], 'ancestry:5:0'))
+        .toEqual(['Nature to Trained', 'Occultism to Trained', 'Religion to Trained'])
+    }
+  })
+
+  it('keeps Scrapper grants at their acquisition level and applies later skill increases after them', () => {
+    const c: Character = { ...base, level: 9, skillPicks: ['Arcana', 'Nature', 'Occultism'],
+      feats: [selected('Technomagical Scrapper', 5, 'Religion to Trained', 'ancestry:5:0')],
+      skillIncreases: { 7: 'Religion', 9: 'Crafting' } }
+    expect(featChoiceOptions('Technomagical Scrapper', c, [], 'ancestry:5:0')).toEqual(['Religion to Trained'])
+    expect(ranksAt(c, [])).toMatchObject({ Crafting: 2, Religion: 2 })
+    expect(ranksAt(c, [], 5).Crafting).toBeUndefined()
+    expect(ranksAt(c, [], 6)).toMatchObject({ Crafting: 1, Religion: 1 })
+    expect(ranksAt({ ...c, feats: [] }, [])).toMatchObject({ Crafting: 1, Religion: 1 })
+    const futureTraining = { ...c, skillIncreases: {},
+      feats: [...c.feats, selected('Skill Training', 7, 'Religion')] }
+    expect(featChoiceOptions('Technomagical Scrapper', futureTraining, [], 'ancestry:5:0')).toEqual(['Religion to Trained'])
+    expect(ranksAt(futureTraining, []).Religion).toBe(1)
+  })
+
+  it('honors existing ranks without lowering higher ranks, self-promoting, or accepting unrelated skill variants', () => {
+    const c: Character = { ...base, level: 5, feats: [selected('Technomagical Scrapper', 5, 'Nature to Expert', 'ancestry:5:0')],
+      rankOverrides: { Crafting: 3, Arcana: 4, Nature: 1, Occultism: 1, Religion: 1 } }
+    expect(featChoiceOptions('Technomagical Scrapper', c, [], 'ancestry:5:0'))
+      .toEqual(['Nature to Expert', 'Occultism to Expert', 'Religion to Expert'])
+    expect(ranksAt(c, [])).toMatchObject({ Crafting: 3, Arcana: 4, Nature: 2, Occultism: 1, Religion: 1 })
+    expect(ranksAt({ ...c, feats: [{ ...c.feats[0], choice: 'Fortitude to Expert' }] }, []).Fortitude).toBe(0)
+    const allExpert = { ...c, rankOverrides: { Crafting: 3, Arcana: 2, Nature: 2, Occultism: 2, Religion: 2 } }
+    expect(featChoiceOptions('Technomagical Scrapper', allExpert, [], 'ancestry:5:0')).toBeUndefined()
+    expect(ranksAt(allExpert, [])).toMatchObject({ Crafting: 3, Arcana: 2, Nature: 2 })
+  })
+
+  it('grants and scales Ancestral Skills Lore for the current ancestry without requiring the optional Lore house rule', () => {
+    updateSettings({ autoLores: false })
+    for (const ancestry of ['Human', 'Android', 'Ysoki']) {
+      const c: Character = { ...base, ancestry, feats: [selected('Ancestral Skills', 1, undefined, 'ancestry:1:0')] }
+      for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]]) {
+        expect(featLores({ ...c, level }, [])).toEqual([`${ancestry} Lore`])
+        expect(ranksAt({ ...c, level }, [])[`${ancestry} Lore`]).toBe(rank)
+      }
+      expect(featLores({ ...c, feats: [] }, [])).toEqual([])
+      expect(featLores({ ...c, ancestry: undefined }, [])).toEqual([])
+      const later = { ...c, level: 4, feats: [selected('Ancestral Skills', 5, undefined, 'ancestry:5:0')] }
+      expect(featLores(later, [])).toEqual([])
+      expect(ranksAt({ ...later, level: 5 }, [])[`${ancestry} Lore`]).toBe(2)
+    }
   })
 
   it('grants Ancestral Paragon a first-level ancestry slot at the level it was selected', () => {
@@ -599,6 +660,48 @@ describe('feat grants', () => {
 })
 
 describe('feat-granted slots', () => {
+  it('calculates Bulk from Strength and active stacking feat bonuses without applying future feats', () => {
+    const data = [
+      { ...entry('feat', 'Hardy Traveler', {}, 9), description: 'Friends help. Increase your maximum and encumbered Bulk limits by 1.' },
+      { ...entry('feat', 'Hefty Hauler'), description: 'Increase your maximum and encumbered Bulk limits by 2.' },
+    ]
+    const c: Character = { ...base, level: 9, abilities: { ...base.abilities, str: 14 },
+      feats: data.map(feat => ({ name: feat.name, type: 'General Feat', level: feat.level })) }
+    expect(bulkLimits(c, data)).toMatchObject({ encumbered: 10, maximum: 15 })
+    expect(bulkLimits({ ...c, level: 8 }, data)).toMatchObject({ encumbered: 9, maximum: 14 })
+    expect(bulkLimits({ ...c, feats: [] }, data)).toMatchObject({ encumbered: 7, maximum: 12 })
+    expect(bulkLimits({ ...c, feats: [...c.feats, c.feats[0]] }, data)).toMatchObject({ encumbered: 10, maximum: 15 })
+  })
+
+  it.each([['Tiny', 2, 5], ['Large', 10, 20], ['Huge', 20, 40], ['Gargantuan', 40, 80]])(
+    'adjusts and rounds Bulk limits for %s ancestry size', (size, encumbered, maximum) => {
+      const ancestry = entry('ancestry', 'Sized Ancestry', { size })
+      expect(bulkLimits({ ...base, ancestry: ancestry.name, abilities: { ...base.abilities, str: 10 } }, [ancestry]))
+        .toMatchObject({ encumbered, maximum })
+    })
+
+  it('applies conditional carrying feats only while raging and Soldier Constitution bonuses only for Walking Armory', () => {
+    const c: Character = { ...base, level: 9, abilities: { ...base.abilities, str: 14, con: 16 },
+      feats: [{ name: 'Adrenaline Rush', type: 'Class Feat', level: 1 }] }
+    expect(bulkLimits(c, [])).toMatchObject({ encumbered: 7, maximum: 12 })
+    expect(bulkLimits({ ...c, raging: true }, [])).toMatchObject({ encumbered: 9, maximum: 14 })
+    const feature = entry('classFeature', 'Walking Armory', { class: 'Soldier' })
+    expect(bulkLimits({ ...c, className: 'Soldier' }, [feature])).toMatchObject({ encumbered: 9, maximum: 15 })
+    expect(bulkLimits(c, [feature])).toMatchObject({ encumbered: 7, maximum: 12 })
+  })
+
+  it('counts Talon Transporter granted Hefty Hauler once, and grants the additional bonus only when Hefty Hauler was already taken', () => {
+    const data = [{ ...entry('feat', 'Hefty Hauler', {}, 1, ['General', 'Skill']), description: 'Increase your maximum and encumbered Bulk limits by 2.' }]
+    const talon = { name: 'Talon Transporter', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' }
+    const c: Character = { ...base, level: 13, abilities: { ...base.abilities, str: 10 }, feats: [talon] }
+    expect(automaticFeatGrants(c, data)).toContainEqual({ name: 'Hefty Hauler', source: talon.name })
+    expect(bulkLimits(c, data)).toMatchObject({ encumbered: 7, maximum: 12 })
+    expect(eligibleFeats(data, c, { key: 'general:11:0', category: 'general', level: 11 })).not.toContain(data[0])
+    const prior = { ...c, feats: [{ name: 'Hefty Hauler', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }, talon] }
+    expect(automaticFeatGrants(prior, data)).not.toContainEqual({ name: 'Hefty Hauler', source: talon.name })
+    expect(bulkLimits(prior, data)).toMatchObject({ encumbered: 9, maximum: 14 })
+  })
+
   it('limits each training feat once by default, allows repeats when disabled, and preserves saved copies', () => {
     expect(getSettings().singleTrainingFeats).toBe(true)
     const data = ['General Training', 'Advanced General Training'].map(name =>

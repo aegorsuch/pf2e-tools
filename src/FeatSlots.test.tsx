@@ -2,11 +2,78 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
-import { plannedSlots } from './builder'
+import { plannedSlots, ranksAt } from './builder'
 import type { Character, ContentEntry } from './types'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('opens Multitalented directly on multiclass dedications and removes its granted choice with the ancestry feat', () => {
+  let c: Character = {
+    id: 'multi', systems: ['pf2e'], name: 'Test', level: 9, ancestry: 'Human', className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 14, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Multitalented', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
+      { name: 'Cavalier Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const wizard: ContentEntry = {
+    id: 'wizard', systems: ['pf2e'], kind: 'feat', name: 'Wizard Dedication', level: 2,
+    traits: ['Archetype', 'Dedication', 'Multiclass'], source: 'official', description: '',
+    data: { archetype: 'Wizard', prerequisite: 'Intelligence +2' }, effects: [], updatedAt: 1,
+  }
+  const entries = [wizard,
+    { ...wizard, id: 'medic', name: 'Medic Dedication', traits: ['Archetype', 'Dedication'], data: { archetype: 'Medic' } },
+    { ...wizard, id: 'cavalier', name: 'Cavalier Dedication', traits: ['Archetype', 'Dedication'], data: { archetype: 'Cavalier' } }]
+  const slot = plannedSlots(c).find(slot => slot.grantedBy === 'Multitalented')!
+  const search = { [`${slot.key}:open`]: '1' }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => FeatSlots({ c, entries, save, categories: ['archetype'], search, onSearch: () => {} })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('aria-label="L09 Dedication: Wizard Dedication"')
+  expect(markup).not.toContain('aria-label="L09 Dedication: Medic Dedication"')
+  expect(markup).not.toContain('role="tablist"')
+  findButton(tree(), 'L09 Dedication: Wizard Dedication')!()
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats.find(feat => feat.name === wizard.name)).toMatchObject({ level: 2, slot: slot.key })
+  const ancestry = FeatSlots({ c, entries, save, categories: ['ancestry'] })
+  findButton(ancestry, 'Clear L09 Ancestry feat selection')!()
+  expect(c.feats.map(feat => feat.name)).toEqual(['Cavalier Dedication'])
+  expect(c.entryIds).not.toContain(wizard.id)
+})
+
+it('offers separate Scrapper skill variants, saves one shared feat, and restores its calculated proficiencies', () => {
+  let c: Character = {
+    id: 'scrapper', systems: ['sf2e'], name: 'Test', level: 5, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const feat: ContentEntry = {
+    id: 'scrapper', systems: ['sf2e'], kind: 'feat', name: 'Technomagical Scrapper', level: 5, traits: ['Human'],
+    source: 'official', description: 'Crafting and magical skill training.', data: { repeatable: false }, effects: [], updatedAt: 1,
+  }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save })
+  const markup = renderToStaticMarkup(tree())
+  for (const skill of ['Arcana', 'Nature', 'Occultism', 'Religion']) {
+    expect(markup).toContain(`Technomagical Scrapper (${skill} to Trained)</option>`)
+  }
+  expect(markup).not.toContain('value="Technomagical Scrapper"')
+  findSelect(tree(), 'L05 Ancestry feat')!({ target: { value: JSON.stringify([feat.name, 'Arcana to Expert']) } })
+  expect(save).not.toHaveBeenCalled()
+  findSelect(tree(), 'L05 Ancestry feat')!({ target: { value: JSON.stringify([feat.name, 'Arcana to Trained']) } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats).toEqual([{ name: feat.name, type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Arcana to Trained' }])
+  expect(c.entryIds).toEqual([feat.id])
+  expect(ranksAt(c, [feat])).toMatchObject({ Crafting: 1, Arcana: 1 })
+  expect(renderToStaticMarkup(tree())).toContain('>Technomagical Scrapper (Arcana to Trained)</button>')
+  c = { ...c, extraSlots: [{ category: 'ancestry', level: 5, count: 1 }] }
+  expect(renderToStaticMarkup(tree())).not.toContain('Technomagical Scrapper (Nature to Trained)</option>')
+  findButton(tree(), 'Remove L05 Ancestry feat slot 0')!()
+  expect(ranksAt(c, [feat]).Crafting).toBeUndefined()
+  expect(ranksAt(c, [feat]).Arcana).toBeUndefined()
+})
 
 it('gates access separately, saves per-feat GM approval, preserves existing choices and clears approval on removal', () => {
   let c: Character = {
