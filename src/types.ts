@@ -28,7 +28,7 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
-  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood (Greater)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood (Greater)' | 'Peachwood (Standard-Grade)' | 'Peachwood (High-Grade)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   livingWeapon?: boolean
   verdantWeapon?: boolean
   stowed?: boolean
@@ -41,7 +41,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   worn: boolean
-  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 export interface OwnedShield {

@@ -1004,25 +1004,47 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
 
 const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
 
+const ARMOR_SPECIALIZATIONS: Record<string, {
+  kind: 'damage' | 'resistance' | 'reduction'; damage?: string; label: string; medium: number; heavy: number
+}> = {
+  wood: { kind: 'damage', damage: 'Piercing', label: 'Piercing Damage', medium: 3, heavy: 5 },
+  skeletal: { kind: 'resistance', damage: 'Precision', label: 'Precision Resistance', medium: 3, heavy: 5 },
+  composite: { kind: 'resistance', damage: 'Piercing', label: 'Piercing Resistance', medium: 1, heavy: 2 },
+  leather: { kind: 'resistance', damage: 'Bludgeoning', label: 'Bludgeoning Resistance', medium: 1, heavy: 2 },
+  plate: { kind: 'resistance', damage: 'Slashing', label: 'Slashing Resistance', medium: 1, heavy: 2 },
+  chain: { kind: 'reduction', label: 'Critical Hit Damage Reduction', medium: 4, heavy: 6 },
+}
+
 // Armor specialization comes from class features and feats that mention it; its effect depends on the worn armor's group
 export function armorSpecialization(c: Character, entries: ContentEntry[]) {
-  const worn = wornArmor(c)
+  const worn = wornArmor(c, entries)
   if (!worn) return undefined
   const armor = byName(entries, 'armor', worn.name)
   const groups = tokens(armor?.data.armor_group).map((g) => g.toLowerCase())
   const category = String(armor?.data.armor_category ?? '').toLowerCase()
   // Class features apply to every group; feats may limit it to named groups and armor categories
-  const anyGroup = classFeatures(entries, c).some((f) => /armor specialization/i.test(`${f.name} ${f.description}`))
+  const fromClass = !category || ['medium', 'heavy'].includes(category)
+    ? classFeatures(entries, c).find((f) => /armor specialization/i.test(`${f.name} ${f.description}`)) : undefined
   const fromFeat = c.feats.find((f) => {
+    if (featTakenLevel(f) > c.level) return false
     const e = byName(entries, 'feat', f.name)
     if (!e?.data.grants_armor_specialization && !/armor specialization/i.test(f.name)) return false
     const allowed = tokens(e?.data.grants_armor_groups).map((g) => g.toLowerCase())
     const categories = tokens(e?.data.grants_armor_categories).map((g) => g.toLowerCase())
     return (!allowed.length || groups.some((g) => allowed.includes(g))) && (!categories.length || categories.includes(category))
   })
-  if (!anyGroup && !fromFeat) return undefined
-  const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && e.name.toLowerCase() === g)).find(Boolean)
-  return group ? { group: group.name, armor: worn.name, feat: anyGroup ? undefined : fromFeat?.name, effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, '') } : undefined
+  if (!fromClass && !fromFeat) return undefined
+  const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && !e.deleted && e.name.toLowerCase() === g)).find(Boolean)
+  if (!group) return undefined
+  const rule = ARMOR_SPECIALIZATIONS[group.name.toLowerCase()]
+  const base = category === 'medium' ? rule?.medium : category === 'heavy' ? rule?.heavy : undefined
+  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage, value: base + worn.potency } : undefined
+  const summary = benefit ? `${benefit.value} ${rule.label}`
+    : rule ? `Value not specified for ${category || 'unknown-category'} armor` : undefined
+  return {
+    group: group.name, armor: worn.name, feat: fromClass ? undefined : fromFeat?.name, feature: fromClass?.name,
+    effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, ''), benefit, summary,
+  }
 }
 
 // Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
@@ -1047,6 +1069,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value: v === 'half' ? half : +v, source: e.name })
     }
   }
+  const specialization = armorSpecialization(c, entries)
+  if (specialization?.benefit?.kind === 'resistance' && specialization.benefit.damage) out.push({
+    damage: specialization.benefit.damage, value: specialization.benefit.value,
+    source: `${specialization.group} Armor Specialization`,
+  })
   const aegis = abilityMod(c.abilities.wis)
   if (activeFeatsNamed(c, 'Primal Aegis').length && aegis > 0) {
     for (const damage of ['acid', 'cold', 'electricity', 'fire', 'vitality', 'void']) {
@@ -1147,6 +1174,26 @@ export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
 
 const canOversizedThrow = (c: Character) => c.className === 'Barbarian' && c.level >= 4 && !!c.raging && hasFeat(c, 'Oversized Throw')
 
+export const hasDeityWeaponGrant = (c: Character) => !!c.deity && (['Champion', 'Cleric'].includes(c.className ?? '')
+  || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)
+
+export function deityWeapon(c: Character, entries: ContentEntry[]) {
+  if (!hasDeityWeaponGrant(c)) return undefined
+  const carried = carriedWeapons(c, entries)
+  const gauntlet = armorGauntlet(c, entries)
+  const previous = carried.find((weapon) => weapon.id.startsWith('deity-weapon:') && isFavoredWeapon(c, entries, weapon.name))
+  const entry = (previous ? weaponEntry(entries, previous.name) : undefined)
+    ?? carried.map((weapon) => weaponEntry(entries, weapon.name)).find((entry) => entry && isFavoredWeapon(c, entries, entry.name))
+    ?? (gauntlet && isFavoredWeapon(c, entries, gauntlet.name) ? weaponEntry(entries, gauntlet.name) : undefined)
+    ?? [...entries.filter((entry) => entry.kind === 'weapon' && !entry.deleted), ...SUPPLEMENTAL_WEAPONS]
+      .find((entry) => isFavoredWeapon(c, entries, entry.name))
+  if (!entry) return undefined
+  const id = gauntlet?.name === entry.name ? GAUNTLET.id : `deity-weapon:${entry.id}`
+  const saved = carried.find((weapon) => weapon.id === id)
+    ?? carried.find((weapon) => weapon.name === entry.name && !weapon.id.startsWith('deity-weapon:'))
+  return { entry, id: saved?.id ?? id }
+}
+
 export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   const weapons = carriedWeapons(c, entries)
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
@@ -1154,6 +1201,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const haftStriker = !!haftStrikerSource(c, entries)
   const oversizedThrow = canOversizedThrow(c)
   const gauntlet = armorGauntlet(c, entries)
+  const favored = deityWeapon(c, entries)
   const features = activeAnimalFeatures(c, entries)
   const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
   const selectedAttacks = animalAttacks.filter((attack) => features.some((feature) => attack.name === `${feature} (Animal Feature)`))
@@ -1162,6 +1210,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
+    && (!weapon.id.startsWith('deity-weapon:') || weapon.id === favored?.id)
     && (!animalAttacks.some((entry) => entry.name === weapon.name) || selectedAttacks.some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
   for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...selectedAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
@@ -1169,12 +1218,15 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
+  if (favored && !available.some((weapon) => weapon.id === favored.id)) {
+    available.push({ id: favored.id, name: favored.entry.name, potency: 0, striking: 0, runes: [] })
+  }
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
-    return available.filter((weapon) => weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
+    return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
   }
   const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name
     && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
-  if (hasOtherUnarmed) return available.filter((weapon) => weapon.name !== FIST.name)
+  if (hasOtherUnarmed) return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name)
   if (!available.some((weapon) => weapon.name === FIST.name)) {
     available.push({ id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] })
   }
@@ -1237,10 +1289,11 @@ export function activeAnimalFeatures(c: Character, entries: ContentEntry[]) {
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
-export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = []) => isAutomaticUnarmed(name)
+export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
+  || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
@@ -1369,7 +1422,7 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
 export function canBeLivingWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name)
   return weapon.id !== OVERSIZED_THROW.id && weapon.id !== GAUNTLET.id && weapon.name !== HAFT_STRIKER_WEAPON.name
-    && c.feats.some((feat) => feat.name === 'Living Weapon') && weaponCategory(entry) !== 'Unarmed'
+    && !!activeFeatsNamed(c, 'Living Weapon').length && weaponCategory(entry) !== 'Unarmed'
     && !entry?.traits.some((trait) => /^free[- ]hand$/i.test(trait.trim()))
 }
 
@@ -1463,13 +1516,37 @@ export function livingWeaponEnhancements(c: Character, entries: ContentEntry[], 
   const source = c.livingWeaponEnhancements
     ?? carriedWeapons(c, entries).find((candidate) => candidate.livingWeapon && canBeLivingWeapon(c, entries, candidate))
     ?? weapon
-  return { potency: source.potency, striking: source.striking, runes: source.runes }
+  const automatic = activeFeatsNamed(c, 'Living Weapon').length ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
+  return { potency: Math.max(source.potency, automatic.potency), striking: Math.max(source.striking, automatic.striking), runes: source.runes }
+}
+
+export const automaticWeaponFundamentals = (level: number) => ({
+  potency: [2, 10, 16].filter((at) => level >= at).length,
+  striking: [4, 12, 19].filter((at) => level >= at).length,
+})
+
+export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  return weapon.id !== OVERSIZED_THROW.id && weapon.name !== HAFT_STRIKER_WEAPON.name
+    && weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed'
+    && c.feats.some((feat) => featTakenLevel(feat) <= c.level && ['Verdant Weapon', 'Verdant Weapon Jousting'].includes(feat.name))
+}
+
+export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  return deityWeapon(c, entries)?.id === weapon.id
+    || !!weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
+    || !!weapon.verdantWeapon && canBeVerdantWeapon(c, entries, weapon)
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (weapon.id === OVERSIZED_THROW.id) return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
+  const favored = deityWeapon(c, entries)?.id === weapon.id
+  const automatic = automaticWeaponFundamentals(c.level)
+  if (hasAutomaticWeaponFundamentals(c, entries, weapon)) weapon = { ...weapon,
+    potency: Math.max(weapon.potency, automatic.potency),
+    striking: Math.max(weapon.striking, automatic.striking),
+  }
   const plate = weapon.id === GAUNTLET.id ? armorGauntlet(c, entries)?.armor : undefined
-  if (plate) weapon = { ...weapon, material: plate.material }
+  if (plate) weapon = { ...weapon, material: plate.material, potency: plate.potency, striking: plate.resilient }
   const haft = weapon.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
   if (haft) {
     const source = effectiveWeapon(c, entries, haft)
@@ -1478,17 +1555,24 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   }
   if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') {
     let enhanced = weapon
+    const peachwood = c.level >= 18 ? 'Peachwood (High-Grade)' : 'Peachwood (Standard-Grade)'
     if (weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)) {
-      const shared: OwnedWeapon = { ...weapon, ...livingWeaponEnhancements(c, entries, weapon), material: 'Peachwood (Greater)' }
+      const shared: OwnedWeapon = { ...weapon, ...livingWeaponEnhancements(c, entries, weapon), material: peachwood }
       enhanced = { ...shared, runes: livingWeaponRunes(shared).filter((rune) => weaponRuneApplies(entries, shared, rune)) }
     }
+    if (weapon.verdantWeapon && canBeVerdantWeapon(c, entries, weapon)) {
+      enhanced = { ...enhanced, material: peachwood }
+    }
+    if (plate) enhanced = { ...enhanced, material: plate.material, potency: plate.potency, striking: plate.resilient }
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)).slice(0, maxPropertyRunes(enhanced.potency, enhanced.material)) } : enhanced)
   }
   const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
   const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
     ? c.level >= 16 ? 'Cold Iron (High-Grade)' : c.level >= 10 ? 'Cold Iron (Standard-Grade)' : 'Cold Iron (Low-Grade)' : undefined
-  const enhanced: OwnedWeapon = { ...weapon, material, potency: fundamentals?.potency ?? 0, striking: fundamentals?.striking ?? 0, runes: c.handwraps?.runes ?? [] }
+  const enhanced: OwnedWeapon = { ...weapon, material,
+    potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
+    striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0), runes: c.handwraps?.runes ?? [] }
   return withBlessedArmament(c, entries, { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })
 }
 

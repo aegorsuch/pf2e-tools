@@ -36,28 +36,68 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   expect(c.weapons?.[0].material).toBe('Orichalcum')
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
   expect(markup).toContain('aria-label="Add property rune"')
-  expect(markup.indexOf('aria-label="Weapon material"')).toBeLessThan(markup.indexOf('<label>Potency'))
+  expect(markup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(markup.indexOf('<label>Potency'))
   const armorMaterial = findElement(ArmorList({ c, entries: [], save }), (element) => element.props['aria-label'] === 'Armor material')
   if (!armorMaterial) throw new Error('Missing armor material')
   ;(armorMaterial.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Orichalcum' } })
   expect(c.armors?.[0]).toMatchObject({ material: 'Orichalcum', potency: 3, resilient: 2 })
   const armorMarkup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)
-  expect(armorMarkup.indexOf('aria-label="Armor material"')).toBeLessThan(armorMarkup.indexOf('<label>Potency'))
-  expect(armorMarkup.indexOf('aria-label="Armor material"')).toBeLessThan(armorMarkup.indexOf('<label>Resilient'))
+  expect(armorMarkup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(armorMarkup.indexOf('<label>Potency'))
+  expect(armorMarkup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(armorMarkup.indexOf('<label>Resilient'))
   expect(armorMarkup).not.toContain('One additional property rune slot')
   expect(armorMarkup).not.toContain('Add Custom Shield')
   expect(armorMarkup).not.toContain('<small>Armor Class <b>')
   ;(armorMaterial.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Duskwood' } })
   expect(c.armors?.[0]).toMatchObject({ material: 'Duskwood', potency: 3, resilient: 2 })
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('<option value="Duskwood" selected="">Duskwood</option>')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('aria-haspopup="dialog">Duskwood</button>')
   c = { ...c, feats: [{ name: 'Living Weapon', type: 'Class Feat', level: 1 }] }
   c.weapons![0].livingWeapon = true
   const locked = findElement(WeaponList({ c, entries: [weapon], save }), (element) => element.props['aria-label'] === 'Weapon material')
-  expect(locked?.props).toMatchObject({ value: 'Peachwood (Greater)', disabled: true })
+  expect(locked).toBeUndefined()
   expect(c.weapons?.[0].material).toBe('Orichalcum')
   const livingMarkup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
+  expect(livingMarkup).toContain('aria-haspopup="dialog">Peachwood (Standard-Grade)</button>')
+  expect(livingMarkup).not.toContain('aria-label="Remove Peachwood (Standard-Grade) material"')
   expect(livingMarkup).not.toContain('Material locked by Living Weapon')
   expect(livingMarkup).not.toContain('High-grade peachwood:')
+})
+
+it('opens grade-specific weapon and armor material rules with the correct item level', () => {
+  const item = (name: string, level: number, description: string): ContentEntry =>
+    ({ ...weapon, id: name, kind: 'item', name, level, description })
+  const entries = [
+    weapon, item('Peachwood Weapon', 12, 'Base weapon rules.'),
+    item('Peachwood Weapon (High-Grade)', 18, 'High-grade weapon rules.'),
+    item('Grisantian Pelt Armor', 12, 'Base armor rules.'),
+    item('Grisantian Pelt Armor (High-Grade)', 19, 'High-grade armor rules.'),
+    item('Grisantian Pelt', 0, 'Object rules.'),
+  ]
+  const c: Character = { ...character([{ name: 'Living Weapon', level: 1, type: 'Class Feat' }], true), level: 18,
+    armors: [{ id: 'armor', name: 'Hide Armor', worn: true, material: 'Grisantian Hide (High-Grade)', potency: 0, resilient: 0, runes: [] }] }
+  const weapons = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(weapons).toContain('Peachwood (High-Grade)<small> (Level 18)</small>')
+  expect(weapons).toContain('High-grade weapon rules.')
+  expect(weapons).not.toContain('Base weapon rules.')
+  const armor = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} />)
+  expect(armor).toContain('Grisantian Hide (High-Grade)<small> (Level 19)</small>')
+  expect(armor).toContain('High-grade armor rules.')
+  expect(armor).not.toContain('Object rules.')
+  expect(armor).toContain('aria-label="Remove Grisantian Hide (High-Grade) material"')
+})
+
+it('preserves a dormant deity weapon when editing other gear and restores its identity after changing class back', () => {
+  const dormant: OwnedWeapon = { id: 'deity-weapon:longsword', name: 'Longsword', potency: 3, striking: 3, runes: ['Flaming'] }
+  let c: Character = { ...character([]), deity: 'Iomedae', weapons: [...character([]).weapons!, dormant] }
+  const entries: ContentEntry[] = [weapon, { ...weapon, id: 'deity', kind: 'deity', name: 'Iomedae', data: { favored_weapon: 'longsword' } }]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const control = findElement(WeaponList({ c, entries, save }), element => element.props.label === 'Potency')
+  if (!control) throw new Error('Missing purchased weapon potency')
+  ;(control.props.onChange as (value: number) => void)(2)
+  expect(c.weapons?.find(w => w.id === dormant.id)).toEqual(dormant)
+  c = { ...c, className: 'Cleric' }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)
+  expect(markup.match(/aria-label="Remove Longsword"/g)).toHaveLength(1)
+  expect(effectiveWeapon(c, entries, dormant)).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
 })
 
 it('alphabetizes Animal Feature effects, greys out rank-four choices until level seven, and switches a single persisted effect', () => {
@@ -419,21 +459,22 @@ it('locks full plate gauntlets and keeps their saved configuration when other we
   expect(c.weapons).toContainEqual(gauntlet)
 })
 
-it.each(ARMOR_GAUNTLETS)('inherits plate material for armor-provided %s without changing purchased weapons or stored enhancements', (name) => {
+it.each(ARMOR_GAUNTLETS)('inherits plate material and fundamentals for armor-provided %s without changing purchased weapons or stored enhancements', (name) => {
   const saved: OwnedWeapon = { id: GAUNTLET.id, name, material: 'Peachwood (Greater)', potency: 3, striking: 1,
     runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] }
   let c: Character = { ...character([]), weapons: [saved],
     armors: [{ id: 'plate', name: 'Full Plate', material: 'Orichalcum', gauntlet: name, worn: true, potency: 0, resilient: 0, runes: [] }] }
   const material = () => findElement(WeaponList({ c, entries: [], save: () => {} }), (element) => element.props['aria-label'] === 'Weapon material')
-  expect(material()?.props).toMatchObject({ value: 'Orichalcum', disabled: true })
-  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 3, striking: 1, runes: saved.runes })
+  expect(material()).toBeUndefined()
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Orichalcum</button>')
+  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 0, striking: 0, runes: [] })
   expect(effectiveWeapon(c, [], { ...saved, id: 'purchased' }).material).toBe('Peachwood (Greater)')
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: undefined })) }
-  expect(material()?.props).toMatchObject({ value: '', disabled: true })
-  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: undefined, runes: saved.runes.slice(0, 3) })
+  expect(material()).toBeUndefined()
+  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: undefined, runes: [] })
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: 'Duskwood' })) }
-  expect(material()?.props).toMatchObject({ value: 'Duskwood', disabled: true })
-  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('<option selected="">Duskwood</option>')
+  expect(material()).toBeUndefined()
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Duskwood</button>')
   expect(saved).toMatchObject({ material: 'Peachwood (Greater)', runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] })
 })
 

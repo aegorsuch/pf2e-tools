@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats, featEffectChange,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats, featEffectChange,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
@@ -10,7 +10,7 @@ import { ClassFeatures } from './ClassFeatures'
 import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
-import { homebrewCharacterOptions, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { homebrewCharacterOptions, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const base: Character = {
@@ -24,6 +24,134 @@ const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['d
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it.each([
+  ['Wood', 'Medium', 6, 'damage', 'Piercing'], ['Wood', 'Heavy', 8, 'damage', 'Piercing'],
+  ['Skeletal', 'Medium', 6, 'resistance', 'Precision'], ['Skeletal', 'Heavy', 8, 'resistance', 'Precision'],
+  ['Composite', 'Medium', 4, 'resistance', 'Piercing'], ['Composite', 'Heavy', 5, 'resistance', 'Piercing'],
+  ['Leather', 'Medium', 4, 'resistance', 'Bludgeoning'], ['Leather', 'Heavy', 5, 'resistance', 'Bludgeoning'],
+  ['Plate', 'Medium', 4, 'resistance', 'Slashing'], ['Plate', 'Heavy', 5, 'resistance', 'Slashing'],
+  ['Chain', 'Medium', 7, 'reduction', undefined], ['Chain', 'Heavy', 9, 'reduction', undefined],
+] as const)('calculates %s specialization for %s armor without treating retaliation or reduction as resistance', (group, category, value, kind, damage) => {
+  const armor = content('armor', 'Test Armor', { armor_group: group, armor_category: category })
+  const rule = content('armorGroup', group)
+  const grant = content('feat', 'Armor Training', { grants_armor_specialization: true })
+  const c: Character = { ...base, className: 'Ranger', feats: [feat(grant.name)],
+    armors: [{ id: 'armor', name: armor.name, potency: 3, resilient: 0, worn: true, runes: [] }] }
+  const data = [armor, rule, grant]
+  expect(armorSpecialization(c, data)?.benefit).toEqual({ value, kind, damage })
+  expect(resistances(c, data)).toEqual(kind === 'resistance' ? [{ value, damage, source: `${group} Armor Specialization` }] : [])
+  expect(armorSpecialization({ ...c, armors: c.armors!.map(a => ({ ...a, potency: 0 })) }, data)?.benefit?.value).toBe(value - 3)
+  expect(resistances({ ...c, feats: [] }, data)).toEqual([])
+  expect(armorSpecialization({ ...c, armors: c.armors!.map(a => ({ ...a, worn: false })) }, data)).toBeUndefined()
+})
+
+it('gates specialization by class level, feat acquisition level, armor group and category', () => {
+  const medium = content('armor', 'Bone Armor', { armor_group: 'Skeletal', armor_category: 'Medium' })
+  const heavy = { ...medium, data: { ...medium.data, armor_category: 'Heavy' } }
+  const light = { ...medium, data: { ...medium.data, armor_category: 'Light' } }
+  const group = content('armorGroup', 'Skeletal')
+  const skins = content('feat', 'Skins Of The Slain', {
+    grants_armor_specialization: true, grants_armor_groups: 'leather, skeletal, wood', grants_armor_categories: 'light, medium',
+  }, 10)
+  const feature = { ...content('classFeature', 'Armor Expertise', { class: 'Fighter' }, 11), description: 'You gain the armor specialization effects of medium and heavy armor.' }
+  const c: Character = { ...base, className: 'Ranger', level: 13,
+    feats: [{ ...feat(skins.name, 10), slot: 'archetype:14:0' }],
+    armors: [{ id: 'armor', name: medium.name, potency: 3, resilient: 0, worn: true, runes: [] }] }
+  expect(armorSpecialization(c, [medium, group, skins])).toBeUndefined()
+  expect(armorSpecialization({ ...c, level: 14 }, [heavy, group, skins])).toBeUndefined()
+  expect(armorSpecialization({ ...c, level: 14 }, [light, group, skins])?.summary).toContain('Value not specified for light armor')
+  const fighter = { ...c, className: 'Fighter', feats: [], level: 11 }
+  expect(resistances(fighter, [medium, group, feature])).toEqual([{ damage: 'Precision', value: 6, source: 'Skeletal Armor Specialization' }])
+  expect(armorSpecialization({ ...fighter, level: 10 }, [medium, group, feature])).toBeUndefined()
+  expect(armorSpecialization(fighter, [light, group, feature])).toBeUndefined()
+})
+
+it.each([
+  [1, 0, 0], [2, 1, 0], [3, 1, 0], [4, 1, 1], [9, 1, 1], [10, 2, 1],
+  [11, 2, 1], [12, 2, 2], [15, 2, 2], [16, 3, 2], [18, 3, 2], [19, 3, 3],
+])('scales deity, Living and Verdant weapons at level %i without changing saved gear', (level, potency, striking) => {
+  for (const tag of ['deity', 'living', 'verdant']) {
+    const weapon: OwnedWeapon = { ...main, potency: 0, striking: 0, livingWeapon: tag === 'living', verdantWeapon: tag === 'verdant' }
+    const c: Character = { ...base, className: tag === 'deity' ? 'Cleric' : 'Ranger', level,
+      feats: tag === 'deity' ? [] : [feat(tag === 'living' ? 'Living Weapon' : 'Verdant Weapon')],
+      weapons: [weapon] }
+    expect(effectiveWeapon(c, [sword, deity], weapon)).toMatchObject({ potency, striking })
+    expect(weaponAttack(c, [sword, deity], weapon).damage).toMatch(new RegExp(`^${striking + 1}d8`))
+    expect(weapon).toMatchObject({ potency: 0, striking: 0 })
+  }
+})
+
+it.each([17, 18])('uses the same Peachwood grade for Living and Verdant tags at level %i', (level) => {
+  for (const tag of ['living', 'verdant']) {
+    const weapon: OwnedWeapon = { ...main, material: 'Orichalcum', potency: 3, striking: 3,
+      livingWeapon: tag === 'living', verdantWeapon: tag === 'verdant' }
+    const c: Character = { ...base, className: 'Ranger', level, weapons: [weapon], feats: [feat(tag === 'living' ? 'Living Weapon' : 'Verdant Weapon')] }
+    expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({
+      material: level < 18 ? 'Peachwood (Standard-Grade)' : 'Peachwood (High-Grade)', potency: 3, striking: 3,
+    })
+    expect(effectiveWeapon({ ...c, feats: [] }, [sword], weapon).material).toBe('Orichalcum')
+    expect(effectiveWeapon(c, [sword], { ...weapon, livingWeapon: false, verdantWeapon: false }).material).toBe('Orichalcum')
+    expect(weapon.material).toBe('Orichalcum')
+  }
+})
+
+it.each([0, 1, 2, 3])('converts armor resilient tier %i directly into its provided gauntlet striking tier', (tier) => {
+  const c: Character = { ...base, armors: [{ id: 'plate', name: 'Full Plate', worn: true, potency: tier, resilient: tier, runes: ['Shadow'] }] }
+  const gauntlet = ownedWeapons(c, []).find(w => w.id === GAUNTLET.id)!
+  expect(effectiveWeapon(c, [], gauntlet)).toMatchObject({ potency: tier, striking: tier, runes: [] })
+  expect(weaponAttack(c, [], gauntlet).damage).toMatch(new RegExp(`^${tier + 1}d4`))
+  expect(effectiveWeapon(c, [], { ...gauntlet, id: 'purchased', potency: 0, striking: 0 })).toMatchObject({ potency: 0, striking: 0 })
+})
+
+it('grants one deity-favored weapon to Champions, Clerics and active Vindicator Rangers', () => {
+  for (const className of ['Champion', 'Cleric', 'Ranger']) {
+    const c: Character = { ...base, className, weapons: [], feats: className === 'Ranger' ? [feat('Vindicator Dedication', 2)] : [] }
+    const granted = ownedWeapons(c, [sword, deity]).filter(w => w.name === sword.name)
+    expect(granted).toHaveLength(1)
+    expect(effectiveWeapon(c, [sword, deity], granted[0])).toMatchObject({ potency: 2, striking: 1 })
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword, deity]} save={() => {}} />)
+    expect(markup).toContain('Favored weapon of Iomedae')
+    expect(markup).not.toContain('aria-label="Remove Longsword"')
+  }
+  const ranger = { ...base, className: 'Ranger', weapons: [] }
+  expect(ownedWeapons(ranger, [sword, deity]).some(w => w.name === sword.name)).toBe(false)
+  expect(ownedWeapons({ ...ranger, level: 1, feats: [feat('Vindicator Dedication', 2)] }, [sword, deity]).some(w => w.name === sword.name)).toBe(false)
+})
+
+it('retains dormant deity weapon configuration and keeps purchased duplicates independently removable', () => {
+  const c: Character = { ...base, weapons: [] }
+  const granted = ownedWeapons(c, [sword, deity]).find(w => w.name === sword.name)!
+  const saved = { ...granted, potency: 3, striking: 3, runes: ['Flaming'] }
+  const equipped = { ...c, weapons: [{ ...main, id: 'purchased' }, saved] }
+  expect(ownedWeapons(equipped, [sword, deity]).filter(w => w.name === sword.name)).toHaveLength(2)
+  expect(renderToStaticMarkup(<WeaponList c={equipped} entries={[sword, deity]} save={() => {}} />).match(/aria-label="Remove Longsword"/g)).toHaveLength(1)
+  expect(ownedWeapons({ ...equipped, className: 'Fighter' }, [sword, deity]).some(w => w.id === granted.id)).toBe(false)
+  expect(ownedWeapons(equipped, [sword, deity]).find(w => w.id === granted.id)).toEqual(saved)
+  expect(effectiveWeapon({ ...equipped, level: 2 }, [sword, deity], saved)).toMatchObject({ potency: 3, striking: 3 })
+})
+
+it('preserves a favored Fist alongside armor gauntlets and reuses an already-granted favored gauntlet', () => {
+  const c: Character = { ...base, level: 19, weapons: [],
+    armors: [{ id: 'armor', name: 'Full Plate', worn: true, potency: 1, resilient: 2, runes: [] }] }
+  const fistDeity = { ...deity, data: { favored_weapon: 'fist' } }
+  const fist = ownedWeapons(c, [fistDeity]).find(w => w.name === 'Fist')!
+  expect(fist).toBeDefined()
+  expect(effectiveWeapon(c, [fistDeity], fist)).toMatchObject({ potency: 3, striking: 3 })
+  expect(effectiveWeapon({ ...c, handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }, [fistDeity], fist).runes).toEqual(['Flaming'])
+  const gauntletDeity = { ...deity, data: { favored_weapon: 'gauntlet' } }
+  const gauntlets = ownedWeapons(c, [gauntletDeity]).filter(w => w.name === 'Gauntlet')
+  expect(gauntlets).toHaveLength(1)
+  expect(effectiveWeapon(c, [gauntletDeity], gauntlets[0])).toMatchObject({ potency: 1, striking: 2 })
+})
+
+it.each(['Living Weapon', 'Verdant Weapon'])('does not activate %s upgrades before the granting feat is acquired', (name) => {
+  const weapon = { ...main, potency: 0, striking: 0, livingWeapon: name === 'Living Weapon', verdantWeapon: name === 'Verdant Weapon' }
+  const c: Character = { ...base, className: 'Ranger', weapons: [weapon], feats: [{ ...feat(name), slot: 'class:12:0' }] }
+  expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({ potency: 0, striking: 0 })
+  expect(effectiveWeapon(c, [sword], weapon).material).toBeUndefined()
+  expect(effectiveWeapon({ ...c, level: 12 }, [sword], weapon)).toMatchObject({ potency: 2, striking: 2, material: 'Peachwood (Standard-Grade)' })
+})
 
 it('gives Orichalcum one extra rune slot without increasing fundamental limits or stacking initiative circumstances', () => {
   for (const potency of [1, 2, 3]) expect(maxPropertyRunes(potency, 'Orichalcum')).toBe(potency + 1)
@@ -43,8 +171,9 @@ it('locks Wood-group armor to level-scaled Duskwood without changing stored mate
     const character = { ...c, level }
     expect(ownedArmors(character, [wood])[0].material).toBe(material)
     const markup = renderToStaticMarkup(<ArmorList c={character} entries={[wood]} save={() => {}} />)
-    expect(markup).toContain(`aria-label="Armor material" disabled=""`)
-    expect(markup).toContain(`<option selected="">${material}</option>`)
+    expect(markup).toContain(`aria-haspopup="dialog">${material}</button>`)
+    expect(markup).not.toContain(`aria-label="Remove ${material} material"`)
+    expect(markup).not.toContain('aria-label="Armor material"')
     expect(initiativeBonus(character, [wood])).toBe(initiativeBonus({ ...character, armors: [] }, [wood]))
   }
   expect(c.armors?.[0].material).toBe('Orichalcum')
@@ -84,7 +213,7 @@ it('removes irrelevant active toggles while retaining their spell descriptions a
 it('locks eligible Living Weapons to Peachwood without losing dormant Orichalcum configuration', () => {
   const weapon: OwnedWeapon = { ...main, material: 'Orichalcum', livingWeapon: true, runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] }
   const c = { ...base, feats: [feat('Living Weapon')] }
-  expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({ material: 'Peachwood (Greater)', runes: ['Flaming', 'Frost', 'Shock', 'Shifting'] })
+  expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({ material: 'Peachwood (Standard-Grade)', runes: ['Flaming', 'Frost', 'Shock', 'Shifting'] })
   expect(effectiveWeapon(c, [sword], { ...weapon, livingWeapon: false })).toMatchObject({ material: 'Orichalcum', runes: weapon.runes })
   expect(effectiveWeapon(c, [{ ...sword, traits: ['Free-Hand'] }], weapon).material).toBe('Orichalcum')
   expect(weapon.runes).toHaveLength(4)
@@ -287,7 +416,7 @@ it('treats Living Weapons and inherited haft strikes as cold iron and silver wit
     const attack = weaponAttack(c, entries, strike)
     expect(attack.pristineLivingWeapon).toBe(true)
     expect(attack.damage).not.toContain('bleed')
-    expect(effectiveWeapon(c, entries, strike).material).toBe('Peachwood (Greater)')
+    expect(effectiveWeapon(c, entries, strike).material).toBe('Peachwood (Standard-Grade)')
   }
   expect(weaponAttack(c, entries, ordinary).pristineLivingWeapon).toBe(false)
   for (const missing of ['Wild Hunter Dedication', 'Living Weapon', 'Pristine Living Weapon']) {
@@ -330,7 +459,8 @@ it.each([[5, 'Low-Grade'], [9, 'Low-Grade'], [10, 'Standard-Grade'], [15, 'Stand
   expect(effectiveWeapon(c, [], tusks)).toMatchObject({ material: `Cold Iron (${grade})`, potency: 0, striking: 0, runes: [] })
   expect(effectiveWeapon({ ...c, handwraps: { potency: 2, striking: 1, runes: ['Flaming'] } }, [], tusks)).toMatchObject({ potency: 2, striking: 1, runes: ['Flaming'] })
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain(`<select aria-label="Weapon material" disabled=""><option selected="">Cold Iron (${grade})</option></select>`)
+  expect(markup).toContain(`aria-haspopup="dialog">Cold Iron (${grade})</button>`)
+  expect(markup).not.toContain(`aria-label="Remove Cold Iron (${grade}) material"`)
   expect(markup).not.toContain('Configure unarmed potency')
   expect(markup).not.toContain('locked by Cold Iron Tusks')
   expect(ownedWeapons({ ...c, level: 4 }, []).map((weapon) => weapon.name)).not.toContain('Tusks')

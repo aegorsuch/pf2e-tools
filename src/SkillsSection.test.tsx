@@ -64,10 +64,10 @@ it('shows speed bonus sources but omits redundant Initiative helper', () => {
   expect(initiativeBonus(c, [ranger])).toBe(5)
 })
 
-it('shows armor specialization with armor and granting feat, without rules summary', () => {
+it('shows calculated armor specialization with its source and clickable full rules', () => {
   const armor: ContentEntry = {
     ...ranger, id: 'wooden-breastplate', kind: 'armor', name: 'Wooden Breastplate',
-    data: { armor_group: 'Wood' },
+    data: { armor_group: 'Wood', armor_category: 'Medium' },
   }
   const group: ContentEntry = {
     ...ranger, id: 'wood', kind: 'armorGroup', name: 'Wood',
@@ -80,11 +80,12 @@ it('shows armor specialization with armor and granting feat, without rules summa
   const c: Character = {
     ...base,
     feats: [{ name: feat.name, type: 'Class Feat', level: 1 }],
-    armors: [{ id: 'armor', name: armor.name, worn: true, potency: 0, resilient: 0, runes: [] }],
+    armors: [{ id: 'armor', name: armor.name, worn: true, potency: 3, resilient: 0, runes: [] }],
   }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger, armor, group, feat]} save={() => {}} part="defense" />)
-  expect(markup).toContain('Armor Specialization: Wood (Wooden Breastplate via Skins of the Slain feat)')
-  expect(markup).not.toContain(group.description)
+  expect(markup).toMatch(/Armor Specialization: Wood, 6 Piercing Damage<button[^>]*>\*<\/button> \(Wooden Breastplate via Skins of the Slain feat\)/)
+  expect(markup).toContain(group.description)
+  expect(markup).toContain('popover="auto"')
 })
 
 function findButtons(node: ReactNode) {

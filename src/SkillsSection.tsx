@@ -200,9 +200,12 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}
         </div>
-        {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}{spec.feat ? ` via ${spec.feat} feat` : ''})</small> : <small>Armor Specialization: None</small>}
+        {spec ? <small>Armor Specialization: {spec.group}{spec.summary && `, ${spec.summary}`}<SourceNote
+          source={`${spec.armor}${spec.feat ? ` via ${spec.feat} feat` : spec.feature ? ` via ${spec.feature} class feature` : ''}`}
+          note={spec.effect} /></small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r, index) => {
-          const note = activeFeatsNamed(c, r.source).length ? RESISTANCE_NOTES[r.source] : undefined
+          const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect
+            : activeFeatsNamed(c, r.source).length ? RESISTANCE_NOTES[r.source] : undefined
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}</small>

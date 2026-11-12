@@ -104,7 +104,7 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
   expect(provided).toMatchObject({ name: 'Clawed Gauntlet', potency: 1, striking: 1, runes: ['Wounding'] })
   expect(isLockedWeapon(c, 'Clawed Gauntlet', [clawed])).toBe(true)
   expect(isLockedWeapon(c, 'Gauntlet', [clawed])).toBe(false)
-  expect(weaponAttack(c, [clawed], provided)).toMatchObject({ ability: 'dex', item: 1, damage: '2d4+1 slashing', traits: tekko.traits })
+  expect(weaponAttack(c, [clawed], provided)).toMatchObject({ ability: 'dex', item: 0, damage: '1d4+1 slashing', traits: tekko.traits })
   const regular: Character = { ...c, armors: c.armors!.map((armor) => ({ ...armor, gauntlet: 'Gauntlet' })) }
   const back = ownedWeapons(regular, [clawed]).find((weapon) => weapon.id === GAUNTLET.id)!
   expect(effectiveWeapon(regular, [clawed], back).runes).toEqual([])

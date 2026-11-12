@@ -20,6 +20,8 @@ export const DATA_FIELDS = [
   'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'sense', 'speed_raw', 'mount', 'companion_attacks', 'companion_support', 'companion_maneuver',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
+export const usesFullItemRules = (source: Record<string, unknown>) =>
+  /Property Runes|Precious Material/i.test(String(source.item_subcategory)) || source.item_category === 'Materials'
 
 // Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
 const REMASTER_ONLY = (category: string) => ({
@@ -169,7 +171,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
         }
         if (!['feat', 'spell', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
-          && !(category === 'equipment' && /Property Runes/i.test(String(s.item_subcategory)))) delete s.markdown
+          && !(category === 'equipment' && usesFullItemRules(s))) delete s.markdown
       }
       hits.push(hit)
     }

@@ -2,10 +2,34 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { CharacterBuilder } from './CharacterBuilder'
 import { mapAonHit } from './aon'
+import { fetchAonHits } from './aonQuery'
 import type { Character, ContentEntry } from './types'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
+
+it('retains full material and rune rules through snapshot fetching and mapping, without expanding ordinary item summaries', async () => {
+  const sources = [
+    { name: 'Peachwood Weapon', item_subcategory: 'Precious Material Weapons' },
+    { name: 'Grisantian Pelt Armor', item_subcategory: 'Precious Material Armor' },
+    { name: 'Peachwood', item_category: 'Materials' },
+    { name: 'Flaming', item_subcategory: 'Weapon Property Runes' },
+    { name: 'Rope', item_subcategory: 'Adventuring Gear' },
+  ]
+  const fetchFn: typeof fetch = async (_url, init) => new Response(JSON.stringify({
+    hits: { hits: String(init?.body).includes('"category":"equipment"') ? sources.map((source) => ({
+      _id: source.name, _source: { category: 'equipment', ...source, summary: 'Short summary.', markdown: 'Full rules.\n\nAdditional benefit.' },
+    })) : [] },
+  }))
+  const hits = await fetchAonHits('pf2e', fetchFn)
+  expect(hits).toHaveLength(5)
+  for (const hit of hits.slice(0, 4)) {
+    expect(hit._source?.markdown).toContain('Additional benefit.')
+    expect(mapAonHit(hit, 'pf2e')?.description).toBe('Full rules.\n\nAdditional benefit.')
+  }
+  expect(hits[4]._source?.markdown).toBeUndefined()
+  expect(mapAonHit(hits[4], 'pf2e')?.description).toBe('Short summary.')
+})
 
 it('alphabetizes collapsible main sections without showing other feat slots', () => {
   const c: Character = {

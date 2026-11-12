@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, SUBCLASS_CLASSES, fetchAonHits, plain, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, SUBCLASS_CLASSES, fetchAonHits, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 
 export const AON_SITES: Record<GameSystem, string> = {
@@ -51,7 +51,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     level,
     traits,
     description: (['feat', 'spell', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
-      || kind === 'item' && /Property Runes/i.test(String(s.item_subcategory))) && text(s.markdown).trim()
+      || kind === 'item' && usesFullItemRules(s)) && text(s.markdown).trim()
       ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
     data,
     effects: [],
