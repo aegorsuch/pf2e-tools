@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats, featEffectChange,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
@@ -440,6 +440,111 @@ it('applies Superior Sight to Perception and initiative without stacking circums
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
   expect(markup).toContain(`Perception <b>${normal + 2 >= 0 ? '+' : ''}${normal + 2}</b>`)
   expect(markup).toContain('<small>Circumstance</small>+2')
+})
+
+it('grants Animal Skin expert unarmored proficiency outside Rage, with Rage-only AC and Dexterity cap', () => {
+  const barbarian = content('class', 'Barbarian', { defense_proficiency: 'Trained in unarmored defense', medium_armor_proficiency: 'Trained' })
+  const greater = content('classFeature', 'Greater Juggernaut', { class: 'Barbarian' }, 13)
+  const c: Character = { ...base, level: 6, className: 'Barbarian', feats: [feat('Animal Skin', 6)] }
+  const data = [barbarian, greater]
+  expect(armorRanks(c, data).Unarmored).toBe(2)
+  expect(armorClass(c, data)).toBe(24)
+  expect(animalSkinBenefits(c, data)).toBeUndefined()
+  expect(armorClass({ ...c, raging: true }, data)).toBe(25)
+  expect(animalSkinBenefits({ ...c, raging: true }, data)).toEqual({ itemBonus: 2, dexCap: 3 })
+  expect(armorClass({ ...c, level: 13, raging: true }, data)).toBe(33)
+  const delayed = { ...c, feats: [{ ...c.feats[0], slot: 'class:8:0' }] }
+  expect(armorRanks(delayed, data).Unarmored).toBe(1)
+  expect(animalSkinBenefits({ ...delayed, raging: true }, data)).toBeUndefined()
+  const mastery = { ...content('classFeature', 'Unarmored Mastery', { class: 'Barbarian' }, 13),
+    description: 'Your proficiency rank for unarmored defense increases to master.' }
+  expect(armorRanks({ ...c, level: 13 }, [...data, mastery]).Unarmored).toBe(3)
+})
+
+it('stacks Animal Skin with explorer clothing potency and shields, but never applies the hide to armor', () => {
+  const barbarian = content('class', 'Barbarian', { defense_proficiency: 'Trained in unarmored defense', medium_armor_proficiency: 'Trained' })
+  const clothing = content('armor', "Explorer's Clothing", { armor_category: 'Unarmored', ac: 0, dex_cap: 5 })
+  const plate = content('armor', 'Breastplate', { armor_category: 'Medium', ac: 4, dex_cap: 1 })
+  const armor = { id: 'armor', name: clothing.name, potency: 2, resilient: 0, runes: [], worn: true }
+  const c: Character = { ...base, level: 6, className: 'Barbarian', raging: true, feats: [feat('Animal Skin', 6)], armors: [armor] }
+  const data = [barbarian, clothing, plate]
+  expect(armorClass(c, data)).toBe(27)
+  expect(armorClass({ ...c, shield: { id: 's', name: 'Shield', hardness: 5, hp: 20, damage: 0, raised: true } }, data)).toBe(29)
+  const armored = { ...c, armors: [{ ...armor, name: plate.name }] }
+  expect(animalSkinBenefits(armored, data)).toBeUndefined()
+  expect(armorClass(armored, data)).toBe(armorClass({ ...armored, feats: [] }, data))
+  const legacy = { ...armored, armors: undefined, equipment: [{ name: plate.name, qty: 1 }] }
+  expect(animalSkinBenefits(legacy, data)).toBeUndefined()
+  expect(animalSkinBenefits({ ...c, armors: [{ ...armor, name: 'Unknown armor' }] }, data)).toBeUndefined()
+})
+
+it('derives Primal Aegis from current Wisdom without granting future, absent or negative resistance', () => {
+  const c: Character = { ...base, className: 'Druid', level: 18, abilities: { ...base.abilities, wis: 18 }, feats: [feat('Primal Aegis', 18)] }
+  const expected = ['Acid', 'Cold', 'Electricity', 'Fire', 'Vitality', 'Void'].map((damage) => ({ damage, value: 4, source: 'Primal Aegis' }))
+  expect(resistances(c, [])).toEqual(expected)
+  expect(resistances({ ...c, abilities: { ...c.abilities, wis: 20 } }, []).every((resistance) => resistance.value === 5)).toBe(true)
+  expect(resistances({ ...c, abilities: { ...c.abilities, wis: 8 } }, [])).toEqual([])
+  expect(resistances({ ...c, level: 17 }, [])).toEqual([])
+  expect(resistances({ ...c, feats: [] }, [])).toEqual([])
+})
+
+it.each([[10, 3], [11, 3], [12, 4], [15, 4], [16, 5], [19, 5], [20, 6]])('activates Harden Flesh resistance %i -> %i with its adamantine exception', (level, value) => {
+  const c: Character = { ...base, className: 'Druid', level, feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
+  expect(resistances(c, [])).toEqual([{ damage: 'Physical (except adamantine)', value, source: 'Harden Flesh' }])
+  expect(resistances({ ...c, activeFeatEffects: [] }, [])).toEqual([])
+  expect(resistances({ ...c, level: 9 }, [])).toEqual([])
+  expect(resistances({ ...c, feats: [] }, [])).toEqual([])
+})
+
+it('never treats kaiju form resistance or future feat resistance metadata as permanent', () => {
+  const kaiju = content('feat', 'Heart of the Kaiju', { resistances: 'physical=5' }, 20, ['Druid'])
+  const poison = content('feat', 'Poison Resistance', { resistances: 'poison=half' }, 2, ['Druid'])
+  const c: Character = { ...base, className: 'Druid', level: 20, feats: [feat(kaiju.name, 20)] }
+  expect(resistances(c, [kaiju])).toEqual([])
+  const active = { ...c, ...featEffectChange(c, kaiju.name, true) }
+  expect(resistances(active, [kaiju])).toEqual([{ damage: 'Physical', value: 5, source: kaiju.name }])
+  expect(resistances(JSON.parse(JSON.stringify(active)) as Character, [kaiju])).toEqual(resistances(active, [kaiju]))
+  expect(resistances({ ...active, level: 19 }, [kaiju])).toEqual([])
+  expect(resistances({ ...c, level: 1, feats: [feat(poison.name, 2)] }, [poison])).toEqual([])
+  expect(featEffectChange(active, 'Harden Flesh', true).activeFeatEffects).toEqual([kaiju.name, 'Harden Flesh'])
+  expect(featEffectChange(active, kaiju.name, true).activeFeatEffects).toEqual([kaiju.name])
+  expect(featEffectChange(active, kaiju.name, false).activeFeatEffects).toEqual([])
+  expect(c.activeFeatEffects).toBeUndefined()
+})
+
+it('limits Hazard Finder to hazard checks, does not stack it with shields, and never boosts initiative', () => {
+  const c: Character = { ...base, className: 'Ranger', level: 8, feats: [feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
+  const normal = defenseSummary({ ...c, activeFeatEffects: [] }, [])
+  const hazard = defenseSummary(c, [])
+  expect(hazard.perception).toBe(normal.perception + 1)
+  expect(hazard.ac).toBe(normal.ac + 1)
+  expect(hazard.fortitude).toBe(normal.fortitude + 1)
+  expect(hazard.reflex).toBe(normal.reflex + 1)
+  expect(hazard.will).toBe(normal.will + 1)
+  expect(initiativeBonus(c, [])).toBe(normal.perception)
+  expect(initiativeBonus({ ...c, feats: [...c.feats, feat('Incredible Initiative')] }, [])).toBe(normal.perception + 2)
+  const shield = { id: 's', name: 'Shield', hardness: 5, hp: 20, damage: 0, raised: true }
+  expect(armorClass({ ...c, shield }, [])).toBe(armorClass({ ...c, shield, activeFeatEffects: [] }, []))
+  const superior = { ...c, level: 20, feats: [...c.feats, feat('Superior Sight', 20)] }
+  expect(defenseSummary(superior, []).perception).toBe(defenseSummary({ ...superior, activeFeatEffects: [] }, []).perception)
+  expect(initiativeBonus(superior, [])).toBe(defenseSummary(superior, []).perception)
+  expect(defenseSummary({ ...c, feats: [] }, [])).toEqual(defenseSummary({ ...c, feats: [], activeFeatEffects: [] }, []))
+  expect(defenseSummary({ ...c, level: 7 }, [])).toEqual(defenseSummary({ ...c, level: 7, activeFeatEffects: [] }, []))
+})
+
+it('exposes persisted defensive contexts and shows conditional bonuses without changing ordinary saves', () => {
+  const c: Character = { ...base, className: 'Ranger', feats: [feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
+  for (const part of ['offense', 'defense'] as const) {
+    const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part={part} />)
+    expect(markup).toContain(`aria-label="Hazard checks active (${part})"`)
+    expect(markup).toContain('(Hazard Finder)')
+    expect(markup).toContain('<small>Circumstance</small>+1')
+  }
+  const druid: Character = { ...base, className: 'Druid', feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
+  const markup = renderToStaticMarkup(<SkillsSection c={druid} entries={[]} save={() => {}} part="defense" />)
+  expect(markup).toContain('aria-label="Harden Flesh active"')
+  expect(markup).toContain('Physical (except adamantine) 3 (Harden Flesh)')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...druid, feats: [] }} entries={[]} save={() => {}} part="defense" />)).not.toContain('Harden Flesh active')
 })
 
 it('shows movement sources inline and alphabetizes alternate speeds after land Speed', () => {

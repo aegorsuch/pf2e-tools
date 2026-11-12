@@ -97,6 +97,7 @@ export interface Character {
   blessedArmament?: { weaponId: string; rune: string }
   haftStrikerWeaponId?: string
   raging?: boolean
+  activeFeatEffects?: string[]
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')

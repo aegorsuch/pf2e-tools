@@ -197,7 +197,13 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const featTakenLevel = (feat: Character['feats'][number]) => Number(feat.slot?.split(':')[1]) || feat.level
-const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export const isFeatEffectActive = (c: Character, name: string) =>
+  !!activeFeatsNamed(c, name).length && !!c.activeFeatEffects?.includes(name)
+
+export function featEffectChange(c: Character, name: string, active: boolean) {
+  return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])] }
+}
 // House rule: Rangers get Snarecrafter Dedication at level 2 in a locked Dedications slot
 export const HOMEBREW_DEDICATIONS = [
   { setting: 'rangerSnarecrafter', className: 'Ranger', name: 'Snarecrafter Dedication', slot: 'archetype:2:g99' },
@@ -593,12 +599,19 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()].sort((a, b) => a.name.localeCompare(b.name))]
 }
 
-export const perceptionCircumstanceBonus = (c: Character) => activeFeatsNamed(c, 'Superior Sight').length ? 2 : 0
+export const hazardFinderBonus = (c: Character) => isFeatEffectActive(c, 'Hazard Finder') ? 1 : 0
+
+export function perceptionCircumstance(c: Character) {
+  if (activeFeatsNamed(c, 'Superior Sight').length) return { value: 2, source: 'Superior Sight' }
+  if (hazardFinderBonus(c)) return { value: 1, source: 'Hazard Finder' }
+}
+
+export const perceptionCircumstanceBonus = (c: Character) => perceptionCircumstance(c)?.value ?? 0
 
 export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>
-  defenseSummary(c, entries).perception + Math.max(0,
-    Math.max(activeFeatsNamed(c, 'Incredible Initiative').length ? 2 : 0, wornArmor(c, entries)?.material === 'Orichalcum' ? 1 : 0)
-      - perceptionCircumstanceBonus(c))
+  defenseSummary(c, entries).perception - perceptionCircumstanceBonus(c)
+    + Math.max(['Superior Sight', 'Incredible Initiative'].some((name) => activeFeatsNamed(c, name).length) ? 2 : 0,
+      wornArmor(c, entries)?.material === 'Orichalcum' ? 1 : 0)
 
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -934,6 +947,7 @@ function baseArmorRanks(c: Character, entries: ContentEntry[]) {
 
 export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
+  if (activeFeatsNamed(c, 'Animal Skin').length) ranks.Unarmored = Math.max(ranks.Unarmored, 2)
   const granted = new Set<typeof ARMOR_GROUPS[number]>()
   for (const { feat } of proficiencyFeats(c, 'Armor Proficiency')) {
     const prior = baseArmorRanks({ ...c, level: featTakenLevel(feat) }, entries)
@@ -954,9 +968,9 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
     perception: save('Perception', 'wis') + perceptionCircumstanceBonus(c),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
-    fortitude: save('Fortitude', 'con'),
-    reflex: save('Reflex', 'dex'),
-    will: save('Will', 'wis'),
+    fortitude: save('Fortitude', 'con') + hazardFinderBonus(c),
+    reflex: save('Reflex', 'dex') + hazardFinderBonus(c),
+    will: save('Will', 'wis') + hazardFinderBonus(c),
   }
 }
 
@@ -990,7 +1004,9 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.ancestry ? byName(entries, 'ancestry', c.ancestry) : undefined,
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
-    ...c.feats.map((f) => byName(entries, 'feat', f.name)),
+    ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju'].includes(feat.name))
+      .map((feat) => byName(entries, 'feat', feat.name)),
     ...c.equipment.map((g) => byName(entries, 'item', g.name)),
     wornArmor(c) ? byName(entries, 'armor', wornArmor(c)!.name) : undefined,
   ].filter((e): e is ContentEntry => !!e)
@@ -1003,6 +1019,17 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value: v === 'half' ? half : +v, source: e.name })
     }
   }
+  const aegis = abilityMod(c.abilities.wis)
+  if (activeFeatsNamed(c, 'Primal Aegis').length && aegis > 0) {
+    for (const damage of ['acid', 'cold', 'electricity', 'fire', 'vitality', 'void']) {
+      out.push({ damage, value: aegis, source: 'Primal Aegis' })
+    }
+  }
+  if (isFeatEffectActive(c, 'Harden Flesh')) out.push({
+    damage: 'physical (except adamantine)',
+    value: Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4))), source: 'Harden Flesh',
+  })
+  if (isFeatEffectActive(c, 'Heart of the Kaiju')) out.push({ damage: 'physical', value: 5, source: 'Heart of the Kaiju' })
   for (const rune of wornArmor(c)?.runes ?? []) {
     const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune.replace(/^Greater Energy-Resistant/, 'Energy-Resistant (Greater)')) ?? /^()(\w+) Resistant$/.exec(rune)
     if (m) out.push({ damage: m[2], value: m[1] ? 10 : 5, source: `${rune} rune` })
@@ -1019,9 +1046,9 @@ export const perceptionItemBonus = (c: Character) => Math.max(0, ...(wornArmor(c
 
 const armorCategory_ = (e: ContentEntry) => armorCategory(e).toLowerCase()
 
-export function armorClass(c: Character, entries: ContentEntry[]) {
+function equippedArmorEntry(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c)
-  const armor = worn
+  return worn
     ? byName(entries, 'armor', worn.name)
     : c.armors
       ? undefined
@@ -1029,6 +1056,18 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
         .map((item) => byName(entries, 'armor', item.name))
         .filter((entry): entry is ContentEntry => !!entry)
         .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
+}
+
+export function animalSkinBenefits(c: Character, entries: ContentEntry[]) {
+  if (!c.raging || !activeFeatsNamed(c, 'Animal Skin').length) return undefined
+  const armor = equippedArmorEntry(c, entries)
+  if (armor ? armorCategory_(armor) !== 'unarmored' : !!wornArmor(c)) return undefined
+  return { itemBonus: classFeatures(entries, c).some((feature) => feature.name === 'Greater Juggernaut') ? 3 : 2, dexCap: 3 }
+}
+
+export function armorClass(c: Character, entries: ContentEntry[]) {
+  const worn = wornArmor(c)
+  const armor = equippedArmorEntry(c, entries)
   const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
   const categoryKey = armorCategory === 'unarmored' ? 'unarmored' : `${armorCategory}_armor`
   const klass = byName(entries, 'class', c.className)
@@ -1051,9 +1090,11 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
   }, 0)
   rank = Math.max(rank, featureRank, armorRanks(c, entries)[armorCategory === 'unarmored' ? 'Unarmored' : armorCategory === 'light' ? 'Light' : armorCategory === 'medium' ? 'Medium' : 'Heavy'])
   const dexterity = abilityMod(c.abilities.dex)
-  const dexCap = armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY
+  const skin = animalSkinBenefits(c, entries)
+  const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
   const raised = c.shield?.raised ? 2 : 0
-  return 10 + num(armor?.data.ac) + (worn?.potency ?? 0) + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level) + raised
+  return 10 + num(armor?.data.ac) + (worn?.potency ?? 0) + (skin?.itemBonus ?? 0)
+    + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level) + Math.max(raised, hazardFinderBonus(c))
 }
 
 // Imported equipment shows up as configurable gear until the player edits it

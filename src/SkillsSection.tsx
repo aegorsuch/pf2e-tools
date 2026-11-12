@@ -1,11 +1,19 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, featTakenLevel, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   maxHp,
-  proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstanceBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
+
+function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
+  name: string; label: string; title: string; ariaLabel?: string
+}) {
+  if (!activeFeatsNamed(c, name).length) return null
+  return <label title={title}><input type="checkbox" aria-label={ariaLabel} checked={isFeatEffectActive(c, name)}
+    onChange={(event) => save(featEffectChange(c, name, event.target.checked))} /> {label}</label>
+}
 
 function ProficiencyBadges({ groups, ranks, labels }: { groups: readonly string[]; ranks: Record<string, number>; labels?: Record<string, string> }) {
   return (
@@ -95,10 +103,11 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
       : s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
-    const circumstance = s.name === 'Perception' ? perceptionCircumstanceBonus(c) : 0
+    const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
+      : s.kind === 'save' && hazardFinderBonus(c) ? { value: 1, source: 'Hazard Finder' } : undefined
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
-        <span className="skill-name">{s.name} <b title={status ? '+4 Status (Imitate Fauna; Impersonate an animal)' : undefined}>{signed(abil + prof + item + status + circumstance)}{!!status && '*'}</b></span>
+        <span className="skill-name">{s.name} <b title={status ? '+4 Status (Imitate Fauna; Impersonate an animal)' : undefined}>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status && '*'}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
@@ -127,10 +136,17 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
         <span className="skill-part"><small>Item</small>{signed(item)}</span>
-        {!!circumstance && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance)} <small>(Superior Sight)</small></span>}
+        {circumstance && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
       </div>
     )
   })
+
+  const rageToggle = (c.className === 'Barbarian' || !!activeFeatsNamed(c, 'Barbarian Dedication').length)
+    && <label><input type="checkbox" aria-label={part === 'defense' ? 'Rage active (defense)' : 'Rage active'} checked={!!c.raging}
+      onChange={(event) => save({ raging: event.target.checked })} /> Rage active</label>
+  const hazardToggle = <FeatEffectToggle c={c} save={save} name="Hazard Finder" label="Hazard checks active"
+    ariaLabel={`Hazard checks active (${part})`}
+    title="Only for Perception checks to find traps and hazards, AC against their attacks, and saves against their effects. Does not affect initiative." />
 
   if (part === 'offense') {
     const athlete = ragingAthleteBenefits(c, entries)
@@ -140,8 +156,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           {renderRows(offense)}
         </div>
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
-        {(c.className === 'Barbarian' || c.feats.some((feat) => feat.name === 'Barbarian Dedication' && featTakenLevel(feat) <= c.level)) && <label><input type="checkbox" aria-label="Rage active" checked={!!c.raging}
-          onChange={(e) => save({ raging: e.target.checked })} /> Rage active</label>}
+        {rageToggle}
+        {hazardToggle}
         <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
           const bonuses = movement.name === 'Land' ? speedBonuses(c) : []
           return <span key={movement.name}>
@@ -159,18 +175,27 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   if (part === 'defense') {
     const res = resistances(c, entries)
     const spec = armorSpecialization(c, entries)
+    const skin = animalSkinBenefits(c, entries)
     return (
       <>
         <div className="defense-summary">
           <span><small>Armor Class</small><b>{armorClass(c, entries)}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}</b></span>
         </div>
+        {rageToggle}
+        {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
+        {hazardToggle}
+        <FeatEffectToggle c={c} save={save} name="Harden Flesh" label="Harden Flesh active"
+          title="Until the beginning of your next turn. Clear this when the effect ends." />
+        <FeatEffectToggle c={c} save={save} name="Heart of the Kaiju" label="Kaiju form resistance active"
+          title="Physical resistance 5 only while in kaiju form. This control does not apply the form's other statistics." />
         <div className="skill-grid" role="table" aria-label="Defense">
           {renderRows(defense)}
         </div>
         {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}{spec.feat ? ` via ${spec.feat} feat` : ''})</small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r, index) => {
-          const poison = r.damage.toLowerCase() === 'poison' && c.feats.some((feat) => feat.name === 'Poison Resistance')
+          const poison = r.damage.toLowerCase() === 'poison' && r.source === 'Poison Resistance'
+            && !!activeFeatsNamed(c, 'Poison Resistance').length
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{poison
             ? <span title={`${r.source}: +1 status bonus to saving throws against poisons.`}>{r.damage} {r.value}*</span>
             : `${r.damage} ${r.value} (${r.source})`}</span>
