@@ -13,7 +13,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   return (
     <>
       <button type="button" className={className} aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
-        {name}{(!!prerequisites?.missing.length || access) && <> <span role="img"
+        {name}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
           aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
         {featActions && <> <ActionIcon entry={entry} /></>}
       </button>

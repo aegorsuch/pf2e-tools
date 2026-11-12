@@ -35,7 +35,10 @@ it('gates access separately, saves per-feat GM approval, preserves existing choi
   expect(c.feats[0].name).toBe(witch.name)
   expect(c.featAccessOverrides).toEqual([witch.id])
   expect(search['access:ancestry']).toBe('')
-  expect(renderToStaticMarkup(tree())).toContain('GM approved')
+  const approvedMarkup = renderToStaticMarkup(tree())
+  expect(approvedMarkup).toContain('GM approved access.')
+  expect(approvedMarkup).not.toContain('class="feat-access-controls"')
+  expect(approvedMarkup).toContain('class="feat-name" aria-haspopup="dialog">Witch Warden</button>')
   c = { ...c, ethnicity: 'Ulfen' }
   expect(renderToStaticMarkup(tree())).toContain('Witch Warden')
   findButton(tree(), 'Clear L01 Ancestry feat selection')!()
@@ -45,6 +48,17 @@ it('gates access separately, saves per-feat GM approval, preserves existing choi
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
   expect(c.feats[0].name).toBe(witch.name)
   expect(c.featAccessOverrides).toEqual([])
+  const metMarkup = renderToStaticMarkup(tree())
+  expect(metMarkup).not.toContain('class="feat-access-controls"')
+  expect(metMarkup).toContain('class="feat-name" aria-haspopup="dialog">Witch Warden</button>')
+  expect(metMarkup).toContain('Access: Kellid ethnicity. Granted by selected ethnicity.')
+  c = { ...c, ethnicity: 'Ulfen' }
+  const missingMarkup = renderToStaticMarkup(tree())
+  expect(missingMarkup).toContain('class="feat-access-controls"')
+  expect(missingMarkup).toContain('aria-label="Access information"')
+  expect(missingMarkup).toContain('GM approval needed')
+  c = { ...c, ethnicity: 'Kellid', feats: [{ ...c.feats[0], name: prerequisite.name }] }
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Prerequisites unmet"')
 })
 
 it('shows automatic intimidation feats as read-only skill grants without duplicating saved selections', () => {

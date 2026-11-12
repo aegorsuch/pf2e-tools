@@ -280,7 +280,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               )}
               {featIndex >= 0 && (!selection.choice || featChoiceOptions(selection.name, c, entries, s.key) === undefined)
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
-              {access && <div className="feat-access-controls">
+              {access && !access.automatic && !access.approved && <div className="feat-access-controls">
                 <small>Access: {access.requirement} ({access.automatic ? 'met' : access.approved ? 'GM approved' : 'GM approval needed'})</small>
                 {!access.automatic && currentEntry && <label>
                   <input type="checkbox" aria-label={`GM approved access: ${currentEntry.name}`} checked={access.approved}
