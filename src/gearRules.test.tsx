@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, deitySanctification, effectiveWeapon, eligibleFeats,
-  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, resistances, senses, speed, weaponAttack,
+  activeAnimalFeatures, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, WeaponList } from './GearSection'
@@ -346,6 +346,100 @@ it('applies Animal Feature senses, movement, and level gates without changing la
   expect(activeAnimalFeatures({ ...c, animalFeature: 'Wings', level: 6 }, [])).toEqual([])
   expect(senses({ ...c, activeSpells: [] }, [])).toEqual([])
   expect(movementSpeeds({ ...c, animalFeature: 'Wings', feats: [] }, [])).toEqual([{ name: 'Land', feet: 25 }])
+})
+
+it('gates Barbarian senses on Rage and acquisition level without granting Nocturnal Senses low-light vision', () => {
+  const nocturnal = content('feat', 'Nocturnal Senses', { grants_vision: 'Low-Light Vision' }, 6, ['Barbarian'])
+  const elf = content('ancestry', 'Elf', { vision: 'Low-Light Vision' })
+  const c: Character = { ...base, className: 'Barbarian', level: 6, raging: true,
+    feats: [feat('Acute Scent', 2), feat('Nocturnal Senses', 6)] }
+  expect(senses(c, [nocturnal])).toEqual([{ value: 'Scent (imprecise) 60 feet', source: 'Nocturnal Senses' }])
+  expect(senses({ ...c, raging: false }, [nocturnal])).toEqual([])
+  expect(senses({ ...c, feats: [feat('Nocturnal Senses', 6)] }, [nocturnal])).toEqual([])
+  expect(senses({ ...c, level: 5 }, [nocturnal])).toEqual([{ value: 'Scent (imprecise) 30 feet', source: 'Acute Scent' }])
+  expect(senses({ ...c, ancestry: 'Elf' }, [nocturnal, elf])).toContainEqual({ value: 'Darkvision', source: 'Nocturnal Senses' })
+  expect(senses({ ...c, ancestry: 'Elf', raging: false }, [nocturnal, elf])).toEqual([{ value: 'Low-Light Vision', source: 'Elf' }])
+  const delayed = { ...c, feats: [{ ...feat('Acute Vision'), slot: 'class:8:0' }] }
+  expect(senses(delayed, [])).toEqual([])
+  expect(senses({ ...delayed, level: 8 }, [])).toEqual([{ value: 'Darkvision', source: 'Acute Vision' }])
+  expect(senses({ ...delayed, level: 8, raging: false }, [])).toEqual([])
+})
+
+it('keeps only the strongest imprecise scent when Rage feats overlap Keen Smell', () => {
+  const c: Character = { ...base, level: 6, raging: true, activeSpells: ['Keen Smell'],
+    spells: [{ name: 'Keen Smell', rank: 1, cantrip: false }],
+    feats: [feat('Acute Scent', 2), feat('Nocturnal Senses', 6)] }
+  expect(senses(c, [])).toEqual([{ value: 'Scent (imprecise) 60 feet', source: 'Keen Smell' }])
+  expect(senses({ ...c, activeSpells: [] }, [])).toEqual([{ value: 'Scent (imprecise) 60 feet', source: 'Nocturnal Senses' }])
+})
+
+it('grants Natural Swimmer its swim Speed without reducing existing swimming or spending land Speed', () => {
+  const c: Character = { ...base, className: 'Druid', level: 4, feats: [feat('Natural Swimmer', 4)] }
+  expect(movementSpeeds(c, [])).toEqual([{ name: 'Land', feet: 25 }, { name: 'Swim', feet: 15, source: 'Natural Swimmer' }])
+  expect(movementSpeeds({ ...c, level: 3 }, [])).toEqual([{ name: 'Land', feet: 25 }])
+  expect(movementSpeeds({ ...c, level: 7, activeSpells: ['Animal Feature'], animalFeature: 'Fish Tail',
+    spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }] }, [])).toEqual([
+    { name: 'Land', feet: 25 }, { name: 'Swim', feet: 25, source: 'Animal Feature' },
+  ])
+})
+
+it('gives Raging Athlete full land-Speed climbing and swimming only during Rage and merges overlapping speeds', () => {
+  const c: Character = { ...base, className: 'Barbarian', level: 4, raging: true,
+    feats: [feat('Raging Athlete', 4), feat('Fleet'), feat('Natural Swimmer', 4)] }
+  expect(movementSpeeds(c, [])).toEqual([
+    { name: 'Land', feet: 30 }, { name: 'Climb', feet: 30, source: 'Raging Athlete' }, { name: 'Swim', feet: 30, source: 'Raging Athlete' },
+  ])
+  expect(movementSpeeds({ ...c, raging: false }, [])).toEqual([
+    { name: 'Land', feet: 30 }, { name: 'Swim', feet: 15, source: 'Natural Swimmer' },
+  ])
+  expect(movementSpeeds({ ...c, level: 3 }, [])).toEqual([{ name: 'Land', feet: 30 }])
+  const overlap = { ...c, spells: [{ name: 'Canopy Crawler', rank: 2, cantrip: false }], activeSpells: ['Canopy Crawler'] }
+  expect(movementSpeeds(overlap, []).filter((movement) => movement.name === 'Climb')).toEqual([
+    { name: 'Climb', feet: 30, source: 'Raging Athlete, Canopy Crawler' },
+  ])
+})
+
+it('does not use future Speed feats to increase current Rage movement or Leap distance', () => {
+  const c: Character = { ...base, level: 6, raging: true,
+    feats: [feat('Raging Athlete', 4), { ...feat('Fleet'), slot: 'general:7:0' }] }
+  expect(movementSpeeds(c, []).map((movement) => movement.feet)).toEqual([25, 25, 25])
+  expect(ragingAthleteBenefits(c, [])?.horizontalLeap).toBe(15)
+  expect(movementSpeeds({ ...c, level: 7 }, []).map((movement) => movement.feet)).toEqual([30, 30, 30])
+  expect(ragingAthleteBenefits({ ...c, level: 7 }, [])?.horizontalLeap).toBe(20)
+})
+
+it.each([[14, undefined], [15, 15], [29, 15], [30, 20]])('uses actual Speed %i for Raging Athlete Leap thresholds', (feet, horizontalLeap) => {
+  const ancestry = content('ancestry', 'Test ancestry', { speed: feet })
+  const c: Character = { ...base, ancestry: ancestry.name, raging: true, feats: [feat('Raging Athlete', 4)] }
+  expect(ragingAthleteBenefits(c, [ancestry])).toEqual({ jumpDCAdjustment: -10, longJumpExtra: 10, verticalLeap: 5, horizontalLeap })
+  expect(ragingAthleteBenefits({ ...c, raging: false }, [ancestry])).toBeUndefined()
+  expect(ragingAthleteBenefits({ ...c, level: 3 }, [ancestry])).toBeUndefined()
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ancestry]} save={() => {}} part="offense" />)
+  expect(markup).toContain('Jump DCs -10')
+  if (horizontalLeap) expect(markup).toContain(`${horizontalLeap} ft. horizontal`)
+})
+
+it('upgrades Superior Sight from other low-light sources, never from its own metadata, with acquisition gating', () => {
+  const sight = content('feat', 'Superior Sight', { grants_vision: 'Low-Light Vision' }, 20, ['Ranger'])
+  const elf = content('ancestry', 'Elf', { vision: 'Low-Light Vision' })
+  const c: Character = { ...base, className: 'Ranger', level: 20, feats: [feat(sight.name, 20)] }
+  expect(senses(c, [sight])).toEqual([{ value: 'Low-Light Vision', source: 'Superior Sight' }])
+  expect(senses({ ...c, ancestry: 'Elf' }, [sight, elf])).toContainEqual({ value: 'Darkvision', source: 'Superior Sight' })
+  expect(senses({ ...c, level: 19 }, [sight])).toEqual([])
+  const future = content('feat', 'Later Vision', { grants_vision: 'Darkvision' })
+  expect(senses({ ...c, level: 19, feats: [{ ...feat(future.name), slot: 'ancestry:20:0' }] }, [future])).toEqual([])
+})
+
+it('applies Superior Sight to Perception and initiative without stacking circumstance bonuses', () => {
+  const c: Character = { ...base, className: 'Ranger', level: 20, feats: [feat('Superior Sight', 20)] }
+  const normal = defenseSummary({ ...c, feats: [] }, []).perception
+  expect(defenseSummary(c, []).perception).toBe(normal + 2)
+  expect(initiativeBonus(c, [])).toBe(normal + 2)
+  expect(initiativeBonus({ ...c, feats: [...c.feats, feat('Incredible Initiative')] }, [])).toBe(normal + 2)
+  expect(defenseSummary({ ...c, level: 19 }, []).perception).toBe(defenseSummary({ ...c, level: 19, feats: [] }, []).perception)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  expect(markup).toContain(`Perception <b>${normal + 2 >= 0 ? '+' : ''}${normal + 2}</b>`)
+  expect(markup).toContain('<small>Circumstance</small>+2')
 })
 
 it('shows movement sources inline and alphabetizes alternate speeds after land Speed', () => {

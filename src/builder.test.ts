@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -713,6 +713,44 @@ it('allows Canny Acumen only when it improves natural proficiency, excluding its
 })
 
 describe('feat grants beyond languages', () => {
+  it('derives Raging Intimidation grants only when level and skill prerequisites are met, independently of Rage', () => {
+    const c: Character = { ...base, className: 'Barbarian', level: 15, skillPicks: ['Intimidation'],
+      rankOverrides: { Intimidation: 4 }, feats: [{ name: 'Raging Intimidation', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+    const original = JSON.stringify(c)
+    const glare = { name: 'Intimidating Glare', source: 'Raging Intimidation' }
+    const scare = { name: 'Scare to Death', source: 'Raging Intimidation' }
+    expect(automaticFeatGrants(c, [])).toEqual([glare, scare])
+    expect(automaticFeatGrants({ ...c, raging: true }, [])).toEqual([glare, scare])
+    expect(automaticFeatGrants({ ...c, level: 14 }, [])).toEqual([glare])
+    expect(automaticFeatGrants({ ...c, rankOverrides: { Intimidation: 3 } }, [])).toEqual([glare])
+    expect(automaticFeatGrants({ ...c, skillPicks: [], rankOverrides: {} }, [])).toEqual([])
+    expect(automaticFeatGrants({ ...c, feats: [] }, [])).toEqual([])
+    expect(automaticFeatGrants({ ...c, level: 7, feats: [{ ...c.feats[0], slot: 'class:8:0' }] }, [])).toEqual([])
+    expect(JSON.stringify(c)).toBe(original)
+  })
+
+  it('recognizes automatic feats in downstream prerequisites at acquisition level and excludes them from pickers', () => {
+    const glare = entry('feat', 'Intimidating Glare', { prerequisite: 'trained in Intimidation' }, 1, ['General', 'Skill'])
+    const scare = entry('feat', 'Scare to Death', { prerequisite: 'legendary in Intimidation' }, 15, ['General', 'Skill'])
+    const dependent = entry('feat', 'Terrifying Howl', { prerequisite: 'Intimidating Glare' }, 10, ['Barbarian'])
+    const data = [glare, scare, dependent]
+    const c: Character = { ...base, className: 'Barbarian', level: 15, skillPicks: ['Intimidation'], rankOverrides: { Intimidation: 4 },
+      feats: [{ name: 'Raging Intimidation', type: 'Class Feat', level: 1 }] }
+    expect(featPrerequisiteChecker(c, data)(dependent)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker({ ...c, feats: [{ ...c.feats[0], slot: 'class:12:0' }] }, data, 10)(dependent).missing).toEqual(['Intimidating Glare'])
+    expect(eligibleFeats(data, c, { key: 'skill:16:0', category: 'skill', level: 16 })).toEqual([])
+    expect(eligibleFeats(data, { ...c, feats: [] }, { key: 'skill:16:0', category: 'skill', level: 16 })).toEqual([glare, scare])
+  })
+
+  it('recognizes known Rage-only scent when selecting Nocturnal Senses without making the sense permanent', () => {
+    const nocturnal = entry('feat', 'Nocturnal Senses', { prerequisite: 'low-light vision or scent', grants_vision: 'Low-Light Vision' }, 6, ['Barbarian'])
+    const c: Character = { ...base, className: 'Barbarian', level: 6,
+      feats: [{ name: 'Acute Scent', type: 'Class Feat', level: 2 }] }
+    expect(featPrerequisiteChecker(c, [nocturnal])(nocturnal)).toEqual({ missing: [], manual: [] })
+    expect(senses(c, [nocturnal])).toEqual([])
+    expect(featPrerequisiteChecker({ ...c, feats: [] }, [nocturnal])(nocturnal).missing).toEqual(['low-light vision or scent'])
+  })
+
   it('adds lores and senses from feats', () => {
     const feat = entry('feat', 'Wild Hunter Dedication', { grants_lore: 'Hunting Lore', grants_vision: 'Darkvision' })
     const c = { ...base, level: 8, feats: [{ name: 'Wild Hunter Dedication', type: 'Dedication Feat', level: 8 }] }

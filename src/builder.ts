@@ -368,6 +368,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
         })),
         features: [...features.map((feature) => feature.name), ...museFeats,
+          ...automaticFeatGrants(character, entries).map((feat) => feat.name),
           ...tokens(byName(entries, 'background', character.background)?.data.feat),
           ...(character.className === 'Druid' && (character.order ?? subclass) === 'Animal' ? ['Animal Companion'] : []),
           ...(casting ? ['spellcasting'] : []),
@@ -377,7 +378,9 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         ],
         ranks: { ...Object.fromEntries(statDefs(character).map((stat) => [stat.name, 0])), ...ranks },
         armor: armorRanks(character, entries), weapons: weaponRanks(character, entries),
-        abilities: character.abilities, senses: senses(character, entries).map((sense) => sense.value),
+        abilities: character.abilities,
+        // Prerequisites describe available capabilities, not the current combat toggle.
+        senses: senses({ ...character, raging: true }, entries).map((sense) => sense.value),
       }
       facts.set(atLevel, value)
       return value
@@ -397,7 +400,11 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const trait = wanted[slot.category]?.toLowerCase()
   const ancestryTraits = slot.category === 'ancestry' ? ancestryFeatTraits(c) : []
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
-  const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
+  const taken = new Set([
+    ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name),
+    ...automaticFeatGrants({ ...c, level: Math.min(c.level, slot.level),
+      feats: c.feats.filter((feat) => feat.slot !== slot.key) }, entries).map((feat) => feat.name),
+  ])
   const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
   const archetypeAllowed = archetypeRule(c, entries, slot.key, slot.category === 'archetype')
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
@@ -552,12 +559,19 @@ export function cannyAcumenOptions(c: Character, entries: ContentEntry[]) {
 const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === name)
 
 export function speedBonuses(c: Character) {
-  return ['Fleet', 'Primal Nimbleness'].filter((name) => hasFeat(c, name)).map((source) => ({ source, feet: 5 }))
+  return ['Fleet', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 }))
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
 export const speed = (c: Character, entries: ContentEntry[]) =>
   (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + speedBonuses(c).reduce((sum, bonus) => sum + bonus.feet, 0)
+
+export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
+  if (!c.raging || !activeFeatsNamed(c, 'Raging Athlete').length) return undefined
+  const land = speed(c, entries)
+  return { jumpDCAdjustment: -10, longJumpExtra: 10, verticalLeap: 5,
+    horizontalLeap: land >= 30 ? 20 : land >= 15 ? 15 : undefined }
+}
 
 export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const land = speed(c, entries)
@@ -565,12 +579,26 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const movement: { name: string; feet: number; source: string }[] = [
     ...(features.includes('Fish Tail') ? [{ name: 'Swim', feet: land, source: 'Animal Feature' }] : []),
     ...(features.includes('Wings') ? [{ name: 'Fly', feet: land, source: 'Animal Feature' }] : [])]
+  if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push({ name: 'Swim', feet: 15, source: 'Natural Swimmer' })
+  if (ragingAthleteBenefits(c, entries)) {
+    for (const name of ['Climb', 'Swim']) movement.push({ name, feet: land, source: 'Raging Athlete' })
+  }
   if (canopyCrawlerAffects(c, entries)) movement.push({ name: 'Climb', feet: Math.max(land, ...movement.map((speed) => speed.feet)), source: 'Canopy Crawler' })
-  return [{ name: 'Land', feet: land, source: undefined }, ...movement.sort((a, b) => a.name.localeCompare(b.name))]
+  const merged = new Map<string, typeof movement[number]>()
+  for (const candidate of movement) {
+    const previous = merged.get(candidate.name)
+    if (!previous || candidate.feet > previous.feet) merged.set(candidate.name, { ...candidate })
+    else if (candidate.feet === previous.feet) previous.source += `, ${candidate.source}`
+  }
+  return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()].sort((a, b) => a.name.localeCompare(b.name))]
 }
 
+export const perceptionCircumstanceBonus = (c: Character) => activeFeatsNamed(c, 'Superior Sight').length ? 2 : 0
+
 export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>
-  defenseSummary(c, entries).perception + Math.max(hasFeat(c, 'Incredible Initiative') ? 2 : 0, wornArmor(c, entries)?.material === 'Orichalcum' ? 1 : 0)
+  defenseSummary(c, entries).perception + Math.max(0,
+    Math.max(activeFeatsNamed(c, 'Incredible Initiative').length ? 2 : 0, wornArmor(c, entries)?.material === 'Orichalcum' ? 1 : 0)
+      - perceptionCircumstanceBonus(c))
 
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -751,18 +779,49 @@ function skillTrainingSkills(c: Character) {
 export function senses(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
   const out = typeof ancestry === 'string' && ancestry ? [{ value: ancestry, source: c.ancestry }] : []
-  for (const g of featData(c, entries, 'grants_vision')) if (!out.some((o) => o.value.toLowerCase() === g.value.toLowerCase())) out.push(g)
+  const addVision = (value: string, source: string) => {
+    if (!out.some((sense) => sense.value.toLowerCase() === value.toLowerCase())) out.push({ value, source })
+  }
+  const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
+  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight']
+  const passive = { ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level && !explicitVision.includes(feat.name)) }
+  for (const grant of featData(passive, entries, 'grants_vision')) addVision(grant.value, grant.source)
   const features = activeAnimalFeatures(c, entries)
   for (const vision of [
     ...(features.includes('Cat Eyes') ? ['Low-Light Vision'] : []),
     ...(features.includes('Owl Eyes') ? ['Darkvision'] : []),
   ]) {
-    if (!out.some((sense) => sense.value.toLowerCase() === vision.toLowerCase())) out.push({ value: vision, source: 'Animal Feature' })
+    addVision(vision, 'Animal Feature')
   }
-  if (isSpellActive(c, entries, 'Keen Smell')) out.push({
-    value: `Scent (imprecise) ${c.level >= 5 ? 60 : 30} feet`, source: 'Keen Smell',
-  })
+  if (activeFeatsNamed(c, 'Superior Sight').length && !hasVision('darkvision')) {
+    addVision(hasVision('low-light vision') ? 'Darkvision' : 'Low-Light Vision', 'Superior Sight')
+  }
+  const addScent = (feet: number, source: string) => {
+    const existing = out.find((sense) => /^Scent \(imprecise\) \d+ feet$/i.test(sense.value))
+    if (existing && Number(/\d+/.exec(existing.value)?.[0]) >= feet) return
+    const grant = { value: `Scent (imprecise) ${feet} feet`, source }
+    if (existing) Object.assign(existing, grant)
+    else out.push(grant)
+  }
+  if (isSpellActive(c, entries, 'Keen Smell')) addScent(c.level >= 5 ? 60 : 30, 'Keen Smell')
+  if (c.raging) {
+    if (activeFeatsNamed(c, 'Acute Vision').length) addVision('Darkvision', 'Acute Vision')
+    if (activeFeatsNamed(c, 'Acute Scent').length) addScent(30, 'Acute Scent')
+    if (activeFeatsNamed(c, 'Nocturnal Senses').length) {
+      if (hasVision('low-light vision')) addVision('Darkvision', 'Nocturnal Senses')
+      if (hasVision('scent (imprecise)')) addScent(60, 'Nocturnal Senses')
+    }
+  }
   return out.sort((a, b) => a.value.localeCompare(b.value))
+}
+
+export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
+  if (!activeFeatsNamed(c, 'Raging Intimidation').length) return []
+  const rank = ranksAt(c, entries).Intimidation ?? 0
+  return [
+    ...(rank >= 1 ? [{ name: 'Intimidating Glare', source: 'Raging Intimidation' }] : []),
+    ...(c.level >= 15 && rank >= 4 ? [{ name: 'Scare to Death', source: 'Raging Intimidation' }] : []),
+  ]
 }
 
 function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
@@ -892,7 +951,7 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const save = (name: string, ability: Ability) =>
     abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? perceptionItemBonus(c) : resilient)
   return {
-    perception: save('Perception', 'wis'),
+    perception: save('Perception', 'wis') + perceptionCircumstanceBonus(c),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
     fortitude: save('Fortitude', 'con'),

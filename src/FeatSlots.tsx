@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { ancestryFeatTraits, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
+import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
@@ -34,6 +34,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       return feat && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
         ? [feat] : []
     }) : []
+  const automaticFeats = !categories || categories.includes('skill')
+    ? automaticFeatGrants(c, entries).filter((grant) => !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level)
+      && !backgroundFeats.some((feat) => feat.name === grant.name)) : []
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
@@ -156,6 +159,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
             <span>Background {featType(feat, c)}</span>
             <EntryDescription name={displayName(feat.name)} entry={feat} className="feat-name" />
+          </li>
+        ))}
+        {automaticFeats.map((feat) => (
+          <li className="feat-slot-row automatic-feat-row" key={`automatic:${feat.name}`}>
+            <span>Granted Skill Feat</span>
+            <EntryDescription name={feat.name} entry={featByName(entries).get(feat.name)} className="feat-name" />
+            <small>({feat.source})</small>
           </li>
         ))}
         {slots.map((s, index) => {

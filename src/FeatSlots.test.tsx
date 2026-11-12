@@ -8,6 +8,35 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('shows automatic intimidation feats as read-only skill grants without duplicating saved selections', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 15, className: 'Barbarian',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Raging Intimidation', type: 'Class Feat', level: 1, slot: 'class:1:0' }],
+    skillPicks: ['Intimidation'], rankOverrides: { Intimidation: 4 },
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const entries: ContentEntry[] = ['Intimidating Glare', 'Scare to Death'].map((name) => ({
+    id: name, systems: ['pf2e'], kind: 'feat', name, level: name === 'Scare to Death' ? 15 : 1,
+    source: 'official', traits: ['General', 'Skill'], description: `${name} rules.`, data: {}, effects: [], updatedAt: 1,
+  }))
+  const save = vi.fn()
+  const render = (character: Character, categories: ('skill' | 'class')[] = ['skill']) =>
+    renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={save} categories={categories} />)
+  const markup = render(c)
+  expect(markup.match(/class="feat-slot-row automatic-feat-row"/g)).toHaveLength(2)
+  expect(markup).toContain('>Intimidating Glare</button>')
+  expect(markup).toContain('>Scare to Death</button>')
+  expect(markup).toContain('(Raging Intimidation)')
+  expect(markup).not.toContain('Remove Intimidating Glare')
+  expect(render(c, ['class'])).not.toContain('automatic-feat-row')
+  expect(render({ ...c, feats: [] })).not.toContain('automatic-feat-row')
+  const manual = { ...c, feats: [...c.feats, { name: 'Intimidating Glare', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }] }
+  expect(render(manual).match(/class="feat-slot-row automatic-feat-row"/g)).toHaveLength(1)
+  expect(manual.feats).toHaveLength(2)
+  expect(save).not.toHaveBeenCalled()
+})
+
 function findButton(node: ReactNode, label: string): (() => void) | undefined {
   let result: (() => void) | undefined
   Children.forEach(node, (child) => {

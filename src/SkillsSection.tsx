@@ -1,7 +1,7 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, movementSpeeds, speedBonuses, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, featTakenLevel, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   maxHp,
-  proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstanceBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 
@@ -95,9 +95,10 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
       : s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
+    const circumstance = s.name === 'Perception' ? perceptionCircumstanceBonus(c) : 0
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
-        <span className="skill-name">{s.name} <b title={status ? '+4 Status (Imitate Fauna; Impersonate an animal)' : undefined}>{signed(abil + prof + item + status)}{!!status && '*'}</b></span>
+        <span className="skill-name">{s.name} <b title={status ? '+4 Status (Imitate Fauna; Impersonate an animal)' : undefined}>{signed(abil + prof + item + status + circumstance)}{!!status && '*'}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
@@ -126,18 +127,20 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
         <span className="skill-part"><small>Item</small>{signed(item)}</span>
+        {!!circumstance && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance)} <small>(Superior Sight)</small></span>}
       </div>
     )
   })
 
   if (part === 'offense') {
+    const athlete = ragingAthleteBenefits(c, entries)
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
-        {c.className === 'Barbarian' && <label><input type="checkbox" aria-label="Rage active" checked={!!c.raging}
+        {(c.className === 'Barbarian' || c.feats.some((feat) => feat.name === 'Barbarian Dedication' && featTakenLevel(feat) <= c.level)) && <label><input type="checkbox" aria-label="Rage active" checked={!!c.raging}
           onChange={(e) => save({ raging: e.target.checked })} /> Rage active</label>}
         <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
           const bonuses = movement.name === 'Land' ? speedBonuses(c) : []
@@ -147,6 +150,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
             {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
           </span>
         })}</small>
+        {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         <WeaponList c={c} entries={entries} save={save} />
       </>
