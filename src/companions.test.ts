@@ -67,6 +67,7 @@ describe('animal companions', () => {
         source: 'homebrew', traits: ['Mount'],
         data: { ...originals[index].data, size, mount: true, fixed_size: true },
       })
+
       for (const feats of [[], [feat('Impressive Mount')], [feat('Incredible Mount', 'Nimble')], [feat('Incredible Mount', 'Savage'), feat('Specialized Mount', 'Racer')]]) {
         const c = { ...base, feats }
         const advancement = companionAdvancement(c)
@@ -79,6 +80,48 @@ describe('animal companions', () => {
     }
     expect(originals.every((original) => original.data.size === 'Small' && original.data.mount === false)).toBe(true)
     expect(homebrewCompanions([{ ...originals[0], deleted: true }, { ...originals[1], kind: 'item' }])).toEqual([])
+  })
+
+  it.each([[16, 20], [18, 25], [20, 30]])('applies Auspice benefits at level %i without granting them to other companions', (level, extraHP) => {
+    const c: Character = { ...base, level, className: 'Champion',
+      companions: [{ id: 'mount', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }],
+      feats: [feat('Loyal Warhorse'), feat('Imposing Destrier', 'Nimble'),
+        { ...feat('Auspicious Mount', 'Auspice'), level: 16 }] }
+    const without = { ...c, feats: c.feats.slice(0, -1) }
+    const normal = companionStats(without, [bear], 'Bear', companionAdvancement(without), 'mount')!
+    const stats = companionStats(c, [bear], 'Bear', companionAdvancement(c), 'mount')!
+    expect(stats.mods.int).toBe(normal.mods.int + 2)
+    expect(stats.mods.wis).toBe(normal.mods.wis + 1)
+    expect(stats.skills).toContainEqual({ name: 'Religion', rank: 2, bonus: stats.mods.wis + level + 4, clumsy: false })
+    expect(stats.hp).toBe(normal.hp + extraHP)
+    expect(stats.speed).toBe('35 feet, fly 35 feet')
+    for (const [auspiceServitor, traits, weakness] of [
+      ['Celestial', ['Celestial', 'Holy'], 'Unholy 5'],
+      ['Fiend', ['Fiend', 'Unholy'], 'Holy 5'],
+      ['Monitor', ['Monitor'], undefined],
+    ] as const) {
+      const saved: Character = JSON.parse(JSON.stringify({ ...c, companions: [{ ...c.companions![0], auspiceServitor }] }))
+      const changed = companionStats(saved, [bear], 'Bear', companionAdvancement(saved), 'mount')!
+      expect(changed).toMatchObject({ auspiceTraits: [...traits], weakness, hp: normal.hp + extraHP + (weakness ? 5 : 0) })
+    }
+    expect(companionStats(c, [bear], 'Bear', undefined, 'other')!.auspice).toBe(false)
+    expect(companionAdvancement({ ...c, level: 15 }).specializations).not.toContain('Auspice')
+    expect(companionAdvancement(without).specializations).not.toContain('Auspice')
+  })
+
+  it('offers Auspice only for Auspicious Mount and keeps that feat non-repeatable', () => {
+    const c = { ...base, level: 16, feats: [
+      { ...feat('Auspicious Mount'), level: 16 }, feat('Specialized Mount'),
+    ] }
+    expect(specializationOptions(c, [], 0)).toContain('Auspice')
+    expect(specializationOptions(c, [], 0)).toContain('Ambusher')
+    expect(specializationOptions(c, [], 1)).not.toContain('Auspice')
+    expect(specializationOptions({ ...c, level: 15 }, [], 0)).not.toContain('Auspice')
+    expect(companionAdvancement({ ...c, feats: [feat('Specialized Mount', 'Auspice')] }).specializations).not.toContain('Auspice')
+    const content = entry('feat', 'Auspicious Mount', {}, 16, ['Champion'])
+    const taken = { ...c, className: 'Champion', feats: [{ ...c.feats[0], slot: 'class:16:0' }] }
+    expect(eligibleFeats([content], taken, { key: 'bonus:16:1', category: 'bonus', level: 16 })).not.toContain(content)
+    expect(eligibleFeats([content], { ...taken, feats: [] }, { key: 'class:16:0', category: 'class', level: 16 })).toContain(content)
   })
 
   it('parses attacks, support benefit and maneuver from AoN markdown', () => {

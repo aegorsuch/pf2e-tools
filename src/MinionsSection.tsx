@@ -15,7 +15,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
   const types = entries.filter((e) => e.kind === 'companion').sort((a, b) => a.name.localeCompare(b.name))
   const advancement = companionAdvancement(c)
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
-    .filter(({ feat }) => isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name))
+    .filter(({ feat }) => feat.level <= c.level && (isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)))
     .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
       || Number(!a.feat.choice) - Number(!b.feat.choice)
       || (a.feat.choice ?? '').localeCompare(b.feat.choice ?? ''))
@@ -80,11 +80,28 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   </div>
                 )}
                 {stats ? <>
+                  {stats.auspice && <div className="row">
+                    <label>Servitor{' '}
+                      <select aria-label="Auspice servitor" value={comp.auspiceServitor ?? ''} onChange={(e) => {
+                        const servitor = (['Celestial', 'Fiend', 'Monitor'] as const).find((type) => type === e.target.value)
+                        update(comp.id, { auspiceServitor: servitor })
+                      }}>
+                        <option value="">Choose deity's servitor...</option>
+                        {['Celestial', 'Fiend', 'Monitor'].map((type) => <option key={type}>{type}</option>)}
+                      </select>
+                    </label>
+                    <label>Servitor language{' '}
+                      <input aria-label="Auspice servitor language" value={comp.auspiceLanguage ?? ''}
+                        onChange={(e) => update(comp.id, { auspiceLanguage: e.target.value })} />
+                    </label>
+                  </div>}
                   <div className="gear-traits">
                     <span>{index === 0 ? stage : 'Young'}</span><span title={enlargeNote}>{stats.size}{!!stats.enlarge && '*'}</span>
                     {index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
+                    {stats.auspiceTraits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
+                  {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                   <div className="gear-stats">
                     <span><small>Level</small><b>{stats.level}</b></span>
                     <span><small>HP</small><b>{stats.hp}</b></span>

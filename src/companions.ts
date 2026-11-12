@@ -28,6 +28,7 @@ interface Spec {
 // Effects of each specialization, from Player Core, Legends and Secrets of Magic
 export const COMPANION_SPECS: Record<string, Spec> = {
   Ambusher: { mods: { dex: 1 }, bump: ['Stealth'], set: { Unarmored: 2 } },
+  Auspice: { mods: { int: 2, wis: 1 }, set: { Religion: 2 } },
   Bully: { mods: { str: 1, cha: 3 }, bump: ['Athletics', 'Intimidation'] },
   Daredevil: { mods: { dex: 1 }, set: { Acrobatics: 3, Unarmored: 2 } },
   'Deep Diver': { mods: { con: 1 }, set: { Athletics: 3 } },
@@ -42,13 +43,14 @@ export const COMPANION_SPECS: Record<string, Spec> = {
 
 export const ADVANCED_TYPES = ['Nimble', 'Savage'] as const
 
-const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Stealth: 'dex', Survival: 'wis' }
+const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Religion: 'wis', Stealth: 'dex', Survival: 'wis' }
 
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
   const has = (prefix: string) => c.feats.filter((f) => f.name.startsWith(prefix))
   const advanced = c.feats.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
-  const specializations = [...new Set(c.feats.filter((feat) => isCompanionSpecialization(feat.name)).flatMap((f) => (f.choice ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
+  const specializations = [...new Set(c.feats.filter((feat) => isCompanionSpecialization(feat.name) && feat.level <= c.level)
+    .flatMap((f) => (f.choice && (f.choice !== 'Auspice' || f.name === 'Auspicious Mount') ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
   return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0
     || has('Loyal Warhorse').length > 0 || !!advanced, advanced, specializations }
 }
@@ -56,7 +58,9 @@ export function companionAdvancement(c: Character) {
 export function specializationOptions(c: Character, entries: ContentEntry[], exceptIndex: number) {
   const used = new Set(c.feats.flatMap((f, i) => isCompanionSpecialization(f.name) && i !== exceptIndex && f.choice ? [f.choice] : []))
   const names = new Set([...Object.keys(COMPANION_SPECS), ...entries.filter((e) => e.kind === 'companionSpec').map((e) => e.name)])
-  return [...names].filter((n) => !used.has(n)).sort((a, b) => a.localeCompare(b))
+  const feat = c.feats[exceptIndex]
+  return [...names].filter((n) => !used.has(n) && (n !== 'Auspice' || feat?.name === 'Auspicious Mount' && feat.level <= c.level))
+    .sort((a, b) => a.localeCompare(b))
 }
 
 const bumpRank = (rank: number) => (rank >= 2 ? 3 : 2)
@@ -71,6 +75,10 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const entry = byName(entries, 'companion', type)
   if (!entry) return undefined
   const { mature, advanced, specializations } = advancement
+  const auspice = specializations.includes('Auspice')
+  const servitor = auspice ? c.companions?.find((companion) => companion.id === companionId)?.auspiceServitor : undefined
+  const auspiceTraits = servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []
+  const weakness = servitor === 'Celestial' ? 'Unholy 5' : servitor === 'Fiend' ? 'Holy 5' : undefined
   const d = entry.data
   const mods: Record<Ability, number> = { str: num(d.strength), dex: num(d.dexterity), con: num(d.constitution), int: num(d.intelligence), wis: num(d.wisdom), cha: num(d.charisma) }
   const add = (m: Mods) => { for (const [k, v] of Object.entries(m)) mods[k as Ability] += v }
@@ -93,7 +101,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const level = c.level
   const prof = (k: string) => proficiencyBonus(rank[k] ?? 0, level)
-  const hp = num(d.hp) + (6 + mods.con) * level
+  const hp = num(d.hp) + (6 + mods.con) * level + (auspice ? (level >= 20 ? 30 : level >= 18 ? 25 : 20) + (weakness ? 5 : 0) : 0)
   const baseSize = String(d.size ?? '').split(',')[0].trim()
   const naturalSize = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
   const enlargedSize = enlargeCompanionSize(c, naturalSize)
@@ -126,6 +134,13 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
+  if (auspice) {
+    const land = Number(/^\d+/.exec(speed)?.[0])
+    if (land > 0) {
+      const fly = /\bfly\s+(\d+)\s*(?:feet|ft)\b/i.exec(speed)
+      speed = fly ? speed.replace(fly[0], `fly ${Math.max(land, Number(fly[1]))} feet`) : `${speed}, fly ${land} feet`
+    }
+  }
   const canopyCrawler = companionId !== undefined && canopyCrawlerAffects(c, entries, companionId)
   if (canopyCrawler) {
     const speeds = [...speed.matchAll(/(\d+)\s*(?:feet|ft)\b/gi)].map((match) => +match[1])
@@ -142,7 +157,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   return {
-    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks,
+    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks, auspice, auspiceTraits, weakness,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy,
     perception: total('Perception', 'wis'),

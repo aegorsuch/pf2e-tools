@@ -134,7 +134,7 @@ export interface Character {
   enlargeCompanionSize?: 'Large' | 'Huge'
   enlargeCompanionId?: string
   // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
-  companions?: { id: string; name: string; type: string }[]
+  companions?: { id: string; name: string; type: string; auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string }[]
   faithfulSteedGranted?: boolean
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]

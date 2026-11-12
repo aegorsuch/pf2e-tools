@@ -351,7 +351,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Pristine Living Weapon' || ['Living Weapon', 'Wild Hunter Dedication'].every((name) =>
         c.feats.some((feat) => feat.name === name && feat.level <= slot.level)))
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
-      && (!taken.has(e.name) || (e.data.repeatable === true || isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key))
+      && (!taken.has(e.name) || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key))
       && archetypeAllowed(e))
     .map(({ entry }) => entry)
 }

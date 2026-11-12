@@ -174,6 +174,39 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
   expect(markup).not.toContain('aria-label="Companion name"')
 })
 
+it('saves Auspice specialization and servitor choices only when Auspicious Mount is available', () => {
+  let c: Character = {
+    id: 'champion', systems: ['pf2e'], name: 'Test', level: 16, className: 'Champion',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Auspicious Mount', type: 'Class Feat', level: 16 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'horse', type: 'Horse', name: '' }],
+  }
+  const horse: ContentEntry = {
+    id: 'horse', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Horse', level: 1,
+    traits: [], description: '', data: { size: 'Large', mount: true, speed: 40 }, effects: [], updatedAt: 1,
+  }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const tree = () => MinionsSection({ c, entries: [horse], save })
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Auspice">Auspice</option>')
+  const choose = findSelect(tree(), 'Companion specialization 1')!
+  choose({ target: { value: 'Auspice' } })
+  expect(c.feats[0].choice).toBe('Auspice')
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Auspice servitor"')
+  findSelect(tree(), 'Auspice servitor')!({ target: { value: 'Celestial' } })
+  expect(c.companions![0].auspiceServitor).toBe('Celestial')
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('<span>Holy</span>')
+  expect(markup).toContain('Weakness: Unholy 5')
+  expect(markup).toContain('fly 40 feet')
+  c = { ...c, level: 15 }
+  expect(renderToStaticMarkup(tree())).not.toContain('Companion specialization')
+  expect(renderToStaticMarkup(tree())).not.toContain('Auspice servitor')
+  expect(c.feats[0].choice).toBe('Auspice')
+  c = { ...c, level: 16 }
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Auspice" selected="">Auspice</option>')
+})
+
 it('removes Enlarge size choices for Large companions and disables casting on Huge companions', () => {
   const companion: ContentEntry = {
     id: 'wolf', systems: ['pf2e'], kind: 'companion', source: 'homebrew', name: 'Sarkorian Direwolf', level: 1,
