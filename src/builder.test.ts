@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorSpecialization, autoClassSkills, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -33,6 +33,142 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+describe('official passive feat mechanics', () => {
+  const wizard = entry('class', 'Wizard', {
+    attack_proficiency: 'Trained in simple weapons, Trained in unarmed attacks',
+    defense_proficiency: 'Untrained in all armor, Trained in unarmored defense',
+  })
+  const ranger = entry('class', 'Ranger', {
+    attack_proficiency: 'Trained in simple weapons, Trained in martial weapons, Trained in unarmed attacks',
+    defense_proficiency: 'Trained in light armor, Trained in medium armor, Trained in unarmored defense',
+  })
+  const selected = (name: string, level = 1, choice?: string, slot = `general:${level}:0`) =>
+    ({ name, type: 'General Feat', level: 1, slot, choice })
+  const weapon = (name: string, category: string) => entry('weapon', name, { weapon_category: category, damage: '1d8 slashing' })
+  const attack = (c: Character, name: string, data: ContentEntry[]) =>
+    weaponAttack(c, data, { id: name, name, potency: 0, striking: 0, runes: [] })
+
+  it('grants successive armor types, scales only those types, and restores saved benefits after leveling back up', () => {
+    const feats = [selected('Armor Proficiency'), selected('Armor Proficiency', 3)]
+    const c = { ...base, level: 13, feats }
+    expect(armorRanks(c, [wizard])).toEqual({ Light: 2, Medium: 2, Heavy: 0, Unarmored: 1 })
+    expect(armorRanks({ ...c, level: 12 }, [wizard])).toEqual({ Light: 1, Medium: 1, Heavy: 0, Unarmored: 1 })
+    expect(armorRanks({ ...c, level: 1 }, [wizard])).toEqual({ Light: 1, Medium: 0, Heavy: 0, Unarmored: 1 })
+    expect(armorRanks({ ...c, className: 'Ranger', feats: feats.slice(0, 1) }, [ranger]))
+      .toEqual({ Light: 1, Medium: 1, Heavy: 2, Unarmored: 1 })
+    const leather = entry('armor', 'Leather Armor', { armor_category: 'Light', ac_bonus: 1 })
+    const worn = { ...c, armors: [{ id: 'armor', name: leather.name, potency: 0, resilient: 0, runes: [], worn: true }] }
+    expect(armorClass(worn, [wizard, leather]) - armorClass({ ...worn, feats: [] }, [wizard, leather])).toBe(17)
+    expect(armorRanks({ ...c, feats: [] }, [wizard]).Light).toBe(0)
+    expect(c.feats).toEqual(feats)
+  })
+
+  it('recognizes all-armor class training and never reduces higher class proficiency', () => {
+    const champion = entry('class', 'Champion', { defense_proficiency: 'Trained in all armor, Trained in unarmored defense' })
+    expect(armorRanks({ ...base, className: 'Champion' }, [champion]))
+      .toEqual({ Light: 1, Medium: 1, Heavy: 1, Unarmored: 1 })
+    const mastery = { ...entry('classFeature', 'Armor Mastery', { class: 'Wizard' }, 13),
+      description: 'Your proficiency ranks for light armor and unarmored defense increase to master.' }
+    expect(armorRanks({ ...base, level: 13, feats: [selected('Armor Proficiency')] }, [wizard, mastery]).Light).toBe(3)
+  })
+
+  it('grants martial weapons first, then only the chosen advanced weapons, with level-11 scaling', () => {
+    const data = [wizard, ranger, weapon('Longsword', 'Martial'), weapon('Falcata', 'Advanced'), weapon('Dueling Sword', 'Advanced')]
+    const feats = [selected('Weapon Proficiency'), selected('Weapon Proficiency', 3, 'Falcata')]
+    const c = { ...base, level: 11, feats }
+    expect(weaponRanks(c, data)).toMatchObject({ Simple: 1, Martial: 2, Advanced: 0 })
+    expect(attack(c, 'Longsword', data).rank).toBe(2)
+    expect(attack(c, 'Falcata', data).rank).toBe(2)
+    expect(attack(c, 'Dueling Sword', data).rank).toBe(0)
+    expect(attack({ ...c, level: 10 }, 'Falcata', data).rank).toBe(1)
+    expect(attack({ ...c, level: 2 }, 'Falcata', data).rank).toBe(0)
+    expect(attack({ ...c, feats: [] }, 'Longsword', data).rank).toBe(0)
+    expect(attack({ ...c, className: 'Ranger', feats: [selected('Weapon Proficiency', 3, 'Falcata')] }, 'Falcata', data).rank).toBe(2)
+    expect(featChoiceOptions('Weapon Proficiency', { ...base, className: 'Ranger' }, data, 'general:3:0'))
+      .toEqual(['Dueling Sword', 'Falcata'])
+    expect(featChoiceOptions('Weapon Proficiency', base, data, 'general:1:0')).toBeUndefined()
+  })
+
+  it('keeps the original martial grant when the class later gains martial weapon proficiency', () => {
+    const expertise = { ...entry('classFeature', 'Martial Expertise', { class: 'Wizard' }, 7),
+      description: 'Your proficiency rank for martial weapons increases to expert.' }
+    const c = { ...base, level: 11, feats: [selected('Weapon Proficiency', 3)] }
+    expect(weaponRanks(c, [wizard, expertise]).Martial).toBe(2)
+    expect(featChoiceOptions('Weapon Proficiency', c, [wizard, expertise], 'general:3:0')).toBeUndefined()
+  })
+
+  it('grants and scales each Additional Lore independently of optional house rules and paid skill increases', () => {
+    updateSettings({ autoLores: false })
+    const feats = [selected('Additional Lore', 1, 'Sailing'), selected('Additional Lore', 3, 'Warfare Lore')]
+    const c = { ...base, feats, background: undefined }
+    for (const [level, rank] of [[1, 1], [2, 1], [3, 2], [6, 2], [7, 3], [14, 3], [15, 4], [20, 4]]) {
+      const character = { ...c, level }
+      expect(ranksAt(character, entries)['Sailing Lore']).toBe(rank)
+      expect(ranksAt(character, entries)['Warfare Lore']).toBe(level < 3 ? undefined : rank)
+      expect(skillRankBudget(character, entries)).toEqual(skillRankBudget({ ...character, feats: [] }, entries))
+    }
+    expect(featLores({ ...c, level: 3 }, entries)).toEqual(['Sailing Lore', 'Warfare Lore'])
+    expect(ranksAt({ ...c, level: 7 }, entries, 3)['Sailing Lore']).toBe(1)
+    expect(ranksAt({ ...c, level: 7 }, entries, 7)['Sailing Lore']).toBe(2)
+    expect(ranksAt({ ...c, level: 7, skillIncreases: { 3: 'Sailing Lore' } }, entries)['Sailing Lore']).toBe(3)
+    expect(ranksAt({ ...c, feats: [] }, entries)['Sailing Lore']).toBeUndefined()
+  })
+
+  it('scales Additional Lore granted by another feat without scaling ordinary background Lore', () => {
+    updateSettings({ autoLores: false })
+    const dedication = entry('feat', 'Wild Hunter Dedication', { grants_lore: 'Hunting Lore' }, 2)
+    const c = { ...base, level: 15, feats: [selected(dedication.name, 2)] }
+    expect(ranksAt(c, [...entries, dedication])).toMatchObject({ 'Hunting Lore': 4, 'Academia Lore': 1 })
+  })
+
+  it('trains the saved Skill Training choice without granting a second discretionary skill', () => {
+    const c = { ...base, level: 3, feats: [selected('Skill Training', 3, 'Stealth')] }
+    expect(ranksAt(c, entries).Stealth).toBe(1)
+    expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount({ ...c, feats: [] }, entries))
+    expect(ranksAt({ ...c, level: 2 }, entries).Stealth).toBeUndefined()
+    expect(ranksAt({ ...c, feats: [] }, entries).Stealth).toBeUndefined()
+    expect(featChoiceOptions('Skill Training', c, entries, 'general:3:0')).toContain('Stealth')
+    expect(featChoiceOptions('Skill Training', c, entries, 'general:3:0')).not.toContain('Arcana')
+    expect(ranksAt({ ...c, feats: [selected('Skill Training', 3, 'Fortitude')] }, entries).Fortitude).toBe(0)
+  })
+
+  it('grants Ancestral Paragon a first-level ancestry slot at the level it was selected', () => {
+    const c = { ...base, level: 7, feats: [selected('Ancestral Paragon', 7)] }
+    const slot = plannedSlots(c).find((slot) => slot.key === 'ancestry:1:g3')!
+    expect(slot).toMatchObject({ category: 'ancestry', level: 7, maxFeatLevel: 1 })
+    const data = [entry('feat', 'Elven Lore', {}, 1, ['Elf']), entry('feat', 'Elven Step', {}, 5, ['Elf'])]
+    expect(eligibleFeats(data, c, slot).map((feat) => feat.name)).toEqual(['Elven Lore'])
+    expect(plannedSlots({ ...c, level: 6 }).some((s) => s.key === slot.key)).toBe(false)
+    expect(plannedSlots({ ...c, feats: [] }).some((s) => s.key === slot.key)).toBe(false)
+  })
+
+  it('unlocks only the adopted ancestry alongside the original ancestry without losing saved choices on deleveling', () => {
+    const data = [
+      entry('ancestry', 'Elf'), entry('ancestry', 'Human'), entry('ancestry', 'Dwarf'),
+      entry('feat', 'Elven Lore', {}, 1, ['Elf']),
+      entry('feat', 'Natural Ambition', {}, 1, ['Human']),
+      entry('feat', 'Dwarven Lore', {}, 1, ['Dwarf']),
+    ]
+    const c = { ...base, level: 5, feats: [selected('Adopted Ancestry', 3, 'Human')] }
+    const slot = { key: 'ancestry:5:0', category: 'ancestry' as const, level: 5 }
+    expect(eligibleFeats(data, c, slot).map((feat) => feat.name)).toEqual(['Elven Lore', 'Natural Ambition'])
+    expect(eligibleFeats(data, { ...c, level: 2 }, { ...slot, level: 1 }).map((feat) => feat.name)).toEqual(['Elven Lore'])
+    expect(eligibleFeats(data, { ...c, feats: [] }, slot).map((feat) => feat.name)).toEqual(['Elven Lore'])
+    expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf', 'Human'])
+    expect(c.feats[0].choice).toBe('Human')
+  })
+
+  it('scales each Multilingual selection at master and legendary Society, not just character level', () => {
+    const feats = [selected('Multilingual'), selected('Multilingual', 3)]
+    const c = { ...base, feats }
+    for (const [society, slots] of [[0, 5], [2, 5], [3, 7], [4, 9]]) {
+      expect(languageAllowance({ ...c, level: 15, rankOverrides: { Society: society } }, entries).slots).toBe(slots)
+    }
+    expect(languageAllowance({ ...c, level: 1 }, entries).slots).toBe(3)
+    expect(languageAllowance({ ...c, level: 15, feats: [] }, entries).slots).toBe(1)
+  })
+})
 
 describe('ancestryLabel', () => {
   it('does not repeat an ancestry already in the heritage name', () => {
@@ -579,9 +715,10 @@ it('allows Canny Acumen only when it improves natural proficiency, excluding its
 describe('feat grants beyond languages', () => {
   it('adds lores and senses from feats', () => {
     const feat = entry('feat', 'Wild Hunter Dedication', { grants_lore: 'Hunting Lore', grants_vision: 'Darkvision' })
-    const c = { ...base, feats: [{ name: 'Wild Hunter Dedication', type: 'Dedication Feat', level: 8 }] }
+    const c = { ...base, level: 8, feats: [{ name: 'Wild Hunter Dedication', type: 'Dedication Feat', level: 8 }] }
     expect(featLores(c, [feat])).toEqual(['Hunting Lore'])
-    expect(ranksAt(c, [feat])['Hunting Lore']).toBe(1)
+    expect(ranksAt(c, [feat])['Hunting Lore']).toBe(3)
+    expect(featLores({ ...c, level: 7 }, [feat])).toEqual([])
     expect(senses(c, [feat])).toEqual([{ value: 'Darkvision', source: 'Wild Hunter Dedication' }])
   })
 })

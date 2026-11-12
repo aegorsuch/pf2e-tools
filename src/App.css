@@ -301,6 +301,13 @@
   width: 100%;
 }
 
+.feat-choice-with-note { flex-wrap: wrap; }
+.feat-choice-with-note small { flex-basis: 100%; }
+.feat-slot-row:has(.feat-choice) { flex-wrap: wrap; }
+.feat-slot-row > .feat-choice { min-width: min(100%, 14rem); }
+.feat-slot-row:has(.feat-prerequisite-note) { flex-wrap: wrap; }
+.feat-prerequisite-note { flex-basis: 100%; overflow-wrap: anywhere; }
+
 .character-section {
   border: 1px solid var(--border);
   border-radius: 10px;

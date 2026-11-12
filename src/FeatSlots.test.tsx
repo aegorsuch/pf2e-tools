@@ -382,6 +382,71 @@ const emptyRanger = (): Character => ({
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 })
 
+it('preserves dormant Ancestral Paragon choices during edits and removes the child only when its granting feat is removed', () => {
+  let c: Character = { ...emptyRanger(), ancestry: 'Elf',
+    feats: [
+      { name: 'Ancestral Paragon', type: 'General Feat', level: 3, slot: 'general:3:0' },
+      { name: 'Elven Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:g3' },
+      { name: 'Class Choice', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+    ],
+  }
+  const tree = (categories: ('class' | 'general')[]) => FeatSlots({ c, categories, entries: [], save: (patch) => { c = { ...c, ...patch } } })
+  findButton(tree(['class']), 'Clear L01 Class feat selection')!()
+  expect(c.feats.map((feat) => feat.name)).toEqual(['Ancestral Paragon', 'Elven Lore'])
+  expect(plannedSlots(c).some((slot) => slot.key === 'ancestry:1:g3')).toBe(false)
+  c = JSON.parse(JSON.stringify({ ...c, level: 3 }))
+  expect(plannedSlots(c).find((slot) => slot.key === 'ancestry:1:g3')).toMatchObject({ level: 3, maxFeatLevel: 1 })
+  findButton(tree(['general']), 'Clear L03 General feat selection')!()
+  expect(c.feats).toEqual([])
+})
+
+it('selects Skill Training together with its skill through a standard feat slot', () => {
+  let c: Character = { ...emptyRanger(), level: 3 }
+  const entries: ContentEntry[] = [{
+    id: 'skill-training', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Skill Training', level: 1,
+    traits: ['General', 'Skill'], description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }]
+  const choose = findSelect(FeatSlots({
+    c, entries, save: (patch) => { c = { ...c, ...patch } }, categories: ['skill'],
+  }), 'L02 Skill feat')!
+  choose({ target: { value: JSON.stringify(['Skill Training', 'Stealth']) } })
+  expect(c.feats).toEqual([{ name: 'Skill Training', type: 'Skill Feat', level: 1, slot: 'skill:2:0', choice: 'Stealth' }])
+})
+
+it('blocks unmet feat chains while preserving and flagging existing selections after a prerequisite is removed', () => {
+  const entries: ContentEntry[] = [
+    { id: 'parent', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Barreling Charge', level: 4, traits: ['Barbarian'], data: {}, description: '', effects: [], updatedAt: 1 },
+    { id: 'child', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Overpowering Charge', level: 10, traits: ['Barbarian'], data: { prerequisite: 'Barreling Charge' }, description: '', effects: [], updatedAt: 1 },
+  ]
+  let c: Character = { ...emptyRanger(), className: 'Barbarian', level: 10, feats: [
+    { name: 'Barreling Charge', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+    { name: 'Overpowering Charge', type: 'Class Feat', level: 10, slot: 'class:10:0' },
+  ] }
+  const tree = () => FeatSlots({ c, entries, save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
+  expect(renderToStaticMarkup(tree())).not.toContain('Prerequisites unmet')
+  findButton(tree(), 'Clear L04 Class feat selection')!()
+  expect(c.feats.map((feat) => feat.name)).toEqual(['Overpowering Charge'])
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Prerequisites unmet: Barreling Charge')
+  expect(markup).toContain('>Overpowering Charge</button>')
+  c = { ...c, feats: [] }
+  findSelect(tree(), 'L10 Class feat')!({ target: { value: 'Overpowering Charge' } })
+  expect(c.feats).toEqual([])
+})
+
+it('labels narrative prerequisites for manual review instead of claiming they are enforced', () => {
+  const feat: ContentEntry = {
+    id: 'wings', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Winged Warrior Dedication', level: 1,
+    traits: ['General'], data: { prerequisite: 'you have permanent wings' }, description: '', effects: [], updatedAt: 1,
+  }
+  const c: Character = { ...emptyRanger(), level: 3, feats: [{ name: feat.name, type: 'General Feat', level: 1, slot: 'general:3:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['general']} />)
+  expect(markup).toContain('Check prerequisites manually: you have permanent wings')
+  expect(markup).not.toContain('Prerequisites unmet')
+  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, feats: [] }} entries={[feat]} save={() => {}} categories={['general']} />))
+    .toContain('Winged Warrior Dedication (check prerequisites)')
+})
+
 it('removes a standard row among extra slots, clears the final row, and restores a dismissed row with plus', () => {
   let c: Character = {
     ...emptyRanger(), extraSlots: [{ category: 'class', level: 1, count: 1 }],

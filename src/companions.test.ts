@@ -20,6 +20,40 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('applies Chiardmar Steed only to the first horse, stacking specialization Speed and respecting acquisition level', () => {
+    const horse = entry('companion', 'Horse', { ...bear.data, speed_raw: '40 feet, swim 20 feet', mount: true })
+    const companions = [{ id: 'first', type: 'Horse', name: '' }, { id: 'second', type: 'Horse', name: '' }]
+    const c: Character = { ...base, level: 8, companions,
+      feats: [{ name: 'Chiardmar Steed', type: 'Dedication Feat', level: 6, slot: 'archetype:8:0' }] }
+    const stats = companionStats(c, [horse], 'Horse')!
+    expect(stats.speed).toBe('45 feet, swim 20 feet')
+    expect(stats.speedBonuses).toContainEqual({ source: 'Chiardmar Steed', feet: 5 })
+    expect(stats.ignoreDifficultTerrain).toBe(10)
+    expect(companionStats(c, [horse], 'Horse', { mature: true, advanced: 'Nimble', specializations: ['Racer'] })!.speed).toBe('55 feet, swim 20 feet')
+    expect(companionStats(c, [horse], 'Horse', undefined, 'second')!.speed).toBe('40 feet, swim 20 feet')
+    expect(companionStats({ ...c, level: 7 }, [horse], 'Horse')!.ignoreDifficultTerrain).toBe(0)
+    expect(companionStats({ ...c, feats: [] }, [horse], 'Horse')!.speed).toBe('40 feet, swim 20 feet')
+    expect(companionStats(c, [bear], 'Bear')!.speed).toBe('35 feet')
+  })
+
+  it('passes Faithful Steed sanctification to the first companion and its Strikes without mutating content', () => {
+    const companions = [{ id: 'first', type: bear.name, name: '' }, { id: 'second', type: bear.name, name: '' }]
+    const deity = entry('deity', 'Patron', { sanctification: 'holy, unholy' })
+    const c: Character = { ...base, level: 3, className: 'Champion', deity: deity.name, companions,
+      feats: [{ name: 'Faithful Steed', type: 'Class Feat', level: 1, slot: 'class:2:0' }] }
+    for (const sanctification of ['Holy', 'Unholy'] as const) {
+      const character = { ...c, sanctification }
+      const stats = companionStats(character, [bear, deity], bear.name)!
+      expect(stats.grantedTraits).toContain(sanctification)
+      expect(stats.attacks.every((attack) => attack.traits.includes(sanctification))).toBe(true)
+      expect(companionStats(character, [bear, deity], bear.name, undefined, 'second')!.grantedTraits).toEqual([])
+      expect(companionStats({ ...character, feats: [] }, [bear, deity], bear.name)!.grantedTraits).toEqual([])
+      expect(companionStats({ ...character, level: 1 }, [bear, deity], bear.name)!.grantedTraits).toEqual([])
+    }
+    expect(companionStats(c, [bear, deity], bear.name)!.grantedTraits).toEqual([])
+    expect(bear.data.companion_attacks).toBe('jaws|1d8 piercing|;claw|1d6 slashing|agile')
+  })
+
   it('grants Faithful Steed once, repairs saved Champions, and preserves chosen or removed companions', () => {
     const horse = entry('companion', 'Horse', { ...bear.data, mount: true })
     const champion: Character = { ...base, className: 'Champion', feats: [feat('Faithful Steed')] }

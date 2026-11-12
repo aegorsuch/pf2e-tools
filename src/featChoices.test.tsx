@@ -8,7 +8,7 @@ import { FeatSlots } from './FeatSlots'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats } from './builder'
-import { classSpellcasting } from './builder'
+import { classSpellcasting, ranksAt, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const spell = (name: string, tier: string): ContentEntry => ({
@@ -31,6 +31,68 @@ function findSelect(node: ReactNode): { onChange: (event: { target: { value: str
   })
   return found
 }
+
+it.each([
+  ['Adopted Ancestry', 'Human', 'ancestry'],
+  ['Skill Training', 'Stealth', 'skill'],
+  ['Weapon Proficiency', 'Falcata', 'advanced weapon'],
+])('saves and restores the mechanical %s choice without changing its slot', (name, choice, label) => {
+  const data: ContentEntry[] = [
+    { ...entries[0], id: 'human', kind: 'ancestry', name: 'Human', data: {}, traits: [] },
+    { ...entries[0], id: 'falcata', kind: 'weapon', name: 'Falcata', data: { weapon_category: 'Advanced', damage: '1d8 slashing' }, traits: [] },
+    { ...entries[0], id: 'ranger', kind: 'class', name: 'Ranger', data: { attack_proficiency: 'Trained in martial weapons' }, traits: [] },
+  ]
+  let c: Character = { ...base, level: 3, ancestry: 'Elf', feats: [
+    { name, type: 'General Feat', level: 1, slot: 'general:3:0' },
+  ] }
+  const tree = () => FeatChoice({ c, entries: data, index: 0, save: (patch) => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${name} ${label}"`)
+  findSelect(tree())!.onChange({ target: { value: choice } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0]).toMatchObject({ name, choice, slot: 'general:3:0' })
+  expect(renderToStaticMarkup(tree())).toContain(`<option selected="">${choice}</option>`)
+  if (name === 'Skill Training') expect(ranksAt(c, data).Stealth).toBe(1)
+  if (name === 'Weapon Proficiency') {
+    expect(weaponAttack(c, data, { id: 'w', name: choice, potency: 0, striking: 0, runes: [] }).rank).toBe(1)
+  }
+  findSelect(tree())!.onChange({ target: { value: 'Not an available choice' } })
+  expect(c.feats[0].choice).toBe(choice)
+  findSelect(tree())!.onChange({ target: { value: '' } })
+  expect(c.feats[0].choice).toBeUndefined()
+})
+
+it('preserves unavailable saved feat choices and hides meaningless proficiency and language choice inputs', () => {
+  const c: Character = { ...base, feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Dwarf' }] }
+  const markup = renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)
+  expect(markup).toContain('<option disabled="" value="Dwarf" selected="">Dwarf</option>')
+  expect(markup).toContain('physiological requirements need GM approval')
+  for (const name of ['Armor Proficiency', 'Ancestral Paragon', 'Multilingual']) {
+    const feat = { ...entries[0], name, kind: 'feat' as const, data: { repeatable: true } }
+    expect(FeatChoice({ c: { ...base, feats: [{ name, type: 'General Feat', level: 1 }] }, entries: [feat], save: () => {}, index: 0 })).toBeNull()
+  }
+  const wizard: ContentEntry = { ...entries[0], kind: 'class', name: 'Wizard', data: { attack_proficiency: 'Trained in simple weapons' } }
+  expect(FeatChoice({
+    c: { ...base, className: 'Wizard', feats: [{ name: 'Weapon Proficiency', type: 'General Feat', level: 1 }] },
+    entries: [wizard], save: () => {}, index: 0,
+  })).toBeNull()
+})
+
+it('saves a named Additional Lore choice and applies its official scaling after reload', () => {
+  let c: Character = { ...base, level: 7, feats: [{ name: 'Additional Lore', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }] }
+  const tree = FeatChoice({ c, entries: [], index: 0, save: (patch) => { c = { ...c, ...patch } } })
+  let blur: ((event: { target: { value: string } }) => void) | undefined
+  const walk = (node: ReactNode) => Children.forEach(node, (child) => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'input') blur = child.props.onBlur as typeof blur
+    else walk(child.props.children as ReactNode)
+  })
+  walk(tree)
+  expect(blur).toBeDefined()
+  blur!({ target: { value: '  Sailing Lore  ' } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0]).toMatchObject({ choice: 'Sailing Lore', slot: 'skill:2:0' })
+  expect(ranksAt(c, [])['Sailing Lore']).toBe(3)
+})
 
 it('imports repeatability from feat special rules without guessing from summaries', () => {
   const hit = { _id: 'feat-4862', _source: {

@@ -5,6 +5,34 @@ import type { SectionProps } from './builder'
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === 'Adopted Ancestry' || feat.name === 'Skill Training' || feat.name === 'Weapon Proficiency') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
+    if (!options) return null
+    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Skill Training' ? 'skill' : 'advanced weapon'
+    const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
+    return <label className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
+      <select aria-label={`${feat.name} ${label}`} aria-describedby={noteId} value={feat.choice ?? ''} onChange={(e) => {
+        const choice = e.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+      }}>
+        <option value="">{`Choose ${label}`}</option>
+        {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
+        {options.map((choice) => <option key={choice}>{choice}</option>)}
+      </select>
+      {noteId && <small id={noteId}>Ancestry access and physiological requirements need GM approval.</small>}
+    </label>
+  }
+  if (feat.name === 'Additional Lore') {
+    return <label className="feat-choice">
+      Lore subcategory{' '}
+      <input key={`${index}:${feat.name}:${feat.choice ?? ''}`} aria-label="Additional Lore subcategory" defaultValue={feat.choice ?? ''}
+        onBlur={(e) => {
+          const choice = e.target.value.trim() || undefined
+          if (choice !== feat.choice) save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+        }} />
+    </label>
+  }
   if (feat.name === "Deity's Domain") {
     const available = deityDomains(c, entries)
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '') ?? []
@@ -21,6 +49,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </label>
   }
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
+    || feat.name === 'Ancestral Paragon' || feat.name === 'Armor Proficiency' || feat.name === 'Multilingual'
     || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null
   if (feat.name === 'Canny Acumen') {
     const available = cannyAcumenOptions(c, entries)

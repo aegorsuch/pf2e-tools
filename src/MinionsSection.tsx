@@ -99,7 +99,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                     <span>{index === 0 ? stage : 'Young'}</span><span title={enlargeNote}>{stats.size}{!!stats.enlarge && '*'}</span>
                     {index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
-                    {stats.auspiceTraits.map((trait) => <span key={trait}>{trait}</span>)}
+                    {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
                   {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                   <div className="gear-stats">
@@ -118,6 +118,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   <div><small>Speed</small> <span title={stats.canopyCrawler ? 'Climb Speed equal to highest Speed (Canopy Crawler)' : undefined}>{stats.speed}{stats.canopyCrawler && '*'}</span>
                     {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
                     {stats.senses && <> · <small>Senses</small> {stats.senses}</>}</div>
+                  {stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
                   {stats.attacks.map((a) => (
                     <div key={a.name}><b>{a.name}</b> <span title={a.dexterityBased ? clumsyNote : undefined}>{signed(a.attack)}{a.dexterityBased && !!stats.clumsy && '*'}</span> {a.traits && <small>({a.traits})</small>} — <span title={!a.ranged ? enlargeNote : undefined}>{a.damage}{!a.ranged && !!stats.enlarge && '*'}</span></div>
                   ))}

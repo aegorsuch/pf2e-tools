@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featSelectionLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
+import { cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
@@ -54,8 +54,17 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const displayName = (name: string) => name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
+  const prerequisiteChecks = new Map<string, ReturnType<typeof featPrerequisiteChecker>>()
+  const prerequisitesFor = (entry: ContentEntry, slot: PlannedSlot) => {
+    let check = prerequisiteChecks.get(slot.key)
+    if (!check) {
+      check = featPrerequisiteChecker(c, entries, slot.level, c.feats.findIndex((feat) => feat.slot === slot.key))
+      prerequisiteChecks.set(slot.key, check)
+    }
+    return check(entry)
+  }
   const optionsFor = (entry: ContentEntry, slot: PlannedSlot): FeatOption[] => {
-    const label = actionOptionLabel(displayName(entry.name), entry)
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${prerequisitesFor(entry, slot).manual.length ? ' (check prerequisites)' : ''}`
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
     return choices !== undefined
       ? choices.map((choice) => {
@@ -67,7 +76,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
   const saveFeatChanges = (patch: Partial<Character>) => {
     const next = { ...c, ...patch }
-    const keys = new Set(plannedSlots({ ...next, dismissedFeatSlots: [] }).map((slot) => slot.key))
+    const savedLevel = Math.max(next.level, ...next.feats.map(featTakenLevel))
+    const keys = new Set(plannedSlots({ ...next, level: savedLevel, dismissedFeatSlots: [] }).map((slot) => slot.key))
     const feats = next.feats.filter((feat) => !feat.slot || !isGrantedSlot(feat.slot) || keys.has(feat.slot))
     const remaining = new Set(feats.map((feat) => feat.name))
     const removed = new Set(c.feats.filter((feat) => !remaining.has(feat.name)).map((feat) => feat.name))
@@ -155,6 +165,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selectedName = selection
             ? `${displayName(selection.name)}${selection.choice ? ` (${choiceLabel(selection.name, selection.choice)})` : ''}` : current
           const currentEntry = featByName(entries).get(current)
+          const prerequisites = currentEntry ? prerequisitesFor(currentEntry, s) : undefined
           const picksType = s.category === 'archetype'
           const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
           const open = search[`${s.key}:open`] === '1'
@@ -240,6 +251,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
                   onClick={() => addSlot(s.category, s.level)}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
+              {!!prerequisites?.missing.length && <small className="feat-prerequisite-note" role="status">
+                Prerequisites unmet: {prerequisites.missing.join('; ')}
+              </small>}
+              {!!prerequisites?.manual.length && <small className="feat-prerequisite-note">
+                Check prerequisites manually: {prerequisites.manual.join('; ')}
+              </small>}
             </li>
             </Fragment>
           )

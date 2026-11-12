@@ -1,4 +1,4 @@
-import { byName, canopyCrawlerAffects, companionSpellTarget, enlargeCompanionSize, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
+import { byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
@@ -78,6 +78,11 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const auspice = specializations.includes('Auspice')
   const servitor = auspice ? c.companions?.find((companion) => companion.id === companionId)?.auspiceServitor : undefined
   const auspiceTraits = servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []
+  const firstCompanion = companionId !== undefined && companionId === c.companions?.[0]?.id
+  const has = (name: string) => firstCompanion && c.feats.some((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+  const sanctification = c.className === 'Champion' && has('Faithful Steed') ? deitySanctification(c, entries).selected : undefined
+  const steedTraits = sanctification ? [sanctification] : []
+  const grantedTraits = [...new Set([...auspiceTraits, ...steedTraits])]
   const weakness = servitor === 'Celestial' ? 'Unholy 5' : servitor === 'Fiend' ? 'Holy 5' : undefined
   const d = entry.data
   const mods: Record<Ability, number> = { str: num(d.strength), dex: num(d.dexterity), con: num(d.constitution), int: num(d.intelligence), wis: num(d.wisdom), cha: num(d.charisma) }
@@ -123,7 +128,9 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     const ranged = /\branged\b|\brange(?: increment)?\s+\d+/i.test(traits)
     const bonus = mods[ability] + flat + (!ranged ? enlarge?.damage ?? 0 : 0)
     const text = m ? `${mature ? +m[1] * 2 : m[1]}d${m[2]}${bonus ? signed(bonus) : ''} ${m[3]}`.trim() : damage
-    return { name, traits, attack: mods[ability] + proficiencyBonus(1, level) - (ability === 'dex' ? clumsy : 0),
+    const strikeTraits = [traits, ...steedTraits.filter((trait) => !traits.split(',').some((value) => value.trim().toLowerCase() === trait.toLowerCase()))]
+      .filter(Boolean).join(', ')
+    return { name, traits: strikeTraits, attack: mods[ability] + proficiencyBonus(1, level) - (ability === 'dex' ? clumsy : 0),
       damage: text, dexterityBased: ability === 'dex', ranged }
   })
 
@@ -132,6 +139,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     const feet = COMPANION_SPECS[source]?.speed
     return feet ? [{ source, feet }] : []
   })
+  const chiardmar = type === 'Horse' && has('Chiardmar Steed')
+  if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
   if (auspice) {
@@ -157,7 +166,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   return {
-    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks, auspice, auspiceTraits, weakness,
+    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks, auspice, auspiceTraits, grantedTraits, weakness,
+    ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy,
     perception: total('Perception', 'wis'),
