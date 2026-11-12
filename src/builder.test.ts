@@ -204,6 +204,40 @@ describe('official passive feat mechanics', () => {
     expect(plannedSlots({ ...c, feats: [] }).some((s) => s.key === slot.key)).toBe(false)
   })
 
+  it('grants exactly one first-level class feat at Natural Ambition acquisition level', () => {
+    const ambition = { name: 'Natural Ambition', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+    const c = { ...base, level: 5, feats: [ambition] }
+    const slot = plannedSlots(c).find((s) => s.key === 'class:1:g1')!
+    const data = [...entries, entry('feat', 'Second-Level Spell', {}, 2, ['Wizard']),
+      entry('feat', 'Other Class', {}, 1, ['Ranger']),
+      entry('feat', 'Unmet Prerequisite', { prerequisite: 'trained in Occultism' }, 1, ['Wizard'])]
+    expect(slot).toMatchObject({ category: 'class', level: 5, maxFeatLevel: 1 })
+    expect(plannedSlots(c).filter((s) => s.category === 'class' && s.level === 5)).toEqual([slot])
+    expect(plannedSlots(c).filter((s) => s.category === 'class')).toHaveLength(4)
+    expect(eligibleFeats(data, c, slot).map((feat) => feat.name)).toEqual(['Counterspell'])
+    expect(plannedSlots({ ...c, level: 4 }).some((s) => s.key === slot.key)).toBe(false)
+    expect(plannedSlots({ ...c, feats: [] }).some((s) => s.key === slot.key)).toBe(false)
+    expect(plannedSlots({ ...c, feats: [] }).some((s) => s.category === 'class' && s.level === 5)).toBe(false)
+    expect(plannedSlots({ ...c, extraSlots: [{ category: 'class', level: 5, count: 1 }] })
+      .filter((s) => s.category === 'class' && s.level === 5).map((s) => s.key)).toEqual(['class:5:0', 'class:1:g1'])
+    const firstLevel = { ...c, level: 1, feats: [{ ...ambition, slot: 'ancestry:1:0' }] }
+    expect(plannedSlots(firstLevel).filter((s) => s.category === 'class')).toHaveLength(2)
+    expect(plannedSlots({ ...firstLevel, feats: [] }).filter((s) => s.category === 'class')).toHaveLength(1)
+  })
+
+  it('grants Shiny Performance or an untrained alternative without increasing ordinary bonuses', () => {
+    const shiny = { name: 'Shiny', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    const c = { ...base, systems: ['sf2e'] as Character['systems'], background: undefined, feats: [shiny] }
+    expect(ranksAt(c, entries).Performance).toBe(1)
+    expect(featChoiceOptions('Shiny', c, entries, shiny.slot)).toBeUndefined()
+    const trained = { ...c, skillPicks: ['Performance'], feats: [{ ...shiny, choice: 'Stealth' }] }
+    expect(featChoiceOptions('Shiny', trained, entries, shiny.slot)).toContain('Stealth')
+    expect(featChoiceOptions('Shiny', trained, entries, shiny.slot)).not.toContain('Performance')
+    expect(ranksAt(trained, entries).Stealth).toBe(1)
+    expect(ranksAt({ ...trained, feats: [{ ...shiny, choice: 'Performance' }] }, entries).Stealth).toBeUndefined()
+    expect(ranksAt({ ...c, feats: [] }, entries).Performance).toBeUndefined()
+  })
+
   it('unlocks only the adopted ancestry alongside the original ancestry without losing saved choices on deleveling', () => {
     const data = [
       entry('ancestry', 'Elf'), entry('ancestry', 'Human'), entry('ancestry', 'Dwarf'),

@@ -69,6 +69,7 @@ export interface SpellGrant {
   frequency?: string
   shared?: boolean
   ability?: keyof Character['abilities']
+  dc?: 'higher-class-or-spell'
 }
 
 export interface ContentEntry {
@@ -116,7 +117,7 @@ export interface Character {
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
-  feats: { name: string; type: string; level: number; choice?: string; slot?: string }[]
+  feats: { name: string; type: string; level: number; choice?: string; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
@@ -142,6 +143,7 @@ export interface Character {
   spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
+  innateSpellUses?: Record<string, number>
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   animalFeatures?: NonNullable<Character['animalFeature']>[]
   magicHideCompanionId?: string

@@ -7,7 +7,7 @@ const WARDEN_TIERS: Record<string, string> = {
   'Peerless Warden': 'Peerless',
 }
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
-export const featTakenLevel = (feat: Character['feats'][number]) => Number(feat.slot?.split(':')[1]) || feat.level
+export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
 
 export const isCompanionAdvancement = (name: string) => /^Incredible (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Imposing Destrier'
 export const isCompanionSpecialization = (name: string) => /^Specialized (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Auspicious Mount'

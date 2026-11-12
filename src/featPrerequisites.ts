@@ -21,6 +21,9 @@ export interface PrerequisiteFacts {
   weapons: Record<string, number>
   abilities: Character['abilities']
   senses: string[]
+  spellcastingClassFeature?: boolean
+  maxSpellRank?: number
+  focusPool?: boolean
 }
 
 const key = (text: string) => text.trim().toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ')
@@ -128,6 +131,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (name === 'spellcasting class feature') return resultFor(!!facts.spellcastingClassFeature, text)
+    if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
+    const spellRank = /^can cast (\d+)(?:st|nd|rd|th)-(?:rank|level) spells$/.exec(name)
+    if (spellRank) return resultFor((facts.maxSpellRank ?? 0) >= Number(spellRank[1]), text)
     const qualified = /^\[([^\]]+)\]\s*(.+)$/.exec(name)
     if (qualified) return key(facts.className ?? '') === qualified[1] ? evaluate(qualified[2], level, trail) : met()
     const ethnicity = /^([a-z][a-z' -]*?) ethnicity$/.exec(name)

@@ -45,6 +45,29 @@ describe('shared prerequisite enforcement', () => {
     expect(plannedSlots({ ...c, feats: c.feats.slice(0, 1) }).some(slot => slot.grantedBy === 'Multitalented')).toBe(false)
   })
 
+  it('enforces Adapted Cantrip, Adaptive Adept, and Inner Wellspring at selection level', () => {
+    const cantrip = entry('feat', 'Adapted Cantrip', { prerequisite: 'spellcasting class feature' }, 1, ['Human'])
+    const adept = entry('feat', 'Adaptive Adept', { prerequisite: 'Adapted Cantrip; can cast 3rd-rank spells' }, 5, ['Human'])
+    const inner = entry('feat', 'Inner Wellspring', { prerequisite: 'focus pool' }, 13, ['Human'])
+    const wizard = entry('class', 'Wizard', { tradition: 'Arcane' })
+    const focus = entry('feat', 'Focus Grant', { grants_focus_spells: 'Focus Spell' })
+    const mystic = entry('classFeature', 'Mystic Spellcasting', { class: 'Mystic' })
+    const data = [cantrip, adept, inner, wizard, focus, mystic]
+    const c = { ...base, ancestry: 'Human', level: 13, className: 'Fighter' }
+    const first = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+    const fifth = { key: 'ancestry:5:0', category: 'ancestry' as const, level: 5 }
+    const thirteenth = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
+    expect(eligibleFeats(data, c, first)).not.toContain(cantrip)
+    expect(eligibleFeats(data, { ...c, className: 'Mystic' }, first)).toContain(cantrip)
+    expect(eligibleFeats(data, c, thirteenth)).not.toContain(inner)
+    expect(eligibleFeats(data, { ...c, feats: [selected('Focus Grant', 2)] }, thirteenth)).toContain(inner)
+    const caster = { ...c, className: 'Wizard', feats: [{ ...selected('Adapted Cantrip', 1), slot: 'ancestry:1:0' }] }
+    expect(eligibleFeats(data, caster, fifth)).toContain(adept)
+    expect(featPrerequisiteChecker(caster, data, 4)(adept).missing).toContain('can cast 3rd-rank spells')
+    expect(eligibleFeats(data, { ...caster, feats: [] }, fifth)).not.toContain(adept)
+    expect(eligibleFeats(data, { ...caster, className: 'Fighter' }, fifth)).not.toContain(adept)
+    expect(check('can cast 3rd-level spells', caster, data, 5).missing).toEqual([])
+  })
   it.each([['Gloomseer', 'Nidalese'], ['Dragon Spit', 'Tian-Dan'], ['Wavetouched Paragon', 'Bonuwat']])('enforces %s ethnicity as a prerequisite, not overridable access', (name, ethnicity) => {
     const feat = entry('feat', name, { prerequisite: `${ethnicity} ethnicity` }, 1, ['Human'])
     const c: Character = { ...base, level: 1, ancestry: 'Human', featAccessOverrides: [feat.id] }

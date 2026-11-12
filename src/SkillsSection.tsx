@@ -122,7 +122,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} <b>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
-          && <SourceNote source="Imitate Fauna" note="+4 Status (Imitate Fauna; Impersonate an animal)" />}</b></span>
+          && <SourceNote source="Imitate Fauna" note="+4 Status (Imitate Fauna; Impersonate an animal)" />}
+          {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
+            && <SourceNote source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1

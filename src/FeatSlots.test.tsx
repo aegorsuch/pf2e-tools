@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
-import { plannedSlots, ranksAt } from './builder'
+import { plannedSlots, ranksAt, unslottedFeats } from './builder'
 import type { Character, ContentEntry } from './types'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -830,6 +830,33 @@ it('restores a dismissed standard slot when its remaining feat-granted row disap
   expect(c.entryIds).toEqual([])
   expect(c.dismissedFeatSlots).toEqual([])
   expect(plannedSlots(c).filter((slot) => slot.category === 'class').map((slot) => slot.key)).toEqual(['class:1:0'])
+})
+
+it('records the actual acquisition level for a later Natural Ambition grant', () => {
+  let c: Character = { ...emptyRanger(), level: 5, feats: [
+    { name: 'Natural Ambition', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+  ] }
+  const entry: ContentEntry = {
+    id: 'class-feat', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Class Feat', level: 1,
+    traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 1,
+  }
+  const tree = () => FeatSlots({ c, entries: [entry], save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
+  findSelect(tree(), 'L05 Class feat')!({ target: { value: entry.name } })
+  expect(c.feats.find((feat) => feat.name === entry.name)).toMatchObject({ slot: 'class:1:g1', takenLevel: 5 })
+  expect(plannedSlots({ ...c, level: 4 }).some((slot) => slot.key === 'class:1:g1')).toBe(false)
+  expect(unslottedFeats({ ...c, level: 4 })).not.toContainEqual(c.feats.find((feat) => feat.name === entry.name))
+})
+
+it('removes only the Natural Ambition-dependent selection when the feat is removed', () => {
+  let c: Character = { ...emptyRanger(), level: 5, feats: [
+    { name: 'Natural Ambition', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+    { name: 'First Choice', type: 'Class Feat', level: 1, slot: 'class:1:g1', takenLevel: 5 },
+    { name: 'Ordinary Choice', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+  ] }
+  const tree = FeatSlots({ c, entries: [], save: (patch) => { c = { ...c, ...patch } }, categories: ['ancestry'] })
+  findButton(tree, 'Clear L05 Ancestry feat selection')!()
+  expect(c.feats.map((feat) => feat.name)).toEqual(['Ordinary Choice'])
+  expect(plannedSlots(c).filter((slot) => slot.category === 'class' && slot.level === 5)).toEqual([])
 })
 
 it('clears N/A without removing the final dedication slot', () => {

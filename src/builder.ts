@@ -238,7 +238,7 @@ export function plannedSlots(c: Character): PlannedSlot[] {
   Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
     const grantingFeat = c.feats.find((f) => f.name === name)
     if (!grantingFeat) return
-    const limited = name === 'Advanced General Training' || name === 'Ancestral Paragon' || name === 'Multitalented'
+    const limited = name === 'Advanced General Training' || name === 'Ancestral Paragon' || name === 'Multitalented' || name === 'Natural Ambition'
     const level = limited ? featTakenLevel(grantingFeat) : g.level
     if (level > c.level) return
     const id = `${g.category}:${name === 'Multitalented' ? level : g.level}`
@@ -298,7 +298,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
 // house rule). Slots above the character's level are kept so lowering the level is reversible.
 export function unslottedFeats(c: Character) {
   const keys = new Set(plannedSlots(c).map((s) => s.key))
-  return c.feats.filter((f) => f.slot && !keys.has(f.slot) && Number(f.slot.split(':')[1]) <= c.level)
+  return c.feats.filter((f) => f.slot && !keys.has(f.slot) && featTakenLevel(f) <= c.level)
 }
 
 // Archetype feats whose archetype's Dedication isn't taken (e.g. the Dedication was removed or never picked)
@@ -374,6 +374,10 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const focus = focusSpells(character, entries)
       const hasFocusPool = focus.points > 0 || features.some((feature) => /\byou (?:start with|gain) a focus pool\b/i.test(feature.description))
       const casting = !!classSpellcasting(character, entries)?.traditions.length
+        || features.some((feature) => /^(?!(?:expert|master|legendary) )[\w &'’-]+ spellcasting$/i.test(feature.name))
+      const maxSpellRank = Math.max(casting ? Math.ceil(character.level / 2) : 0,
+        ...grantedFeatSpells(character, entries).filter((grant) => grant.rule.kind === 'innate'
+          && !grant.entry.traits.some((trait) => trait.toLowerCase() === 'cantrip')).map((grant) => grant.rank), 0)
       const value: PrerequisiteFacts = {
         className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
         ancestryTraits: ancestryFeatTraits(character),
@@ -400,6 +404,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         abilities: character.abilities,
         // Prerequisites describe available capabilities, not the current combat toggle.
         senses: senses({ ...character, raging: true }, entries).map((sense) => sense.value),
+        spellcastingClassFeature: casting, maxSpellRank, focusPool: hasFocusPool,
       }
       facts.set(atLevel, value)
       return value
@@ -502,8 +507,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Adopted Ancestry') return [...new Set(entries.filter((entry) => entry.kind === 'ancestry' && !entry.deleted
     && entry.name !== c.ancestry && entry.systems.some((system) => c.systems.includes(system))).map((entry) => entry.name))]
     .sort((a, b) => a.localeCompare(b))
-  if (name === 'Skill Training') {
-    const ranks = ranksAt({ ...c, feats: c.feats.filter((_, i) => i !== index) }, entries)
+  if (name === 'Skill Training' || name === 'Shiny') {
+    const level = name === 'Shiny' && index >= 0 ? Math.min(c.level, featTakenLevel(c.feats[index])) : c.level
+    const ranks = ranksAt({ ...c, level, feats: c.feats.filter((_, i) => i !== index) }, entries)
+    if (name === 'Shiny' && !ranks.Performance) return undefined
     return statDefs(c).filter((stat) => stat.kind === 'skill' && !ranks[stat.name]).map((stat) => stat.name)
       .sort((a, b) => a.localeCompare(b))
   }
@@ -860,9 +867,16 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   }),
 ])]
 
-function skillTrainingSkills(c: Character) {
+function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
-  return activeFeatsNamed(c, 'Skill Training').flatMap((feat) => feat.choice && skills.has(feat.choice) ? [feat.choice] : [])
+  const trained = activeFeatsNamed(c, 'Skill Training').flatMap((feat) => feat.choice && skills.has(feat.choice) ? [feat.choice] : [])
+  for (const feat of activeFeatsNamed(c, 'Shiny')) {
+    const without = { ...c, level: Math.min(c.level, featTakenLevel(feat)), feats: c.feats.filter((other) => other !== feat && other.name !== 'Shiny') }
+    const already = ranksAt(without, entries).Performance >= 1
+    if (!already) trained.push('Performance')
+    else if (feat.choice && skills.has(feat.choice) && !(ranksAt(without, entries)[feat.choice] >= 1)) trained.push(feat.choice)
+  }
+  return trained
 }
 
 // Senses from the ancestry and from feats
@@ -927,7 +941,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
   c.skillPicks?.forEach(bump)
   featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
-  skillTrainingSkills(c).forEach(bump)
+  skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
   ranks.Perception = rankFromText(klass?.data.perception_proficiency)
   ranks.Fortitude = rankFromText(klass?.data.fortitude_proficiency)
@@ -977,7 +991,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   for (const name of [
     ...autoClassSkills(c, entries),
     ...backgroundSkills(byName(entries, 'background', c.background)),
-    ...skillTrainingSkills(c),
+    ...skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
   return ranks
 }

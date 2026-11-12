@@ -1,11 +1,12 @@
+import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { classSpellcasting, focusSpells, knowsSpell } from './builder'
 import { grantedWardenSpells } from './featChoices'
-import { featSpellOptions, grantedFeatSpells } from './featSpells'
-import { SpellsSection } from './SpellsSection'
+import { dailyInnateUses, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -20,13 +21,92 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+function findUseButton(node: ReactNode, label: string): { disabled?: boolean; onClick: () => void } | undefined {
+  let found: { disabled?: boolean; onClick: () => void } | undefined
+  Children.forEach(node, child => {
+    if (found || !isValidElement<{ children?: ReactNode; 'aria-label'?: string; disabled?: boolean; onClick: () => void }>(child)) return
+    if (child.type === 'button' && (child.props['aria-label'] === label || child.props.children === label)) found = child.props
+    else found = findUseButton(child.props.children, label)
+  })
+  return found
+}
+
+it('persists spent daily uses, blocks overspending, undoes use and resets without ending active spells', () => {
+  const source = feat('Daily Magic', 'You can cast [invisibility](/Spells.aspx?ID=1) as a 2nd-rank arcane innate spell twice per day.')
+  const entries = [source, entry('Invisibility', 'spell')]
+  let c: Character = { ...base, feats: [taken(source.name)], activeSpells: ['Invisibility'],
+    innateSpellUses: { 'another pool': 1 } }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const grant = () => grantedFeatSpells(c, entries)[0]
+  const tree = () => InnateSpellUses({ c, save, grant: grant() })
+  const use = () => findUseButton(tree(), 'Use Invisibility (Daily Magic)')!
+  const undo = () => findUseButton(tree(), 'Undo use of Invisibility (Daily Magic)')!
+  expect(undo().disabled).toBe(true)
+  undo().onClick()
+  expect(dailyInnateUses(c, grant())?.used).toBe(0)
+  use().onClick()
+  expect(dailyInnateUses(c, grant())).toMatchObject({ used: 1, remaining: 1 })
+  expect(c.innateSpellUses?.['another pool']).toBe(1)
+  use().onClick()
+  expect(use().disabled).toBe(true)
+  use().onClick()
+  expect(dailyInnateUses(c, grant())).toMatchObject({ used: 2, remaining: 0 })
+  expect(renderToStaticMarkup(tree())).toContain('0/2 uses remaining')
+  undo().onClick()
+  expect(dailyInnateUses(c, grant())).toMatchObject({ used: 1, remaining: 1 })
+  findUseButton(ResetDailyInnateUses({ c, save }), 'Reset daily innate uses')!.onClick()
+  expect(dailyInnateUses(c, grant())).toMatchObject({ used: 0, remaining: 2 })
+  expect(c.innateSpellUses).toEqual({})
+  expect(c.activeSpells).toEqual(['Invisibility'])
+  expect(findUseButton(ResetDailyInnateUses({ c, save }), 'Reset daily innate uses')!.disabled).toBe(true)
+})
+
+it('shares alternative daily spells but keeps each-spell and different-source pools independent', () => {
+  const shared = feat('Shared Magic', 'Once per day, you can cast either [calm emotions](/Spells.aspx?ID=1) or [sanctuary](/Spells.aspx?ID=2) as an innate occult spell.')
+  const separate = feat('Separate Magic', 'You can cast [calm emotions](/Spells.aspx?ID=1) and [sanctuary](/Spells.aspx?ID=2) as occult innate spells once per day each.')
+  const entries = [shared, separate, entry('Calm Emotions', 'spell'), entry('Sanctuary', 'spell')]
+  let c: Character = { ...base, feats: [taken(shared.name), taken(separate.name)] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants).toHaveLength(4)
+  const [first, alternative, independent, otherIndependent] = grants
+  const uses = dailyInnateUses(c, first)!
+  c = { ...c, innateSpellUses: { [uses.key]: 1 } }
+  expect(dailyInnateUses(c, alternative)).toMatchObject({ key: uses.key, remaining: 0 })
+  expect(dailyInnateUses(c, independent)?.remaining).toBe(1)
+  expect(dailyInnateUses(c, independent)?.key).not.toBe(dailyInnateUses(c, otherIndependent)?.key)
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
+    .toContain('0/1 uses remaining (shared)')
+})
+
+it('does not track at-will or focus spells and retains uses across heightening and feat order changes', () => {
+  const daily = feat('Daily Magic', 'You can cast [heal](/Spells.aspx?ID=1) as a divine innate spell once per day. This spell is heightened to half your level, rounded up.')
+  const atWill = feat('Unlimited Magic', 'You can cast [light](/Spells.aspx?ID=2) as an arcane innate spell at will.')
+  const focus = feat('Focus Magic', 'You gain [fire ray](/Spells.aspx?ID=3) as a focus spell.')
+  const entries = [daily, atWill, focus, entry('Heal', 'spell'), entry('Light', 'spell'), entry('Fire Ray', 'spell', {}, ['Focus'])]
+  let c: Character = { ...base, feats: [taken(daily.name), taken(atWill.name), taken(focus.name)] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(dailyInnateUses(c, grants[1])).toBeUndefined()
+  expect(dailyInnateUses(c, grants[2])).toBeUndefined()
+  expect(InnateSpellUses({ c, grant: grants[1], save: () => {} })).toBeNull()
+  const uses = dailyInnateUses(c, grants[0])!
+  c = JSON.parse(JSON.stringify({ ...c, level: 10, feats: [...c.feats].reverse(), innateSpellUses: { [uses.key]: 1 } }))
+  const heightened = grantedFeatSpells(c, entries).find(grant => grant.source === daily.name)!
+  expect(heightened.rank).toBe(5)
+  expect(dailyInnateUses(c, heightened)).toMatchObject({ key: uses.key, used: 1, remaining: 0 })
+})
+
 it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequency only with active Face in the Crowd', () => {
   const source = feat('Forgotten in the Crowd',
     'You can leverage your forgettable appearance to escape your pursuers. You gain _[invisibility](/spells/165-invisibility)_ as a 2nd-rank arcane innate spell once per day, targeting yourself only.\n\n**Special** If you have the [Face in the Crowd](/feats/800-face-in-the-crowd) skill feat, you can cast _[invisibility](/spells/165-invisibility)_ twice per day instead of once per day.', 9)
   const data = [source, { ...entry('Invisibility', 'spell'), level: 2 }]
   const c = { ...base, level: 9, feats: [taken(source.name, 9)] }
   expect(grantedFeatSpells(c, data)).toMatchObject([{ rank: 2, rule: { tradition: 'arcane', frequency: 'once per day' } }])
+  const uses = dailyInnateUses(c, grantedFeatSpells(c, data)[0])!
+  const spent = { ...c, innateSpellUses: { [uses.key]: 1 } }
+  expect(dailyInnateUses(spent, grantedFeatSpells(spent, data)[0])?.remaining).toBe(0)
   const enhanced = { ...c, feats: [...c.feats, taken('Face in the Crowd', 1)] }
+  expect(dailyInnateUses({ ...enhanced, innateSpellUses: spent.innateSpellUses }, grantedFeatSpells(enhanced, data)[0]))
+    .toMatchObject({ key: uses.key, used: 1, limit: 2, remaining: 1 })
   expect(grantedFeatSpells(enhanced, data)).toMatchObject([{ rank: 2, rule: { frequency: 'twice per day' } }])
   expect(renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />))
     .toContain('rank 2 arcane; twice per day')
@@ -51,6 +131,18 @@ it('grants Empathetic Connection Mindlink at its fixed rank, with scaling innate
   expect(grantedFeatSpells({ ...character, level: 4 }, entries)).toEqual([])
   expect(knowsSpell(character, entries, 'Mindlink')).toBe(true)
   expect(knowsSpell({ ...character, feats: [] }, entries, 'Mindlink')).toBe(false)
+})
+
+it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
+  const grant = feat('Imperious Nature', "Your legendary abilities inspire compliance. Once per day, you can cast _[command](/spells/43-command)_ as a 7th-rank occult innate spell using the higher of your class DC or  spell DC. This effect loses the linguistic trait.", 17)
+  const entries = [grant, entry('Command', 'spell')]
+  const c = { ...base, level: 17, feats: [taken(grant.name, 17)] }
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Command' }, rank: 7,
+    rule: { tradition: 'occult', frequency: 'once per day', dc: 'higher-class-or-spell' } }])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('rank 7 occult; once per day; use higher of class DC or spell DC')
+  expect(markup).toContain('loses the linguistic trait')
+  expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
 })
 
 it('uses higher class spell proficiency for innate spells, without using the class attribute', () => {

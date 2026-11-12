@@ -110,7 +110,8 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   if (cantrip && /innate spell at[- ]will/i.test(body)) {
     grants.push({ kind: 'innate', spells: [], choice: 'cantrip', tradition: cantrip[1], heightened: true, frequency: 'at will', ...(ability ? { ability } : {}) })
   }
-  if (/class DC|whichever is higher|At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants
+  const higherDC = /using the higher of your class DC or\s+spell DC/i.test(body)
+  if ((!higherDC && /class DC|whichever is higher/i.test(body)) || /At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants
   const sentences = body.split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
     if (!/^(?:(?:once|twice|\d+ times) per day,? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
@@ -133,6 +134,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
         ...(ranks[0] ? { rank: Number(ranks[0][1]) } : {}),
         heightened, shared,
         ...(ability ? { ability } : {}),
+        ...(higherDC ? { dc: 'higher-class-or-spell' as const } : {}),
       }
       if (!heightened && scales(next)) {
         grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))

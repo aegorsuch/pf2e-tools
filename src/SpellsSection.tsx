@@ -8,9 +8,32 @@ import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoic
 import { ActionIcon } from './ActionIcon'
 import { SpellDamageRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
-import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
+
+export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'save'> & {
+  grant: ReturnType<typeof grantedFeatSpells>[number]
+}) {
+  const uses = dailyInnateUses(c, grant)
+  if (!uses) return null
+  const label = `${grant.entry.name} (${grant.source})`
+  return <div className="row">
+    <small role="status">{uses.remaining}/{uses.limit} uses remaining{grant.rule.shared ? ' (shared)' : ''}</small>
+    <button type="button" aria-label={`Use ${label}`} disabled={uses.remaining === 0} onClick={() => {
+      if (uses.remaining > 0) save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: uses.used + 1 } })
+    }}>Use</button>
+    <button type="button" aria-label={`Undo use of ${label}`} disabled={uses.used === 0} onClick={() => {
+      if (uses.used > 0) save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: uses.used - 1 } })
+    }}>Undo</button>
+  </div>
+}
+
+export function ResetDailyInnateUses({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  return <button type="button" disabled={!Object.values(c.innateSpellUses ?? {}).some(used => used > 0)}
+    title="Restore daily innate spell uses during daily preparations. Active spells are unchanged."
+    onClick={() => save({ innateSpellUses: {} })}>Reset daily innate uses</button>
+}
 
 export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
   const active = activeAnimalFeatures(c, entries)
@@ -123,7 +146,8 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     return <>
       <EntryDescription name={grant.source} entry={source} />
       {`; rank ${grant.rank}${grant.rule.tradition ? ` ${grant.rule.tradition}` : ''}${grant.rule.frequency ? `; ${grant.rule.frequency}${grant.rule.shared ? ' shared between alternatives' : ''}` : ''}`}
-      {ability && mod !== undefined ? `; ${ABILITY_LABEL[ability]} DC ${10 + mod}, Attack ${signed(mod)}`
+      {grant.rule.dc === 'higher-class-or-spell' ? '; use higher of class DC or spell DC'
+        : ability && mod !== undefined ? `; ${ABILITY_LABEL[ability]} DC ${10 + mod}, Attack ${signed(mod)}`
         : '; check granting source for spellcasting attribute and DC'}
     </>
   }
@@ -238,9 +262,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </div>
       )}
       {innate.length > 0 && <div>
-        <b>Innate Spells</b>
-        <ul>{innate.map((grant, index) => <SpellItem key={`${grant.source}:${grant.entry.id}:${index}`}
+        <div className="row"><b>Innate Spells</b>
+          {innate.some(grant => dailyInnateUses(c, grant)) && <ResetDailyInnateUses c={c} save={save} />}
+        </div>
+        <ul>{innate.map((grant) => <SpellItem key={grant.usageKey}
           name={grant.entry.name} entry={grant.entry} note={grantNote(grant)} {...buffProps(grant.entry.name, grant.entry)}>
+          <InnateSpellUses c={c} save={save} grant={grant} />
           {controls(grant.entry.name, grant.rank)}
         </SpellItem>)}</ul>
       </div>}

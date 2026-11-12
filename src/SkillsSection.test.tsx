@@ -72,6 +72,16 @@ it('adds and marks Imitate Fauna status bonus only while the known spell is acti
   }
 })
 
+it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () => {
+  const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Shiny', type: 'Ancestry Feat', level: 1 }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toMatch(/Deception <b>\+0<button[^>]*>\*<\/button> \(Shiny\)/)
+  expect(markup).toMatch(/Performance <b>\+3<button[^>]*>\*<\/button> \(Shiny\)/)
+  expect(markup.match(/\+3 circumstance bonus only when using Aid for this skill\./g)).toHaveLength(8)
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [] }} entries={[ranger]} save={() => {}} />))
+    .not.toContain('Shiny note')
+})
+
 it('shows speed bonus sources but omits redundant Initiative helper', () => {
   const c: Character = { ...base, feats: ['Fleet', 'Primal Nimbleness', 'Incredible Initiative']
     .map((name) => ({ name, type: 'General Feat', level: 1 })) }

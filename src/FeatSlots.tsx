@@ -111,7 +111,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const entryIds = [...c.entryIds]
     if (option) {
       const { entry, choice } = option
-      feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key, ...(choice ? { choice } : {}) })
+      feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key,
+        ...(slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}), ...(choice ? { choice } : {}) })
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)

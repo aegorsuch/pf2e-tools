@@ -32,15 +32,17 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
 }
 
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
-  const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number }[] = []
-  for (const feat of c.feats) {
+  const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
+  for (const [index, feat] of c.feats.entries()) {
     if (featTakenLevel(feat) > c.level) continue
+    const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name)
     const rules = source?.spellGrants ?? []
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {
       const entry = options.find(spell => spell.name === feat.choice)
-      if (entry) out.push({ entry, source: feat.name, rule: { kind: 'focus', spells: [entry.name], heightened: true }, rank: Math.ceil(c.level / 2) })
+      if (entry) out.push({ entry, source: feat.name, rule: { kind: 'focus', spells: [entry.name], heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'qi']) })
       continue
     }
     if (DOMAIN_FEATS.includes(feat.name) && feat.choice) {
@@ -49,7 +51,8 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         && spell.systems.some(system => c.systems.includes(system))
         && spell.level === (advanced ? 4 : 1)
         && String(spell.data.domain).split(/,\s*/).some(domain => domain.toLowerCase() === feat.choice!.toLowerCase()))) {
-        out.push({ entry, source: `${feat.name}: ${feat.choice}`, rule: { kind: 'focus', spells: [entry.name], tradition: 'Divine', heightened: true }, rank: Math.ceil(c.level / 2) })
+        out.push({ entry, source: `${feat.name}: ${feat.choice}`, rule: { kind: 'focus', spells: [entry.name], tradition: 'Divine', heightened: true },
+          rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'domain', entry.name]) })
       }
     }
     for (const baseRule of rules) {
@@ -62,11 +65,22 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         const entry = entries.find(spell => spell.kind === 'spell' && !spell.deleted && spell.name.toLowerCase() === name.toLowerCase()
           && spell.systems.some(system => c.systems.includes(system)))
         if (entry) out.push({ entry, source: feat.name, rule, rank: rule.heightened || entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
-          ? Math.ceil(c.level / 2) : rule.rank ?? entry.level })
+          ? Math.ceil(c.level / 2) : rule.rank ?? entry.level,
+          usageKey: JSON.stringify([selection, feat.name, baseRule.spells.map(spell => spell.toLowerCase()).sort(),
+            rule.tradition?.toLowerCase() ?? '', rule.shared || rule.choice ? 'shared' : entry.name.toLowerCase()]) })
       }
     }
   }
   return out
+}
+
+export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFeatSpells>[number]) {
+  if (grant.rule.kind !== 'innate') return undefined
+  const frequency = /^(once|twice|(\d+) times) per day(?: each)?$/i.exec(grant.rule.frequency ?? '')
+  if (!frequency) return undefined
+  const limit = frequency[1].toLowerCase() === 'once' ? 1 : frequency[1].toLowerCase() === 'twice' ? 2 : Number(frequency[2])
+  const used = c.innateSpellUses?.[grant.usageKey] ?? 0
+  return { key: grant.usageKey, limit, used, remaining: Math.max(0, limit - used) }
 }
 
 export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
