@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
-  featTakenLevel, maxHp,
+  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, featTakenLevel, maxHp,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
@@ -44,7 +44,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const picks = c.skillPicks ?? []
   const budget = skillRankBudget(c, entries)
   const remaining = budget.trained
-  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg)])
+  const ancestrySkills = ancestralSkills(c, entries)
+  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg), ...ancestrySkills])
   const skills = [
     ...stats.filter((stat) => stat.kind === 'skill'),
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
@@ -55,7 +56,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
   const baseRanks = ranksAt(noPaidIncreases, entries, 99, false)
-  const rankGrants = ['Technomagical Scrapper', 'Greenwatch Initiate'].flatMap(name => {
+  const rankGrants = ['Technomagical Scrapper', 'Greenwatch Initiate', 'Ancestral Skills'].flatMap(name => {
     const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
     return feat ? [{ level: featTakenLevel(feat), without: ranksAt({
       ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== name),
@@ -86,7 +87,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       return
     }
     if (r === 1 && currentRank === 1) {
-      if (!fixed.has(name) && picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
+      if ((!fixed.has(name) || ancestrySkills.includes(name)) && picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
       return
     }
     const target = currentRank === r ? r - 1 : r
@@ -134,7 +135,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
             const target = rank === i + 1 ? i : i + 1
             const trainedDisabled = i === 0 && (
               rank === 0 ? remaining <= 0
-                : rank === 1 ? fixed.has(s.name) || !picks.includes(s.name)
+                : rank === 1 ? fixed.has(s.name) && !ancestrySkills.includes(s.name) || !picks.includes(s.name)
                   : baseRank > 1
             )
             const disabled = s.kind !== 'skill' || i + 1 > maxRank || (i === 0
@@ -148,7 +149,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
                 aria-pressed={rank === i + 1}
                 aria-label={`${s.name} ${RANKS[i + 1]}`}
                 disabled={disabled}
-                title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
+                title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && ancestrySkills.includes(s.name)
+                  ? picks.includes(s.name) ? 'Refund redundant training choice; Ancestral Skills keeps this skill trained' : 'Trained granted by Ancestral Skills'
+                  : i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
                 onClick={() => setRank(s.name, i + 1)}
               >{letter}</button>
             )
@@ -175,6 +178,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
 
   if (part === 'offense') {
     const athlete = ragingAthleteBenefits(c, entries)
+    const terrain = favoredTerrainBenefits(c, entries)
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
@@ -183,8 +187,27 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
         {rageToggle}
         {hazardToggle}
+        <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
+          title="Apply favored terrain benefits only while you are in that terrain." />
+        {isFeatEffectActive(c, 'Favored Terrain') && !terrain
+          && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
+        {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Temporary favored terrain{' '}
+          <select aria-label="Temporary favored terrain" value={c.favoredTerrain ?? ''} onChange={event => {
+            if (event.target.value && !FAVORED_TERRAINS.includes(event.target.value)) return
+            save({ favoredTerrain: event.target.value || undefined })
+          }}>
+            <option value="">Original terrain</option>
+            {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
+          </select>
+          <small>Terrain Master: choose after 1 hour of practice. Restore original terrain after a full day away.</small>
+        </label>}
+        {terrain && <small>Favored Terrain ({terrain.terrain}): ignore non-magical difficult terrain.
+          {terrain.enhanced && (['Arctic', 'Desert'].includes(terrain.terrain)
+            ? ` Eat and drink one-tenth as much; ignore severe/extreme ${terrain.terrain === 'Arctic' ? 'cold' : 'heat'}; cross ${terrain.terrain === 'Arctic' ? 'ice and snow' : 'sand'} at full Speed without Balance.`
+            : terrain.terrain === 'Swamp' ? ' Cross bogs at full Speed, including deep bogs normally requiring Swim or causing greater difficult terrain.' : '')}
+        </small>}
         <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
-          const bonuses = movement.name === 'Land' ? speedBonuses(c) : []
+          const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
           return <span key={movement.name}>
             {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
             {movement.source && ` (${movement.source})`}
@@ -245,6 +268,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}
       </div>
+      {!!activeFeatsNamed(c, 'Ancestral Skills').length && !ancestrySkills.length
+        && <small role="status">Ancestral Skills training unavailable. Sync official content for your ancestry.</small>}
     </>
   )
 }

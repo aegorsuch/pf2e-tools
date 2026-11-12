@@ -73,6 +73,22 @@ it('blocks Animal Strength selection until Animal Feature is actually learned as
   expect(c.feats.find(selected => selected.name === feat.name)).toMatchObject({ slot: 'class:6:0' })
 })
 
+it('offers explicit favored-terrain variants and persists the chosen terrain', () => {
+  let c: Character = { ...emptyRanger(), level: 2 }
+  const feat: ContentEntry = {
+    id: 'favored', systems: ['pf2e'], kind: 'feat', name: 'Favored Terrain', level: 2, traits: ['Ranger'],
+    source: 'official', description: '', data: {}, effects: [], updatedAt: 1,
+  }
+  const tree = () => FeatSlots({ c, entries: [feat], save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
+  expect(renderToStaticMarkup(tree())).toContain('Favored Terrain (Plains)')
+  findSelect(tree(), 'L02 Class feat')!({ target: { value: JSON.stringify([feat.name, 'Ocean']) } })
+  expect(c.feats).toEqual([])
+  findSelect(tree(), 'L02 Class feat')!({ target: { value: JSON.stringify([feat.name, 'Plains']) } })
+  expect(JSON.parse(JSON.stringify(c)).feats).toEqual([
+    { name: feat.name, type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },
+  ])
+})
+
 it('opens Multitalented directly on multiclass dedications and removes its granted choice with the ancestry feat', () => {
   let c: Character = {
     id: 'multi', systems: ['pf2e'], name: 'Test', level: 9, ancestry: 'Human', className: 'Ranger',

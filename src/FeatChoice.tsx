@@ -6,10 +6,10 @@ import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'Adopted Ancestry' || feat.name === 'Skill Training' || feat.name === 'Shiny' || feat.name === 'Weapon Proficiency' || feat.name === 'Technomagical Scrapper') {
+  if (feat.name === 'Adopted Ancestry' || feat.name === 'Skill Training' || feat.name === 'Shiny' || feat.name === 'Weapon Proficiency' || feat.name === 'Technomagical Scrapper' || feat.name === 'Favored Terrain') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
-    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
+    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : feat.name === 'Favored Terrain' ? 'terrain' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     return <label className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
       <select aria-label={`${feat.name} ${label}`} aria-describedby={noteId} value={feat.choice ?? ''} onChange={(e) => {

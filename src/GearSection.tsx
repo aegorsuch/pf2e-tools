@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  animalStrengthSource, animalStrengthWeapons, hasAnimalStrength, armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -264,7 +264,9 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const a = weaponAttack(c, entries, w)
         const enhanced = effectiveWeapon(c, entries, w)
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
-        const inherited = !!handwraps && unarmed
+        const strength = hasAnimalStrength(c, entries, w)
+        const strengthSource = animalStrengthSource(c, entries, w)
+        const inherited = !!handwraps && unarmed && !strengthSource
         const fixed = w.id === OVERSIZED_THROW.id
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
         const canUseLivingWeapon = !fixed && !haft && canBeLivingWeapon(c, entries, w)
@@ -274,7 +276,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
         const automatic = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
         const freeShifting = livingWeapon
-        const blessed = blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
+        const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : w.runes })
         const freeRunes = [...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : [])]
@@ -321,6 +323,25 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               <span><small>Item</small>{signed(a.item)}</span>
             </div>
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
+            {strength && <>
+              <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>
+              <label>Animal Strength runes{' '}
+                <select aria-label={`Animal Strength runes: ${displayName}`} value={c.animalStrengthWeapons?.[w.id] ?? ''} onChange={event => {
+                  if (event.target.value && !animalStrengthWeapons(c, entries).some(source => source.id === event.target.value)) return
+                  const sources = { ...c.animalStrengthWeapons }
+                  if (event.target.value) sources[w.id] = event.target.value
+                  else delete sources[w.id]
+                  save({ animalStrengthWeapons: sources })
+                }}>
+                  <option value="">Normal unarmed runes</option>
+                  {c.animalStrengthWeapons?.[w.id] && !strengthSource
+                    && <option disabled value={c.animalStrengthWeapons[w.id]}>Saved weapon unavailable</option>}
+                  {animalStrengthWeapons(c, entries).map(source => <option key={source.id} value={source.id}>{source.name}</option>)}
+                </select>
+              </label>
+              {c.animalStrengthWeapons?.[w.id] && !strengthSource
+                && <small role="status">Saved Animal Strength weapon unavailable; normal unarmed runes apply. Choose another carried weapon.</small>}
+            </>}
             {enhanced.runes.includes('Shockwave') && <small>Shockwave splash does not harm you.</small>}
             {haft && <>
               {haftStrikerWeapons(c, entries).length > 1 && <label>Haft weapon{' '}
@@ -363,7 +384,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               : enhanced.runes.filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting'))}
               entries={entries} options={unarmed || haft ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={maxPropertyRunes(enhanced.potency, enhanced.material)} freeRunes={freeRunes}
-              source={haft ? `Inherited from ${haft.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
+              source={strengthSource ? `Animal Strength: ${strengthSource.name}` : haft ? `Inherited from ${haft.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || haft ? undefined : (runes) => update(w.id, { runes })} />}
             <div className="row">
               {canUseVerdantWeapon && <label><input type="checkbox" aria-label={`Verdant Weapon: ${w.name}`} checked={!!w.verdantWeapon}

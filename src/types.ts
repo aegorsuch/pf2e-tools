@@ -146,6 +146,8 @@ export interface Character {
   innateSpellUses?: Record<string, number>
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   animalFeatures?: NonNullable<Character['animalFeature']>[]
+  animalStrengthWeapons?: Record<string, string>
+  favoredTerrain?: string
   magicHideCompanionId?: string
   canopyCrawlerTarget?: 'Self' | 'Companion' | 'Both'
   canopyCrawlerCompanionId?: string

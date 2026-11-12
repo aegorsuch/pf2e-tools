@@ -49,6 +49,53 @@ it('spends later skill increases after Greenwatch training without upgrading Sur
   expect(ranksAt(c, [ranger]).Survival).toBe(3)
 })
 
+it('keeps Ancestral Skills training fixed, refunds redundant picks and spends only later increases', () => {
+  const feat: ContentEntry = { ...ranger, id: 'ancestral-skills', systems: ['sf2e'], kind: 'feat',
+    name: 'Ancestral Skills', traits: ['Human'], data: {}, description: 'Option(s): Diplomacy, Society' }
+  let c: Character = { ...base, systems: ['sf2e'], ancestry: 'Human', level: 5, skillPicks: ['Society'],
+    feats: [{ name: feat.name, level: 1, type: 'Ancestry Feat', slot: 'ancestry:5:0' }] }
+  const tree = () => SkillsSection({ c, entries: [ranger, feat], save: patch => { c = { ...c, ...patch } } })
+  expect(findButtons(tree()).get('Diplomacy Trained')?.disabled).toBe(true)
+  expect(findButtons(tree()).get('Diplomacy Expert')?.disabled).toBe(true)
+  expect(findButtons(tree()).get('Society Trained')?.disabled).toBe(false)
+  ;(findButtons(tree()).get('Society Trained')!.onClick as () => void)()
+  expect(c.skillPicks).toEqual([])
+  expect(ranksAt(c, [ranger, feat]).Society).toBe(1)
+  c = { ...c, level: 7 }
+  ;(findButtons(tree()).get('Diplomacy Expert')!.onClick as () => void)()
+  expect(c.skillIncreases).toEqual({ 7: 'Diplomacy' })
+})
+
+it('persists a temporary Terrain Master choice and explicitly activates its environmental effects', () => {
+  let c: Character = { ...base, level: 11, feats: [
+    { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },
+    { name: 'Terrain Master', type: 'Class Feat', level: 8, slot: 'class:8:0' },
+  ] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } }, part: 'offense' })
+  const controls = new Map<string, Record<string, unknown>>()
+  const walk = (node: ReactNode) => {
+    Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (typeof child.type === 'function' && child.type.name === 'FeatEffectToggle') {
+        walk((child.type as (props: Record<string, unknown>) => ReactNode)(child.props))
+        return
+      }
+      if (typeof child.props['aria-label'] === 'string') controls.set(child.props['aria-label'], child.props)
+      walk(child.props.children as ReactNode)
+    })
+  }
+  walk(tree())
+  ;(controls.get('Temporary favored terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Aquatic' } })
+  ;(controls.get('In favored terrain')!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  c = JSON.parse(JSON.stringify(c))
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Favored Terrain (Aquatic)')
+  expect(markup).toContain('Swim 25 ft.')
+  expect(markup).toContain('ignore non-magical difficult terrain')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} part="offense" />))
+    .not.toContain('Temporary favored terrain')
+})
+
 it('allocates paid increases after Scrapper grants instead of spending earlier increases and invalidating the variant', () => {
   let c: Character = { ...base, level: 5, skillPicks: ['Crafting'],
     feats: [{ name: 'Technomagical Scrapper', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Occultism to Trained' }] }

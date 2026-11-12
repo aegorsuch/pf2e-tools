@@ -535,6 +535,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Order Explorer') return availableOrders(c, index)
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
+  if (name === 'Favored Terrain') return [...FAVORED_TERRAINS]
   if (DOMAIN_FEATS.includes(name)) {
     if (name.startsWith('Advanced')) return [...new Set(c.feats.flatMap(feat =>
       ["Domain Initiate", "Deity's Domain"].includes(feat.name) && feat.choice ? [feat.choice] : []))].sort()
@@ -644,13 +645,26 @@ export function cannyAcumenOptions(c: Character, entries: ContentEntry[]) {
 
 const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === name)
 
-export function speedBonuses(c: Character) {
-  return ['Fleet', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 }))
+export const FAVORED_TERRAINS = ['Aquatic', 'Arctic', 'Desert', 'Forest', 'Mountain', 'Plains', 'Sky', 'Swamp', 'Underground']
+
+export function favoredTerrainBenefits(c: Character, entries: ContentEntry[]) {
+  const original = activeFeatsNamed(c, 'Favored Terrain')[0]?.choice
+  const temporary = activeFeatsNamed(c, 'Terrain Master').length ? c.favoredTerrain : undefined
+  const terrain = temporary && FAVORED_TERRAINS.includes(temporary) ? temporary : original
+  if (!terrain || !FAVORED_TERRAINS.includes(terrain) || !isFeatEffectActive(c, 'Favored Terrain')) return undefined
+  return { terrain, enhanced: c.className === 'Ranger' && c.level >= 11
+    || classFeatures(entries, c).some(feature => feature.name === 'Unimpeded Journey') }
+}
+
+export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
+  const terrain = favoredTerrainBenefits(c, entries)
+  return [...['Fleet', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
+    ...(terrain?.enhanced && terrain.terrain === 'Plains' ? [{ source: 'Favored Terrain (Plains; status)', feet: 10 }] : [])]
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
 export const speed = (c: Character, entries: ContentEntry[]) =>
-  (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + speedBonuses(c).reduce((sum, bonus) => sum + bonus.feet, 0)
+  (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + speedBonuses(c, entries).reduce((sum, bonus) => sum + bonus.feet, 0)
 
 export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
   if (!c.raging || !activeFeatsNamed(c, 'Raging Athlete').length) return undefined
@@ -675,6 +689,22 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     const previous = merged.get(candidate.name)
     if (!previous || candidate.feet > previous.feet) merged.set(candidate.name, { ...candidate })
     else if (candidate.feet === previous.feet) previous.source += `, ${candidate.source}`
+  }
+  const terrain = favoredTerrainBenefits(c, entries)
+  if (terrain?.enhanced) {
+    const name = terrain.terrain === 'Aquatic' ? 'Swim'
+      : ['Forest', 'Mountain', 'Underground'].includes(terrain.terrain) ? 'Climb' : terrain.terrain === 'Sky' ? 'Fly' : undefined
+    if (name) {
+      const previous = merged.get(name)
+      const source = `Favored Terrain (${terrain.terrain})`
+      if (previous) merged.set(name, { name, feet: previous.feet + 10, source: `${previous.source}, ${source} (+10 status)` })
+      else if (name !== 'Fly') merged.set(name, { name, feet: land, source })
+    }
+    if (canopyCrawlerAffects(c, entries)) {
+      const climb = merged.get('Climb')
+      const fastest = Math.max(land, ...[...merged.values()].map(movement => movement.feet))
+      if (climb && climb.feet < fastest) merged.set('Climb', { name: 'Climb', feet: fastest, source: 'Canopy Crawler' })
+    }
   }
   return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()].sort((a, b) => a.name.localeCompare(b.name))]
 }
@@ -873,6 +903,16 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   }),
 ])]
 
+export function ancestralSkills(c: Character, entries: ContentEntry[]) {
+  if (!c.ancestry || !activeFeatsNamed(c, 'Ancestral Skills').length) return []
+  const feat = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === 'Ancestral Skills'
+    && entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase())
+    && entry.systems.some(system => c.systems.includes(system)))
+  const options = /Option\(s\):\s*([^\n]+)/i.exec(feat?.description ?? '')?.[1] ?? ''
+  const skills = new Set(tokens(options || feat?.data.skill))
+  return statDefs(c).filter(stat => stat.kind === 'skill' && skills.has(stat.name)).map(stat => stat.name)
+}
+
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
   const trained = activeFeatsNamed(c, 'Skill Training').flatMap((feat) => feat.choice && skills.has(feat.choice) ? [feat.choice] : [])
@@ -991,10 +1031,13 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   if (variant) scrapperGrants[variant.skill] = variant.rank
   const greenwatch = activeFeatsNamed(c, 'Greenwatch Initiate').find(feat => featTakenLevel(feat) < beforeLevel)
   const greenwatchLevel = greenwatch && featTakenLevel(greenwatch)
+  const ancestral = activeFeatsNamed(c, 'Ancestral Skills').find(feat => featTakenLevel(feat) < beforeLevel)
+  const ancestralLevel = ancestral && featTakenLevel(ancestral)
+  const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
-    ...(greenwatchLevel === undefined ? [] : [greenwatchLevel])])].sort((a, b) => a - b)
+    ...(greenwatchLevel === undefined ? [] : [greenwatchLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel])])].sort((a, b) => a - b)
   for (const l of levels) {
     if (increases.has(l)) {
       const skill = c.skillIncreases?.[l]
@@ -1007,6 +1050,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
     }
     if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
     if (l === greenwatchLevel) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
+    if (l === ancestralLevel) for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   }
   if (withOverrides) {
     const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -1015,6 +1059,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
     }
   }
   if (greenwatch) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
+  for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
     ...autoClassSkills(c, entries),
     ...backgroundSkills(byName(entries, 'background', c.background)),
@@ -1306,6 +1351,21 @@ function carriedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   return c.weapons ?? c.equipment
     .filter((g) => byName(entries, 'weapon', g.name))
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, striking: 0, runes: [] }))
+}
+
+export function animalStrengthWeapons(c: Character, entries: ContentEntry[]) {
+  return carriedWeapons(c, entries).filter(weapon => weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed'
+    && ![OVERSIZED_THROW.id, HAFT_STRIKER_WEAPON.id].includes(weapon.id))
+}
+
+export function hasAnimalStrength(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  return !!activeFeatsNamed(c, 'Animal Strength').length
+    && activeAnimalFeatures(c, entries).some(feature => ['Claws', 'Jaws'].includes(feature) && weapon.name === `${feature} (Animal Feature)`)
+}
+
+export function animalStrengthSource(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  return hasAnimalStrength(c, entries, weapon)
+    ? animalStrengthWeapons(c, entries).find(source => source.id === c.animalStrengthWeapons?.[weapon.id]) : undefined
 }
 
 export function haftStrikerWeapons(c: Character, entries: ContentEntry[]) {
@@ -1717,6 +1777,12 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)).slice(0, maxPropertyRunes(enhanced.potency, enhanced.material)) } : enhanced)
   }
+  const animalSource = animalStrengthSource(c, entries, weapon)
+  if (animalSource) {
+    const source = effectiveWeapon(c, entries, animalSource)
+    const enhanced = { ...weapon, potency: source.potency, striking: source.striking, runes: source.runes, material: undefined }
+    return { ...enhanced, runes: enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) }
+  }
   const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
   const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
     ? c.level >= 16 ? 'Cold Iron (High-Grade)' : c.level >= 10 ? 'Cold Iron (Standard-Grade)' : 'Cold Iron (Low-Grade)' : undefined
@@ -1805,7 +1871,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
 
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
   Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
-    + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries))
+    + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries) + ancestralSkills(c, entries).filter(name =>
+      autoClassSkills(c, entries).includes(name) || backgroundSkills(byName(entries, 'background', c.background)).includes(name)).length)
 
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {

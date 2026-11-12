@@ -580,6 +580,30 @@ it('shows only compatible inherited runes on buff attacks and no removal control
   expect(markup).toContain(`title="Inherited from ${HANDWRAPS.name}"`)
 })
 
+it('copies a chosen carried weapon onto Animal Feature attacks instead of handwraps and records critical bleed', () => {
+  let c: Character = { ...character([
+    { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
+    { name: 'Animal Strength', type: 'Class Feat', level: 6, slot: 'class:6:0' },
+  ]), activeSpells: ['Animal Feature'], handwraps: { potency: 3, striking: 3, runes: ['Flaming'] },
+    weapons: [{ id: 'w', name: 'Longsword', potency: 2, striking: 1, runes: ['Wounding', 'Shifting'] }] }
+  const tree = () => WeaponList({ c, entries: [weapon], save: patch => { c = { ...c, ...patch } } })
+  const control = findElement(tree(), element => element.props['aria-label'] === 'Animal Strength runes: Claws')!
+  ;(control.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'w' } })
+  c = JSON.parse(JSON.stringify(c))
+  const claws = ownedWeapons(c, []).find(attack => attack.name === 'Claws (Animal Feature)')!
+  expect(effectiveWeapon(c, [weapon], claws)).toMatchObject({ potency: 2, striking: 1, runes: ['Wounding'] })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Critical hit: 1d6 persistent bleed (Animal Strength).')
+  expect(markup).toContain('title="Animal Strength: Longsword"')
+  const withoutFeat = { ...c, feats: c.feats.filter(feat => feat.name !== 'Animal Strength') }
+  expect(effectiveWeapon(withoutFeat, [weapon], claws)).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
+  expect(renderToStaticMarkup(<WeaponList c={withoutFeat} entries={[weapon]} save={() => {}} />))
+    .not.toContain('Critical hit: 1d6 persistent bleed')
+  c = { ...c, weapons: [] }
+  expect(effectiveWeapon(c, [weapon], claws)).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
+  expect(renderToStaticMarkup(tree())).toContain('Saved Animal Strength weapon unavailable')
+})
+
 it('never offers direct unarmed rune, potency, or striking controls, including without handwraps', () => {
   const c: Character = {
     ...character([]),

@@ -1,6 +1,7 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
+import { mapAonHit } from './aon'
 import { describe, expect, it } from 'vitest'
-import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -35,6 +36,62 @@ const base: Character = {
 }
 
 describe('official passive feat mechanics', () => {
+  it('grants ancestry-specific Ancestral Skills training and replacement choices for class/background overlaps', () => {
+    const feat = mapAonHit({ _id: 'human-ancestral-skills', _source: {
+      category: 'feat', name: 'Ancestral Skills', level: 1, trait: ['Human'],
+      markdown: "**[Option(s)](/feats/1046-ancestral-skills)**: [Diplomacy](/skills/7-diplomacy), [Society](/skills/16-society)",
+    } }, 'sf2e')!
+    const data = [
+      { ...feat, id: 'elf-skills', traits: ['Elf'], description: 'Option(s): Arcana, Nature' }, feat,
+      entry('class', 'Wizard', { skill_proficiency: 'Trained in Society, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' }),
+      entry('background', 'Envoy', { skill: 'Diplomacy' }),
+    ]
+    const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Human', background: 'Envoy',
+      feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    expect(ancestralSkills(c, data)).toEqual(['Diplomacy', 'Society'])
+    expect(ranksAt(c, data)).toMatchObject({ Diplomacy: 1, Society: 1, 'Human Lore': 1 })
+    expect(additionalSkillCount(c, data)).toBe(4)
+    expect(additionalSkillCount({ ...c, feats: [] }, data)).toBe(2)
+    const later = { ...c, level: 5, className: undefined, background: undefined,
+      feats: [{ ...c.feats[0], slot: 'ancestry:5:0' }] }
+    expect(ranksAt(later, data, 5).Diplomacy ?? 0).toBe(0)
+    expect(ranksAt({ ...later, level: 4 }, data).Diplomacy ?? 0).toBe(0)
+    expect(ranksAt({ ...later, skillIncreases: { 3: 'Diplomacy' } }, data).Diplomacy).toBe(1)
+    expect(ranksAt({ ...later, level: 7, skillIncreases: { 7: 'Diplomacy' } }, data).Diplomacy).toBe(2)
+    expect(ranksAt({ ...later, rankOverrides: { Diplomacy: 0 } }, data).Diplomacy).toBe(1)
+    expect(ancestralSkills({ ...c, ancestry: 'Elf' }, data)).toEqual(['Arcana', 'Nature'])
+  })
+
+  it('applies favored-terrain movement only in that terrain with Unimpeded Journey and preserves Terrain Master overrides', () => {
+    const favored = { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' }
+    const c: Character = { ...base, className: 'Ranger', level: 11,
+      feats: [favored, { name: 'Fleet', type: 'General Feat', level: 1, slot: 'general:3:0' }],
+      activeFeatEffects: ['Favored Terrain'] }
+    expect(speed(c, [])).toBe(40)
+    expect(speed({ ...c, level: 10 }, [])).toBe(30)
+    expect(speed({ ...c, activeFeatEffects: [] }, [])).toBe(30)
+    expect(speed({ ...c, className: 'Wizard' }, [])).toBe(30)
+    const master = { ...c, feats: [...c.feats, { name: 'Terrain Master', type: 'Class Feat', level: 8, slot: 'class:8:0' }],
+      favoredTerrain: 'Forest' }
+    expect(movementSpeeds(JSON.parse(JSON.stringify(master)), [])).toEqual([
+      { name: 'Land', feet: 30 }, { name: 'Climb', feet: 30, source: 'Favored Terrain (Forest)' },
+    ])
+    expect(speed({ ...master, favoredTerrain: undefined }, [])).toBe(40)
+    expect(speed({ ...c, favoredTerrain: 'Forest' }, [])).toBe(40)
+    const aquatic = { ...c, feats: [{ ...favored, choice: 'Aquatic' }, c.feats[1]] }
+    expect(movementSpeeds(aquatic, [])[1]).toMatchObject({ name: 'Swim', feet: 30 })
+    expect(movementSpeeds({ ...aquatic, feats: [...aquatic.feats, { name: 'Natural Swimmer', type: 'Ancestry Feat', level: 1 }] }, [])[1])
+      .toMatchObject({ name: 'Swim', feet: 25 })
+    const sky = { ...c, feats: [{ ...favored, choice: 'Sky' }, c.feats[1]] }
+    expect(movementSpeeds(sky, [])).toHaveLength(1)
+    const flying: Character = { ...sky, animalFeature: 'Wings', activeSpells: ['Animal Feature', 'Canopy Crawler'],
+      spells: [{ name: 'Canopy Crawler', rank: 2, cantrip: false }],
+      feats: [...sky.feats, { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }] }
+    expect(movementSpeeds(flying, []).map(({ name, feet }) => ({ name, feet }))).toEqual([
+      { name: 'Land', feet: 30 }, { name: 'Climb', feet: 40 }, { name: 'Fly', feet: 40 },
+    ])
+  })
+
   it('applies Greenwatch expert Survival at acquisition, preserves later increases, and grants its prerequisite skill feats', () => {
     const greenwatch = { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }
     const c: Character = { ...base, level: 7, skillPicks: ['Survival'], feats: [greenwatch] }
