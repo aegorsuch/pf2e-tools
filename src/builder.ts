@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
-import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
+import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, featSpellOptions, grantedFeatSpells } from './featSpells'
 export { featTakenLevel } from './featChoices'
 import { getSettings } from './settings'
@@ -405,6 +405,12 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         // Prerequisites describe available capabilities, not the current combat toggle.
         senses: senses({ ...character, raging: true }, entries).map((sense) => sense.value),
         spellcastingClassFeature: casting, maxSpellRank, focusPool: hasFocusPool,
+        companionTypes: character.companions?.map(companion => companion.type) ?? [],
+        wardenSpells: [...new Set([...grantedWardenSpells(character, entries).map(spell => spell.name),
+          ...focus.spells.filter(spell => {
+            const entry = byName(entries, 'spell', spell.name)
+            return entry && wardenTierOf(entry)
+          }).map(spell => spell.name)])],
       }
       facts.set(atLevel, value)
       return value
@@ -920,15 +926,31 @@ export function senses(c: Character, entries: ContentEntry[]) {
 }
 
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
-  const grants: { name: string; source: string }[] = []
+  const grants: { name: string; source: string; level: number }[] = []
+  const sourceLevel = (name: string) => Math.min(...activeFeatsNamed(c, name).map(featTakenLevel))
+  if (activeFeatsNamed(c, 'Clever Improviser').length) {
+    grants.push({ name: 'Untrained Improvisation', source: 'Clever Improviser', level: sourceLevel('Clever Improviser') })
+  }
+  if (activeFeatsNamed(c, 'Greenwatch Initiate').length) {
+    for (const name of ['Experienced Tracker', 'Survey Wildlife']) {
+      grants.push({ name, source: 'Greenwatch Initiate', level: sourceLevel('Greenwatch Initiate') })
+    }
+  }
+  if (activeFeatsNamed(c, 'Snarecrafter Dedication').length) {
+    grants.push({ name: 'Snare Crafting', source: 'Snarecrafter Dedication', level: sourceLevel('Snarecrafter Dedication') })
+  }
   if (activeFeatsNamed(c, 'Raging Intimidation').length) {
-    const rank = ranksAt(c, entries).Intimidation ?? 0
-    if (rank >= 1) grants.push({ name: 'Intimidating Glare', source: 'Raging Intimidation' })
-    if (c.level >= 15 && rank >= 4) grants.push({ name: 'Scare to Death', source: 'Raging Intimidation' })
+    for (const [name, minimum, rank] of [['Intimidating Glare', 1, 1], ['Scare to Death', 15, 4]] as const) {
+      for (let level = Math.max(sourceLevel('Raging Intimidation'), minimum); level <= c.level; level++) {
+        if ((ranksAt({ ...c, level }, entries).Intimidation ?? 0) < rank) continue
+        grants.push({ name, source: 'Raging Intimidation', level })
+        break
+      }
+    }
   }
   const talon = activeFeatsNamed(c, 'Talon Transporter')[0]
   if (talon && !activeFeatsNamed(c, 'Hefty Hauler').some(feat => featTakenLevel(feat) <= featTakenLevel(talon))) {
-    grants.push({ name: 'Hefty Hauler', source: 'Talon Transporter' })
+    grants.push({ name: 'Hefty Hauler', source: 'Talon Transporter', level: sourceLevel('Talon Transporter') })
   }
   return grants
 }
@@ -967,9 +989,12 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const scrapperGrants: Record<string, number> = prior ? { Crafting: Math.min(2, (prior.Crafting ?? 0) + 1) } : {}
   const variant = prior && scrapperVariants(prior).find(option => option.label === scrapper?.feat.choice || option.skill === scrapper?.feat.choice)
   if (variant) scrapperGrants[variant.skill] = variant.rank
+  const greenwatch = activeFeatsNamed(c, 'Greenwatch Initiate').find(feat => featTakenLevel(feat) < beforeLevel)
+  const greenwatchLevel = greenwatch && featTakenLevel(greenwatch)
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
-  const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel])])].sort((a, b) => a - b)
+  const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
+    ...(greenwatchLevel === undefined ? [] : [greenwatchLevel])])].sort((a, b) => a - b)
   for (const l of levels) {
     if (increases.has(l)) {
       const skill = c.skillIncreases?.[l]
@@ -981,6 +1006,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
       }
     }
     if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
+    if (l === greenwatchLevel) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
   }
   if (withOverrides) {
     const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -988,6 +1014,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
       if (skillNames.has(name)) ranks[name] = Math.max(rank, scrapperGrants[name] ?? rank)
     }
   }
+  if (greenwatch) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
   for (const name of [
     ...autoClassSkills(c, entries),
     ...backgroundSkills(byName(entries, 'background', c.background)),
@@ -997,6 +1024,16 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 }
 
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
+
+export function untrainedSkillProficiency(c: Character) {
+  const clever = !!activeFeatsNamed(c, 'Clever Improviser').length
+  if (!clever && !activeFeatsNamed(c, 'Untrained Improvisation').length) return undefined
+  return {
+    bonus: Math.max(0, c.level - (c.level >= 7 ? 0 : c.level >= 5 ? 1 : 2)),
+    source: clever ? 'Clever Improviser' : 'Untrained Improvisation',
+    trainedActions: clever,
+  }
+}
 
 export function bulkLimits(c: Character, entries: ContentEntry[]) {
   const strength = abilityMod(c.abilities.str)
@@ -1164,13 +1201,16 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior'].includes(feat.name))
       .map((feat) => byName(entries, 'feat', feat.name)),
     ...c.equipment.map((g) => byName(entries, 'item', g.name)),
     wornArmor(c) ? byName(entries, 'armor', wornArmor(c)!.name) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  if (activeFeatsNamed(c, 'Wasteland Warrior').length) {
+    for (const damage of ['cold', 'fire']) out.push({ damage, value: half, source: 'Wasteland Warrior' })
+  }
   for (const e of sources) {
     for (const f of e.effects) if (f.type === 'resistance') out.push({ damage: f.damage, value: f.value, source: e.name })
     for (const part of String(e.data.resistances ?? '').split(',').filter(Boolean)) {
@@ -1769,6 +1809,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
 
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {
+    if (featTakenLevel(selected) > c.level) return total
     if (selected.name === 'Natural Skill') return total + 2
     const feat = byName(entries, 'feat', selected.name)
     const text = `${feat?.description ?? ''} ${String(feat?.data.skill ?? '')}`
@@ -1886,6 +1927,8 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   ])
   const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []), ...fromFeats])]
   const society = ranksAt(c, entries).Society ?? 0
-  const feats = activeFeatsNamed(c, 'Multilingual').length * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0))
+  const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
+  const feats = (prodigy ? 2 : 0) + activeFeatsNamed(c, 'Multilingual').length
+    * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0))
   return { locked, sources, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats }
 }

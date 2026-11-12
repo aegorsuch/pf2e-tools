@@ -24,6 +24,8 @@ export interface PrerequisiteFacts {
   spellcastingClassFeature?: boolean
   maxSpellRank?: number
   focusPool?: boolean
+  wardenSpells?: string[]
+  companionTypes?: string[]
 }
 
 const key = (text: string) => text.trim().toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ')
@@ -127,16 +129,27 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const index = contentIndex(entries)
   const knownEntries = (text: string) => index.named.get(key(text)) ?? []
   const resultFor = (yes: boolean, text: string) => yes ? met() : missing(text)
+  const snarecrafter = (entry: ContentEntry) =>
+    String(entry.data.archetype ?? '').split(',').some(archetype => key(archetype) === 'snarecrafter')
 
-  const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string): PrerequisiteCheck | undefined => {
+  const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
     if (name === 'spellcasting class feature') return resultFor(!!facts.spellcastingClassFeature, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
+    if (name === 'an animal companion') return resultFor(!!facts.companionTypes?.length
+      || facts.feats.some(feat => key(feat.name) === 'animal companion')
+      || facts.features.some(feature => ['animal companion', 'an animal companion'].includes(key(feature))), text)
+    if (name === 'horse animal companion') return resultFor(!!facts.companionTypes?.some(type => key(type) === 'horse'), text)
+    if (name === 'warden spells') return resultFor(!!facts.wardenSpells?.length, text)
+    const wardenSpell = /^(.+?) warden spell$/.exec(name)
+    if (wardenSpell) return resultFor(!!facts.wardenSpells?.some(spell =>
+      key(spell) === wardenSpell[1].replace(/^[_*]+|[_*]+$/g, '')), text)
     const spellRank = /^can cast (\d+)(?:st|nd|rd|th)-(?:rank|level) spells$/.exec(name)
     if (spellRank) return resultFor((facts.maxSpellRank ?? 0) >= Number(spellRank[1]), text)
     const qualified = /^\[([^\]]+)\]\s*(.+)$/.exec(name)
-    if (qualified) return key(facts.className ?? '') === qualified[1] ? evaluate(qualified[2], level, trail) : met()
+    if (qualified) return key(facts.className ?? '') === qualified[1]
+      ? evaluate(qualified[2], level, trail, inheritedRank, survivalForCrafting) : met()
     const ethnicity = /^([a-z][a-z' -]*?) ethnicity$/.exec(name)
     if (ethnicity && !/\b(?:and|or|any|you|your|must)\b/.test(ethnicity[1])) {
       return resultFor(key(facts.ethnicity ?? '') === ethnicity[1], text)
@@ -158,7 +171,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const skill = Object.keys(facts.ranks).find((skill) => key(skill) === subject)
       const armor = /^(light|medium|heavy) armor$|^(unarmored) defense$/.exec(subject)
       const weapon = /^(simple|martial|advanced) weapons?$|^(unarmed) attacks?$/.exec(subject)
-      if (skill) return resultFor(rankSatisfied(facts.ranks[skill], rank), text)
+      if (skill) return resultFor(rankSatisfied(subject === 'crafting' && survivalForCrafting && facts.className === 'Ranger'
+        ? Math.max(facts.ranks[skill], facts.ranks.Survival ?? 0) : facts.ranks[skill], rank), text)
       if (/^[\w' -]+ lore$/.test(subject) && !/\b(?:and|or)\b/.test(subject)) return resultFor(rankSatisfied(0, rank), text)
       if (/^(?:at least )?one (?:or more )?lore skills?$/.test(subject)) {
         return resultFor(Object.entries(facts.ranks).some(([skill, value]) => / lore$/i.test(skill) && value >= rank), text)
@@ -182,8 +196,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const expected = normalize(role[1])
       const known = role[2] === 'order' ? context.knownOrders.some((order) => normalize(order) === expected)
         : knownEntries(role[1]).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[role[2]])
-      if (!known && !choices.some((choice) => normalize(choice) === expected)) return undefined
-      return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === normalize(role[1])), text)
+      if (known || choices.some((choice) => normalize(choice) === expected)) {
+        return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === expected), text)
+      }
     }
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
     if (facts.features.some((feature) => key(feature) === reference)) return met()
@@ -200,7 +215,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
           ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds,
         })
         const requirements = [...new Set(sources.map((entry) => String(entry.data.prerequisite ?? '')))]
-        return requirements.length > 1 ? manual(`Verify source version of ${text}`) : evaluate(requirements[0] ?? '', feat.level, next)
+        return requirements.length > 1 ? manual(`Verify source version of ${text}`)
+          : evaluate(requirements[0] ?? '', feat.level, next, undefined, sources.some(snarecrafter))
       })
       return checks.find(satisfied) ?? checks[0]
     }
@@ -211,10 +227,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     return undefined
   }
 
-  const evaluate = (input: string, level: number, trail: Set<string>, inheritedRank?: string): PrerequisiteCheck => {
+  const evaluate = (input: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck => {
     const text = input.trim()
     if (!text) return met()
-    const atomic = atom(text, level, trail, inheritedRank)
+    const atomic = atom(text, level, trail, inheritedRank, survivalForCrafting)
     if (atomic) return atomic
     const protectedNames: string[] = []
     const safe = index.protectedPattern ? text.replace(index.protectedPattern, (_, prefix: string, name: string) => {
@@ -232,7 +248,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         if (sharedRole && (knownEntries(value).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[sharedRole[2]])
           || sharedRole[2] === 'order' && context.knownOrders.some((order) => key(order) === key(value)))) value += ` ${sharedRole[2]}`
         else if (sharedHeritage && knownEntries(value).some((entry) => entry.kind === 'heritage')) value += ' heritage'
-        return evaluate(value, level, trail, inherited)
+        return evaluate(value, level, trail, inherited, survivalForCrafting)
       })
       // An unknown alternative might qualify; report it rather than rejecting the entire OR.
       if (either) return checks.some(satisfied) ? met() : checks.some((check) => check.manual.length) ? manual(text) : missing(text)
@@ -248,7 +264,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (alternatives.length > 1) return combine(alternatives, true)
     const requiredAnd = splitOutside(safe, /\s+and\s+/gi)
     if (requiredAnd.length > 1) return combine(requiredAnd, false)
-    if (text.startsWith('(') && text.endsWith(')')) return evaluate(text.slice(1, -1), level, trail, inheritedRank)
+    if (text.startsWith('(') && text.endsWith(')')) return evaluate(text.slice(1, -1), level, trail, inheritedRank, survivalForCrafting)
     return manual(text)
   }
 
@@ -256,7 +272,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   return (entry: ContentEntry): PrerequisiteCheck => {
     let result = results.get(entry)
     if (!result) {
-      result = evaluate(typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : '', context.level, new Set([key(entry.name)]))
+      result = evaluate(typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : '', context.level,
+        new Set([key(entry.name)]), undefined, snarecrafter(entry))
       results.set(entry, result)
     }
     return result

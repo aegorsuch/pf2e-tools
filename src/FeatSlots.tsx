@@ -29,6 +29,11 @@ type FeatOption = { entry: ContentEntry; choice?: string; value: string; label: 
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
+  const featsByName = featByName(entries)
+  const grantedType = (name: string) => {
+    const entry = featsByName.get(name)
+    return entry ? featType(entry, c) : name === 'Untrained Improvisation' ? 'General Feat' : 'Skill Feat'
+  }
   const background = entries.find((entry) => entry.kind === 'background' && entry.name === c.background)
   const backgroundFeats = typeof background?.data.feat === 'string'
     ? background.data.feat.split(',').flatMap((name) => {
@@ -36,8 +41,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       return feat && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
         ? [feat] : []
     }) : []
-  const automaticFeats = !categories || categories.includes('skill')
-    ? automaticFeatGrants(c, entries).filter((grant) => !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level)
+  const automaticFeats = !categories || categories.includes('skill') || categories.includes('general')
+    ? automaticFeatGrants(c, entries).filter((grant) =>
+      (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
+      && !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level)
       && !backgroundFeats.some((feat) => feat.name === grant.name)) : []
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
@@ -169,6 +176,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
+  const rows = [
+    ...backgroundFeats.map(feat => ({ kind: 'background' as const, level: 1, feat })),
+    ...automaticFeats.map(feat => ({ kind: 'automatic' as const, level: feat.level, feat })),
+    ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
+  ].sort((a, b) => a.level - b.level)
   const Wrapper = bare ? 'div' : 'details'
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
@@ -178,21 +190,24 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           onChange={(event) => onSearch(accessKey, event.target.checked ? 'approved' : '')} /> GM approved access for next feat
       </label>}
       <ul className="feat-slot-list">
-        {backgroundFeats.map((feat) => (
-          <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
-            <span>Background {featType(feat, c)}</span>
-            <EntryDescription name={displayName(feat.name)} entry={feat} className="feat-name" access={featAccess(c, feat)} />
-          </li>
-        ))}
-        {automaticFeats.map((feat) => (
-          <li className="feat-slot-row automatic-feat-row" key={`automatic:${feat.name}`}>
-            <span>Granted Skill Feat</span>
-            <EntryDescription name={feat.name} entry={featByName(entries).get(feat.name)} className="feat-name" />
-            <small>({feat.source})</small>
-          </li>
-        ))}
-        {slots.map((s, index) => {
-          const newLevel = index === 0 || slots[index - 1].level !== s.level
+        {rows.map((row, rowIndex) => {
+          const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
+          const heading = !multi && newLevel
+            ? <li className="feat-level-heading">Level {String(row.level).padStart(2, '0')}</li> : null
+          if (row.kind !== 'slot') {
+            const { feat } = row
+            const background = row.kind === 'background'
+            const entry = background ? row.feat : featsByName.get(feat.name)
+            return <Fragment key={`${row.kind}:${feat.name}`}>
+              {heading}
+              <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
+                <span>L{String(row.level).padStart(2, '0')} {background ? 'Background' : 'Granted'} {grantedType(feat.name)}</span>
+                <EntryDescription name={displayName(feat.name)} entry={entry} className="feat-name" access={entry ? featAccess(c, entry) : undefined} />
+                {row.kind === 'automatic' && <small>({row.feat.source})</small>}
+              </li>
+            </Fragment>
+          }
+          const { slot: s, index } = row
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? (c.skippedFeatSlots?.includes(s.key) ? 'N/A' : '')
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
@@ -230,8 +245,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const locked = !!homebrewDedication(s.key)
           return (
             <Fragment key={s.key}>
-            {!multi && newLevel && <li className="feat-level-heading">Level {String(s.level).padStart(2, '0')}</li>}
-            <li className={`feat-slot-row${multi && index > 0 && newLevel ? ' feat-level-start' : ''}`}>
+            {heading}
+            <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
                 <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" prerequisites={prerequisites} access={access} />

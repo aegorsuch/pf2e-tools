@@ -23,6 +23,32 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('applies Clever Improviser only to untrained skills while leaving ranks, trained skills, Perception and saves unchanged', () => {
+  const c: Character = { ...base, level: 5, feats: [
+    { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },
+  ] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toContain('Deception <b>+4</b>')
+  expect(markup).toContain('Nature <b>+7</b>')
+  expect(markup).toContain('your proficiency rank remains untrained')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />))
+    .toContain('Fortitude <b>+9</b>')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
+    .toContain('Perception <b>+7</b>')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 4 }} entries={[ranger]} save={() => {}} />))
+    .toContain('Deception <b>+0</b>')
+})
+
+it('spends later skill increases after Greenwatch training without upgrading Survival from an earlier increase', () => {
+  let c: Character = { ...base, level: 7, skillPicks: ['Survival'],
+    feats: [{ name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(ranksAt(c, [ranger]).Survival).toBe(2)
+  ;(findButtons(tree()).get('Survival Master')!.onClick as () => void)()
+  expect(c.skillIncreases).toEqual({ 7: 'Survival' })
+  expect(ranksAt(c, [ranger]).Survival).toBe(3)
+})
+
 it('allocates paid increases after Scrapper grants instead of spending earlier increases and invalidating the variant', () => {
   let c: Character = { ...base, level: 5, skillPicks: ['Crafting'],
     feats: [{ name: 'Technomagical Scrapper', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Occultism to Trained' }] }

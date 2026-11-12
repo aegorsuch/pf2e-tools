@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   featTakenLevel, maxHp,
-  proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -55,12 +55,15 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
   const baseRanks = ranksAt(noPaidIncreases, entries, 99, false)
-  const scrapper = activeFeatsNamed(c, 'Technomagical Scrapper').sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
-  const withoutScrapper = scrapper ? ranksAt({
-    ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== 'Technomagical Scrapper'),
-  }, entries, 99, false) : baseRanks
-  const canSpendAt = (name: string, level: number) => !scrapper
-    || (baseRanks[name] ?? 0) <= (withoutScrapper[name] ?? 0) || level > featTakenLevel(scrapper)
+  const rankGrants = ['Technomagical Scrapper', 'Greenwatch Initiate'].flatMap(name => {
+    const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
+    return feat ? [{ level: featTakenLevel(feat), without: ranksAt({
+      ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== name),
+    }, entries, 99, false) }] : []
+  })
+  const canSpendAt = (name: string, level: number) => rankGrants.every(grant =>
+    (baseRanks[name] ?? 0) <= (grant.without[name] ?? 0) || level > grant.level)
+  const improvisation = untrainedSkillProficiency(c)
   const canReachRank = (name: string, target: number) => {
     let rank = baseRanks[name] ?? 0
     if (rank < 1) return false
@@ -113,7 +116,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const rank = ranks[s.name] ?? 0
     const baseRank = baseRanks[s.name] ?? 0
     const abil = abilityMod(c.abilities[s.ability])
-    const prof = proficiencyBonus(rank, c.level)
+    const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
+    const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
       : s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
@@ -151,7 +155,11 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           })}
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
-        <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
+        <span className="skill-part"><small>Proficiency</small>{signed(prof)}
+          {improvised && <SourceNote source={improvised.source} note={improvised.trainedActions
+            ? 'Untrained skill proficiency improved. You can also attempt trained-only skill actions; your proficiency rank remains untrained.'
+            : 'Untrained skill proficiency improved. Trained-only skill actions still require training.'} />}
+        </span>
         <span className="skill-part"><small>Item</small>{signed(item)}</span>
         {circumstance && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
       </div>

@@ -8,6 +8,71 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('lists Clever Improviser granted Untrained Improvisation under general feats, not skill feats', () => {
+  const c: Character = { ...emptyRanger(), level: 5, feats: [
+    { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },
+  ] }
+  const entry: ContentEntry = {
+    id: 'improvisation', systems: ['pf2e'], kind: 'feat', name: 'Untrained Improvisation', level: 3, traits: ['General'],
+    source: 'official', description: '', data: {}, effects: [], updatedAt: 1,
+  }
+  const props = { c, entries: [entry], save: () => {} }
+  const markup = renderToStaticMarkup(<FeatSlots {...props} categories={['general']} />)
+  expect(markup).toContain('>Untrained Improvisation</button>')
+  expect(markup).toContain('L05 Granted General Feat')
+  expect(markup.indexOf('Level 05')).toBeLessThan(markup.indexOf('>Untrained Improvisation</button>'))
+  expect(renderToStaticMarkup(<FeatSlots {...props} categories={['skill']} />)).not.toContain('>Untrained Improvisation</button>')
+})
+
+it('interleaves free feats with earned slots at acquisition levels and keeps skill grants in their own section', () => {
+  const c: Character = { ...emptyRanger(), level: 9, feats: [
+    { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:9:0' },
+    { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:8:0' },
+  ] }
+  const data: [string, number, string[]][] = [
+    ['Untrained Improvisation', 3, ['General']],
+    ['Experienced Tracker', 1, ['General', 'Skill']],
+    ['Survey Wildlife', 1, ['General', 'Skill']],
+  ]
+  const entries: ContentEntry[] = data.map(([name, level, traits]) => ({
+    id: name, name, level, traits,
+    systems: ['pf2e'], kind: 'feat', source: 'official', description: '', data: {}, effects: [], updatedAt: 1,
+  }))
+  const render = (character: Character, categories: ('general' | 'skill')[]) =>
+    renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={categories} />)
+  const general = render(c, ['general'])
+  expect(general).toContain('L09 Granted General Feat')
+  expect(general).not.toContain('Granted Skill Feat')
+  expect(general.indexOf('Clear L07 General')).toBeLessThan(general.indexOf('L09 Granted General Feat'))
+  const skill = render(c, ['skill'])
+  expect(skill).not.toContain('Granted General Feat')
+  expect(skill).toContain('L08 Granted Skill Feat')
+  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('L08 Granted Skill Feat'))
+  expect(skill.indexOf('L08 Granted Skill Feat')).toBeLessThan(skill.indexOf('Clear L08 Skill'))
+  expect(skill.match(/>Level 08<\/li>/g)).toHaveLength(1)
+  expect(render({ ...c, level: 7 }, ['skill', 'general'])).not.toContain('Granted ')
+  expect(render({ ...c, feats: [] }, ['skill', 'general'])).not.toContain('Granted ')
+})
+
+it('blocks Animal Strength selection until Animal Feature is actually learned as a warden spell', () => {
+  let c: Character = { ...emptyRanger(), level: 6, feats: [
+    { name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Gravity Weapon' },
+  ] }
+  const feat: ContentEntry = {
+    id: 'strength', systems: ['pf2e'], kind: 'feat', name: 'Animal Strength', level: 6, traits: ['Ranger'],
+    source: 'official', description: '', data: { prerequisite: '_animal feature_ warden spell' }, effects: [], updatedAt: 1,
+  }
+  const data = [feat,
+    { ...feat, id: 'gravity', kind: 'spell' as const, name: 'Gravity Weapon', level: 1, data: { warden_spell_tier: 'Initiate' } },
+    { ...feat, id: 'animal', kind: 'spell' as const, name: 'Animal Feature', level: 2, data: { warden_spell_tier: 'Advanced' } }]
+  const tree = () => FeatSlots({ c, entries: data, save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
+  findSelect(tree(), 'L06 Class feat')!({ target: { value: feat.name } })
+  expect(c.feats.some(selected => selected.name === feat.name)).toBe(false)
+  c = { ...c, feats: [...c.feats, { name: 'Advanced Warden', type: 'Class Feat', level: 4, slot: 'class:4:0', choice: 'Animal Feature' }] }
+  findSelect(tree(), 'L06 Class feat')!({ target: { value: feat.name } })
+  expect(c.feats.find(selected => selected.name === feat.name)).toMatchObject({ slot: 'class:6:0' })
+})
+
 it('opens Multitalented directly on multiclass dedications and removes its granted choice with the ancestry feat', () => {
   let c: Character = {
     id: 'multi', systems: ['pf2e'], name: 'Test', level: 9, ancestry: 'Human', className: 'Ranger',

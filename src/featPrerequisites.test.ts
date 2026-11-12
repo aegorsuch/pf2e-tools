@@ -15,6 +15,54 @@ const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], lev
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
 describe('shared prerequisite enforcement', () => {
+  it('requires actual warden spells, specific warden choices, and acquisition-level availability', () => {
+    const natural = entry('feat', 'Natural Conduit', { prerequisite: 'warden spells' }, 4, ['Ranger'])
+    const strength = entry('feat', 'Animal Strength', { prerequisite: '_animal feature_ warden spell' }, 6, ['Ranger'])
+    const gravity = entry('spell', 'Gravity Weapon', { warden_spell_tier: 'Initiate' }, 1, ['Focus', 'Ranger'])
+    const animal = entry('spell', 'Animal Feature', { warden_spell_tier: 'Advanced' }, 2, ['Focus', 'Ranger'])
+    const data = [natural, strength, gravity, animal, entry('feat', 'Unrelated Focus', { grants_focus_spells: 'Other Spell' })]
+    const c: Character = { ...base, className: 'Ranger', level: 8,
+      feats: [{ ...selected('Initiate Warden', 1), choice: gravity.name }] }
+    expect(featPrerequisiteChecker({ ...c, feats: [] }, data)(natural)).toEqual({ missing: ['warden spells'], manual: [] })
+    expect(featPrerequisiteChecker({ ...c, feats: [selected('Unrelated Focus')] }, data)(natural).missing).toEqual(['warden spells'])
+    expect(featPrerequisiteChecker(c, data)(natural)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(c, data)(strength)).toEqual({ missing: ['_animal feature_ warden spell'], manual: [] })
+    const learned = { ...c, feats: [...c.feats, { ...selected('Advanced Warden', 4), choice: animal.name }] }
+    expect(featPrerequisiteChecker(learned, data, 6)(strength)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(learned, data, 3)(strength).missing).toEqual(['_animal feature_ warden spell'])
+    expect(featPrerequisiteChecker({ ...c, feats: [selected('Initiate Warden')] }, data)(natural).missing).toEqual(['warden spells'])
+  })
+
+  it('enforces animal-companion and bare hunter-edge capabilities instead of treating absent capabilities as manual', () => {
+    const companion = target('an animal companion')
+    const manifold = target("hunter's edge, masterful hunter")
+    const edge = entry('classFeature', "Hunter's Edge", { class: 'Ranger' })
+    const hunter = entry('classFeature', 'Masterful Hunter', { class: 'Ranger' }, 17)
+    const data = [companion, manifold, edge, hunter]
+    const c: Character = { ...base, className: 'Ranger', level: 18 }
+    expect(featPrerequisiteChecker(c, data)(companion)).toEqual({ missing: ['an animal companion'], manual: [] })
+    expect(featPrerequisiteChecker({ ...c, companions: [{ id: 'bear', name: '', type: 'Bear' }] }, data)(companion)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(c, data)(manifold)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(c, data, 16)(manifold)).toEqual({ missing: ['masterful hunter'], manual: [] })
+    expect(featPrerequisiteChecker({ ...c, className: 'Fighter' }, data)(manifold).missing).toEqual(["hunter's edge", 'masterful hunter'])
+  })
+
+  it('allows Rangers to substitute Survival only for Snarecrafter archetype Crafting prerequisites, including prerequisite chains', () => {
+    const dedication = entry('feat', 'Snarecrafter Dedication', { archetype: 'Snarecrafter', prerequisite: 'trained in Crafting' }, 2, ['Archetype', 'Dedication'])
+    const snares = entry('feat', 'Powerful Snares', { archetype: 'Snarecrafter', prerequisite: 'master in Crafting; Snarecrafter Dedication' }, 8, ['Archetype'])
+    const unrelated = entry('feat', 'Other Craft', { prerequisite: 'master in Crafting' }, 8, ['Ranger'])
+    const data = [dedication, snares, unrelated]
+    const c: Character = { ...base, className: 'Ranger', level: 8, rankOverrides: { Survival: 3 },
+      feats: [{ ...selected(dedication.name, 2), type: 'Archetype Feat', slot: 'archetype:2:0' }] }
+    expect(featPrerequisiteChecker(c, data)(snares)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(c, data)({ ...snares, data: { ...snares.data,
+      prerequisite: '[Ranger] master in Crafting; Snarecrafter Dedication' } })).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(c, data)(unrelated).missing).toEqual(['master in Crafting'])
+    expect(featPrerequisiteChecker({ ...c, className: 'Fighter' }, data)(snares).missing).toContain('master in Crafting')
+    expect(featPrerequisiteChecker({ ...c, rankOverrides: { Survival: 2 } }, data)(snares).missing).toEqual(['master in Crafting'])
+    expect(featPrerequisiteChecker({ ...c, feats: [] }, data)(snares).missing).toEqual(['Snarecrafter Dedication'])
+  })
+
   it('grants Multitalented only second-level multiclass dedications, bypassing dedication locks but preserving other prerequisites', () => {
     const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const wizard = entry('feat', 'Wizard Dedication', { archetype: 'Wizard', prerequisite: 'Intelligence +2; trained in Arcana' }, 2,

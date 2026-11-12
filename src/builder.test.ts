@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
-import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -35,6 +35,78 @@ const base: Character = {
 }
 
 describe('official passive feat mechanics', () => {
+  it('applies Greenwatch expert Survival at acquisition, preserves later increases, and grants its prerequisite skill feats', () => {
+    const greenwatch = { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }
+    const c: Character = { ...base, level: 7, skillPicks: ['Survival'], feats: [greenwatch] }
+    expect(ranksAt(c, entries).Survival).toBe(2)
+    expect(ranksAt(c, entries, 4).Survival).toBe(1)
+    expect(ranksAt({ ...c, skillIncreases: { 3: 'Survival' } }, entries).Survival).toBe(2)
+    expect(ranksAt({ ...c, skillIncreases: { 7: 'Survival' } }, entries).Survival).toBe(3)
+    expect(ranksAt({ ...c, rankOverrides: { Survival: 0 } }, entries).Survival).toBe(2)
+    expect(automaticFeatGrants(c, entries)).toEqual([
+      { name: 'Experienced Tracker', source: greenwatch.name, level: 4 }, { name: 'Survey Wildlife', source: greenwatch.name, level: 4 },
+    ])
+    const swift = entry('feat', 'Swift Tracker', { prerequisite: 'expert in Survival; Experienced Tracker' }, 6, ['Ranger'])
+    expect(featPrerequisiteChecker(c, [...entries, swift])(swift)).toEqual({ missing: [], manual: [] })
+    expect(automaticFeatGrants({ ...c, level: 3 }, entries)).toEqual([])
+    expect(ranksAt({ ...c, level: 3 }, entries).Survival).toBe(1)
+    expect(ranksAt({ ...c, feats: [] }, entries).Survival).toBe(1)
+  })
+
+  it.each([[3, 1], [4, 2], [5, 4], [6, 5], [7, 7], [15, 15]])('scales Untrained Improvisation at level %i without granting trained ranks', (level, bonus) => {
+    const feat = { name: 'Untrained Improvisation', type: 'General Feat', level: 3, slot: 'general:3:0' }
+    const c = { ...base, level, feats: [feat] }
+    expect(untrainedSkillProficiency(c)).toEqual({ bonus, source: feat.name, trainedActions: false })
+    expect(ranksAt(c, entries).Occultism ?? 0).toBe(0)
+    expect(untrainedSkillProficiency({ ...c, level: 2 })).toBeUndefined()
+    expect(untrainedSkillProficiency({ ...c, feats: [] })).toBeUndefined()
+  })
+
+  it('grants Clever Improviser and Snarecrafter automatic feats at acquisition and does not duplicate them in pickers', () => {
+    const clever = { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }
+    const snare = { name: 'Snarecrafter Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:g99' }
+    const c: Character = { ...base, level: 5, feats: [clever, snare] }
+    const data = [entry('feat', 'Untrained Improvisation', {}, 3, ['General']), entry('feat', 'Snare Crafting', {}, 1, ['General', 'Skill'])]
+    expect(automaticFeatGrants(c, data)).toEqual([
+      { name: 'Untrained Improvisation', source: clever.name, level: 5 }, { name: 'Snare Crafting', source: snare.name, level: 2 },
+    ])
+    expect(untrainedSkillProficiency(c)).toEqual({ bonus: 4, source: clever.name, trainedActions: true })
+    expect(eligibleFeats(data, c, { key: 'general:3:0', category: 'general', level: 3 }).map(feat => feat.name))
+      .toEqual(['Untrained Improvisation'])
+    expect(eligibleFeats(data, c, { key: 'general:7:0', category: 'general', level: 7 })).toEqual([])
+    expect(automaticFeatGrants({ ...c, level: 1 }, data)).toEqual([])
+  })
+
+  it('adds Linguistic Prodigy languages and one per Multilingual without losing Society-based scaling', () => {
+    const c = { ...base, level: 15, feats: [
+      { name: 'Linguistic Prodigy', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
+      { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:16:0' },
+    ] }
+    expect(languageAllowance(c, entries).slots).toBe(6)
+    expect(languageAllowance({ ...c, rankOverrides: { Society: 4 } }, entries).slots).toBe(8)
+    expect(languageAllowance({ ...c, level: 16, rankOverrides: { Society: 4 } }, entries).slots).toBe(13)
+    expect(languageAllowance({ ...c, feats: c.feats.slice(1) }, entries).slots).toBe(3)
+  })
+
+  it('does not make Natural Skill training slots available before the feat is acquired', () => {
+    const feat = { name: 'Natural Skill', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+    const c = { ...base, level: 5, feats: [feat] }
+    expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount({ ...c, feats: [] }, entries) + 2)
+    expect(additionalSkillCount({ ...c, level: 4 }, entries)).toBe(additionalSkillCount({ ...c, level: 4, feats: [] }, entries))
+  })
+
+  it('gives Wasteland Warrior both scaling resistances without activating future selections', () => {
+    const feat = { name: 'Wasteland Warrior', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }
+    const c = { ...base, level: 13, feats: [feat] }
+    expect(resistances(c, entries)).toEqual([
+      { damage: 'Cold', value: 6, source: feat.name }, { damage: 'Fire', value: 6, source: feat.name },
+    ])
+    expect(resistances({ ...c, level: 20 }, entries).map(resistance => resistance.value)).toEqual([10, 10])
+    expect(resistances({ ...c, level: 12 }, entries)).toEqual([])
+    expect(resistances({ ...c, feats: [] }, entries)).toEqual([])
+  })
+
   const wizard = entry('class', 'Wizard', {
     attack_proficiency: 'Trained in simple weapons, Trained in unarmed attacks',
     defense_proficiency: 'Untrained in all armor, Trained in unarmored defense',
@@ -728,11 +800,11 @@ describe('feat-granted slots', () => {
     const data = [{ ...entry('feat', 'Hefty Hauler', {}, 1, ['General', 'Skill']), description: 'Increase your maximum and encumbered Bulk limits by 2.' }]
     const talon = { name: 'Talon Transporter', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' }
     const c: Character = { ...base, level: 13, abilities: { ...base.abilities, str: 10 }, feats: [talon] }
-    expect(automaticFeatGrants(c, data)).toContainEqual({ name: 'Hefty Hauler', source: talon.name })
+    expect(automaticFeatGrants(c, data)).toContainEqual({ name: 'Hefty Hauler', source: talon.name, level: 9 })
     expect(bulkLimits(c, data)).toMatchObject({ encumbered: 7, maximum: 12 })
     expect(eligibleFeats(data, c, { key: 'general:11:0', category: 'general', level: 11 })).not.toContain(data[0])
     const prior = { ...c, feats: [{ name: 'Hefty Hauler', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }, talon] }
-    expect(automaticFeatGrants(prior, data)).not.toContainEqual({ name: 'Hefty Hauler', source: talon.name })
+    expect(automaticFeatGrants(prior, data).some(feat => feat.name === 'Hefty Hauler')).toBe(false)
     expect(bulkLimits(prior, data)).toMatchObject({ encumbered: 9, maximum: 14 })
   })
 
@@ -882,8 +954,8 @@ describe('feat grants beyond languages', () => {
     const c: Character = { ...base, className: 'Barbarian', level: 15, skillPicks: ['Intimidation'],
       rankOverrides: { Intimidation: 4 }, feats: [{ name: 'Raging Intimidation', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
     const original = JSON.stringify(c)
-    const glare = { name: 'Intimidating Glare', source: 'Raging Intimidation' }
-    const scare = { name: 'Scare to Death', source: 'Raging Intimidation' }
+    const glare = { name: 'Intimidating Glare', source: 'Raging Intimidation', level: 1 }
+    const scare = { name: 'Scare to Death', source: 'Raging Intimidation', level: 15 }
     expect(automaticFeatGrants(c, [])).toEqual([glare, scare])
     expect(automaticFeatGrants({ ...c, raging: true }, [])).toEqual([glare, scare])
     expect(automaticFeatGrants({ ...c, level: 14 }, [])).toEqual([glare])
@@ -892,6 +964,25 @@ describe('feat grants beyond languages', () => {
     expect(automaticFeatGrants({ ...c, feats: [] }, [])).toEqual([])
     expect(automaticFeatGrants({ ...c, level: 7, feats: [{ ...c.feats[0], slot: 'class:8:0' }] }, [])).toEqual([])
     expect(JSON.stringify(c)).toBe(original)
+  })
+
+  it('dates granted feats by actual acquisition and delayed skill eligibility, not their printed feat level', () => {
+    const c: Character = { ...base, level: 17, skillPicks: ['Intimidation'], skillIncreases: {
+      3: 'Intimidation', 7: 'Intimidation', 17: 'Intimidation',
+    }, feats: [
+      { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:9:0' },
+      { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:1:g1', takenLevel: 8 },
+      { name: 'Raging Intimidation', type: 'Class Feat', level: 1, slot: 'class:10:0' },
+    ] }
+    expect(automaticFeatGrants(c, [])).toEqual([
+      { name: 'Untrained Improvisation', source: 'Clever Improviser', level: 9 },
+      { name: 'Experienced Tracker', source: 'Greenwatch Initiate', level: 8 },
+      { name: 'Survey Wildlife', source: 'Greenwatch Initiate', level: 8 },
+      { name: 'Intimidating Glare', source: 'Raging Intimidation', level: 10 },
+      { name: 'Scare to Death', source: 'Raging Intimidation', level: 17 },
+    ])
+    expect(automaticFeatGrants({ ...c, level: 7 }, [])).toEqual([])
+    expect(automaticFeatGrants(JSON.parse(JSON.stringify(c)), [])).toEqual(automaticFeatGrants(c, []))
   })
 
   it('recognizes automatic feats in downstream prerequisites at acquisition level and excludes them from pickers', () => {
