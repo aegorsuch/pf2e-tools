@@ -8,6 +8,45 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('gates access separately, saves per-feat GM approval, preserves existing choices and clears approval on removal', () => {
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human', className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const witch: ContentEntry = {
+    id: 'witch', systems: ['pf2e'], kind: 'feat', name: 'Witch Warden', level: 1, traits: ['Human', 'Uncommon'],
+    source: 'official', description: 'Ward against curses.', data: { access: 'Kellid ethnicity' }, effects: [], updatedAt: 1,
+  }
+  const other: ContentEntry = { ...witch, id: 'other', name: 'Other Restricted Feat' }
+  const prerequisite: ContentEntry = { ...witch, id: 'strong', name: 'Strong Ward', data: { access: 'Kellid ethnicity', prerequisite: 'Strength +4' } }
+  const search: Record<string, string> = { 'ancestry:1:0:open': '1' }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries: [witch, other, prerequisite], categories: ['ancestry'], title: 'Ancestry Feats',
+    save, search, onSearch: (key, value) => { search[key] = value } })
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Witch Warden" disabled="">Witch Warden * Access: Kellid ethnicity')
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
+  expect(save).not.toHaveBeenCalled()
+  search['access:ancestry'] = 'approved'
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: prerequisite.name } })
+  expect(save).not.toHaveBeenCalled()
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0].name).toBe(witch.name)
+  expect(c.featAccessOverrides).toEqual([witch.id])
+  expect(search['access:ancestry']).toBe('')
+  expect(renderToStaticMarkup(tree())).toContain('GM approved')
+  c = { ...c, ethnicity: 'Ulfen' }
+  expect(renderToStaticMarkup(tree())).toContain('Witch Warden')
+  findButton(tree(), 'Clear L01 Ancestry feat selection')!()
+  expect(c.featAccessOverrides).toEqual([])
+  expect(c.feats).toEqual([])
+  c = { ...c, ethnicity: 'Kellid' }
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
+  expect(c.feats[0].name).toBe(witch.name)
+  expect(c.featAccessOverrides).toEqual([])
+})
+
 it('shows automatic intimidation feats as read-only skill grants without duplicating saved selections', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Test', level: 15, className: 'Barbarian',

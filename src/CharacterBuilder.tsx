@@ -13,6 +13,7 @@ import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { MinionsSection } from './MinionsSection'
 import { faithfulSteedChange } from './companions'
+import { ethnicityOptions } from './featAccess'
 import { db } from './db'
 import type { Character, ContentEntry, EntryKind } from './types'
 
@@ -122,6 +123,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   })
   const [featSearch, setFeatSearch] = useState<Record<string, string>>({})
   const section = { c, entries, save }
+  const ethnicities = ethnicityOptions(entries)
   const searchProps = { search: featSearch, onSearch: (key: string, text: string) => setFeatSearch((prev) => ({ ...prev, [key]: text })) }
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
@@ -191,7 +193,15 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <div className="row">
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
             <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
+            <label>Ethnicity{' '}
+              <select aria-label="Ethnicity" value={c.ethnicity ?? ''} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
+                <option value="">Not specified</option>
+                {c.ethnicity && !ethnicities.includes(c.ethnicity) && <option>{c.ethnicity}</option>}
+                {ethnicities.map(name => <option key={name}>{name}</option>)}
+              </select>
+            </label>
           </div>
+          <small>Ethnicity options come from official feat access rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />

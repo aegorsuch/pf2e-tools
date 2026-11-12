@@ -1,5 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
-import { canSelectWardenFeat, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
+import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
+import { DOMAIN_FEATS, featSpellOptions, grantedFeatSpells } from './featSpells'
+export { featTakenLevel } from './featChoices'
 import { getSettings } from './settings'
 import { createFeatPrerequisiteChecker, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS } from './supplemental'
@@ -196,7 +198,6 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
   'Ancestral Paragon': { category: 'ancestry', level: 1 },
 }
 
-export const featTakenLevel = (feat: Character['feats'][number]) => Number(feat.slot?.split(':')[1]) || feat.level
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
 export const isFeatEffectActive = (c: Character, name: string) =>
   !!activeFeatsNamed(c, name).length && !!c.activeFeatEffects?.includes(name)
@@ -491,9 +492,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Order Explorer') return availableOrders(c, index)
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
-  if (name === "Deity's Domain") return [...new Set(entries.filter((entry) => (entry.kind === 'deity' || entry.kind === 'spell') && !entry.deleted)
-    .flatMap((entry) => [...tokens(entry.data.domain_primary ?? entry.data.domain), ...tokens(entry.data.domain_alternate)]))]
-    .sort((a, b) => a.localeCompare(b))
+  if (DOMAIN_FEATS.includes(name)) {
+    if (name.startsWith('Advanced')) return [...new Set(c.feats.flatMap(feat =>
+      ["Domain Initiate", "Deity's Domain"].includes(feat.name) && feat.choice ? [feat.choice] : []))].sort()
+    return [...new Set(entries.filter((entry) => (entry.kind === 'deity' || entry.kind === 'spell') && !entry.deleted)
+      .flatMap((entry) => [...tokens(entry.data.domain_primary ?? entry.data.domain), ...tokens(entry.data.domain_alternate)]))]
+      .sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Second Blessing' || name === 'Third Blessing') {
     const used = [championBlessing(c), ...c.feats.flatMap((feat) => [
       ...(DEVOTED_BLESSINGS.some((blessing) => blessing === feat.name) ? [feat.name] : []),
@@ -510,6 +515,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const selected = new Set(c.feats.flatMap((feat) => feat.slot !== slotKey && hasWardenChoice(feat) && feat.choice ? [feat.choice] : []))
     return wardenSpellOptions({ name }, entries).map((spell) => spell.name).filter((choice) => !selected.has(choice))
   }
+  const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
+  if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
 
 export function deityDomains(c: Character, entries: ContentEntry[]) {
@@ -547,13 +554,15 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
     'legendary spellcasting': 4,
   }
   const features = classFeatures(entries, c)
-  const rank = traditions.length
-    ? features.reduce((best, feature) => Math.max(best, progression[feature.name.toLowerCase()] ?? 0), 1)
-    : features.reduce((best, feature) => {
-      const m = /proficiency ranks? for (?:your )?[\w ]*class DC increases to (expert|master|legendary)/i.exec(feature.description)
-      const rank = m ? { expert: 2, master: 3, legendary: 4 }[m[1].toLowerCase() as 'expert' | 'master' | 'legendary'] : 0
-      return Math.max(best, rank)
-    }, 1)
+  const rank = features.reduce((best, feature) => {
+    let rank = progression[feature.name.toLowerCase()] ?? 0
+    for (const match of feature.description.matchAll(/proficiency(?: ranks?)? (?:for|in) ([^.]*?) increases? to (expert|master|legendary)/gi)) {
+      if (/\bspell (?:attack|DC)/i.test(match[1]) || focusOnlyCaster && /\bclass DC\b/.test(match[1])) {
+        rank = Math.max(rank, { expert: 2, master: 3, legendary: 4 }[match[2].toLowerCase() as 'expert' | 'master' | 'legendary'])
+      }
+    }
+    return Math.max(best, rank)
+  }, 1)
   return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
 }
 
@@ -717,14 +726,16 @@ const spellName = (entries: ContentEntry[], name: string) => {
 export function focusSpells(c: Character, entries: ContentEntry[]) {
   const out = new Map<string, { name: string; source: string }>()
   const add = (name: string, source: string) => { if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name: spellName(entries, name), source }) }
-  const orders = c.className === 'Druid' ? [c.order, ...c.feats.flatMap((f) => f.name === 'Order Explorer' ? [f.choice] : [])] : []
+  const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  const orders = c.className === 'Druid' ? [c.order, ...active.flatMap((f) => f.name === 'Order Explorer' ? [f.choice] : [])] : []
   const addOrder = (order?: string) => { if (order && ORDER_SPELLS[order]) add(ORDER_SPELLS[order], `${order} Order`) }
   if (c.className === 'Druid') {
     addOrder(c.order)
-    for (const f of c.feats) if (f.name === 'Order Magic') addOrder(f.choice)
+    for (const f of active) if (f.name === 'Order Magic') addOrder(f.choice)
   }
   let points = 0
-  for (const f of c.feats) {
+  let bonusPoints = 0
+  for (const f of active) {
     const data = byName(entries, 'feat', f.name)?.data
     if (!data) continue
     if (typeof data.grants_focus_spells === 'string') for (const n of data.grants_focus_spells.split(', ')) add(n, f.name)
@@ -734,10 +745,17 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
         if (orders.some((o) => o?.toLowerCase() === order)) add(spell, f.name)
       }
     }
-    if (data.grants_focus_point) points++
+    if (data.grants_focus_point) {
+      points++
+      if (!data.grants_focus_spells && !data.grants_order_spells
+        && !byName(entries, 'feat', f.name)?.spellGrants?.some(grant => grant.kind === 'focus')) bonusPoints++
+    }
   }
+  for (const grant of grantedFeatSpells(c, entries)) if (grant.rule.kind === 'focus') add(grant.entry.name, grant.source)
   const spells = [...out.values()].sort((a, b) => a.name.localeCompare(b.name))
-  return { spells, points: spells.length ? Math.min(3, 1 + points) : 0 }
+  const pool = new Set([...spells.map(spell => spell.name), ...grantedWardenSpells(c, entries).map(spell => spell.name)])
+  const nonCantrips = [...pool].filter(name => !byName(entries, 'spell', name)?.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
+  return { spells, points: pool.size ? Math.min(3, Math.max(nonCantrips + bonusPoints, 1 + points)) : 0 }
 }
 
 // Orders not yet used by the main order or another Order Explorer feat
@@ -1235,7 +1253,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
 
 export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
   return !!(c.spells?.some((spell) => spell.name === name)
-    || c.feats.some((feat) => hasWardenChoice(feat) && feat.choice === name)
+    || c.feats.some(feat => featTakenLevel(feat) <= c.level && hasWardenChoice(feat) && feat.choice === name)
+    || grantedFeatSpells(c, entries).some(grant => grant.entry.name === name)
     || focusSpells(c, entries).spells.some((spell) => spell.name === name))
 }
 

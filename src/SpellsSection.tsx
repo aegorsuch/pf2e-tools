@@ -8,6 +8,7 @@ import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoic
 import { ActionIcon } from './ActionIcon'
 import { SpellDamageRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
+import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -85,7 +86,7 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId }: S
 }
 
 function SpellItem({ name, entry, note, onRemove, active, onToggle, children }: {
-  name: string; entry?: ContentEntry; note?: string; onRemove?: () => void
+  name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
   children?: ReactNode
 }) {
@@ -110,7 +111,22 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const traditions = casting?.traditions ?? []
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
+  const featSpells = grantedFeatSpells(c, entries)
+  const innate = featSpells.filter(grant => grant.rule.kind === 'innate')
+  const unresolved = unresolvedFeatSpells(c, entries)
   const { spells: focus, points: focusPoints } = focusSpells(c, entries)
+  const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
+  const grantNote = (grant: typeof featSpells[number]) => {
+    const ability = grant.rule.ability ?? (grant.rule.kind === 'innate' ? 'cha' : casting?.ability)
+    const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, spellRank), c.level) : undefined
+    const source = entries.find(entry => entry.kind === 'feat' && (grant.source === entry.name || grant.source.startsWith(`${entry.name}:`)))
+    return <>
+      <EntryDescription name={grant.source} entry={source} />
+      {`; rank ${grant.rank}${grant.rule.tradition ? ` ${grant.rule.tradition}` : ''}${grant.rule.frequency ? `; ${grant.rule.frequency}${grant.rule.shared ? ' shared between alternatives' : ''}` : ''}`}
+      {ability && mod !== undefined ? `; ${ABILITY_LABEL[ability]} DC ${10 + mod}, Attack ${signed(mod)}`
+        : '; check granting source for spellcasting attribute and DC'}
+    </>
+  }
   const buffProps = (name: string, entry?: ContentEntry) => {
     const duration = entry?.data.duration
     const timed = Number(duration) > 0 || typeof duration === 'string' && /\b(?:round|minute|hour|day|sustain|unlimited)/i.test(duration)
@@ -122,12 +138,13 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       }),
     }
   }
-  const controls = (name: string) => <>
+  const controls = (name: string, rank = Math.ceil(c.level / 2)) => <>
     {name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
       : name === 'Canopy Crawler' || name === 'Enlarge Companion' ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} /> : null}
-    <SpellDamageRolls name={name} rank={Math.ceil(c.level / 2)} />
+    <SpellDamageRolls name={name} rank={rank} />
   </>
-  const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
+  const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
+    && !focus.some(grant => grant.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
     save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch, rank: casting.rank, ...(casting.ability ? { ability: casting.ability } : {}) } })
@@ -164,7 +181,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     <details className="character-section">
       <summary className="character-section-summary">
         <strong>Spells</strong>
-        <span>{manualSpells.length + granted.length + focus.length} spells</span>
+        <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells</span>
       </summary>
       <div className="character-section-content">
       {casting && <>
@@ -206,19 +223,31 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </div>
       )}
       </>}
-      {focus.length > 0 && (
+      {(focus.length > 0 || granted.length > 0) && (
         <div>
           <b>Focus Spells</b> <small>(Focus Points: {focusPoints})</small>
           <ul>
-            {focus.map((s) => {
+            {focus.filter(spell => !granted.some(warden => warden.name === spell.name)).map((s) => {
               const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
-              return <SpellItem key={s.name} entry={entry} name={s.name} note={s.source} {...buffProps(s.name, entry)}>
+              const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
+              return <SpellItem key={s.name} entry={entry} name={s.name} note={grant ? grantNote(grant) : `${s.source}; rank ${Math.ceil(c.level / 2)}`} {...buffProps(s.name, entry)}>
                 {controls(s.name)}
               </SpellItem>
             })}
           </ul>
         </div>
       )}
+      {innate.length > 0 && <div>
+        <b>Innate Spells</b>
+        <ul>{innate.map((grant, index) => <SpellItem key={`${grant.source}:${grant.entry.id}:${index}`}
+          name={grant.entry.name} entry={grant.entry} note={grantNote(grant)} {...buffProps(grant.entry.name, grant.entry)}>
+          {controls(grant.entry.name, grant.rank)}
+        </SpellItem>)}</ul>
+      </div>}
+      {unresolved.map((grant, index) => <p key={`${grant.source?.id}:${grant.name}:${index}`} className="feat-prerequisite-note" role="status">
+        Spell data unavailable: {grant.name} (<EntryDescription name={grant.source?.name ?? 'Granting feat'} entry={grant.source} />).
+        {' '}Review source rules; this spell is not automated.
+      </p>)}
       {groups.map((g) => (
         <div key={g}>
           <b>{g}</b>

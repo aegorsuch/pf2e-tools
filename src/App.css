@@ -304,6 +304,8 @@
 .feat-choice-with-note { flex-wrap: wrap; }
 .feat-choice-with-note small { flex-basis: 100%; }
 .feat-slot-row:has(.feat-choice) { flex-wrap: wrap; }
+.feat-slot-row:has(.feat-access-controls) { flex-wrap: wrap; }
+.feat-access-controls { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .feat-slot-row > .feat-choice { min-width: min(100%, 14rem); }
 .feat-prerequisite-note { overflow-wrap: anywhere; }
 

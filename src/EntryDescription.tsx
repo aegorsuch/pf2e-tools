@@ -1,10 +1,11 @@
 import { useId, useRef } from 'react'
 import type { ContentEntry } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
+import type { FeatAccessCheck } from './featAccess'
 import { ActionIcon } from './ActionIcon'
 
-export function EntryDescription({ name, entry, className, prerequisites }: {
-  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck
+export function EntryDescription({ name, entry, className, prerequisites, access }: {
+  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -12,7 +13,8 @@ export function EntryDescription({ name, entry, className, prerequisites }: {
   return (
     <>
       <button type="button" className={className} aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
-        {name}{!!prerequisites?.missing.length && <> <span role="img" aria-label="Prerequisites unmet">*</span></>}
+        {name}{(!!prerequisites?.missing.length || access) && <> <span role="img"
+          aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
         {featActions && <> <ActionIcon entry={entry} /></>}
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
@@ -23,6 +25,10 @@ export function EntryDescription({ name, entry, className, prerequisites }: {
         </p>}
         {!!prerequisites?.manual.length && <p className="feat-prerequisite-note">
           Check prerequisites manually: {prerequisites.manual.join('; ')}
+        </p>}
+        {access && <p className="feat-prerequisite-note">
+          Access: {access.requirement}. {access.automatic ? 'Granted by selected ethnicity.' : access.approved ? 'GM approved access.' : 'Access not established; GM permission required.'}
+          {' '}Access does not replace prerequisites.
         </p>}
         <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
         {typeof entry?.data.url === 'string' && <p><a href={entry.data.url} target="_blank" rel="noreferrer">Archives of Nethys</a></p>}

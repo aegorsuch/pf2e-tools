@@ -1,6 +1,7 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, featChoiceOptions, orderMagicOptions } from './builder'
 import type { SectionProps } from './builder'
+import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
@@ -33,11 +34,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         }} />
     </label>
   }
-  if (feat.name === "Deity's Domain") {
-    const available = deityDomains(c, entries)
+  if (DOMAIN_FEATS.includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '') ?? []
+    const available = feat.name.startsWith('Advanced') ? options : deityDomains(c, entries)
     return <label className="feat-choice">
-      <select aria-label="Deity's Domain" value={feat.choice ?? ''} onChange={(e) => {
+      <select aria-label={feat.name} value={feat.choice ?? ''} onChange={(e) => {
         const choice = e.target.value || undefined
         if (choice && !available.includes(choice)) return
         save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
@@ -48,6 +49,19 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </select>
     </label>
   }
+  const spellOptions = featSpellOptions(c, entries, feat)
+  if (spellOptions) return <label className="feat-choice">
+    <select aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
+      const choice = event.target.value || undefined
+      if (choice && !spellOptions.some(spell => spell.name === choice)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+    }}>
+      <option value="">Choose spell</option>
+      {feat.choice && !spellOptions.some(spell => spell.name === feat.choice) && <option disabled>{feat.choice}</option>}
+      {[...new Set(spellOptions.map(spell => spell.name))].map(name => <option key={name}>{name}</option>)}
+    </select>
+    {!spellOptions.length && <small>Spell choices unavailable. Import official spell data.</small>}
+  </label>
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
     || feat.name === 'Ancestral Paragon' || feat.name === 'Armor Proficiency' || feat.name === 'Multilingual'
     || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null

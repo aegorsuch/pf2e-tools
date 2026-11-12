@@ -6,6 +6,8 @@ import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
+import { featAccess } from './featAccess'
+import { DOMAIN_FEATS } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
@@ -58,6 +60,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const displayName = (name: string) => name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
+  const accessKey = `access:${categories?.join(',') ?? 'all'}`
+  const gmAccess = search[accessKey] === 'approved'
   const prerequisiteChecks = new Map<string, ReturnType<typeof featSelectionPrerequisiteChecker>>()
   const prerequisitesFor = (entry: ContentEntry, slot: PlannedSlot) => {
     let check = prerequisiteChecks.get(slot.key)
@@ -70,16 +74,19 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const optionsFor = (entry: ContentEntry, slot: PlannedSlot): FeatOption[] => {
     const prerequisites = prerequisitesFor(entry, slot)
     const unmet = prerequisites.missing.length > 0
-    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}`
+    const access = featAccess(c, entry)
+    const accessMissing = access && !access.automatic && !access.approved && !gmAccess
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${access
+      ? ` * Access: ${access.requirement} (${access.automatic ? 'met' : access.approved || gmAccess ? 'GM approved' : 'GM approval needed'})` : ''}`
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
       ? choices.map((choice) => {
         const noImprovement = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
-        const disabled = unmet || noImprovement || entry.name === "Deity's Domain" && !deityDomains(c, entries).includes(choice)
+        const disabled = unmet || !!accessMissing || noImprovement || DOMAIN_FEATS.includes(entry.name) && !entry.name.startsWith('Advanced') && !deityDomains(c, entries).includes(choice)
         return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }
       })
-      : [{ entry, value: entry.name, label, disabled: unmet }]
+      : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing }]
   }
   const saveFeatChanges = (patch: Partial<Character>) => {
     const next = { ...c, ...patch }
@@ -92,6 +99,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const visibleKeys = new Set(plannedSlots({ ...next, feats }).map((slot) => slot.key))
     save({
       ...patch, feats, entryIds: next.entryIds.filter((id) => !removedIds.has(id)),
+      featAccessOverrides: next.featAccessOverrides?.filter(id => !removedIds.has(id)),
       dismissedFeatSlots: (next.dismissedFeatSlots ?? []).filter((key) => !visibleKeys.has(key) && (!isGrantedSlot(key) || keys.has(key))),
     })
   }
@@ -108,7 +116,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
     if (category === 'archetype' && name === 'N/A') skippedFeatSlots.push(key)
-    saveFeatChanges({ feats, entryIds, skippedFeatSlots })
+    const access = option ? featAccess(c, option.entry) : undefined
+    const featAccessOverrides = option && access && !access.automatic && gmAccess
+      ? [...new Set([...(c.featAccessOverrides ?? []), option.entry.id])] : c.featAccessOverrides
+    saveFeatChanges({ feats, entryIds, skippedFeatSlots, featAccessOverrides })
+    onSearch?.(accessKey, '')
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
     const index = c.extraSlots.findIndex((slot) => slot.category === category && slot.level === level && slot.count > 0)
@@ -160,11 +172,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
+      {onSearch && <label title="Overrides rarity and access only, never prerequisites. Approval is saved for the selected feat.">
+        <input type="checkbox" aria-label={`GM access approval (${title})`} checked={gmAccess}
+          onChange={(event) => onSearch(accessKey, event.target.checked ? 'approved' : '')} /> GM approved access for next feat
+      </label>}
       <ul className="feat-slot-list">
         {backgroundFeats.map((feat) => (
           <li className="feat-slot-row background-feat-row" key={`background:${feat.id}`}>
             <span>Background {featType(feat, c)}</span>
-            <EntryDescription name={displayName(feat.name)} entry={feat} className="feat-name" />
+            <EntryDescription name={displayName(feat.name)} entry={feat} className="feat-name" access={featAccess(c, feat)} />
           </li>
         ))}
         {automaticFeats.map((feat) => (
@@ -185,6 +201,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits(c),
           })
           const currentEntry = sources[0] ?? featByName(entries).get(current)
+          const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }
             : currentEntry ? prerequisitesFor(currentEntry, s) : undefined
@@ -213,9 +230,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row${multi && index > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
-                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" prerequisites={prerequisites} />
+                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} className="feat-name" prerequisites={prerequisites} />
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : picksType ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} onClick={() => onSearch?.(`${s.key}:open`, '1')}>
                   {current || '- empty -'}
@@ -263,6 +280,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               )}
               {featIndex >= 0 && (!selection.choice || featChoiceOptions(selection.name, c, entries, s.key) === undefined)
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
+              {access && <div className="feat-access-controls">
+                <small>Access: {access.requirement} ({access.automatic ? 'met' : access.approved ? 'GM approved' : 'GM approval needed'})</small>
+                {!access.automatic && currentEntry && <label>
+                  <input type="checkbox" aria-label={`GM approved access: ${currentEntry.name}`} checked={access.approved}
+                    onChange={(event) => save({ featAccessOverrides: event.target.checked
+                      ? [...new Set([...(c.featAccessOverrides ?? []), currentEntry.id])]
+                      : c.featAccessOverrides?.filter(id => id !== currentEntry.id) })} /> GM approved access
+                </label>}
+              </div>}
               <button type="button" aria-label={locked ? `${label} slot is granted by a house rule`
                 : lastSlot ? `Clear ${label} feat selection`
                 : `Remove ${label}${extra ? ' extra' : ''} feat slot ${s.key.split(':')[2]}`}

@@ -59,6 +59,18 @@ export interface FeatSlot {
   count: number
 }
 
+export interface SpellGrant {
+  kind: 'innate' | 'focus'
+  spells: string[]
+  choice?: 'cantrip' | 'listed'
+  tradition?: string
+  rank?: number
+  heightened?: boolean
+  frequency?: string
+  shared?: boolean
+  ability?: keyof Character['abilities']
+}
+
 export interface ContentEntry {
   id: string
   // PF2e and SF2e are compatible: an entry can belong to one or both
@@ -72,6 +84,7 @@ export interface ContentEntry {
   // Kind-specific fields (e.g. damage, bulk, prerequisites, armor/weapon group id)
   data: Record<string, string | number | boolean>
   effects: Effect[]
+  spellGrants?: SpellGrant[]
   updatedAt: number
   deleted?: boolean
 }
@@ -83,6 +96,8 @@ export interface Character {
   name: string
   level: number
   ancestry?: string
+  ethnicity?: string
+  featAccessOverrides?: string[]
   className?: string
   subclass?: string
   heritage?: string

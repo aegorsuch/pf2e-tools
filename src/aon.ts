@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, SUBCLASS_CLASSES, fetchAonHits, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 
 export const AON_SITES: Record<GameSystem, string> = {
@@ -55,6 +55,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
     data,
     effects: [],
+    ...(kind === 'feat' ? { spellGrants: parseFeatSpellGrants(text(s.markdown)) } : {}),
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
     updatedAt: 1,
   }

@@ -398,7 +398,7 @@ describe('defenses', () => {
 
   it('gives druids focus spells from their order and Order Magic', () => {
     const feat = (name: string, choice?: string) => ({ name, type: 'Class Feat', level: 4, choice })
-    const druid = { ...base, className: 'Druid', order: 'Leaf', feats: [feat('Order Explorer', 'Storm'), feat('Order Magic')] }
+    const druid = { ...base, level: 4, className: 'Druid', order: 'Leaf', feats: [feat('Order Explorer', 'Storm'), feat('Order Magic')] }
     expect(focusSpells(druid, []).spells.map((s) => s.name)).toEqual(['Goodberry'])
     expect(orderMagicOptions(druid)).toEqual(['Storm'])
     const chosen = { ...druid, feats: [feat('Order Explorer', 'Storm'), feat('Order Magic', 'Storm')] }
@@ -407,13 +407,16 @@ describe('defenses', () => {
   })
 
   it('adds feat-granted focus spells, order-specific advanced spells and focus points', () => {
-    const feat = (name: string, data: Record<string, string>) => ({ id: name, kind: 'feat' as const, name, data } as never)
+    const feat = (name: string, data: Record<string, string>): ContentEntry => ({
+      id: name, kind: 'feat', name, data, systems: ['pf2e'], source: 'official', level: 1,
+      traits: [], description: '', effects: [], updatedAt: 1,
+    })
     const entries = [feat('Wild Shape', { grants_focus_spells: 'wild shape' }), feat('Advanced Elemental Spell', { grants_order_spells: 'flame:combustion, stone:stone lance' }), feat('Hedge Prison', { grants_focus_spells: 'hedge prison', grants_focus_point: 'yes' })]
     const f = (name: string) => ({ name, type: 'Class Feat', level: 6 })
-    const druid = { ...base, className: 'Druid', order: 'Flame', feats: [f('Wild Shape'), f('Advanced Elemental Spell'), f('Hedge Prison')] }
+    const druid = { ...base, level: 6, className: 'Druid', order: 'Flame', feats: [f('Wild Shape'), f('Advanced Elemental Spell'), f('Hedge Prison')] }
     const r = focusSpells(druid, entries)
     expect(r.spells.map((s) => s.name)).toEqual(['Combustion', 'Hedge Prison', 'Wild Shape', 'Wildfire'])
-    expect(r.points).toBe(2)
+    expect(r.points).toBe(3)
   })
 
   it('finds feats stranded in slots that no longer exist', () => {

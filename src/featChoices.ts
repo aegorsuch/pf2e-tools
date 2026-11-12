@@ -7,6 +7,7 @@ const WARDEN_TIERS: Record<string, string> = {
   'Peerless Warden': 'Peerless',
 }
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
+export const featTakenLevel = (feat: Character['feats'][number]) => Number(feat.slot?.split(':')[1]) || feat.level
 
 export const isCompanionAdvancement = (name: string) => /^Incredible (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Imposing Destrier'
 export const isCompanionSpecialization = (name: string) => /^Specialized (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Auspicious Mount'
@@ -61,7 +62,7 @@ export function canSelectWardenFeat(name: string, c: Character, entries: Content
 export function grantedWardenSpells(c: Character, entries: ContentEntry[]) {
   const found = new Map<string, ContentEntry>()
   for (const feat of c.feats) {
-    if (!feat.choice || !hasWardenChoice(feat)) continue
+    if (!feat.choice || !hasWardenChoice(feat) || featTakenLevel(feat) > c.level) continue
     const spell = wardenSpellOptions(feat, entries).find((entry) => entry.name === feat.choice)
     if (spell) found.set(spell.name, spell)
   }

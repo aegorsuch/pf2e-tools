@@ -22,6 +22,24 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('saves and restores a valid feat spell choice without accepting another tradition', () => {
+  const source: ContentEntry = {
+    ...entries[0], id: 'magic', kind: 'feat', name: 'Otherworldly Magic', traits: [], data: {},
+    spellGrants: [{ kind: 'innate', spells: [], choice: 'cantrip', tradition: 'Arcane', frequency: 'at will', heightened: true }],
+  }
+  const catalog: ContentEntry[] = [source,
+    { ...entries[0], id: 'light', name: 'Light', traits: ['Cantrip'], data: { tradition: 'Arcane' } },
+    { ...entries[0], id: 'primal', name: 'Primal Cantrip', traits: ['Cantrip'], data: { tradition: 'Primal' } }]
+  let c: Character = { ...base, feats: [{ name: source.name, type: 'Ancestry Feat', level: 1 }] }
+  const tree = () => FeatChoice({ c, entries: catalog, index: 0, save: patch => { c = { ...c, ...patch } } })
+  findSelect(tree())!.onChange({ target: { value: 'Primal Cantrip' } })
+  expect(c.feats[0].choice).toBeUndefined()
+  findSelect(tree())!.onChange({ target: { value: 'Light' } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0].choice).toBe('Light')
+  expect(renderToStaticMarkup(tree())).toContain('<option selected="">Light</option>')
+})
+
 function findSelect(node: ReactNode): { onChange: (event: { target: { value: string } }) => void } | undefined {
   let found: { onChange: (event: { target: { value: string } }) => void } | undefined
   Children.forEach(node, (child) => {

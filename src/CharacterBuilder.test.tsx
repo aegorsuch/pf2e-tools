@@ -8,6 +8,31 @@ import type { Character, ContentEntry } from './types'
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
 
+it('retains official access metadata and shows saved ethnicity without changing ancestry or heritage', async () => {
+  const fetchFn: typeof fetch = async (_url, init) => {
+    expect(JSON.parse(String(init?.body))._source).toContain('access')
+    return new Response(JSON.stringify({ hits: { hits: String(init?.body).includes('"category":"feat"')
+      ? [{ _id: 'feat-949', _source: { category: 'feat', name: 'Witch Warden', access: 'Kellid ethnicity', trait: ['Human', 'Uncommon'] } }] : [] } }))
+  }
+  const mapped = mapAonHit((await fetchAonHits('pf2e', fetchFn))[0], 'pf2e')
+  if (!mapped) throw new Error('Missing access mapping')
+  expect(mapped.data.access).toBe('Kellid ethnicity')
+  content.entries = [mapped]
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human', heritage: 'Versatile Human', ethnicity: 'Kellid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    const saved: Character = JSON.parse(JSON.stringify(c))
+    const markup = renderToStaticMarkup(<CharacterBuilder character={saved} onClose={() => {}} />)
+    expect(markup).toContain('aria-label="Ethnicity"')
+    expect(markup).toContain('<option selected="">Kellid</option>')
+    expect(markup).toContain('Access does not replace prerequisites.')
+    expect(saved).toMatchObject({ ancestry: 'Human', heritage: 'Versatile Human', ethnicity: 'Kellid' })
+  } finally { content.entries = [] }
+})
+
 it('retains full material and rune rules through snapshot fetching and mapping, without expanding ordinary item summaries', async () => {
   const sources = [
     { name: 'Peachwood Weapon', item_subcategory: 'Precious Material Weapons' },

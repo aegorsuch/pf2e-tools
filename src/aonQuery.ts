@@ -1,4 +1,4 @@
-import type { EntryKind, GameSystem } from './types.ts'
+import type { EntryKind, GameSystem, SpellGrant } from './types.ts'
 
 // Verified live: both systems share one Elasticsearch host, split by index (pf2e: aon, sf2e: aonsf).
 export const AON_ENDPOINTS: Record<GameSystem, string> = {
@@ -8,7 +8,7 @@ export const AON_ENDPOINTS: Record<GameSystem, string> = {
 
 // Scalar/array fields copied into entry.data (arrays are joined with ", ")
 export const DATA_FIELDS = [
-  'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite',
+  'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite', 'access',
   'actions', 'trigger', 'duration', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'usage', 'ac', 'dex_cap', 'strength',
   'check_penalty', 'range', 'tradition', 'school', 'item_category', 'perception_proficiency',
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',
@@ -91,10 +91,60 @@ export function parseFeatLanguages(md: string) {
 // Focus spells a feat grants ("You gain the [wild shape] order spell"), spells that depend on the taker's druidic order
 // ("if you're a member of the flame order, you gain [combustion]"), and whether it adds a Focus Point
 export function parseFeatFocus(md: string) {
+  md = md.replace(/[_*]/g, '')
   const name = (s: string) => s.replace(/^_+|_+$/g, '').trim()
-  const spells = [...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/Spells\.aspx[^)]*\)\s+(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp) spell/gi)].map((m) => name(m[1]))
+  const spells = [...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell/gi)].map((m) => name(m[1]))
   const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
   return { spells: spells.join(', '), byOrder: byOrder.join(', '), point: /Increase the number of Focus Points in your focus pool by 1/i.test(md) }
+}
+
+// Only explicit, unconditional grants. Conditional effects and variable DC/rank rules stay in the source text.
+export function parseFeatSpellGrants(md: string): SpellGrant[] {
+  const body = md.split(/\n---\n/)[1]?.replace(/[_*]/g, '') ?? ''
+  const grants: SpellGrant[] = []
+  const attribute = (/spellcasting (?:attribute|ability)(?: for [^.!?\n]*?)?(?: modifier)? is (Intelligence|Wisdom|Charisma)/i.exec(body)?.[1]
+    ?? /(Intelligence|Wisdom|Charisma) is (?:the |your )?(?:key )?spellcasting (?:attribute|ability)/i.exec(body)?.[1]
+    ?? /(?:use|using) (Intelligence|Wisdom|Charisma) as your spellcasting (?:attribute|ability)/i.exec(body)?.[1])?.toLowerCase()
+  const ability = attribute === 'intelligence' ? 'int' : attribute === 'wisdom' ? 'wis' : attribute === 'charisma' ? 'cha' : undefined
+  const cantrip = /Choose one cantrip from the \[([^\]]+)\]\([^)]*\) spell list/i.exec(body)
+  if (cantrip && /innate spell at[- ]will/i.test(body)) {
+    grants.push({ kind: 'innate', spells: [], choice: 'cantrip', tradition: cantrip[1], heightened: true, frequency: 'at will', ...(ability ? { ability } : {}) })
+  }
+  if (/class DC|whichever is higher|At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants
+  const sentences = body.split(/(?<=[.!?])\s+/)
+  for (const [index, sentence] of sentences.entries()) {
+    if (!/^(?:(?:once|twice|\d+ times) per day,? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
+    const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map(match => match[1])
+    if (!names.length) continue
+    if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
+      if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
+      const tradition = /\b(arcane|divine|occult|primal)\b/i.exec(sentence)?.[1]
+      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b/gi)]
+      const ranks = [...sentence.matchAll(/\b(\d+)(?:st|nd|rd|th)-(?:rank|level)\b/gi)]
+      if (!tradition || frequencies.length !== 1 || ranks.length > 1) continue
+      const next = plain(sentences[index + 1] ?? '')
+      const scales = (text: string) => /half your level,? rounded up/i.test(text)
+      const shared = names.length > 1 && /\bor\b/i.test(sentence)
+      const heightened = scales(sentence) || /innate cantrip/i.test(sentence)
+        || scales(next) && (/^(?:This spell|Its spell rank)\b/i.test(next) && names.length === 1
+          || shared && /^You choose which spell/i.test(next))
+      const rule: SpellGrant = {
+        kind: 'innate', spells: names, tradition, frequency: frequencies[0][0].toLowerCase().replace('at-will', 'at will'),
+        ...(ranks[0] ? { rank: Number(ranks[0][1]) } : {}),
+        heightened, shared,
+        ...(ability ? { ability } : {}),
+      }
+      if (!heightened && scales(next)) {
+        grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))
+      } else grants.push(rule)
+    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition) spells?\b/i.test(sentence)
+      && !/\b(?:if|choose|depending|based on)\b/i.test(sentence) && (!/\bor\b/i.test(sentence) || names.length > 1)) {
+      grants.push({ kind: 'focus', spells: names, heightened: true, ...(ability ? { ability } : {}),
+        ...(/\bor\b/i.test(sentence) ? { choice: 'listed' as const } : {}),
+        tradition: /\bare (arcane|divine|occult|primal) spells/i.exec(body)?.[1] })
+    }
+  }
+  return grants
 }
 
 // Animal companion stat block: unarmed attacks as "name|damage|traits" joined by ";", plus support benefit and advanced maneuver
