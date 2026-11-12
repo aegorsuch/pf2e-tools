@@ -3,8 +3,8 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { ownedWeapons } from './builder'
-import type { Character, ContentEntry } from './types'
+import { effectiveWeapon, ownedWeapons } from './builder'
+import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -44,11 +44,20 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   const armorMarkup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)
   expect(armorMarkup.indexOf('aria-label="Armor material"')).toBeLessThan(armorMarkup.indexOf('<label>Potency'))
   expect(armorMarkup.indexOf('aria-label="Armor material"')).toBeLessThan(armorMarkup.indexOf('<label>Resilient'))
+  expect(armorMarkup).not.toContain('One additional property rune slot')
+  expect(armorMarkup).not.toContain('Add Custom Shield')
+  expect(armorMarkup).not.toContain('<small>Armor Class <b>')
+  ;(armorMaterial.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Duskwood' } })
+  expect(c.armors?.[0]).toMatchObject({ material: 'Duskwood', potency: 3, resilient: 2 })
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('<option value="Duskwood" selected="">Duskwood</option>')
   c = { ...c, feats: [{ name: 'Living Weapon', type: 'Class Feat', level: 1 }] }
   c.weapons![0].livingWeapon = true
   const locked = findElement(WeaponList({ c, entries: [weapon], save }), (element) => element.props['aria-label'] === 'Weapon material')
   expect(locked?.props).toMatchObject({ value: 'Peachwood (Greater)', disabled: true })
   expect(c.weapons?.[0].material).toBe('Orichalcum')
+  const livingMarkup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
+  expect(livingMarkup).not.toContain('Material locked by Living Weapon')
+  expect(livingMarkup).not.toContain('High-grade peachwood:')
 })
 
 it('alphabetizes Animal Feature effects, greys out rank-four choices until level seven, and switches a single persisted effect', () => {
@@ -78,6 +87,58 @@ it('alphabetizes Animal Feature effects, greys out rank-four choices until level
   expect(c.animalFeature).toBe('Wings')
   toggle('Wings', false)
   expect(c.activeSpells).toEqual(['Gravity Weapon'])
+})
+
+it('syncs Living Weapon fundamentals and property edits across weapons and inherited Haft Striker after reload', () => {
+  const spear: ContentEntry = { ...weapon, name: "Dancer's Spear", data: {
+    weapon_category: 'Martial', hands: 2, weapon_group: 'Spear', weapon_type: 'Melee', damage: '1d6 piercing',
+  } }
+  const second: ContentEntry = { ...weapon, id: 'mace', name: 'Mace', data: { ...weapon.data, damage: '1d6 bludgeoning' } }
+  const entries = [spear, second]
+  let c: Character = { ...character([
+    { name: 'Living Weapon', type: 'Class Feat', level: 1 },
+    { name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
+  ]), weapons: [
+    { id: 'spear', name: spear.name, livingWeapon: true, potency: 2, striking: 1, runes: ['Flaming'] },
+    { id: 'mace', name: second.name, livingWeapon: true, potency: 0, striking: 0, runes: [] },
+    { id: 'ordinary', name: second.name, potency: 1, striking: 0, runes: ['Shock'] },
+  ] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const card = (name: string) => {
+    const result = findElement(WeaponList({ c, entries, save }), (element) => element.type === 'details' && element.props['aria-label'] === name)
+    if (!result) throw new Error(`Missing ${name}`)
+    return result
+  }
+  const propertyEditor = () => {
+    const result = findElement(card(spear.name), (element) => Array.isArray(element.props.runes) && typeof element.props.onChange === 'function')
+    if (!result) throw new Error('Missing shared rune editor')
+    return result.props.onChange as (runes: string[]) => void
+  }
+  const assertShared = (potency: number, striking: number, runes: string[]) => {
+    c = JSON.parse(JSON.stringify(c)) as Character
+    for (const w of ownedWeapons(c, entries).filter((weapon) => weapon.livingWeapon || weapon.name === HAFT_STRIKER_WEAPON.name)) {
+      expect(effectiveWeapon(c, entries, w)).toMatchObject({ potency, striking, runes: [...runes, 'Shifting'] })
+    }
+    expect(c.weapons?.find((weapon) => weapon.id === 'ordinary')).toMatchObject({ potency: 1, striking: 0, runes: ['Shock'] })
+  }
+  assertShared(2, 1, ['Flaming'])
+  propertyEditor()(['Flaming', 'Frost'])
+  assertShared(2, 1, ['Flaming', 'Frost'])
+  propertyEditor()(['Frost'])
+  assertShared(2, 1, ['Frost'])
+  const potency = findElement(card(second.name), (element) => element.props.label === 'Potency')
+  if (!potency) throw new Error('Missing potency')
+  ;(potency.props.onChange as (value: number) => void)(3)
+  assertShared(3, 1, ['Frost'])
+  const striking = findElement(card(second.name), (element) => element.props.label === 'Striking')
+  if (!striking) throw new Error('Missing striking')
+  ;(striking.props.onChange as (value: number) => void)(3)
+  assertShared(3, 3, ['Frost'])
+  const tag = findElement(card(second.name), (element) => element.props['aria-label'] === 'Living Weapon: grant Shifting rune')
+  if (!tag) throw new Error('Missing Living Weapon toggle')
+  ;(tag.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(effectiveWeapon(c, entries, c.weapons![1])).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  assertShared(3, 3, ['Frost'])
 })
 
 it('lets users select the Haft Striker source and keeps all inherited enhancements read-only', () => {
@@ -115,6 +176,8 @@ it('adds free Shifting only when Living Weapon is selected on the weapon', () =>
   const feat = { name: 'Living Weapon', type: 'General Feat', level: 1 }
   const enabled = renderToStaticMarkup(<WeaponList c={character([feat], true)} entries={[weapon, shifting]} save={() => {}} />)
   expect(enabled).toContain('aria-label="Living Weapon: grant Shifting rune" checked=""')
+  expect(enabled.indexOf('aria-label="Weapon material"')).toBeLessThan(enabled.indexOf('aria-label="Living Weapon: grant Shifting rune"'))
+  expect(enabled.indexOf('aria-label="Living Weapon: grant Shifting rune"')).toBeLessThan(enabled.indexOf('<label>Potency'))
   expect(enabled).toContain('title="Granted by Living Weapon"')
   expect(enabled).not.toContain('<option value="Shifting">')
 
@@ -158,7 +221,7 @@ it('keeps purchased and free Shifting runes out of weapon damage', () => {
     const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], free)
     c.weapons![0].runes = free ? ['Flaming'] : ['Shifting', 'Flaming']
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
-    expect(markup).toContain('<div class="gear-damage">2d8 slashing + Flaming</div>')
+    expect(markup).toContain('Damage 2d8 S + Flaming')
     expect(markup).toContain(free ? 'title="Granted by Living Weapon"' : 'aria-label="Remove Shifting rune"')
   }
 })
@@ -169,7 +232,7 @@ it('shows Impactful force damage without scaling it with striking', () => {
       const c = character([])
       c.weapons![0] = { ...c.weapons![0], striking, runes: [rune, 'Shifting'] }
       const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
-      expect(markup).toContain(`<div class="gear-damage">${1 + striking}d8 slashing + 1d6 force</div>`)
+      expect(markup).toContain(`Damage ${1 + striking}d8 S + 1d6 force`)
       expect(markup).toContain(`aria-label="Remove ${rune} rune"`)
     }
   }
@@ -192,6 +255,20 @@ it('provides graded rune descriptions and AoN links separately from removal', ()
   expect(markup).toContain('method="dialog"')
 })
 
+it.each([
+  ['Astral', '1d6 spirit', undefined],
+  ['Astral (Greater)', '1d6* spirit', 'Greater Astral: spirit damage ignores spirit resistance.'],
+  ['Holy', '1d4* spirit', 'Holy: 2d4 spirit instead against unholy targets.'],
+  ['Unholy', '1d4* spirit', 'Unholy: 2d4 spirit instead against holy targets.'],
+] as const)('shows %s damage numerically with compact conditional markers', (rune, damage, note) => {
+  const c = character([])
+  c.weapons![0].runes = [rune]
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} />)
+  expect(markup).toContain(`Damage 2d8 S + ${damage}`)
+  expect(markup).not.toContain('class="gear-damage"')
+  if (note) expect(markup).toContain(`title="${note}"`)
+})
+
 it('shows attack and compact damage including rune damage in the weapon summary', () => {
   const c = character([])
   c.level = 20
@@ -206,14 +283,26 @@ it('shows attack and compact damage including rune damage in the weapon summary'
   const summary = /<summary>(.*?)<\/summary>/.exec(markup)?.[1]
   expect(summary).toContain('Attack +35, Damage 4d6+4 P + 1d6 force')
   expect(summary).not.toContain('Shifting')
-  expect(markup).toContain('<div class="gear-damage">4d6+4 piercing + 1d6 force</div>')
+  expect(markup).not.toContain('class="gear-damage"')
+})
+
+it('adds Hooked Trip trait without adding damage or duplicating a natural Trip trait', () => {
+  const c = character([])
+  c.weapons![0].runes = ['Hooked']
+  for (const traits of [[], ['Trip']]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[{ ...weapon, traits }]} save={() => {}} />)
+    expect(markup).not.toContain('class="gear-damage"')
+    expect(markup).toContain('Damage 2d8 S')
+    expect(markup).not.toContain('slashing + Hooked')
+    expect(markup.match(/<span>Trip<\/span>/g)).toHaveLength(1)
+    expect(markup).toContain('aria-label="Remove Hooked rune"')
+  }
 })
 
 it('keeps Grievous visible as a rune but excludes it from both damage displays', () => {
   const c = character([])
   c.weapons![0].runes = ['Grievous', 'Impactful (Greater)']
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} />)
-  expect(markup).toContain('<div class="gear-damage">2d8 slashing + 1d6 force</div>')
   expect(markup).toContain('Damage 2d8 S + 1d6 force')
   expect(markup).toContain('aria-label="Remove Grievous rune"')
 })
@@ -226,15 +315,12 @@ it.each(['Crushing', 'Crushing (Greater)', 'Greater Crushing'])('shows %s critic
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[maul]} save={() => {}} />)
     const dice = striking + 1
     const severity = rune === 'Crushing' ? 1 : 2
-    expect(markup).toContain(`<div class="gear-damage">${dice}d12 bludgeoning + 1d6 force, ${dice} bludgeoning splash</div>`)
     expect(markup).toContain(`Damage ${dice}d12 B + 1d6 force, ${dice} B splash`)
     expect(markup).toContain(`Critical hit: clumsy ${severity} and enfeebled ${severity} until the end of your next turn.`)
     expect(markup).toContain('Shockwave splash does not harm you.')
     expect(markup).toContain(`aria-label="Remove ${rune} rune"`)
     expect(markup).toContain('aria-label="Remove Shockwave rune"')
-    for (const damage of [...markup.matchAll(/<div class="gear-damage">([^<]+)<\/div>/g)]) {
-      expect(damage[1]).not.toMatch(/Crushing|Shockwave/)
-    }
+    expect(/<summary>(.*?)<\/summary>/.exec(markup)?.[1]).not.toMatch(/Crushing|Shockwave/)
   }
 })
 
@@ -266,6 +352,24 @@ it('locks full plate gauntlets and keeps their saved configuration when other we
   if (!remove) throw new Error('Missing weapon removal')
   ;(remove.props.onClick as () => void)()
   expect(c.weapons).toContainEqual(gauntlet)
+})
+
+it.each(ARMOR_GAUNTLETS)('inherits plate material for armor-provided %s without changing purchased weapons or stored enhancements', (name) => {
+  const saved: OwnedWeapon = { id: GAUNTLET.id, name, material: 'Peachwood (Greater)', potency: 3, striking: 1,
+    runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] }
+  let c: Character = { ...character([]), weapons: [saved],
+    armors: [{ id: 'plate', name: 'Full Plate', material: 'Orichalcum', gauntlet: name, worn: true, potency: 0, resilient: 0, runes: [] }] }
+  const material = () => findElement(WeaponList({ c, entries: [], save: () => {} }), (element) => element.props['aria-label'] === 'Weapon material')
+  expect(material()?.props).toMatchObject({ value: 'Orichalcum', disabled: true })
+  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 3, striking: 1, runes: saved.runes })
+  expect(effectiveWeapon(c, [], { ...saved, id: 'purchased' }).material).toBe('Peachwood (Greater)')
+  c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: undefined })) }
+  expect(material()?.props).toMatchObject({ value: '', disabled: true })
+  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: undefined, runes: saved.runes.slice(0, 3) })
+  c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: 'Duskwood' })) }
+  expect(material()?.props).toMatchObject({ value: 'Duskwood', disabled: true })
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('<option selected="">Duskwood</option>')
+  expect(saved).toMatchObject({ material: 'Peachwood (Greater)', runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] })
 })
 
 it('selects armor-provided gauntlet variants without changing separately purchased gauntlets or other armor choices', () => {
@@ -366,7 +470,7 @@ it('never offers direct unarmed rune, potency, or striking controls, including w
   expect(fist).toBeDefined()
   expect(findElement(fist, (element) => element.props.label === 'Potency' || element.props.label === 'Striking')).toBeUndefined()
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('through handwraps in Gear')
+  expect(markup).not.toContain('through handwraps in Gear')
   expect(markup).not.toContain('aria-label="Add property rune"')
   expect(markup).not.toContain('aria-label="Remove Flaming rune"')
   expect(markup).not.toContain('Flaming')

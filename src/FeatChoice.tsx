@@ -1,10 +1,25 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, orderMagicOptions } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, featChoiceOptions, orderMagicOptions } from './builder'
 import type { SectionProps } from './builder'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === "Deity's Domain") {
+    const available = deityDomains(c, entries)
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '') ?? []
+    return <label className="feat-choice">
+      <select aria-label="Deity's Domain" value={feat.choice ?? ''} onChange={(e) => {
+        const choice = e.target.value || undefined
+        if (choice && !available.includes(choice)) return
+        save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
+      }}>
+        <option value="">Choose domain</option>
+        {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
+        {options.map((domain) => <option key={domain} disabled={!available.includes(domain)}>{domain}</option>)}
+      </select>
+    </label>
+  }
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
     || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null
   if (feat.name === 'Canny Acumen') {

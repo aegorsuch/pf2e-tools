@@ -28,7 +28,7 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
-  material?: 'Orichalcum' | 'Peachwood (Greater)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)'
+  material?: 'Duskwood' | 'Orichalcum' | 'Peachwood (Greater)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)'
   livingWeapon?: boolean
   verdantWeapon?: boolean
   stowed?: boolean
@@ -41,7 +41,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   worn: boolean
-  material?: 'Orichalcum'
+  material?: 'Duskwood' | 'Orichalcum'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 export interface OwnedShield {
@@ -106,6 +106,7 @@ export interface Character {
   equipment: { name: string; qty: number }[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
+  livingWeaponEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
   shield?: OwnedShield
@@ -127,6 +128,10 @@ export interface Character {
   activeSpells?: string[]
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   magicHideCompanionId?: string
+  canopyCrawlerTarget?: 'Self' | 'Companion' | 'Both'
+  canopyCrawlerCompanionId?: string
+  enlargeCompanionSize?: 'Large' | 'Huge'
+  enlargeCompanionId?: string
   // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
   companions?: { id: string; name: string; type: string }[]
   // Manually added slots on top of those from class/ancestry and granted effects

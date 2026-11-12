@@ -42,6 +42,26 @@ it('does not stack multiple Sunweave item bonuses', () => {
   expect(defenseSummary(c, [ranger]).perception).toBe(6)
 })
 
+it('adds and marks Imitate Fauna status bonus only while the known spell is active', () => {
+  const c: Character = { ...base, spells: [{ name: 'Imitate Fauna', rank: 2, cantrip: false }], activeSpells: ['Imitate Fauna'] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toContain('Deception <b title="+4 Status (Imitate Fauna; Impersonate an animal)">+4*</b>')
+  for (const patch of [{ activeSpells: [] }, { spells: [] }]) {
+    const inactive = renderToStaticMarkup(<SkillsSection c={{ ...c, ...patch }} entries={[ranger]} save={() => {}} />)
+    expect(inactive).toContain('Deception <b>+0</b>')
+    expect(inactive).not.toContain('+4 Status (Imitate Fauna')
+  }
+})
+
+it('shows speed bonus sources but omits redundant Initiative helper', () => {
+  const c: Character = { ...base, feats: ['Fleet', 'Primal Nimbleness', 'Incredible Initiative']
+    .map((name) => ({ name, type: 'General Feat', level: 1 })) }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)
+  expect(markup).toContain('35 ft. (+5 Fleet, +5 Primal Nimbleness)')
+  expect(markup).not.toContain('Initiative:')
+  expect(initiativeBonus(c, [ranger])).toBe(5)
+})
+
 it('shows armor specialization with armor and granting feat, without rules summary', () => {
   const armor: ContentEntry = {
     ...ranger, id: 'wooden-breastplate', kind: 'armor', name: 'Wooden Breastplate',

@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
+import { cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featSelectionLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
@@ -57,10 +57,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const optionsFor = (entry: ContentEntry, slot: PlannedSlot): FeatOption[] => {
     const label = actionOptionLabel(displayName(entry.name), entry)
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
-    return choices?.length
+    return choices !== undefined
       ? choices.map((choice) => {
-        const disabled = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
-        return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${disabled ? ' - no improvement' : ''})` }
+        const noImprovement = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
+        const disabled = noImprovement || entry.name === "Deity's Domain" && !deityDomains(c, entries).includes(choice)
+        return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }
       })
       : [{ entry, value: entry.name, label }]
   }
@@ -80,6 +81,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const choose = (key: string, category: FeatSlotCategory, level: number, name: string) => {
     const slot = allSlots.find((slot) => slot.key === key) ?? { key, category, level }
     const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot)).find((option) => option.value === name && !option.disabled)
+    if (name && name !== 'N/A' && !option) return
     const feats = c.feats.filter((f) => f.slot !== key)
     const entryIds = [...c.entryIds]
     if (option) {

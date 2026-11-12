@@ -1,4 +1,4 @@
-import { byName, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
+import { byName, canopyCrawlerAffects, companionSpellTarget, enlargeCompanionSize, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
@@ -81,10 +81,18 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const level = c.level
   const prof = (k: string) => proficiencyBonus(rank[k] ?? 0, level)
-  const total = (k: string, ability: Ability) => mods[ability] + prof(k)
   const hp = num(d.hp) + (6 + mods.con) * level
   const baseSize = String(d.size ?? '').split(',')[0].trim()
-  const size = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
+  const naturalSize = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
+  const enlargedSize = enlargeCompanionSize(c)
+  const enlarge = c.level >= 3 && companionId !== undefined
+    && companionId === companionSpellTarget(c, c.enlargeCompanionId) && isSpellActive(c, entries, 'Enlarge Companion')
+    && SIZES.indexOf(naturalSize) >= 0 && SIZES.indexOf(naturalSize) < SIZES.indexOf(enlargedSize)
+    ? { size: enlargedSize, damage: enlargedSize === 'Huge' ? 4 : 2,
+      reachIncrease: (enlargedSize === 'Huge' ? 10 : 5) + (naturalSize === 'Tiny' ? 5 : 0) } : undefined
+  const clumsy = enlarge ? 1 : 0
+  const total = (k: string, ability: Ability) => mods[ability] + prof(k) - (ability === 'dex' ? clumsy : 0)
+  const size = enlarge?.size ?? naturalSize
   const flat = (advanced === 'Savage' ? 3 : advanced === 'Nimble' ? 2 : 0)
 
   const attacks = String(d.companion_attacks ?? '').split(';').filter(Boolean).map((a) => {
@@ -92,25 +100,39 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     const m = /^(\d+)d(\d+)\s*(.*)$/.exec(damage)
     const finesse = /agile|finesse/.test(traits)
     const ability: Ability = finesse && mods.dex > mods.str ? 'dex' : 'str'
-    const bonus = mods[ability] + flat
+    const ranged = /\branged\b|\brange(?: increment)?\s+\d+/i.test(traits)
+    const bonus = mods[ability] + flat + (!ranged ? enlarge?.damage ?? 0 : 0)
     const text = m ? `${mature ? +m[1] * 2 : m[1]}d${m[2]}${bonus ? signed(bonus) : ''} ${m[3]}`.trim() : damage
-    return { name, traits, attack: mods[ability] + proficiencyBonus(1, level), damage: text }
+    return { name, traits, attack: mods[ability] + proficiencyBonus(1, level) - (ability === 'dex' ? clumsy : 0),
+      damage: text, dexterityBased: ability === 'dex', ranged }
   })
 
   const speedRaw = String(d.speed_raw ?? (d.speed ? `${d.speed} feet` : ''))
-  const speedBonus = specs.reduce((n, s) => n + (s.speed ?? 0), 0)
-  const speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
+  const speedBonuses = specializations.flatMap((source) => {
+    const feet = COMPANION_SPECS[source]?.speed
+    return feet ? [{ source, feet }] : []
+  })
+  const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
+  let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
+  const canopyCrawler = companionId !== undefined && canopyCrawlerAffects(c, entries, companionId)
+  if (canopyCrawler) {
+    const speeds = [...speed.matchAll(/(\d+)\s*(?:feet|ft)\b/gi)].map((match) => +match[1])
+    const highest = Math.max(0, ...speeds)
+    if (highest > 0) speed = /\bclimb\s+\d+\s*(?:feet|ft)\b/i.test(speed)
+      ? speed.replace(/\bclimb\s+\d+\s*(?:feet|ft)\b/i, `climb ${highest} feet`) : `${speed}${speed ? ', ' : ''}climb ${highest} feet`
+  }
 
   const skills = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
-    .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') }))
+    .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis'),
+      clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  const magicHide = isSpellActive(c, entries, 'Magic Hide') && companionId === (c.magicHideCompanionId ?? c.companions?.[0]?.id) ? 1 : 0
+  const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   return {
-    entry, level, size, mods, hp, speed, skills, attacks,
-    ac: 10 + mods.dex + prof('Unarmored') + magicHide,
-    magicHide,
+    entry, level, size, mods, hp, speed, speedBonuses, skills, attacks,
+    ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
+    magicHide, canopyCrawler, enlarge, clumsy,
     perception: total('Perception', 'wis'),
     fortitude: total('Fortitude', 'con'),
     reflex: total('Reflex', 'dex'),

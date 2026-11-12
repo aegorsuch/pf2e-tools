@@ -57,6 +57,8 @@ const homebrewFeat = (id: string, name: string, level: number, traits: string[],
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const poison = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
+  const simplicity = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
+    && entry.name === 'Deadly Simplicity' && entry.traits.includes('Cleric'))
   return [
     homebrewFeat('favored-weapon-jousting', 'Favored Weapon Jousting', 4, ['Champion'],
       "You know how to use the favored weapon of your deity while riding your animal companion. If one handed and melee, your deity's favored weapon gains the jousting trait.", { class: 'Champion' }),
@@ -64,15 +66,29 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'Like all orcs, you have tusks, but, uniquely, you coat or inlay them with cold iron, allowing your bite to easily damage demons.', { ancestry: 'Orc', rarity: 'uncommon' }),
     homebrewFeat('primal-nimbleness', 'Primal Nimbleness', 1, ['Druid', 'Ranger'],
       'Your muscles are tightly honed. Your Speed increases by 5 feet.', { class: 'Druid, Ranger' }),
+    homebrewFeat('impaling-throw', 'Impaling Throw', 1, ['Flourish', 'Ranger', '3rd Party'],
+      'Requirements: You are wielding a weapon which does piercing damage with the Thrown trait.\n\nYou know a thorn in the flank of your quarry is an easy quarry to take down. Make a ranged Strike against your prey with the required weapon. If you hit the creature, the weapon stays inside of them instead of dropping to the ground. As long as they leave the weapon in, they are clumsy 1. Removing the weapon requires a single Interact action requiring them to succeed on either an Athletics or Medicine skill check against your class DC.\n\nSpecial: You can use Impaling Throw with improvised weapons that are determined to be appropriate, or when throwing weapons without the thrown trait that deal piercing damage.',
+      { class: 'Ranger', actions: 'Single Action', requirements: 'You are wielding a weapon which does piercing damage with the Thrown trait.' }),
+    homebrewFeat('impaled-takedown', 'Impaled Takedown', 4, ['Flourish', 'Ranger', '3rd Party'],
+      'Requirements: You are adjacent to your Hunted Prey. The prey must have a weapon embedded in them (such as from Impaling Throw), and you must either have a free hand or have just completed a successful melee Strike against them this turn with a piercing weapon.\n\nYou can handle impaled creatures with ease. Taking a hold of the required weapon if necessary, you attempt to Shove or Trip the adjacent hunted prey. For the purposes of this attack you may add any item bonus granted to the weapon via proficiency runes to the check. On a success the creature is also considered off-guard to your next strike and they are clumsy 2 until the weapon is removed.',
+      { class: 'Ranger', actions: 'Single Action', requirements: 'Adjacent Hunted Prey with an embedded weapon; free hand or a successful melee piercing Strike against them this turn.' }),
     homebrewFeat('favored-weapon-symbol', 'Favored Weapon Symbol', 1, ['Champion'],
       "You cultivate a divine conduit within your deity's symbol that can manifest into your deity's favored weapon. You spend 10 minutes focusing divine energy into your deity's symbol, imprinting it with the potential of your deity's favored weapon.\n\nWhen holding or wearing the imprinted holy symbol, you can use an Interact action to cause the divine energy to surge outward, immediately growing the weapon directly from the symbol into your hand. A second Interact action causes the divine matter to swiftly retract back into the holy symbol.\n\nThe favored weapon from your icon can be etched with weapon runes or affixed with talismans as normal, which are safely suppressed when the weapon is retracted inside the symbol.", { class: 'Champion' }),
     homebrewFeat('verdant-weapon-jousting', 'Verdant Weapon Jousting', 4, ['Druid'],
       'You know how to use your verdant weapon while riding your animal companion. If one handed and melee, your verdant weapon gains the jousting trait.', { class: 'Druid' }),
     homebrewFeat('living-weapon-joust', 'Living Weapon Joust', 14, ['Archetype'],
       'You know how to use your living weapon while riding your animal companion. If one handed and melee, your living weapon gains the jousting trait.', { archetype: 'Wild Hunter' }),
+    homebrewFeat('pristine-living-weapon', 'Pristine Living Weapon', 14, ['Archetype'],
+      'Prerequisites: Living Weapon, Wild Hunter Dedication.\n\nYour living weapon can cut through the resistances of magical creatures. The weapon is treated as cold iron and silver. If you critically hit a creature that has a weakness to cold iron or silver, the target takes 1d6 persistent bleed damage as the primal energies within your weapon slow its natural healing.',
+      { archetype: 'Wild Hunter', prerequisite: 'Living Weapon, Wild Hunter Dedication' }),
     homebrewFeat('third-blessing', 'Third Blessing', 16, ['Champion'],
       'Your continued service grants you a third boon. Choose a third blessing of the devoted, different from your other blessings, and gain its benefits.',
       { class: 'Champion', prerequisite: 'Second Blessing' }),
+    homebrewFeat('second-innovation', 'Second Innovation', 8, ['Inventor'],
+      'Choose a second innovation, different from your existing innovation, and gain its benefits.', { class: 'Inventor' }),
+    homebrewFeat('third-innovation', 'Third Innovation', 16, ['Inventor'],
+      'Choose a third innovation, different from your other innovations, and gain its benefits.',
+      { class: 'Inventor', prerequisite: 'Second Innovation' }),
     {
       ...homebrewFeat('summertouched-human', 'Summertouched Human', 1, ['Human'],
         'The power of summer flows through you. You gain fire resistance equal to half your level (minimum 1), and you treat environmental heat effects as if they were one step less extreme (incredible heat becomes extreme, extreme heat becomes severe, and so on).',
@@ -84,6 +100,12 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       traits: ['Ranger'],
       description: 'Your affinity for the natural world grants you protection against some of its dangers. You gain poison resistance equal to half your level, and you gain a +1 status bonus to saving throws against poisons.',
       data: { ...Object.fromEntries(Object.entries(poison.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger', resistances: 'poison=half' }, updatedAt: 1,
+    }] : []),
+    ...(simplicity ? [{
+      ...simplicity, id: 'homebrew:champion-deadly-simplicity', source: 'homebrew' as const,
+      traits: ['Champion'],
+      data: { ...Object.fromEntries(Object.entries(simplicity.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Champion' },
+      updatedAt: 1,
     }] : []),
   ]
 }

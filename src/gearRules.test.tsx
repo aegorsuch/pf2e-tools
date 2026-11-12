@@ -1,11 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeature, blessedArmamentRuneOptions, championBlessings, characterSummary, effectiveWeapon, eligibleFeats,
-  featChoiceOptions, heritagesFor, initiativeBonus, maxPropertyRunes, movementSpeeds, ownedWeapons, plannedSlots, resistances, senses, speed, weaponAttack,
+  activeAnimalFeature, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, deitySanctification, effectiveWeapon, eligibleFeats,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedWeapons, plannedSlots, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
 import { WeaponList } from './GearSection'
+import { ClassFeatures } from './ClassFeatures'
+import { SkillsSection } from './SkillsSection'
+import { MinionsSection } from './MinionsSection'
+import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
@@ -18,7 +22,7 @@ const feat = (name: string, level = 1, choice?: string) => ({ name, level, choic
 const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
   ({ id: name, systems: ['pf2e'], kind, source: 'official', name, data, level, traits, description: '', effects: [], updatedAt: 1 })
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
-const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword' })
+const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
 
 it('gives Orichalcum one extra rune slot without increasing fundamental limits or stacking initiative circumstances', () => {
@@ -52,6 +56,8 @@ it('grants one Blessed Armament rune beyond full normal capacity only to the sel
   const c: Character = { ...base, blessing: 'Blessed Armament', blessedArmament: { weaponId: weapon.id, rune: 'Ghost Touch' } }
   expect(effectiveWeapon(c, [sword, deity], weapon).runes).toEqual([...weapon.runes, 'Ghost Touch'])
   expect(weaponAttack(c, [sword, deity], weapon).criticalSpecialization).toBe(true)
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={[sword, deity]} save={() => {}} />))
+    .not.toContain('Critical specialization granted by Blessed Armament.')
   expect(effectiveWeapon({ ...c, deity: undefined }, [sword, deity], weapon).runes).toEqual(weapon.runes)
   expect(effectiveWeapon(c, [sword, deity], { ...weapon, id: 'other' }).runes).toEqual(weapon.runes)
   expect(effectiveWeapon({ ...c, level: 2 }, [sword, deity], weapon).runes).toEqual(weapon.runes)
@@ -64,12 +70,35 @@ it('grants one Blessed Armament rune beyond full normal capacity only to the sel
 it('expands Blessed Armament choices through the required feats, levels, and sanctification', () => {
   const radiant: Character = { ...base, sanctification: 'Holy', feats: [feat('Radiant Armament', 10)] }
   expect(blessedArmamentRuneOptions(base)).not.toContain('Astral')
-  expect(blessedArmamentRuneOptions(radiant)).toEqual(expect.arrayContaining(['Astral', 'Brilliant', 'Holy']))
+  expect(blessedArmamentRuneOptions(radiant, [deity])).toEqual(expect.arrayContaining(['Astral', 'Brilliant', 'Holy']))
   expect(blessedArmamentRuneOptions(radiant)).not.toContain('Unholy')
   expect(blessedArmamentRuneOptions({ ...radiant, level: 9 })).not.toContain('Astral')
   const paragon = { ...radiant, level: 20, feats: [...radiant.feats, feat('Armament Paragon', 20)] }
   expect(blessedArmamentRuneOptions(paragon)).toEqual(expect.arrayContaining(['Fearsome (Greater)', 'Astral (Greater)', 'Brilliant (Greater)']))
   expect(blessedArmamentRuneOptions({ ...paragon, feats: [feat('Armament Paragon', 20)] })).not.toContain('Astral (Greater)')
+})
+
+it('locks required deity sanctification, restricts optional choices, and deactivates incompatible saved runes', () => {
+  const c: Character = { ...base, sanctification: 'Unholy', blessing: 'Blessed Armament',
+    feats: [feat('Radiant Armament', 10)], weapons: [main, { ...main, id: 'bow', name: 'Longbow' }],
+    blessedArmament: { weaponId: main.id, rune: 'Holy' } }
+  expect(deitySanctification(c, [deity])).toEqual({ options: ['Holy'], required: 'Holy', selected: 'Holy' })
+  expect(blessedArmamentRuneOptions(c, [deity])).toContain('Holy')
+  expect(blessedArmamentRuneOptions(c, [deity])).not.toContain('Unholy')
+  expect(effectiveWeapon(c, [sword, deity], main).runes).toContain('Holy')
+  expect(blessedArmamentTargets(c, [sword, deity]).map((weapon) => weapon.id)).toEqual([main.id])
+  const markup = renderToStaticMarkup(<ClassFeatures c={c} entries={[sword, deity]} save={() => {}} />)
+  expect(markup).toContain('<select aria-label="Sanctification" disabled=""><option selected="">Holy</option></select>')
+  expect(markup).not.toContain('>Longbow</option>')
+  const optional = { ...deity, data: { ...deity.data, sanctification_required: false } }
+  expect(deitySanctification(c, [optional]).selected).toBeUndefined()
+  expect(deitySanctification({ ...c, sanctification: 'Holy' }, [optional]).selected).toBe('Holy')
+  expect(effectiveWeapon(c, [sword, optional], main).runes).not.toContain('Holy')
+  const neutral = { ...deity, data: { favored_weapon: 'longsword' } }
+  expect(deitySanctification(c, [neutral]).options).toEqual([])
+  const both = { ...deity, data: { ...deity.data, sanctification: 'holy, unholy', sanctification_required: false } }
+  expect(deitySanctification(c, [both]).selected).toBe('Unholy')
+  expect(effectiveWeapon(c, [sword, both], main).runes).not.toContain('Holy')
 })
 
 it('requires Second Blessing for Third Blessing and prevents duplicate blessing choices', () => {
@@ -87,9 +116,156 @@ it('requires Second Blessing for Third Blessing and prevents duplicate blessing 
   expect(effectiveWeapon({ ...c, blessedArmament: { weaponId: main.id, rune: 'Ghost Touch' } }, [sword, deity], main).runes).toEqual(['Ghost Touch'])
 })
 
+it('offers distinct additional innovations at levels 8 and 16 and requires Second Innovation for Third', () => {
+  const innovations = ['Weapon', 'Construct', 'Armor'].map((name) => content('subclass', name, { class: 'Inventor' }))
+  const entries = [...homebrewCharacterOptions([]), ...innovations]
+  const c: Character = { ...base, className: 'Inventor', subclass: 'Construct', level: 16,
+    feats: [{ ...feat('Second Innovation', 8, 'Armor'), slot: 'class:8:0' }] }
+  const slot = plannedSlots(c).find((slot) => slot.category === 'class' && slot.level === 16)!
+  expect(entries.find((entry) => entry.name === 'Second Innovation')).toMatchObject({ level: 8, traits: ['Inventor'], source: 'homebrew' })
+  expect(entries.find((entry) => entry.name === 'Third Innovation')).toMatchObject({ level: 16, data: { prerequisite: 'Second Innovation' } })
+  expect(featChoiceOptions('Second Innovation', { ...c, feats: [] }, entries, 'class:8:0')).toEqual(['Armor', 'Weapon'])
+  expect(featChoiceOptions('Third Innovation', c, entries, slot.key)).toEqual(['Weapon'])
+  expect(eligibleFeats(entries, c, slot).map((entry) => entry.name)).toContain('Third Innovation')
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot).map((entry) => entry.name)).not.toContain('Third Innovation')
+  expect(eligibleFeats(entries, { ...c, feats: [{ ...feat('Second Innovation', 18), slot: 'class:18:0' }] }, slot).map((entry) => entry.name)).not.toContain('Third Innovation')
+  expect(featChoiceOptions('Third Innovation', { ...c, feats: [...c.feats, { ...feat('Third Innovation', 16, 'Weapon'), slot: slot.key }] }, entries, slot.key)).toEqual(['Weapon'])
+})
+
+it('offers Impaling Throw as a level-one Ranger action with its embedded-weapon rules', () => {
+  const entries = homebrewCharacterOptions([])
+  const c: Character = { ...base, className: 'Ranger', level: 1 }
+  const slot = plannedSlots(c).find((slot) => slot.category === 'class' && slot.level === 1)!
+  const impaling = eligibleFeats(entries, c, slot).find((entry) => entry.name === 'Impaling Throw')!
+  expect(impaling).toMatchObject({ level: 1, source: 'homebrew', traits: ['Flourish', 'Ranger', '3rd Party'],
+    data: { class: 'Ranger', actions: 'Single Action' } })
+  expect(impaling.description).toContain('Athletics or Medicine skill check against your class DC')
+  expect(impaling.description).toContain('clumsy 1')
+  expect(impaling.description).toContain('weapons without the thrown trait that deal piercing damage')
+  expect(eligibleFeats(entries, base, slot).map((entry) => entry.name)).not.toContain('Impaling Throw')
+})
+
+it('offers Impaled Takedown at level four without inventing an Impaling Throw prerequisite', () => {
+  const entries = homebrewCharacterOptions([])
+  const c: Character = { ...base, className: 'Ranger', level: 4 }
+  const slot = plannedSlots(c).find((slot) => slot.category === 'class' && slot.level === 4)!
+  const takedown = eligibleFeats(entries, c, slot).find((entry) => entry.name === 'Impaled Takedown')!
+  expect(takedown).toMatchObject({ level: 4, source: 'homebrew', traits: ['Flourish', 'Ranger', '3rd Party'],
+    data: { class: 'Ranger', actions: 'Single Action' } })
+  expect(takedown.description).toContain('Shove or Trip')
+  expect(takedown.description).toContain('off-guard to your next strike')
+  expect(takedown.description).toContain('clumsy 2 until the weapon is removed')
+  expect(takedown.data.prerequisite).toBeUndefined()
+  expect(eligibleFeats(entries, c, { ...slot, level: 2 }).map((entry) => entry.name)).not.toContain(takedown.name)
+  expect(eligibleFeats(entries, base, slot).map((entry) => entry.name)).not.toContain(takedown.name)
+})
+
+it('copies Deadly Simplicity for Champion and offers it only with a trained simple or unarmed favored weapon', () => {
+  const official = content('feat', 'Deadly Simplicity', { class: 'Cleric',
+    prerequisite: "deity with a simple or unarmed attack favored weapon, trained with your deity's favored weapon" }, 1, ['Cleric'])
+  const champion = content('class', 'Champion', { attack_proficiency: 'Trained in simple weapons' })
+  const staff = content('weapon', 'Staff', { weapon_category: 'Simple', damage: '1d4 bludgeoning' })
+  const staffDeity = { ...deity, data: { favored_weapon: 'staff' } }
+  const entries = [official, champion, staff, staffDeity, ...homebrewCharacterOptions([official])]
+  const copy = entries.find((entry) => entry.id === 'homebrew:champion-deadly-simplicity')!
+  expect(copy).toMatchObject({ name: official.name, level: 1, source: 'homebrew', traits: ['Champion'],
+    data: { class: 'Champion', prerequisite: official.data.prerequisite } })
+  expect(official.traits).toEqual(['Cleric'])
+  const slot = plannedSlots(base).find((slot) => slot.category === 'class' && slot.level === 1)!
+  expect(eligibleFeats(entries, base, slot).map((entry) => entry.id)).toContain(copy.id)
+  expect(eligibleFeats(entries.filter((entry) => entry !== champion), base, slot).map((entry) => entry.id)).not.toContain(copy.id)
+  expect(eligibleFeats(entries, { ...base, deity: undefined }, slot).map((entry) => entry.id)).not.toContain(copy.id)
+  expect(eligibleFeats([official, champion, sword, deity, copy], base, slot).map((entry) => entry.id)).not.toContain(copy.id)
+  const irori = { ...deity, data: { favored_weapon: 'fist' } }
+  expect(eligibleFeats([official, champion, irori, copy], base, slot).map((entry) => entry.id)).toContain(copy.id)
+})
+
+it('increases all Deadly Simplicity simple weapon dice by one step, retaining striking and flat damage', () => {
+  const champion = content('class', 'Champion', { attack_proficiency: 'Trained in simple weapons, Trained in martial weapons' })
+  const staffDeity = { ...deity, data: { favored_weapon: 'staff' } }
+  const c: Character = { ...base, feats: [feat('Deadly Simplicity')] }
+  const weapon = { ...main, name: 'Staff', striking: 3 }
+  for (const [before, after] of [[4, 6], [6, 8], [8, 10], [10, 12], [12, 12]]) {
+    const staff = content('weapon', 'Staff', { weapon_category: 'Simple', damage: `1d${before} bludgeoning` })
+    const entries = [champion, staffDeity, staff]
+    expect(weaponAttack(c, entries, weapon).damage).toBe(`4d${after}+1 bludgeoning`)
+    for (const patch of [{ feats: [] }, { deity: undefined }])
+      expect(weaponAttack({ ...c, ...patch }, entries, weapon).damage).toBe(`4d${before}+1 bludgeoning`)
+    expect(weaponAttack(c, [staffDeity, staff], weapon).damage).toBe(`4d${before}+1 bludgeoning`)
+    const unrelated = { ...staffDeity, data: { favored_weapon: 'club' } }
+    expect(weaponAttack(c, [champion, unrelated, staff], weapon).damage).toBe(`4d${before}+1 bludgeoning`)
+    const martial = { ...staff, data: { ...staff.data, weapon_category: 'Martial' } }
+    expect(weaponAttack(c, [champion, staffDeity, martial], weapon).damage).toBe(`4d${before}+1 bludgeoning`)
+  }
+  const staff = content('weapon', 'Staff', { weapon_category: 'Simple', damage: '1d4 bludgeoning' })
+  const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={[champion, staffDeity, staff]} save={() => {}} />)
+  expect(markup).toContain('Damage 4d6+1 B')
+})
+
+it('caps Deadly Simplicity favored unarmed improvements at d6 without shrinking larger attacks', () => {
+  const c: Character = { ...base, feats: [feat('Deadly Simplicity')], handwraps: { potency: 1, striking: 2, runes: [] } }
+  for (const [before, after] of [[4, 6], [6, 6], [8, 8]]) {
+    const attack = content('weapon', 'Divine Claw', { weapon_category: 'Unarmed', damage: `1d${before} slashing` }, 0, ['Unarmed'])
+    const favored = { ...deity, data: { favored_weapon: 'divine claw' } }
+    const weapon = { ...main, name: attack.name }
+    expect(weaponAttack(c, [attack, favored], weapon).damage).toBe(`3d${after}+1 slashing`)
+    expect(weaponAttack({ ...c, feats: [] }, [attack, favored], weapon).damage).toBe(`3d${before}+1 slashing`)
+  }
+})
+
+it('requires Living Weapon and Wild Hunter Dedication for Pristine Living Weapon at level fourteen', () => {
+  const dedication = content('feat', 'Wild Hunter Dedication', { archetype: 'Wild Hunter' }, 2, ['Archetype', 'Dedication'])
+  const entries = [...homebrewCharacterOptions([]), dedication]
+  const c: Character = { ...base, level: 14, feats: [feat('Wild Hunter Dedication', 2), feat('Living Weapon', 8)] }
+  const slot = { key: 'archetype:14:0', level: 14, category: 'archetype' as const }
+  expect(eligibleFeats(entries, c, slot).map((entry) => entry.name)).toContain('Pristine Living Weapon')
+  const pristine = entries.find((entry) => entry.name === 'Pristine Living Weapon')!
+  expect(pristine).toMatchObject({ level: 14, traits: ['Archetype'],
+    data: { archetype: 'Wild Hunter', prerequisite: 'Living Weapon, Wild Hunter Dedication' } })
+  expect(pristine.description).not.toContain('verdant')
+  for (const feats of [[], c.feats.slice(0, 1), c.feats.slice(1), [c.feats[0], feat('Living Weapon', 16)]])
+    expect(eligibleFeats(entries, { ...c, feats }, slot).map((entry) => entry.name)).not.toContain(pristine.name)
+  expect(eligibleFeats(entries, c, { ...slot, level: 12 }).map((entry) => entry.name)).not.toContain(pristine.name)
+})
+
+it('treats Living Weapons and inherited haft strikes as cold iron and silver without adding unconditional bleed', () => {
+  const polearm = content('weapon', 'Glaive', { hands: 2, weapon_group: 'Polearm', damage: '1d8 slashing' })
+  const weapon = { ...main, name: polearm.name, livingWeapon: true }
+  const c: Character = { ...base, level: 14, weapons: [weapon], feats: [
+    feat('Wild Hunter Dedication', 2), feat('Living Weapon', 8), feat('Pristine Living Weapon', 14), feat('Haft Striker Stance', 4),
+  ] }
+  const ordinary = { ...weapon, id: 'ordinary', livingWeapon: false }
+  const entries = [polearm]
+  const haft = ownedWeapons(c, entries).find((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)!
+  for (const strike of [weapon, haft]) {
+    const attack = weaponAttack(c, entries, strike)
+    expect(attack.pristineLivingWeapon).toBe(true)
+    expect(attack.damage).not.toContain('bleed')
+    expect(effectiveWeapon(c, entries, strike).material).toBe('Peachwood (Greater)')
+  }
+  expect(weaponAttack(c, entries, ordinary).pristineLivingWeapon).toBe(false)
+  for (const missing of ['Wild Hunter Dedication', 'Living Weapon', 'Pristine Living Weapon']) {
+    expect(weaponAttack({ ...c, feats: c.feats.filter((feat) => feat.name !== missing) }, entries, weapon).pristineLivingWeapon).toBe(false)
+  }
+  expect(weaponAttack({ ...c, level: 13 }, entries, weapon).pristineLivingWeapon).toBe(false)
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('treated as cold iron and silver')
+  expect(markup).toContain('Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.')
+  expect(markup).toContain('Material*')
+  expect(markup).not.toContain('Damage 2d8+1 S + 1d6')
+})
+
+it('excludes separately owned blessing grants as well as the primary blessing', () => {
+  const c: Character = { ...base, blessing: 'Blessed Shield', feats: [feat('Blessed Armament')] }
+  expect(featChoiceOptions('Second Blessing', c, [], 'class:8:0')).toEqual(['Blessed Swiftness'])
+  expect(featChoiceOptions('Second Blessing', { ...c, feats: [...c.feats, feat('Blessed Swiftness')] }, [], 'class:8:0')).toEqual([])
+})
+
 it('applies Jousting only to qualifying selected verdant, living, or favored one-handed melee weapons', () => {
   const c = { ...base, level: 14, feats: ['Favored Weapon Jousting', 'Verdant Weapon Jousting', 'Living Weapon Joust', 'Living Weapon'].map((name) => feat(name)) }
   expect(weaponAttack(c, [sword, deity], main).traits).toContain('Jousting')
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [main] }} entries={[sword, deity]} save={() => {}} />))
+    .not.toContain('Jousting while riding')
   const other = { ...main, name: 'Other' }
   const otherEntry = { ...sword, name: 'Other' }
   expect(weaponAttack(c, [otherEntry, deity], other).traits).not.toContain('Jousting')
@@ -107,6 +283,10 @@ it.each([[5, 'Low-Grade'], [9, 'Low-Grade'], [10, 'Standard-Grade'], [15, 'Stand
   const tusks = ownedWeapons(c, []).find((weapon) => weapon.name === ORC_TUSKS.name)!
   expect(effectiveWeapon(c, [], tusks)).toMatchObject({ material: `Cold Iron (${grade})`, potency: 0, striking: 0, runes: [] })
   expect(effectiveWeapon({ ...c, handwraps: { potency: 2, striking: 1, runes: ['Flaming'] } }, [], tusks)).toMatchObject({ potency: 2, striking: 1, runes: ['Flaming'] })
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain(`<select aria-label="Weapon material" disabled=""><option selected="">Cold Iron (${grade})</option></select>`)
+  expect(markup).not.toContain('Configure unarmed potency')
+  expect(markup).not.toContain('locked by Cold Iron Tusks')
   expect(ownedWeapons({ ...c, level: 4 }, []).map((weapon) => weapon.name)).not.toContain('Tusks')
 })
 
@@ -122,6 +302,18 @@ it('applies Animal Feature senses, movement, and level gates without changing la
   expect(movementSpeeds({ ...c, animalFeature: 'Wings', feats: [] }, [])).toEqual([{ name: 'Land', feet: 25 }])
 })
 
+it.each([[1, 30], [4, 30], [5, 60], [20, 60]])('adds active Keen Smell scent at level %i with correct focus-spell heightening', (level, range) => {
+  const c: Character = { ...base, level, className: 'Ranger', activeSpells: ['Keen Smell'],
+    feats: [feat('Initiate Warden', 1, 'Keen Smell')] }
+  const expected = { value: `Scent (imprecise) ${range} feet`, source: 'Keen Smell' }
+  expect(senses(c, [])).toContainEqual(expected)
+  expect(senses(JSON.parse(JSON.stringify(c)) as Character, [])).toContainEqual(expected)
+  expect(senses({ ...c, activeSpells: [] }, [])).not.toContainEqual(expected)
+  expect(senses({ ...c, feats: [] }, [])).not.toContainEqual(expected)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  expect(markup).toContain(`Scent (imprecise) ${range} feet (Keen Smell)`)
+})
+
 it('applies Magic Hide only to the selected companion while the known spell is active', () => {
   const cat = content('companion', 'Cat', { strength: 2, dexterity: 3, constitution: 1, hp: 6, size: 'Small', speed: 35 })
   const c: Character = { ...base, companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }],
@@ -130,6 +322,104 @@ it('applies Magic Hide only to the selected companion while the known spell is a
   expect(companionStats(c, [cat], 'Cat', undefined, 'a')!.ac).toBe(normal)
   expect(companionStats(c, [cat], 'Cat', undefined, 'b')!.ac).toBe(normal + 1)
   expect(companionStats({ ...c, spells: [] }, [cat], 'Cat', undefined, 'b')!.ac).toBe(normal)
+  const stale = { ...c, magicHideCompanionId: 'removed-companion' }
+  expect(companionStats(stale, [cat], 'Cat', undefined, 'a')!.ac).toBe(normal + 1)
+  expect(companionStats(stale, [cat], 'Cat', undefined, 'b')!.ac).toBe(normal)
+})
+
+it('syncs Magic Hide across spells and companion controls and marks only the affected AC', () => {
+  const cat = content('companion', 'Cat', { strength: 2, dexterity: 3, constitution: 1, hp: 6, size: 'Small', speed: 35 })
+  const c: Character = { ...base, companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }],
+    activeSpells: ['Keen Smell'], spells: [{ name: 'Magic Hide', rank: 1, cantrip: false }] }
+  for (const active of [true, false]) {
+    const changed = { ...c, ...magicHideChange(c, active, 'b') }
+    const minions = renderToStaticMarkup(<MinionsSection c={changed} entries={[cat]} save={() => {}} />)
+    const spells = renderToStaticMarkup(<SpellsSection c={changed} entries={[cat]} save={() => {}} />)
+    expect(minions).toContain(`aria-label="Magic Hide on B"${active ? ' checked=""' : ''}`)
+    expect(spells).toContain(`aria-label="Magic Hide active"${active ? ' checked=""' : ''}`)
+    expect(minions.match(/title="\+1 Status \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 1 : 0)
+    expect(changed.activeSpells).toContain('Keen Smell')
+    if (active) expect(minions).toMatch(/title="\+1 Status \(Magic Hide\)">\d+\*<\/b>/)
+  }
+})
+
+it('targets Canopy Crawler at one creature before rank five and both at rank five, matching highest speed', () => {
+  const cat = content('companion', 'Cat', { size: 'Small', speed_raw: '35 feet, fly 50 feet, climb 10 feet' })
+  const c: Character = { ...base, level: 8, className: 'Ranger',
+    companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }],
+    spells: [{ name: 'Canopy Crawler', rank: 2, cantrip: false }], activeSpells: ['Canopy Crawler'],
+    canopyCrawlerCompanionId: 'b', canopyCrawlerTarget: 'Self' }
+  const stats = (character: Character, id = 'b') => companionStats(character, [cat], 'Cat', undefined, id)!
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Climb', feet: 25 })
+  expect(stats(c).speed).toBe('35 feet, fly 50 feet, climb 10 feet')
+  const companionOnly: Character = { ...c, canopyCrawlerTarget: 'Companion' }
+  expect(movementSpeeds(companionOnly, [])).not.toContainEqual({ name: 'Climb', feet: 25 })
+  expect(stats(companionOnly).speed).toBe('35 feet, fly 50 feet, climb 50 feet')
+  expect(stats(companionOnly, 'a').canopyCrawler).toBe(false)
+  expect(stats({ ...companionOnly, canopyCrawlerCompanionId: 'removed' }, 'a').canopyCrawler).toBe(true)
+  const both: Character = JSON.parse(JSON.stringify({ ...c, level: 9, canopyCrawlerTarget: 'Both' }))
+  expect(movementSpeeds(both, [])).toContainEqual({ name: 'Climb', feet: 25 })
+  expect(stats(both).speed).toBe('35 feet, fly 50 feet, climb 50 feet')
+  expect(stats({ ...both, level: 8 }).canopyCrawler).toBe(false)
+  for (const patch of [{ activeSpells: [] }, { spells: [] }, { level: 2 }]) {
+    expect(movementSpeeds({ ...both, ...patch }, [])).toEqual([{ name: 'Land', feet: 25 }])
+    expect(stats({ ...both, ...patch }).speed).toBe(cat.data.speed_raw)
+  }
+  const minions = renderToStaticMarkup(<MinionsSection c={both} entries={[cat]} save={() => {}} />)
+  expect(minions).toContain('aria-label="Canopy Crawler on B" checked=""')
+  expect(minions).not.toContain('aria-label="Canopy Crawler on A" checked=""')
+  expect(minions).toContain('climb 50 feet*')
+  const noClimb = { ...cat, data: { ...cat.data, speed_raw: '35 feet, swim 40 feet' } }
+  expect(companionStats(both, [noClimb], 'Cat', undefined, 'b')!.speed).toBe('35 feet, swim 40 feet, climb 40 feet')
+})
+
+it('enlarges only smaller companions, gating Huge at level seven and applying damage, reach and clumsy', () => {
+  const cat = content('companion', 'Cat', { size: 'Small', strength: 2, dexterity: 3, speed: 35,
+    companion_attacks: 'jaws|1d8 piercing|;claw|1d6 slashing|finesse;spines|1d4 piercing|ranged, range 30 feet' })
+  const c: Character = { ...base, level: 6, companions: [{ id: 'a', name: 'A', type: 'Cat' }, { id: 'b', name: 'B', type: 'Cat' }],
+    spells: [{ name: 'Enlarge Companion', rank: 2, cantrip: false }, { name: 'Magic Hide', rank: 1, cantrip: false }],
+    activeSpells: ['Enlarge Companion'], enlargeCompanionId: 'b', enlargeCompanionSize: 'Huge' }
+  const stats = (character: Character, entry = cat, id = 'b') => companionStats(character, [entry], 'Cat', undefined, id)!
+  const normal = stats({ ...c, activeSpells: [] })
+  const large = stats(c)
+  expect(large).toMatchObject({ size: 'Large', clumsy: 1, enlarge: { damage: 2, reachIncrease: 5 } })
+  expect(large.ac).toBe(normal.ac - 1)
+  expect(large.reflex).toBe(normal.reflex - 1)
+  expect(large.fortitude).toBe(normal.fortitude)
+  expect(large.attacks[0]).toMatchObject({ attack: normal.attacks[0].attack, damage: '1d8+4 piercing' })
+  expect(large.attacks[1]).toMatchObject({ attack: normal.attacks[1].attack - 1, damage: '1d6+5 slashing' })
+  expect(large.attacks[2].damage).toBe(normal.attacks[2].damage)
+  expect(large.skills.find((skill) => skill.name === 'Acrobatics')!.bonus)
+    .toBe(normal.skills.find((skill) => skill.name === 'Acrobatics')!.bonus - 1)
+  expect(stats(c, cat, 'a').enlarge).toBeUndefined()
+  expect(stats({ ...c, enlargeCompanionId: 'removed' }, cat, 'a').enlarge).toBeDefined()
+  const huge = { ...c, level: 7 }
+  expect(stats(huge)).toMatchObject({ size: 'Huge', enlarge: { damage: 4, reachIncrease: 10 } })
+  expect(stats({ ...huge, enlargeCompanionSize: 'Large' })).toMatchObject({ size: 'Large', enlarge: { damage: 2 } })
+  expect(stats(huge, { ...cat, data: { ...cat.data, size: 'Tiny' } }).enlarge?.reachIncrease).toBe(15)
+  expect(stats(c, { ...cat, data: { ...cat.data, size: 'Tiny' } }).enlarge?.reachIncrease).toBe(10)
+  expect(stats({ ...c, activeSpells: ['Enlarge Companion', 'Magic Hide'], magicHideCompanionId: 'b' }).ac).toBe(normal.ac)
+  for (const patch of [{ activeSpells: [] }, { spells: [] }, { level: 2 }])
+    expect(stats({ ...c, ...patch }).enlarge).toBeUndefined()
+  const markup = renderToStaticMarkup(<MinionsSection c={huge} entries={[cat]} save={() => {}} />)
+  expect(markup).toContain('Huge*')
+  expect(markup).toContain('+4 status melee damage; +10 feet reach; clumsy 1.')
+  expect(markup).toContain('-1 Status (clumsy 1; Enlarge Companion)')
+})
+
+it('gives a naturally Large Sarkorian Direwolf no lower-rank Enlarge Companion effects', () => {
+  const wolf = content('companion', 'Sarkorian Direwolf', { size: 'Large', fixed_size: true, strength: 2, dexterity: 3,
+    speed: 35, companion_attacks: 'jaws|1d8 piercing|' })
+  const c: Character = { ...base, companions: [{ id: 'wolf', name: '', type: wolf.name }],
+    spells: [{ name: 'Enlarge Companion', rank: 2, cantrip: false }], activeSpells: ['Enlarge Companion'], enlargeCompanionSize: 'Large' }
+  const stats = (character: Character, entry = wolf) => companionStats(character, [entry], wolf.name)!
+  expect(stats(c)).toEqual(stats({ ...c, activeSpells: [] }))
+  const huge: Character = JSON.parse(JSON.stringify({ ...c, enlargeCompanionSize: 'Huge' }))
+  expect(stats(huge)).toMatchObject({ size: 'Huge', enlarge: { damage: 4, reachIncrease: 10 }, clumsy: 1 })
+  for (const size of ['Huge', 'Gargantuan']) {
+    const entry = { ...wolf, data: { ...wolf.data, size } }
+    expect(stats(huge, entry)).toEqual(stats({ ...huge, activeSpells: [] }, entry))
+  }
 })
 
 it('scales and gates official Oversized Throw and prevents enhancement editing', () => {
@@ -183,6 +473,10 @@ it('makes Primal Nimbleness available to both classes and scales heritage and Ra
   expect(resistances({ ...base, level: 1, heritage: heritage.name }, options)).toContainEqual({ damage: 'Fire', value: 1, source: heritage.name })
   expect(resistances({ ...base, level: 9, heritage: heritage.name }, options)).toContainEqual({ damage: 'Fire', value: 4, source: heritage.name })
   expect(resistances({ ...base, level: 10, feats: [feat('Poison Resistance', 2)] }, options)).toContainEqual({ damage: 'Poison', value: 5, source: 'Poison Resistance' })
+  const markup = renderToStaticMarkup(<SkillsSection c={{ ...base, level: 20, feats: [feat('Poison Resistance', 2)] }}
+    entries={options} save={() => {}} part="defense" />)
+  expect(markup).toContain('title="Poison Resistance: +1 status bonus to saving throws against poisons.">Poison 10*</span>')
+  expect(markup).not.toContain('Saving throws against poisons: +1 status bonus.</small>')
   expect(options.find((entry) => entry.id === 'homebrew:ranger-poison-resistance')?.traits).toEqual(['Ranger'])
   expect(druidPoison.traits).toEqual(['Alchemist', 'Druid'])
 })

@@ -1,11 +1,12 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useMemo, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeature, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeature, canopyCrawlerAffects, canopyCrawlerTarget, classSpellcasting, companionSpellTarget, enlargeCompanionSize, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, type SectionProps } from './builder'
 import { ANIMAL_FEATURES } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
+import { SpellDamageRolls } from './SpellDamage'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -24,6 +25,54 @@ export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
       </label>
     })}
   </fieldset>
+}
+
+export function CompanionSpellOptions({ c, entries, save, name, companionId }: SectionProps & {
+  name: 'Canopy Crawler' | 'Enlarge Companion'
+  companionId?: string
+}) {
+  const canopy = name === 'Canopy Crawler'
+  const targetId = companionSpellTarget(c, canopy ? c.canopyCrawlerCompanionId : c.enlargeCompanionId)
+  const companion = c.companions?.find((companion) => companion.id === companionId)
+  const active = companionId === undefined ? isSpellActive(c, entries, name)
+    : canopy ? canopyCrawlerAffects(c, entries, companionId) : isSpellActive(c, entries, name) && companionId === targetId
+  const target = canopyCrawlerTarget(c)
+  return <div className="row">
+    <label><input type="checkbox" aria-label={`${name}${companionId ? ` on ${companion?.name || companion?.type || companionId}` : ' active'}`}
+      disabled={c.level < 3} checked={active} onChange={(e) => save({
+        ...spellActiveChange(c, name, e.target.checked),
+        ...(canopy ? {
+          canopyCrawlerCompanionId: companionId ?? targetId,
+          canopyCrawlerTarget: companionId && target !== 'Both' ? 'Companion' : target,
+        } : { enlargeCompanionId: companionId ?? targetId }),
+      })} /> {companionId ? name : 'Active'}</label>
+    {canopy ? <label>Target{' '}
+      <select aria-label="Canopy Crawler target" value={target} onChange={(e) => {
+        const choice = (['Self', 'Companion', 'Both'] as const).find((option) => option === e.target.value)
+        if (choice && (choice !== 'Both' || c.level >= 9)) save({
+          canopyCrawlerTarget: choice,
+          ...(companionId && choice !== 'Self' ? { canopyCrawlerCompanionId: companionId } : {}),
+        })
+      }}>
+        <option>Self</option><option>Companion</option><option disabled={c.level < 9}>Both</option>
+      </select>
+    </label> : <label>Size{' '}
+      <select aria-label="Enlarge Companion size" value={enlargeCompanionSize(c)} onChange={(e) => {
+        if (e.target.value === 'Large' || e.target.value === 'Huge' && c.level >= 7) save({ enlargeCompanionSize: e.target.value })
+      }}>
+        <option>Large</option><option disabled={c.level < 7}>Huge</option>
+      </select>
+    </label>}
+    {(c.companions?.length ?? 0) > 1 && (!canopy || target !== 'Self') && <label>Companion{' '}
+      <select aria-label={`${name} companion`} value={targetId ?? ''} onChange={(e) => {
+        if (c.companions?.some((companion) => companion.id === e.target.value))
+          save(canopy ? { canopyCrawlerCompanionId: e.target.value } : { enlargeCompanionId: e.target.value })
+      }}>
+        {[...(c.companions ?? [])].sort((a, b) => (a.name || a.type).localeCompare(b.name || b.type))
+          .map((companion) => <option key={companion.id} value={companion.id}>{companion.name || companion.type}</option>)}
+      </select>
+    </label>}
+  </div>
 }
 
 function SpellItem({ name, entry, note, onRemove, active, onToggle, children }: {
@@ -56,14 +105,19 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const buffProps = (name: string, entry?: ContentEntry) => {
     const duration = entry?.data.duration
     const timed = Number(duration) > 0 || typeof duration === 'string' && /\b(?:round|minute|hour|day|sustain|unlimited)/i.test(duration)
-    if (name === 'Animal Feature' || name !== 'Magic Hide' && !timed) return {}
+    if (['Animal Feature', 'Canopy Crawler', 'Enlarge Companion'].includes(name) || name !== 'Magic Hide' && !timed) return {}
     return {
-      active: c.activeSpells?.includes(name),
-      onToggle: (active: boolean) => save({
+      active: name === 'Magic Hide' ? isMagicHideActive(c, entries) : c.activeSpells?.includes(name),
+      onToggle: (active: boolean) => save(name === 'Magic Hide' ? magicHideChange(c, active) : {
         activeSpells: [...(c.activeSpells ?? []).filter((spell) => spell !== name), ...(active ? [name] : [])],
       }),
     }
   }
+  const controls = (name: string) => <>
+    {name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
+      : name === 'Canopy Crawler' || name === 'Enlarge Companion' ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} /> : null}
+    <SpellDamageRolls name={name} rank={Math.ceil(c.level / 2)} />
+  </>
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
@@ -150,7 +204,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
             {focus.map((s) => {
               const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
               return <SpellItem key={s.name} entry={entry} name={s.name} note={s.source} {...buffProps(s.name, entry)}>
-                {s.name === 'Animal Feature' && <AnimalFeatureOptions c={c} entries={entries} save={save} />}
+                {controls(s.name)}
               </SpellItem>
             })}
           </ul>
@@ -165,7 +219,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
               return <SpellItem key={`${s.name}-${s.index}`} name={s.name} entry={entry} {...buffProps(s.name, entry)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index),
                   activeSpells: c.activeSpells?.filter((name) => name !== s.name) }) : undefined}>
-                {s.name === 'Animal Feature' && <AnimalFeatureOptions c={c} entries={entries} save={save} />}
+                {controls(s.name)}
               </SpellItem>
             })}
           </ul>

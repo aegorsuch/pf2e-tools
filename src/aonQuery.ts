@@ -15,7 +15,7 @@ export const DATA_FIELDS = [
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
-  'domain_primary', 'sanctification', 'warden_spell_tier',
+  'domain_primary', 'sanctification', 'sanctification_required', 'warden_spell_tier',
   'deity_category', 'epithet', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
   'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'sense', 'speed_raw', 'mount', 'companion_attacks', 'companion_support', 'companion_maneuver',
 ]
@@ -156,6 +156,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           }
         }
         if (category === 'deity' && typeof s.markdown === 'string') {
+          s.sanctification_required = /\bDivine Sanctification\s+must choose\b/i.test(plain(s.markdown))
           const spells = parseClericSpells(s.markdown)
           if (spells) s.cleric_spells = spells
           const about = parseDeityAbout(s.markdown)

@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { MinionsSection } from './MinionsSection'
+import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
@@ -14,6 +15,73 @@ function findSelect(node: ReactNode, label: string): ((event: { target: { value:
   })
   return found
 }
+
+function findToggle(node: ReactNode, label: string): ((event: { target: { checked: boolean } }) => void) | undefined {
+  let found: ((event: { target: { checked: boolean } }) => void) | undefined
+  Children.forEach(node, (child) => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === 'input' && child.props['aria-label'] === label
+      ? child.props.onChange as (event: { target: { checked: boolean } }) => void
+      : findToggle(child.props.children as ReactNode, label)
+  })
+  return found
+}
+
+it('syncs companion spell toggles in both directions, persists targets, and gates heightened choices', () => {
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 6, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    activeSpells: ['Keen Smell'],
+    companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }],
+    spells: ['Canopy Crawler', 'Enlarge Companion'].map((name) => ({ name, rank: 2, cantrip: false })),
+  }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  for (const name of ['Canopy Crawler', 'Enlarge Companion'] as const) {
+    const component = (companionId?: string) => CompanionSpellOptions({ c, entries: [], save, name, companionId })
+    const on = findToggle(component('b'), `${name} on B`)
+    if (!on) throw new Error('Missing companion spell toggle')
+    on({ target: { checked: true } })
+    expect(c.activeSpells).toContain(name)
+    expect(c.activeSpells).toContain('Keen Smell')
+    const spells = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={save} />)
+    expect(spells).toContain(`aria-label="${name} active" checked=""`)
+    expect(renderToStaticMarkup(component('a'))).not.toContain('checked=""')
+    const off = findToggle(component(), `${name} active`)
+    if (!off) throw new Error('Missing spell list toggle')
+    off({ target: { checked: false } })
+    expect(renderToStaticMarkup(component('b'))).not.toContain('checked=""')
+    const spellOn = findToggle(component(), `${name} active`)
+    if (!spellOn) throw new Error('Missing spell list toggle')
+    spellOn({ target: { checked: true } })
+    expect(renderToStaticMarkup(component('b'))).toContain('checked=""')
+  }
+  expect(c.canopyCrawlerCompanionId).toBe('b')
+  expect(c.enlargeCompanionId).toBe('b')
+  const select = (name: 'Canopy Crawler' | 'Enlarge Companion', label: string, value: string) => {
+    const change = findSelect(CompanionSpellOptions({ c, entries: [], save, name }), label)
+    if (!change) throw new Error('Missing companion spell choice')
+    change({ target: { value } })
+  }
+  select('Enlarge Companion', 'Enlarge Companion size', 'Huge')
+  expect(c.enlargeCompanionSize).toBeUndefined()
+  c = { ...c, level: 7 }
+  select('Enlarge Companion', 'Enlarge Companion size', 'Huge')
+  expect(c.enlargeCompanionSize).toBe('Huge')
+  select('Canopy Crawler', 'Canopy Crawler target', 'Both')
+  expect(c.canopyCrawlerTarget).toBe('Companion')
+  c = { ...c, level: 9 }
+  select('Canopy Crawler', 'Canopy Crawler target', 'Both')
+  expect(c.canopyCrawlerTarget).toBe('Both')
+  select('Canopy Crawler', 'Canopy Crawler companion', 'a')
+  expect(c.canopyCrawlerCompanionId).toBe('a')
+  select('Canopy Crawler', 'Canopy Crawler companion', 'invalid')
+  expect(c.canopyCrawlerCompanionId).toBe('a')
+  c = { ...c, level: 6 }
+  expect(renderToStaticMarkup(<CompanionSpellOptions c={c} entries={[]} save={save} name="Enlarge Companion" />))
+    .toContain('<option selected="">Large</option>')
+  expect(c.enlargeCompanionSize).toBe('Huge')
+})
 
 it.each([
   ['Incredible Companion', 'Specialized Companion'],
@@ -45,6 +113,8 @@ it.each([
   expect(markup).not.toContain(specialized)
   expect(markup).not.toContain('Add animal companion')
   expect(markup).toContain('aria-label="Companion type"')
+  expect(markup).not.toContain('aria-label="Companion name"')
+  expect(markup).toContain('<strong>Wolf</strong>')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
     .not.toContain('Add animal companion')
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }

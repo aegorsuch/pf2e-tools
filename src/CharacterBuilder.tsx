@@ -215,8 +215,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
           {subclasses.length > 0 && <>
-            <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : 'Subclass'}
-              kind="subclass" value={subclassName} options={subclasses} onChange={(v) => save({ subclass: v ?? '' })} />
+            <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : 'Subclass'}
+              kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
+                || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
+              onChange={(v) => save({ subclass: v ?? '' })} />
             {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
           </>}
           {classSkills(klass).choices.length > 0 && (

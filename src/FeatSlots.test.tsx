@@ -181,6 +181,41 @@ it('groups feat options by level, alphabetically within each level', () => {
   expect(markup).toContain('<optgroup label="L02"><option value="Middle">Middle</option></optgroup>')
 })
 
+it('does not offer or accept duplicate blessings, including when no distinct choice remains', () => {
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 8, className: 'Champion', blessing: 'Blessed Armament',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const entry: ContentEntry = { id: 'second', name: 'Second Blessing', kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 8, traits: ['Champion'], description: '', data: {}, effects: [], updatedAt: 1 }
+  const tree = () => FeatSlots({ c, entries: [entry], save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
+  expect(renderToStaticMarkup(tree())).not.toContain('Second Blessing (Blessed Armament)')
+  expect(renderToStaticMarkup(tree())).toContain('Second Blessing (Blessed Shield)')
+  const choose = findSelect(tree(), 'L08 Class feat')
+  if (!choose) throw new Error('Missing level 8 feat picker')
+  choose({ target: { value: JSON.stringify(['Second Blessing', 'Blessed Armament']) } })
+  expect(c.feats).toEqual([])
+  choose({ target: { value: JSON.stringify(['Second Blessing', 'Blessed Shield']) } })
+  expect(c.feats[0]).toMatchObject({ name: 'Second Blessing', choice: 'Blessed Shield' })
+  c = { ...c, feats: ['Blessed Shield', 'Blessed Swiftness'].map((name) => ({ name, type: 'Class Feat', level: 1 })) }
+  expect(renderToStaticMarkup(tree())).not.toContain('>Second Blessing')
+})
+
+it('shows all domains but disables domains not granted by the selected deity in the feat picker', () => {
+  const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion', deity: 'Chosen',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const feat: ContentEntry = { id: 'domain', kind: 'feat', name: "Deity's Domain", level: 1, traits: ['Champion'],
+    source: 'official', systems: ['pf2e'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [feat,
+    { ...feat, id: 'chosen', name: 'Chosen', kind: 'deity', data: { domain_primary: 'Zeal' } },
+    { ...feat, id: 'other', name: 'Other', kind: 'deity', data: { domain_primary: 'Fire' } }]
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['class']} />)
+  expect(markup).toContain('disabled="">Deity&#x27;s Domain (Fire)</option>')
+  expect(markup).toContain('>Deity&#x27;s Domain (Zeal)</option>')
+})
+
 it('allows repeatable feats in multiple slots and retains their entry link until the final copy is removed', () => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
