@@ -1,4 +1,5 @@
 import type { Effect } from './types'
+import { confirmRemoval } from './confirmRemoval'
 
 const defaults: Record<Effect['type'], Effect> = {
   sense: { type: 'sense', sense: 'darkvision' },
@@ -40,7 +41,7 @@ export function EffectsEditor({ effects, onChange }: { effects: Effect[]; onChan
               value={(e as unknown as Record<string, string | number>)[f] ?? ''}
               onChange={(ev) => update(i, f, ev.target.value)} />
           ))}
-          <button type="button" onClick={() => onChange(effects.filter((_, j) => j !== i))}>Remove</button>
+          <button type="button" onClick={() => confirmRemoval(`"${e.type}" effect`, () => onChange(effects.filter((_, j) => j !== i)))}>Remove</button>
         </div>
       ))}
       <select value="" onChange={(ev) => ev.target.value && onChange([...effects, defaults[ev.target.value as Effect['type']]])}>

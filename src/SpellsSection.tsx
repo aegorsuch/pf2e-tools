@@ -1,24 +1,46 @@
 import { EntryDescription } from './EntryDescription'
-import { useMemo, useState } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
+import { confirmRemoval } from './confirmRemoval'
+import { useMemo, useState, type ReactNode } from 'react'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeature, classSpellcasting, focusSpells, proficiencyBonus, signed, type SectionProps } from './builder'
+import { ANIMAL_FEATURES } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
-function SpellItem({ name, entry, note, onRemove, active, onToggle }: {
+export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
+  const active = activeAnimalFeature(c, entries)
+  return <fieldset className="col">
+    <legend>Animal Feature: choose one</legend>
+    {ANIMAL_FEATURES.map((feature) => {
+      const unavailable = feature.rank > Math.ceil(c.level / 2)
+      return <label key={feature.name} className={unavailable ? 'disabled' : undefined}>
+        <input type="checkbox" aria-label={`Animal Feature: ${feature.name}`} disabled={unavailable} checked={active === feature.name}
+          onChange={(e) => save({
+            animalFeature: feature.name,
+            activeSpells: [...(c.activeSpells ?? []).filter((name) => name !== 'Animal Feature'), ...(e.target.checked ? ['Animal Feature'] : [])],
+          })} /> {feature.name} <small>{feature.effect}{unavailable ? ` (requires rank ${feature.rank}; character level ${feature.rank * 2 - 1})` : ''}</small>
+      </label>
+    })}
+  </fieldset>
+}
+
+function SpellItem({ name, entry, note, onRemove, active, onToggle, children }: {
   name: string; entry?: ContentEntry; note?: string; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
+  children?: ReactNode
 }) {
   return (
     <li className="spell-item">
       <div className="spell-name">
         <EntryDescription name={name} entry={entry} /> <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}
+        {children}
       </div>
       {onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
         onChange={(e) => onToggle(e.target.checked)} /> Active</label>}
-      {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove" onClick={onRemove}>×</button>}
+      {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
+        onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
     </li>
   )
 }
@@ -34,7 +56,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const buffProps = (name: string, entry?: ContentEntry) => {
     const duration = entry?.data.duration
     const timed = Number(duration) > 0 || typeof duration === 'string' && /\b(?:round|minute|hour|day|sustain|unlimited)/i.test(duration)
-    if (name !== 'Animal Feature' && !timed) return {}
+    if (name === 'Animal Feature' || name !== 'Magic Hide' && !timed) return {}
     return {
       active: c.activeSpells?.includes(name),
       onToggle: (active: boolean) => save({
@@ -127,7 +149,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <ul>
             {focus.map((s) => {
               const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
-              return <SpellItem key={s.name} entry={entry} name={s.name} note={s.source} {...buffProps(s.name, entry)} />
+              return <SpellItem key={s.name} entry={entry} name={s.name} note={s.source} {...buffProps(s.name, entry)}>
+                {s.name === 'Animal Feature' && <AnimalFeatureOptions c={c} entries={entries} save={save} />}
+              </SpellItem>
             })}
           </ul>
         </div>
@@ -140,7 +164,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
               const entry = entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))
               return <SpellItem key={`${s.name}-${s.index}`} name={s.name} entry={entry} {...buffProps(s.name, entry)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index),
-                  activeSpells: c.activeSpells?.filter((name) => name !== s.name) }) : undefined} />
+                  activeSpells: c.activeSpells?.filter((name) => name !== s.name) }) : undefined}>
+                {s.name === 'Animal Feature' && <AnimalFeatureOptions c={c} entries={entries} save={save} />}
+              </SpellItem>
             })}
           </ul>
         </div>

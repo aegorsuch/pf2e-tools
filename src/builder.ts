@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { getSettings } from './settings'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, SUPPLEMENTAL_WEAPONS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS } from './supplemental'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -44,6 +44,9 @@ export function ancestryLabel(ancestry?: string, heritage?: string) {
   const includesAncestry = `-${slug(heritage)}-`.includes(`-${slug(ancestry)}-`)
   return includesAncestry ? heritage : `${heritage} ${ancestry}`
 }
+
+export const characterSummary = (c: Character, entries: ContentEntry[]) =>
+  [ancestryLabel(c.ancestry, c.heritage), classLabel(c, entries), c.level].filter((value) => value !== '').join(' ')
 
 // A heritage belongs to an ancestry via its ancestry field (SF2e id or AoN field) or ancestry trait;
 // heritages naming no ancestry (versatile ones) are offered to everyone. Both systems' heritages are merged.
@@ -339,6 +342,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(generalOnly && traits.has('skill'))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (!isCompanionSpecialization(e.name) || specializations < 3)
+      && (e.name !== 'Third Blessing' || c.feats.some((feat) => feat.name === 'Second Blessing' && feat.level <= slot.level))
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
       && (!taken.has(e.name) || (e.data.repeatable === true || isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key))
       && archetypeAllowed(e))
@@ -350,6 +354,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Order Explorer') return availableOrders(c, index)
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
+  if (name === 'Second Blessing' || name === 'Third Blessing') {
+    const used = [championBlessing(c), ...c.feats.flatMap((feat) => feat.slot !== slotKey && ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])]
+    return DEVOTED_BLESSINGS.filter((blessing) => !used.includes(blessing))
+  }
   if (hasWardenChoice({ name }) && c.systems.includes('pf2e')) {
     const selected = new Set(c.feats.flatMap((feat) => feat.slot !== slotKey && hasWardenChoice(feat) && feat.choice ? [feat.choice] : []))
     return wardenSpellOptions({ name }, entries).map((spell) => spell.name).filter((choice) => !selected.has(choice))
@@ -433,10 +441,16 @@ const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === n
 
 // Land Speed: ancestry speed (25 if unknown) plus Fleet's 5 feet
 export const speed = (c: Character, entries: ContentEntry[]) =>
-  (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + (hasFeat(c, 'Fleet') ? 5 : 0)
+  (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + (hasFeat(c, 'Fleet') ? 5 : 0) + (hasFeat(c, 'Primal Nimbleness') ? 5 : 0)
+
+export function movementSpeeds(c: Character, entries: ContentEntry[]) {
+  const land = speed(c, entries)
+  const feature = activeAnimalFeature(c, entries)
+  return [{ name: 'Land', feet: land }, ...(feature === 'Fish Tail' ? [{ name: 'Swim', feet: land }] : feature === 'Wings' ? [{ name: 'Fly', feet: land }] : [])]
+}
 
 export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>
-  defenseSummary(c, entries).perception + (hasFeat(c, 'Incredible Initiative') ? 2 : 0)
+  defenseSummary(c, entries).perception + Math.max(hasFeat(c, 'Incredible Initiative') ? 2 : 0, wornArmor(c)?.material === 'Orichalcum' ? 1 : 0)
 
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -606,6 +620,9 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
   const out = typeof ancestry === 'string' && ancestry ? [{ value: ancestry, source: c.ancestry }] : []
   for (const g of featData(c, entries, 'grants_vision')) if (!out.some((o) => o.value.toLowerCase() === g.value.toLowerCase())) out.push(g)
+  const feature = activeAnimalFeature(c, entries)
+  const vision = feature === 'Cat Eyes' ? 'Low-Light Vision' : feature === 'Owl Eyes' ? 'Darkvision' : undefined
+  if (vision && !out.some((sense) => sense.value.toLowerCase() === vision.toLowerCase())) out.push({ value: vision, source: 'Animal Feature' })
   return out.sort((a, b) => a.value.localeCompare(b.value))
 }
 
@@ -797,26 +814,51 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
 }
 
 // Imported equipment shows up as configurable gear until the player edits it
-export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
-  const weapons = c.weapons ?? c.equipment
+function carriedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
+  return c.weapons ?? c.equipment
     .filter((g) => byName(entries, 'weapon', g.name))
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, striking: 0, runes: [] }))
+}
+
+export function haftStrikerWeapons(c: Character, entries: ContentEntry[]) {
+  if (c.level < 4 || !hasFeat(c, HAFT_STRIKER_WEAPON.name)) return []
+  return carriedWeapons(c, entries).filter((weapon) => {
+    const entry = weaponEntry(entries, weapon.name)
+    return num(entry?.data.hands) === 2 && !isRanged(entry) && /^(hammer|spear|polearm)$/i.test(String(entry?.data.weapon_group))
+  })
+}
+
+export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
+  const weapons = haftStrikerWeapons(c, entries)
+  return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
+}
+
+const canOversizedThrow = (c: Character) => c.className === 'Barbarian' && c.level >= 4 && !!c.raging && hasFeat(c, 'Oversized Throw')
+
+export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
+  const weapons = carriedWeapons(c, entries)
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
-  const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
-  const haftStriker = isLockedWeapon(c, HAFT_STRIKER_WEAPON.name)
+  const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name)) || c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
+  const haftStriker = !!haftStrikerSource(c, entries)
+  const oversizedThrow = canOversizedThrow(c)
   const gauntlet = armorGauntlet(c, entries)
-  const animalFeature = isSpellActive(c, entries, 'Animal Feature')
+  const animalFeature = activeAnimalFeature(c, entries)
   const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
+  const selectedAttack = animalFeature === 'Claws' ? ANIMAL_FEATURE_CLAWS : animalFeature === 'Jaws' ? ANIMAL_FEATURE_JAWS : undefined
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
-    && (weapon.id !== HAFT_STRIKER_WEAPON.id || haftStriker)
+    && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
+    && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
-    && (animalFeature || !animalAttacks.some((entry) => entry.name === weapon.name)))
+    && (!animalAttacks.some((entry) => entry.name === weapon.name) || weapon.name === selectedAttack?.name))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(animalFeature ? animalAttacks : []), ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...(selectedAttack ? [selectedAttack] : []), ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
+  }
+  if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
+    return available.filter((weapon) => weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
   }
   const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name
     && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
@@ -827,16 +869,25 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   return available
 }
 
-export function isSpellActive(c: Character, entries: ContentEntry[], name: string) {
-  return !!c.activeSpells?.includes(name) && (
-    c.spells?.some((spell) => spell.name === name)
+export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
+  return !!(c.spells?.some((spell) => spell.name === name)
     || c.feats.some((feat) => hasWardenChoice(feat) && feat.choice === name)
     || focusSpells(c, entries).spells.some((spell) => spell.name === name))
 }
 
+export const isSpellActive = (c: Character, entries: ContentEntry[], name: string) =>
+  !!c.activeSpells?.includes(name) && knowsSpell(c, entries, name)
+
+export function activeAnimalFeature(c: Character, entries: ContentEntry[]) {
+  if (!isSpellActive(c, entries, 'Animal Feature')) return undefined
+  const selected = c.animalFeature ?? 'Claws'
+  return ANIMAL_FEATURES.some((feature) => feature.name === selected && feature.rank <= Math.ceil(c.level / 2)) ? selected : undefined
+}
+
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = []) => isAutomaticUnarmed(name)
-  || name === HAFT_STRIKER_WEAPON.name && c.feats.some((feat) => feat.name === HAFT_STRIKER_WEAPON.name)
+  || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
+  || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
@@ -904,7 +955,7 @@ const FALLBACK_RUNE_USAGE: Record<string, string> = {
   Unholy: "etched into a weapon that isn't holy",
 }
 
-const runeBaseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
+export const runeBaseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
 
 export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, rune: string) {
   const entry = weaponEntry(entries, weapon.name)
@@ -953,16 +1004,101 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
   return propertyRunes(entries, 'Weapon').filter((rune) => available.has(rune.name))
 }
 
-export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
-  if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') {
-    return weapon.id === GAUNTLET.id ? { ...weapon, runes: weapon.runes.filter((rune) => weaponRuneApplies(entries, weapon, rune)) } : weapon
-  }
-  const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
-  const enhanced = { ...weapon, potency: fundamentals?.potency ?? 0, striking: fundamentals?.striking ?? 0, runes: c.handwraps?.runes ?? [] }
-  return { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) }
+export function canBeLivingWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name)
+  return weapon.id !== OVERSIZED_THROW.id && weapon.name !== HAFT_STRIKER_WEAPON.name
+    && c.feats.some((feat) => feat.name === 'Living Weapon') && weaponCategory(entry) !== 'Unarmed'
+    && !entry?.traits.some((trait) => /^free[- ]hand$/i.test(trait.trim()))
 }
 
-export const maxPropertyRunes = (potency: number) => Math.max(0, Math.min(3, potency))
+export const DEVOTED_BLESSINGS = ['Blessed Armament', 'Blessed Shield', 'Blessed Swiftness'] as const
+
+export function championBlessing(c: Character) {
+  return c.blessing ?? c.feats.find((feat) => feat.name === 'Blessing of the Devoted')?.choice
+    ?? (hasFeat(c, 'Blessed Armament') ? 'Blessed Armament' : undefined)
+}
+
+export function championBlessings(c: Character) {
+  if (c.className !== 'Champion' || c.level < 3) return []
+  const second = c.level >= 8 && hasFeat(c, 'Second Blessing')
+  const third = second && c.level >= 16 && hasFeat(c, 'Third Blessing')
+  return [...new Set([championBlessing(c),
+    ...(second ? [c.feats.find((feat) => feat.name === 'Second Blessing')?.choice] : []),
+    ...(third ? [c.feats.find((feat) => feat.name === 'Third Blessing')?.choice] : []),
+  ].filter((name): name is string => !!name && DEVOTED_BLESSINGS.some((blessing) => blessing === name)))]
+}
+
+export function isFavoredWeapon(c: Character, entries: ContentEntry[], name: string) {
+  const favored = tokens(byName(entries, 'deity', c.deity)?.data.favored_weapon)
+    .flatMap((weapon) => weapon.split(/\s+or\s+/i)).map((weapon) => weapon.toLowerCase())
+  return favored.includes(name.replace(/ \(Animal Feature\)$/, '').toLowerCase())
+}
+
+export function blessedArmamentTargets(c: Character, entries: ContentEntry[]) {
+  const favored = ownedWeapons(c, entries).filter((weapon) => isFavoredWeapon(c, entries, weapon.name))
+  const manufactured = favored.filter((weapon) => weapon.id !== OVERSIZED_THROW.id && weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed')
+  return [...manufactured, ...(c.handwraps && favored.some((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+    ? [{ id: HANDWRAPS.id, name: HANDWRAPS.name, ...c.handwraps }] : [])]
+}
+
+export function blessedArmamentRuneOptions(c: Character) {
+  const options = ['Fearsome', 'Ghost Touch', 'Returning', 'Shifting', 'Vitalizing']
+  const radiant = c.level >= 10 && hasFeat(c, 'Radiant Armament')
+  if (radiant) options.push('Astral', 'Brilliant', ...(c.sanctification ? [c.sanctification] : []))
+  if (c.level >= 20 && hasFeat(c, 'Armament Paragon')) {
+    options.push('Animated', 'Fearsome (Greater)', 'Grievous', 'Keen', 'Vitalizing (Greater)')
+    if (radiant) options.push('Astral (Greater)', 'Brilliant (Greater)')
+  }
+  return options.sort((a, b) => a.localeCompare(b))
+}
+
+export function isBlessedArmament(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  return weapon.id !== OVERSIZED_THROW.id && championBlessings(c).includes('Blessed Armament')
+    && isFavoredWeapon(c, entries, weapon.name)
+    && (c.blessedArmament?.weaponId === weapon.id
+      || !!c.handwraps && c.blessedArmament?.weaponId === HANDWRAPS.id && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+}
+
+export function blessedArmamentRune(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const rune = c.blessedArmament?.rune
+  if (!rune || !isBlessedArmament(c, entries, weapon) || !blessedArmamentRuneOptions(c).includes(runeName(rune))) return undefined
+  if (weapon.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune)) || !weaponRuneApplies(entries, weapon, rune)) return undefined
+  return runeName(rune)
+}
+
+function withBlessedArmament(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  const rune = blessedArmamentRune(c, entries, weapon)
+  return rune ? { ...weapon, runes: [...weapon.runes, rune] } : weapon
+}
+
+export function livingWeaponRunes(weapon: OwnedWeapon) {
+  return [...weapon.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(weapon.potency)), 'Shifting']
+}
+
+export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  if (weapon.id === OVERSIZED_THROW.id) return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
+  const haft = weapon.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
+  if (haft) {
+    const source = effectiveWeapon(c, entries, haft)
+    const inherited = { ...weapon, potency: source.potency, striking: source.striking, material: source.material, runes: source.runes }
+    weapon = { ...inherited, runes: source.runes.filter((rune) => weaponRuneApplies(entries, inherited, rune)) }
+  }
+  if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') {
+    const enhanced: OwnedWeapon = weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
+      ? { ...weapon, material: 'Peachwood (Greater)', runes: livingWeaponRunes(weapon) } : weapon
+    return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) } : enhanced)
+  }
+  const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
+  const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
+    ? c.level >= 16 ? 'Cold Iron (High-Grade)' : c.level >= 10 ? 'Cold Iron (Standard-Grade)' : 'Cold Iron (Low-Grade)' : undefined
+  const enhanced: OwnedWeapon = { ...weapon, material, potency: fundamentals?.potency ?? 0, striking: fundamentals?.striking ?? 0, runes: c.handwraps?.runes ?? [] }
+  return withBlessedArmament(c, entries, { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })
+}
+
+export const maxPropertyRunes = (potency: number, material?: OwnedWeapon['material']) => {
+  const slots = Math.max(0, Math.min(3, potency))
+  return slots + (slots > 0 && material === 'Orichalcum' ? 1 : 0)
+}
 
 const WEAPON_CATEGORIES = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const
 export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_CATEGORIES)[number] {
@@ -982,7 +1118,13 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
 
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
   w = effectiveWeapon(c, entries, w)
-  const entry = weaponEntry(entries, w.name)
+  let entry = weaponEntry(entries, w.name)
+  if (w.id === OVERSIZED_THROW.id) {
+    const specialization = classFeatures(entries, c).map((feature) => feature.name.toLowerCase())
+    const dice = specialization.includes('greater weapon specialization') || c.className === 'Barbarian' && c.level >= 15 ? 3
+      : specialization.includes('weapon specialization') || c.className === 'Barbarian' && c.level >= 7 ? 2 : 1
+    entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
+  }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)
   const thrown = traits.some((t) => t.startsWith('thrown'))
@@ -996,9 +1138,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
   const dice = m ? (+m[1]) * (1 + w.striking) : 0
   const flat = !ranged || thrown ? str : traits.includes('propulsive') ? Math.floor(str / 2) : 0
+  const jousting = !ranged && num(entry?.data.hands) === 1 && (
+    c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, w.name)
+    || c.level >= 4 && hasFeat(c, 'Verdant Weapon Jousting') && w.verdantWeapon
+    || c.level >= 14 && hasFeat(c, 'Living Weapon Joust') && w.livingWeapon && canBeLivingWeapon(c, entries, w))
   return {
     entry,
-    traits: entry?.traits ?? [],
+    traits: [...(entry?.traits ?? []), ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])],
+    criticalSpecialization: isBlessedArmament(c, entries, w),
     ability,
     mod,
     prof,

@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, speed, initiativeBonus, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, movementSpeeds, initiativeBonus, armorSpecialization,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, type SectionProps,
 } from './builder'
@@ -137,7 +137,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </div>
         {c.feats.some((f) => f.name === 'Incredible Initiative') && <small>Initiative: {signed(initiativeBonus(c, entries))} (Perception + 2 circumstance, Incredible Initiative)</small>}
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
-        <small>Speed: {speed(c, entries)} ft.</small>
+        {c.className === 'Barbarian' && <label><input type="checkbox" aria-label="Rage active" checked={!!c.raging}
+          onChange={(e) => save({ raging: e.target.checked })} /> Rage active</label>}
+        <small>Speed: {movementSpeeds(c, entries).map((movement) => `${movement.name === 'Land' ? '' : `${movement.name} `}${movement.feet} ft.`).join('; ')}</small>
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         <WeaponList c={c} entries={entries} save={save} />
       </>
@@ -157,6 +159,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </div>
         {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}{spec.feat ? ` via ${spec.feat} feat` : ''})</small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r) => `${r.damage} ${r.value} (${r.source})`).join(', ') : 'None'}</small>
+        {c.feats.some((feat) => feat.name === 'Poison Resistance') && <small>Saving throws against poisons: +1 status bonus.</small>}
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
         <ArmorList c={c} entries={entries} save={save} />
       </>

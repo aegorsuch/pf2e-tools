@@ -2,7 +2,7 @@ export type GameSystem = 'pf2e' | 'sf2e'
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
-  | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass'
+  | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass' | 'familiar'
 export type Source = 'official' | 'homebrew'
 export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
 
@@ -28,7 +28,9 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
+  material?: 'Orichalcum' | 'Peachwood (Greater)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)'
   livingWeapon?: boolean
+  verdantWeapon?: boolean
   stowed?: boolean
 }
 export interface OwnedArmor {
@@ -39,6 +41,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   worn: boolean
+  material?: 'Orichalcum'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 export interface OwnedShield {
@@ -89,6 +92,11 @@ export interface Character {
   classSkill?: string
   background?: string
   deity?: string
+  blessing?: '' | 'Blessed Armament' | 'Blessed Shield' | 'Blessed Swiftness'
+  sanctification?: 'Holy' | 'Unholy'
+  blessedArmament?: { weaponId: string; rune: string }
+  haftStrikerWeaponId?: string
+  raging?: boolean
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
@@ -117,6 +125,8 @@ export interface Character {
   spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
+  animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
+  magicHideCompanionId?: string
   // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
   companions?: { id: string; name: string; type: string }[]
   // Manually added slots on top of those from class/ancestry and granted effects

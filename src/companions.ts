@@ -1,4 +1,4 @@
-import { byName, proficiencyBonus, signed, type Ability } from './builder'
+import { byName, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
@@ -55,7 +55,7 @@ function growSize(size: string) {
   return i >= 0 && i <= 2 ? SIZES[i + 1] : size
 }
 
-export function companionStats(c: Character, entries: ContentEntry[], type: string, advancement = { mature: false, advanced: undefined as string | undefined, specializations: [] as string[] }) {
+export function companionStats(c: Character, entries: ContentEntry[], type: string, advancement = { mature: false, advanced: undefined as string | undefined, specializations: [] as string[] }, companionId = c.companions?.[0]?.id) {
   const entry = byName(entries, 'companion', type)
   if (!entry) return undefined
   const { mature, advanced, specializations } = advancement
@@ -106,9 +106,11 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
+  const magicHide = isSpellActive(c, entries, 'Magic Hide') && companionId === (c.magicHideCompanionId ?? c.companions?.[0]?.id) ? 1 : 0
   return {
     entry, level, size, mods, hp, speed, skills, attacks,
-    ac: 10 + mods.dex + prof('Unarmored'),
+    ac: 10 + mods.dex + prof('Unarmored') + magicHide,
+    magicHide,
     perception: total('Perception', 'wis'),
     fortitude: total('Fortitude', 'con'),
     reflex: total('Reflex', 'dex'),

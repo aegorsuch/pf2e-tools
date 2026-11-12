@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
@@ -115,20 +116,22 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (dismissed) save({ dismissedFeatSlots: c.dismissedFeatSlots?.filter((key) => key !== dismissed.key) })
     else save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
   }
-  const removeSlot = (slot: PlannedSlot, extra: boolean) => {
-    if (allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
-      choose(slot.key, slot.category, slot.level, '')
-    } else if (extra) {
-      removeExtra(slot.category, slot.level, slot.key)
-    } else {
-      saveFeatChanges({
-        dismissedFeatSlots: [...(c.dismissedFeatSlots ?? []), slot.key],
-        feats: c.feats.filter((feat) => feat.slot !== slot.key),
-        skippedFeatSlots: c.skippedFeatSlots?.filter((key) => key !== slot.key),
-      })
-    }
-    onSearch?.(`${slot.key}:open`, '')
-  }
+  const removeSlot = (slot: PlannedSlot, extra: boolean) => confirmRemoval(
+    `${c.feats.find((feat) => feat.slot === slot.key)?.name ?? LABEL[slot.category]} feat selection${extra ? ' and extra slot' : ''}`,
+    () => {
+      if (allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
+        choose(slot.key, slot.category, slot.level, '')
+      } else if (extra) {
+        removeExtra(slot.category, slot.level, slot.key)
+      } else {
+        saveFeatChanges({
+          dismissedFeatSlots: [...(c.dismissedFeatSlots ?? []), slot.key],
+          feats: c.feats.filter((feat) => feat.slot !== slot.key),
+          skippedFeatSlots: c.skippedFeatSlots?.filter((key) => key !== slot.key),
+        })
+      }
+      onSearch?.(`${slot.key}:open`, '')
+    })
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
   const Wrapper = bare ? 'div' : 'details'

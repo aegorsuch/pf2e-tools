@@ -19,13 +19,15 @@ it('uses simple proficiency and finesse for the haft while retaining Strength da
 })
 
 it('grants Haft Striker Stance from its feat without duplicating configured weapons', () => {
-  const c = { ...base, feats: [{ name: 'Haft Striker Stance', type: 'Class Feat', level: 2 }] }
-  const weapons = ownedWeapons(c, [])
+  const polearm: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'glaive', name: 'Glaive', data: { hands: 2, weapon_group: 'Polearm', damage: '1d8 slashing' } }
+  const main = { id: 'main', name: polearm.name, potency: 2, striking: 1, runes: ['Flaming'] }
+  const c = { ...base, weapons: [main], feats: [{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 }] }
+  const weapons = ownedWeapons(c, [polearm])
   expect(weapons.filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
-  expect(ownedWeapons({ ...c, weapons }, []).filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
-  expect(ownedWeapons({ ...c, weapons, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+  expect(ownedWeapons({ ...c, weapons }, [polearm]).filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
+  expect(ownedWeapons({ ...c, weapons, feats: [] }, [polearm]).map((weapon) => weapon.name)).toEqual(['Glaive', 'Fist'])
   const configured = { id: 'manual-haft', name: HAFT_STRIKER_WEAPON.name, potency: 2, striking: 1, runes: ['Flaming'] }
-  expect(ownedWeapons({ ...c, weapons: [configured] }, []).find((weapon) => weapon.name === configured.name)).toBe(configured)
+  expect(ownedWeapons({ ...c, weapons: [main, configured] }, [polearm]).find((weapon) => weapon.name === configured.name)).toBe(configured)
 })
 
 it('derives and locks one gauntlet while eligible armor is worn, preserving independent weapon runes', () => {
@@ -101,6 +103,22 @@ it('provides a default fist until a different unarmed attack is available', () =
   expect(ownedWeapons({ ...c, weapons, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
 })
 
+it.each(['Gauntlet', 'Spiked Gauntlet', 'Bladed Gauntlet', 'Clawed Gauntlet', 'Custom Gauntlets'])('hides covered fists for %s without hiding other natural attacks or losing saved fist configuration', (name) => {
+  const fist = { id: FIST.id, name: FIST.name, potency: 2, striking: 1, runes: ['Flaming'] }
+  const gauntlet = { id: 'purchased', name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, weapons: [fist, gauntlet] }
+  expect(ownedWeapons(c, []).map((weapon) => weapon.name)).toEqual([name])
+  expect(ownedWeapons({ ...c, weapons: [fist] }, [])).toEqual([fist])
+  const natural: Character = {
+    ...c, feats: ['Iron Fists', 'Tusks'].map((name) => ({ name, type: 'Ancestry Feat', level: 1 })),
+    weapons: [...c.weapons!, { ...fist, id: IRON_FIST.id, name: IRON_FIST.name }],
+  }
+  expect(ownedWeapons(natural, []).map((weapon) => weapon.name)).toEqual([name, 'Tusks'])
+  expect(ownedWeapons({ ...natural, weapons: natural.weapons!.filter((weapon) => weapon.id !== gauntlet.id) }, []).map((weapon) => weapon.name))
+    .toEqual(['Iron Fist', 'Tusks'])
+  expect(c.weapons?.[0]).toEqual(fist)
+})
+
 it('adds Iron Fist only with Iron Fists and retains other unarmed attacks', () => {
   const c = { ...base, feats: ['Iron Fists', 'Tusks'].map((name) => ({ name, type: 'Ancestry Feat', level: 1 })) }
   const weapons = ownedWeapons(c, [])
@@ -127,11 +145,13 @@ it('derives Animal Feature attacks only while the known spell is active, includi
   }
   expect(ownedWeapons({ ...c, activeSpells: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
   const active = ownedWeapons(c, [])
-  expect(active.map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name])
+  expect(active.map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name])
   expect(weaponAttack(c, [], active[0])).toMatchObject({
     attack: 16, ability: 'dex', damage: '1d6+1 slashing', traits: ['Agile', 'Finesse', 'Unarmed'],
   })
-  expect(weaponAttack(c, [], active[1])).toMatchObject({
+  const jaws = ownedWeapons({ ...c, animalFeature: 'Jaws' }, [])
+  expect(jaws.map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_JAWS.name])
+  expect(weaponAttack(c, [], jaws[0])).toMatchObject({
     attack: 13, ability: 'str', damage: '1d8+1 piercing', traits: ['Unarmed'],
   })
   const reloaded: Character = JSON.parse(JSON.stringify({ ...c, weapons: active }))
@@ -140,7 +160,7 @@ it('derives Animal Feature attacks only while the known spell is active, includi
   expect(ownedWeapons({ ...reloaded, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
   expect(ownedWeapons({ ...base, activeSpells: ['Animal Feature'], spells: [
     { name: 'Animal Feature', rank: 2, cantrip: false },
-  ] }, []).map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name])
+  ] }, []).map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name])
 })
 
 it('shares handwrap fundamentals and compatible property runes with current and future unarmed attacks only', () => {

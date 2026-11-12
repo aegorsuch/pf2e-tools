@@ -161,7 +161,7 @@ it('shows action icons beside selected spells', () => {
 
 it('shows persisted Active toggles for granted buffs and timed spells, not instantaneous spells', () => {
   const c: Character = {
-    ...base, activeSpells: ['Animal Feature'], feats: [
+    ...base, level: 8, activeSpells: ['Animal Feature'], feats: [
       { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
       { name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' },
       { name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Heal Companion' },
@@ -169,11 +169,11 @@ it('shows persisted Active toggles for granted buffs and timed spells, not insta
   }
   const spells = entries.map((entry) => entry.name === 'Gravity Weapon' ? { ...entry, data: { ...entry.data, duration: 60 } } : entry)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup).toContain('aria-label="Animal Feature active" checked=""')
+  expect(markup).toContain('aria-label="Animal Feature: Claws" checked=""')
   expect(markup).toContain('aria-label="Gravity Weapon active"')
   expect(markup).not.toContain('aria-label="Heal Companion active"')
   expect(renderToStaticMarkup(<SpellsSection c={{ ...c, activeSpells: [] }} entries={spells} save={() => {}} />))
-    .not.toContain('aria-label="Animal Feature active" checked=""')
+    .not.toContain('aria-label="Animal Feature: Claws" checked=""')
 })
 
 it('labels Warden spells in spell listings by tier', () => {

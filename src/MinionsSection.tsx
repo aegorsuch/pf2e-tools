@@ -1,6 +1,7 @@
 import { Info } from './Info'
+import { confirmRemoval } from './confirmRemoval'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
-import { signed, type SectionProps } from './builder'
+import { knowsSpell, signed, type SectionProps } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -8,6 +9,7 @@ const ABILITY_NAMES = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wi
 
 export function MinionsSection({ c, entries, save }: SectionProps) {
   const companions = c.companions ?? []
+  const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const types = entries.filter((e) => e.kind === 'companion').sort((a, b) => a.name.localeCompare(b.name))
   const advancement = companionAdvancement(c)
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
@@ -32,7 +34,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
           <summary><h4>Animal Companions ({companions.length})</h4></summary>
           {companions.map((comp, index) => {
             // Feats advance the first companion; any others stay young
-            const stats = companionStats(c, entries, comp.type, index === 0 ? advancement : undefined)
+            const stats = companionStats(c, entries, comp.type, index === 0 ? advancement : undefined, comp.id)
             return (
               <article key={comp.id} className="gear-card">
                 <header className="row">
@@ -41,8 +43,11 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </select>
                   <button type="button" className="spell-remove" aria-label={`Remove ${comp.name || comp.type}`} title="Remove"
-                    onClick={() => save({ companions: companions.filter((x) => x.id !== comp.id) })}>×</button>
+                    onClick={() => confirmRemoval(`companion "${comp.name || comp.type}"`, () => save({ companions: companions.filter((x) => x.id !== comp.id) }))}>×</button>
                 </header>
+                {magicHideKnown && <label><input type="checkbox" aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={!!stats?.magicHide}
+                  onChange={(e) => save({ magicHideCompanionId: comp.id,
+                    activeSpells: [...(c.activeSpells ?? []).filter((name) => name !== 'Magic Hide'), ...(e.target.checked ? ['Magic Hide'] : [])] })} /> Magic Hide (+1 status AC)</label>}
                 {index === 0 && choices.length > 0 && (
                   <div className="row companion-choices">
                     {choices.map(({ feat, featIndex }) => {

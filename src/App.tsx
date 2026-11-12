@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
 import { CharacterBuilder } from './CharacterBuilder'
-import { classLabel } from './builder'
+import { characterSummary } from './builder'
+import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
-import { ActionIcon } from './ActionIcon'
+import { HomebrewList } from './HomebrewList'
+import { confirmRemoval } from './confirmRemoval'
 import { ensureAonImported } from './aon'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
@@ -13,7 +15,7 @@ import { updateSettings, useSettings } from './settings'
 import { refreshApp } from './refresh'
 import './App.css'
 
-const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'subclass']
+const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'familiar', 'subclass']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
   { id: 'sf2e', label: 'Starfinder 2e' },
@@ -29,12 +31,6 @@ const blank = (systems: GameSystem[]): ContentEntry => ({
   traits: [], description: '', data: {}, effects: [], updatedAt: 0,
 })
 
-function EditIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 20h9" />
-    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
-  </svg>
-}
 
 function GearIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -50,11 +46,6 @@ function AccountIcon() {
   </svg>
 }
 
-function DeleteIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 6h18M8 6V4h8v2m-11 0 1 14h10l1-14M10 11v5m4-5v5" />
-  </svg>
-}
 
 export default function App() {
   const enabled = ALL_SYSTEMS
@@ -261,12 +252,15 @@ export default function App() {
       <ul className="character-list">
         {sortedCharacters.map((c) => (
           <li className="character-row" key={c.id}>
-            <span><b>{c.name}</b> - L{c.level} {c.ancestry} {classLabel(c, entries ?? [])}</span>
+            <span><b>{c.name}</b> - {characterSummary(c, entries ?? [])}</span>
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
                 onClick={() => setEditingId(c.id)}><EditIcon /></button>
               <button type="button" className="icon-button" title="Delete character" aria-label={`Delete ${c.name}`}
-                onClick={() => db.characters.put({ ...c, deleted: true, updatedAt: Date.now() })}><DeleteIcon /></button>
+                onClick={() => confirmRemoval(`character "${c.name}" and all its saved options`, () => {
+                  void db.characters.put({ ...c, deleted: true, updatedAt: Date.now() }).catch((error: unknown) =>
+                    setStatus(`Could not delete character: ${error instanceof Error ? error.message : String(error)}`))
+                })}><DeleteIcon /></button>
             </span>
           </li>
         ))}
@@ -276,15 +270,10 @@ export default function App() {
         <button type="button" title="Add homebrew content" aria-label="Add homebrew content"
           onClick={() => setDraft(blank(enabled))}>+</button>
       </div>
-      <ul>
-        {homebrew.map((e) => (
-          <li key={e.id}>
-            <b>{e.name}</b> <ActionIcon entry={e} /> ({e.kind} {e.level}) [{e.systems.join('+')}] {e.traits.join(', ')}{' '}
-            <button onClick={() => setDraft(e)}>Edit</button>
-            <button onClick={() => removeEntry(e.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
+      <HomebrewList entries={entries ?? []} onEdit={setDraft} onDelete={(id) => {
+        void removeEntry(id).catch((error: unknown) =>
+          setStatus(`Could not delete homebrew: ${error instanceof Error ? error.message : String(error)}`))
+      }} />
       </>}
     </main>
   )

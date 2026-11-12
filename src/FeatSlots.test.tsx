@@ -1,9 +1,12 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
 import { plannedSlots } from './builder'
 import type { Character, ContentEntry } from './types'
+
+beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
+afterEach(() => vi.unstubAllGlobals())
 
 function findButton(node: ReactNode, label: string): (() => void) | undefined {
   let result: (() => void) | undefined
@@ -219,11 +222,18 @@ it('allows repeatable feats in multiple slots and retains their entry link until
   expect(c.feats.map((feat) => feat.choice)).toEqual(['Spell One', 'Spell Two'])
   const remove = findButton(tree(), 'Remove L01 Class extra feat slot 1')
   if (!remove) throw new Error('Missing remove button')
+  vi.mocked(window.confirm).mockReturnValueOnce(false)
+  remove()
+  expect(c.feats).toHaveLength(2)
+  expect(c.extraSlots).toHaveLength(1)
   remove()
   expect(c.feats).toHaveLength(1)
   expect(c.entryIds).toEqual(['warden'])
   const clear = findButton(tree(), 'Clear L01 Class feat selection')
   if (!clear) throw new Error('Missing clear button')
+  vi.mocked(window.confirm).mockReturnValueOnce(false)
+  clear()
+  expect(c.feats).toHaveLength(1)
   clear()
   expect(c.feats).toEqual([])
   expect(c.entryIds).toEqual([])

@@ -47,6 +47,7 @@ it('shows official deity epithets in the subtitle and picker while retaining can
 it.each([
   ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Ranger'],
   ['cause', 'Champion', 'Justice', 'Champion of Justice'],
+  ['instinct', 'Barbarian', 'Giant', 'Giant Instinct Barbarian'],
 ])('imports %s choices and shows selected subclass in the class subtitle', (category, className, name, label) => {
   const subclass = mapAonHit({ _id: 'subclass', _source: { category, name, markdown: 'Full subclass rules.' } }, 'pf2e')
   if (!subclass) throw new Error('Missing subclass mapping')
@@ -60,5 +61,6 @@ it.each([
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup).toContain(`<strong>Class</strong><span>${label}</span>`)
   expect(markup).toContain(`<option value="${name}" selected="">${name}</option>`)
+  if (className === 'Barbarian') expect(markup).toContain('<label>Instinct')
   content.entries = []
 })

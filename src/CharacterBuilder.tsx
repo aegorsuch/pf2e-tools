@@ -1,4 +1,5 @@
 import { Info } from './Info'
+import { confirmRemoval } from './confirmRemoval'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
@@ -214,7 +215,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
           {subclasses.length > 0 && <>
-            <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : 'Subclass'}
+            <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : 'Subclass'}
               kind="subclass" value={subclassName} options={subclasses} onChange={(v) => save({ subclass: v ?? '' })} />
             {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
           </>}
@@ -276,7 +277,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
               <li key={`${g.name}-${i}`}>
                 {g.name} <ActionIcon entry={entries.find((entry) => GEAR.includes(entry.kind) && entry.name === g.name)} /> x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
                   onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
-                <button onClick={() => save({ equipment: c.equipment.filter((_, j) => j !== i) })}>Remove</button>
+                <button onClick={() => confirmRemoval(`gear "${g.name}"`, () => save({ equipment: c.equipment.filter((_, j) => j !== i) }))}>Remove</button>
               </li>
             ))}
           </ul>

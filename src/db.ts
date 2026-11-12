@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Character, ContentEntry } from './types'
-import { HAFT_STRIKER_WEAPON, homebrewCompanions, homebrewWeapons } from './supplemental'
+import { HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons } from './supplemental'
 
 export const db = new Dexie('2e-builder') as Dexie & {
   characters: EntityTable<Character, 'id'>
@@ -17,8 +17,8 @@ export const newId = () => crypto.randomUUID()
 export async function ensureSupplementalContent() {
   await db.transaction('rw', db.content, async () => {
     if (!await db.content.get(HAFT_STRIKER_WEAPON.id)) await db.content.add(HAFT_STRIKER_WEAPON)
-    const bases = await db.content.where('kind').anyOf('companion', 'weapon').toArray()
-    for (const entry of [...homebrewCompanions(bases), ...homebrewWeapons(bases)]) {
+    const bases = await db.content.where('kind').anyOf('companion', 'weapon', 'feat').toArray()
+    for (const entry of [...homebrewCompanions(bases), ...homebrewWeapons(bases), ...homebrewCharacterOptions(bases)]) {
       if (!await db.content.get(entry.id)) await db.content.add(entry)
     }
   })
