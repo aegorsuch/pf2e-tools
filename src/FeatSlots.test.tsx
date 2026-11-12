@@ -19,7 +19,7 @@ it('lists Clever Improviser granted Untrained Improvisation under general feats,
   const props = { c, entries: [entry], save: () => {} }
   const markup = renderToStaticMarkup(<FeatSlots {...props} categories={['general']} />)
   expect(markup).toContain('>Untrained Improvisation</button>')
-  expect(markup).toContain('L05 Granted General Feat')
+  expect(markup).not.toContain('Granted General Feat')
   expect(markup.indexOf('Level 05')).toBeLessThan(markup.indexOf('>Untrained Improvisation</button>'))
   expect(renderToStaticMarkup(<FeatSlots {...props} categories={['skill']} />)).not.toContain('>Untrained Improvisation</button>')
 })
@@ -41,17 +41,19 @@ it('interleaves free feats with earned slots at acquisition levels and keeps ski
   const render = (character: Character, categories: ('general' | 'skill')[]) =>
     renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={categories} />)
   const general = render(c, ['general'])
-  expect(general).toContain('L09 Granted General Feat')
-  expect(general).not.toContain('Granted Skill Feat')
-  expect(general.indexOf('Clear L07 General')).toBeLessThan(general.indexOf('L09 Granted General Feat'))
+  expect(general).toContain('>Untrained Improvisation</button>')
+  expect(general).not.toContain('Granted General Feat')
+  expect(general).not.toContain('>Experienced Tracker</button>')
+  expect(general.indexOf('Clear L07 General')).toBeLessThan(general.indexOf('>Untrained Improvisation</button>'))
   const skill = render(c, ['skill'])
-  expect(skill).not.toContain('Granted General Feat')
-  expect(skill).toContain('L08 Granted Skill Feat')
-  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('L08 Granted Skill Feat'))
-  expect(skill.indexOf('L08 Granted Skill Feat')).toBeLessThan(skill.indexOf('Clear L08 Skill'))
+  expect(skill).not.toContain('>Untrained Improvisation</button>')
+  expect(skill).not.toContain('Granted Skill Feat')
+  expect(skill).toContain('>Experienced Tracker</button>')
+  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('>Experienced Tracker</button>'))
+  expect(skill.indexOf('>Experienced Tracker</button>')).toBeLessThan(skill.indexOf('Clear L08 Skill'))
   expect(skill.match(/>Level 08<\/li>/g)).toHaveLength(1)
-  expect(render({ ...c, level: 7 }, ['skill', 'general'])).not.toContain('Granted ')
-  expect(render({ ...c, feats: [] }, ['skill', 'general'])).not.toContain('Granted ')
+  expect(render({ ...c, level: 7 }, ['skill', 'general'])).not.toContain('automatic-feat-row')
+  expect(render({ ...c, feats: [] }, ['skill', 'general'])).not.toContain('automatic-feat-row')
 })
 
 it('blocks Animal Strength selection until Animal Feature is actually learned as a warden spell', () => {
@@ -156,7 +158,7 @@ it('offers separate Scrapper skill variants, saves one shared feat, and restores
   expect(ranksAt(c, [feat]).Arcana).toBeUndefined()
 })
 
-it('gates access separately, saves per-feat GM approval, preserves existing choices and clears approval on removal', () => {
+it('gates access separately, ignores stale next-feat approval, preserves saved approvals and clears them on removal', () => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human', className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -178,6 +180,7 @@ it('gates access separately, saves per-feat GM approval, preserves existing choi
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
   expect(save).not.toHaveBeenCalled()
   search['access:ancestry'] = 'approved'
+  expect(renderToStaticMarkup(tree())).not.toContain('GM access approval')
   expect(renderToStaticMarkup(tree())).toContain('<option value="Gloomseer" disabled="">Gloomseer * Missing Nidalese ethnicity</option>')
   expect(renderToStaticMarkup(tree())).toContain('<option value="Dragon Spit" disabled="">Dragon Spit * Missing Tian-Dan ethnicity</option>')
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: gloomseer.name } })
@@ -185,10 +188,12 @@ it('gates access separately, saves per-feat GM approval, preserves existing choi
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: prerequisite.name } })
   expect(save).not.toHaveBeenCalled()
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
+  expect(save).not.toHaveBeenCalled()
+  c = { ...c, featAccessOverrides: [witch.id] }
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
   c = JSON.parse(JSON.stringify(c))
   expect(c.feats[0].name).toBe(witch.name)
   expect(c.featAccessOverrides).toEqual([witch.id])
-  expect(search['access:ancestry']).toBe('')
   const approvedMarkup = renderToStaticMarkup(tree())
   expect(approvedMarkup).toContain('GM approved access.')
   expect(approvedMarkup).not.toContain('class="feat-access-controls"')

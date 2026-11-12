@@ -67,8 +67,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const displayName = (name: string) => name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
-  const accessKey = `access:${categories?.join(',') ?? 'all'}`
-  const gmAccess = search[accessKey] === 'approved'
   const prerequisiteChecks = new Map<string, ReturnType<typeof featSelectionPrerequisiteChecker>>()
   const prerequisitesFor = (entry: ContentEntry, slot: PlannedSlot) => {
     let check = prerequisiteChecks.get(slot.key)
@@ -82,9 +80,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const prerequisites = prerequisitesFor(entry, slot)
     const unmet = prerequisites.missing.length > 0
     const access = featAccess(c, entry)
-    const accessMissing = access && !access.automatic && !access.approved && !gmAccess
+    const accessMissing = access && !access.automatic && !access.approved
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${access
-      ? ` * Access: ${access.requirement} (${access.automatic ? 'met' : access.approved || gmAccess ? 'GM approved' : 'GM approval needed'})` : ''}`
+      ? ` * Access: ${access.requirement} (${access.automatic ? 'met' : access.approved ? 'GM approved' : 'GM approval needed'})` : ''}`
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
@@ -124,11 +122,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
     if (category === 'archetype' && name === 'N/A') skippedFeatSlots.push(key)
-    const access = option ? featAccess(c, option.entry) : undefined
-    const featAccessOverrides = option && access && !access.automatic && gmAccess
-      ? [...new Set([...(c.featAccessOverrides ?? []), option.entry.id])] : c.featAccessOverrides
-    saveFeatChanges({ feats, entryIds, skippedFeatSlots, featAccessOverrides })
-    onSearch?.(accessKey, '')
+    saveFeatChanges({ feats, entryIds, skippedFeatSlots })
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
     const index = c.extraSlots.findIndex((slot) => slot.category === category && slot.level === level && slot.count > 0)
@@ -185,10 +179,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
-      {onSearch && <label title="Overrides rarity and access only, never prerequisites. Approval is saved for the selected feat.">
-        <input type="checkbox" aria-label={`GM access approval (${title})`} checked={gmAccess}
-          onChange={(event) => onSearch(accessKey, event.target.checked ? 'approved' : '')} /> GM approved access for next feat
-      </label>}
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
@@ -201,7 +191,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             return <Fragment key={`${row.kind}:${feat.name}`}>
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
-                <span>L{String(row.level).padStart(2, '0')} {background ? 'Background' : 'Granted'} {grantedType(feat.name)}</span>
+                {background && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
                 <EntryDescription name={displayName(feat.name)} entry={entry} className="feat-name" access={entry ? featAccess(c, entry) : undefined} />
                 {row.kind === 'automatic' && <small>({row.feat.source})</small>}
               </li>
