@@ -115,6 +115,31 @@ it('shows official deity epithets in the subtitle and picker while retaining can
     .toContain('<strong>Deity</strong><span>Iomedae</span>')
 })
 
+it('defers unused picker choices while retaining saved values and deity labels', () => {
+  content.entries = ([
+    ['ancestry', 'Human'], ['ancestry', 'Elf'], ['class', 'Ranger'], ['class', 'Wizard'],
+    ['deity', 'Iomedae'], ['deity', 'Abadar'],
+  ] as const).map(([kind, name]): ContentEntry => ({
+    id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level: 1,
+    traits: [], description: '', data: name === 'Iomedae' ? { epithet: 'The Inheritor' } : {},
+    effects: [], updatedAt: 0,
+  }))
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human', className: 'Ranger',
+    background: 'Missing background', deity: 'Iomedae',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('<option value="Human" selected="">Human</option>')
+    expect(markup).toContain('<option value="Ranger" selected="">Ranger</option>')
+    expect(markup).toContain('<option value="Iomedae" selected="">Iomedae, the Inheritor</option>')
+    expect(markup).toContain('<option value="Missing background" selected="">Missing background</option>')
+    for (const name of ['Elf', 'Wizard', 'Abadar']) expect(markup).not.toContain(`<option value="${name}">`)
+  } finally { content.entries = [] }
+})
+
 it.each([
   ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Ranger'],
   ['cause', 'Champion', 'Justice', 'Champion of Justice'],

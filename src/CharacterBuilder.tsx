@@ -2,6 +2,7 @@ import { Info } from './Info'
 import { confirmRemoval } from './confirmRemoval'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
 import { ClassFeatures } from './ClassFeatures'
@@ -31,15 +32,22 @@ function Pick({ label, kind, value, options, onChange }: {
   options: ContentEntry[]
   onChange: (v: string | undefined) => void
 }) {
-  const labels = new Map(options.map((entry) => [entry.name, kind === 'deity' ? deityLabel(entry) : entry.name]))
-  const names = [...labels.keys()].sort()
+  const [ready, setReady] = useState(false)
+  const labels = useMemo(() => new Map(options.map((entry) => [entry.name, kind === 'deity' ? deityLabel(entry) : entry.name])), [options, kind])
+  const choices = useMemo(() => ready
+    ? [...labels.keys()].sort().map(name => <option key={name} value={name}>{labels.get(name)}</option>)
+    : null, [labels, ready])
+  const prepare = () => {
+    // Populate before the browser opens its native select popup.
+    if (!ready) flushSync(() => setReady(true))
+  }
   return (
     <label>
       {label}{' '}
-      <select value={value ?? ''} onChange={(e) => onChange(e.target.value || undefined)}>
+      <select value={value ?? ''} onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
         <option value="">No {kind}</option>
-        {value && !names.includes(value) && <option>{value}</option>}
-        {names.map((n) => <option key={n} value={n}>{labels.get(n)}</option>)}
+        {value && (!ready || !labels.has(value)) && <option value={value}>{labels.get(value) ?? value}</option>}
+        {choices}
       </select>
     </label>
   )
@@ -128,7 +136,15 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
   const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
-  const of = (kind: EntryKind) => entries.filter((e) => e.kind === kind)
+  const of = useMemo(() => {
+    const groups = new Map<EntryKind, ContentEntry[]>()
+    for (const entry of entries) {
+      const group = groups.get(entry.kind)
+      if (group) group.push(entry)
+      else groups.set(entry.kind, [entry])
+    }
+    return (kind: EntryKind) => groups.get(kind) ?? NONE
+  }, [entries])
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
   const deity = named('deity', c.deity)
 

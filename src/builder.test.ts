@@ -60,6 +60,10 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt({ ...later, level: 7, skillIncreases: { 7: 'Diplomacy' } }, data).Diplomacy).toBe(2)
     expect(ranksAt({ ...later, rankOverrides: { Diplomacy: 0 } }, data).Diplomacy).toBe(1)
     expect(ancestralSkills({ ...c, ancestry: 'Elf' }, data)).toEqual(['Arcana', 'Nature'])
+    expect(ancestralSkills({ ...c, systems: ['pf2e'] }, data)).toEqual([])
+    const updated = data.map(entry => entry.id === feat.id ? { ...entry, description: 'Option(s): Medicine, Survival' } : entry)
+    expect(ancestralSkills(c, updated)).toEqual(['Medicine', 'Survival'])
+    expect(ancestralSkills(c, updated.map(entry => entry.id === feat.id ? { ...entry, deleted: true } : entry))).toEqual([])
   })
 
   it('applies favored-terrain movement only in that terrain with Unimpeded Journey and preserves Terrain Master overrides', () => {

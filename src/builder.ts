@@ -915,10 +915,15 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   }),
 ])]
 
+const ancestralSkillCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function ancestralSkills(c: Character, entries: ContentEntry[]) {
   if (!c.ancestry || !activeFeatsNamed(c, 'Ancestral Skills').length) return []
-  const feat = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === 'Ancestral Skills'
-    && entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase())
+  let variants = ancestralSkillCache.get(entries)
+  if (!variants) {
+    variants = entries.filter(entry => entry.kind === 'feat' && !entry.deleted && entry.name === 'Ancestral Skills')
+    ancestralSkillCache.set(entries, variants)
+  }
+  const feat = variants.find(entry => entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase())
     && entry.systems.some(system => c.systems.includes(system)))
   const options = /Option\(s\):\s*([^\n]+)/i.exec(feat?.description ?? '')?.[1] ?? ''
   const skills = new Set(tokens(options || feat?.data.skill))

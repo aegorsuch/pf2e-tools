@@ -461,3 +461,14 @@ it('offers Snare Hopping with the Initiate Warden spells', () => {
   expect(options.map((o) => o.name)).toEqual(['Gravity Weapon', 'Heal Companion', 'Snare Hopping'])
   expect(wardenSpellOptions({ name: 'Advanced Warden', type: 'Class Feat', level: 4 }, [...entries, snare]).map((o) => o.name)).toEqual(['Animal Feature'])
 })
+
+it('keeps cached Warden choices scoped to tier, system, and current catalog', () => {
+  const catalog: ContentEntry[] = [...entries, { ...spell('Other System', 'Initiate'), systems: ['sf2e'] }]
+  const initiate = { name: 'Initiate Warden' }
+  const advanced = { name: 'Advanced Warden' }
+  expect(wardenSpellOptions(initiate, catalog).map(spell => spell.name)).toEqual(['Gravity Weapon', 'Heal Companion'])
+  expect(wardenSpellOptions(advanced, catalog).map(spell => spell.name)).toEqual(['Animal Feature'])
+  const updated = catalog.map(spell => spell.name === 'Gravity Weapon' ? { ...spell, data: { warden_spell_tier: 'Advanced' } } : spell)
+  expect(wardenSpellOptions(initiate, updated).map(spell => spell.name)).toEqual(['Heal Companion'])
+  expect(wardenSpellOptions(advanced, updated).map(spell => spell.name)).toEqual(['Animal Feature', 'Gravity Weapon'])
+})

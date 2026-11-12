@@ -36,9 +36,20 @@ const EXTRA_WARDEN_SPELLS: Record<string, string[]> = { Initiate: ['Snare Hoppin
 export const wardenTierOf = (entry: ContentEntry) =>
   entry.data.warden_spell_tier ?? Object.entries(EXTRA_WARDEN_SPELLS).find(([, names]) => names.includes(entry.name))?.[0]
 
+const wardenSpellCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 function wardenSpellsAtTier(tier: string, entries: ContentEntry[]) {
-  return entries.filter((entry) => entry.kind === 'spell' && entry.systems.includes('pf2e') && wardenTierOf(entry) === tier)
-    .sort((a, b) => a.name.localeCompare(b.name))
+  let tiers = wardenSpellCache.get(entries)
+  if (!tiers) {
+    tiers = new Map()
+    wardenSpellCache.set(entries, tiers)
+  }
+  let spells = tiers.get(tier)
+  if (!spells) {
+    spells = entries.filter((entry) => entry.kind === 'spell' && entry.systems.includes('pf2e') && wardenTierOf(entry) === tier)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    tiers.set(tier, spells)
+  }
+  return spells
 }
 
 export function hasWardenChoice(feat: NamedFeat) {
