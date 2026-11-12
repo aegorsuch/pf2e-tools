@@ -357,12 +357,16 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const casting = !!classSpellcasting(character, entries)?.traditions.length
       const value: PrerequisiteFacts = {
         className: character.className, ancestry: character.ancestry, heritage: character.heritage,
+        ancestryTraits: ancestryFeatTraits(character),
         subclass, additionalSubclasses,
         orders: character.className === 'Druid' ? [
           character.order ?? subclass ?? '',
           ...character.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []),
         ] : [],
-        feats: character.feats.map((feat) => ({ name: feat.name, level: featTakenLevel(feat) })),
+        feats: character.feats.map((feat) => ({
+          name: feat.name, level: featTakenLevel(feat),
+          category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
+        })),
         features: [...features.map((feature) => feature.name), ...museFeats,
           ...tokens(byName(entries, 'background', character.background)?.data.feat),
           ...(character.className === 'Druid' && (character.order ?? subclass) === 'Animal' ? ['Animal Companion'] : []),
@@ -381,14 +385,18 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
   })
 }
 
+export function ancestryFeatTraits(c: Character) {
+  return [c.ancestry, c.heritage, ...activeFeatsNamed(c, 'Adopted Ancestry').map((feat) => feat.choice)]
+    .filter((name): name is string => !!name).map((name) => name.trim().toLowerCase())
+}
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
   }
   const trait = wanted[slot.category]?.toLowerCase()
-  const adopted = slot.category === 'ancestry' ? activeFeatsNamed(c, 'Adopted Ancestry')
-    .flatMap((feat) => feat.choice ? [feat.choice.trim().toLowerCase()] : []) : []
-  if (slot.category !== 'bonus' && !trait && !adopted.length) return []
+  const ancestryTraits = slot.category === 'ancestry' ? ancestryFeatTraits(c) : []
+  if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set(c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name))
   const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
   const archetypeAllowed = archetypeRule(c, entries, slot.key, slot.category === 'archetype')
@@ -397,7 +405,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const prerequisites = featPrerequisiteChecker(c, entries, slot.level, c.feats.findIndex((feat) => feat.slot === slot.key))
   return featIndex(entries)
     .filter(({ entry: e, traits }) => featSelectionLevel(e, c, entries, slot.category) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
-      && (slot.category === 'bonus' || !!trait && traits.has(trait) || adopted.some((ancestry) => traits.has(ancestry))
+      && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
       && !prerequisites(e).missing.length

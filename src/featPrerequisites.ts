@@ -9,10 +9,11 @@ export interface PrerequisiteFacts {
   className?: string
   ancestry?: string
   heritage?: string
+  ancestryTraits?: string[]
   subclass?: string
   additionalSubclasses: string[]
   orders: string[]
-  feats: { name: string; level: number }[]
+  feats: { name: string; level: number; category?: string }[]
   features: string[]
   ranks: Record<string, number>
   armor: Record<string, number>
@@ -61,6 +62,35 @@ function contentIndex(entries: ContentEntry[]) {
     ? new RegExp(`(^|[^a-z0-9])(${compoundNames.map(escape).join('|')})(?=$|[^a-z0-9])`, 'gi') : undefined }
   indexes.set(entries, index)
   return index
+}
+
+export function featPrerequisiteSources(entries: ContentEntry[], context: {
+  name: string
+  entryIds: string[]
+  className?: string
+  ancestry?: string
+  heritage?: string
+  ancestryTraits?: string[]
+  category?: string
+}) {
+  const candidates = (contentIndex(entries).named.get(key(context.name)) ?? []).filter((entry) => entry.kind === 'feat')
+  const hasTrait = (entry: ContentEntry, trait?: string) => !!trait && entry.traits.some((value) => key(value) === key(trait))
+  const isAncestry = (entry: ContentEntry) => hasTrait(entry, context.ancestry) || hasTrait(entry, context.heritage)
+    || context.ancestryTraits?.some((trait) => hasTrait(entry, trait))
+  const linked = candidates.filter((entry) => context.entryIds.includes(entry.id))
+  const pool = linked.length ? linked : candidates
+  const contextual = pool.filter((entry) => {
+    if (context.category === 'class') return hasTrait(entry, context.className)
+    if (context.category === 'ancestry') return isAncestry(entry)
+    if (context.category === 'archetype') return hasTrait(entry, 'Archetype')
+    if (context.category === 'general') return hasTrait(entry, 'General')
+    if (context.category === 'skill') return hasTrait(entry, 'Skill')
+    return false
+  })
+  if (contextual.length) return contextual
+  if (context.category) return pool
+  const natural = pool.filter((entry) => hasTrait(entry, context.className) || isAncestry(entry))
+  return natural.length ? natural : pool
 }
 
 // Split only top-level operators; parentheses and punctuation inside known names stay atomic.
@@ -115,7 +145,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const armor = /^(light|medium|heavy) armor$|^(unarmored) defense$/.exec(subject)
       const weapon = /^(simple|martial|advanced) weapons?$|^(unarmed) attacks?$/.exec(subject)
       if (skill) return resultFor(rankSatisfied(facts.ranks[skill], rank), text)
-      if (/^[\w' -]+ lore$/.test(subject)) return resultFor(rankSatisfied(0, rank), text)
+      if (/^[\w' -]+ lore$/.test(subject) && !/\b(?:and|or)\b/.test(subject)) return resultFor(rankSatisfied(0, rank), text)
       if (/^(?:at least )?one (?:or more )?lore skills?$/.test(subject)) {
         return resultFor(Object.entries(facts.ranks).some(([skill, value]) => / lore$/i.test(skill) && value >= rank), text)
       }
@@ -151,13 +181,13 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (selected.length) {
       if (trail.has(reference)) return missing(`Circular prerequisite: ${text}`)
       const next = new Set([...trail, reference])
-      const candidates = content.filter((entry) => entry.kind === 'feat')
-      const linked = candidates.filter((entry) => context.entryIds.includes(entry.id))
-      const classMatches = candidates.filter((entry) => entry.traits.some((trait) => key(trait) === key(facts.className ?? '')))
-      const sources = linked.length ? linked : classMatches.length ? classMatches : candidates
-      const requirements = [...new Set(sources.map((entry) => String(entry.data.prerequisite ?? '')))]
-      if (requirements.length > 1) return manual(`Verify source version of ${text}`)
-      const checks = selected.map((feat) => evaluate(requirements[0] ?? '', feat.level, next))
+      const checks = selected.map((feat) => {
+        const sources = featPrerequisiteSources(entries, {
+          ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds,
+        })
+        const requirements = [...new Set(sources.map((entry) => String(entry.data.prerequisite ?? '')))]
+        return requirements.length > 1 ? manual(`Verify source version of ${text}`) : evaluate(requirements[0] ?? '', feat.level, next)
+      })
       return checks.find(satisfied) ?? checks[0]
     }
     if (content.some((entry) => entry.kind === 'feat' || entry.kind === 'classFeature')) return missing(text)

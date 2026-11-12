@@ -428,10 +428,46 @@ it('blocks unmet feat chains while preserving and flagging existing selections a
   expect(c.feats.map((feat) => feat.name)).toEqual(['Overpowering Charge'])
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Prerequisites unmet: Barreling Charge')
-  expect(markup).toContain('>Overpowering Charge</button>')
+  expect(markup).toContain('Overpowering Charge <span role="img" aria-label="Prerequisites unmet">*</span></button>')
   c = { ...c, feats: [] }
   findSelect(tree(), 'L10 Class feat')!({ target: { value: 'Overpowering Charge' } })
   expect(c.feats).toEqual([])
+})
+
+it('marks only the affected feat and shows its missing prerequisites above the description in its dialog', () => {
+  const names = ['Draconic Arrogance', 'Moment of Clarity', 'Raging Intimidation', 'Raging Thrower', 'Sudden Charge']
+  const entries = names.map<ContentEntry>((name) => ({
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits: ['Barbarian'], data: { prerequisite: name === 'Draconic Arrogance' ? 'dragon instinct' : '' },
+    description: `${name} rules text.`, effects: [], updatedAt: 1,
+  }))
+  entries.push({
+    ...entries[0], id: 'dragon', kind: 'subclass', name: 'Dragon', data: { class: 'Barbarian' },
+  })
+  const c: Character = {
+    ...emptyRanger(), className: 'Barbarian', subclass: 'Fury', level: 2,
+    feats: names.map((name, index) => ({ name, type: 'Class Feat', level: 1, slot: `class:1:${index}` })),
+    extraSlots: [{ category: 'class', level: 1, count: 4 }],
+  }
+  const render = (character: Character) =>
+    renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={['class']} />)
+  const markup = render(c)
+  const rows = markup.match(/<li class="feat-slot-row[^"]*">[\s\S]*?<\/li>/g) ?? []
+  const affected = rows.find((row) => row.includes('Draconic Arrogance <span'))
+  expect(affected).toBeDefined()
+  expect(affected).toContain('aria-label="Prerequisites unmet">*</span></button>')
+  const dialog = /<dialog[\s\S]*?<\/dialog>/.exec(affected!)?.[0]
+  expect(dialog).toContain('Prerequisites unmet: dragon instinct')
+  expect(dialog).toContain('Draconic Arrogance rules text.')
+  expect(dialog!.indexOf('Prerequisites unmet')).toBeLessThan(dialog!.indexOf('Draconic Arrogance rules text.'))
+  expect(affected!.replace(/<dialog[\s\S]*?<\/dialog>/g, '')).not.toContain('Prerequisites unmet:')
+  for (const name of names.slice(1)) {
+    const row = rows.find((row) => row.includes(`>${name}</button>`))
+    expect(row).toBeDefined()
+    expect(row).not.toContain('feat-prerequisite-note')
+    expect(row).not.toContain('aria-label="Prerequisites unmet"')
+  }
+  expect(render({ ...c, subclass: 'Dragon' })).not.toContain('Prerequisites unmet')
 })
 
 it('labels narrative prerequisites for manual review instead of claiming they are enforced', () => {
@@ -441,10 +477,61 @@ it('labels narrative prerequisites for manual review instead of claiming they ar
   }
   const c: Character = { ...emptyRanger(), level: 3, feats: [{ name: feat.name, type: 'General Feat', level: 1, slot: 'general:3:0' }] }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['general']} />)
-  expect(markup).toContain('Check prerequisites manually: you have permanent wings')
+  expect(markup).not.toContain('aria-label="Prerequisites unmet"')
+  const dialog = /<dialog[\s\S]*?<\/dialog>/.exec(markup)?.[0]
+  expect(dialog).toContain('Check prerequisites manually: you have permanent wings')
+  expect(markup.replace(/<dialog[\s\S]*?<\/dialog>/g, '')).not.toContain('Check prerequisites manually:')
   expect(markup).not.toContain('Prerequisites unmet')
   expect(renderToStaticMarkup(<FeatSlots c={{ ...c, feats: [] }} entries={[feat]} save={() => {}} categories={['general']} />))
     .toContain('Winged Warrior Dedication (check prerequisites)')
+})
+
+it.each([
+  ['class', 'Druid', 'Human', 'Current Spell', 'Elementalist Dedication'],
+  ['ancestry', 'Ranger', 'Dragonblood', 'Draconic Scent', 'Dragon Disciple Dedication'],
+] as const)('uses the selected %s feat source instead of an unrelated archetype with the same name', (category, className, ancestry, name, prerequisite) => {
+  const feat: ContentEntry = {
+    id: 'selected', systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits: [category === 'class' ? className : ancestry], data: {}, description: 'Selected source.', effects: [], updatedAt: 1,
+  }
+  const wrong: ContentEntry = { ...feat, id: 'other', traits: ['Archetype'], data: { prerequisite }, description: 'Other source.' }
+  const level = category === 'class' ? 20 : 17
+  const c: Character = {
+    ...emptyRanger(), className, ancestry: category === 'ancestry' ? 'Human' : ancestry,
+    heritage: category === 'ancestry' ? ancestry : undefined, level,
+    feats: [{ name, type: `${category === 'class' ? 'Class' : 'Ancestry'} Feat`, level: 1, slot: `${category}:${level}:0` }],
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[wrong, feat, { ...feat, id: 'parent', name: prerequisite }]}
+    save={() => {}} categories={[category]} />)
+  expect(markup).not.toContain('aria-label="Prerequisites unmet"')
+  expect(markup).not.toContain('feat-prerequisite-note')
+  expect(markup).toContain('Selected source.')
+  expect(markup).not.toContain('Other source.')
+})
+
+it('preserves an adopted ancestry source and leaves ambiguous versions for manual review instead of inventing a failure', () => {
+  const feat: ContentEntry = {
+    id: 'shirren', systems: ['sf2e'], kind: 'feat', source: 'official', name: 'Linguistic Prodigy', level: 1,
+    traits: ['Shirren'], data: {}, description: 'Shirren source.', effects: [], updatedAt: 1,
+  }
+  const human: ContentEntry = {
+    ...feat, id: 'human', traits: ['Human'], data: { prerequisite: 'Trained in Society' }, description: 'Human source.',
+  }
+  const c: Character = {
+    ...emptyRanger(), systems: ['sf2e'], ancestry: 'Human', level: 5, entryIds: [feat.id],
+    feats: [
+      { name: 'Adopted Ancestry', type: 'General Feat', level: 1, slot: 'general:3:0', choice: 'Shirren' },
+      { name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+    ],
+  }
+  const render = (character: Character) =>
+    renderToStaticMarkup(<FeatSlots c={character} entries={[human, feat]} save={() => {}} categories={['ancestry']} />)
+  expect(render(c)).toContain('Shirren source.')
+  expect(render(c)).not.toContain('Human source.')
+  expect(render(c)).not.toContain('feat-prerequisite-note')
+  const ambiguous = render({ ...c, entryIds: [] })
+  expect(ambiguous).not.toContain('aria-label="Prerequisites unmet"')
+  expect(ambiguous).toContain('Check prerequisites manually: Verify source version of Linguistic Prodigy')
 })
 
 it('removes a standard row among extra slots, clears the final row, and restores a dismissed row with plus', () => {

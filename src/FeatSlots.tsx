@@ -1,8 +1,9 @@
 import { Fragment } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
+import { ancestryFeatTraits, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
+import { featPrerequisiteSources } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
@@ -164,8 +165,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selection = c.feats[featIndex]
           const selectedName = selection
             ? `${displayName(selection.name)}${selection.choice ? ` (${choiceLabel(selection.name, selection.choice)})` : ''}` : current
-          const currentEntry = featByName(entries).get(current)
-          const prerequisites = currentEntry ? prerequisitesFor(currentEntry, s) : undefined
+          const sources = featPrerequisiteSources(entries, {
+            ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits(c),
+          })
+          const currentEntry = sources[0] ?? featByName(entries).get(current)
+          const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
+          const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }
+            : currentEntry ? prerequisitesFor(currentEntry, s) : undefined
           const picksType = s.category === 'archetype'
           const type = search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
           const open = search[`${s.key}:open`] === '1'
@@ -191,9 +197,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row${multi && index > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
-                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" />
+                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" prerequisites={prerequisites} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} className="feat-name" />
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} className="feat-name" prerequisites={prerequisites} />
               ) : picksType ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} onClick={() => onSearch?.(`${s.key}:open`, '1')}>
                   {current || '- empty -'}
@@ -251,12 +257,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
                   onClick={() => addSlot(s.category, s.level)}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
-              {!!prerequisites?.missing.length && <small className="feat-prerequisite-note" role="status">
-                Prerequisites unmet: {prerequisites.missing.join('; ')}
-              </small>}
-              {!!prerequisites?.manual.length && <small className="feat-prerequisite-note">
-                Check prerequisites manually: {prerequisites.manual.join('; ')}
-              </small>}
             </li>
             </Fragment>
           )

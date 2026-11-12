@@ -115,6 +115,36 @@ describe('shared prerequisite enforcement', () => {
     expect(check('Come and Get Me and Ready, Set, Go', { ...c, feats: [c.feats[0]] }, data).missing).toEqual(['Ready, Set, Go'])
   })
 
+  it.each([
+    ['Trained in Medicine or Tian Xia Lore', 'Medicine', 'Tian Xia Lore', 1],
+    ['Expert in Crafting or Cooking Lore', 'Crafting', 'Cooking Lore', 2],
+    ['Expert in Religion or Expert in Undead Lore', 'Religion', 'Undead Lore', 2],
+    ['Master in Crafting, Master in Medicine, or Herbalism Lore', 'Medicine', 'Herbalism Lore', 3],
+  ] as const)('accepts either qualified skill in %s without treating the whole expression as a Lore name', (prerequisite, skill, lore, rank) => {
+    const c: Character = { ...base, skillPicks: [skill],
+      skillIncreases: Object.fromEntries([3, 7].slice(0, rank - 1).map((level) => [level, skill])) }
+    expect(check(prerequisite, c)).toEqual({ missing: [], manual: [] })
+    expect(check(prerequisite, { ...base, lores: [{ name: lore, rank }] })).toEqual({ missing: [], manual: [] })
+    expect(check(prerequisite).missing).toHaveLength(1)
+  })
+
+  it('resolves named ancestry feat prerequisites using their ancestry source rather than another same-named feat', () => {
+    const ancestry = entry('feat', 'Draconic Scent', {}, 1, ['Dragonblood'])
+    const archetype = { ...entry('feat', 'Draconic Scent', { prerequisite: 'Dragon Disciple Dedication' }, 1, ['Archetype']),
+      id: 'archetype:scent' }
+    const c: Character = { ...base, ancestry: 'Human', heritage: 'Dragonblood',
+      feats: [{ ...selected('Draconic Scent'), type: 'Ancestry Feat', slot: 'ancestry:1:0' }] }
+    expect(check('Draconic Scent', c, [archetype, ancestry, entry('feat', 'Dragon Disciple Dedication')]))
+      .toEqual({ missing: [], manual: [] })
+  })
+
+  it('allows ancestry feats granted by a versatile heritage without granting access to other heritages', () => {
+    const feat = entry('feat', 'Draconic Scent', {}, 1, ['Dragonblood'])
+    const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+    expect(eligibleFeats([feat], { ...base, ancestry: 'Human', heritage: 'Dragonblood' }, slot)).toContain(feat)
+    expect(eligibleFeats([feat], { ...base, ancestry: 'Human', heritage: 'Aiuvarin' }, slot)).not.toContain(feat)
+  })
+
   it('uses level-appropriate skill ranks, abilities, class features, and background-granted feats', () => {
     const c: Character = { ...base, skillPicks: ['Athletics'], skillIncreases: { 3: 'Athletics', 7: 'Athletics' } }
     expect(check('master in Athletics', c, [], 6).missing).toHaveLength(1)
