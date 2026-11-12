@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeature, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, deitySanctification, effectiveWeapon, eligibleFeats,
-  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedWeapons, plannedSlots, resistances, senses, speed, weaponAttack,
+  activeAnimalFeatures, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, deitySanctification, effectiveWeapon, eligibleFeats,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
-import { WeaponList } from './GearSection'
+import { ArmorList, WeaponList } from './GearSection'
 import { ClassFeatures } from './ClassFeatures'
 import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
@@ -33,6 +33,52 @@ it('gives Orichalcum one extra rune slot without increasing fundamental limits o
   expect(initiativeBonus(c, [])).toBe(normal + 1)
   expect(initiativeBonus({ ...c, feats: [feat('Incredible Initiative')] }, [])).toBe(normal + 2)
   expect(initiativeBonus({ ...c, armors: c.armors!.map((armor) => ({ ...armor, worn: false })) }, [])).toBe(normal)
+})
+
+it('locks Wood-group armor to level-scaled Duskwood without changing stored material or non-Wood armor', () => {
+  const wood = content('armor', 'Wooden Breastplate', { armor_group: 'Wood' })
+  const armor = { id: 'armor', name: wood.name, material: 'Orichalcum' as const, potency: 3, resilient: 2, worn: true, runes: [] }
+  const c: Character = { ...base, armors: [armor] }
+  for (const [level, material] of [[1, 'Duskwood (Standard-Grade)'], [18, 'Duskwood (Standard-Grade)'], [19, 'Duskwood (High-Grade)']] as const) {
+    const character = { ...c, level }
+    expect(ownedArmors(character, [wood])[0].material).toBe(material)
+    const markup = renderToStaticMarkup(<ArmorList c={character} entries={[wood]} save={() => {}} />)
+    expect(markup).toContain(`aria-label="Armor material" disabled=""`)
+    expect(markup).toContain(`<option selected="">${material}</option>`)
+    expect(initiativeBonus(character, [wood])).toBe(initiativeBonus({ ...character, armors: [] }, [wood]))
+  }
+  expect(c.armors?.[0].material).toBe('Orichalcum')
+  const metal = { ...wood, data: { armor_group: 'Plate' } }
+  expect(ownedArmors(c, [metal])[0].material).toBe('Orichalcum')
+  expect(ownedArmors({ ...c, armors: undefined, equipment: [{ name: wood.name, qty: 1 }] }, [wood])[0].material)
+    .toBe('Duskwood (Standard-Grade)')
+})
+
+it('automatically chooses the deity-favored armament without requiring another weapon selection', () => {
+  const c: Character = { ...base, weapons: [main], blessing: 'Blessed Armament' }
+  expect(weaponAttack(c, [sword, deity], main).criticalSpecialization).toBe(true)
+  const markup = renderToStaticMarkup(<ClassFeatures c={c} entries={[sword, deity]} save={() => {}} />)
+  expect(markup).toContain('Blessed armament: Longsword')
+  expect(markup).not.toContain('aria-label="Blessed armament"')
+  expect(markup).not.toContain('Choose favored weapon')
+  expect(markup).not.toContain('aria-label="Blessed armament rune" disabled')
+  const second = { ...main, id: 'second' }
+  const multiple = { ...c, weapons: [main, second] }
+  expect(weaponAttack(multiple, [sword, deity], main).criticalSpecialization).toBe(true)
+  expect(weaponAttack(multiple, [sword, deity], second).criticalSpecialization).toBe(false)
+  expect(weaponAttack({ ...multiple, blessedArmament: { weaponId: second.id, rune: 'Ghost Touch' } }, [sword, deity], second).criticalSpecialization).toBe(true)
+})
+
+it('removes irrelevant active toggles while retaining their spell descriptions and damage rolls', () => {
+  const names = ["Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision"]
+  const entries = names.map((name) => content('spell', name, { duration: 60 }))
+  const c: Character = { ...base, className: 'Ranger', spells: names.map((name) => ({ name, rank: 3, cantrip: false })) }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  for (const name of names) {
+    expect(markup).not.toContain(`aria-label="${name.replaceAll("'", '&#x27;')} active"`)
+    expect(markup).toContain(name.replaceAll("'", '&#x27;'))
+  }
+  expect(markup).toContain('Critical failure: 4d4 persistent bleed')
 })
 
 it('locks eligible Living Weapons to Peachwood without losing dormant Orichalcum configuration', () => {
@@ -297,7 +343,7 @@ it('applies Animal Feature senses, movement, and level gates without changing la
   expect(senses({ ...c, animalFeature: 'Owl Eyes' }, []).map((sense) => sense.value)).toContain('Darkvision')
   expect(movementSpeeds({ ...c, animalFeature: 'Fish Tail' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Swim', feet: 35 }])
   expect(movementSpeeds({ ...c, animalFeature: 'Wings' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Fly', feet: 35 }])
-  expect(activeAnimalFeature({ ...c, animalFeature: 'Wings', level: 6 }, [])).toBeUndefined()
+  expect(activeAnimalFeatures({ ...c, animalFeature: 'Wings', level: 6 }, [])).toEqual([])
   expect(senses({ ...c, activeSpells: [] }, [])).toEqual([])
   expect(movementSpeeds({ ...c, animalFeature: 'Wings', feats: [] }, [])).toEqual([{ name: 'Land', feet: 25 }])
 })
@@ -353,13 +399,14 @@ it('targets Canopy Crawler at one creature before rank five and both at rank fiv
   expect(movementSpeeds(c, [])).toContainEqual({ name: 'Climb', feet: 25 })
   expect(stats(c).speed).toBe('35 feet, fly 50 feet, climb 10 feet')
   const companionOnly: Character = { ...c, canopyCrawlerTarget: 'Companion' }
-  expect(movementSpeeds(companionOnly, [])).not.toContainEqual({ name: 'Climb', feet: 25 })
-  expect(stats(companionOnly).speed).toBe('35 feet, fly 50 feet, climb 50 feet')
+  expect(movementSpeeds(companionOnly, [])).toContainEqual({ name: 'Climb', feet: 25 })
+  expect(stats(companionOnly).speed).toBe('35 feet, fly 50 feet, climb 10 feet')
   expect(stats(companionOnly, 'a').canopyCrawler).toBe(false)
-  expect(stats({ ...companionOnly, canopyCrawlerCompanionId: 'removed' }, 'a').canopyCrawler).toBe(true)
+  expect(stats({ ...companionOnly, level: 9, canopyCrawlerCompanionId: 'removed' }, 'a').canopyCrawler).toBe(true)
   const both: Character = JSON.parse(JSON.stringify({ ...c, level: 9, canopyCrawlerTarget: 'Both' }))
   expect(movementSpeeds(both, [])).toContainEqual({ name: 'Climb', feet: 25 })
   expect(stats(both).speed).toBe('35 feet, fly 50 feet, climb 50 feet')
+  expect(stats({ ...both, canopyCrawlerTarget: 'Self' }).canopyCrawler).toBe(true)
   expect(stats({ ...both, level: 8 }).canopyCrawler).toBe(false)
   for (const patch of [{ activeSpells: [] }, { spells: [] }, { level: 2 }]) {
     expect(movementSpeeds({ ...both, ...patch }, [])).toEqual([{ name: 'Land', feet: 25 }])
@@ -410,11 +457,11 @@ it('enlarges only smaller companions, gating Huge at level seven and applying da
 it('gives a naturally Large Sarkorian Direwolf no lower-rank Enlarge Companion effects', () => {
   const wolf = content('companion', 'Sarkorian Direwolf', { size: 'Large', fixed_size: true, strength: 2, dexterity: 3,
     speed: 35, companion_attacks: 'jaws|1d8 piercing|' })
-  const c: Character = { ...base, companions: [{ id: 'wolf', name: '', type: wolf.name }],
+  const c: Character = { ...base, level: 6, companions: [{ id: 'wolf', name: '', type: wolf.name }],
     spells: [{ name: 'Enlarge Companion', rank: 2, cantrip: false }], activeSpells: ['Enlarge Companion'], enlargeCompanionSize: 'Large' }
   const stats = (character: Character, entry = wolf) => companionStats(character, [entry], wolf.name)!
   expect(stats(c)).toEqual(stats({ ...c, activeSpells: [] }))
-  const huge: Character = JSON.parse(JSON.stringify({ ...c, enlargeCompanionSize: 'Huge' }))
+  const huge: Character = JSON.parse(JSON.stringify({ ...c, level: 7, enlargeCompanionSize: 'Huge' }))
   expect(stats(huge)).toMatchObject({ size: 'Huge', enlarge: { damage: 4, reachIncrease: 10 }, clumsy: 1 })
   for (const size of ['Huge', 'Gargantuan']) {
     const entry = { ...wolf, data: { ...wolf.data, size } }

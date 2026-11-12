@@ -1,27 +1,37 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useMemo, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeature, canopyCrawlerAffects, canopyCrawlerTarget, classSpellcasting, companionSpellTarget, enlargeCompanionSize, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, canopyCrawlerAffects, canopyCrawlerTarget, classSpellcasting, companionSpellTarget, enlargeCompanionSize, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, type SectionProps } from './builder'
 import { ANIMAL_FEATURES } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { SpellDamageRolls } from './SpellDamage'
+import { companionAdvancement, companionStats } from './companions'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
 export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
-  const active = activeAnimalFeature(c, entries)
+  const active = activeAnimalFeatures(c, entries)
+  const multiple = c.feats.some((feat) => feat.name === 'Persistent Animal Feature')
   return <fieldset className="col">
-    <legend>Animal Feature: choose one</legend>
+    <legend>Animal Feature: {multiple ? 'choose effects' : 'choose one'}</legend>
     {ANIMAL_FEATURES.map((feature) => {
       const unavailable = feature.rank > Math.ceil(c.level / 2)
       return <label key={feature.name} className={unavailable ? 'disabled' : undefined}>
-        <input type="checkbox" aria-label={`Animal Feature: ${feature.name}`} disabled={unavailable} checked={active === feature.name}
-          onChange={(e) => save({
-            animalFeature: feature.name,
-            activeSpells: [...(c.activeSpells ?? []).filter((name) => name !== 'Animal Feature'), ...(e.target.checked ? ['Animal Feature'] : [])],
-          })} /> {feature.name} <small>{feature.effect}{unavailable ? ` (requires rank ${feature.rank}; character level ${feature.rank * 2 - 1})` : ''}</small>
+        <input type="checkbox" aria-label={`Animal Feature: ${feature.name}`} disabled={unavailable} checked={active.includes(feature.name)}
+          onChange={(e) => {
+            if (unavailable) return
+            const selected = isSpellActive(c, entries, 'Animal Feature') ? c.animalFeatures ?? active : []
+            const animalFeatures = multiple
+              ? [...selected.filter((name) => name !== feature.name), ...(e.target.checked ? [feature.name] : [])]
+              : e.target.checked ? [feature.name] : []
+            save({
+              animalFeature: e.target.checked ? feature.name : animalFeatures[0] ?? feature.name,
+              animalFeatures,
+              ...spellActiveChange(c, 'Animal Feature', animalFeatures.length > 0),
+            })
+          }} /> {feature.name} <small>{feature.effect}{unavailable ? ` (requires rank ${feature.rank}; character level ${feature.rank * 2 - 1})` : ''}</small>
       </label>
     })}
   </fieldset>
@@ -34,29 +44,28 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId }: S
   const canopy = name === 'Canopy Crawler'
   const targetId = companionSpellTarget(c, canopy ? c.canopyCrawlerCompanionId : c.enlargeCompanionId)
   const companion = c.companions?.find((companion) => companion.id === companionId)
+  const selectedCompanion = c.companions?.find((companion) => companion.id === (companionId ?? targetId))
+  const naturalSize = !canopy && selectedCompanion ? companionStats(c, entries, selectedCompanion.type,
+    selectedCompanion.id === c.companions?.[0]?.id ? companionAdvancement(c) : undefined, selectedCompanion.id)?.naturalSize : undefined
+  const tooLarge = naturalSize === 'Huge' || naturalSize === 'Gargantuan'
+  const needsHuge = naturalSize === 'Large'
+  const enlargeUnavailable = !canopy && (tooLarge || needsHuge && c.level < 7)
   const active = companionId === undefined ? isSpellActive(c, entries, name)
     : canopy ? canopyCrawlerAffects(c, entries, companionId) : isSpellActive(c, entries, name) && companionId === targetId
   const target = canopyCrawlerTarget(c)
   return <div className="row">
-    <label><input type="checkbox" aria-label={`${name}${companionId ? ` on ${companion?.name || companion?.type || companionId}` : ' active'}`}
-      disabled={c.level < 3} checked={active} onChange={(e) => save({
-        ...spellActiveChange(c, name, e.target.checked),
-        ...(canopy ? {
-          canopyCrawlerCompanionId: companionId ?? targetId,
-          canopyCrawlerTarget: companionId && target !== 'Both' ? 'Companion' : target,
-        } : { enlargeCompanionId: companionId ?? targetId }),
-      })} /> {companionId ? name : 'Active'}</label>
-    {canopy ? <label>Target{' '}
-      <select aria-label="Canopy Crawler target" value={target} onChange={(e) => {
-        const choice = (['Self', 'Companion', 'Both'] as const).find((option) => option === e.target.value)
-        if (choice && (choice !== 'Both' || c.level >= 9)) save({
-          canopyCrawlerTarget: choice,
-          ...(companionId && choice !== 'Self' ? { canopyCrawlerCompanionId: companionId } : {}),
+    <label title={tooLarge ? 'Enlarge Companion has no effect on Huge or larger companions.'
+      : needsHuge && c.level < 7 ? 'Requires rank 4 (character level 7) to enlarge a Large companion.' : undefined}>
+      <input type="checkbox" aria-label={`${name}${companionId ? ` on ${companion?.name || companion?.type || companionId}` : ' active'}`}
+      disabled={c.level < 3 || enlargeUnavailable || canopy && !!companionId && target === 'Self'} checked={active && !enlargeUnavailable} onChange={(e) => {
+        if (c.level < 3 || enlargeUnavailable || canopy && !!companionId && target === 'Self') return
+        save({
+          ...spellActiveChange(c, name, e.target.checked),
+          ...(canopy ? { canopyCrawlerCompanionId: companionId ?? targetId }
+            : { enlargeCompanionId: companionId ?? targetId }),
         })
-      }}>
-        <option>Self</option><option>Companion</option><option disabled={c.level < 9}>Both</option>
-      </select>
-    </label> : <label>Size{' '}
+      }} /> {companionId ? name : 'Active'}</label>
+    {canopy ? null : tooLarge ? null : needsHuge ? <span>Size: Huge</span> : <label>Size{' '}
       <select aria-label="Enlarge Companion size" value={enlargeCompanionSize(c)} onChange={(e) => {
         if (e.target.value === 'Large' || e.target.value === 'Huge' && c.level >= 7) save({ enlargeCompanionSize: e.target.value })
       }}>
@@ -105,7 +114,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const buffProps = (name: string, entry?: ContentEntry) => {
     const duration = entry?.data.duration
     const timed = Number(duration) > 0 || typeof duration === 'string' && /\b(?:round|minute|hour|day|sustain|unlimited)/i.test(duration)
-    if (['Animal Feature', 'Canopy Crawler', 'Enlarge Companion'].includes(name) || name !== 'Magic Hide' && !timed) return {}
+    if (['Animal Feature', 'Canopy Crawler', 'Enlarge Companion', "Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision"].includes(name) || name !== 'Magic Hide' && !timed) return {}
     return {
       active: name === 'Magic Hide' ? isMagicHideActive(c, entries) : c.activeSpells?.includes(name),
       onToggle: (active: boolean) => save(name === 'Magic Hide' ? magicHideChange(c, active) : {

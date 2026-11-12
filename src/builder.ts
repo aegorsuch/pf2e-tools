@@ -346,6 +346,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Third Innovation' || c.feats.some((feat) => feat.name === 'Second Innovation' && feat.level <= slot.level))
       && (e.name !== 'Deadly Simplicity' || [...entries, ...SUPPLEMENTAL_WEAPONS]
         .some((weapon) => weapon.kind === 'weapon' && !weapon.deleted && isDeadlySimplicityWeapon(c, entries, weapon)))
+      && (!['Chiardmar Steed', 'Nidarrmar Steed'].includes(e.name)
+        || c.companions?.some((companion) => companion.type === 'Horse'))
       && (e.name !== 'Pristine Living Weapon' || ['Living Weapon', 'Wild Hunter Dedication'].every((name) =>
         c.feats.some((feat) => feat.name === name && feat.level <= slot.level)))
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
@@ -470,14 +472,16 @@ export const speed = (c: Character, entries: ContentEntry[]) =>
 
 export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const land = speed(c, entries)
-  const feature = activeAnimalFeature(c, entries)
-  const movement = [{ name: 'Land', feet: land }, ...(feature === 'Fish Tail' ? [{ name: 'Swim', feet: land }] : feature === 'Wings' ? [{ name: 'Fly', feet: land }] : [])]
+  const features = activeAnimalFeatures(c, entries)
+  const movement = [{ name: 'Land', feet: land },
+    ...(features.includes('Fish Tail') ? [{ name: 'Swim', feet: land }] : []),
+    ...(features.includes('Wings') ? [{ name: 'Fly', feet: land }] : [])]
   if (canopyCrawlerAffects(c, entries)) movement.push({ name: 'Climb', feet: Math.max(...movement.map((speed) => speed.feet)) })
   return movement
 }
 
 export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>
-  defenseSummary(c, entries).perception + Math.max(hasFeat(c, 'Incredible Initiative') ? 2 : 0, wornArmor(c)?.material === 'Orichalcum' ? 1 : 0)
+  defenseSummary(c, entries).perception + Math.max(hasFeat(c, 'Incredible Initiative') ? 2 : 0, wornArmor(c, entries)?.material === 'Orichalcum' ? 1 : 0)
 
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -648,9 +652,13 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
   const out = typeof ancestry === 'string' && ancestry ? [{ value: ancestry, source: c.ancestry }] : []
   for (const g of featData(c, entries, 'grants_vision')) if (!out.some((o) => o.value.toLowerCase() === g.value.toLowerCase())) out.push(g)
-  const feature = activeAnimalFeature(c, entries)
-  const vision = feature === 'Cat Eyes' ? 'Low-Light Vision' : feature === 'Owl Eyes' ? 'Darkvision' : undefined
-  if (vision && !out.some((sense) => sense.value.toLowerCase() === vision.toLowerCase())) out.push({ value: vision, source: 'Animal Feature' })
+  const features = activeAnimalFeatures(c, entries)
+  for (const vision of [
+    ...(features.includes('Cat Eyes') ? ['Low-Light Vision'] : []),
+    ...(features.includes('Owl Eyes') ? ['Darkvision'] : []),
+  ]) {
+    if (!out.some((sense) => sense.value.toLowerCase() === vision.toLowerCase())) out.push({ value: vision, source: 'Animal Feature' })
+  }
   if (isSpellActive(c, entries, 'Keen Smell')) out.push({
     value: `Scent (imprecise) ${c.level >= 5 ? 60 : 30} feet`, source: 'Keen Smell',
   })
@@ -799,7 +807,8 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   return out.map((r) => ({ ...r, damage: cap(r.damage) }))
 }
 
-export const wornArmor = (c: Character): OwnedArmor | undefined => c.armors?.find((a) => a.worn)
+export const wornArmor = (c: Character, entries: ContentEntry[] = []): OwnedArmor | undefined =>
+  c.armors?.filter((armor) => armor.worn).map((armor) => effectiveArmor(c, entries, armor))[0]
 export const perceptionItemBonus = (c: Character) => Math.max(0, ...(wornArmor(c)?.runes ?? []).map((rune) => {
   const name = runeName(rune)
   return name === 'Sunweave' ? 1 : name === 'Sunweave (Greater)' ? 2 : name === 'Sunweave (Major)' ? 3 : 0
@@ -873,17 +882,17 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const haftStriker = !!haftStrikerSource(c, entries)
   const oversizedThrow = canOversizedThrow(c)
   const gauntlet = armorGauntlet(c, entries)
-  const animalFeature = activeAnimalFeature(c, entries)
+  const features = activeAnimalFeatures(c, entries)
   const animalAttacks = [ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS]
-  const selectedAttack = animalFeature === 'Claws' ? ANIMAL_FEATURE_CLAWS : animalFeature === 'Jaws' ? ANIMAL_FEATURE_JAWS : undefined
+  const selectedAttacks = animalAttacks.filter((attack) => features.some((feature) => attack.name === `${feature} (Animal Feature)`))
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
-    && (!animalAttacks.some((entry) => entry.name === weapon.name) || weapon.name === selectedAttack?.name))
+    && (!animalAttacks.some((entry) => entry.name === weapon.name) || selectedAttacks.some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...(selectedAttack ? [selectedAttack] : []), ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...selectedAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -922,18 +931,17 @@ export function spellActiveChange(c: Character, name: string, active: boolean): 
 }
 
 export function canopyCrawlerTarget(c: Character) {
-  return c.canopyCrawlerTarget === 'Both' && c.level < 9 ? 'Self' : c.canopyCrawlerTarget ?? 'Self'
+  return c.level >= 9 && !!c.companions?.length ? 'Both' : 'Self'
 }
 
 export function canopyCrawlerAffects(c: Character, entries: ContentEntry[], companionId?: string) {
   if (c.level < 3 || !isSpellActive(c, entries, 'Canopy Crawler')) return false
   const target = canopyCrawlerTarget(c)
-  return companionId === undefined ? target !== 'Companion'
-    : target !== 'Self' && companionId === companionSpellTarget(c, c.canopyCrawlerCompanionId)
+  return companionId === undefined || target === 'Both' && companionId === companionSpellTarget(c, c.canopyCrawlerCompanionId)
 }
 
-export function enlargeCompanionSize(c: Character) {
-  return c.level >= 7 && c.enlargeCompanionSize !== 'Large' ? 'Huge' : 'Large'
+export function enlargeCompanionSize(c: Character, naturalSize?: string) {
+  return c.level >= 7 && (naturalSize === 'Large' || c.enlargeCompanionSize !== 'Large') ? 'Huge' : 'Large'
 }
 
 export function isMagicHideActive(c: Character, entries: ContentEntry[], companionId?: string) {
@@ -947,10 +955,13 @@ export function magicHideChange(c: Character, active: boolean, companionId = mag
   }
 }
 
-export function activeAnimalFeature(c: Character, entries: ContentEntry[]) {
-  if (!isSpellActive(c, entries, 'Animal Feature')) return undefined
-  const selected = c.animalFeature ?? 'Claws'
-  return ANIMAL_FEATURES.some((feature) => feature.name === selected && feature.rank <= Math.ceil(c.level / 2)) ? selected : undefined
+export function activeAnimalFeatures(c: Character, entries: ContentEntry[]) {
+  if (!isSpellActive(c, entries, 'Animal Feature')) return []
+  const selected = hasFeat(c, 'Persistent Animal Feature')
+    ? c.animalFeatures ?? [c.animalFeature ?? 'Claws']
+    : [c.animalFeature ?? c.animalFeatures?.[0] ?? 'Claws']
+  return ANIMAL_FEATURES.filter((feature) => selected.includes(feature.name) && feature.rank <= Math.ceil(c.level / 2))
+    .map((feature) => feature.name)
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name].includes(name)
@@ -962,18 +973,28 @@ export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
-  if (c.armors) return c.armors
+  if (c.armors) return c.armors.map((armor) => effectiveArmor(c, entries, armor))
   const best = c.equipment
     .map((g) => byName(entries, 'armor', g.name))
     .filter((e): e is ContentEntry => !!e)
     .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
   return c.equipment.filter((g) => byName(entries, 'armor', g.name))
-    .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+    .map((g) => effectiveArmor(c, entries, { id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+}
+
+export function isWoodArmor(entries: ContentEntry[], armor: OwnedArmor) {
+  return tokens(byName(entries, 'armor', armor.name)?.data.armor_group).some((group) => group.toLowerCase() === 'wood')
+}
+
+export function effectiveArmor(c: Character, entries: ContentEntry[], armor: OwnedArmor): OwnedArmor {
+  return isWoodArmor(entries, armor)
+    ? { ...armor, material: c.level >= 19 ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' }
+    : armor
 }
 
 export function armorGauntlet(c: Character, entries: ContentEntry[]) {
   const armor = ownedArmors(c, entries).find((armor) => armor.worn)
-  return armor && ['Full Plate', 'Half Plate', 'Splint Mail'].includes(armor.name)
+  return armor && ['Full Plate', 'Half Plate', 'Hellknight Plate', 'Splint Mail'].includes(armor.name)
     ? { armor, name: armor.gauntlet ?? GAUNTLET.name } : undefined
 }
 
@@ -1116,6 +1137,11 @@ export function blessedArmamentTargets(c: Character, entries: ContentEntry[]) {
     ? [{ id: HANDWRAPS.id, name: HANDWRAPS.name, ...c.handwraps }] : [])]
 }
 
+export function blessedArmamentTarget(c: Character, entries: ContentEntry[]) {
+  const targets = blessedArmamentTargets(c, entries)
+  return c.blessedArmament?.weaponId ? targets.find((weapon) => weapon.id === c.blessedArmament?.weaponId) : targets[0]
+}
+
 export function deitySanctification(c: Character, entries: ContentEntry[]) {
   const deity = byName(entries, 'deity', c.deity)
   const options = tokens(deity?.data.sanctification).flatMap((value): NonNullable<Character['sanctification']>[] =>
@@ -1138,10 +1164,11 @@ export function blessedArmamentRuneOptions(c: Character, entries: ContentEntry[]
 }
 
 export function isBlessedArmament(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const targetId = c.blessedArmament?.weaponId || blessedArmamentTarget(c, entries)?.id
   return weapon.id !== OVERSIZED_THROW.id && championBlessings(c).includes('Blessed Armament')
     && isFavoredWeapon(c, entries, weapon.name)
-    && (c.blessedArmament?.weaponId === weapon.id
-      || !!c.handwraps && c.blessedArmament?.weaponId === HANDWRAPS.id && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+    && (targetId === weapon.id
+      || !!c.handwraps && targetId === HANDWRAPS.id && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
 }
 
 export function blessedArmamentRune(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {

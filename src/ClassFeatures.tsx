@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { blessedArmamentRuneOptions, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
+import { blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
 
@@ -10,7 +10,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const blessing = championBlessing(c)
   const extraBlessings = c.feats.flatMap((feat) => ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])
   const targets = c.className === 'Champion' && c.level >= 3 ? blessedArmamentTargets(c, entries) : []
-  const target = targets.find((weapon) => weapon.id === c.blessedArmament?.weaponId)
+  const target = blessedArmamentTarget(c, entries)
   const sanctification = deitySanctification(c, entries)
   const runes = blessedArmamentRuneOptions(c, entries).filter((rune) => target && !target.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune)) && (target.id === HANDWRAPS.id
     ? !['Returning', 'Shifting'].includes(rune) : weaponRuneApplies(entries, target, rune)))
@@ -39,16 +39,16 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
               {sanctification.options.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
-          <label>Blessed armament{' '}
-            <select aria-label="Blessed armament" value={c.blessedArmament?.weaponId ?? ''} onChange={(e) => {
+          {targets.length > 1 ? <label>Blessed armament{' '}
+            <select aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
               if (!e.target.value || targets.some((weapon) => weapon.id === e.target.value))
                 save({ blessedArmament: { weaponId: e.target.value, rune: c.blessedArmament?.rune ?? '' } })
             }}>
-              <option value="">Choose favored weapon</option>
+              {!target && <option value="">Choose armament</option>}
               {c.blessedArmament?.weaponId && !target && <option value={c.blessedArmament.weaponId} disabled>Unavailable armament</option>}
               {[...targets].sort((a, b) => a.name.localeCompare(b.name)).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
             </select>
-          </label>
+          </label> : target ? <span>Blessed armament: {target.name}</span> : null}
           {!targets.length && <small>Add your deity's favored weapon, or handwraps for a favored unarmed attack.</small>}
           <label>Free property rune{' '}
             <select aria-label="Blessed armament rune" disabled={!target} value={c.blessedArmament?.rune ?? ''} onChange={(e) => {

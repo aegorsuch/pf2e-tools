@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { effectiveWeapon, ownedWeapons } from './builder'
+import { activeAnimalFeatures, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
@@ -87,6 +87,66 @@ it('alphabetizes Animal Feature effects, greys out rank-four choices until level
   expect(c.animalFeature).toBe('Wings')
   toggle('Wings', false)
   expect(c.activeSpells).toEqual(['Gravity Weapon'])
+})
+
+it('persists independent Animal Features with the homebrew feat, including attacks, senses and movement', () => {
+  const warden = { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }
+  const persistent = { name: 'Persistent Animal Feature', type: 'Class Feat', level: 1 }
+  let c: Character = { ...character([warden, persistent]), weapons: [], level: 7, activeSpells: ['Gravity Weapon'] }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const tree = () => AnimalFeatureOptions({ c, entries: [], save })
+  const toggle = (name: string, checked: boolean) => {
+    const control = findElement(tree(), (element) => element.props['aria-label'] === `Animal Feature: ${name}`)
+    if (!control) throw new Error(`Missing ${name}`)
+    ;(control.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked } })
+  }
+  for (const name of ['Claws', 'Jaws', 'Cat Eyes', 'Owl Eyes', 'Fish Tail', 'Wings']) toggle(name, true)
+  expect(activeAnimalFeatures(c, [])).toEqual(['Cat Eyes', 'Claws', 'Fish Tail', 'Jaws', 'Owl Eyes', 'Wings'])
+  expect(ownedWeapons(c, []).map((weapon) => weapon.name)).toEqual(['Claws (Animal Feature)', 'Jaws (Animal Feature)'])
+  expect(senses(c, []).map((sense) => sense.value)).toEqual(['Darkvision', 'Low-Light Vision'])
+  expect(movementSpeeds(c, [])).toEqual([{ name: 'Land', feet: 25 }, { name: 'Swim', feet: 25 }, { name: 'Fly', feet: 25 }])
+  expect(renderToStaticMarkup(tree())).toContain('Animal Feature: choose effects')
+  expect(renderToStaticMarkup(tree()).match(/checked=""/g)).toHaveLength(6)
+  expect(c.activeSpells).toEqual(['Gravity Weapon', 'Animal Feature'])
+
+  const all = c
+  c = { ...c, level: 6 }
+  expect(activeAnimalFeatures(c, [])).toEqual(['Cat Eyes', 'Claws', 'Jaws'])
+  toggle('Wings', true)
+  expect(c.level).toBe(6)
+  expect(c.animalFeatures).toEqual(all.animalFeatures)
+  toggle('Claws', false)
+  expect(c.animalFeatures).toContain('Wings')
+  expect(activeAnimalFeatures(c, [])).toEqual(['Cat Eyes', 'Jaws'])
+  c = { ...all, feats: [warden] }
+  expect(activeAnimalFeatures(c, [])).toEqual(['Wings'])
+  expect(renderToStaticMarkup(tree())).toContain('Animal Feature: choose one')
+  expect(ownedWeapons(c, []).map((weapon) => weapon.name)).not.toContain('Claws (Animal Feature)')
+  c = { ...c, feats: [warden, persistent] }
+  expect(activeAnimalFeatures(c, [])).toHaveLength(6)
+  for (const patch of [{ activeSpells: [] }, { feats: [persistent] }]) {
+    const inactive = { ...c, ...patch }
+    expect(activeAnimalFeatures(inactive, [])).toEqual([])
+    expect(movementSpeeds(inactive, [])).toEqual([{ name: 'Land', feet: 25 }])
+    expect(senses(inactive, [])).toEqual([])
+    expect(ownedWeapons(inactive, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+  }
+  toggle('Claws', false)
+  expect(ownedWeapons(c, []).map((weapon) => weapon.name)).toEqual(['Jaws (Animal Feature)'])
+  expect(c.activeSpells).toContain('Animal Feature')
+  for (const name of ['Jaws', 'Cat Eyes', 'Owl Eyes', 'Fish Tail', 'Wings']) toggle(name, false)
+  expect(c.activeSpells).toEqual(['Gravity Weapon'])
+  expect(activeAnimalFeatures(c, [])).toEqual([])
+})
+
+it('preserves legacy single Animal Feature when gaining Persistent Animal Feature', () => {
+  const c: Character = { ...character([
+    { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
+    { name: 'Persistent Animal Feature', type: 'Class Feat', level: 1 },
+  ]), animalFeature: 'Jaws', activeSpells: ['Animal Feature'] }
+  expect(activeAnimalFeatures(c, [])).toEqual(['Jaws'])
+  expect(renderToStaticMarkup(<AnimalFeatureOptions c={c} entries={[]} save={() => {}} />))
+    .toContain('aria-label="Animal Feature: Jaws" checked=""')
 })
 
 it('syncs Living Weapon fundamentals and property edits across weapons and inherited Haft Striker after reload', () => {
@@ -372,11 +432,11 @@ it.each(ARMOR_GAUNTLETS)('inherits plate material for armor-provided %s without 
   expect(saved).toMatchObject({ material: 'Peachwood (Greater)', runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] })
 })
 
-it('selects armor-provided gauntlet variants without changing separately purchased gauntlets or other armor choices', () => {
+it.each(['Half Plate', 'Hellknight Plate'])('selects %s gauntlet variants without changing separately purchased gauntlets or other armor choices', (armorName) => {
   let c: Character = {
     ...character([]),
     armors: [
-      { id: 'half', name: 'Half Plate', worn: true, potency: 0, resilient: 0, runes: [] },
+      { id: 'half', name: armorName, worn: true, potency: 0, resilient: 0, runes: [] },
       { id: 'splint', name: 'Splint Mail', worn: false, gauntlet: 'Spiked Gauntlet', potency: 0, resilient: 0, runes: [] },
     ],
     weapons: [{ id: GAUNTLET.id, name: 'Gauntlet', potency: 2, striking: 1, runes: ['Flaming'] }],

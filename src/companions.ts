@@ -5,6 +5,17 @@ import type { Character, ContentEntry } from './types'
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
 export const MAX_SPECIALIZATIONS = 3
 
+export function faithfulSteedChange(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
+  if (c.faithfulSteedGranted || !c.feats.some((feat) => feat.name === 'Faithful Steed' && feat.level <= c.level)) return
+  if (c.companions?.length) return { faithfulSteedGranted: true }
+  const horse = entries.find((entry) => entry.kind === 'companion' && entry.name === 'Horse' && !entry.deleted)
+  if (!horse) return
+  return {
+    faithfulSteedGranted: true,
+    companions: [{ id: `${c.id}:faithful-steed`, type: horse.name, name: '' }],
+  }
+}
+
 type Mods = Partial<Record<Ability, number>>
 interface Spec {
   mods: Mods
@@ -38,7 +49,8 @@ export function companionAdvancement(c: Character) {
   const has = (prefix: string) => c.feats.filter((f) => f.name.startsWith(prefix))
   const advanced = c.feats.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
   const specializations = [...new Set(c.feats.filter((feat) => isCompanionSpecialization(feat.name)).flatMap((f) => (f.choice ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
-  return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0 || !!advanced, advanced, specializations }
+  return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0
+    || has('Loyal Warhorse').length > 0 || !!advanced, advanced, specializations }
 }
 
 export function specializationOptions(c: Character, entries: ContentEntry[], exceptIndex: number) {
@@ -84,7 +96,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const hp = num(d.hp) + (6 + mods.con) * level
   const baseSize = String(d.size ?? '').split(',')[0].trim()
   const naturalSize = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
-  const enlargedSize = enlargeCompanionSize(c)
+  const enlargedSize = enlargeCompanionSize(c, naturalSize)
   const enlarge = c.level >= 3 && companionId !== undefined
     && companionId === companionSpellTarget(c, c.enlargeCompanionId) && isSpellActive(c, entries, 'Enlarge Companion')
     && SIZES.indexOf(naturalSize) >= 0 && SIZES.indexOf(naturalSize) < SIZES.indexOf(enlargedSize)
@@ -130,7 +142,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   return {
-    entry, level, size, mods, hp, speed, speedBonuses, skills, attacks,
+    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy,
     perception: total('Perception', 'wis'),

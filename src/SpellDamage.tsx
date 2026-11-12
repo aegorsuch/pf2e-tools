@@ -1,9 +1,14 @@
 import { useState } from 'react'
 
-type Damage = { label: string; dice: number; sides: number; type: string }
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
+    case 'Heal Companion':
+      return rank >= 1 ? [
+        { label: '1-action healing', dice: rank, sides: 10, type: 'HP' },
+        { label: '2-action healing', dice: rank, sides: 10, bonus: 8 * rank, type: 'HP' },
+      ] : []
     case 'Slime Spit':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'poison' }] : []
     case 'Warning Stripes':
@@ -22,20 +27,21 @@ export function spellDamage(name: string, rank: number): Damage[] {
   }
 }
 
-export function rollSpellDamage({ dice, sides }: Damage) {
-  const rolls = Array.from({ length: dice }, () => Math.floor(Math.random() * sides) + 1)
-  return { rolls, total: rolls.reduce((sum, roll) => sum + roll, 0) }
+export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
+  return Array.from({ length: dice }, () => Math.floor(Math.random() * sides) + 1)
+    .reduce((sum, roll) => sum + roll, bonus)
 }
 
 function DamageRoll({ name, damage }: { name: string; damage: Damage }) {
   const [result, setResult] = useState<ReturnType<typeof rollSpellDamage>>()
+  const formula = `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
   return <span>
-    <button type="button" aria-label={`Roll ${name}: ${damage.label}`} title={`${damage.label}: ${damage.dice}d${damage.sides} ${damage.type}`}
+    <button type="button" aria-label={`Roll ${name}: ${damage.label}`} title={`${damage.label}: ${formula}`}
       onClick={() => setResult(rollSpellDamage(damage))}>
-      {damage.label}: {damage.dice}d{damage.sides} {damage.type}
+      {damage.label}: {formula}
     </button>
-    {result && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
-      {' '}{result.total} {damage.type} ({result.rolls.join(' + ')})
+    {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
+      {' '}{result} {damage.type}
     </output>}
   </span>
 }

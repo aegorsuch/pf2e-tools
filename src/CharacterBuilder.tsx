@@ -12,6 +12,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { MinionsSection } from './MinionsSection'
+import { faithfulSteedChange } from './companions'
 import { db } from './db'
 import type { Character, ContentEntry, EntryKind } from './types'
 
@@ -88,6 +89,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   ) ?? NONE
   const save = (patch: Partial<Character>) => {
     const next = { ...c, ...patch, updatedAt: Date.now() }
+    Object.assign(next, faithfulSteedChange(next, entries))
     // Boost-built characters keep their scores in sync with ancestry/background/class/level changes
     if (next.boosts) next.abilities = computeAbilities(next, entries)
     return db.characters.put(next)
@@ -98,6 +100,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const stale = c.feats.filter((f) => homebrewDedication(f.slot ?? '') && !wanted.some((d) => d.slot === f.slot))
   const unslotted = unslottedFeats(c)
   const orphaned = [...unslotted, ...orphanedArchetypeFeats({ ...c, feats: c.feats.filter((f) => !unslotted.includes(f)) }, entries)]
+  const missingSteed = faithfulSteedChange(c, entries)
   useEffect(() => {
     if (orphaned.length) {
       const feats = c.feats.filter((f) => !orphaned.includes(f))
@@ -107,7 +110,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       void save({ feats, entryIds: c.entryIds.filter((id) => !removedIds.has(id)) })
       return
     }
-    if (!missing.length && !stale.length) return
+    if (!missing.length && !stale.length) {
+      if (missingSteed) void save(missingSteed)
+      return
+    }
     const added = missing.map((d) => ({ d, entry: entries.find((e) => e.kind === 'feat' && e.name === d.name)! }))
     void save({
       feats: [...c.feats.filter((f) => !stale.includes(f)), ...added.map(({ d, entry }) => ({ name: d.name, type: 'Dedication Feat', level: entry.level, slot: d.slot }))],

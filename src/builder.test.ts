@@ -504,7 +504,7 @@ describe('archetype rules', () => {
     for (const [index, chosen] of breeds.entries()) {
       const incompatible = breeds[1 - index]
       const c: Character = {
-        ...base, className: 'Champion', level: 8,
+        ...base, className: 'Champion', level: 8, companions: [{ id: 'horse', type: 'Horse', name: '' }],
         feats: [
           { name: dedication.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' },
           { name: chosen.name, type: 'Class Feat', level: 6, slot: 'class:6:0' },
@@ -514,6 +514,9 @@ describe('archetype rules', () => {
       expect(eligibleFeats(data, c, { key: 'class:8:0', category: 'class', level: 8 })).not.toContain(incompatible)
       expect(eligibleFeats(data, c, { key: 'class:6:0', category: 'class', level: 6 })).toEqual(breeds)
       expect(eligibleFeats(data, { ...c, feats: c.feats.slice(0, 1) }, { key: 'archetype:8:0', category: 'archetype', level: 8 })).toEqual(breeds)
+      for (const companions of [[], [{ id: 'wolf', type: 'Sarkorian Direwolf', name: 'Horse' }]]) {
+        expect(eligibleFeats(data, { ...c, companions }, { key: 'class:6:0', category: 'class', level: 6 })).toEqual([])
+      }
     }
   })
 

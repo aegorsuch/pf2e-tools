@@ -4,6 +4,7 @@ import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOpt
 import { isMagicHideActive, knowsSpell, magicHideChange, signed, type SectionProps } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
+import { newId } from './db'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
 const ABILITY_NAMES = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' } as const
@@ -33,6 +34,15 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
       <div className="character-section-content">
         <details className="character-subsection" open>
           <summary><h4>Animal Companions ({companions.length})</h4></summary>
+          {companions.length === 0 && c.feats.some((feat) => feat.name === 'Faithful Steed' && feat.level <= c.level) && <label>Faithful Steed{' '}
+            <select aria-label="Choose Faithful Steed" value="" onChange={(e) => {
+              const type = types.find((type) => type.name === e.target.value)
+              if (type) save({ faithfulSteedGranted: true, companions: [{ id: newId(), type: type.name, name: '' }] })
+            }}>
+              <option value="">Choose companion...</option>
+              {types.map((type) => <option key={type.id}>{type.name}</option>)}
+            </select>
+          </label>}
           {companions.map((comp, index) => {
             // Feats advance the first companion; any others stay young
             const stats = companionStats(c, entries, comp.type, index === 0 ? advancement : undefined, comp.id)

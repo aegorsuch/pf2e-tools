@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  armorGauntlet, blessedArmamentRune, canBeLivingWeapon, effectiveWeapon, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  armorGauntlet, blessedArmamentRune, canBeLivingWeapon, effectiveWeapon, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -308,7 +308,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
                   update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material)) })
                 }}>
                   <option value="">Standard</option>
-                  {enhanced.material === 'Duskwood' && <option>Duskwood</option>}
+                  {enhanced.material?.startsWith('Duskwood') && <option>{enhanced.material}</option>}
                   {WEAPON_MATERIALS.map((name) => <option key={name}>{name}</option>)}
                 </select>
               </label>
@@ -367,12 +367,14 @@ export function ArmorList({ c, entries, save }: SectionProps) {
             )}
             <div className="row">
               <label>Material{' '}
-                <select aria-label="Armor material" value={a.material ?? ''} onChange={(e) => {
+                <select aria-label="Armor material" value={a.material ?? ''} disabled={isWoodArmor(entries, a)} onChange={(e) => {
+                  if (isWoodArmor(entries, a)) return
                   const material = e.target.value === 'Duskwood' ? 'Duskwood' : e.target.value === 'Orichalcum' ? 'Orichalcum' : undefined
                   update(a.id, { material, runes: a.runes.slice(0, maxPropertyRunes(a.potency, material)) })
                 }}>
                   <option value="">Standard</option>
                   <option value="Duskwood">Duskwood</option>
+                  {a.material?.startsWith('Duskwood (') && <option>{a.material}</option>}
                   <option value="Orichalcum">Orichalcum</option>
                 </select>
               </label>

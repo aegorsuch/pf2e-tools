@@ -28,7 +28,7 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
-  material?: 'Duskwood' | 'Orichalcum' | 'Peachwood (Greater)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood (Greater)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)'
   livingWeapon?: boolean
   verdantWeapon?: boolean
   stowed?: boolean
@@ -41,7 +41,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   worn: boolean
-  material?: 'Duskwood' | 'Orichalcum'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 export interface OwnedShield {
@@ -127,6 +127,7 @@ export interface Character {
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
+  animalFeatures?: NonNullable<Character['animalFeature']>[]
   magicHideCompanionId?: string
   canopyCrawlerTarget?: 'Self' | 'Companion' | 'Both'
   canopyCrawlerCompanionId?: string
@@ -134,6 +135,7 @@ export interface Character {
   enlargeCompanionId?: string
   // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
   companions?: { id: string; name: string; type: string }[]
+  faithfulSteedGranted?: boolean
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]
   updatedAt: number

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { eligibleFeats } from './builder'
-import { companionAdvancement, companionStats, specializationOptions } from './companions'
+import { companionAdvancement, companionStats, faithfulSteedChange, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
@@ -20,6 +20,40 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('grants Faithful Steed once, repairs saved Champions, and preserves chosen or removed companions', () => {
+    const horse = entry('companion', 'Horse', { ...bear.data, mount: true })
+    const champion: Character = { ...base, className: 'Champion', feats: [feat('Faithful Steed')] }
+    const change = faithfulSteedChange(champion, [horse])!
+    expect(change).toEqual({ faithfulSteedGranted: true, companions: [{ id: 'c:faithful-steed', type: 'Horse', name: '' }] })
+    expect(faithfulSteedChange({ ...champion, companions: [] }, [horse])).toEqual(change)
+    const saved: Character = JSON.parse(JSON.stringify({ ...champion, ...change }))
+    expect(faithfulSteedChange(saved, [horse])).toBeUndefined()
+    expect(faithfulSteedChange({ ...saved, companions: [] }, [horse])).toBeUndefined()
+    const existing = [{ id: 'custom', type: 'Sarkorian Direwolf', name: 'Existing' }]
+    expect(faithfulSteedChange({ ...champion, companions: existing }, [horse])).toEqual({ faithfulSteedGranted: true })
+    expect(existing).toEqual([{ id: 'custom', type: 'Sarkorian Direwolf', name: 'Existing' }])
+    expect(faithfulSteedChange({ ...champion, feats: [] }, [horse])).toBeUndefined()
+    expect(faithfulSteedChange({ ...champion, level: 1 }, [horse])).toBeUndefined()
+    expect(faithfulSteedChange(champion, [])).toBeUndefined()
+    expect(faithfulSteedChange(champion, [{ ...horse, deleted: true }])).toBeUndefined()
+  })
+
+  it('advances Champion steeds through Loyal Warhorse and Imposing Destrier', () => {
+    const champion = { ...base, className: 'Champion', feats: [feat('Faithful Steed')] }
+    const young = companionStats(champion, [bear], bear.name, companionAdvancement(champion))!
+    const mature = { ...champion, feats: [...champion.feats, feat('Loyal Warhorse')] }
+    expect(companionAdvancement(mature)).toMatchObject({ mature: true })
+    const grown = companionStats(mature, [bear], bear.name, companionAdvancement(mature))!
+    expect(grown.size).toBe('Medium')
+    expect(grown.attacks[0].damage).toBe('2d8+4 piercing')
+    expect(young.attacks[0].damage).toBe('1d8+3 piercing')
+    for (const advanced of ['Nimble', 'Savage']) {
+      const improved = { ...mature, feats: [...mature.feats, feat('Imposing Destrier', advanced)] }
+      expect(companionAdvancement(improved)).toMatchObject({ mature: true, advanced })
+      expect(companionStats(improved, [bear], bear.name, companionAdvancement(improved))!.ac).toBeGreaterThan(grown.ac)
+    }
+  })
+
   it('seeds fixed-size mount variants without changing base stats or normal companion growth', () => {
     const originals = [
       entry('companion', 'Isgeri Boarhound', { ...bear.data, strength: 2, dexterity: 3, mount: false }),
@@ -38,7 +72,7 @@ describe('animal companions', () => {
         const advancement = companionAdvancement(c)
         const original = companionStats(c, originals, originals[index].name, advancement)!
         expect(companionStats(c, variants, variant.name, advancement)).toEqual({
-          ...original, entry: variant, size, mount: true,
+          ...original, entry: variant, size, naturalSize: size, mount: true,
         })
         expect(original.size).toBe(advancement.mature ? 'Medium' : 'Small')
       }

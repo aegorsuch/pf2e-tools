@@ -38,6 +38,7 @@ it('syncs companion spell toggles in both directions, persists targets, and gate
   }
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
   for (const name of ['Canopy Crawler', 'Enlarge Companion'] as const) {
+    c = { ...c, level: name === 'Canopy Crawler' ? 9 : 6 }
     const component = (companionId?: string) => CompanionSpellOptions({ c, entries: [], save, name, companionId })
     const on = findToggle(component('b'), `${name} on B`)
     if (!on) throw new Error('Missing companion spell toggle')
@@ -68,11 +69,9 @@ it('syncs companion spell toggles in both directions, persists targets, and gate
   c = { ...c, level: 7 }
   select('Enlarge Companion', 'Enlarge Companion size', 'Huge')
   expect(c.enlargeCompanionSize).toBe('Huge')
-  select('Canopy Crawler', 'Canopy Crawler target', 'Both')
-  expect(c.canopyCrawlerTarget).toBe('Companion')
+  expect(renderToStaticMarkup(<CompanionSpellOptions c={c} entries={[]} save={save} name="Canopy Crawler" />))
+    .not.toContain('Canopy Crawler target')
   c = { ...c, level: 9 }
-  select('Canopy Crawler', 'Canopy Crawler target', 'Both')
-  expect(c.canopyCrawlerTarget).toBe('Both')
   select('Canopy Crawler', 'Canopy Crawler companion', 'a')
   expect(c.canopyCrawlerCompanionId).toBe('a')
   select('Canopy Crawler', 'Canopy Crawler companion', 'invalid')
@@ -86,6 +85,7 @@ it('syncs companion spell toggles in both directions, persists targets, and gate
 it.each([
   ['Incredible Companion', 'Specialized Companion'],
   ['Incredible Mount', 'Specialized Mount'],
+  ['Imposing Destrier', 'Specialized Mount'],
 ])('places %s and %s choices on the companion card', (advanced, specialized) => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Druid',
@@ -146,4 +146,63 @@ it.each([
   changeFirst({ target: { value: 'Bully' } })
   expect(c.feats[3]).toMatchObject({ name: specialized, choice: 'Bully' })
   expect(c.feats[0]).toMatchObject({ name: specialized, choice: 'Racer' })
+})
+
+it('lets a Champion choose or replace Faithful Steed without a rename field', () => {
+  let c: Character = {
+    id: 'champion', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Faithful Steed', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [], faithfulSteedGranted: true,
+  }
+  const horse: ContentEntry = {
+    id: 'horse', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Horse', level: 1,
+    traits: [], description: '', data: { size: 'Large', mount: true }, effects: [], updatedAt: 1,
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const select = findSelect(MinionsSection({ c, entries: [horse], save }), 'Choose Faithful Steed')
+  if (!select) throw new Error('Missing Faithful Steed selection')
+  select({ target: { value: 'invalid' } })
+  expect(c.companions).toEqual([])
+  select({ target: { value: 'Horse' } })
+  expect(c.companions).toMatchObject([{ type: 'Horse', name: '' }])
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[horse]} save={save} />)
+  expect(markup).toContain('Animal Companions (1)')
+  expect(markup).toContain('aria-label="Companion type"')
+  expect(markup).not.toContain('Choose Faithful Steed')
+  expect(markup).not.toContain('aria-label="Companion name"')
+})
+
+it('removes Enlarge size choices for Large companions and disables casting on Huge companions', () => {
+  const companion: ContentEntry = {
+    id: 'wolf', systems: ['pf2e'], kind: 'companion', source: 'homebrew', name: 'Sarkorian Direwolf', level: 1,
+    traits: [], description: '', data: { size: 'Large', fixed_size: true }, effects: [], updatedAt: 1,
+  }
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 7, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'wolf', type: companion.name, name: '' }],
+    spells: [{ name: 'Enlarge Companion', rank: 2, cantrip: false }], enlargeCompanionSize: 'Large',
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const props = () => ({ c, entries: [companion], save, name: 'Enlarge Companion' as const })
+  expect(renderToStaticMarkup(<CompanionSpellOptions {...props()} />)).not.toContain('aria-label="Enlarge Companion size"')
+  const on = findToggle(CompanionSpellOptions(props()), 'Enlarge Companion active')
+  if (!on) throw new Error('Missing Enlarge toggle')
+  on({ target: { checked: true } })
+  expect(c.activeSpells).toContain('Enlarge Companion')
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={save} />)
+  expect(markup).toContain('Huge*')
+  expect(markup).toContain('Size: Huge')
+  c = { ...c, level: 6, activeSpells: [] }
+  expect(renderToStaticMarkup(<CompanionSpellOptions {...props()} />))
+    .toContain('aria-label="Enlarge Companion active" disabled=""')
+  for (const size of ['Huge', 'Gargantuan']) {
+    const entries = [{ ...companion, data: { ...companion.data, size } }]
+    const spells = renderToStaticMarkup(<SpellsSection c={{ ...c, level: 7 }} entries={entries} save={save} />)
+    expect(spells).toContain('aria-label="Enlarge Companion active" disabled=""')
+    expect(spells).not.toContain('aria-label="Enlarge Companion size"')
+  }
 })

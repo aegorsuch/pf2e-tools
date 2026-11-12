@@ -44,7 +44,7 @@ export const ORC_TUSKS: ContentEntry = {
 export const GAUNTLET: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
   traits: ['Agile', 'Free-Hand'],
-  description: 'Full plate, half plate, and splint mail include gauntlets that can be used as simple weapons dealing 1d4 bludgeoning damage.',
+  description: 'Full plate, half plate, Hellknight plate, and splint mail include gauntlets that can be used as simple weapons dealing 1d4 bludgeoning damage.',
   data: { weapon_category: 'Simple', weapon_group: 'Brawling', weapon_type: 'Melee', damage: '1d4 bludgeoning' },
 }
 
@@ -66,6 +66,18 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'Like all orcs, you have tusks, but, uniquely, you coat or inlay them with cold iron, allowing your bite to easily damage demons.', { ancestry: 'Orc', rarity: 'uncommon' }),
     homebrewFeat('primal-nimbleness', 'Primal Nimbleness', 1, ['Druid', 'Ranger'],
       'Your muscles are tightly honed. Your Speed increases by 5 feet.', { class: 'Druid, Ranger' }),
+    homebrewFeat('persistent-keen-smell', 'Persistent Keen Smell', 6, ['Ranger'],
+      'When you cast Keen Smell, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.',
+      { class: 'Ranger' }),
+    homebrewFeat('persistent-canopy-crawler', 'Persistent Canopy Crawler', 8, ['Ranger'],
+      'When you cast Canopy Crawler, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.',
+      { class: 'Ranger' }),
+    homebrewFeat('persistent-animal-feature', 'Persistent Animal Feature', 8, ['Ranger'],
+      'When you cast Animal Feature, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration. This extended duration applies to all options except wings.\n\nYou can have multiple Animal Feature effects active at the same time. Each effect must meet the spell rank requirement.',
+      { class: 'Ranger' }),
+    homebrewFeat('persistent-magic-hide', 'Persistent Magic Hide', 10, ['Ranger'],
+      'When you cast Magic Hide, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.',
+      { class: 'Ranger' }),
     homebrewFeat('impaling-throw', 'Impaling Throw', 1, ['Flourish', 'Ranger', '3rd Party'],
       'Requirements: You are wielding a weapon which does piercing damage with the Thrown trait.\n\nYou know a thorn in the flank of your quarry is an easy quarry to take down. Make a ranged Strike against your prey with the required weapon. If you hit the creature, the weapon stays inside of them instead of dropping to the ground. As long as they leave the weapon in, they are clumsy 1. Removing the weapon requires a single Interact action requiring them to succeed on either an Athletics or Medicine skill check against your class DC.\n\nSpecial: You can use Impaling Throw with improvised weapons that are determined to be appropriate, or when throwing weapons without the thrown trait that deal piercing damage.',
       { class: 'Ranger', actions: 'Single Action', requirements: 'You are wielding a weapon which does piercing damage with the Thrown trait.' }),
@@ -121,11 +133,16 @@ export const ANIMAL_FEATURES = [
 
 export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const base = entries.find((entry) => entry.id === 'aon:pf2e:weapon-304' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
-  return base ? [{
-    ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew', name: 'Clawed Gauntlet',
+  const katana = entries.find((entry) => entry.id === 'aon:pf2e:weapon-411' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
+  return [...(base ? [{
+    ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew' as const, name: 'Clawed Gauntlet',
     description: 'Four curved blades mounted over the fist give this close-combat gauntlet the appearance of claws.',
     updatedAt: 1,
-  }] : []
+  }] : []), ...(katana ? [{
+    ...katana, id: 'homebrew:claymore', source: 'homebrew' as const, name: 'Claymore',
+    description: 'A homebrew claymore using katana statistics.',
+    updatedAt: 1,
+  }] : [])]
 }
 
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {

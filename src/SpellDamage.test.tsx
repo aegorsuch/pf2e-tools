@@ -30,10 +30,26 @@ it('keeps Pulverizing Wake strike bonus fixed while heightening its separate con
   }
 })
 
-it('rolls every damage die, includes endpoints, and totals individual results', () => {
+it('rolls every damage die, includes endpoints, and returns only the total', () => {
   vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.999999)
   const damage = spellDamage('Slime Spit', 1)[0]
-  expect(rollSpellDamage(damage)).toEqual({ rolls: [1, 6], total: 7 })
+  expect(rollSpellDamage(damage)).toBe(7)
+})
+
+it('scales both Heal Companion action versions and includes the two-action flat healing', () => {
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [1, 5, 10]) {
+    const healing = spellDamage('Heal Companion', rank)
+    expect(healing).toEqual([
+      { label: '1-action healing', dice: rank, sides: 10, type: 'HP' },
+      { label: '2-action healing', dice: rank, sides: 10, bonus: 8 * rank, type: 'HP' },
+    ])
+    expect(rollSpellDamage(healing[0])).toBe(rank)
+    expect(rollSpellDamage(healing[1])).toBe(9 * rank)
+    const markup = renderToStaticMarkup(<SpellDamageRolls name="Heal Companion" rank={rank} />)
+    expect(markup).toContain(`1-action healing: ${rank}d10 HP`)
+    expect(markup).toContain(`2-action healing: ${rank}d10+${8 * rank} HP`)
+  }
 })
 
 it('renders rank-scaled rollers beside owned spells and omits unavailable spell damage', () => {
