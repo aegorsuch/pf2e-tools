@@ -14,10 +14,12 @@ export interface Settings {
   druidCavalier: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
+  // House rule: General Training and Advanced General Training can each be selected once
+  singleTrainingFeats: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, generalFeatsOnly: false }
+const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, generalFeatsOnly: false, singleTrainingFeats: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

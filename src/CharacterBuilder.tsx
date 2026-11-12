@@ -201,7 +201,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
               </select>
             </label>
           </div>
-          <small>Ethnicity options come from official feat access rules. Access does not replace prerequisites.</small>
+          <small>Ethnicity options come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />

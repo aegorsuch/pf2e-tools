@@ -79,6 +79,23 @@ describe('authentication', () => {
 })
 
 describe('settings sync', () => {
+  it('defaults the training limit on for older settings and persists an explicit opt-out', async () => {
+    vi.mocked(localStorage.getItem).mockReturnValue(JSON.stringify({
+      settings: { rangerSnarecrafter: false }, updatedAt: 10,
+    }))
+    const settings = await import('./settings')
+    expect(settings.getSettings().singleTrainingFeats).toBe(true)
+    settings.updateSettings({ singleTrainingFeats: false })
+    const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
+    if (!saved) throw new Error('Settings were not persisted')
+    vi.mocked(localStorage.getItem).mockReturnValue(saved)
+    vi.resetModules()
+    const reloaded = await import('./settings')
+    expect(reloaded.getSettings().singleTrainingFeats).toBe(false)
+    reloaded.applySyncedSettings({ singleTrainingFeats: true }, reloaded.getSettingsUpdatedAt() + 1)
+    expect(reloaded.getSettings().singleTrainingFeats).toBe(true)
+  })
+
   it('pulls newer settings from the signed-in account', async () => {
     vi.stubGlobal('localStorage', {
       getItem: vi.fn(() => JSON.stringify({ rangerSnarecrafter: false })),

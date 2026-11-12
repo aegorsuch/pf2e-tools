@@ -24,7 +24,10 @@ it('separates ethnicity access, exact-entry approval and ordinary unrestricted f
 it('derives ethnicity choices without interpreting nationalities or complex conditions as automatic access', () => {
   const entries = ['Varisian ethnicity or New Thassilon nationality', 'mountain dwarf ethnicity',
     'any surface dwarf ethnicity', 'Kellid ethnicity and follower of a deity'].map((access, i) => ({ ...feat, id: String(i), data: { access } }))
-  expect(ethnicityOptions([feat, ...entries])).toEqual(['Kellid', 'Mountain Dwarf', 'Varisian'])
+  const prerequisites = ['Nidalese ethnicity', 'Tian-Dan ethnicity; trained in Arcana'].map((prerequisite, i) => ({
+    ...feat, id: `prerequisite:${i}`, data: { prerequisite },
+  }))
+  expect(ethnicityOptions([feat, ...entries, ...prerequisites])).toEqual(['Kellid', 'Mountain Dwarf', 'Nidalese', 'Tian-Dan', 'Varisian'])
   expect(featAccess({ ...character, ethnicity: 'Varisian' }, entries[0])?.automatic).toBe(true)
   expect(featAccess(character, entries[3])?.automatic).toBe(false)
 })

@@ -15,6 +15,29 @@ const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], lev
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
 describe('shared prerequisite enforcement', () => {
+  it.each([['Gloomseer', 'Nidalese'], ['Dragon Spit', 'Tian-Dan'], ['Wavetouched Paragon', 'Bonuwat']])('enforces %s ethnicity as a prerequisite, not overridable access', (name, ethnicity) => {
+    const feat = entry('feat', name, { prerequisite: `${ethnicity} ethnicity` }, 1, ['Human'])
+    const c: Character = { ...base, level: 1, ancestry: 'Human', featAccessOverrides: [feat.id] }
+    const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+    for (const ethnicity of [undefined, 'Kellid']) {
+      const character = { ...c, ethnicity }
+      expect(featSelectionPrerequisiteChecker(character, [feat], slot)(feat)).toEqual({ missing: [String(feat.data.prerequisite)], manual: [] })
+      expect(eligibleFeats([feat], character, slot)).not.toContain(feat)
+    }
+    expect(featSelectionPrerequisiteChecker({ ...c, ethnicity: ethnicity.toLowerCase() }, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats([feat], { ...c, ethnicity }, slot)).toContain(feat)
+    expect(check(`${ethnicity} ethnicity or Kellid ethnicity`, { ...c, ethnicity: 'Kellid' })).toEqual({ missing: [], manual: [] })
+  })
+
+  it('combines ethnicity alternatives with other required prerequisites', () => {
+    const alternatives = 'Garundi ethnicity, Mauxi ethnicity, or Tian-Yae ethnicity'
+    expect(check(alternatives, { ...base, ethnicity: 'Mauxi' })).toEqual({ missing: [], manual: [] })
+    expect(check(alternatives, { ...base, ethnicity: 'Kellid' })).toEqual({ missing: [alternatives], manual: [] })
+    expect(check('Nidalese ethnicity; Strength +3', { ...base, ethnicity: 'Nidalese' })).toEqual({ missing: ['Strength +3'], manual: [] })
+    expect(check('Nidalese ethnicity; Strength +3', { ...base, ethnicity: 'Kellid', abilities: { ...base.abilities, str: 16 } }))
+      .toEqual({ missing: ['Nidalese ethnicity'], manual: [] })
+  })
+
   it('explains dedication locks while allowing pickers to include unmet options', () => {
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const other = entry('feat', 'Defend Mount', { archetype: 'Cavalier' }, 4, ['Archetype'])

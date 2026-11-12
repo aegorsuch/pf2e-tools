@@ -20,14 +20,20 @@ it('gates access separately, saves per-feat GM approval, preserves existing choi
   }
   const other: ContentEntry = { ...witch, id: 'other', name: 'Other Restricted Feat' }
   const prerequisite: ContentEntry = { ...witch, id: 'strong', name: 'Strong Ward', data: { access: 'Kellid ethnicity', prerequisite: 'Strength +4' } }
+  const gloomseer: ContentEntry = { ...witch, id: 'gloomseer', name: 'Gloomseer', traits: ['Human'], data: { prerequisite: 'Nidalese ethnicity' } }
+  const dragonSpit: ContentEntry = { ...gloomseer, id: 'dragon-spit', name: 'Dragon Spit', data: { prerequisite: 'Tian-Dan ethnicity' } }
   const search: Record<string, string> = { 'ancestry:1:0:open': '1' }
   const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
-  const tree = () => FeatSlots({ c, entries: [witch, other, prerequisite], categories: ['ancestry'], title: 'Ancestry Feats',
+  const tree = () => FeatSlots({ c, entries: [witch, other, prerequisite, gloomseer, dragonSpit], categories: ['ancestry'], title: 'Ancestry Feats',
     save, search, onSearch: (key, value) => { search[key] = value } })
   expect(renderToStaticMarkup(tree())).toContain('<option value="Witch Warden" disabled="">Witch Warden * Access: Kellid ethnicity')
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
   expect(save).not.toHaveBeenCalled()
   search['access:ancestry'] = 'approved'
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Gloomseer" disabled="">Gloomseer * Missing Nidalese ethnicity</option>')
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Dragon Spit" disabled="">Dragon Spit * Missing Tian-Dan ethnicity</option>')
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: gloomseer.name } })
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: dragonSpit.name } })
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: prerequisite.name } })
   expect(save).not.toHaveBeenCalled()
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
@@ -59,6 +65,14 @@ it('gates access separately, saves per-feat GM approval, preserves existing choi
   expect(missingMarkup).toContain('GM approval needed')
   c = { ...c, ethnicity: 'Kellid', feats: [{ ...c.feats[0], name: prerequisite.name }] }
   expect(renderToStaticMarkup(tree())).toContain('aria-label="Prerequisites unmet"')
+  c = { ...c, feats: [], ethnicity: 'Nidalese' }
+  search['ancestry:1:0:open'] = '1'
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Gloomseer">Gloomseer</option>')
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: gloomseer.name } })
+  expect(c.feats[0].name).toBe(gloomseer.name)
+  c = { ...c, feats: [], ethnicity: 'Tian-Dan' }
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: dragonSpit.name } })
+  expect(c.feats[0].name).toBe(dragonSpit.name)
 })
 
 it('shows automatic intimidation feats as read-only skill grants without duplicating saved selections', () => {

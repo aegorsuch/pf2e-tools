@@ -9,6 +9,7 @@ export interface PrerequisiteFacts {
   className?: string
   ancestry?: string
   heritage?: string
+  ethnicity?: string
   ancestryTraits?: string[]
   subclass?: string
   additionalSubclasses: string[]
@@ -128,6 +129,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const name = key(text).replace(/\.$/, '')
     const qualified = /^\[([^\]]+)\]\s*(.+)$/.exec(name)
     if (qualified) return key(facts.className ?? '') === qualified[1] ? evaluate(qualified[2], level, trail) : met()
+    const ethnicity = /^([a-z][a-z' -]*?) ethnicity$/.exec(name)
+    if (ethnicity && !/\b(?:and|or|any|you|your|must)\b/.test(ethnicity[1])) {
+      return resultFor(key(facts.ethnicity ?? '') === ethnicity[1], text)
+    }
     const ability = /^(strength|dexterity|constitution|intelligence|wisdom|charisma)\s*(\+?\d+)$/.exec(name)
     const minimumLevel = /^(?:level (\d+)|(?:at least )?(\d+)(?:st|nd|rd|th) level)$/.exec(name)
     if (minimumLevel) return resultFor(level >= Number(minimumLevel[1] ?? minimumLevel[2]), text)

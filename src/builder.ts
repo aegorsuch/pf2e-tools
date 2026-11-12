@@ -371,7 +371,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const hasFocusPool = focus.points > 0 || features.some((feature) => /\byou (?:start with|gain) a focus pool\b/i.test(feature.description))
       const casting = !!classSpellcasting(character, entries)?.traditions.length
       const value: PrerequisiteFacts = {
-        className: character.className, ancestry: character.ancestry, heritage: character.heritage,
+        className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
         ancestryTraits: ancestryFeatTraits(character),
         subclass, additionalSubclasses,
         orders: character.className === 'Druid' ? [
@@ -459,6 +459,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
+      && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (!isCompanionSpecialization(e.name) || specializations < 3)

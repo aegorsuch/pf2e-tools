@@ -1,7 +1,7 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { describe, expect, it } from 'vitest'
 import { armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
-import { updateSettings } from './settings'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -599,6 +599,31 @@ describe('feat grants', () => {
 })
 
 describe('feat-granted slots', () => {
+  it('limits each training feat once by default, allows repeats when disabled, and preserves saved copies', () => {
+    expect(getSettings().singleTrainingFeats).toBe(true)
+    const data = ['General Training', 'Advanced General Training'].map(name =>
+      entry('feat', name, { repeatable: true }, 1, ['Human']))
+    const slot = { key: 'ancestry:17:0', category: 'ancestry' as const, level: 17 }
+    try {
+      for (const chosen of data) {
+        const c: Character = { ...base, level: 17, ancestry: 'Human',
+          feats: [{ name: chosen.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:13:0' }] }
+        updateSettings({ singleTrainingFeats: true })
+        expect(eligibleFeats(data, c, slot)).not.toContain(chosen)
+        expect(eligibleFeats(data, c, slot)).toContain(data.find(feat => feat !== chosen))
+        expect(eligibleFeats(data, c, { ...slot, key: 'ancestry:13:0', level: 13 })).toContain(chosen)
+        updateSettings({ singleTrainingFeats: false })
+        expect(eligibleFeats(data, c, slot)).toContain(chosen)
+        const duplicated = { ...c, feats: [...c.feats, { ...c.feats[0], slot: 'ancestry:17:0' }] }
+        const saved = JSON.stringify(duplicated)
+        const slots = plannedSlots(duplicated)
+        updateSettings({ singleTrainingFeats: true })
+        expect(JSON.stringify(duplicated)).toBe(saved)
+        expect(plannedSlots(duplicated)).toEqual(slots)
+      }
+    } finally { updateSettings({ singleTrainingFeats: true }) }
+  })
+
   it('adds a general feat slot while General Training is taken', () => {
     const c = { ...base, level: 1, feats: [{ name: 'General Training', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
     expect(plannedSlots(c).filter((s) => s.category === 'general').map((s) => s.key)).toEqual(['general:1:g0'])

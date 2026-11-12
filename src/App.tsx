@@ -237,6 +237,11 @@ export default function App() {
             General Feats Only
           </label>
           <label>
+            <input type="checkbox" checked={settings.singleTrainingFeats}
+              onChange={(e) => updateSettings({ singleTrainingFeats: e.target.checked })} />{' '}
+            General Training and Advanced General Training: Once Each
+          </label>
+          <label>
             <input type="checkbox" checked={settings.rangerSnarecrafter}
               onChange={(e) => updateSettings({ rangerSnarecrafter: e.target.checked })} />{' '}
             Ranger Snarecrafter Dedication

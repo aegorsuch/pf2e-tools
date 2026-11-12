@@ -15,7 +15,8 @@ function accessEthnicities(access: string) {
 
 export function ethnicityOptions(entries: ContentEntry[]) {
   return [...new Set(entries.filter(entry => !entry.deleted && entry.kind === 'feat')
-    .flatMap(entry => accessEthnicities(String(entry.data.access ?? '')))
+    .flatMap(entry => [entry.data.access, entry.data.prerequisite]
+      .flatMap(requirement => String(requirement ?? '').split(/[,;]|\s+and\s+/i).flatMap(accessEthnicities)))
     .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase())))]
     .sort((a, b) => a.localeCompare(b))
 }
