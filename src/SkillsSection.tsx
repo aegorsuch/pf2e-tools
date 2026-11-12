@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, canopyCrawlerAffects, featLores, senses, movementSpeeds, speedBonuses, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featLores, senses, movementSpeeds, speedBonuses, armorSpecialization,
   maxHp,
   proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
@@ -141,9 +141,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           onChange={(e) => save({ raging: e.target.checked })} /> Rage active</label>}
         <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
           const bonuses = movement.name === 'Land' ? speedBonuses(c) : []
-          const climbing = movement.name === 'Climb' && canopyCrawlerAffects(c, entries)
-          return <span key={movement.name} title={climbing ? 'Climb Speed equal to highest Speed (Canopy Crawler)' : undefined}>
-            {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name} `}{movement.feet} ft.{climbing && '*'}
+          return <span key={movement.name}>
+            {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
+            {movement.source && ` (${movement.source})`}
             {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
           </span>
         })}</small>

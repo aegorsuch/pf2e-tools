@@ -473,11 +473,11 @@ export const speed = (c: Character, entries: ContentEntry[]) =>
 export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const land = speed(c, entries)
   const features = activeAnimalFeatures(c, entries)
-  const movement = [{ name: 'Land', feet: land },
-    ...(features.includes('Fish Tail') ? [{ name: 'Swim', feet: land }] : []),
-    ...(features.includes('Wings') ? [{ name: 'Fly', feet: land }] : [])]
-  if (canopyCrawlerAffects(c, entries)) movement.push({ name: 'Climb', feet: Math.max(...movement.map((speed) => speed.feet)) })
-  return movement
+  const movement: { name: string; feet: number; source: string }[] = [
+    ...(features.includes('Fish Tail') ? [{ name: 'Swim', feet: land, source: 'Animal Feature' }] : []),
+    ...(features.includes('Wings') ? [{ name: 'Fly', feet: land, source: 'Animal Feature' }] : [])]
+  if (canopyCrawlerAffects(c, entries)) movement.push({ name: 'Climb', feet: Math.max(land, ...movement.map((speed) => speed.feet)), source: 'Canopy Crawler' })
+  return [{ name: 'Land', feet: land, source: undefined }, ...movement.sort((a, b) => a.name.localeCompare(b.name))]
 }
 
 export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>

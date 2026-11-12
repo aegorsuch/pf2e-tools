@@ -341,11 +341,23 @@ it('applies Animal Feature senses, movement, and level gates without changing la
     feats: [feat('Advanced Warden', 4, 'Animal Feature'), feat('Fleet'), feat('Primal Nimbleness')] }
   expect(senses(c, []).map((sense) => sense.value)).toContain('Low-Light Vision')
   expect(senses({ ...c, animalFeature: 'Owl Eyes' }, []).map((sense) => sense.value)).toContain('Darkvision')
-  expect(movementSpeeds({ ...c, animalFeature: 'Fish Tail' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Swim', feet: 35 }])
-  expect(movementSpeeds({ ...c, animalFeature: 'Wings' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Fly', feet: 35 }])
+  expect(movementSpeeds({ ...c, animalFeature: 'Fish Tail' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Swim', feet: 35, source: 'Animal Feature' }])
+  expect(movementSpeeds({ ...c, animalFeature: 'Wings' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Fly', feet: 35, source: 'Animal Feature' }])
   expect(activeAnimalFeatures({ ...c, animalFeature: 'Wings', level: 6 }, [])).toEqual([])
   expect(senses({ ...c, activeSpells: [] }, [])).toEqual([])
   expect(movementSpeeds({ ...c, animalFeature: 'Wings', feats: [] }, [])).toEqual([{ name: 'Land', feet: 25 }])
+})
+
+it('shows movement sources inline and alphabetizes alternate speeds after land Speed', () => {
+  const c: Character = { ...base, level: 9, className: 'Ranger',
+    feats: [feat('Persistent Animal Feature', 8), feat('Fleet'), feat('Primal Nimbleness')],
+    spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }, { name: 'Canopy Crawler', rank: 2, cantrip: false }],
+    activeSpells: ['Animal Feature', 'Canopy Crawler'], animalFeatures: ['Fish Tail', 'Wings'] }
+  const text = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />).replace(/<[^>]*>/g, '')
+  expect(text).toContain('Speed: 35 ft. (+5 Fleet, +5 Primal Nimbleness); Climbing 35 ft. (Canopy Crawler); Fly 35 ft. (Animal Feature); Swim 35 ft. (Animal Feature)')
+  const inactive = renderToStaticMarkup(<SkillsSection c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} part="offense" />)
+  expect(inactive).not.toContain('Climbing')
+  expect(inactive).not.toContain('(Animal Feature)')
 })
 
 it.each([[1, 30], [4, 30], [5, 60], [20, 60]])('adds active Keen Smell scent at level %i with correct focus-spell heightening', (level, range) => {
@@ -396,15 +408,15 @@ it('targets Canopy Crawler at one creature before rank five and both at rank fiv
     spells: [{ name: 'Canopy Crawler', rank: 2, cantrip: false }], activeSpells: ['Canopy Crawler'],
     canopyCrawlerCompanionId: 'b', canopyCrawlerTarget: 'Self' }
   const stats = (character: Character, id = 'b') => companionStats(character, [cat], 'Cat', undefined, id)!
-  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Climb', feet: 25 })
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Climb', feet: 25, source: 'Canopy Crawler' })
   expect(stats(c).speed).toBe('35 feet, fly 50 feet, climb 10 feet')
   const companionOnly: Character = { ...c, canopyCrawlerTarget: 'Companion' }
-  expect(movementSpeeds(companionOnly, [])).toContainEqual({ name: 'Climb', feet: 25 })
+  expect(movementSpeeds(companionOnly, [])).toContainEqual({ name: 'Climb', feet: 25, source: 'Canopy Crawler' })
   expect(stats(companionOnly).speed).toBe('35 feet, fly 50 feet, climb 10 feet')
   expect(stats(companionOnly, 'a').canopyCrawler).toBe(false)
   expect(stats({ ...companionOnly, level: 9, canopyCrawlerCompanionId: 'removed' }, 'a').canopyCrawler).toBe(true)
   const both: Character = JSON.parse(JSON.stringify({ ...c, level: 9, canopyCrawlerTarget: 'Both' }))
-  expect(movementSpeeds(both, [])).toContainEqual({ name: 'Climb', feet: 25 })
+  expect(movementSpeeds(both, [])).toContainEqual({ name: 'Climb', feet: 25, source: 'Canopy Crawler' })
   expect(stats(both).speed).toBe('35 feet, fly 50 feet, climb 50 feet')
   expect(stats({ ...both, canopyCrawlerTarget: 'Self' }).canopyCrawler).toBe(true)
   expect(stats({ ...both, level: 8 }).canopyCrawler).toBe(false)

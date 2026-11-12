@@ -300,7 +300,6 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             </div>}
             {fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : haft ? null
-              : inherited ? <small>+{enhanced.potency} {handwraps.kind === 'hardlight' ? 'tracking' : 'potency'}, {handwraps.kind === 'hardlight' ? `${enhanced.striking + 1} damage dice` : STRIKING_LABEL[enhanced.striking] || 'no striking rune'}; inherited from {handwrapItem.name}.</small>
               : unarmed ? null : <div className="row">
               <label title={pristineNote}>Material{a.pristineLivingWeapon && '*'}{' '}
                 <select aria-label="Weapon material" value={enhanced.material ?? ''} disabled={livingWeapon || w.id === GAUNTLET.id && !!gauntlet} onChange={(e) => {
