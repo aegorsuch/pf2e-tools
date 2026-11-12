@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   armorGauntlet, blessedArmamentRune, canBeLivingWeapon, effectiveWeapon, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
-import { Info } from './Info'
+import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
 import type { ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
@@ -245,26 +245,28 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const damageDice = /^(\d+)d/.exec(a.damage)?.[1]
         const damageRunes = enhanced.runes.filter((rune) => !['Animated', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))).sort((x, y) => x.localeCompare(y))
           .map((rune) => {
-            if (/^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune)) return '1d6 force'
-            if (/^Astral(?: \(Greater\))?$/.test(runeName(rune))) return `1d6${runeName(rune) === 'Astral (Greater)' ? '*' : ''} spirit`
-            if (runeName(rune) === 'Holy' || runeName(rune) === 'Unholy') return '1d4* spirit'
-            if (rune === 'Shockwave') return damageDice ? `${damageDice} bludgeoning splash` : 'bludgeoning splash equal to weapon damage dice'
-            return rune
+            const source = runeName(rune)
+            const note = source === 'Holy' ? 'Holy: 2d4 spirit instead against unholy targets.'
+              : source === 'Unholy' ? 'Unholy: 2d4 spirit instead against holy targets.'
+                : source === 'Astral (Greater)' ? 'Greater Astral: spirit damage ignores spirit resistance.' : undefined
+            const value = /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force'
+              : /^Astral(?: \(Greater\))?$/.test(source) ? '1d6 spirit'
+                : source === 'Holy' || source === 'Unholy' ? '1d4 spirit'
+                  : rune === 'Shockwave' ? damageDice ? `${damageDice} bludgeoning splash` : 'bludgeoning splash equal to weapon damage dice'
+                    : rune
+            return { source, note, value: value.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase()) }
           })
-        const damage = a.damage ? `${a.damage}${damageRunes.length > 0 ? ` + ${damageRunes.join(', ')}` : ''}` : ''
         const pristineNote = a.pristineLivingWeapon
           ? 'Pristine Living Weapon: treated as cold iron and silver. Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.'
           : undefined
-        const damageNote = [...enhanced.runes.map((rune) => runeName(rune)).flatMap((rune) =>
-          rune === 'Holy' ? ['Holy: 2d4 spirit instead against unholy targets.']
-            : rune === 'Unholy' ? ['Unholy: 2d4 spirit instead against holy targets.']
-              : rune === 'Astral (Greater)' ? ['Greater Astral: spirit damage ignores spirit resistance.'] : []),
-        ...(pristineNote ? [pristineNote] : [])].join(' ') || undefined
-        const compactDamage = damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
+        const compactDamage = a.damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
         const crushing = enhanced.runes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : enhanced.runes.includes('Crushing') ? 1 : 0
         return (
           <details key={w.id} className="gear-card" aria-label={displayName} open>
-            <summary><strong>{displayName}</strong> <small title={damageNote}>Attack {signed(a.attack)}{damage && `, Damage ${compactDamage}${a.pristineLivingWeapon ? '*' : ''}`}</small></summary>
+            <summary><strong>{displayName}</strong> <small>Attack {signed(a.attack)}{a.damage && <>, Damage {compactDamage}{pristineNote
+              && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
+              <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
+                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}</>}</small></summary>
             {gauntlet && w.id === GAUNTLET.id && <label>Armor gauntlet{' '}
               <select aria-label="Armor gauntlet" value={gauntlet.name} onChange={(e) => {
                 const choice = ARMOR_GAUNTLETS.find((name) => name === e.target.value)
@@ -301,7 +303,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             {fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : haft ? null
               : unarmed ? null : <div className="row">
-              <label title={pristineNote}>Material{a.pristineLivingWeapon && '*'}{' '}
+              <label>Material{pristineNote && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}{' '}
                 <select aria-label="Weapon material" value={enhanced.material ?? ''} disabled={livingWeapon || w.id === GAUNTLET.id && !!gauntlet} onChange={(e) => {
                   const material = WEAPON_MATERIALS.find((name) => name === e.target.value)
                   update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material)) })

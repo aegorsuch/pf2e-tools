@@ -1,4 +1,4 @@
-import { Info } from './Info'
+import { Info, SourceNote } from './Info'
 import { confirmRemoval } from './confirmRemoval'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
 import { isMagicHideActive, knowsSpell, magicHideChange, signed, type SectionProps } from './builder'
@@ -49,6 +49,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
             const enlargeNote = stats?.enlarge ? `Enlarge Companion: ${stats.enlarge.size}; +${stats.enlarge.damage} status melee damage; +${stats.enlarge.reachIncrease} feet reach; clumsy 1.` : undefined
             const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined
             const acNote = [stats?.magicHide ? '+1 Status (Magic Hide)' : undefined, clumsyNote].filter(Boolean).join('; ') || undefined
+            const acSource = [stats?.magicHide ? 'Magic Hide' : undefined, stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
             return (
               <article key={comp.id} className="gear-card">
                 <header className="row">
@@ -96,7 +97,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                     </label>
                   </div>}
                   <div className="gear-traits">
-                    <span>{index === 0 ? stage : 'Young'}</span><span title={enlargeNote}>{stats.size}{!!stats.enlarge && '*'}</span>
+                    <span>{index === 0 ? stage : 'Young'}</span><span>{stats.size}{enlargeNote && <SourceNote source="Enlarge Companion" note={enlargeNote} />}</span>
                     {index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
                     {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
@@ -105,25 +106,29 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   <div className="gear-stats">
                     <span><small>Level</small><b>{stats.level}</b></span>
                     <span><small>HP</small><b>{stats.hp}</b></span>
-                    <span><small>AC</small><b title={acNote}>{stats.ac}{!!acNote && '*'}</b></span>
+                    <span><small>AC</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} />}</b></span>
                     <span><small>Perception</small><b>{signed(stats.perception)}</b></span>
                     <span><small>Fort</small>{signed(stats.fortitude)}</span>
-                    <span title={clumsyNote}><small>Ref</small>{signed(stats.reflex)}{!!stats.clumsy && '*'}</span>
+                    <span><small>Ref</small>{signed(stats.reflex)}{clumsyNote && <SourceNote source="Enlarge Companion" note={clumsyNote} />}</span>
                     <span><small>Will</small>{signed(stats.will)}</span>
-                    {stats.enlarge && <span title={enlargeNote}><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet*</span>}
+                    {stats.enlarge && enlargeNote && <span><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet<SourceNote source="Enlarge Companion" note={enlargeNote} /></span>}
                   </div>
                   <div className="gear-stats">
                     {(Object.keys(ABILITY_NAMES) as (keyof typeof ABILITY_NAMES)[]).map((k) => <span key={k}><small>{ABILITY_NAMES[k]}</small>{signed(stats.mods[k])}</span>)}
                   </div>
-                  <div><small>Speed</small> <span title={stats.canopyCrawler ? 'Climb Speed equal to highest Speed (Canopy Crawler)' : undefined}>{stats.speed}{stats.canopyCrawler && '*'}</span>
+                  <div><small>Speed</small> <span>{stats.speed}{stats.canopyCrawler
+                    && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>
                     {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
                     {stats.senses && <> · <small>Senses</small> {stats.senses}</>}</div>
                   {stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
                   {stats.attacks.map((a) => (
-                    <div key={a.name}><b>{a.name}</b> <span title={a.dexterityBased ? clumsyNote : undefined}>{signed(a.attack)}{a.dexterityBased && !!stats.clumsy && '*'}</span> {a.traits && <small>({a.traits})</small>} — <span title={!a.ranged ? enlargeNote : undefined}>{a.damage}{!a.ranged && !!stats.enlarge && '*'}</span></div>
+                    <div key={a.name}><b>{a.name}</b> <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
+                      && <SourceNote source="Enlarge Companion" note={clumsyNote} />}</span> {a.traits && <small>({a.traits})</small>} — <span>{a.damage}{!a.ranged && enlargeNote
+                      && <SourceNote source="Enlarge Companion" note={enlargeNote} />}</span></div>
                   ))}
-                  {stats.skills.length > 0 && <div><small>Skills</small> {stats.skills.map((s, index) => <span key={s.name} title={s.clumsy ? clumsyNote : undefined}>
-                    {index > 0 && ', '}{s.name} {signed(s.bonus)}{s.clumsy && '*'} ({RANK_LETTER[s.rank]})
+                  {stats.skills.length > 0 && <div><small>Skills</small> {stats.skills.map((s, index) => <span key={s.name}>
+                    {index > 0 && ', '}{s.name} {signed(s.bonus)}{s.clumsy && clumsyNote
+                      && <SourceNote source="Enlarge Companion" note={clumsyNote} />} ({RANK_LETTER[s.rank]})
                   </span>)}</div>}
                   {stats.support && <Info label="Support benefit">{stats.support}</Info>}
                   {stats.maneuver && (index === 0 && (advancement.advanced) ? <div><small>Advanced maneuver</small> {stats.maneuver}</div> : <Info label="Advanced maneuver">{stats.maneuver}</Info>)}

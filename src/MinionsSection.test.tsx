@@ -227,7 +227,7 @@ it('removes Enlarge size choices for Large companions and disables casting on Hu
   on({ target: { checked: true } })
   expect(c.activeSpells).toContain('Enlarge Companion')
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={save} />)
-  expect(markup).toContain('Huge*')
+  expect(markup).toMatch(/Huge<button[^>]*>\*<\/button> \(Enlarge Companion\)/)
   expect(markup).toContain('Size: Huge')
   c = { ...c, level: 6, activeSpells: [] }
   expect(renderToStaticMarkup(<CompanionSpellOptions {...props()} />))

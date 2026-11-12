@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { eligibleFeats, featPrerequisiteChecker } from './builder'
+import { eligibleFeats, featPrerequisiteChecker, featSelectionPrerequisiteChecker } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
@@ -15,6 +15,28 @@ const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], lev
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
 describe('shared prerequisite enforcement', () => {
+  it('explains dedication locks while allowing pickers to include unmet options', () => {
+    const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+    const other = entry('feat', 'Defend Mount', { archetype: 'Cavalier' }, 4, ['Archetype'])
+    const medic = entry('feat', 'Medic Dedication', { archetype: 'Medic' }, 2, ['Archetype', 'Dedication'])
+    const c: Character = { ...base, level: 6, feats: [selected(dedication.name, 2), selected(other.name, 4)] }
+    const data = [dedication, other, medic]
+    const slot = { key: 'archetype:6:0', category: 'archetype' as const, level: 6 }
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(medic).missing).toEqual(['1 more Cavalier archetype feat before another dedication'])
+    expect(eligibleFeats(data, c, slot)).not.toContain(medic)
+    expect(eligibleFeats(data, c, slot, { includeUnmetPrerequisites: true })).toContain(medic)
+  })
+
+  it('explains required companion types without leaving a redundant manual warning', () => {
+    const steed = entry('feat', 'Chiardmar Steed', { prerequisite: 'horse animal companion' }, 6, ['Ranger'])
+    const c: Character = { ...base, className: 'Ranger', level: 6 }
+    const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+    expect(featSelectionPrerequisiteChecker(c, [steed], slot)(steed)).toEqual({ missing: ['horse animal companion'], manual: [] })
+    expect(featSelectionPrerequisiteChecker({ ...c, companions: [{ id: 'horse', type: 'Horse', name: 'Horse' }] }, [steed], slot)(steed))
+      .toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats([steed], c, slot, { includeUnmetPrerequisites: true })).toContain(steed)
+  })
+
   it('enforces feat chains, their instinct prerequisites, selection levels, and self-exclusion', () => {
     const giant = entry('subclass', 'Giant', { class: 'Barbarian' })
     const parent = entry('feat', "Giant's Stature", { prerequisite: 'Giant instinct' }, 6, ['Barbarian'])

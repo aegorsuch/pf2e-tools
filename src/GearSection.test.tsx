@@ -317,16 +317,21 @@ it('provides graded rune descriptions and AoN links separately from removal', ()
 
 it.each([
   ['Astral', '1d6 spirit', undefined],
-  ['Astral (Greater)', '1d6* spirit', 'Greater Astral: spirit damage ignores spirit resistance.'],
-  ['Holy', '1d4* spirit', 'Holy: 2d4 spirit instead against unholy targets.'],
-  ['Unholy', '1d4* spirit', 'Unholy: 2d4 spirit instead against holy targets.'],
+  ['Astral (Greater)', '1d6 spirit', 'Greater Astral: spirit damage ignores spirit resistance.'],
+  ['Holy', '1d4 spirit', 'Holy: 2d4 spirit instead against unholy targets.'],
+  ['Unholy', '1d4 spirit', 'Unholy: 2d4 spirit instead against holy targets.'],
 ] as const)('shows %s damage numerically with compact conditional markers', (rune, damage, note) => {
   const c = character([])
   c.weapons![0].runes = [rune]
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} />)
   expect(markup).toContain(`Damage 2d8 S + ${damage}`)
   expect(markup).not.toContain('class="gear-damage"')
-  if (note) expect(markup).toContain(`title="${note}"`)
+  if (note) {
+    expect(markup).toContain(`title="${note}"`)
+    expect(markup).toContain(`aria-label="${rune} note"`)
+    expect(markup).toContain(`*</button> (${rune})`)
+    expect(markup).toContain('popover="auto"')
+  }
 })
 
 it('shows attack and compact damage including rune damage in the weapon summary', () => {

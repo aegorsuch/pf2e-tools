@@ -297,7 +297,7 @@ it('treats Living Weapons and inherited haft strikes as cold iron and silver wit
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('treated as cold iron and silver')
   expect(markup).toContain('Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.')
-  expect(markup).toContain('Material*')
+  expect(markup).toMatch(/Material<button[^>]*>\*<\/button> \(Pristine Living Weapon\)/)
   expect(markup).not.toContain('Damage 2d8+1 S + 1d6')
 })
 
@@ -543,7 +543,7 @@ it('exposes persisted defensive contexts and shows conditional bonuses without c
   const druid: Character = { ...base, className: 'Druid', feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
   const markup = renderToStaticMarkup(<SkillsSection c={druid} entries={[]} save={() => {}} part="defense" />)
   expect(markup).toContain('aria-label="Harden Flesh active"')
-  expect(markup).toContain('Physical (except adamantine) 3 (Harden Flesh)')
+  expect(markup).toMatch(/Physical \(except adamantine\) 3<button[^>]*>\*<\/button> \(Harden Flesh\)/)
   expect(renderToStaticMarkup(<SkillsSection c={{ ...druid, feats: [] }} entries={[]} save={() => {}} part="defense" />)).not.toContain('Harden Flesh active')
 })
 
@@ -596,7 +596,7 @@ it('syncs Magic Hide across spells and companion controls and marks only the aff
     expect(spells).toContain(`aria-label="Magic Hide active"${active ? ' checked=""' : ''}`)
     expect(minions.match(/title="\+1 Status \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 1 : 0)
     expect(changed.activeSpells).toContain('Keen Smell')
-    if (active) expect(minions).toMatch(/title="\+1 Status \(Magic Hide\)">\d+\*<\/b>/)
+    if (active) expect(minions).toMatch(/<b>\d+<button[^>]*>\*<\/button> \(Magic Hide\)/)
   }
 })
 
@@ -626,7 +626,7 @@ it('targets Canopy Crawler at one creature before rank five and both at rank fiv
   const minions = renderToStaticMarkup(<MinionsSection c={both} entries={[cat]} save={() => {}} />)
   expect(minions).toContain('aria-label="Canopy Crawler on B" checked=""')
   expect(minions).not.toContain('aria-label="Canopy Crawler on A" checked=""')
-  expect(minions).toContain('climb 50 feet*')
+  expect(minions).toMatch(/climb 50 feet<button[^>]*>\*<\/button> \(Canopy Crawler\)/)
   const noClimb = { ...cat, data: { ...cat.data, speed_raw: '35 feet, swim 40 feet' } }
   expect(companionStats(both, [noClimb], 'Cat', undefined, 'b')!.speed).toBe('35 feet, swim 40 feet, climb 40 feet')
 })
@@ -660,7 +660,7 @@ it('enlarges only smaller companions, gating Huge at level seven and applying da
   for (const patch of [{ activeSpells: [] }, { spells: [] }, { level: 2 }])
     expect(stats({ ...c, ...patch }).enlarge).toBeUndefined()
   const markup = renderToStaticMarkup(<MinionsSection c={huge} entries={[cat]} save={() => {}} />)
-  expect(markup).toContain('Huge*')
+  expect(markup).toMatch(/Huge<button[^>]*>\*<\/button> \(Enlarge Companion\)/)
   expect(markup).toContain('+4 status melee damage; +10 feet reach; clumsy 1.')
   expect(markup).toContain('-1 Status (clumsy 1; Enlarge Companion)')
 })
@@ -733,10 +733,36 @@ it('makes Primal Nimbleness available to both classes and scales heritage and Ra
   expect(resistances({ ...base, level: 10, feats: [feat('Poison Resistance', 2)] }, options)).toContainEqual({ damage: 'Poison', value: 5, source: 'Poison Resistance' })
   const markup = renderToStaticMarkup(<SkillsSection c={{ ...base, level: 20, feats: [feat('Poison Resistance', 2)] }}
     entries={options} save={() => {}} part="defense" />)
-  expect(markup).toContain('title="Poison Resistance: +1 status bonus to saving throws against poisons.">Poison 10*</span>')
+  expect(markup).toMatch(/>Poison 10<button[^>]*>\*<\/button> \(Poison Resistance\)/)
+  expect(markup).toContain('aria-label="Poison Resistance note"')
+  expect(markup).toContain('popover="auto"')
+  expect(markup).toContain('+1 status bonus to saving throws against poisons.')
   expect(markup).not.toContain('Saving throws against poisons: +1 status bonus.</small>')
   expect(options.find((entry) => entry.id === 'homebrew:ranger-poison-resistance')?.traits).toEqual(['Ranger'])
   expect(druidPoison.traits).toEqual(['Alchemist', 'Druid'])
+})
+
+it('keeps other poison resistance sources visible without borrowing the feat saving throw note', () => {
+  const poison = content('feat', 'Venom Ward', { resistances: 'poison=5' })
+  const markup = renderToStaticMarkup(<SkillsSection c={{ ...base, feats: [feat(poison.name)] }}
+    entries={[poison]} save={() => {}} part="defense" />)
+  expect(markup).toContain('Poison 5 (Venom Ward)')
+  expect(markup).not.toContain('source-note-trigger')
+})
+
+it.each([
+  ['Harden Flesh', 'Physical (except adamantine)', 'Lasts until the beginning of your next turn'],
+  ['Heart of the Kaiju', 'Physical', 'Physical resistance applies only while in kaiju form'],
+  ['Primal Aegis', 'Acid', 'Resistance equals your positive Wisdom modifier'],
+])('keeps %s visible beside its resistance with a clickable condition note', (name, damage, note) => {
+  const c: Character = { ...base, level: 20, abilities: { ...base.abilities, wis: 18 },
+    feats: [feat(name)], activeFeatEffects: [name] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(markup).toContain(damage)
+  expect(markup).toContain(`aria-label="${name} note"`)
+  expect(markup).toContain(`*</button> (${name})`)
+  expect(markup).toContain(note)
+  expect(markup).toContain('popover="auto"')
 })
 
 it('summarizes heritage, ancestry, subclass, and final level without duplicating ancestry', () => {

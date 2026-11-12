@@ -463,6 +463,68 @@ it('blocks unmet feat chains while preserving and flagging existing selections a
   expect(c.feats).toEqual([])
 })
 
+it.each([
+  ['class', 'Class', 1, ['Barbarian']],
+  ['ancestry', 'Ancestry', 1, ['Human']],
+  ['skill', 'Skill', 2, ['General', 'Skill']],
+  ['general', 'General', 3, ['General']],
+] as const)('shows unmet %s feats with their missing skill instead of hiding them', (category, label, level, traits) => {
+  const entry: ContentEntry = {
+    id: 'target', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Needs Training', level: 1,
+    traits: [...traits], data: { prerequisite: 'trained in Athletics' }, description: '', effects: [], updatedAt: 1,
+  }
+  let c: Character = { ...emptyRanger(), className: 'Barbarian', ancestry: 'Human', level: 3 }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries: [entry], save, categories: [category] })
+  expect(renderToStaticMarkup(tree())).toContain('value="Needs Training" disabled="">Needs Training * Missing trained in Athletics</option>')
+  findSelect(tree(), `L0${level} ${label} feat`)!({ target: { value: entry.name } })
+  expect(save).not.toHaveBeenCalled()
+  c = { ...c, skillPicks: ['Athletics'] }
+  expect(renderToStaticMarkup(tree())).toContain('value="Needs Training">Needs Training</option>')
+  findSelect(tree(), `L0${level} ${label} feat`)!({ target: { value: entry.name } })
+  expect(c.feats).toHaveLength(1)
+})
+
+it('lists every confirmed missing prerequisite and updates the label as requirements are met', () => {
+  const target: ContentEntry = {
+    id: 'target', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Dragon Howl', level: 2,
+    traits: ['Barbarian'], data: { prerequisite: 'dragon instinct, trained in Intimidation' }, description: '', effects: [], updatedAt: 1,
+  }
+  const entries = [target, { ...target, id: 'dragon', kind: 'subclass' as const, name: 'Dragon', data: { class: 'Barbarian' } }]
+  const c: Character = { ...emptyRanger(), className: 'Barbarian', subclass: 'Fury', level: 2 }
+  const render = (character: Character) => renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={['class']} />)
+  expect(render(c)).toContain('Dragon Howl * Missing dragon instinct; trained in Intimidation')
+  expect(render({ ...c, skillPicks: ['Intimidation'] })).toContain('Dragon Howl * Missing dragon instinct</option>')
+  expect(render({ ...c, subclass: 'Dragon', skillPicks: ['Intimidation'] })).toContain('value="Dragon Howl">Dragon Howl</option>')
+})
+
+it('keeps unmet archetype feats visible in the modal with required dedication and skill details', () => {
+  const child: ContentEntry = {
+    id: 'child', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Defend Mount', level: 4,
+    traits: ['Archetype'], data: { archetype: 'Cavalier', prerequisite: 'Cavalier Dedication, trained in Athletics' },
+    description: '', effects: [], updatedAt: 1,
+  }
+  const dedication: ContentEntry = { ...child, id: 'dedication', name: 'Cavalier Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], data: { archetype: 'Cavalier' } }
+  const c: Character = { ...emptyRanger(), level: 4 }
+  const save = vi.fn()
+  const tree = FeatSlots({ c, entries: [dedication, child], save, categories: ['archetype'], search: { 'archetype:4:0:open': '1' } })
+  const label = 'L04 Dedication: Defend Mount * Missing Cavalier Dedication; trained in Athletics'
+  expect(renderToStaticMarkup(tree)).toContain(`aria-label="${label}" disabled=""`)
+  findButton(tree, label)!()
+  expect(save).not.toHaveBeenCalled()
+})
+
+it('shows missing prerequisites even when the feat currently has no available subchoices', () => {
+  const entry: ContentEntry = {
+    id: 'third', systems: ['pf2e'], kind: 'feat', source: 'homebrew', name: 'Third Innovation', level: 16,
+    traits: ['Inventor'], data: { prerequisite: 'Second Innovation' }, description: '', effects: [], updatedAt: 1,
+  }
+  const c: Character = { ...emptyRanger(), className: 'Inventor', level: 16 }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[entry]} save={() => {}} categories={['class']} />)
+  expect(markup).toContain('value="Third Innovation" disabled="">Third Innovation * Missing Second Innovation</option>')
+})
+
 it('marks only the affected feat and shows its missing prerequisites above the description in its dialog', () => {
   const names = ['Draconic Arrogance', 'Moment of Clarity', 'Raging Intimidation', 'Raging Thrower', 'Sudden Charge']
   const entries = names.map<ContentEntry>((name) => ({
@@ -561,6 +623,29 @@ it('preserves an adopted ancestry source and leaves ambiguous versions for manua
   const ambiguous = render({ ...c, entryIds: [] })
   expect(ambiguous).not.toContain('aria-label="Prerequisites unmet"')
   expect(ambiguous).toContain('Check prerequisites manually: Verify source version of Linguistic Prodigy')
+})
+
+it.each(['standard', 'extra'])('removes an empty %s selector without confirmation or losing other selections', (kind) => {
+  vi.mocked(window.confirm).mockReturnValue(false)
+  let c: Character = { ...emptyRanger(), extraSlots: [{ category: 'class', level: 1, count: 2 }],
+    feats: [{ name: 'Keep', type: 'Class Feat', level: 1, slot: 'class:1:2' }] }
+  const tree = () => FeatSlots({ c, entries: [], save: (patch) => { c = { ...c, ...patch } }, categories: ['class'] })
+  const label = kind === 'standard' ? 'Remove L01 Class feat slot 0' : 'Remove L01 Class extra feat slot 1'
+  findButton(tree(), label)!()
+  expect(window.confirm).not.toHaveBeenCalled()
+  expect(plannedSlots(c).filter((slot) => slot.category === 'class')).toHaveLength(2)
+  expect(c.feats.map((feat) => feat.name)).toEqual(['Keep'])
+})
+
+it('still confirms selected-feat removals and preserves them when canceled', () => {
+  vi.mocked(window.confirm).mockReturnValue(false)
+  let c: Character = { ...emptyRanger(), feats: [{ name: 'Keep', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries: [], save, categories: ['class'] })
+  findButton(tree(), 'Clear L01 Class feat selection')!()
+  expect(window.confirm).toHaveBeenCalledOnce()
+  expect(save).not.toHaveBeenCalled()
+  expect(c.feats[0].name).toBe('Keep')
 })
 
 it('removes a standard row among extra slots, clears the final row, and restores a dismissed row with plus', () => {

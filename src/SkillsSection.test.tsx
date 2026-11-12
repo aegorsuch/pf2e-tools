@@ -45,7 +45,9 @@ it('does not stack multiple Sunweave item bonuses', () => {
 it('adds and marks Imitate Fauna status bonus only while the known spell is active', () => {
   const c: Character = { ...base, spells: [{ name: 'Imitate Fauna', rank: 2, cantrip: false }], activeSpells: ['Imitate Fauna'] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
-  expect(markup).toContain('Deception <b title="+4 Status (Imitate Fauna; Impersonate an animal)">+4*</b>')
+  expect(markup).toMatch(/Deception <b>\+4<button[^>]*>\*<\/button> \(Imitate Fauna\)/)
+  expect(markup).toContain('aria-label="Imitate Fauna note"')
+  expect(markup).toContain('popover="auto"')
   for (const patch of [{ activeSpells: [] }, { spells: [] }]) {
     const inactive = renderToStaticMarkup(<SkillsSection c={{ ...c, ...patch }} entries={[ranger]} save={() => {}} />)
     expect(inactive).toContain('Deception <b>+0</b>')

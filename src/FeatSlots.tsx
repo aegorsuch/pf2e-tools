@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
+import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
@@ -58,25 +58,28 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const displayName = (name: string) => name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
-  const prerequisiteChecks = new Map<string, ReturnType<typeof featPrerequisiteChecker>>()
+  const prerequisiteChecks = new Map<string, ReturnType<typeof featSelectionPrerequisiteChecker>>()
   const prerequisitesFor = (entry: ContentEntry, slot: PlannedSlot) => {
     let check = prerequisiteChecks.get(slot.key)
     if (!check) {
-      check = featPrerequisiteChecker(c, entries, slot.level, c.feats.findIndex((feat) => feat.slot === slot.key))
+      check = featSelectionPrerequisiteChecker(c, entries, slot)
       prerequisiteChecks.set(slot.key, check)
     }
     return check(entry)
   }
   const optionsFor = (entry: ContentEntry, slot: PlannedSlot): FeatOption[] => {
-    const label = `${actionOptionLabel(displayName(entry.name), entry)}${prerequisitesFor(entry, slot).manual.length ? ' (check prerequisites)' : ''}`
+    const prerequisites = prerequisitesFor(entry, slot)
+    const unmet = prerequisites.missing.length > 0
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}`
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
+    if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
       ? choices.map((choice) => {
         const noImprovement = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
-        const disabled = noImprovement || entry.name === "Deity's Domain" && !deityDomains(c, entries).includes(choice)
+        const disabled = unmet || noImprovement || entry.name === "Deity's Domain" && !deityDomains(c, entries).includes(choice)
         return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }
       })
-      : [{ entry, value: entry.name, label }]
+      : [{ entry, value: entry.name, label, disabled: unmet }]
   }
   const saveFeatChanges = (patch: Partial<Character>) => {
     const next = { ...c, ...patch }
@@ -132,9 +135,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (dismissed) save({ dismissedFeatSlots: c.dismissedFeatSlots?.filter((key) => key !== dismissed.key) })
     else save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
   }
-  const removeSlot = (slot: PlannedSlot, extra: boolean) => confirmRemoval(
-    `${c.feats.find((feat) => feat.slot === slot.key)?.name ?? LABEL[slot.category]} feat selection${extra ? ' and extra slot' : ''}`,
-    () => {
+  const removeSlot = (slot: PlannedSlot, extra: boolean) => {
+    const selection = c.feats.find((feat) => feat.slot === slot.key)
+    const remove = () => {
       if (allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -147,7 +150,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         })
       }
       onSearch?.(`${slot.key}:open`, '')
-    })
+    }
+    if (selection) confirmRemoval(`${selection.name} feat selection${extra ? ' and extra slot' : ''}`, remove)
+    else remove()
+  }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
   const Wrapper = bare ? 'div' : 'details'
@@ -188,7 +194,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           // Archetype pickers only build their (very long) list while the popup is open
           // Lists are only built while a picker is open; selects open on focus
           const lazy = !!onSearch && !open
-          const options = lazy ? [] : eligibleFeats(entries, c, s).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
+          const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
           const shown = picksType ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, FeatOption[]>()
           for (const option of shown) {

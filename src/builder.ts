@@ -266,19 +266,27 @@ const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase
 
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
-function archetypeRule(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean) {
+function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean) {
   const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
     const entry = byName(entries, 'feat', f.name)
     return entry && archetypesOf(entry).length ? [entry] : []
   })
   const dedications = taken.filter(isDedication)
+  const availableDedications = entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
-    if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return true
+    if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
     const shares = (entry: ContentEntry, names = archetypes) => archetypesOf(entry).some((name) => names.includes(name))
-    if (!isDedication(e)) return dedications.some((t) => shares(t))
-    return dedications.every((d) =>
-      shares(d) || taken.filter((t) => !isDedication(t) && shares(t, archetypesOf(d))).length >= 2)
+    if (!isDedication(e)) {
+      if (dedications.some((dedication) => shares(dedication))) return []
+      const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
+      return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
+    }
+    return dedications.flatMap((dedication) => {
+      if (shares(dedication)) return []
+      const needed = 2 - taken.filter((feat) => !isDedication(feat) && shares(feat, archetypesOf(dedication))).length
+      return needed > 0 ? [`${needed} more ${archetypesOf(dedication).join(' or ')} archetype feat${needed === 1 ? '' : 's'} before another dedication`] : []
+    })
   }
 }
 
@@ -399,7 +407,37 @@ export function ancestryFeatTraits(c: Character) {
     .filter((name): name is string => !!name).map((name) => name.trim().toLowerCase())
 }
 
-export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot) {
+export function featSelectionPrerequisiteChecker(c: Character, entries: ContentEntry[], slot: PlannedSlot) {
+  const excludedIndex = c.feats.findIndex((feat) => feat.slot === slot.key)
+  const level = Math.min(c.level, slot.level)
+  const character = { ...c, level, feats: c.feats.filter((feat, index) => index !== excludedIndex && featTakenLevel(feat) <= level) }
+  const check = featPrerequisiteChecker(c, entries, level, excludedIndex)
+  const archetype = archetypePrerequisites(character, entries, slot.key, slot.category === 'archetype')
+  const requirements: Record<string, string[]> = {
+    'Third Blessing': ['Second Blessing'], 'Third Innovation': ['Second Innovation'],
+    'Pristine Living Weapon': ['Living Weapon', 'Wild Hunter Dedication'],
+  }
+  return (entry: ContentEntry) => {
+    const result = check(entry)
+    const missing = [...result.missing, ...archetype(entry),
+      ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    let manual = result.manual.filter((requirement) => !(requirements[entry.name] ?? [])
+      .some((name) => name.toLowerCase() === requirement.toLowerCase()))
+    if (['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)) {
+      if (!character.companions?.some((companion) => companion.type === 'Horse')) missing.push('horse animal companion')
+      manual = manual.filter((requirement) => !/^horse animal companion$/i.test(requirement))
+    }
+    if (entry.name === 'Deadly Simplicity') {
+      if (![...entries, ...SUPPLEMENTAL_WEAPONS].some((weapon) => weapon.kind === 'weapon' && !weapon.deleted
+        && isDeadlySimplicityWeapon(character, entries, weapon))) missing.push('a deity with a qualifying simple or unarmed favored weapon')
+      manual = manual.filter((requirement) => !/^(?:deity with a simple or unarmed attack favored weapon|trained with your deity's favored weapon)$/i.test(requirement))
+    }
+    return { missing: [...new Set(missing)], manual }
+  }
+}
+
+export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot,
+  options: { includeUnmetPrerequisites?: boolean } = {}) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
   }
@@ -412,29 +450,19 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       feats: c.feats.filter((feat) => feat.slot !== slot.key) }, entries).map((feat) => feat.name),
   ])
   const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
-  const archetypeAllowed = archetypeRule(c, entries, slot.key, slot.category === 'archetype')
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const orderExplorerOk = availableOrders(c).length > 0
-  const prerequisites = featPrerequisiteChecker(c, entries, slot.level, c.feats.findIndex((feat) => feat.slot === slot.key))
+  const prerequisites = featSelectionPrerequisiteChecker(c, entries, slot)
   return featIndex(entries)
     .filter(({ entry: e, traits }) => featSelectionLevel(e, c, entries, slot.category) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
-      && !prerequisites(e).missing.length
+      && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (!isCompanionSpecialization(e.name) || specializations < 3)
-      && (e.name !== 'Third Blessing' || c.feats.some((feat) => feat.name === 'Second Blessing' && feat.level <= slot.level))
-      && (e.name !== 'Third Innovation' || c.feats.some((feat) => feat.name === 'Second Innovation' && feat.level <= slot.level))
-      && (e.name !== 'Deadly Simplicity' || [...entries, ...SUPPLEMENTAL_WEAPONS]
-        .some((weapon) => weapon.kind === 'weapon' && !weapon.deleted && isDeadlySimplicityWeapon(c, entries, weapon)))
-      && (!['Chiardmar Steed', 'Nidarrmar Steed'].includes(e.name)
-        || c.companions?.some((companion) => companion.type === 'Horse'))
-      && (e.name !== 'Pristine Living Weapon' || ['Living Weapon', 'Wild Hunter Dedication'].every((name) =>
-        c.feats.some((feat) => feat.name === name && feat.level <= slot.level)))
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
-      && (!taken.has(e.name) || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key))
-      && archetypeAllowed(e))
+      && (!taken.has(e.name) || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
     .map(({ entry }) => entry)
 }
 

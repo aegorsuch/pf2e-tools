@@ -4,8 +4,15 @@ import { resistances,
   proficiencyBonus, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
+import { SourceNote } from './Info'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
+const RESISTANCE_NOTES: Record<string, string> = {
+  'Poison Resistance': '+1 status bonus to saving throws against poisons.',
+  'Harden Flesh': 'Physical resistance except against adamantine. Lasts until the beginning of your next turn; clear the active toggle when it ends.',
+  'Heart of the Kaiju': "Physical resistance applies only while in kaiju form. This toggle does not apply the form's other statistics.",
+  'Primal Aegis': 'Resistance equals your positive Wisdom modifier.',
+}
 
 function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
   name: string; label: string; title: string; ariaLabel?: string
@@ -107,7 +114,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       : s.kind === 'save' && hazardFinderBonus(c) ? { value: 1, source: 'Hazard Finder' } : undefined
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
-        <span className="skill-name">{s.name} <b title={status ? '+4 Status (Imitate Fauna; Impersonate an animal)' : undefined}>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status && '*'}</b></span>
+        <span className="skill-name">{s.name} <b>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
+          && <SourceNote source="Imitate Fauna" note="+4 Status (Imitate Fauna; Impersonate an animal)" />}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
@@ -194,11 +202,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </div>
         {spec ? <small>Armor Specialization: {spec.group} ({spec.armor}{spec.feat ? ` via ${spec.feat} feat` : ''})</small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r, index) => {
-          const poison = r.damage.toLowerCase() === 'poison' && r.source === 'Poison Resistance'
-            && !!activeFeatsNamed(c, 'Poison Resistance').length
-          return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{poison
-            ? <span title={`${r.source}: +1 status bonus to saving throws against poisons.`}>{r.damage} {r.value}*</span>
-            : `${r.damage} ${r.value} (${r.source})`}</span>
+          const note = activeFeatsNamed(c, r.source).length ? RESISTANCE_NOTES[r.source] : undefined
+          return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
+            ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}</small>
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
         <ArmorList c={c} entries={entries} save={save} />
