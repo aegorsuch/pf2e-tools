@@ -586,6 +586,20 @@ describe('classFeatures', () => {
     const e = entries.map((x) => (x.name === 'Will Expertise' ? { ...x, name: 'Reflex Expertise' } : x))
     expect(ranksAt({ ...base, level: 9 }, e).Reflex).toBe(2)
   })
+
+  it('updates warmed feature results after class, level, or catalog changes', () => {
+    const catalog = [
+      entry('classFeature', 'Ranger Expertise', { class: 'Ranger' }, 5),
+      entry('classFeature', 'Wizard Expertise', { class: 'Wizard' }, 5),
+    ]
+    const ranger = { ...base, className: 'Ranger', level: 5 }
+    expect(classFeatures(catalog, ranger).map(feature => feature.name)).toEqual(['Ranger Expertise'])
+    expect(classFeatures(catalog, { ...ranger, className: 'Wizard' }).map(feature => feature.name)).toEqual(['Wizard Expertise'])
+    expect(classFeatures(catalog, { ...ranger, level: 4 })).toEqual([])
+    const updated = catalog.map(feature => ({ ...feature, level: 6 }))
+    expect(classFeatures(updated, ranger)).toEqual([])
+    expect(classFeatures(updated, { ...ranger, level: 6 }).map(feature => feature.name)).toEqual(['Ranger Expertise'])
+  })
 })
 
 describe('defenses', () => {

@@ -179,6 +179,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   if (part === 'offense') {
     const athlete = ragingAthleteBenefits(c, entries)
     const terrain = favoredTerrainBenefits(c, entries)
+    const originalTerrain = activeFeatsNamed(c, 'Favored Terrain')[0]?.choice
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
@@ -192,14 +193,12 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         {isFeatEffectActive(c, 'Favored Terrain') && !terrain
           && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
         {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Temporary favored terrain{' '}
-          <select aria-label="Temporary favored terrain" value={c.favoredTerrain ?? ''} onChange={event => {
-            if (event.target.value && !FAVORED_TERRAINS.includes(event.target.value)) return
-            save({ favoredTerrain: event.target.value || undefined })
+          <select aria-label="Temporary favored terrain" value={c.favoredTerrain ?? originalTerrain ?? ''} onChange={event => {
+            if (!FAVORED_TERRAINS.includes(event.target.value)) return
+            save({ favoredTerrain: event.target.value === originalTerrain ? undefined : event.target.value })
           }}>
-            <option value="">Original terrain</option>
             {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
           </select>
-          <small>Terrain Master: choose after 1 hour of practice. Restore original terrain after a full day away.</small>
         </label>}
         {terrain && <small>Favored Terrain ({terrain.terrain}): ignore non-magical difficult terrain.
           {terrain.enhanced && (['Arctic', 'Desert'].includes(terrain.terrain)

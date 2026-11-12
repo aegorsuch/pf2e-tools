@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  animalStrengthSource, animalStrengthWeapons, hasAnimalStrength, armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -65,6 +65,7 @@ export function Search({ entries, kind, label, onPick }: {
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
+  if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
   const pool = baseItems(entries.filter((e) => e.kind === kind))
   const filters = FILTERS[kind].map((f) => ({ ...f, options: f.fixed ?? [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort((a, b) => a.localeCompare(b)) }))
   const query = q.trim().toLowerCase()
@@ -76,7 +77,6 @@ export function Search({ entries, kind, label, onPick }: {
       .map((m) => [m.name, m]),
   ).values()]
   const close = () => { setOpen(false); setQ(''); setPicked({}) }
-  if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
   return (
     <div className="col gear-picker">
       <div className="gear-tabs" role="tablist">
@@ -254,10 +254,11 @@ export function WeaponList({ c, entries, save }: SectionProps) {
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   const handwraps = c.handwraps
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
+  const strengthSources = animalStrengthRuneSources(c, entries)
   return (
     <div className="col gear-list">
       {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
-      <Search entries={entries.filter((entry) => !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
+      <Search entries={entries.filter((entry) => entry.kind === 'weapon' && !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />
       {sorted.map((w) => {
         const displayName = w.name.replace(/ \(Animal Feature\)$/, '')
@@ -266,6 +267,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
         const strength = hasAnimalStrength(c, entries, w)
         const strengthSource = animalStrengthSource(c, entries, w)
+        const strengthSelection = strengthSource && strengthSources.find(source => source.ids.includes(strengthSource.id))?.weapon.id
         const inherited = !!handwraps && unarmed && !strengthSource
         const fixed = w.id === OVERSIZED_THROW.id
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
@@ -300,7 +302,12 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const compactDamage = a.damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
         const crushing = enhanced.runes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : enhanced.runes.includes('Crushing') ? 1 : 0
         return (
-          <details key={w.id} className="gear-card" aria-label={displayName} open>
+          <details key={w.id} className="gear-card" aria-label={displayName} open={!c.collapsedWeaponIds?.includes(w.id)} onToggle={event => {
+            if (event.target !== event.currentTarget) return
+            const collapsed = c.collapsedWeaponIds ?? []
+            if (event.currentTarget.open === !collapsed.includes(w.id)) return
+            save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
+          }}>
             <summary><strong>{displayName}</strong> <small>Attack {signed(a.attack)}{a.damage && <>, Damage {compactDamage}{pristineNote
               && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
@@ -325,18 +332,18 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
               <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>
-              <label>Animal Strength runes{' '}
-                <select aria-label={`Animal Strength runes: ${displayName}`} value={c.animalStrengthWeapons?.[w.id] ?? ''} onChange={event => {
-                  if (event.target.value && !animalStrengthWeapons(c, entries).some(source => source.id === event.target.value)) return
+              <label>
+                <select aria-label={`Animal Strength runes: ${displayName}`} value={strengthSelection ?? c.animalStrengthWeapons?.[w.id] ?? ''} onChange={event => {
+                  if (event.target.value && !strengthSources.some(source => source.weapon.id === event.target.value)) return
                   const sources = { ...c.animalStrengthWeapons }
                   if (event.target.value) sources[w.id] = event.target.value
                   else delete sources[w.id]
                   save({ animalStrengthWeapons: sources })
                 }}>
-                  <option value="">Normal unarmed runes</option>
+                  <option value="">{handwraps ? handwrapItem.name : 'No runes'}</option>
                   {c.animalStrengthWeapons?.[w.id] && !strengthSource
                     && <option disabled value={c.animalStrengthWeapons[w.id]}>Saved weapon unavailable</option>}
-                  {animalStrengthWeapons(c, entries).map(source => <option key={source.id} value={source.id}>{source.name}</option>)}
+                  {strengthSources.map(({ weapon }) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
                 </select>
               </label>
               {c.animalStrengthWeapons?.[w.id] && !strengthSource

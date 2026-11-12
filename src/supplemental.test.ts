@@ -272,3 +272,23 @@ it('filters runes using AoN weapon, damage, trait, and named-weapon requirements
   expect(available(sword, ['Holy'])).not.toContain('Unholy')
   expect(eligibleWeaponRunes([bow], { id: 'w', name: bow.name, potency: 1, striking: 0, runes: [] }).map((r) => r.name)).not.toContain('Wounding')
 })
+
+it('preserves normalized rune usage, source precedence, and content updates in indexed lookups', () => {
+  const sword = { ...HAFT_STRIKER_WEAPON, name: 'Sword', data: { weapon_type: 'Melee', damage: '1d8 slashing' } }
+  const rune: ContentEntry = {
+    ...HAFT_STRIKER_WEAPON, id: 'greater-flaming', kind: 'item', name: 'Greater Flaming',
+    data: { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a ranged weapon' },
+  }
+  const otherItem = { ...rune, id: 'other', data: { item_subcategory: 'Other Items', usage: 'etched onto a weapon' } }
+  const duplicate = { ...rune, id: 'duplicate', name: 'Flaming (Greater)', data: { ...rune.data, usage: 'etched onto a weapon' } }
+  const catalog = [sword, otherItem, rune, duplicate]
+  const owned = { id: 'sword', name: sword.name, potency: 3, striking: 0, runes: [] }
+  expect(eligibleWeaponRunes(catalog, owned).map(option => option.name)).not.toContain('Flaming (Greater)')
+  const updated = catalog.map(entry => entry.id === rune.id ? { ...entry, data: { ...entry.data, usage: 'etched onto a weapon' } } : entry)
+  expect(eligibleWeaponRunes(updated, owned).map(option => option.name)).toContain('Flaming (Greater)')
+  const decaying = { ...rune, id: 'decaying', name: 'Decaying', data: { ...rune.data, usage: 'etched onto a weapon' } }
+  const disrupting = { ...rune, id: 'disrupting', name: 'Greater Disrupting',
+    data: { ...rune.data, usage: 'etched onto a weapon without a decaying rune' } }
+  expect(eligibleWeaponRunes([sword, decaying, disrupting], { ...owned, runes: ['Disrupting (Greater)'] })
+    .map(option => option.name)).not.toContain('Decaying')
+})

@@ -123,7 +123,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   })
   const [featSearch, setFeatSearch] = useState<Record<string, string>>({})
   const section = { c, entries, save }
-  const ethnicities = ethnicityOptions(entries)
+  const ethnicities = useMemo(() => ethnicityOptions(entries), [entries])
   const searchProps = { search: featSearch, onSearch: (key: string, text: string) => setFeatSearch((prev) => ({ ...prev, [key]: text })) }
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]

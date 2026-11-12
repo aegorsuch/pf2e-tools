@@ -123,6 +123,7 @@ export interface Character {
   equipment: { name: string; qty: number }[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
+  collapsedWeaponIds?: string[]
   livingWeaponEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]

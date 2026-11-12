@@ -532,6 +532,39 @@ function findElement(node: ReactNode, matches: (element: ReactElement<Record<str
   return found
 }
 
+it('persists individual weapon collapse state across reloads without changing weapon configuration', () => {
+  let c = character([])
+  const weapons = structuredClone(c.weapons)
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const card = (name: string) => findElement(WeaponList({ c, entries: [weapon], save }),
+    element => element.type === 'details' && element.props['aria-label'] === name)!
+  const toggle = (name: string, open: boolean) => {
+    const target = { open }
+    ;(card(name).props.onToggle as (event: { target: typeof target; currentTarget: typeof target }) => void)({ target, currentTarget: target })
+  }
+  expect(card('Longsword').props.open).toBe(true)
+  toggle('Longsword', true)
+  expect(save).not.toHaveBeenCalled()
+  toggle('Longsword', false)
+  expect(c.collapsedWeaponIds).toEqual(['w'])
+  c = JSON.parse(JSON.stringify(c))
+  expect(card('Longsword').props.open).toBe(false)
+  expect(card('Fist').props.open).toBe(true)
+  toggle('Longsword', false)
+  expect(save).toHaveBeenCalledTimes(1)
+  toggle('Fist', false)
+  const fist = ownedWeapons(c, [weapon]).find(attack => attack.name === 'Fist')!
+  expect(c.collapsedWeaponIds).toEqual(['w', fist.id])
+  toggle('Longsword', true)
+  c = JSON.parse(JSON.stringify(c))
+  expect(card('Longsword').props.open).toBe(true)
+  expect(card('Fist').props.open).toBe(false)
+  expect(c.collapsedWeaponIds).toEqual([fist.id])
+  expect(c.weapons).toEqual(weapons)
+  c = { ...c, id: 'another-character', collapsedWeaponIds: undefined }
+  expect(card('Fist').props.open).toBe(true)
+})
+
 it('configures shared handwraps without copying inherited runes into stored attacks', () => {
   let c = character([])
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
@@ -602,6 +635,60 @@ it('copies a chosen carried weapon onto Animal Feature attacks instead of handwr
   c = { ...c, weapons: [] }
   expect(effectiveWeapon(c, [weapon], claws)).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   expect(renderToStaticMarkup(tree())).toContain('Saved Animal Strength weapon unavailable')
+})
+
+it('groups identical Animal Strength rune loadouts by first weapon while preserving distinct fundamentals and saved sources', () => {
+  const bow = { ...weapon, id: 'bow', name: 'Composite Longbow', data: { weapon_category: 'Martial', damage: '1d8 piercing', range: 100 } }
+  const spear = { ...weapon, id: 'spear', name: "Dancer's Spear" }
+  const runes = ['Flaming', 'Frost']
+  let c: Character = { ...character([
+    { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
+    { name: 'Animal Strength', type: 'Class Feat', level: 6 },
+  ]), activeSpells: ['Animal Feature'], weapons: [
+    { id: 'bow', name: bow.name, potency: 2, striking: 1, runes },
+    { id: 'spear', name: spear.name, potency: 2, striking: 1, runes: [...runes].reverse() },
+    { id: 'potency', name: 'Higher Potency', potency: 3, striking: 1, runes },
+    { id: 'striking', name: 'Higher Striking', potency: 2, striking: 2, runes },
+    { id: 'property', name: 'Other Properties', potency: 2, striking: 1, runes: ['Shock'] },
+  ] }
+  const claws = ownedWeapons(c, [bow, spear]).find(attack => attack.name === 'Claws (Animal Feature)')!
+  c = { ...c, animalStrengthWeapons: { [claws.id]: 'spear' } }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const control = () => findElement(WeaponList({ c, entries: [bow, spear], save }),
+    element => element.props['aria-label'] === 'Animal Strength runes: Claws')!
+  const markup = renderToStaticMarkup(control())
+  expect(markup).toContain('>Composite Longbow</option>')
+  expect(markup).not.toContain('value="spear"')
+  for (const id of ['potency', 'striking', 'property']) expect(markup).toContain(`value="${id}"`)
+  expect(control().props.value).toBe('bow')
+  expect(save).not.toHaveBeenCalled()
+  expect(c.animalStrengthWeapons?.[claws.id]).toBe('spear')
+  expect(effectiveWeapon(c, [bow, spear], claws)).toMatchObject({ potency: 2, striking: 1, runes: ['Frost', 'Flaming'] })
+  c = JSON.parse(JSON.stringify(c))
+  c = { ...c, weapons: c.weapons?.filter(source => source.id !== 'bow') }
+  expect(control().props.value).toBe('spear')
+  expect(renderToStaticMarkup(control())).toContain('value="spear"')
+  ;(control().props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'potency' } })
+  expect(effectiveWeapon(c, [bow, spear], claws).potency).toBe(3)
+})
+
+const handwrapSourceCases: [Character['handwraps'], string][] = [
+  [undefined, 'No runes'],
+  [{ potency: 1, striking: 1, runes: [] }, HANDWRAPS.name],
+  [{ kind: 'hardlight', grade: 'Commercial', potency: 0, striking: 0, runes: [] }, HARDLIGHT_HANDWRAPS.name],
+]
+
+it.each(handwrapSourceCases)('names the default Animal Strength source from equipped handwraps (%j)', (handwraps, label) => {
+  const c: Character = { ...character([
+    { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
+    { name: 'Animal Strength', type: 'Class Feat', level: 6 },
+  ]), activeSpells: ['Animal Feature'], handwraps }
+  const tree = WeaponList({ c, entries: [weapon], save: () => {} })
+  const control = findElement(tree, element => element.props['aria-label'] === 'Animal Strength runes: Claws')!
+  expect(renderToStaticMarkup(control)).toContain(`>${label}</option>`)
+  const markup = renderToStaticMarkup(tree)
+  expect(markup).not.toContain('>Normal unarmed runes</option>')
+  expect(markup).not.toContain('<label>Animal Strength runes')
 })
 
 it('never offers direct unarmed rune, potency, or striking controls, including without handwraps', () => {

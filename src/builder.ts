@@ -275,13 +275,14 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
     return entry && archetypesOf(entry).length ? [entry] : []
   })
   const dedications = taken.filter(isDedication)
-  const availableDedications = entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
+  let availableDedications: ContentEntry[] | undefined
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
     const shares = (entry: ContentEntry, names = archetypes) => archetypesOf(entry).some((name) => names.includes(name))
     if (!isDedication(e)) {
       if (dedications.some((dedication) => shares(dedication))) return []
+      availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
       const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
       return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
     }
@@ -574,13 +575,24 @@ export function deityDomains(c: Character, entries: ContentEntry[]) {
 const PLANNER_FEATURE = /^(ancestry and background|attribute boosts|skill increases|(.+ )?feats?)$/i
 
 // Features the class grants automatically up to the character's level
+const classFeatureCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 export function classFeatures(entries: ContentEntry[], c: Character) {
   if (!c.className) return []
+  let cache = classFeatureCache.get(entries)
+  if (!cache) {
+    cache = new Map()
+    classFeatureCache.set(entries, cache)
+  }
+  const key = `${c.className}\0${c.level}`
+  const cached = cache.get(key)
+  if (cached) return cached
   const seen = new Set<string>()
-  return entries
+  const features = entries
     .filter((e) => e.kind === 'classFeature' && e.data.class === c.className && e.level <= c.level && !PLANNER_FEATURE.test(e.name))
     .filter((e) => !seen.has(`${e.level}:${e.name}`) && seen.add(`${e.level}:${e.name}`))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+  cache.set(key, features)
+  return features
 }
 
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
@@ -1358,6 +1370,19 @@ export function animalStrengthWeapons(c: Character, entries: ContentEntry[]) {
     && ![OVERSIZED_THROW.id, HAFT_STRIKER_WEAPON.id].includes(weapon.id))
 }
 
+export function animalStrengthRuneSources(c: Character, entries: ContentEntry[]) {
+  const sources = new Map<string, { weapon: OwnedWeapon; ids: string[] }>()
+  if (!activeFeatsNamed(c, 'Animal Strength').length) return []
+  for (const weapon of animalStrengthWeapons(c, entries)) {
+    const enhanced = effectiveWeapon(c, entries, weapon)
+    const key = JSON.stringify([enhanced.potency, enhanced.striking, enhanced.runes.map(rune => runeName(rune).toLowerCase()).sort()])
+    const existing = sources.get(key)
+    if (existing) existing.ids.push(weapon.id)
+    else sources.set(key, { weapon, ids: [weapon.id] })
+  }
+  return [...sources.values()]
+}
+
 export function hasAnimalStrength(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   return !!activeFeatsNamed(c, 'Animal Strength').length
     && activeAnimalFeatures(c, entries).some(feature => ['Claws', 'Jaws'].includes(feature) && weapon.name === `${feature} (Animal Feature)`)
@@ -1550,6 +1575,23 @@ const ENERGY_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire']
 // Energy-Resistant needs a damage type chosen when crafted, so each type gets its own option.
 // AoN names graded runes "Greater Moonweave"; show them as "Moonweave (Greater)"
 export const runeName = (name: string) => name.replace(/^(Lesser|Greater|Major|True)\s+(.+)$/, '$2 ($1)')
+const runeContentCache = new WeakMap<ContentEntry[], {
+  items: Map<string, ContentEntry>; weapons: Map<string, ContentEntry>
+}>()
+function runeContent(entries: ContentEntry[], name: string, kind?: 'Weapon') {
+  let index = runeContentCache.get(entries)
+  if (!index) {
+    index = { items: new Map(), weapons: new Map() }
+    for (const entry of entries) {
+      if (entry.kind !== 'item') continue
+      const name = runeName(entry.name)
+      if (!index.items.has(name)) index.items.set(name, entry)
+      if (entry.data.item_subcategory === 'Weapon Property Runes' && !index.weapons.has(name)) index.weapons.set(name, entry)
+    }
+    runeContentCache.set(entries, index)
+  }
+  return (kind === 'Weapon' ? index.weapons : index.items).get(runeName(name))
+}
 const GRADE_ORDER = ['', 'Lesser', 'Greater', 'Major', 'True']
 const runeSort = (a: string, b: string) => {
   const grade = (n: string) => GRADE_ORDER.indexOf(/ \((\w+)\)(?=$|:)/.exec(n)?.[1] ?? '')
@@ -1587,8 +1629,7 @@ export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, 
   const traits = (entry?.traits ?? []).map((trait) => trait.toLowerCase())
   const damage = `${weaponDamage(entry)} ${entry?.data.damage_type ?? ''} ${traits.filter((trait) => /^(versatile|modular)\b/.test(trait)).join(' ')}`.toLowerCase()
   const name = runeBaseName(rune)
-  const content = entries.find((candidate) => candidate.kind === 'item'
-    && candidate.data.item_subcategory === 'Weapon Property Runes' && runeName(candidate.name) === runeName(rune))
+  const content = runeContent(entries, rune, 'Weapon')
   const usage = String(content?.data.usage ?? FALLBACK_RUNE_USAGE[name] ?? 'etched onto a weapon').toLowerCase().replace(/\s+/g, ' ')
   if (name === 'Shifting' && weaponCategory(entry) === 'Unarmed') return false
   if (/\bmelee\b/.test(usage) && (!entry || isRanged(entry))) return false
@@ -1606,7 +1647,7 @@ export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, 
   }
   if (/without a disrupting rune/.test(usage) && weapon.runes.some((existing) => runeBaseName(existing) === 'Disrupting')) return false
   if (weapon.runes.some((existing) => {
-    const existingEntry = entries.find((candidate) => candidate.kind === 'item' && runeName(candidate.name) === runeName(existing))
+    const existingEntry = runeContent(entries, existing)
     return String(existingEntry?.data.usage).toLowerCase().replace(/\s+/g, ' ').includes(`without a ${name.toLowerCase()} rune`)
   })) return false
   return true
