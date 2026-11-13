@@ -6,7 +6,7 @@ import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntri
 export { featTakenLevel } from './featChoices'
 import { getSettings } from './settings'
 import { featAccess, featRarity } from './featAccess'
-import { createFeatPrerequisiteChecker, type PrerequisiteFacts } from './featPrerequisites'
+import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
@@ -443,11 +443,14 @@ export function unslottedFeats(c: Character) {
 
 // Archetype feats whose archetype's Dedication isn't taken (e.g. the Dedication was removed or never picked)
 export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
-  const info = c.feats.map((f) => ({ f, e: byName(entries, 'feat', f.name) }))
-  const dedications = new Set(info.flatMap(({ e }) => e && isDedication(e) ? archetypesOf(e) : []))
-  return info.filter(({ f, e }) => e && !isDedication(e) && archetypesOf(e).length
-    && (e.traits.some((t) => t.toLowerCase() === 'archetype') || f.slot?.startsWith('archetype:'))
-    && !archetypesOf(e).some((name) => dedications.has(name)))
+  const info = c.feats.map(f => ({ f, sources: featPrerequisiteSources(entries, {
+    ...c, name: f.name, category: f.slot?.split(':')[0] ?? f.type.toLowerCase().split(' ')[0],
+    ancestryTraits: ancestryFeatTraits(c),
+  }) }))
+  const dedications = new Set(info.flatMap(({ sources }) => sources.flatMap(e => isDedication(e) ? archetypesOf(e) : [])))
+  return info.filter(({ f, sources }) => sources.length > 0 && sources.every(e => !isDedication(e) && archetypesOf(e).length
+    && (e.traits.some(t => t.toLowerCase() === 'archetype') || f.slot?.startsWith('archetype:'))
+    && !archetypesOf(e).some(name => dedications.has(name))))
     .map(({ f }) => f)
 }
 

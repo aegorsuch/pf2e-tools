@@ -720,6 +720,24 @@ describe('defenses', () => {
     expect(orphanedArchetypeFeats({ ...base, feats: [feat('Archaeologist Dedication'), feat('Scholastic Identification')] }, data)).toEqual([])
   })
 
+  it('uses the selected Current Spell source before removing orphaned archetype feats', () => {
+    const archetype = { ...entry('feat', 'Current Spell', { archetype: 'Elementalist' }, 6, ['Archetype']), id: 'archetype-current' }
+    const druid = { ...entry('feat', 'Current Spell', { archetype: 'Elementalist' }, 6, ['Druid']), id: 'druid-current' }
+    const dedication = entry('feat', 'Elementalist Dedication', { archetype: 'Elementalist' }, 2, ['Archetype', 'Dedication'])
+    const selected = { name: 'Current Spell', type: 'Class Feat', level: 6, slot: 'class:6:0' }
+    const c: Character = { ...base, className: 'Druid', level: 8, feats: [selected], entryIds: [druid.id] }
+    for (const data of [[archetype, druid], [druid, archetype]]) {
+      expect(orphanedArchetypeFeats(c, data)).toEqual([])
+      expect(orphanedArchetypeFeats({ ...c, entryIds: [] }, data)).toEqual([])
+      const archetypeSelection = { ...selected, type: 'Archetype Feat', slot: 'archetype:8:0' }
+      const archetypeCharacter = { ...c, feats: [archetypeSelection], entryIds: [archetype.id] }
+      expect(orphanedArchetypeFeats(archetypeCharacter, data)).toEqual([archetypeSelection])
+      expect(orphanedArchetypeFeats({ ...archetypeCharacter, feats: [
+        { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }, archetypeSelection,
+      ] }, [...data, dedication])).toEqual([])
+    }
+  })
+
   it('lets a house-rule Dedication level keep an extra level 2 Dedication slot', () => {
     updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
     const ranger = { ...base, className: 'Ranger', level: 2, extraSlots: [{ category: 'archetype' as const, level: 2, count: 1 }] }
