@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
+import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
@@ -106,7 +106,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return choices !== undefined
       ? choices.map((choice) => {
         const noImprovement = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
-        const disabled = unmet || !!accessMissing || noImprovement || DOMAIN_FEATS.includes(entry.name) && !entry.name.startsWith('Advanced') && !deityDomains(c, entries).includes(choice)
+        const disabled = unmet || !!accessMissing || noImprovement
         return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }
       })
       : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing }]
@@ -335,6 +335,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 </PickerDialog>
               )}
               {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
+                || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())
                 || selection.name === 'Technomagical Scrapper' && !selectedChoices.includes(selection.choice))
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {access && !access.automatic && !access.approved && <div className="feat-access-controls">

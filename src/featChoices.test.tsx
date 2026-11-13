@@ -221,18 +221,17 @@ it('retains whether deity sanctification is required when snapshotting rules', a
   expect(mapAonHit(hits.find((hit) => hit._id === 'optional')!, 'pf2e')?.data.sanctification_required).toBe(false)
 })
 
-it('greys out domains outside the selected deity in existing feat choices and rejects them', () => {
+it('offers only deity domains, rejects other choices, and preserves unavailable saved domains', () => {
   let c: Character = { ...base, className: 'Champion', deity: 'Test Deity',
     feats: [{ name: "Deity's Domain", type: 'Class Feat', level: 1 }] }
   const deity: ContentEntry = { ...entries[0], kind: 'deity', name: 'Test Deity', data: { domain_primary: 'Zeal, Might', domain_alternate: 'Fire' } }
   const other: ContentEntry = { ...deity, id: 'other', name: 'Other Deity', data: { domain_primary: 'Fire, Death' } }
   const props = () => ({ c, entries: [deity, other], save: (patch: Partial<Character>) => { c = { ...c, ...patch } }, index: 0 })
   const markup = renderToStaticMarkup(<FeatChoice {...props()} />)
-  expect(markup).toContain('<option disabled="">Fire</option>')
-  expect(markup).toContain('<option disabled="">Death</option>')
+  expect(markup).not.toContain('>Fire</option>')
+  expect(markup).not.toContain('>Death</option>')
   expect(markup).toContain('<option>Might</option>')
   expect(markup).toContain('<option>Zeal</option>')
-  expect(markup.indexOf('>Death</option>')).toBeLessThan(markup.indexOf('>Fire</option>'))
   const select = findSelect(FeatChoice(props()))
   if (!select) throw new Error('Missing domain picker')
   select.onChange({ target: { value: 'Fire' } })
@@ -240,7 +239,12 @@ it('greys out domains outside the selected deity in existing feat choices and re
   select.onChange({ target: { value: 'Zeal' } })
   expect(c.feats[0].choice).toBe('Zeal')
   c = { ...c, deity: 'Other Deity' }
-  expect(renderToStaticMarkup(<FeatChoice {...props()} />)).toContain('<option disabled="" selected="">Zeal</option>')
+  const changed = renderToStaticMarkup(<FeatChoice {...props()} />)
+  expect(changed).toContain('<option disabled="" value="Zeal" selected="">Zeal (unavailable)</option>')
+  expect(changed).toContain('Saved domain is unavailable')
+  expect(c.feats[0].choice).toBe('Zeal')
+  findSelect(FeatChoice(props()))!.onChange({ target: { value: 'Fire' } })
+  expect(c.feats[0].choice).toBe('Fire')
 })
 
 it('selects distinct warden spells per feat and derives grants from current choices', () => {

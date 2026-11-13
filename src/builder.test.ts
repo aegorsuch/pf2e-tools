@@ -51,6 +51,23 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('limits advanced domains to eligible initial choices available at the feat level', () => {
+  const deity = entry('deity', 'Gozreh', { domain_primary: 'Air, Nature, Travel, Water, water', domain_alternate: 'Fire' })
+  const c: Character = { ...base, level: 10, deity: 'Gozreh', feats: [
+    { name: "Deity's Domain", type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'water' },
+    { name: "Deity's Domain", type: 'Class Feat', level: 1, slot: 'class:10:0', choice: 'Air' },
+    { name: 'Domain Initiate', type: 'Class Feat', level: 1, slot: 'class:1:1', choice: 'Nature' },
+    { name: "Deity's Domain", type: 'Class Feat', level: 1, slot: 'class:1:2', choice: 'Fire' },
+    { name: "Advanced Deity's Domain", type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'Water' },
+  ] }
+  expect(featChoiceOptions("Deity's Domain", c, [deity], 'class:1:3')).toEqual(['Air', 'Nature', 'Travel', 'Water'])
+  expect(featChoiceOptions("Advanced Deity's Domain", c, [deity], 'class:8:0')).toEqual(['Water'])
+  expect(featChoiceOptions("Advanced Deity's Domain", c, [deity], 'class:8:1')).toEqual([])
+  expect(featChoiceOptions('Advanced Domain', c, [deity], 'class:8:1')).toEqual(['Nature', 'Water'])
+  expect(featChoiceOptions("Deity's Domain", { ...c, deity: undefined }, [deity], 'class:1:3')).toEqual([])
+  expect(featChoiceOptions("Advanced Deity's Domain", { ...c, deity: undefined }, [deity], 'class:8:0')).toEqual([])
+})
+
 describe('official passive feat mechanics', () => {
   it('grants Pioneer Human Survival and Terrain Expertise without consuming a feat or training pick', () => {
     const c: Character = { ...base, ancestry: 'Human', heritage: 'Pioneer Human', level: 19, skillPicks: [] }

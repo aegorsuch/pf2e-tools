@@ -1,5 +1,5 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions, terrainExpertiseOptions, weaponHasAncestryTrait } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions, terrainExpertiseOptions, weaponHasAncestryTrait } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { SearchableSelect } from './SearchableSelect'
@@ -103,18 +103,19 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </label>
   }
   if (DOMAIN_FEATS.includes(feat.name)) {
-    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '') ?? []
-    const available = feat.name.startsWith('Advanced') ? options : deityDomains(c, entries)
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const choice = options.find(domain => domain.toLowerCase() === feat.choice?.trim().toLowerCase()) ?? feat.choice ?? ''
     return <span className="feat-choice">
-      <SearchableSelect aria-label={feat.name} value={feat.choice ?? ''} onChange={(e) => {
+      <SearchableSelect aria-label={feat.name} value={choice} onChange={(e) => {
         const choice = e.target.value || undefined
-        if (choice && !available.includes(choice)) return
+        if (choice && !options.includes(choice)) return
         save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
       }}>
         <option value="">Choose domain</option>
-        {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
-        {options.map((domain) => <option key={domain} disabled={!available.includes(domain)}>{domain}</option>)}
+        {choice && !options.includes(choice) && <option disabled value={choice}>{choice} (unavailable)</option>}
+        {options.map((domain) => <option key={domain}>{domain}</option>)}
       </SearchableSelect>
+      {choice && !options.includes(choice) && <small>Saved domain is unavailable for the current deity or earlier feat choices.</small>}
     </span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)

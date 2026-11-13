@@ -640,18 +640,30 @@ it('does not offer or accept duplicate blessings, including when no distinct cho
   expect(renderToStaticMarkup(tree())).not.toContain('>Second Blessing')
 })
 
-it('shows all domains but disables domains not granted by the selected deity in the feat picker', () => {
-  const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion', deity: 'Chosen',
+it('shows only distinct domains granted by the selected deity in the feat picker', () => {
+  let c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion', deity: 'Chosen',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const feat: ContentEntry = { id: 'domain', kind: 'feat', name: "Deity's Domain", level: 1, traits: ['Champion'],
     source: 'official', systems: ['pf2e'], description: '', data: {}, effects: [], updatedAt: 0 }
   const entries: ContentEntry[] = [feat,
-    { ...feat, id: 'chosen', name: 'Chosen', kind: 'deity', data: { domain_primary: 'Zeal' } },
+    { ...feat, id: 'chosen', name: 'Chosen', kind: 'deity', data: { domain_primary: 'Zeal, Water, water,  Water ' } },
     { ...feat, id: 'other', name: 'Other', kind: 'deity', data: { domain_primary: 'Fire' } }]
-  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['class']} />)
-  expect(markup).toContain('disabled="">Deity&#x27;s Domain (Fire)</option>')
+  const tree = () => FeatSlots({ c, entries, save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).not.toContain('Deity&#x27;s Domain (Fire)')
   expect(markup).toContain('>Deity&#x27;s Domain (Zeal)</option>')
+  expect(markup.match(/>Deity&#x27;s Domain \(Water\)<\/option>/g)).toHaveLength(1)
+  const choose = findSelect(tree(), 'L01 Class feat')!
+  choose({ target: { value: JSON.stringify(["Deity's Domain", 'Fire']) } })
+  expect(c.feats).toEqual([])
+  choose({ target: { value: JSON.stringify(["Deity's Domain", 'Water']) } })
+  expect(c.feats[0].choice).toBe('Water')
+  c = { ...c, deity: 'Other' }
+  expect(renderToStaticMarkup(tree())).toContain('Water (unavailable)')
+  expect(c.feats[0].choice).toBe('Water')
+  c = { ...c, deity: undefined, feats: [] }
+  expect(renderToStaticMarkup(tree())).not.toContain('Deity&#x27;s Domain (')
 })
 
 it('allows repeatable feats in multiple slots and retains their entry link until the final copy is removed', () => {

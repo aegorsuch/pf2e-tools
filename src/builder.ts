@@ -605,11 +605,16 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Favored Terrain') return [...FAVORED_TERRAINS]
   if (name === 'Terrain Expertise') return terrainExpertiseOptions(c, index)
   if (DOMAIN_FEATS.includes(name)) {
-    if (name.startsWith('Advanced')) return [...new Set(c.feats.flatMap(feat =>
-      ["Domain Initiate", "Deity's Domain"].includes(feat.name) && feat.choice ? [feat.choice] : []))].sort()
-    return [...new Set(entries.filter((entry) => (entry.kind === 'deity' || entry.kind === 'spell') && !entry.deleted)
-      .flatMap((entry) => [...tokens(entry.data.domain_primary ?? entry.data.domain), ...tokens(entry.data.domain_alternate)]))]
-      .sort((a, b) => a.localeCompare(b))
+    const domains = deityDomains(c, entries)
+    if (!name.startsWith('Advanced')) return domains
+    const level = Math.min(c.level, c.feats[index] ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level)
+    const initialNames = name === "Advanced Deity's Domain" ? ["Deity's Domain"] : ['Domain Initiate', "Deity's Domain"]
+    const initial = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
+      && featTakenLevel(feat) <= level && initialNames.includes(feat.name) && feat.choice
+      ? [feat.choice.trim().toLowerCase()] : []))
+    const used = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
+      && featTakenLevel(feat) <= level && feat.name === name && feat.choice ? [feat.choice.trim().toLowerCase()] : []))
+    return domains.filter(domain => initial.has(domain.toLowerCase()) && !used.has(domain.toLowerCase()))
   }
   if (name === 'Second Blessing' || name === 'Third Blessing') {
     const used = [championBlessing(c), ...c.feats.flatMap((feat) => [
@@ -634,7 +639,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
 
 export function deityDomains(c: Character, entries: ContentEntry[]) {
   const deity = byName(entries, 'deity', c.deity)
-  return tokens(deity?.data.domain_primary ?? deity?.data.domain)
+  const domains = new Map<string, string>()
+  for (const value of tokens(deity?.data.domain_primary ?? deity?.data.domain)) {
+    const domain = value.replace(/\s+/g, ' ')
+    const key = domain.toLowerCase()
+    if (!domains.has(key)) domains.set(key, domain)
+  }
+  return [...domains.values()].sort((a, b) => a.localeCompare(b))
 }
 
 // ---------- Class features ----------
