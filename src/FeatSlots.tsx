@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, dailyLongevityRanks, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, dailyLongevityRanks, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
@@ -26,7 +26,7 @@ const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
 
-type FeatOption = { entry: ContentEntry; choice?: string; value: string; label: string; disabled?: boolean }
+type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; value: string; label: string; disabled?: boolean }
 
 export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSearch'>) {
   const [search, setSearch] = useState<Record<string, string>>({})
@@ -117,10 +117,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const choices = entry.name === 'Free Heart' ? undefined : featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
-      ? choices.map((choice) => {
+      ? choices.flatMap((choice) => {
         const noImprovement = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
         const disabled = unmet || !!accessMissing || noImprovement
-        return { entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }
+        if (entry.name === 'Versatile Rogue' && choice === 'Mastermind') return MASTERMIND_SKILLS.map(mastermindSkill => ({
+          entry, choice, mastermindSkill, disabled, value: JSON.stringify([entry.name, choice, mastermindSkill]),
+          label: `${label} (Mastermind - ${mastermindSkill})`,
+        }))
+        return [{ entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }]
       })
       : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing }]
   }
@@ -153,7 +157,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
     if (category === 'archetype' && name === 'N/A') skippedFeatSlots.push(key)
-    saveFeatChanges({ feats, entryIds, skippedFeatSlots })
+    saveFeatChanges({ feats, entryIds, skippedFeatSlots,
+      ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}) })
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
     const index = c.extraSlots.findIndex((slot) => slot.category === category && slot.level === level && slot.count > 0)
@@ -242,8 +247,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
           const selectedChoice = selection?.name === 'Elemental Wrath' ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
+          const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
+            ? `Mastermind - ${c.rogueRacketSkills.Mastermind}` : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)
           const selectedName = selection
-            ? `${displayName(selection.name)}${selectedChoice ? ` (${choiceLabel(selection.name, selectedChoice)})` : ''}` : current
+            ? `${displayName(selection.name)}${selectedLabel ? ` (${selectedLabel})` : ''}` : current
           const sources = featPrerequisiteSources(entries, {
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits(c),
           })
@@ -263,7 +270,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const suggestible = ['general', 'skill'].includes(s.category)
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
             (matches(o, slotQuery, suggestible ? suggestions.get(o.name) : undefined)
-              || o.name === 'Versatile Rogue' && !!featChoiceOptions(o.name, c, entries, s.key)?.some(choice => choice.toLowerCase().includes(slotQuery)))
+              || o.name === 'Versatile Rogue' && optionsFor(o, s).some(option => option.label.toLowerCase().includes(slotQuery)))
             && (!picksType || (type === 'dedication') === isDedication(o)))
           if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name)) - Number(suggestions.has(a.name))
             || featSelectionLevel(a, c, entries, s.category) - featSelectionLevel(b, c, entries, s.category)
@@ -284,7 +291,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             }
             const level = featSelectionLevel(option, c, entries, s.category)
             const variants = optionsFor(option, s).filter(variant => option.name !== 'Versatile Rogue'
-              || matches(option, slotQuery) || variant.choice?.toLowerCase().includes(slotQuery))
+              || matches(option, slotQuery) || variant.label.toLowerCase().includes(slotQuery))
             optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
           }
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)

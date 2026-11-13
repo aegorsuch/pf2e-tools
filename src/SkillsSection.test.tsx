@@ -56,6 +56,28 @@ it('automatically refunds redundant training while preserving conditional altern
   expect(skillRankBudget({ ...sf, feats: [] }, [sfRanger]).trained).toBe(3)
 })
 
+it('grants elf feat skills or provides replacement training in Skills without double counting', () => {
+  const feats = ['Cite the Deep Lore', "Diplomat's Facade"].map(name =>
+    ({ name, type: 'Ancestry Feat', level: 1, slot: `ancestry:1:${name}` }))
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Elf', feats }
+  const sfRanger: ContentEntry = { ...ranger, systems: ['sf2e'] }
+  expect(ranksAt(c, [sfRanger])).toMatchObject({ Society: 1, Deception: 1 })
+  expect(skillRankBudget(c, [sfRanger]).trained).toBe(4)
+  const background: ContentEntry = { ...feyBound, systems: ['sf2e'], name: 'Diplomat', data: { skill: 'Society, Deception' } }
+  const duplicates = { ...c, background: background.name }
+  expect(skillRankBudget(duplicates, [sfRanger, background]).trained).toBe(6)
+  expect(skillRankBudget({ ...c, skillPicks: ['Society', 'Deception'] }, [sfRanger]).trained).toBe(4)
+  expect(skillRankBudget({ ...duplicates, skillPicks: ['Acrobatics', 'Medicine'] }, [sfRanger, background]).trained).toBe(4)
+  expect(skillRankBudget({ ...duplicates, level: 0 }, [sfRanger, background]).trained).toBe(4)
+  let edited = duplicates
+  const tree = () => SkillsSection({ c: edited, entries: [sfRanger, background], save: patch => { edited = { ...edited, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('<b>T</b>6')
+  ;(findButtons(tree()).get('Acrobatics Trained')!.onClick as () => void)()
+  ;(findButtons(tree()).get('Medicine Trained')!.onClick as () => void)()
+  expect(edited.skillPicks).toEqual(['Acrobatics', 'Medicine'])
+  expect(renderToStaticMarkup(tree())).toContain('<b>T</b>4')
+})
+
 it('restores spent training when overlapping grants disappear without removing saved picks', () => {
   const c: Character = { ...base, level: 5, skillPicks: ['Nature', 'Society', 'Survival'] }
   const background: ContentEntry = { ...feyBound, name: 'Scholar', data: { skill: 'Society' } }

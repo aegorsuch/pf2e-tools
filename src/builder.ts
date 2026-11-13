@@ -688,7 +688,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     }).map(({ entry }) => entry)
 }
 
-const SCRAPPER_SKILLS = ['Arcana', 'Nature', 'Occultism', 'Religion']
+export const MASTERMIND_SKILLS = ['Arcana', 'Nature', 'Occultism', 'Religion']
+const SCRAPPER_SKILLS = MASTERMIND_SKILLS
 export const ROGUE_RACKETS = ['Thief', 'Ruffian', 'Scoundrel', 'Mastermind', 'Eldritch Trickster', 'Avenger'] as const
 function eldritchTricksterDedications(entries: ContentEntry[]) {
   const feats = entries.filter(entry => entry.kind === 'feat' && !entry.deleted)
@@ -709,6 +710,7 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat: string }> = {
   'Broken Hand Technique': { skill: 'Athletics', feat: 'Titan Wrestler' },
   Spelunker: { skill: 'Acrobatics', feat: 'Quick Squeeze' },
 }
+const SKILLS_TAB_ANCESTRY_GRANTS = ['Cite the Deep Lore', "Diplomat's Facade"]
 
 function ancestrySkillGrant(c: Character, name: string) {
   if (!c.systems.includes('sf2e')) return undefined
@@ -749,6 +751,7 @@ function scrapperVariants(ranks: Record<string, number>) {
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
   const ancestryGrant = ancestrySkillGrant(c, name)
+  if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
   if (ancestryGrant && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if (!ranks[ancestryGrant.skill]) return undefined
@@ -1393,7 +1396,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     const grant = ancestrySkillGrant(c, feat.name)
     if (!grant || featTakenLevel(feat) > c.level) return
     const ranks = ancestrySkillBefore(c, entries, index)
-    if (!ranks[grant.skill]) trained.push(grant.skill)
+    if (!ranks[grant.skill] || SKILLS_TAB_ANCESTRY_GRANTS.includes(feat.name) && !feat.choice) trained.push(grant.skill)
     else if (feat.choice && skills.has(feat.choice) && !ranks[feat.choice]) trained.push(feat.choice)
   })
   if (activeFeatsNamed(c, 'Beast Trainer').length) trained.push('Nature')
@@ -2750,6 +2753,11 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       || isPioneerHuman(c) && name === 'Survival').length
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
     + backgroundSkills(freeHeartBackground(c, entries)).filter(skill => autoClassSkills(c, entries).includes(skill)).length
+    + c.feats.reduce((total, feat, index) => {
+      const grant = ancestrySkillGrant(c, feat.name)
+      if (!grant || !SKILLS_TAB_ANCESTRY_GRANTS.includes(feat.name) || feat.choice || featTakenLevel(feat) > c.level) return total
+      return total + Number((ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)[grant.skill] ?? 0) > 0)
+    }, 0)
     + (rogueRackets(c, entries).includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill)
       .filter(skill => [...classSkills(byName(entries, 'class', c.className)).fixed,
         ...backgroundSkills(byName(entries, 'background', c.background))].includes(skill)).length : 0)

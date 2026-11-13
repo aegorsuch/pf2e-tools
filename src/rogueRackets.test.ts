@@ -91,6 +91,25 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
   expect(markup).toContain('sneak attack applies to your prey')
 })
 
+it('auto-scales the Avenger deity skill for primary and additional rackets', () => {
+  const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity', data: { skill: 'Religion' } }
+  const settings = getSettings()
+  try {
+    updateSettings({ autoClassSkills: true })
+    for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]]) {
+      expect(ranksAt({ ...base, level, subclass: 'Avenger', deity: deity.name }, [rogue, deity]).Religion).toBe(rank)
+    }
+    const c: Character = { ...base, level: 15, deity: deity.name, feats: [{ name: 'Versatile Rogue',
+      type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Avenger' }] }
+    expect(ranksAt(c, [rogue, deity], 10).Religion).toBeUndefined()
+    expect(ranksAt(c, [rogue, deity], 11).Religion).toBe(3)
+    expect(ranksAt(c, [rogue, deity]).Religion).toBe(4)
+    expect(ranksAt({ ...c, deity: undefined }, [rogue, deity]).Religion).toBeUndefined()
+    updateSettings({ autoClassSkills: false })
+    expect(ranksAt(c, [rogue, deity]).Religion).toBe(1)
+  } finally { updateSettings(settings) }
+})
+
 it('shows Ruffian weapon benefits only for eligible damage dice', () => {
   const c: Character = { ...base, subclass: 'Ruffian' }
   const weapon = (id: string, category: string, damage: string): ContentEntry =>

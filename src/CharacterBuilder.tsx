@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, MASTERMIND_SKILLS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -379,11 +379,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {rogueRackets(c, entries).includes('Mastermind') && <label>Mastermind skill{' '}
             <select aria-label="Mastermind racket skill" value={c.rogueRacketSkills?.Mastermind ?? ''} onChange={event => {
               const skill = event.target.value
-              if (skill && !['Arcana', 'Nature', 'Occultism', 'Religion'].includes(skill)) return
+              if (skill && !MASTERMIND_SKILLS.includes(skill)) return
               save({ rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: skill } })
             }}>
               <option value="">Choose skill</option>
-              {['Arcana', 'Nature', 'Occultism', 'Religion'].map(skill => <option key={skill}>{skill}</option>)}
+              {MASTERMIND_SKILLS.map(skill => <option key={skill}>{skill}</option>)}
             </select>
           </label>}
           {c.className === 'Druid' && (

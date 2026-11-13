@@ -6,6 +6,7 @@ import { FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
 import { featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -51,6 +52,39 @@ it('shows and searches distinct Versatile Rogue racket options', () => {
   findButton(tree(), 'L10 Class: Versatile Rogue (Ruffian)')!()
   expect(c.feats[0]).toMatchObject({ name: 'Versatile Rogue', choice: 'Ruffian', slot: 'class:10:0' })
   expect(renderToStaticMarkup(tree())).toContain('Ruffian racket benefits.')
+})
+
+it('offers Mastermind skill variants and saves the chosen skill with its racket', () => {
+  const feat: ContentEntry = { id: 'versatile', name: 'Versatile Rogue', kind: 'feat', source: 'homebrew',
+    systems: ['pf2e'], level: 10, traits: ['Rogue'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const racket: ContentEntry = { ...feat, id: 'mastermind', kind: 'subclass', name: 'Mastermind',
+    description: 'Mastermind racket benefits.', data: { class: 'Rogue' } }
+  let c: Character = { ...emptyRanger(), className: 'Rogue', subclass: 'Thief', level: 10 }
+  const entries = [feat, racket]
+  const tree = (query = '') => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
+    search: { 'class:10:0:open': '1', 'class:10:0:query': query }, onSearch: () => {} })
+  const settings = getSettings()
+  try {
+    updateSettings({ autoClassSkills: true })
+    for (const skill of ['Arcana', 'Nature', 'Occultism', 'Religion']) {
+      c = { ...c, feats: [] }
+      const markup = renderToStaticMarkup(tree())
+      expect(markup).toContain(`L10 Class: Versatile Rogue (Mastermind - ${skill})`)
+      expect(renderToStaticMarkup(tree(skill.toLowerCase()))).toContain(`L10 Class: Versatile Rogue (Mastermind - ${skill})`)
+      findButton(tree(), `L10 Class: Versatile Rogue (Mastermind - ${skill})`)!()
+      expect(c.feats[0]).toMatchObject({ name: feat.name, choice: 'Mastermind' })
+      expect(c.rogueRacketSkills?.Mastermind).toBe(skill)
+      expect(ranksAt(c, entries)[skill]).toBe(3)
+      expect(plannedSlots(c)).toContainEqual(expect.objectContaining({ category: 'skill', grantedBy: 'Versatile Rogue' }))
+      expect(renderToStaticMarkup(tree())).toContain(`Versatile Rogue (Mastermind - ${skill})`)
+      expect(renderToStaticMarkup(tree())).toContain('Mastermind racket benefits.')
+      expect(featPrerequisiteChecker(c, entries)({ ...feat, data: { prerequisite: 'mastermind racket' } }).missing).toEqual([])
+    }
+    const legacy = { ...c, rogueRacketSkills: undefined }
+    expect(renderToStaticMarkup(<FeatSlots c={legacy} entries={entries} categories={['class']} save={() => {}} />))
+      .toContain('Versatile Rogue (Mastermind)')
+    expect(ranksAt(legacy, entries).Society).toBe(3)
+  } finally { updateSettings(settings) }
 })
 
 it.each([
