@@ -131,12 +131,12 @@ function EquipmentSearch({ c, entries, save }: SectionProps) {
   </>
 }
 
-type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Tattoos'
+type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Poisons' | 'Tattoos'
 type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
 
-function EquipmentGroup({ c, save, group, rows }: Pick<SectionProps, 'c' | 'save'> & { group: EquipmentGroupName; rows: EquipmentRow[] }) {
+function EquipmentGroup({ c, save, group, rows, showHeading = true }: Pick<SectionProps, 'c' | 'save'> & { group: EquipmentGroupName; rows: EquipmentRow[]; showHeading?: boolean }) {
   if (!rows.length) return null
-  return <div><h4>{group}</h4><ul>
+  return <div>{showHeading && <h4>{group}</h4>}<ul>
     {rows.map(({ item, index, entry }) => <li key={`${item.name}-${index}`}>
       {item.name} <ActionIcon entry={entry} /> x<input type="number" min={1} style={{ width: '4em' }} value={item.qty}
         onChange={event => save({ equipment: c.equipment.map((existing, i) => i === index ? { ...existing, qty: Math.max(1, +event.target.value || 1) } : existing) })} />{' '}
@@ -247,12 +247,13 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       if (entry.kind === 'item' && !items.has(entry.name)) items.set(entry.name, entry)
       else if ((entry.kind === 'weapon' || entry.kind === 'armor') && !fallback.has(entry.name)) fallback.set(entry.name, entry)
     }
-    const groups: Record<EquipmentGroupName, EquipmentRow[]> = { Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Tattoos: [] }
+    const groups: Record<EquipmentGroupName, EquipmentRow[]> = { Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [] }
     c.equipment.forEach((item, index) => {
       const entry = items.get(item.name) ?? fallback.get(item.name)
       const category = String(entry?.data.item_category ?? '').toLowerCase()
       const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(item.name)?.[0].toLowerCase()
       const group = category === 'grafts' ? 'Grafts' : category === 'tattoos' ? 'Tattoos'
+        : entry?.kind === 'item' && entry.traits.some(trait => trait.toLowerCase() === 'poison') ? 'Poisons'
         : ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
       groups[group].push({ item, index, entry })
     })
@@ -434,9 +435,13 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <h4>Handwraps</h4>
           <HandwrapsGear {...section} />
           <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']} />
+          {(equipmentGroups.Poisons.length > 0 || activeFeatsNamed(c, 'Poison Weapon').length > 0) && <>
+            <h4>Poisons</h4>
+            <SimplePoisons {...section} />
+            <EquipmentGroup {...section} group="Poisons" rows={equipmentGroups.Poisons} showHeading={false} />
+          </>}
           <h4>Shield</h4>
           <ArmorList {...section} part="shield" />
-          <SimplePoisons {...section} />
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <h4>Weapons</h4>
           <WeaponList {...section} />

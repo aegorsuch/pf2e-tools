@@ -66,6 +66,11 @@ it('tracks Poison Weapon doses and Improved Poison Weapon damage', () => {
   const html = renderToStaticMarkup(<SimplePoisons c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('5/8 remaining; 2d4')
   expect(html).toContain('critically failed attack does not waste')
+  const deadly = { ...c, level: 12, feats: [...c.feats, feat('Deadly Poison Weapon', 12)] }
+  const deadlyHtml = renderToStaticMarkup(<SimplePoisons c={deadly} entries={[]} save={() => {}} />)
+  expect(deadlyHtml).toContain('9/12 remaining; 4d4')
+  expect(deadlyHtml).toContain('up to your class DC')
+  expect(renderToStaticMarkup(<SimplePoisons c={{ ...deadly, level: 11 }} entries={[]} save={() => {}} />)).toContain('8/11 remaining; 2d4')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, level: 7 }} entries={[]} save={() => {}} />)).toContain('4/7 remaining; 1d4')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).toBe('')
 })

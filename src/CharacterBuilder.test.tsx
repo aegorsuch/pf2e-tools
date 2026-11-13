@@ -140,19 +140,29 @@ it('keeps equipment editing separate from offensive attack summaries', () => {
 it('orders equipment groups alphabetically and separates grafts and tattoos from other equipment', () => {
   const item = (name: string, category: string): ContentEntry => ({ id: name, name, kind: 'item',
     systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '', data: { item_category: category }, effects: [], updatedAt: 0 })
-  content.entries = [item('Caligni Eyes', 'Grafts'), item('Spider Lily', 'Tattoos'), item('Rope', 'Adventuring Gear')]
+  content.entries = [item('Caligni Eyes', 'Grafts'), item('Spider Lily', 'Tattoos'), item('Rope', 'Adventuring Gear'),
+    { ...item('Black Adder Venom', 'Alchemical Items'), traits: ['Poison', 'Injury'] }]
   const c: Character = { id: 'equipment-order', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [], equipment: ['Spider Lily', 'Rope', 'Caligni Eyes', 'Arrows', 'Bolts', 'Bullets'].map(name => ({ name, qty: 1 })),
+    feats: [{ name: 'Poison Weapon', type: 'Class Feat', level: 1 }],
+    equipment: ['Spider Lily', 'Rope', 'Caligni Eyes', 'Arrows', 'Bolts', 'Bullets', 'Black Adder Venom'].map(name => ({ name, qty: 1 })),
     lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
     expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Bolts', 'Bullets', 'Grafts',
-      'Handwraps', 'Other equipment', 'Shield', 'Tattoos', 'Weapons'])
+      'Handwraps', 'Other equipment', 'Poisons', 'Shield', 'Tattoos', 'Weapons'])
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
     expect(equipment.slice(equipment.indexOf('<h4>Tattoos</h4>'), equipment.indexOf('<h4>Weapons</h4>'))).toContain('Spider Lily')
+    const poisons = equipment.slice(equipment.indexOf('<h4>Poisons</h4>'), equipment.indexOf('<h4>Shield</h4>'))
+    expect(poisons).toContain('Black Adder Venom')
+    expect(poisons).toContain('Simple injury poisons')
+    expect(poisons).toContain('1d4')
+    const withoutFeat = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [] }} onClose={() => {}} />)
+    const poisonItems = withoutFeat.slice(withoutFeat.indexOf('<h4>Poisons</h4>'), withoutFeat.indexOf('<h4>Shield</h4>'))
+    expect(poisonItems).toContain('Black Adder Venom')
+    expect(poisonItems).not.toContain('Simple injury poisons')
     expect(equipment).toContain('Add Armor')
     expect(equipment).toContain('Add Shield')
     expect(equipment).toContain('Add Weapon')

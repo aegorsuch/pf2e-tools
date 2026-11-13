@@ -322,10 +322,12 @@ export function SimplePoisons({ c, save }: SectionProps) {
   if (!activeFeatsNamed(c, 'Poison Weapon').length) return null
   const spent = Math.max(0, Math.min(c.level, Math.floor(c.simplePoisonsSpent ?? 0)))
   const improved = activeFeatsNamed(c, 'Improved Poison Weapon').length > 0
+  const deadly = activeFeatsNamed(c, 'Deadly Poison Weapon').length > 0
   return <div className="col">
-    <h4>Simple injury poisons</h4>
-    <span>{c.level - spent}/{c.level} remaining; {improved ? '2d4' : '1d4'} poison damage, no save.</span>
+    <strong>Simple injury poisons</strong>
+    <span>{c.level - spent}/{c.level} remaining; {deadly ? '4d4' : improved ? '2d4' : '1d4'} poison damage, no save.</span>
     {improved && <small>A critically failed attack does not waste this poison.</small>}
+    {deadly && <small>Injury poisons applied to your weapon gain +2 DC, up to your class DC.</small>}
     <div className="row">
       <button type="button" disabled={spent >= c.level} onClick={() => save({ simplePoisonsSpent: spent + 1 })}>Use poison</button>
       <button type="button" disabled={spent === 0} onClick={() => save({ simplePoisonsSpent: spent - 1 })}>Undo use</button>
