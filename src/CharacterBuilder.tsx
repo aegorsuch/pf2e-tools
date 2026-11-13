@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, shieldParagonActive, shieldRaised, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { BulkLimits, HandwrapsGear } from './GearSection'
@@ -319,8 +319,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
           {(c.shield || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
-            {c.shield && <label><input type="checkbox" aria-label="Raise Shield (summary)" checked={c.shield.raised}
-              onChange={(event) => c.shield && save({ shield: { ...c.shield, raised: event.target.checked } })} /> Raise Shield (+2 AC)</label>}
+            {c.shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
+              <input type="checkbox" aria-label="Raise Shield (summary)" checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
+                onChange={(event) => c.shield && !shieldParagonActive(c) && save({ shield: { ...c.shield, raised: event.target.checked } })} /> Raise Shield (+2 AC)</label>}
             {parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
               onChange={(event) => save({ parrying: event.target.checked })} /> Parry (+{parry} AC)</label>}
           </span>}

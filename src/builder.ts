@@ -234,6 +234,8 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export const shieldParagonActive = (c: Character) => !!c.shield && activeFeatsNamed(c, 'Shield Paragon').length > 0
+export const shieldRaised = (c: Character) => !!c.shield && (c.shield.raised || shieldParagonActive(c))
 export const isFeatEffectActive = (c: Character, name: string) =>
   !!activeFeatsNamed(c, name).length && (!!c.activeFeatEffects?.includes(name)
     || name === 'Favored Terrain' && !!activeFeatsNamed(c, 'Terrain Master').length)
@@ -307,24 +309,26 @@ const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase
 function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean, ignoreDedicationLock = false) {
   const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
     const entry = byName(entries, 'feat', f.name)
-    return entry && archetypesOf(entry).length ? [entry] : []
+    return entry && archetypesOf(entry).length ? [{ entry, feat: f }] : []
   })
-  const dedications = taken.filter(isDedication)
+  const dedications = taken.filter(({ entry }) => isDedication(entry))
+  const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
   let availableDedications: ContentEntry[] | undefined
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
     const shares = (entry: ContentEntry, names = archetypes) => archetypesOf(entry).some((name) => names.includes(name))
     if (!isDedication(e)) {
-      if (dedications.some((dedication) => shares(dedication))) return []
+      if (dedications.some(({ entry }) => shares(entry))) return []
       availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
       const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
       return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
     }
     if (ignoreDedicationLock) return []
-    return dedications.flatMap((dedication) => {
+    return dedications.flatMap(({ entry: dedication, feat }) => {
       if (shares(dedication)) return []
-      const needed = 2 - taken.filter((feat) => !isDedication(feat) && shares(feat, archetypesOf(dedication))).length
+      if (feat.slot && exemptSlots.has(feat.slot) && homebrewDedication(feat.slot)?.name === feat.name) return []
+      const needed = 2 - taken.filter(({ entry }) => !isDedication(entry) && shares(entry, archetypesOf(dedication))).length
       return needed > 0 ? [`${needed} more ${archetypesOf(dedication).join(' or ')} archetype feat${needed === 1 ? '' : 's'} before another dedication`] : []
     })
   }
@@ -801,6 +805,11 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const movement: { name: string; feet: number; source: string }[] = [
     ...(features.includes('Fish Tail') ? [{ name: 'Swim', feet: land, source: 'Animal Feature' }] : []),
     ...(features.includes('Wings') ? [{ name: 'Fly', feet: land, source: 'Animal Feature' }] : [])]
+  if (!getSettings().championFormNoFlight) {
+    for (const name of ['Celestial Form', 'Fiendish Form']) {
+      if (activeFeatsNamed(c, name).length) movement.push({ name: 'Fly', feet: land, source: name })
+    }
+  }
   if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push({ name: 'Swim', feet: 15, source: 'Natural Swimmer' })
   if (ragingAthleteBenefits(c, entries)) {
     for (const name of ['Climb', 'Swim']) movement.push({ name, feet: land, source: 'Raging Athlete' })
@@ -1588,7 +1597,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const dexterity = abilityMod(c.abilities.dex)
   const skin = animalSkinBenefits(c, entries)
   const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
-  const raised = c.shield?.raised ? 2 : 0
+  const raised = shieldRaised(c) ? 2 : 0
   const parry = parryBonus(c, entries)
   const candidates = [
     { label: 'Raised shield', value: raised },

@@ -11,6 +11,7 @@ import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 
 const base: Character = {
@@ -24,6 +25,35 @@ const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['d
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it.each(['Celestial Form', 'Fiendish Form'])('gates %s flight on the house rule and acquisition level without suppressing other flight', name => {
+  const previous = getSettings().championFormNoFlight
+  const c: Character = { ...base, level: 18, feats: [feat(name, 18)] }
+  try {
+    updateSettings({ championFormNoFlight: true })
+    expect(movementSpeeds(c, [])).toEqual([{ name: 'Land', feet: 25 }])
+    const wings: Character = { ...c, activeSpells: ['Animal Feature'], animalFeature: 'Wings',
+      feats: [...c.feats, feat('Advanced Warden', 4, 'Animal Feature')] }
+    expect(movementSpeeds(wings, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Animal Feature' })
+    updateSettings({ championFormNoFlight: false })
+    expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 25, source: name })
+    expect(movementSpeeds({ ...c, level: 17 }, [])).toEqual([{ name: 'Land', feet: 25 }])
+    expect(movementSpeeds(wings, [])).toContainEqual({ name: 'Fly', feet: 25, source: `Animal Feature, ${name}` })
+  } finally { updateSettings({ championFormNoFlight: previous }) }
+})
+
+it('treats a shield as raised for active Shield Paragon without changing the saved toggle', () => {
+  const shield = { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false }
+  const c: Character = { ...base, level: 20, shield, feats: [feat('Shield Paragon', 20)] }
+  expect(armorClass(c, [])).toBe(armorClass({ ...c, feats: [] }, []) + 2)
+  expect(armorClass({ ...c, level: 19 }, [])).toBe(armorClass({ ...c, level: 19, feats: [] }, []))
+  expect(armorClass({ ...c, shield: undefined }, [])).toBe(armorClass({ ...c, shield: undefined, feats: [] }, []))
+  expect(c.shield?.raised).toBe(false)
+  expect(armorClass({ ...c, feats: [], shield: { ...shield, raised: true } }, [])).toBe(armorClass({ ...c, feats: [] }, []) + 2)
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Always raised by Shield Paragon')
+  expect(markup).toMatch(/type="checkbox" disabled="" checked="".*?Raised \(\+2 AC\)/)
+})
 
 it.each<[number, number, number, HardlightGrade]>([
   [1, 0, 0, 'Commercial'], [2, 1, 0, 'Tactical'], [3, 1, 0, 'Tactical'],

@@ -20,7 +20,8 @@ const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
 const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
 const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
-const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER]
+const OLD_CHELIAX = 'From Old Cheliax'
+const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER, OLD_CHELIAX]
   .map(label => [label.toLowerCase(), label]))
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
@@ -55,6 +56,10 @@ function narrativeRequirement(entry: ContentEntry, access: string) {
     ? NIDAL_HUSBANDRY : access
 }
 
+function isAchievementRequirement(requirement: string) {
+  return narrativeAccess.test(requirement) || achievementKey(requirement) === OLD_CHELIAX.toLowerCase()
+}
+
 export function achievementOptions(entries: ContentEntry[]) {
   const cached = achievementCache.get(entries)
   if (cached) return cached
@@ -62,7 +67,7 @@ export function achievementOptions(entries: ContentEntry[]) {
   for (const entry of entries) {
     if (entry.deleted || !['feat', 'weapon', 'armor', 'shield'].includes(entry.kind)) continue
     const requirement = narrativeRequirement(entry, String(entry.data.access ?? '').trim().replace(/\s+/g, ' '))
-    if (!narrativeAccess.test(requirement)) continue
+    if (!isAchievementRequirement(requirement)) continue
     const key = achievementKey(requirement)
     const existing = options.get(key)
     if (existing) {
@@ -106,7 +111,7 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
   const key = achievementKey(narrative)
   const background = key === RIVETHUN_MEMBERSHIP.toLowerCase() && c.background?.toLowerCase() === 'rivethun adherent'
   const ancestry = key === DWARVEN_DEFENDER.toLowerCase() && c.ancestry?.toLowerCase() === 'dwarf'
-  const achievement = narrativeAccess.test(narrative) && c.achievements?.some(value => achievementKey(value) === achievementKey(narrative))
+  const achievement = isAchievementRequirement(narrative) && c.achievements?.some(value => achievementKey(value) === key)
   return {
     requirement: access,
     automatic: ethnicity || background || ancestry || !!achievement,

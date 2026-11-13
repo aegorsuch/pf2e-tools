@@ -180,6 +180,11 @@ it('shows defense summary context toggles only for equipped shields or parry-cap
     expect(plain).not.toContain('Parry active (summary)')
     const shielded = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)
     expect(shielded).toContain('Raise Shield (summary)')
+    const locked = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, level: 20,
+      feats: [{ name: 'Shield Paragon', type: 'Class Feat', level: 20 }],
+      shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)
+    expect(locked).toMatch(/aria-label="Raise Shield \(summary\)" disabled="" checked=""/)
+    expect(locked).toContain('Always raised by Shield Paragon')
     const parry = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, feats: [{ name: 'Parry Expert', type: 'Class Feat', level: 1 }] }} onClose={() => {}} />)
     expect(parry).toContain('Parry active (summary)')
   } finally { content.entries = [] }

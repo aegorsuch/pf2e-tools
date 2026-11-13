@@ -217,6 +217,11 @@ export default function App() {
             Auto-Advance Lores
           </label>
           <label>
+            <input type="checkbox" checked={settings.championFormNoFlight}
+              onChange={(e) => updateSettings({ championFormNoFlight: e.target.checked })} />{' '}
+            Celestial and Fiendish Form: No Flight
+          </label>
+          <label>
             <input type="checkbox" checked={settings.championCavalier}
               onChange={(e) => updateSettings({ championCavalier: e.target.checked })} />{' '}
             Champion Cavalier Dedication

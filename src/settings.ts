@@ -12,6 +12,8 @@ export interface Settings {
   // House rules: Champions and Druids get Cavalier Dedication for free at level 2
   championCavalier: boolean
   druidCavalier: boolean
+  // House rule: Celestial Form and Fiendish Form do not grant flight
+  championFormNoFlight: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
   // House rule: General Training and Advanced General Training can each be selected once
@@ -19,7 +21,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, generalFeatsOnly: false, singleTrainingFeats: true }
+const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

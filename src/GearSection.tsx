@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, shieldParagonActive, shieldRaised, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -535,7 +535,9 @@ export function ArmorList({ c, entries, save }: SectionProps) {
         <article className="gear-card">
           <header className="row">
             <strong>{shield.name}</strong>
-            <label><input type="checkbox" checked={shield.raised} onChange={(e) => save({ shield: { ...shield, raised: e.target.checked } })} /> Raised (+2 AC)</label>
+            <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
+              <input type="checkbox" checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
+                onChange={(e) => { if (!shieldParagonActive(c)) save({ shield: { ...shield, raised: e.target.checked } }) }} /> Raised (+2 AC)</label>
           </header>
           <div className="row">
             <label>Hardness <input type="number" min={0} value={shield.hardness} onChange={(e) => save({ shield: { ...shield, hardness: Math.max(0, +e.target.value || 0) } })} /></label>

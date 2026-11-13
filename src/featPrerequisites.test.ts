@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { eligibleFeats, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, plannedSlots } from './builder'
 import { featPrerequisiteSuggestions } from './featPrerequisites'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
@@ -41,6 +42,36 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  it.each([
+    ['Ranger', 'Snarecrafter Dedication', 'Snarecrafter', 'rangerSnarecrafter', 'archetype:2:g99'],
+    ['Champion', 'Cavalier Dedication', 'Cavalier', 'championCavalier', 'archetype:2:g98'],
+    ['Druid', 'Cavalier Dedication', 'Cavalier', 'druidCavalier', 'archetype:2:g97'],
+  ] as const)('exempts only the active locked %s dedication from the dedication lock', (className, name, archetype, setting, lockedSlot) => {
+    const previous = getSettings()[setting]
+    const dedication = entry('feat', name, { archetype }, 2, ['Archetype', 'Dedication'])
+    const followup = entry('feat', 'Archetype Training', { archetype }, 4, ['Archetype'])
+    const medic = entry('feat', 'Medic Dedication', { archetype: 'Medic', prerequisite: 'trained in Medicine' }, 2, ['Archetype', 'Dedication'])
+    const wizard = entry('feat', 'Wizard Dedication', { archetype: 'Wizard' }, 2, ['Archetype', 'Dedication'])
+    const data = [dedication, followup, medic, wizard]
+    const c: Character = { ...base, className, level: 6, skillPicks: ['Medicine'],
+      feats: [{ ...selected(name, 2), slot: lockedSlot }] }
+    const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+    try {
+      updateSettings({ [setting]: true })
+      expect(featSelectionPrerequisiteChecker(c, data, slot)(medic).missing).toEqual([])
+      expect(featSelectionPrerequisiteChecker(c, data, slot)(followup).missing).toEqual([])
+      expect(featSelectionPrerequisiteChecker({ ...c, skillPicks: [] }, data, slot)(medic).missing).toContain('trained in Medicine')
+      const withMedic = { ...c, feats: [...c.feats, { ...selected(medic.name, 4), slot: 'archetype:4:0' }] }
+      expect(featSelectionPrerequisiteChecker(withMedic, data, { ...slot, key: 'archetype:6:0', level: 6 })(wizard).missing)
+        .toContain('2 more Medic archetype feats before another dedication')
+      expect(featSelectionPrerequisiteChecker({ ...c, feats: [{ ...c.feats[0], slot: 'archetype:2:0' }] }, data, slot)(medic).missing)
+        .toContain(`2 more ${archetype} archetype feats before another dedication`)
+      updateSettings({ [setting]: false })
+      expect(featSelectionPrerequisiteChecker(c, data, slot)(medic).missing)
+        .toContain(`2 more ${archetype} archetype feats before another dedication`)
+    } finally { updateSettings({ [setting]: previous }) }
+  })
+
   it('requires actual warden spells, specific warden choices, and acquisition-level availability', () => {
     const natural = entry('feat', 'Natural Conduit', { prerequisite: 'warden spells' }, 4, ['Ranger'])
     const strength = entry('feat', 'Animal Strength', { prerequisite: '_animal feature_ warden spell' }, 6, ['Ranger'])

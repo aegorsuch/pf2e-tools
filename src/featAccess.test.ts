@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { achievementOptions, ethnicityOptions, featAccess, featRarity } from './featAccess'
-import { eligibleFeats } from './builder'
+import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -12,6 +12,20 @@ const feat: ContentEntry = {
   id: 'witch-warden', name: 'Witch Warden', kind: 'feat', systems: ['pf2e'], source: 'official', level: 1,
   traits: ['Human', 'Uncommon'], data: { access: 'Kellid ethnicity' }, description: '', effects: [], updatedAt: 1,
 }
+
+it('offers Old Cheliax access for Hellknight Dedication without removing its training prerequisite', () => {
+  const hellknight: ContentEntry = { ...feat, name: 'Hellknight Dedication', level: 2, traits: ['Archetype', 'Dedication', 'Uncommon'],
+    data: { archetype: 'Hellknight', access: "You're from Old Cheliax.", prerequisite: 'trained by a Hellknight Order' } }
+  const [option] = achievementOptions([hellknight])
+  expect(option).toEqual({ key: 'from old cheliax', requirement: 'From Old Cheliax', feats: ['Hellknight Dedication'] })
+  const saved: Character = JSON.parse(JSON.stringify({ ...character, level: 2, achievements: [option.key] }))
+  expect(featAccess(saved, hellknight)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featSelectionPrerequisiteChecker(saved, [hellknight], { key: 'archetype:2:0', category: 'archetype', level: 2 })(hellknight))
+    .toEqual({ missing: [], manual: ['trained by a Hellknight Order'] })
+  expect(featAccess(saved, { ...hellknight, data: { ...hellknight.data, access: 'You’re from Old Cheliax.' } })?.automatic).toBe(true)
+  expect(featAccess(character, hellknight)?.automatic).toBe(false)
+  expect(featAccess(saved, { ...hellknight, data: { access: "You're from New Cheliax." } })?.automatic).toBe(false)
+})
 
 it('shows Rivethun membership while automatically accepting its background and retaining old checked wording', () => {
   const access = 'Rivethun Adherent background or you are a member of the Rivethun'

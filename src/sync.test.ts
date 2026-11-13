@@ -85,15 +85,18 @@ describe('settings sync', () => {
     }))
     const settings = await import('./settings')
     expect(settings.getSettings().singleTrainingFeats).toBe(true)
-    settings.updateSettings({ singleTrainingFeats: false })
+    expect(settings.getSettings().championFormNoFlight).toBe(true)
+    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
     if (!saved) throw new Error('Settings were not persisted')
     vi.mocked(localStorage.getItem).mockReturnValue(saved)
     vi.resetModules()
     const reloaded = await import('./settings')
     expect(reloaded.getSettings().singleTrainingFeats).toBe(false)
-    reloaded.applySyncedSettings({ singleTrainingFeats: true }, reloaded.getSettingsUpdatedAt() + 1)
+    expect(reloaded.getSettings().championFormNoFlight).toBe(false)
+    reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true }, reloaded.getSettingsUpdatedAt() + 1)
     expect(reloaded.getSettings().singleTrainingFeats).toBe(true)
+    expect(reloaded.getSettings().championFormNoFlight).toBe(true)
   })
 
   it('pulls newer settings from the signed-in account', async () => {
