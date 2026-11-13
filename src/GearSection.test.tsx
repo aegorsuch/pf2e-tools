@@ -472,7 +472,8 @@ it('shows attack and compact damage including rune damage in the weapon summary'
   }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[spear, fighter]} save={() => {}} />)
   const summary = /<summary>(.*?)<\/summary>/.exec(markup)?.[1]
-  expect(summary).toContain('Attack +35, Damage 4d6+4 P + 1d6 force')
+  expect(summary).toContain('attack +35: show breakdown')
+  expect(summary).toContain('Damage 4d6+4 P + 1d6 force')
   expect(summary).not.toContain('Shifting')
   expect(markup).not.toContain('class="gear-damage"')
 })
@@ -666,7 +667,8 @@ it('configures shared handwraps without copying inherited runes into stored atta
   expect(c.handwraps).toEqual({ potency: 2, striking: 1, runes: [] })
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
   expect(markup).not.toContain(`inherited from ${HANDWRAPS.name}`)
-  expect(markup).toContain('<strong>Fist</strong> <small>Attack +14, Damage 2d4 B')
+  expect(markup).toContain('Fist attack +14: show breakdown')
+  expect(markup).toContain('Damage 2d4 B')
   expect(markup).not.toContain(`aria-label="${HANDWRAPS.name}"`)
   expect(markup).not.toContain(`Add ${HANDWRAPS.name}`)
   expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[weapon]} save={save} />)).toContain(`aria-label="${HANDWRAPS.name}"`)
@@ -678,10 +680,12 @@ it('shows only compatible inherited runes on buff attacks and no removal control
     weapons: [], activeSpells: ['Animal Feature'], handwraps: { potency: 2, striking: 1, runes: ['Wounding', 'Impactful (Greater)'] },
   }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('<strong>Claws</strong> <small>Attack +14, Damage 2d6 S + 1d6 force, Wounding')
+  expect(markup).toContain('Claws attack +14: show breakdown')
+  expect(markup).toContain('Damage 2d6 S + 1d6 force, Wounding')
   expect(markup).not.toContain('<strong>Jaws</strong>')
-  expect(renderToStaticMarkup(<WeaponList c={{ ...c, animalFeature: 'Jaws' }} entries={[]} save={() => {}} />))
-    .toContain('<strong>Jaws</strong> <small>Attack +14, Damage 2d8 P + 1d6 force, Wounding')
+  const jawsMarkup = renderToStaticMarkup(<WeaponList c={{ ...c, animalFeature: 'Jaws' }} entries={[]} save={() => {}} />)
+  expect(jawsMarkup).toContain('Jaws attack +14: show breakdown')
+  expect(jawsMarkup).toContain('Damage 2d8 P + 1d6 force, Wounding')
   expect(markup).not.toContain('Claws (Animal Feature)')
   expect(markup).not.toContain('Jaws (Animal Feature)')
   expect(markup).not.toContain('aria-label="Remove Claws"')

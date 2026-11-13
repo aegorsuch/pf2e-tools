@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange, parryValue,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange, parryValue, savingThrowBreakdown,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
@@ -774,6 +774,30 @@ it('applies parry AC context without stacking with shield or hazard finder, and 
   const hazard = { ...c, feats: [...c.feats, feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
   expect(armorClass(hazard, [rapier, improved])).toBe(normal + 2)
   expect(armorClass({ ...hazard, parrying: false }, [rapier, improved])).toBe(normal + 1)
+})
+
+it('explains calculated AC, saves and attacks with capped Dexterity and non-stacking conditional bonuses', () => {
+  const armor = content('armor', 'Plate', { armor_category: 'Heavy', ac: 5, dex_cap: 1 })
+  const weapon = content('weapon', 'Rapier', { weapon_category: 'Martial', hands: 1, damage: '1d6 piercing' }, 1, ['Finesse'])
+  const c: Character = { ...base, className: 'Ranger', level: 10,
+    feats: [feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'],
+    armors: [{ id: 'armor', name: 'Plate', worn: true, potency: 2, resilient: 1, runes: [] }],
+    shield: { id: 's', name: 'Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+  const entries = [armor, weapon]
+  const ac = armorClassBreakdown(c, entries)
+  expect(ac.total).toBe(armorClass(c, entries))
+  expect(ac.parts).toContainEqual({ label: 'Dexterity', value: 1, note: 'Modifier +4; cap +1' })
+  expect(ac.parts).toContainEqual({ label: 'Raised shield (circumstance)', value: 2 })
+  expect(ac.notes?.join(' ')).toContain('Hazard Finder +1')
+  const save = savingThrowBreakdown(c, entries, 'Reflex')
+  expect(save.total).toBe(defenseSummary(c, entries).reflex)
+  expect(save.parts).toContainEqual({ label: 'Plate (resilient or grade)', value: 1 })
+  expect(save.parts).toContainEqual({ label: 'Hazard Finder (circumstance)', value: 1 })
+  const strike = weaponAttack(c, entries, { id: 'r', name: 'Rapier', potency: 2, striking: 0, runes: [] })
+  expect(strike.breakdown.total).toBe(strike.attack)
+  expect(strike.breakdown.parts).toContainEqual({ label: 'Dexterity', value: 4 })
+  expect(strike.breakdown.parts).toContainEqual({ label: 'Effective weapon potency (item)', value: 2 })
+  expect(strike.breakdown.parts.reduce((sum, part) => sum + part.value, 0)).toBe(strike.attack)
 })
 
 it('applies researched resistance only in its matching-effect context and never stacks circumstance save bonuses', () => {

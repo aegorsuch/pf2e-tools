@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { BulkLimits, HandwrapsGear } from './GearSection'
@@ -19,6 +19,7 @@ import { MinionsSection } from './MinionsSection'
 import { faithfulSteedChange } from './companions'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
+import { TotalBreakdown } from './TotalBreakdown'
 import type { Character, ContentEntry, EntryKind } from './types'
 
 const GEAR: EntryKind[] = ['item', 'weapon', 'armor']
@@ -315,7 +316,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Defense</strong>
-          <span>Armor Class {defense.ac}, Hit Points {defense.hp}</span>
+          <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
           {(c.shield || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {c.shield && <label><input type="checkbox" aria-label="Raise Shield (summary)" checked={c.shield.raised}
               onChange={(event) => c.shield && save({ shield: { ...c.shield, raised: event.target.checked } })} /> Raise Shield (+2 AC)</label>}

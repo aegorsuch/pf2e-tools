@@ -1392,19 +1392,36 @@ export function armorSaveBonus(c: Character, entries: ContentEntry[]) {
   return Math.max(worn?.resilient ?? 0, num(worn && armorEntry(c, entries, worn.name)?.data.grade_save_bonus))
 }
 
+export type TotalPart = { label: string; value: number; note?: string }
+export type TotalBreakdown = { total: number; parts: TotalPart[]; notes?: string[] }
+
+export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name: 'Fortitude' | 'Reflex' | 'Will',
+  ranks = ranksAt(c, entries)): TotalBreakdown {
+  const ability = { Fortitude: 'con', Reflex: 'dex', Will: 'wis' } as const
+  const rank = ranks[name] ?? 0
+  const armor = wornArmor(c, entries)
+  const item = armorSaveBonus(c, entries)
+  const circumstance = savingThrowCircumstance(c, entries)
+  const parts: TotalPart[] = [
+    { label: ABILITY_LABEL[ability[name]], value: abilityMod(c.abilities[ability[name]]) },
+    { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
+    { label: armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
+  ]
+  if (circumstance) parts.push({ label: `${circumstance.source} (circumstance)`, value: circumstance.value })
+  return { total: parts.reduce((sum, part) => sum + part.value, 0), parts,
+    notes: circumstance ? ['Circumstance bonuses do not stack; apply only against the matching hazard or effect.'] : undefined }
+}
+
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
-  const resilient = armorSaveBonus(c, entries)
-  const circumstance = savingThrowCircumstance(c, entries)?.value ?? 0
-  const save = (name: string, ability: Ability) =>
-    abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? perceptionItemBonus(c) : resilient)
   return {
-    perception: save('Perception', 'wis') + perceptionCircumstanceBonus(c),
+    perception: abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level)
+      + perceptionItemBonus(c) + perceptionCircumstanceBonus(c),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
-    fortitude: save('Fortitude', 'con') + circumstance,
-    reflex: save('Reflex', 'dex') + circumstance,
-    will: save('Will', 'wis') + circumstance,
+    fortitude: savingThrowBreakdown(c, entries, 'Fortitude', ranks).total,
+    reflex: savingThrowBreakdown(c, entries, 'Reflex', ranks).total,
+    will: savingThrowBreakdown(c, entries, 'Will', ranks).total,
   }
 }
 
@@ -1530,7 +1547,7 @@ export function animalSkinBenefits(c: Character, entries: ContentEntry[]) {
   return { itemBonus: classFeatures(entries, c).some((feature) => feature.name === 'Greater Juggernaut') ? 3 : 2, dexCap: 3 }
 }
 
-export function armorClass(c: Character, entries: ContentEntry[]) {
+export function armorClassBreakdown(c: Character, entries: ContentEntry[]): TotalBreakdown {
   const worn = wornArmor(c, entries)
   const armor = equippedArmorEntry(c, entries)
   const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
@@ -1562,9 +1579,29 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
   const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
   const raised = c.shield?.raised ? 2 : 0
   const parry = parryBonus(c, entries)
-  return 10 + num(armor?.data.ac) + (worn?.potency ?? 0) + (skin?.itemBonus ?? 0)
-    + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level) + Math.max(raised, parry, hazardFinderBonus(c))
+  const candidates = [
+    { label: 'Raised shield', value: raised },
+    { label: 'Parry', value: parry },
+    { label: 'Hazard Finder', value: hazardFinderBonus(c) },
+  ].filter(candidate => candidate.value > 0)
+  const best = Math.max(0, ...candidates.map(candidate => candidate.value))
+  const parts: TotalPart[] = [
+    { label: 'Base', value: 10 },
+    { label: armor?.name ?? 'Armor', value: num(armor?.data.ac) },
+    { label: worn ? `${worn.name} potency` : 'Armor potency', value: worn?.potency ?? 0 },
+    ...(skin ? [{ label: 'Animal Skin (item)', value: skin.itemBonus }] : []),
+    { label: 'Dexterity', value: Math.min(dexterity, dexCap),
+      note: Number.isFinite(dexCap) ? `Modifier ${signed(dexterity)}; cap ${signed(dexCap)}` : undefined },
+    { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: `${RANKS[rank]} (${armorCategory})` },
+  ]
+  if (best) parts.push({ label: `${candidates.filter(candidate => candidate.value === best).map(candidate => candidate.label).join(' / ')} (circumstance)`, value: best })
+  const notes = candidates.length > 1 ? ['Circumstance bonuses do not stack: '
+    + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
+  if (hazardFinderBonus(c)) notes.push('Hazard Finder applies only against hazard attacks.')
+  return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }
 }
+
+export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassBreakdown(c, entries).total
 
 // Imported equipment shows up as configurable gear until the player edits it
 function carriedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
@@ -2166,6 +2203,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
     advancedTraining ? c.level >= 11 ? 2 : 1 : 0)
   const prof = proficiencyBonus(rank, c.level)
+  const proficiencySources = [
+    { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
+    ...(familiarCategory ? [{ name: `${familiarCategory} via weapon familiarity`, rank: ranks[familiarCategory] }] : []),
+    ...(unconventionalCategory ? [{ name: `${unconventionalCategory} via Unconventional Weaponry`, rank: ranks[unconventionalCategory] }] : []),
+    ...(familiarity?.trained ? [{ name: 'Weapon familiarity training', rank: 1 }] : []),
+    ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
+    ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
+  ].filter(source => source.rank === rank).map(source => source.name)
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
   const dice = m ? (+m[1]) * (1 + w.striking) : 0
   const baseDie = m ? +m[2] : 0
@@ -2196,6 +2241,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     rank,
     item: w.potency,
     attack: mod + prof + w.potency,
+    breakdown: {
+      total: mod + prof + w.potency,
+      parts: [
+        { label: ABILITY_LABEL[ability], value: mod },
+        { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
+        { label: 'Effective weapon potency (item)', value: w.potency },
+      ],
+    } satisfies TotalBreakdown,
     range: ranged ? num(entry?.data.range) : 0,
     damage: m ? `${dice}d${die}${flat ? signed(flat) : ''}${m[3] ? ` ${m[3]}` : ''}` : '',
   }

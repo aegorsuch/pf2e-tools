@@ -10,6 +10,7 @@ import { EntryDescription } from './EntryDescription'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
 import { SearchableSelect } from './SearchableSelect'
+import { TotalBreakdown } from './TotalBreakdown'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
 import type { ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
@@ -342,7 +343,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong>{displayName}</strong> <small>Attack {signed(a.attack)}{a.damage && <>, Damage {compactDamage}{pristineNote
+            <summary><strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />{a.damage && <>, Damage {compactDamage}{pristineNote
               && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}</>}</small></summary>
@@ -358,7 +359,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             {a.entry && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {a.traits.length > 0 && <GearTraits traits={a.traits} entries={entries} system={a.entry?.systems[0]} />}
             <div className="gear-stats">
-              <span><small>Attack</small><b>{signed(a.attack)}</b></span>
+              <span><small>Attack</small><b><TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal /></b></span>
               {a.range > 0 && <span><small>Range</small><b>{a.range} feet</b></span>}
               <span><small>{a.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(a.mod)}</span>
               <span><small>Proficiency</small>{signed(a.prof)}</span>

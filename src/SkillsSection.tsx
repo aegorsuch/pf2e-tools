@@ -1,10 +1,11 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
+import { TotalBreakdown } from './TotalBreakdown'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const RESISTANCE_NOTES: Record<string, string> = {
@@ -137,7 +138,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         : s.name === 'Survival' && terrainExpertise?.bonus ? { value: terrainExpertise.bonus, source: 'Terrain Expertise' } : undefined
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
-        <span className="skill-name">{s.name} <b>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
+        <span className="skill-name">{s.name} <b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
+          ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
+          : signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
             && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}
@@ -240,7 +243,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     return (
       <>
         <div className="defense-summary">
-          <span><small>Armor Class</small><b>{armorClass(c, entries)}</b></span>
+          <span><small>Armor Class</small><b><TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} /></b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
             && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}</b></span>
         </div>

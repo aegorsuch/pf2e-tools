@@ -22,6 +22,7 @@ it('preserves an incompatible saved heritage as disabled rather than selectable 
   }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('Armor Class 10: show breakdown')
     expect(markup).toContain('value="Underground Dwarf" disabled="" selected="">Underground Dwarf (not available for this ancestry)</option>')
     expect(c.heritage).toBe('Underground Dwarf')
   } finally { content.entries = [] }

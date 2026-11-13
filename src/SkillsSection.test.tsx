@@ -76,7 +76,7 @@ it('applies Clever Improviser only to untrained skills while leaving ranks, trai
   expect(markup).toContain('Nature <b>+7</b>')
   expect(markup).toContain('your proficiency rank remains untrained')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />))
-    .toContain('Fortitude <b>+9</b>')
+    .toContain('Fortitude +9: show breakdown')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
     .toContain('Perception <b>+7</b>')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 4 }} entries={[ranger]} save={() => {}} />))

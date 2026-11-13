@@ -226,9 +226,9 @@ it('distinguishes PF2e and SF2e armor progression in mixed-system characters', (
 it('shows native grade saving throw bonuses in defense rows, matching the calculator', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 20, ancestry: 'Gnarefuroid', heritage: 'Hullborne Gnarefuroid' }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
-  expect(markup).toContain('Fortitude <b>+4</b>')
-  expect(markup).toContain('Reflex <b>+7</b>')
-  expect(markup).toContain('Will <b>+3</b>')
+  expect(markup).toContain('Fortitude +4: show breakdown')
+  expect(markup).toContain('Reflex +7: show breakdown')
+  expect(markup).toContain('Will +3: show breakdown')
 })
 
 it('uses native grade resilience rather than PF2e potency for Starfinder armor specialization', () => {
