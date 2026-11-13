@@ -169,8 +169,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, spellRank), c.level) : undefined
     const source = entries.find(entry => entry.kind === 'feat' && (grant.source === entry.name || grant.source.startsWith(`${entry.name}:`)))
     return <>
-      <EntryDescription name={grant.source} entry={source} />
+      <EntryDescription name={grant.source} entry={source} entries={entries} />
       {`; rank ${grant.rank}${grant.rule.tradition ? ` ${grant.rule.tradition}` : ''}${grant.rule.frequency ? `; ${grant.rule.frequency}${grant.rule.shared ? ' shared between alternatives' : ''}` : ''}`}
+      {grant.rule.condition && `; ${grant.rule.condition}`}
       {grant.rule.dc === 'higher-class-or-spell' ? '; use higher of class DC or spell DC'
         : ability && mod !== undefined ? `; ${ABILITY_LABEL[ability]} DC ${10 + mod}, Attack ${signed(mod)}`
         : '; check granting source for spellcasting attribute and DC'}
@@ -301,7 +302,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </SpellItem>)}</ul>
       </div>}
       {unresolved.map((grant, index) => <p key={`${grant.source?.id}:${grant.name}:${index}`} className="feat-prerequisite-note" role="status">
-        Spell data unavailable: {grant.name} (<EntryDescription name={grant.source?.name ?? 'Granting feat'} entry={grant.source} />).
+        Spell data unavailable: {grant.name} (<EntryDescription name={grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).
         {' '}Review source rules; this spell is not automated.
       </p>)}
       {groups.map((g) => (

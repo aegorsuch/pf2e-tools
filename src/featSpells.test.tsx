@@ -299,6 +299,40 @@ it('grants only selected qi and domain spells, never linked alternatives or futu
     .map(grant => grant.entry.name)).toEqual(['Qi Rush'])
 })
 
+it('grants Champion domain spells from imported spell data and shows them in focus spells', () => {
+  const water = (name: string, level: number) => mapAonHit({ _id: name,
+    _source: { name, category: 'spell', level, trait: ['Cleric', 'Focus'], domain: ['Water'] } }, 'pf2e')!
+  const entries = [water('Tidal Surge', 1), water('Downpour', 4)]
+  const c: Character = { ...base, className: 'Champion', level: 8, feats: [
+    { ...taken("Deity's Domain", 1, 'Water'), slot: 'class:1:0' },
+    { ...taken("Advanced Deity's Domain", 8, 'Water'), slot: 'class:8:0' },
+  ] }
+  expect(grantedFeatSpells(c, entries).map(grant => grant.entry.name)).toEqual(['Tidal Surge', 'Downpour'])
+  expect(focusSpells(c, entries)).toMatchObject({ points: 2, spells: [{ name: 'Downpour' }, { name: 'Tidal Surge' }] })
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('<b>Focus Spells</b>')
+  expect(markup).toContain('>Tidal Surge</button>')
+  expect(markup).toContain('>Downpour</button>')
+  expect(grantedFeatSpells({ ...c, level: 7 }, entries).map(grant => grant.entry.name)).toEqual(['Tidal Surge'])
+})
+
+it('lists Sacral Lord cantrips with their territorial restriction', () => {
+  const source = feat('Sacral Lord', 'Claim a defined territory, such as a forest. Within its borders, you can cast [_detect magic_](/Spells.aspx?ID=1485), [_guidance_](/Spells.aspx?ID=1549), and [_sigil_](/Spells.aspx?ID=1673) as innate divine cantrips, and you gain a bonus.')
+  const entries = [source, ...['Detect Magic', 'Guidance', 'Sigil'].map(name => entry(name, 'spell', {}, ['Cantrip']))]
+  const c: Character = { ...base, level: 4, feats: [taken(source.name, 4)] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants.map(grant => grant.entry.name)).toEqual(['Detect Magic', 'Guidance', 'Sigil'])
+  expect(grants).toMatchObject(Array.from({ length: 3 }, () => ({
+    rank: 2, rule: { kind: 'innate', tradition: 'divine', frequency: 'at will', condition: 'Only within your claimed territory' },
+  })))
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Only within your claimed territory')
+  expect(markup).toContain('>Detect Magic</button>')
+  expect(markup).toContain('>Guidance</button>')
+  expect(markup).toContain('>Sigil</button>')
+  expect(grantedFeatSpells({ ...c, level: 3 }, entries)).toEqual([])
+})
+
 it.each(['Champion', 'Monk', 'Ranger'])('scales actual %s spell proficiency independently of armor ranks', className => {
   const expert = { ...entry(`${className} Expertise`, 'classFeature', { class: className }), level: 9,
     description: 'Your proficiency ranks for your class DC, spell attack modifier, and spell DC increase to expert.' }

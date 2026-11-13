@@ -104,6 +104,15 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   const body = md.split(/\n---\n/)[1]?.replace(/[_*]/g, '') ?? ''
   const headerFrequency = /^\*\*Frequency\*\*\s+((?:once|twice|\d+ times) per day)\s*$/im.exec(md.split(/\n---\n/)[0])?.[1]
   const grants: SpellGrant[] = []
+  if (/\bClaim a defined territory\b/i.test(body)) {
+    const territory = /Within its borders, you can cast ([^\n]+?) as innate divine cantrips\b/i.exec(body)
+    if (territory) {
+      const spells = [...territory[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+        .map(match => match[1])
+      if (spells.length) grants.push({ kind: 'innate', spells, tradition: 'divine', frequency: 'at will',
+        heightened: true, condition: 'Only within your claimed territory' })
+    }
+  }
   const attribute = (/spellcasting (?:attribute|ability)(?: for [^.!?\n]*?)?(?: modifier)? is (Intelligence|Wisdom|Charisma)/i.exec(body)?.[1]
     ?? /(Intelligence|Wisdom|Charisma) is (?:the |your )?(?:key )?spellcasting (?:attribute|ability)/i.exec(body)?.[1]
     ?? /(?:use|using) (Intelligence|Wisdom|Charisma) as your spellcasting (?:attribute|ability)/i.exec(body)?.[1])?.toLowerCase()

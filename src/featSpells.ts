@@ -3,6 +3,25 @@ import type { Character, ContentEntry, SpellGrant } from './types'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
+const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+export function domainFeatSpells(c: Character, entries: ContentEntry[], featName: string, domain: string) {
+  let spells = domainSpellCache.get(entries)
+  if (!spells) {
+    spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted && entry.traits.includes('Focus')
+      && (entry.level === 1 || entry.level === 4) && typeof entry.data.domain === 'string')
+    domainSpellCache.set(entries, spells)
+  }
+  return spells.filter(spell => spell.systems.some(system => c.systems.includes(system))
+    && spell.level === (featName.startsWith('Advanced') ? 4 : 1)
+    && String(spell.data.domain).split(',').some(value => value.trim().toLowerCase() === domain.trim().toLowerCase()))
+}
+
+export function domainSpellDescription(c: Character, entries: ContentEntry[], featName: string, domain: string) {
+  const names = [...new Set(domainFeatSpells(c, entries, featName, domain).map(spell => spell.name))]
+  return names.length ? `Granted focus spell${names.length === 1 ? '' : 's'}: ${names.join(', ')}.`
+    : 'Domain spell data unavailable. Sync Archives of Nethys content to load it.'
+}
+
 export function refocusRecovery(c: Character, entries: ContentEntry[], capacity: number, spent: number) {
   let recovery = 1
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
@@ -65,11 +84,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (DOMAIN_FEATS.includes(feat.name) && feat.choice) {
-      const advanced = feat.name.startsWith('Advanced')
-      for (const entry of entries.filter(spell => spell.kind === 'spell' && !spell.deleted && spell.traits.includes('Focus')
-        && spell.systems.some(system => c.systems.includes(system))
-        && spell.level === (advanced ? 4 : 1)
-        && String(spell.data.domain).split(/,\s*/).some(domain => domain.toLowerCase() === feat.choice!.toLowerCase()))) {
+      for (const entry of domainFeatSpells(c, entries, feat.name, feat.choice)) {
         out.push({ entry, source: `${feat.name}: ${feat.choice}`, rule: { kind: 'focus', spells: [entry.name], tradition: 'Divine', heightened: true },
           rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'domain', entry.name]) })
       }

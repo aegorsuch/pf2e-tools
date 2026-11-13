@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
+import { mapAonHit } from './aon'
 import { plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
 import type { Character, ContentEntry } from './types'
@@ -664,6 +665,41 @@ it('shows only distinct domains granted by the selected deity in the feat picker
   expect(c.feats[0].choice).toBe('Water')
   c = { ...c, deity: undefined, feats: [] }
   expect(renderToStaticMarkup(tree())).not.toContain('Deity&#x27;s Domain (')
+})
+
+it('lists each domain spell in its picker and selected feat descriptions', () => {
+  const c: Character = { ...emptyRanger(), className: 'Champion', deity: 'Gozreh', level: 8 }
+  const domain: ContentEntry = { id: 'domain', kind: 'feat', name: "Deity's Domain", level: 1, traits: ['Champion'],
+    source: 'official', systems: ['pf2e'], description: 'Choose a domain.', data: {}, effects: [], updatedAt: 0 }
+  const advanced: ContentEntry = { ...domain, id: 'advanced', name: "Advanced Deity's Domain", level: 8 }
+  const entries: ContentEntry[] = [domain, advanced,
+    { ...domain, id: 'gozreh', name: 'Gozreh', kind: 'deity', data: { domain_primary: 'Water, Air' } },
+    { ...domain, id: 'tidal', name: 'Tidal Surge', kind: 'spell', traits: ['Focus'], data: { domain: 'Water' } },
+    { ...domain, id: 'downpour', name: 'Downpour', kind: 'spell', traits: ['Focus'], level: 4, data: { domain: 'Water' } }]
+  const popup = (character: Character, slot: string) => renderToStaticMarkup(<FeatSlots c={character} entries={entries}
+    save={() => {}} categories={['class']} search={{ [`${slot}:open`]: '1' }} onSearch={() => {}} />)
+  const initial = popup(c, 'class:1:0')
+  expect(initial).toContain('Details: Deity&#x27;s Domain (Water)')
+  expect(initial).toContain('Granted focus spell: Tidal Surge.')
+  expect(initial).toContain('Domain spell data unavailable.')
+  const selected: Character = { ...c, feats: [{ name: domain.name, type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Water' }] }
+  const next = popup(selected, 'class:8:0')
+  expect(next).toContain('Granted focus spell: Tidal Surge.')
+  expect(next).toContain('Details: Advanced Deity&#x27;s Domain (Water)')
+  expect(next).toContain('Granted focus spell: Downpour.')
+})
+
+it('links imported leads-to feats inside feat descriptions and marks unavailable targets', () => {
+  const source = mapAonHit({ _id: 'source', _source: { category: 'feat', name: 'Sacral Lord', level: 4,
+    trait: ['Champion'], markdown: 'Rules.\n\n<title level="2">Sacral Lord leads to...</title>\n[Sacral Monarch](/Feats.aspx?ID=8479), [Missing Feat](/Feats.aspx?ID=999)' } }, 'pf2e')!
+  const target = mapAonHit({ _id: 'target', _source: { category: 'feat', name: 'Sacral Monarch', level: 8,
+    trait: ['Champion'], url: '/Feats.aspx?ID=8479', markdown: 'Monarch rules.' } }, 'pf2e')!
+  const c: Character = { ...emptyRanger(), className: 'Champion', level: 4,
+    feats: [{ name: source.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[source, target]} save={() => {}} categories={['class']} />)
+  expect(markup).toContain('Leads to: <span><button type="button">Sacral Monarch</button></span>')
+  expect(markup).toContain('Missing Feat (unavailable)')
+  expect(markup).not.toContain('Sacral Lord leads to... Sacral Monarch')
 })
 
 it('allows repeatable feats in multiple slots and retains their entry link until the final copy is removed', () => {

@@ -67,6 +67,7 @@ export interface SpellGrant {
   rank?: number
   heightened?: boolean
   frequency?: string
+  condition?: string
   shared?: boolean
   ability?: keyof Character['abilities']
   dc?: 'higher-class-or-spell'
@@ -86,6 +87,7 @@ export interface ContentEntry {
   data: Record<string, string | number | boolean>
   effects: Effect[]
   spellGrants?: SpellGrant[]
+  featLinks?: { name: string; url: string }[]
   updatedAt: number
   deleted?: boolean
 }

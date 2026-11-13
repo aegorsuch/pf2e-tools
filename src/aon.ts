@@ -36,6 +36,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land
+  const leadsTo = kind === 'feat' ? /<title\b[^>]*>[^<]*\bleads to\.\.\.<\/title>([\s\S]*)/i.exec(text(s.markdown))?.[1] : undefined
+  const featLinks = leadsTo ? [...leadsTo.matchAll(/\[([^\]]+)\]\((\/(?:Feats\.aspx|feats\/)[^)]*)\)/gi)]
+    .map(match => ({ name: match[1], url: AON_SITES[system] + match[2] })) : []
   // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
   if (text(s.resistances)) data.resistances = text(s.resistances)
@@ -56,6 +59,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     data,
     effects: [],
     ...(kind === 'feat' ? { spellGrants: parseFeatSpellGrants(text(s.markdown)) } : {}),
+    ...(featLinks.length ? { featLinks } : {}),
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
     updatedAt: 1,
   }

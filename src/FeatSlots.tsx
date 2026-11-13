@@ -8,7 +8,7 @@ import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrer
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
-import { DOMAIN_FEATS } from './featSpells'
+import { DOMAIN_FEATS, domainSpellDescription } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
@@ -210,7 +210,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
                 {background && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
-                <EntryDescription name={displayName(feat.name)} entry={entry} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
+                <EntryDescription name={displayName(feat.name)} entry={entry} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
               </li>
             </Fragment>
@@ -274,8 +274,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               onClick={() => { choose(s.key, s.category, s.level, option.value); onSearch?.(`${s.key}:open`, '') }}>
               {option.label}
             </button>
-            <EntryDescription name={displayName(option.entry.name)} entry={option.entry} buttonLabel="Details" className="picker-details"
-              prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)} />
+            <EntryDescription name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
+              entry={option.entry} entries={entries} buttonLabel="Details" className="picker-details"
+              prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)}
+              descriptionNote={DOMAIN_FEATS.includes(option.entry.name) && option.choice
+                ? domainSpellDescription(c, entries, option.entry.name, option.choice) : undefined} />
           </li>
           return (
             <Fragment key={s.key}>
@@ -283,9 +286,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
-                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} className="feat-name" prerequisites={prerequisites} access={access} />
+                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} className="feat-name" prerequisites={prerequisites} access={access} />
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
+                  descriptionNote={selection?.choice && DOMAIN_FEATS.includes(selection.name)
+                    ? domainSpellDescription(c, entries, selection.name, selection.choice) : undefined} />
               ) : popup ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
                   onClick={() => onSearch?.(`${s.key}:open`, '1')}>
