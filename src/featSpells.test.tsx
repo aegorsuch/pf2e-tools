@@ -6,7 +6,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { classSpellcasting, eligibleFeats, featChoiceOptions, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
+import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -34,6 +34,45 @@ it('shows champion sanctification and devotion spell choices without a blessing'
   expect(spells).not.toContain('Touch of the Void')
   const features = renderToStaticMarkup(<ClassFeatures c={c} entries={[deity]} save={() => {}} />)
   expect(features).toContain('aria-label="Sanctification"')
+  expect(features).not.toContain('aria-label="Devotion spell"')
+})
+
+it('gives champions a focus point before choosing their devotion spell and saves the chosen spell', () => {
+  const deity = entry('Patron', 'deity', { divine_font: 'Harm, Heal' })
+  let c: Character = { ...base, level: 1, className: 'Champion', deity: deity.name }
+  const entries = [deity, entry('Lay on Hands', 'spell'), entry('Touch of the Void', 'spell'), entry('Shields of the Spirit', 'spell')]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(focusSpells(c, entries)).toEqual({ spells: [], points: 1 })
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(html).toContain('Choose devotion spell')
+  expect(html).toContain('1 of 1 focus points available')
+  const tree = DevotionSpellChoice({ c, entries, save })!
+  const findSelect = (node: ReactNode): ((event: { target: { value: string } }) => void) | undefined => {
+    for (const child of Children.toArray(node)) {
+      if (!isValidElement<{ children?: ReactNode; 'aria-label'?: string; onChange?: (event: { target: { value: string } }) => void }>(child)) continue
+      if (child.props['aria-label'] === 'Devotion spell') return child.props.onChange
+      const found = findSelect(child.props.children)
+      if (found) return found
+    }
+  }
+  findSelect(tree)!({ target: { value: 'Lay on Hands' } })
+  expect(c.devotionSpell).toBe('Lay on Hands')
+  expect(focusSpells(c, entries)).toEqual({ spells: [{ name: 'Lay on Hands', source: 'Devotion Spells' }], points: 1 })
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Devotion Spells; rank 1')
+  expect(JSON.parse(JSON.stringify(c)).devotionSpell).toBe('Lay on Hands')
+})
+
+it('retains saved devotion choices while deity data loads and reports an invalid font', () => {
+  const c: Character = { ...base, level: 1, className: 'Champion', deity: 'Patron', devotionSpell: 'Lay on Hands' }
+  expect(focusSpells(c, []).spells).toMatchObject([{ source: 'Devotion Spells' }])
+  expect(renderToStaticMarkup(<DevotionSpellChoice c={c} entries={[]} save={() => {}} />)).toContain('Deity data unavailable')
+  const harmDeity = entry('Patron', 'deity', { divine_font: 'Harm' })
+  const html = renderToStaticMarkup(<DevotionSpellChoice c={c} entries={[harmDeity]} save={() => {}} />)
+  expect(html).toContain('Lay on Hands (unavailable)')
+  expect(html).toContain('not available from this deity')
+  expect(html).toContain('Touch of the Void')
+  expect(focusSpells(c, [harmDeity])).toEqual({ spells: [], points: 1 })
+  expect(c.devotionSpell).toBe('Lay on Hands')
 })
 
 function findUseButton(node: ReactNode, label: string): { disabled?: boolean; onClick: () => void } | undefined {
@@ -525,7 +564,7 @@ it('grants Champion domain spells from imported spell data and shows them in foc
     { ...taken("Advanced Deity's Domain", 8, 'Water'), slot: 'class:8:0' },
   ] }
   expect(grantedFeatSpells(c, entries).map(grant => grant.entry.name)).toEqual(['Tidal Surge', 'Downpour'])
-  expect(focusSpells(c, entries)).toMatchObject({ points: 2, spells: [{ name: 'Downpour' }, { name: 'Tidal Surge' }] })
+  expect(focusSpells(c, entries)).toMatchObject({ points: 3, spells: [{ name: 'Downpour' }, { name: 'Tidal Surge' }] })
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('<b>Focus Spells</b>')
   expect(markup).toContain('>Tidal Surge</button>')

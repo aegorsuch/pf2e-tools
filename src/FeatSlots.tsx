@@ -404,6 +404,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               )}
               {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())
+                || selection.name === 'Mercy' && !selectedChoices.includes(selection.choice)
                 || selection.name === 'Technomagical Scrapper' && !selectedChoices.includes(selection.choice))
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {access && !access.automatic && !access.approved && <div className="feat-access-controls">

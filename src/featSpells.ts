@@ -18,8 +18,9 @@ export function domainFeatSpells(c: Character, entries: ContentEntry[], featName
 }
 
 export function domainSpellDescription(c: Character, entries: ContentEntry[], featName: string, domain: string) {
-  const names = [...new Set(domainFeatSpells(c, entries, featName, domain).map(spell => spell.name))]
-  return names.length ? `Granted focus spell${names.length === 1 ? '' : 's'}: ${names.join(', ')}.`
+  const spells = domainFeatSpells(c, entries, featName, domain)
+  return spells.length ? `${domain} domain grants focus spell${spells.length === 1 ? '' : 's'}: ${spells.map(spell =>
+    `${spell.name}: ${spell.description || 'Spell description unavailable; sync Archives of Nethys content to load it.'}`).join(' ')}`
     : 'Domain spell data unavailable. Sync Archives of Nethys content to load it.'
 }
 

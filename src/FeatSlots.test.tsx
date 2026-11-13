@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
-import { featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
+import { eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
 import { grantedFeatSpells } from './featSpells'
 import { getSettings, updateSettings } from './settings'
@@ -971,19 +971,19 @@ it('lists each domain spell in its picker and selected feat descriptions', () =>
   const advanced: ContentEntry = { ...domain, id: 'advanced', name: "Advanced Deity's Domain", level: 8 }
   const entries: ContentEntry[] = [domain, advanced,
     { ...domain, id: 'gozreh', name: 'Gozreh', kind: 'deity', data: { domain_primary: 'Water, Air' } },
-    { ...domain, id: 'tidal', name: 'Tidal Surge', kind: 'spell', traits: ['Focus'], data: { domain: 'Water' } },
-    { ...domain, id: 'downpour', name: 'Downpour', kind: 'spell', traits: ['Focus'], level: 4, data: { domain: 'Water' } }]
+    { ...domain, id: 'tidal', name: 'Tidal Surge', kind: 'spell', traits: ['Focus'], description: 'You unleash a surge of water that pushes your foe.', data: { domain: 'Water' } },
+    { ...domain, id: 'downpour', name: 'Downpour', kind: 'spell', traits: ['Focus'], level: 4, description: 'A rainstorm drenches an area.', data: { domain: 'Water' } }]
   const popup = (character: Character, slot: string) => renderToStaticMarkup(<FeatSlots c={character} entries={entries}
     save={() => {}} categories={['class']} search={{ [`${slot}:open`]: '1' }} onSearch={() => {}} />)
   const initial = popup(c, 'class:1:0')
   expect(initial).toContain('Details: Deity&#x27;s Domain (Water)')
-  expect(initial).toContain('Granted focus spell: Tidal Surge.')
+  expect(initial).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
   expect(initial).toContain('Domain spell data unavailable.')
   const selected: Character = { ...c, feats: [{ name: domain.name, type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Water' }] }
   const next = popup(selected, 'class:8:0')
-  expect(next).toContain('Granted focus spell: Tidal Surge.')
+  expect(next).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
   expect(next).toContain('Details: Advanced Deity&#x27;s Domain (Water)')
-  expect(next).toContain('Granted focus spell: Downpour.')
+  expect(next).toContain('Water domain grants focus spell: Downpour: A rainstorm drenches an area.')
 })
 
 it('links imported leads-to feats inside feat descriptions and marks unavailable targets', () => {
@@ -1056,6 +1056,55 @@ it('allows repeatable feats in multiple slots and retains their entry link until
   expect(c.feats).toEqual([])
   expect(c.entryIds).toEqual([])
   expect(plannedSlots(c).filter((slot) => slot.category === 'class' && slot.level === 1)).toHaveLength(1)
+})
+
+it('offers the three distinct Mercy choices and limits the feat to three selections', () => {
+  const mercy = mapAonHit({ _id: 'mercy', _source: { category: 'feat', name: 'Mercy', level: 4, trait: ['Champion'],
+    prerequisite: ['lay on hands'], markdown: '**Special** You can select this feat up to three times.' } }, 'pf2e')!
+  const deity: ContentEntry = { ...mercy, id: 'deity', kind: 'deity', name: 'Patron', data: { divine_font: 'Heal' } }
+  const entries = [mercy, deity]
+  let c: Character = { ...emptyRanger(), className: 'Champion', level: 10, deity: 'Patron', devotionSpell: 'Lay on Hands' }
+  const tree = () => FeatSlots({ c, entries, save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
+  expect(mercy.data.repeatable).toBe(true)
+  expect(renderToStaticMarkup(tree())).toContain('Mercy (Mercy of the Body)')
+  expect(renderToStaticMarkup(tree())).toContain('Mercy (Mercy of Grace)')
+  expect(renderToStaticMarkup(tree())).toContain('Mercy (Mercy of the Mind)')
+  findSelect(tree(), 'L04 Class feat')!({ target: { value: JSON.stringify(['Mercy', 'Mercy of the Body']) } })
+  expect(featChoiceOptions('Mercy', c, entries, 'class:6:0')).toEqual(['Mercy of Grace', 'Mercy of the Mind'])
+  findSelect(tree(), 'L06 Class feat')!({ target: { value: JSON.stringify(['Mercy', 'Mercy of Grace']) } })
+  findSelect(tree(), 'L08 Class feat')!({ target: { value: JSON.stringify(['Mercy', 'Mercy of the Mind']) } })
+  expect(c.feats.map(feat => feat.choice)).toEqual(['Mercy of the Body', 'Mercy of Grace', 'Mercy of the Mind'])
+  const slot = plannedSlots(c).find(item => item.key === 'class:10:0')!
+  expect(eligibleFeats(entries, c, slot).some(entry => entry.name === 'Mercy')).toBe(false)
+  expect(featChoiceOptions('Mercy', c, entries, 'class:4:0')).toEqual(['Mercy of the Body'])
+})
+
+it('lets an existing unassigned Mercy choose an unused option without replacing other choices', () => {
+  let c: Character = { ...emptyRanger(), className: 'Champion', level: 6, feats: [
+    { name: 'Mercy', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+    { name: 'Mercy', type: 'Class Feat', level: 4, slot: 'class:6:0', choice: 'Mercy of Grace' },
+  ] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const choice = () => FeatChoice({ c, entries: [], save, index: 0 })
+  const markup = renderToStaticMarkup(choice())
+  expect(markup).toContain('Mercy of the Body')
+  expect(markup).toContain('Mercy of the Mind')
+  expect(markup).not.toContain('Mercy of Grace')
+  findSelect(choice(), 'Mercy choice')!({ target: { value: 'Mercy of the Mind' } })
+  expect(c.feats.map(feat => feat.choice)).toEqual(['Mercy of the Mind', 'Mercy of Grace'])
+})
+
+it('allows correcting a duplicate Mercy choice without offering already-selected options', () => {
+  const c: Character = { ...emptyRanger(), className: 'Champion', level: 8, feats: [
+    { name: 'Mercy', type: 'Class Feat', level: 4, slot: 'class:4:0', choice: 'Mercy of the Body' },
+    { name: 'Mercy', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Mercy of the Body' },
+  ] }
+  const mercy: ContentEntry = { id: 'mercy', kind: 'feat', name: 'Mercy', level: 4, traits: ['Champion'],
+    source: 'official', systems: ['pf2e'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[mercy]} save={() => {}} categories={['class']} />)
+  expect(html).toContain('aria-label="Mercy choice"')
+  expect(html).toContain('Mercy of the Body (unavailable)')
+  expect(featChoiceOptions('Mercy', c, [mercy], 'class:6:0')).toEqual(['Mercy of Grace', 'Mercy of the Mind'])
 })
 
 it('adds slots beside a selected feat and removes only the chosen extra slot', () => {

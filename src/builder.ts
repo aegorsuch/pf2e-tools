@@ -709,6 +709,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
+      && (e.name !== 'Mercy' || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name)
+        || c.feats.filter(feat => feat.name === 'Mercy' && feat.slot !== slot.key).length < 3
+          && !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (!isCompanionSpecialization(e.name) || specializations < 3)
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
       && (!taken.has(e.name) || e.name === 'Ubiquitous Gadgets' && slot.level >= 14
@@ -854,6 +857,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Order Explorer') return availableOrders(c, index)
+  if (name === 'Mercy') {
+    const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return ['Mercy of the Body', 'Mercy of Grace', 'Mercy of the Mind'].filter(choice => !used.has(choice))
+  }
   if (name === 'Multifarious Muse') {
     const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, i) =>
       i !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
@@ -1302,7 +1309,10 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   const out = new Map<string, { name: string; source: string }>()
   const add = (name: string, source: string) => { if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name: spellName(entries, name), source }) }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
-  if (c.className === 'Champion' && c.level >= 1 && c.devotionSpell && championDevotionOptions(c, entries).includes(c.devotionSpell)) {
+  const champion = c.className === 'Champion' && c.level >= 1
+  const devotionAvailable = c.devotionSpell && (championDevotionOptions(c, entries).includes(c.devotionSpell)
+    || !!c.deity && !byName(entries, 'deity', c.deity))
+  if (champion && c.devotionSpell && devotionAvailable) {
     add(c.devotionSpell, 'Devotion Spells')
   }
   const orders = c.className === 'Druid' ? [c.order, ...active.flatMap((f) => f.name === 'Order Explorer' ? [f.choice] : [])] : []
@@ -1334,7 +1344,8 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   const spells = [...out.values()].sort((a, b) => a.name.localeCompare(b.name))
   const pool = new Set([...spells.map(spell => spell.name), ...grantedWardenSpells(c, entries).map(spell => spell.name)])
   const nonCantrips = [...pool].filter(name => !byName(entries, 'spell', name)?.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
-  return { spells, points: pool.size ? Math.min(3, Math.max(nonCantrips + bonusPoints, 1 + points)) : 0 }
+  return { spells, points: pool.size || champion
+    ? Math.min(3, Math.max(nonCantrips + bonusPoints + (champion && !devotionAvailable ? 1 : 0), 1 + points)) : 0 }
 }
 
 export function championDevotionOptions(c: Character, entries: ContentEntry[]): NonNullable<Character['devotionSpell']>[] {

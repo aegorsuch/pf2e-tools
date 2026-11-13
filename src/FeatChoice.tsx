@@ -95,6 +95,20 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   if (feat.name === 'Favored Terrain') return null
+  if (feat.name === 'Mercy') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    return <label>Mercy{' '}
+      <select aria-label="Mercy choice" value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+      }}>
+        <option value="">Choose mercy</option>
+        {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </select>
+    </label>
+  }
   if (feat.name === 'Beast Trainer' || feat.name === 'Hold Mark' || feat.name === 'Alloyed Attacks') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const label = feat.name === 'Beast Trainer' ? 'Granted feat' : feat.name === 'Hold Mark' ? 'Emblem' : 'Metal'

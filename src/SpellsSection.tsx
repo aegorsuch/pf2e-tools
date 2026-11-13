@@ -155,6 +155,28 @@ function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel,
   )
 }
 
+export function DevotionSpellChoice({ c, entries, save }: SectionProps) {
+  if (c.className !== 'Champion' || c.level < 1) return null
+  const options = championDevotionOptions(c, entries)
+  const deity = entries.find(entry => entry.kind === 'deity' && entry.name === c.deity && !entry.deleted)
+  return <div className="col">
+    <label>Devotion spell{' '}
+      <select aria-label="Devotion spell" value={c.devotionSpell ?? ''} onChange={event => {
+        const choice = options.find(option => option === event.target.value)
+        save({ devotionSpell: choice })
+      }}>
+        <option value="">Choose devotion spell</option>
+        {c.devotionSpell && !options.includes(c.devotionSpell) && <option value={c.devotionSpell} disabled>{c.devotionSpell} (unavailable)</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </select>
+    </label>
+    {!c.deity ? <small>Choose a deity to see its divine font options.</small>
+      : !deity ? <small>Deity data unavailable; sync content to verify divine font options.</small>
+        : c.devotionSpell && !options.includes(c.devotionSpell)
+          ? <small>Selected spell is not available from this deity's divine font.</small> : null}
+  </div>
+}
+
 function spellSummaryData(c: Character, entries: ContentEntry[]) {
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
@@ -171,7 +193,8 @@ export function SpellsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'
   const { manualSpells, granted, focus, innate } = spellSummaryData(c, entries)
   return <summary className="character-section-summary">
     <strong>Spells</strong>
-    <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells</span>
+    <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells
+      {c.className === 'Champion' && c.level >= 1 && !focus.some(spell => spell.source === 'Devotion Spells') && ' · Choose devotion spell'}</span>
   </summary>
 }
 
@@ -289,15 +312,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
 
   return (
       <div className="character-section-content">
-      {c.className === 'Champion' && c.level >= 1 && <label>Devotion spell{' '}
-        <select aria-label="Devotion spell" value={c.devotionSpell && championDevotionOptions(c, entries).includes(c.devotionSpell) ? c.devotionSpell : ''} onChange={event => {
-          const choice = championDevotionOptions(c, entries).find(option => option === event.target.value)
-          save({ devotionSpell: choice })
-        }}>
-          <option value="">Choose devotion spell</option>
-          {championDevotionOptions(c, entries).map(option => <option key={option}>{option}</option>)}
-        </select>
-      </label>}
+      <DevotionSpellChoice c={c} entries={entries} save={save} />
       {casting && <>
       <div className="row">
         {!casting.ability && <label>Casting ability{' '}
@@ -383,7 +398,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
           {controls(entry.name)}
         </SpellItem>)}</ul>
       </div>}
-      {(focus.length > 0 || granted.length > 0) && (
+      {(focusPoints > 0 || granted.length > 0) && (
         <div>
           <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} entries={entries} save={save} points={focusPoints} /></div>
           <ul>
