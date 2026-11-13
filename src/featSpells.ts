@@ -160,14 +160,11 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (feat.name === 'Elemental Wrath') {
-      const damage = ['Acid', 'Cold', 'Electricity', 'Fire'].find(value => value.toLowerCase() === feat.choice?.toLowerCase())
       const spell = entries.find(entry => entry.kind === 'spell' && !entry.deleted
-        && ['Acid Splash', 'Caustic Splash'].includes(entry.name) && entry.systems.some(system => c.systems.includes(system)))
-      if (damage && spell) {
-        const entry = { ...spell, traits: [...spell.traits.filter(trait => trait.toLowerCase() !== 'acid'), damage],
-          description: `${spell.description.replace(/\bacid\b/gi, match => match[0] === 'A' ? damage : damage.toLowerCase())}\n\nElemental Wrath: ${damage.toLowerCase()} damage and trait; verbal components only.` }
-        out.push({ entry, source: feat.name,
-          rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'at will', heightened: true },
+        && entry.name === 'Caustic Blast' && entry.systems.some(system => c.systems.includes(system)))
+      if (spell) {
+        out.push({ entry: spell, source: feat.name,
+          rule: { kind: 'innate', spells: [spell.name], tradition: 'primal', frequency: 'at will', heightened: true },
           rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'elemental-wrath']) })
       }
       continue
@@ -251,8 +248,8 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
       return [{ name: 'Oaken Resilience', source }]
     }
     if (feat.name === 'Elemental Wrath' && !entries.some(entry => entry.kind === 'spell' && !entry.deleted
-      && ['Acid Splash', 'Caustic Splash'].includes(entry.name) && entry.systems.some(system => c.systems.includes(system)))) {
-      return [{ name: 'Acid Splash or Caustic Splash', source }]
+      && entry.name === 'Caustic Blast' && entry.systems.some(system => c.systems.includes(system)))) {
+      return [{ name: 'Caustic Blast', source }]
     }
     return (source?.spellGrants ?? []).flatMap(rule => (rule.choice ? feat.choice ? [feat.choice] : [] : rule.spells)
       .filter(name => !entries.some(entry => entry.kind === 'spell' && !entry.deleted && matchesSpell(entry, name)

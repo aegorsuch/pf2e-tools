@@ -24,18 +24,66 @@ it('selects Free Heart without choosing a background in the feat picker', () => 
   expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Free Heart background"')
 })
 
+it('does not show a damage choice for Elemental Wrath, including old saved choices', () => {
+  const feat: ContentEntry = { id: 'elemental-wrath', name: 'Elemental Wrath', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), ancestry: 'Elf', level: 1,
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Fire' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).not.toContain('Elemental Wrath (Fire)')
+  expect(markup).not.toContain('Elemental Wrath damage type')
+  expect(markup).toContain('grants Caustic Blast with its normal acid damage')
+})
+
 it('shows and searches distinct Versatile Rogue racket options', () => {
   const feat: ContentEntry = { id: 'versatile', name: 'Versatile Rogue', kind: 'feat', source: 'homebrew',
     systems: ['pf2e'], level: 10, traits: ['Rogue'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
   let c: Character = { ...emptyRanger(), className: 'Rogue', subclass: 'Thief', level: 10 }
+  const racket: ContentEntry = { ...feat, id: 'ruffian', kind: 'subclass', name: 'Ruffian',
+    description: 'Ruffian racket benefits.', data: { class: 'Rogue' } }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const tree = () => FeatSlots({ c, entries: [feat], categories: ['class'], save,
+  const tree = () => FeatSlots({ c, entries: [feat, racket], categories: ['class'], save,
     search: { 'class:10:0:open': '1', 'class:10:0:query': 'ruffian' }, onSearch: () => {} })
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('L10 Class: Versatile Rogue (Ruffian)')
+  expect(markup).toContain('Ruffian racket benefits.')
   expect(markup).not.toContain('L10 Class: Versatile Rogue (Scoundrel)')
   findButton(tree(), 'L10 Class: Versatile Rogue (Ruffian)')!()
   expect(c.feats[0]).toMatchObject({ name: 'Versatile Rogue', choice: 'Ruffian', slot: 'class:10:0' })
+  expect(renderToStaticMarkup(tree())).toContain('Ruffian racket benefits.')
+})
+
+it.each([
+  ['Order Explorer', 'Druid', 'Wild', 'Untamed'],
+  ['Multifarious Muse', 'Bard', 'Maestro', 'Maestro'],
+  ['Second Innovation', 'Inventor', 'Armor', 'Armor'],
+  ['Third Innovation', 'Inventor', 'Weapon', 'Weapon'],
+])('shows selected subclass description for %s', (name, className, choice, subclassName) => {
+  const feat: ContentEntry = { id: name, name, kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 2, traits: [className], description: 'Feat details.', data: {}, effects: [], updatedAt: 0 }
+  const subclass: ContentEntry = { ...feat, id: 'subclass', kind: 'subclass', name: subclassName,
+    description: `${subclassName} description.`, data: { class: className } }
+  const c: Character = { ...emptyRanger(), className, level: 2, feats: [
+    { name, type: 'Class Feat', level: 2, slot: 'class:2:0', choice },
+  ] }
+  expect(renderToStaticMarkup(<FeatSlots c={c} entries={[feat, subclass]} categories={['class']} save={() => {}} />))
+    .toContain(`${subclassName} description.`)
+})
+
+it('offers additional Bard muses as distinct options', () => {
+  const feat: ContentEntry = { id: 'multifarious', name: 'Multifarious Muse', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 2, traits: ['Bard'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const muse = (name: string): ContentEntry => ({ ...feat, id: name, name, kind: 'subclass',
+    description: `${name} muse description.`, data: { class: 'Bard' } })
+  let c: Character = { ...emptyRanger(), className: 'Bard', subclass: 'Maestro', level: 2 }
+  const tree = () => FeatSlots({ c, entries: [feat, muse('Maestro'), muse('Polymath')], categories: ['class'],
+    save: patch => { c = { ...c, ...patch } } })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Multifarious Muse (Polymath)')
+  expect(markup).not.toContain('Multifarious Muse (Maestro)')
+  findSelect(tree(), 'L02 Class feat')!({ target: { value: JSON.stringify([feat.name, 'Polymath']) } })
+  expect(c.feats[0]).toMatchObject({ name: feat.name, choice: 'Polymath' })
+  expect(renderToStaticMarkup(tree())).toContain('Polymath muse description.')
 })
 
 it('preserves legacy and qualified Shobhad selections in the weapon selector', () => {

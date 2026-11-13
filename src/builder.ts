@@ -792,6 +792,11 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Order Explorer') return availableOrders(c, index)
+  if (name === 'Multifarious Muse') {
+    const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, i) =>
+      i !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
+    return subclassOptions({ ...c, className: 'Bard' }, entries).map(entry => entry.name).filter(muse => !used.has(muse))
+  }
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
   if (name === 'Beast Trainer') return ['Pet', 'Train Animal']
@@ -1312,7 +1317,7 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Multifarious Muse'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
     const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []))

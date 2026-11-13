@@ -72,17 +72,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       <small>Temporary until daily preparations; confirm access to non-common languages. Cannot satisfy permanent prerequisites.</small>
     </span>
   }
-  if (feat.name === 'Elemental Wrath') return <label>Damage type{' '}
-    <select aria-label="Elemental Wrath damage type" value={feat.choice ?? ''} onChange={event => {
-      const choice = event.target.value
-      if (choice && !['Acid', 'Cold', 'Electricity', 'Fire'].includes(choice)) return
-      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
-    }}>
-      <option value="">Choose damage type</option>
-      {feat.choice && !['Acid', 'Cold', 'Electricity', 'Fire'].includes(feat.choice) && <option disabled>{feat.choice}</option>}
-      {['Acid', 'Cold', 'Electricity', 'Fire'].map(type => <option key={type}>{type}</option>)}
-    </select>
-  </label>
+  if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
     const choice = feat.choice ? combinationName(entries, feat.choice) : ''
     const weapon = weaponEntry(entries, choice)
@@ -130,20 +120,22 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </select>
     </label>
   }
-  if (feat.name === 'Versatile Rogue') {
+  if (feat.name === 'Versatile Rogue' || feat.name === 'Multifarious Muse') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
-    const racket = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === 'Rogue')
+    const rogue = feat.name === 'Versatile Rogue'
+    const kind = rogue ? 'racket' : 'muse'
+    const subclass = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === (rogue ? 'Rogue' : 'Bard'))
     return <span className="feat-choice feat-choice-with-note">
-      <SearchableSelect label="Additional racket" aria-label="Versatile Rogue racket" value={feat.choice ?? ''} onChange={event => {
+      <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value
         if (choice && !options.includes(choice)) return
         save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
       }}>
-        <option value="">Choose racket</option>
+        <option value="">{`Choose ${kind}`}</option>
         {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
         {options.map(option => <option key={option}>{option}</option>)}
       </SearchableSelect>
-      {racket && <small>{racket.description}</small>}
+      {subclass && <small>{subclass.description}</small>}
     </span>
   }
   if (feat.name === 'Terrain Expertise') {

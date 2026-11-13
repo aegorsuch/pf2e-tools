@@ -84,6 +84,17 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const displayName = (name: string) => (name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
     .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
+  const subclassDescription = (name: string, choice?: string) => {
+    const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Multifarious Muse': 'Bard',
+      'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }
+    const className = classes[name]
+    if (!choice || !className) return undefined
+    const names = [choice, `${choice} Order`, ...(choice === 'Wild' ? ['Untamed', 'Untamed Order'] : [])]
+    const entry = entries.find(candidate => !candidate.deleted && candidate.data.class === className
+      && (candidate.kind === 'subclass' || candidate.kind === 'classFeature') && names.includes(candidate.name))
+    return entry?.description ? `${choiceLabel(name, choice)}: ${entry.description}`
+      : `${choiceLabel(name, choice)} description unavailable in loaded content.`
+  }
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
   const prerequisiteChecks = new Map<string, ReturnType<typeof featSelectionPrerequisiteChecker>>()
   const prerequisitesFor = (entry: ContentEntry, slot: PlannedSlot) => {
@@ -229,7 +240,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
-          const selectedChoice = selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
+          const selectedChoice = selection?.name === 'Elemental Wrath' ? undefined
+            : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedName = selection
             ? `${displayName(selection.name)}${selectedChoice ? ` (${choiceLabel(selection.name, selectedChoice)})` : ''}` : current
           const sources = featPrerequisiteSources(entries, {
@@ -290,8 +302,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <EntryDescription name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
               entry={option.entry} entries={entries} buttonLabel="Details" className="picker-details"
               prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)}
-              descriptionNote={DOMAIN_FEATS.includes(option.entry.name) && option.choice
-                ? domainSpellDescription(c, entries, option.entry.name, option.choice) : undefined} />
+              descriptionNote={option.entry.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
+                : DOMAIN_FEATS.includes(option.entry.name) && option.choice
+                  ? domainSpellDescription(c, entries, option.entry.name, option.choice)
+                  : subclassDescription(option.entry.name, option.choice)} />
           </li>
           return (
             <Fragment key={s.key}>
@@ -302,8 +316,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
-                  descriptionNote={selection?.choice && DOMAIN_FEATS.includes(selection.name)
-                    ? domainSpellDescription(c, entries, selection.name, selection.choice) : undefined} />
+                  descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
+                    : selection?.choice && DOMAIN_FEATS.includes(selection.name)
+                      ? domainSpellDescription(c, entries, selection.name, selection.choice)
+                      : subclassDescription(selection?.name ?? '', selection?.choice)} />
               ) : popup ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
                   onClick={() => onSearch?.(`${s.key}:open`, '1')}>

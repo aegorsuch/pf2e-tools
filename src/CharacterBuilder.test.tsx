@@ -27,6 +27,33 @@ it('shows Free Heart background selection in Background only while the feat is a
   } finally { content.entries = [] }
 })
 
+it('shows Mastermind skill selection for an additional racket', () => {
+  const c: Character = { id: 'mastermind', systems: ['pf2e'], name: 'Test', level: 10, className: 'Rogue', subclass: 'Thief',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Mastermind' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Mastermind racket skill"')
+  for (const skill of ['Arcana', 'Nature', 'Occultism', 'Religion']) expect(markup).toContain(`<option>${skill}</option>`)
+  expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, level: 9 }} onClose={() => {}} />))
+    .not.toContain('aria-label="Mastermind racket skill"')
+})
+
+it('imports druidic orders as subclass descriptions without adding a second primary picker', () => {
+  const order = mapAonHit({ _id: 'druidic-order-8', _source: { category: 'druidic-order', name: 'Animal',
+    markdown: 'Animal order description.' } }, 'pf2e')
+  expect(order).toMatchObject({ kind: 'subclass', name: 'Animal', data: { class: 'Druid' }, description: 'Animal order description.' })
+  content.entries = [order!]
+  const c: Character = { id: 'druid', systems: ['pf2e'], name: 'Test', level: 1, className: 'Druid', order: 'Animal',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('aria-label="Druidic Order"')
+    expect(markup).not.toContain('aria-label="Subclass"')
+  } finally { content.entries = [] }
+})
+
 it('preserves an incompatible saved heritage as disabled rather than selectable or silently erased', () => {
   content.entries = [
     { id: 'human', kind: 'ancestry', name: 'Human' },
@@ -104,6 +131,28 @@ it('keeps equipment editing separate from offensive attack summaries', () => {
   expect(offense).toContain('1 Weapon')
   expect(offense).toContain('Fist')
   expect(offense).not.toContain('Add Weapon')
+})
+
+it('orders equipment groups alphabetically and separates grafts and tattoos from other equipment', () => {
+  const item = (name: string, category: string): ContentEntry => ({ id: name, name, kind: 'item',
+    systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '', data: { item_category: category }, effects: [], updatedAt: 0 })
+  content.entries = [item('Caligni Eyes', 'Grafts'), item('Spider Lily', 'Tattoos'), item('Rope', 'Adventuring Gear')]
+  const c: Character = { id: 'equipment-order', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: ['Spider Lily', 'Rope', 'Caligni Eyes', 'Arrows', 'Bolts', 'Bullets'].map(name => ({ name, qty: 1 })),
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
+    const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
+    expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Bolts', 'Bullets', 'Grafts',
+      'Handwraps', 'Other equipment', 'Shield', 'Tattoos', 'Weapons'])
+    expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
+    expect(equipment.slice(equipment.indexOf('<h4>Tattoos</h4>'), equipment.indexOf('<h4>Weapons</h4>'))).toContain('Spider Lily')
+    expect(equipment).toContain('Add Armor')
+    expect(equipment).toContain('Add Shield')
+    expect(equipment).toContain('Add Weapon')
+  } finally { content.entries = [] }
 })
 
 it('keeps large background and deity catalogs searchable before lazy choices are populated', () => {

@@ -614,7 +614,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   )
 }
 
-export function ArmorList({ c, entries, save }: SectionProps) {
+export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
   const armors = ownedArmors(c, entries)
   const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
   const saveArmors = (next: OwnedArmor[]) => save({ armors: [
@@ -628,7 +628,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
   const equipped = equippedShield(c)
   return (
     <div className="col gear-list">
-      <Search c={c} save={save} entries={entries} kind="armor" label="Add Armor"
+      {part !== 'shield' && <><Search c={c} save={save} entries={entries} kind="armor" label="Add Armor"
         onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
         const entry = armorEntry(c, entries, a.name)
@@ -707,8 +707,8 @@ export function ArmorList({ c, entries, save }: SectionProps) {
               onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id)))}>×</button>}
           </article>
         )
-      })}
-      {shield ? (
+      })}</>}
+      {part !== 'armor' && <>{shield ? (
         <article className="gear-card">
           <header className="row">
             <strong>{shield.name}</strong>
@@ -747,8 +747,8 @@ export function ArmorList({ c, entries, save }: SectionProps) {
         <small>Hardness {woodShield.hardness}; Hit Points {woodShield.hp}; Broken Threshold {Math.floor(woodShield.hp / 2)}. Material and stats improve automatically.</small>
         <label>Damage <input type="number" min={0} value={woodShield.damage}
           onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, damage: Math.max(0, +event.target.value || 0) } })} /></label>
-      </article>}
-      {c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
+      </article>}</>}
+      {part !== 'shield' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
         <header><strong>Orc Warmask</strong></header>
         <small>Invested worn mask; level {c.level}, negligible Bulk. Donning or removing takes 1 minute.</small>
         <label><input type="checkbox" checked={!!c.warmask?.worn}

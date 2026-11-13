@@ -34,7 +34,7 @@ const contentQuery = (category: string, system: GameSystem) => ({
 })
 
 export const SUBCLASS_CLASSES: Record<string, string> = {
-  'hunters-edge': 'Ranger', cause: 'Champion', instinct: 'Barbarian', muse: 'Bard',
+  'hunters-edge': 'Ranger', cause: 'Champion', instinct: 'Barbarian', muse: 'Bard', 'druidic-order': 'Druid',
   doctrine: 'Cleric', 'research-field': 'Alchemist', racket: 'Rogue', bloodline: 'Sorcerer',
   patron: 'Witch', 'arcane-school': 'Wizard', mystery: 'Oracle', methodology: 'Investigator',
   innovation: 'Inventor', way: 'Gunslinger', 'hybrid-study': 'Magus', 'conscious-mind': 'Psychic',

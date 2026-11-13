@@ -53,6 +53,9 @@ it('checks additional racket prerequisites at the level the feat was acquired', 
   expect(featPrerequisiteChecker(c, [ruffian], 9)(target).missing).toEqual(['ruffian racket'])
   expect(featPrerequisiteChecker(c, [ruffian], 10)(target).missing).toEqual([])
   expect(featPrerequisiteChecker({ ...c, level: 9 }, [ruffian])(target).missing).toEqual(['ruffian racket'])
+  const brutal: ContentEntry = { ...target, id: 'brutal', name: 'Brutal Beating', level: 2 }
+  expect(eligibleFeats([ruffian, brutal], c, { key: 'class:12:0', category: 'class', level: 12 })).toContain(brutal)
+  expect(eligibleFeats([ruffian, brutal], c, { key: 'class:8:0', category: 'class', level: 8 })).not.toContain(brutal)
 })
 
 it('offers a different repeatable racket with its grants and bonus skill feat slot', () => {

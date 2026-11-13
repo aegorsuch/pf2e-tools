@@ -23,7 +23,6 @@ import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
 import type { Character, ContentEntry, EntryKind } from './types'
 
-const GEAR: EntryKind[] = ['item', 'weapon', 'armor']
 const NONE: ContentEntry[] = []
 
 const deityLabel = (deity: ContentEntry) => typeof deity.data.epithet === 'string' && deity.data.epithet.trim()
@@ -132,6 +131,20 @@ function EquipmentSearch({ c, entries, save }: SectionProps) {
   </>
 }
 
+type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Tattoos'
+type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
+
+function EquipmentGroup({ c, save, group, rows }: Pick<SectionProps, 'c' | 'save'> & { group: EquipmentGroupName; rows: EquipmentRow[] }) {
+  if (!rows.length) return null
+  return <div><h4>{group}</h4><ul>
+    {rows.map(({ item, index, entry }) => <li key={`${item.name}-${index}`}>
+      {item.name} <ActionIcon entry={entry} /> x<input type="number" min={1} style={{ width: '4em' }} value={item.qty}
+        onChange={event => save({ equipment: c.equipment.map((existing, i) => i === index ? { ...existing, qty: Math.max(1, +event.target.value || 1) } : existing) })} />{' '}
+      <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => save({ equipment: c.equipment.filter((_, i) => i !== index) }))}>Remove</button>
+    </li>)}
+  </ul></div>
+}
+
 function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   if (!isPioneerHuman(c)) return null
   const options = terrainExpertiseOptions(c, 'pioneer')
@@ -228,6 +241,25 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
   const background = named('background', c.background)
+  const equipmentGroups = useMemo(() => {
+    const items = new Map<string, ContentEntry>()
+    const fallback = new Map<string, ContentEntry>()
+    for (const entry of entries) {
+      if (entry.kind === 'item' && !items.has(entry.name)) items.set(entry.name, entry)
+      else if ((entry.kind === 'weapon' || entry.kind === 'armor') && !fallback.has(entry.name)) fallback.set(entry.name, entry)
+    }
+    const groups: Record<EquipmentGroupName, EquipmentRow[]> = { Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Tattoos: [] }
+    c.equipment.forEach((item, index) => {
+      const entry = items.get(item.name) ?? fallback.get(item.name)
+      const category = String(entry?.data.item_category ?? '').toLowerCase()
+      const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(item.name)?.[0].toLowerCase()
+      const group = category === 'grafts' ? 'Grafts' : category === 'tattoos' ? 'Tattoos'
+        : ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
+      groups[group].push({ item, index, entry })
+    })
+    Object.values(groups).forEach(rows => rows.sort((a, b) => a.item.name.localeCompare(b.item.name)))
+    return groups
+  }, [c.equipment, entries])
   const freeHeart = activeFeatsNamed(c, 'Free Heart')[0]
   const freeHeartOptions = freeHeart ? new Set(featChoiceOptions('Free Heart', c, entries, freeHeart.slot ?? '') ?? []) : undefined
   const extraBackground = freeHeartBackground(c, entries)
@@ -327,7 +359,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
-          {subclasses.length > 0 && <>
+          {c.className !== 'Druid' && subclasses.length > 0 && <>
             <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : 'Subclass'}
               kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
@@ -402,31 +434,23 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
+          <h4>Armor</h4>
+          <ArmorList {...section} part="armor" />
+          <EquipmentGroup {...section} group="Arrows" rows={equipmentGroups.Arrows} />
+          <Augmentations {...section} />
+          <EquipmentGroup {...section} group="Bolts" rows={equipmentGroups.Bolts} />
+          <EquipmentGroup {...section} group="Bullets" rows={equipmentGroups.Bullets} />
+          <Gadgets {...section} />
+          <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
+          <h4>Handwraps</h4>
+          <HandwrapsGear {...section} />
+          <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']} />
+          <h4>Shield</h4>
+          <ArmorList {...section} part="shield" />
+          <SimplePoisons {...section} />
+          <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
-          <h4>Armor and shield</h4>
-          <ArmorList {...section} />
-          <HandwrapsGear {...section} />
-          <Augmentations {...section} />
-          <Gadgets {...section} />
-          <SimplePoisons {...section} />
-          {['Other equipment', 'Arrows', 'Bolts', 'Bullets'].map(group => {
-            const rows = c.equipment.map((item, index) => ({ item, index })).filter(({ item }) => {
-              const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(item.name)?.[0].toLowerCase()
-              const category = ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
-              return category === group
-            })
-            if (!rows.length) return null
-            return <div key={group}><h4>{group}</h4><ul>
-            {rows.map(({ item: g, index: i }) => (
-              <li key={`${g.name}-${i}`}>
-                {g.name} <ActionIcon entry={entries.find((entry) => GEAR.includes(entry.kind) && entry.name === g.name)} /> x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
-                  onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
-                <button onClick={() => confirmRemoval(`gear "${g.name}"`, () => save({ equipment: c.equipment.filter((_, j) => j !== i) }))}>Remove</button>
-              </li>
-            ))}
-            </ul></div>
-          })}
           <EquipmentSearch {...section} />
         </div>
       </details>

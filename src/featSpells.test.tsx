@@ -155,15 +155,16 @@ it('grants only the chosen Touch of the Sea cantrip', () => {
   expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 1, 'Light')] }, [source, ...spells])).toEqual([])
 })
 
-it('applies Elemental Wrath damage and trait only to its granted spell', () => {
+it('grants Caustic Blast automatically for Elemental Wrath regardless of legacy damage choice', () => {
   const source = feat('Elemental Wrath', 'Choose acid, cold, electricity, or fire.', 1)
-  const spell = { ...entry('Acid Splash', 'spell', {}, ['Cantrip', 'Acid']), description: 'Deal acid damage.' }
-  const c: Character = { ...base, level: 5, feats: [taken(source.name, 1, 'Fire')] }
+  const spell = { ...entry('Caustic Blast', 'spell', {}, ['Cantrip', 'Acid']), description: 'Deal acid damage.' }
+  const c: Character = { ...base, level: 5, feats: [taken(source.name)] }
   const grant = grantedFeatSpells(c, [source, spell])[0]
-  expect(grant).toMatchObject({ rank: 3, entry: { traits: ['Cantrip', 'Fire'], description: expect.stringContaining('fire damage') } })
+  expect(grant).toMatchObject({ rank: 3, entry: spell, rule: { tradition: 'primal', frequency: 'at will' } })
   expect(spell.traits).toEqual(['Cantrip', 'Acid'])
-  expect(grantedFeatSpells({ ...c, feats: [taken(source.name)] }, [source, spell])).toEqual([])
-  expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: 'Acid Splash or Caustic Splash' }])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 1, 'Fire')] }, [source, spell])[0].entry).toEqual(spell)
+  expect(grantedFeatSpells({ ...c, level: 0 }, [source, spell])).toEqual([])
+  expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: 'Caustic Blast' }])
 })
 
 it('applies Untamed Shift selected effects, attack runes, heightening, and form resistance', () => {
