@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats, featEffectChange,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
@@ -11,7 +11,7 @@ import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
-import type { Character, ContentEntry, OwnedWeapon } from './types'
+import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -24,6 +24,32 @@ const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['d
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it.each<[number, number, number, HardlightGrade]>([
+  [1, 0, 0, 'Commercial'], [2, 1, 0, 'Tactical'], [3, 1, 0, 'Tactical'],
+  [4, 1, 1, 'Advanced'], [9, 1, 1, 'Advanced'], [10, 2, 1, 'Superior'],
+  [11, 2, 1, 'Superior'], [12, 2, 2, 'Elite'], [15, 2, 2, 'Elite'],
+  [16, 3, 2, 'Ultimate'], [18, 3, 2, 'Ultimate'], [19, 3, 3, 'Paragon'],
+])('automatically scales both handwrap types at level %i without changing saved configuration', (level, potency, striking, grade) => {
+  for (const kind of [undefined, 'hardlight'] as const) {
+    const c: Character = { ...base, level, handwraps: { ...(kind ? { kind, grade: 'Commercial' } : {}), potency: 0, striking: 0, runes: ['Impactful'] } }
+    const before = JSON.stringify(c)
+    const effective = effectiveHandwraps(c)
+    expect(effective).toMatchObject({ potency, striking, runes: ['Impactful'], ...(kind ? { grade } : {}) })
+    const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
+    expect(effectiveWeapon(c, [], fist)).toMatchObject({ potency, striking })
+    expect(JSON.stringify(c)).toBe(before)
+  }
+  expect(automaticHardlightGrade(level)).toBe(grade)
+})
+
+it('preserves stronger saved upgrades without stacking PF values onto hardlight grades', () => {
+  const handwraps = { potency: 3, striking: 3, runes: ['Impactful'] }
+  expect(effectiveHandwraps({ ...base, level: 2, handwraps })).toEqual(handwraps)
+  expect(effectiveHandwraps({ ...base, level: 2, handwraps: { ...handwraps, kind: 'hardlight', grade: 'Elite' } }))
+    .toMatchObject({ grade: 'Elite', potency: 2, striking: 2, runes: ['Impactful'] })
+  expect(effectiveHandwraps({ ...base, handwraps: undefined })).toBeUndefined()
+})
 
 it.each(['Grisantian Hide', 'Grisantian Hide (Standard-Grade)', 'Grisantian Hide (High-Grade)'] as const)(
   'scales saved %s at the armor threshold without rewriting character data', (material) => {
@@ -513,7 +539,8 @@ it.each([[5, 'Low-Grade'], [9, 'Low-Grade'], [10, 'Standard-Grade'], [15, 'Stand
   const c = { ...base, level, feats: [feat('Cold Iron Tusks', 5)] }
   const tusks = ownedWeapons(c, []).find((weapon) => weapon.name === ORC_TUSKS.name)!
   expect(effectiveWeapon(c, [], tusks)).toMatchObject({ material: `Cold Iron (${grade})`, potency: 0, striking: 0, runes: [] })
-  expect(effectiveWeapon({ ...c, handwraps: { potency: 2, striking: 1, runes: ['Flaming'] } }, [], tusks)).toMatchObject({ potency: 2, striking: 1, runes: ['Flaming'] })
+  expect(effectiveWeapon({ ...c, handwraps: { potency: 2, striking: 1, runes: ['Flaming'] } }, [], tusks))
+    .toMatchObject({ potency: level >= 16 ? 3 : 2, striking: level >= 12 ? 2 : 1, runes: ['Flaming'] })
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain(`aria-haspopup="dialog">Cold Iron (${grade})</button>`)
   expect(markup).not.toContain(`aria-label="Remove Cold Iron (${grade}) material"`)

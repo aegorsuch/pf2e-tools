@@ -99,6 +99,67 @@ export function featPrerequisiteSources(entries: ContentEntry[], context: {
   return natural.length ? natural : pool
 }
 
+const suggestionIndexes = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+
+export function featPrerequisiteSuggestions(entries: ContentEntry[], context: {
+  className?: string; ancestryTraits: string[]; knownFeats?: string[]
+}) {
+  let index = suggestionIndexes.get(entries)
+  if (!index) {
+    index = new Map()
+    const named = contentIndex(entries).named
+    const names = [...named].filter(([, sources]) => sources.some(entry => entry.kind === 'feat')).map(([name]) => name)
+      .sort((a, b) => b.length - a.length)
+    if (names.length) {
+      const byFirstWord = new Map<string, { name: string; offset: number }[]>()
+      for (const name of names) {
+        const first = /[a-z0-9]+/.exec(name)
+        if (!first) continue
+        const bucket = byFirstWord.get(first[0]) ?? []
+        bucket.push({ name, offset: first.index })
+        byFirstWord.set(first[0], bucket)
+      }
+      for (const entry of entries) {
+        if (entry.deleted || entry.kind !== 'feat' || !entry.data.prerequisite) continue
+        const text = key(String(entry.data.prerequisite))
+        const references = new Set<string>()
+        let after = 0
+        for (const word of text.matchAll(/[a-z0-9]+/g)) {
+          if (word.index < after) continue
+          const reference = byFirstWord.get(word[0])?.find(({ name, offset }) => {
+            const start = word.index - offset
+            return start >= after && (start === 0 || !/[a-z0-9]/.test(text[start - 1]))
+              && text.startsWith(name, start) && !/[a-z0-9]/.test(text[start + name.length] ?? '')
+          })
+          if (!reference) continue
+          references.add(reference.name)
+          after = word.index - reference.offset + reference.name.length
+        }
+        for (const reference of references) {
+          for (const prerequisite of named.get(reference) ?? []) {
+            if (prerequisite.kind !== 'feat' || prerequisite.name === entry.name
+              || !prerequisite.traits.some(trait => /^(general|skill)$/i.test(trait))) continue
+            const dependents = index.get(prerequisite.name) ?? []
+            if (!dependents.includes(entry)) dependents.push(entry)
+            index.set(prerequisite.name, dependents)
+          }
+        }
+      }
+    }
+    suggestionIndexes.set(entries, index)
+  }
+  const traits = new Set([context.className ?? '', ...context.ancestryTraits].filter(Boolean).map(key))
+  const known = new Set(context.knownFeats?.map(key))
+  const suggestions = new Map<string, string[]>()
+  for (const [name, dependents] of index) {
+    if (known.has(key(name))) continue
+    const unlocks = [...new Set(dependents.filter(entry => entry.traits.some(trait => traits.has(key(trait))))
+      .map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
+    if (unlocks.length) suggestions.set(name, unlocks)
+  }
+  return suggestions
+}
+
 // Split only top-level operators; parentheses and punctuation inside known names stay atomic.
 function splitOutside(text: string, separator: RegExp) {
   let depth = 0

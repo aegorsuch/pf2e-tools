@@ -1,4 +1,4 @@
-import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
+import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, isGrantedArmor } from './grantedArmor'
@@ -1824,8 +1824,9 @@ function isDeadlySimplicityWeapon(c: Character, entries: ContentEntry[], entry?:
 export function blessedArmamentTargets(c: Character, entries: ContentEntry[]) {
   const favored = ownedWeapons(c, entries).filter((weapon) => isFavoredWeapon(c, entries, weapon.name))
   const manufactured = favored.filter((weapon) => weapon.id !== OVERSIZED_THROW.id && weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed')
-  return [...manufactured, ...(c.handwraps && favored.some((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
-    ? [{ id: HANDWRAPS.id, name: HANDWRAPS.name, ...c.handwraps }] : [])]
+  const handwraps = effectiveHandwraps(c)
+  return [...manufactured, ...(handwraps && favored.some((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+    ? [{ id: HANDWRAPS.id, name: HANDWRAPS.name, ...handwraps }] : [])]
 }
 
 export function blessedArmamentTarget(c: Character, entries: ContentEntry[]) {
@@ -1891,6 +1892,27 @@ export const automaticWeaponFundamentals = (level: number) => ({
   striking: [4, 12, 19].filter((at) => level >= at).length,
 })
 
+export function automaticHardlightGrade(level: number): HardlightGrade {
+  const automatic = automaticWeaponFundamentals(level)
+  return (Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]).reduce<HardlightGrade>((best, grade) => {
+    const stats = HARDLIGHT_GRADES[grade]
+    return stats.potency <= automatic.potency && stats.striking <= automatic.striking ? grade : best
+  }, 'Commercial')
+}
+
+export function effectiveHandwraps(c: Character): Character['handwraps'] {
+  const handwraps = c.handwraps
+  if (!handwraps) return undefined
+  if (handwraps.kind === 'hardlight') {
+    const grades = Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]
+    const grade = grades[Math.max(grades.indexOf(handwraps.grade ?? 'Commercial'), grades.indexOf(automaticHardlightGrade(c.level)))]
+    const { potency, striking } = HARDLIGHT_GRADES[grade]
+    return { ...handwraps, grade, potency, striking }
+  }
+  const automatic = automaticWeaponFundamentals(c.level)
+  return { ...handwraps, potency: Math.max(handwraps.potency, automatic.potency), striking: Math.max(handwraps.striking, automatic.striking) }
+}
+
 export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   return weapon.id !== OVERSIZED_THROW.id && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed'
@@ -1940,7 +1962,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   if (animalSource) {
     return animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource))
   }
-  const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
+  const fundamentals = effectiveHandwraps(c)
   const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
     ? scaledMaterial('Cold Iron (Low-Grade)', c.level, 'Weapon') : undefined
   const enhanced: OwnedWeapon = { ...weapon, material,

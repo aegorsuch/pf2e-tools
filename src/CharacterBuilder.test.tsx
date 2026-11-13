@@ -44,8 +44,10 @@ it('keeps large background and deity catalogs searchable before lazy choices are
   }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-    expect(markup).toContain('aria-label="Search background"')
-    expect(markup).toContain('aria-label="Search deity"')
+    expect(markup).toContain('aria-label="Background" aria-haspopup="dialog"')
+    expect(markup).toContain('aria-label="Deity" aria-haspopup="dialog"')
+    expect(markup).not.toContain('aria-label="Search background"')
+    expect(markup).not.toContain('aria-label="Search deity"')
     expect(markup).not.toContain('aria-label="Search heritage"')
   } finally { content.entries = [] }
 })

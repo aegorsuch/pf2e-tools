@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
+import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
 import { ClassFeatures } from './ClassFeatures'
@@ -35,6 +36,7 @@ function Pick({ label, kind, value, options, onChange }: {
   onChange: (v: string | undefined) => void
 }) {
   const [ready, setReady] = useState(false)
+  const byName = useMemo(() => new Map(options.map(entry => [entry.name, entry])), [options])
   const labels = useMemo(() => new Map(options.map((entry) => [entry.name, kind === 'deity' ? deityLabel(entry) : entry.name])), [options, kind])
   const choices = useMemo(() => ready
     ? [...labels.keys()].sort().map(name => <option key={name} value={name}>{labels.get(name)}</option>)
@@ -45,6 +47,10 @@ function Pick({ label, kind, value, options, onChange }: {
   }
   return (
       <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare} optionCount={labels.size}
+        renderDetails={name => {
+          const entry = byName.get(name)
+          return entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" className="picker-details" /> : null
+        }}
         onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
         <option value="">No {kind}</option>
         {value && (!ready || !labels.has(value)) && <option value={value}>{labels.get(value) ?? value}</option>}

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { SearchableSelect } from './SearchableSelect'
-import { searchSelectOptions } from './searchSelectOptions'
+import { searchSelectOptions, selectOptionList } from './searchSelectOptions'
 
 it('searches deity names and epithets while preserving canonical values and saved selections', () => {
   const options = <>
@@ -44,23 +44,37 @@ it('filters grouped choices without enabling unavailable options or dropping unk
     .toContain('Unavailable saved feat')
 })
 
-it('labels search separately from selection and respects disabled controls', () => {
+it('opens large lists through a disabled-aware popup trigger without an external search bar', () => {
   const markup = renderToStaticMarkup(<SearchableSelect label="Background" aria-label="Background" value="Scholar" optionCount={100} disabled>
     <option value="Scholar">Scholar</option>
   </SearchableSelect>)
-  expect(markup).toContain('aria-label="Search background"')
-  expect(markup).toContain('placeholder="Search background"')
+  expect(markup).not.toContain('type="search"')
+  expect(markup).toContain('aria-label="Background" aria-haspopup="dialog" aria-expanded="false" disabled=""')
   expect(markup).toContain('<select aria-label="Background" disabled=""')
+  expect(markup).toContain('hidden=""')
   expect(markup).toContain('<option value="Scholar" selected="">')
 })
 
-it.each([0, 2, 10, 11])('only shows search for long lists with %i choices, excluding the placeholder', count => {
+it.each([0, 2, 10, 11])('only uses a popup for long lists with %i choices, excluding the placeholder', count => {
   const markup = renderToStaticMarkup(<SearchableSelect aria-label="Armor material" value="">
     <option value="">Add material</option>
     <optgroup label="Materials">
       {Array.from({ length: count }, (_, index) => <option key={index} value={`material-${index}`}>Material {index}</option>)}
     </optgroup>
   </SearchableSelect>)
-  expect(markup.includes('type="search"')).toBe(count > 10)
+  expect(markup).not.toContain('type="search"')
+  expect(markup.includes('aria-haspopup="dialog"')).toBe(count > 10)
   expect(markup).toContain('<select aria-label="Armor material"')
+})
+
+it('preserves canonical option values, epithets and disabled groups for popup choices', () => {
+  expect(selectOptionList(<>
+    <option value="">No deity</option>
+    <optgroup label="Unavailable" disabled><option value="Abadar">Abadar, Master of the First Vault</option></optgroup>
+    <option value="Iomedae" disabled>Iomedae, the Inheritor</option>
+  </>)).toEqual([
+    { value: '', label: 'No deity', disabled: false, group: undefined },
+    { value: 'Abadar', label: 'Abadar, Master of the First Vault', disabled: true, group: 'Unavailable' },
+    { value: 'Iomedae', label: 'Iomedae, the Inheritor', disabled: true, group: undefined },
+  ])
 })

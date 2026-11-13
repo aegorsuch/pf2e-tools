@@ -23,12 +23,14 @@ it('omits section search bars and ignores their stale queries while preserving p
   const classTree = (search: Record<string, string>) => FeatSlots({ c, entries: feats, categories: ['class'],
     title: 'Class Feats', save, search, onSearch: () => {} })
   const isolated = renderToStaticMarkup(classTree({ 'ancestry:query': 'Alpha', 'class:1:0:open': '1' }))
-  expect(isolated).toContain('<option value="Alpha">')
-  expect(isolated).toContain('<option value="Beta">')
+  expect(isolated).toContain('aria-label="L01 Class: Alpha"')
+  expect(isolated).toContain('aria-label="L01 Class: Beta"')
   const unfiltered = renderToStaticMarkup(classTree({ 'class:query': '  BETA ', '*': 'unrelated', 'class:1:0:open': '1' }))
-  expect(unfiltered).not.toContain('type="search"')
-  expect(unfiltered).toContain('<option value="Beta">')
-  expect(unfiltered).toContain('<option value="Alpha">')
+  expect(unfiltered.match(/type="search"/g)).toHaveLength(1)
+  expect(unfiltered).toContain('aria-label="Search L01 Class feats"')
+  expect(unfiltered).toContain('aria-label="L01 Class: Beta"')
+  expect(unfiltered).toContain('aria-label="L01 Class: Alpha"')
+  expect(renderToStaticMarkup(classTree({ 'class:1:0:query': 'Alpha' }))).not.toContain('type="search"')
   const popup = renderToStaticMarkup(FeatSlots({ c, entries: feats, categories: ['archetype'], save, onSearch: () => {},
     search: { 'archetype:2:0:open': '1', 'archetype:2:0:type': 'dedication', 'archetype:2:0:query': 'beta' } }))
   expect(popup).toContain('aria-label="Search L02 Dedication feats"')
@@ -51,6 +53,43 @@ it('keeps Favored Terrain editable in class feats and displays the same restored
   expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Favored Terrain terrain"')
 })
 
+it('pins prerequisite suggestions before pagination, searches unlocks, and saves only the canonical feat', () => {
+  const titan: ContentEntry = {
+    id: 'titan', name: 'Titan Wrestler', kind: 'feat', systems: ['pf2e'], level: 1, traits: ['General', 'Skill'],
+    source: 'official', description: 'Grapple larger creatures.', data: { prerequisite: 'Trained in Athletics' }, effects: [], updatedAt: 1,
+  }
+  const target: ContentEntry = { ...titan, id: 'harder', name: 'The Harder They Fall (Ranger)', level: 8,
+    traits: ['Ranger'], data: { prerequisite: 'Titan Wrestler' } }
+  const fillers = Array.from({ length: 101 }, (_, index): ContentEntry =>
+    ({ ...titan, id: `filler-${index}`, name: `A Filler ${index}`, data: {} }))
+  const entries = [titan, { ...titan, id: 'titan-sf', systems: ['sf2e'] as ContentEntry['systems'] }, target, ...fillers]
+  let c: Character = { ...emptyRanger(), systems: ['pf2e', 'sf2e'], level: 8, skillPicks: ['Athletics'] }
+  const search: Record<string, string> = { 'general:3:0:open': '1' }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries, categories: ['general'], save, search, onSearch: (key, text) => { search[key] = text } })
+  const label = 'L03 General: Titan Wrestler (Unlocks The Harder They Fall)'
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Suggested prerequisites')
+  expect(markup.match(/aria-label="L03 General: Titan Wrestler/g)).toHaveLength(1)
+  expect(markup.indexOf(label)).toBeLessThan(markup.indexOf('L03 General: A Filler'))
+  expect(markup).toContain('Show more')
+  expect(markup).toContain('aria-label="Details: Titan Wrestler"')
+  expect(markup).toContain('Grapple larger creatures.')
+  search['general:3:0:query'] = 'harder they fall'
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  expect(renderToStaticMarkup(tree())).not.toContain('L03 General: A Filler')
+  c = { ...c, skillPicks: [] }
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${label} * Missing Trained in Athletics" disabled=""`)
+  findButton(tree(), `${label} * Missing Trained in Athletics`)!()
+  expect(save).not.toHaveBeenCalled()
+  c = { ...c, skillPicks: ['Athletics'] }
+  search['general:3:0:open'] = '1'
+  findButton(tree(), label)!()
+  expect(c.feats).toContainEqual({ name: 'Titan Wrestler', type: 'General Feat', level: 1, slot: 'general:3:0' })
+  expect(c.entryIds).toContain('titan')
+  expect(search['general:3:0:open']).toBe('')
+})
+
 it('unlocks Farabellus Flip for either saved Society membership wording but retains Acrobatics and armor requirements', () => {
   const flip: ContentEntry = {
     id: 'flip', name: 'Farabellus Flip', kind: 'feat', systems: ['pf2e'], level: 4,
@@ -62,7 +101,8 @@ it('unlocks Farabellus Flip for either saved Society membership wording but reta
     data: { defense_proficiency: 'Trained in light armor, Trained in medium armor, Trained in unarmored defense' } }
   const c: Character = { ...emptyRanger(), level: 4, skillPicks: ['Acrobatics'] }
   const tree = (character: Character) => <FeatSlots c={character} entries={[flip, ranger]} categories={['class']} save={() => {}} />
-  expect(renderToStaticMarkup(tree(c))).toContain('GM approval needed')
+  expect(renderToStaticMarkup(tree(c))).toContain('value="Farabellus Flip" disabled=""')
+  expect(renderToStaticMarkup(tree(c))).not.toContain('GM approval needed')
   for (const membership of ['member of the pathfinder society', 'A character who is a member of the Pathfinder Society has access to this option.']) {
     const saved: Character = JSON.parse(JSON.stringify({ ...c, achievements: [membership] }))
     const markup = renderToStaticMarkup(tree(saved))
@@ -90,7 +130,7 @@ it('unlocks Wild Hunter through a saved achievement without bypassing level or s
   const tree = () => FeatSlots({ c, entries: [wild, ranger], categories: ['archetype'], save,
     search: { 'archetype:8:0:open': '1', 'archetype:8:0:type': 'dedication' } })
   const prefix = 'L08 Dedication: Wild Hunter Dedication (Uncommon)'
-  const blockedLabel = `${prefix} * Access: ${access} (GM approval needed)`
+  const blockedLabel = `${prefix} * Access: ${access}`
   expect(renderToStaticMarkup(tree())).toContain(`aria-label="${blockedLabel}" disabled=""`)
   findButton(tree(), blockedLabel)!()
   expect(save).not.toHaveBeenCalled()
@@ -311,7 +351,7 @@ it('gates access separately, ignores stale next-feat approval, preserves saved a
   const search: Record<string, string> = { 'ancestry:1:0:open': '1' }
   const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
   const tree = () => FeatSlots({ c, entries: [witch, other, prerequisite, gloomseer, dragonSpit], categories: ['ancestry'], title: 'Ancestry Feats',
-    save, search, onSearch: (key, value) => { search[key] = value } })
+    save, search })
   expect(renderToStaticMarkup(tree())).toContain('<option value="Witch Warden" disabled="">Witch Warden (Uncommon) * Access: Kellid ethnicity')
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
   expect(save).not.toHaveBeenCalled()
@@ -351,7 +391,8 @@ it('gates access separately, ignores stale next-feat approval, preserves saved a
   const missingMarkup = renderToStaticMarkup(tree())
   expect(missingMarkup).toContain('class="feat-access-controls"')
   expect(missingMarkup).toContain('aria-label="Access information"')
-  expect(missingMarkup).toContain('GM approval needed')
+  expect(missingMarkup).toContain('Access: Kellid ethnicity</small>')
+  expect(missingMarkup).not.toContain('GM approval needed')
   c = { ...c, ethnicity: 'Kellid', feats: [{ ...c.feats[0], name: prerequisite.name }] }
   expect(renderToStaticMarkup(tree())).toContain('aria-label="Prerequisites unmet"')
   c = { ...c, feats: [], ethnicity: 'Nidalese' }

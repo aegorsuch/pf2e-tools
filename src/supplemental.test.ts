@@ -217,19 +217,19 @@ it('ignores directly configured unarmed runes while leaving saved data and manuf
   expect(weaponAttack(base, [], unarmed)).toMatchObject({ item: 0, damage: '1d4+1 bludgeoning' })
   expect(unarmed).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   const c: Character = { ...base, handwraps: { potency: 1, striking: 1, runes: ['Impactful'] } }
-  expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 1, striking: 1, runes: ['Impactful'] })
+  expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Impactful'] })
   expect(effectiveWeapon(c, [], { ...unarmed, name: 'Gauntlet' })).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   expect(effectiveWeapon({ ...c, handwraps: undefined }, [], unarmed)).toMatchObject({ potency: 0, striking: 0, runes: [] })
 })
 
-it('derives hardlight tracking and damage dice from its saved grade, not directly configured attack runes', () => {
+it('derives hardlight tracking and damage dice from its automatically upgraded grade, not attack runes', () => {
   const c: Character = {
     ...base, handwraps: { kind: 'hardlight', grade: 'Advanced', potency: 0, striking: 0, runes: ['Wounding'] },
     activeSpells: ['Animal Feature'],
     feats: [{ name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }],
   }
   const attack = ownedWeapons(c, []).find((weapon) => weapon.name === ANIMAL_FEATURE_CLAWS.name)!
-  expect(weaponAttack(c, [], attack)).toMatchObject({ item: 1, damage: '2d6+1 slashing' })
+  expect(weaponAttack(c, [], attack)).toMatchObject({ item: 2, damage: '2d6+1 slashing' })
   expect(effectiveWeapon(c, [], attack).runes).toEqual(['Wounding'])
   expect(weaponAttack({ ...c, handwraps: { ...c.handwraps!, grade: 'Paragon' } }, [], attack))
     .toMatchObject({ item: 3, damage: '4d6+1 slashing' })

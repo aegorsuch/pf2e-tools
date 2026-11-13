@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useMemo, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, canopyCrawlerAffects, canopyCrawlerTarget, classSpellcasting, companionSpellTarget, enlargeCompanionSize, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, canopyCrawlerAffects, canopyCrawlerTarget, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, type SectionProps } from './builder'
 import { ANIMAL_FEATURES } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
@@ -110,13 +110,6 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId }: S
             : { enlargeCompanionId: companionId ?? targetId }),
         })
       }} /> {companionId ? name : 'Active'}</label>
-    {canopy ? null : tooLarge ? null : needsHuge ? <span>Size: Huge</span> : <label>Size{' '}
-      <select aria-label="Enlarge Companion size" value={enlargeCompanionSize(c)} onChange={(e) => {
-        if (e.target.value === 'Large' || e.target.value === 'Huge' && c.level >= 7) save({ enlargeCompanionSize: e.target.value })
-      }}>
-        <option>Large</option><option disabled={c.level < 7}>Huge</option>
-      </select>
-    </label>}
     {(c.companions?.length ?? 0) > 1 && (!canopy || target !== 'Self') && <label>Companion{' '}
       <select aria-label={`${name} companion`} value={targetId ?? ''} onChange={(e) => {
         if (c.companions?.some((companion) => companion.id === e.target.value))

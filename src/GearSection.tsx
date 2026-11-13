@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorEntry, armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -192,7 +192,9 @@ function Level({ label, value, options, format, onChange, disabled, minimum = 0 
 }
 
 export function HandwrapsGear({ c, entries, save }: SectionProps) {
-  const handwraps = c.handwraps
+  const handwraps = effectiveHandwraps(c)
+  const automatic = automaticWeaponFundamentals(c.level)
+  const minimumGrade = automaticHardlightGrade(c.level)
   const item = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   const grades = Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]
   const limit = handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[handwraps.grade ?? 'Commercial'].upgrades : maxPropertyRunes(handwraps?.potency ?? 0)
@@ -200,20 +202,21 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
     <div className="col gear-list">
       {handwraps ? <details className="gear-card" aria-label={item.name} open>
         <summary><strong>{item.name}</strong></summary>
+        <small>{handwraps.kind === 'hardlight' ? 'Grade' : 'Fundamental runes'} automatically upgrade with character level.</small>
         {handwraps.kind === 'hardlight' ? <label>Grade{' '}
           <select aria-label="Hardlight handwraps grade" value={handwraps.grade ?? 'Commercial'} onChange={(e) => {
             const grade = grades.find((name) => name === e.target.value)
-            if (grade) {
+            if (grade && grades.indexOf(grade) >= grades.indexOf(minimumGrade)) {
               const { potency, striking, upgrades } = HARDLIGHT_GRADES[grade]
               save({ handwraps: { ...handwraps, grade, potency, striking, runes: handwraps.runes.slice(0, upgrades) } })
             }
           }}>
-            {grades.map((grade) => <option key={grade}>{grade}</option>)}
+            {grades.map((grade) => <option key={grade} disabled={grades.indexOf(grade) < grades.indexOf(minimumGrade)}>{grade}</option>)}
           </select>
         </label> : <div className="row">
-          <Level label="Potency" value={handwraps.potency} options={POTENCY} format={(n) => n ? `+${n}` : 'None'}
+          <Level label="Potency" value={handwraps.potency} options={POTENCY} minimum={automatic.potency} format={(n) => n ? `+${n}` : 'None'}
             onChange={(potency) => save({ handwraps: { ...handwraps, potency, runes: handwraps.runes.slice(0, maxPropertyRunes(potency)) } })} />
-          <Level label="Striking" value={handwraps.striking} options={POTENCY} format={(n) => STRIKING_LABEL[n] || 'None'}
+          <Level label="Striking" value={handwraps.striking} options={POTENCY} minimum={automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
             onChange={(striking) => save({ handwraps: { ...handwraps, striking } })} />
         </div>}
         <Runes runes={handwraps.runes} entries={entries} options={handwrapRuneOptions(c, entries)} limit={limit}
@@ -221,11 +224,11 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
         <button type="button" className="spell-remove" aria-label={`Remove ${item.name}`}
           onClick={() => confirmRemoval(`"${item.name}"`, () => save({ handwraps: undefined }))}>×</button>
       </details> : <div className="row">
-        <button type="button" className="gear-add" onClick={() => save({ handwraps: { potency: 0, striking: 0, runes: [] } })}>
+        <button type="button" className="gear-add" onClick={() => save({ handwraps: { ...automatic, runes: [] } })}>
         Add {HANDWRAPS.name}
         </button>
         {c.systems.includes('sf2e') && <button type="button" className="gear-add"
-          onClick={() => save({ handwraps: { kind: 'hardlight', grade: 'Commercial', potency: 0, striking: 0, runes: [] } })}>
+          onClick={() => save({ handwraps: { kind: 'hardlight', grade: minimumGrade, ...automatic, runes: [] } })}>
           Add {HARDLIGHT_HANDWRAPS.name}
         </button>}
       </div>}

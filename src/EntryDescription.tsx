@@ -5,8 +5,8 @@ import type { FeatAccessCheck } from './featAccess'
 import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
 
-export function EntryDescription({ name, entry, className, prerequisites, access }: {
-  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck
+export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel }: {
+  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -14,10 +14,11 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   const rarity = entry && featRarity(entry)
   return (
     <>
-      <button type="button" className={className} aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
-        {name}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
+      <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${name}` : undefined}
+        aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+        {buttonLabel ?? name}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
           aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
-        {featActions && <> <ActionIcon entry={entry} /></>}
+        {featActions && !buttonLabel && <> <ActionIcon entry={entry} /></>}
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>

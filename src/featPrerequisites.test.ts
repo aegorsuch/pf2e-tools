@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { eligibleFeats, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, plannedSlots } from './builder'
+import { featPrerequisiteSuggestions } from './featPrerequisites'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
@@ -13,6 +14,31 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('suggests exact General and Skill feat prerequisites for this class and ancestry without confusing longer feat names', () => {
+  const titan = entry('feat', 'Titan Wrestler', {}, 1, ['General', 'Skill'])
+  const diehard = entry('feat', 'Diehard', {}, 1, ['General'])
+  const advanced = entry('feat', 'Greater Titan Wrestler', {}, 8, ['Fighter'])
+  const data = [
+    titan, diehard, advanced,
+    entry('feat', 'The Harder They Fall (Ranger)', { prerequisite: 'Titan Wrestler' }, 8, ['Ranger']),
+    entry('feat', 'Ancestral Resolve', { prerequisite: 'Diehard; expert in Survival' }, 9, ['Human']),
+    entry('feat', 'Adopted Resolve', { prerequisite: 'Diehard' }, 9, ['Dwarf']),
+    entry('feat', 'Other Class', { prerequisite: 'Titan Wrestler' }, 8, ['Rogue']),
+    entry('feat', 'Not the Same Prerequisite', { prerequisite: advanced.name }, 10, ['Ranger']),
+    { ...entry('feat', 'Deleted', { prerequisite: 'Titan Wrestler' }, 1, ['Ranger']), deleted: true },
+    entry('feat', 'Descriptive Mention', {}, 1, ['Ranger']),
+  ]
+  data[data.length - 1].description = 'Titan Wrestler is useful but not required.'
+  const context = { className: 'Ranger', ancestryTraits: ['Human'] }
+  const suggestions = featPrerequisiteSuggestions(data, context)
+  expect(suggestions.get(titan.name)).toEqual(['The Harder They Fall (Ranger)'])
+  expect(suggestions.get(diehard.name)).toEqual(['Ancestral Resolve'])
+  expect(suggestions.has(advanced.name)).toBe(false)
+  expect(featPrerequisiteSuggestions(data, { ...context, ancestryTraits: ['Dwarf'] }).get(diehard.name)).toEqual(['Adopted Resolve'])
+  expect(featPrerequisiteSuggestions(data, { ...context, className: 'Rogue' }).get(titan.name)).toEqual(['Other Class'])
+  expect(featPrerequisiteSuggestions(data, { ...context, knownFeats: ['Titan Wrestler'] }).has(titan.name)).toBe(false)
+})
 
 describe('shared prerequisite enforcement', () => {
   it('requires actual warden spells, specific warden choices, and acquisition-level availability', () => {

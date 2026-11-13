@@ -65,10 +65,11 @@ it('syncs companion spell toggles in both directions, persists targets, and gate
     if (!change) throw new Error('Missing companion spell choice')
     change({ target: { value } })
   }
-  select('Enlarge Companion', 'Enlarge Companion size', 'Huge')
+  expect(findSelect(CompanionSpellOptions({ c, entries: [], save, name: 'Enlarge Companion' }), 'Enlarge Companion size')).toBeUndefined()
   expect(c.enlargeCompanionSize).toBeUndefined()
-  c = { ...c, level: 7 }
-  select('Enlarge Companion', 'Enlarge Companion size', 'Huge')
+  c = { ...c, level: 7, enlargeCompanionSize: 'Huge' }
+  expect(renderToStaticMarkup(<CompanionSpellOptions c={c} entries={[]} save={save} name="Enlarge Companion" />))
+    .not.toContain('Size')
   expect(c.enlargeCompanionSize).toBe('Huge')
   expect(renderToStaticMarkup(<CompanionSpellOptions c={c} entries={[]} save={save} name="Canopy Crawler" />))
     .not.toContain('Canopy Crawler target')
@@ -79,7 +80,7 @@ it('syncs companion spell toggles in both directions, persists targets, and gate
   expect(c.canopyCrawlerCompanionId).toBe('a')
   c = { ...c, level: 6 }
   expect(renderToStaticMarkup(<CompanionSpellOptions c={c} entries={[]} save={save} name="Enlarge Companion" />))
-    .toContain('<option selected="">Large</option>')
+    .not.toContain('Enlarge Companion size')
   expect(c.enlargeCompanionSize).toBe('Huge')
 })
 
@@ -229,7 +230,7 @@ it('removes Enlarge size choices for Large companions and disables casting on Hu
   expect(c.activeSpells).toContain('Enlarge Companion')
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={save} />)
   expect(markup).toMatch(/Huge<button[^>]*>\*<\/button> \(Enlarge Companion\)/)
-  expect(markup).toContain('Size: Huge')
+  expect(markup).not.toContain('Size: Huge')
   c = { ...c, level: 6, activeSpells: [] }
   expect(renderToStaticMarkup(<CompanionSpellOptions {...props()} />))
     .toContain('aria-label="Enlarge Companion active" disabled=""')
