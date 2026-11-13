@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { BulkLimits, HandwrapsGear } from './GearSection'
@@ -199,6 +199,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const background = named('background', c.background)
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
+  const parry = parryValue(c, entries)
 
   const featSection = (category: 'general' | 'skill' | 'archetype') => {
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
@@ -315,6 +316,12 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class {defense.ac}, Hit Points {defense.hp}</span>
+          {(c.shield || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
+            {c.shield && <label><input type="checkbox" aria-label="Raise Shield (summary)" checked={c.shield.raised}
+              onChange={(event) => c.shield && save({ shield: { ...c.shield, raised: event.target.checked } })} /> Raise Shield (+2 AC)</label>}
+            {parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
+              onChange={(event) => save({ parrying: event.target.checked })} /> Parry (+{parry} AC)</label>}
+          </span>}
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="defense" />

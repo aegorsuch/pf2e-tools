@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange, parryValue,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
@@ -759,6 +759,21 @@ it('limits Hazard Finder to hazard checks, does not stack it with shields, and n
   expect(initiativeBonus(superior, [])).toBe(defenseSummary(superior, []).perception)
   expect(defenseSummary({ ...c, feats: [] }, [])).toEqual(defenseSummary({ ...c, feats: [], activeFeatEffects: [] }, []))
   expect(defenseSummary({ ...c, level: 7 }, [])).toEqual(defenseSummary({ ...c, level: 7, activeFeatEffects: [] }, []))
+})
+
+it('applies parry AC context without stacking with shield or hazard finder, and supports +2 parry feats', () => {
+  const rapier = content('weapon', 'Rapier', { weapon_category: 'Martial', trait: 'Parry', hands: 1, damage: '1d6 piercing' })
+  const improved = { ...content('feat', 'Parry Expert', {}, 8), description: 'The circumstance bonus to AC from your parry trait increases to +2.' }
+  const c: Character = { ...base, className: 'Ranger', level: 10, weapons: [{ id: 'r', name: 'Rapier', potency: 0, striking: 0, runes: [] }],
+    feats: [feat('Parry Expert', 8)], parrying: true }
+  expect(parryValue(c, [rapier, improved])).toBe(2)
+  const normal = armorClass({ ...c, parrying: false }, [rapier, improved])
+  expect(armorClass(c, [rapier, improved])).toBe(normal + 2)
+  const shield = { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true }
+  expect(armorClass({ ...c, shield }, [rapier, improved])).toBe(normal + 2)
+  const hazard = { ...c, feats: [...c.feats, feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
+  expect(armorClass(hazard, [rapier, improved])).toBe(normal + 2)
+  expect(armorClass({ ...hazard, parrying: false }, [rapier, improved])).toBe(normal + 1)
 })
 
 it('applies researched resistance only in its matching-effect context and never stacks circumstance save bonuses', () => {

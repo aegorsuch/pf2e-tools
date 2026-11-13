@@ -822,6 +822,39 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
 
 export const hazardFinderBonus = (c: Character) => isFeatEffectActive(c, 'Hazard Finder') ? 1 : 0
 
+function parryBonusFromText(text: string) {
+  if (!/\bparry\b/i.test(text)) return 0
+  let bonus = 0
+  for (const pattern of [
+    /\+(\d+)\s*circumstance bonus to AC/gi,
+    /circumstance bonus to AC[^.]{0,120}parry[^.]{0,120}\+(\d+)/gi,
+    /parry[^.]{0,120}increases?[^.]{0,80}\+(\d+)/gi,
+  ]) {
+    for (const match of text.matchAll(pattern)) bonus = Math.max(bonus, Number(match[1]))
+  }
+  return bonus
+}
+
+function hasParryTrait(entry?: ContentEntry) {
+  return !!entry && [...entry.traits, ...tokens(entry.data.trait)].some(trait => trait.toLowerCase() === 'parry')
+}
+
+function parryFeatEntries(c: Character, entries: ContentEntry[]) {
+  return c.feats.filter(feat => featTakenLevel(feat) <= c.level).map(feat => byName(entries, 'feat', feat.name)).filter((entry): entry is ContentEntry => !!entry)
+}
+
+export function parryValue(c: Character, entries: ContentEntry[]) {
+  const featEntries = parryFeatEntries(c, entries)
+  const hasParryFeat = c.feats.some(feat => featTakenLevel(feat) <= c.level && /\bparry\b/i.test(feat.name))
+    || featEntries.some(entry => /\bparry\b/i.test(entry.description))
+  const hasParryWeapon = ownedWeapons(c, entries).some(weapon => !weapon.stowed && hasParryTrait(weaponEntry(entries, weapon.name)))
+  if (!hasParryFeat && !hasParryWeapon) return 0
+  const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
+  return Math.max(1, featBonus)
+}
+
+export const parryBonus = (c: Character, entries: ContentEntry[]) => c.parrying ? parryValue(c, entries) : 0
+
 const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
 
 export function researchedSpellResistanceChoices(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
@@ -1528,8 +1561,9 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
   const skin = animalSkinBenefits(c, entries)
   const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
   const raised = c.shield?.raised ? 2 : 0
+  const parry = parryBonus(c, entries)
   return 10 + num(armor?.data.ac) + (worn?.potency ?? 0) + (skin?.itemBonus ?? 0)
-    + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level) + Math.max(raised, hazardFinderBonus(c))
+    + Math.min(dexterity, dexCap) + proficiencyBonus(rank, c.level) + Math.max(raised, parry, hazardFinderBonus(c))
 }
 
 // Imported equipment shows up as configurable gear until the player edits it

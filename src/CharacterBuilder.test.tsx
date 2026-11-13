@@ -165,6 +165,25 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
   expect(background).toContain('<h4>Achievements</h4>')
 })
 
+it('shows defense summary context toggles only for equipped shields or parry-capable builds', () => {
+  content.entries = [{ id: 'feat:parry', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Parry Expert',
+    level: 1, traits: ['Ranger'], description: 'The circumstance bonus to AC from your parry trait increases to +2.', data: {}, effects: [], updatedAt: 0 }]
+  const baseCharacter: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Alex', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    const plain = renderToStaticMarkup(<CharacterBuilder character={baseCharacter} onClose={() => {}} />)
+    expect(plain).not.toContain('Raise Shield (summary)')
+    expect(plain).not.toContain('Parry active (summary)')
+    const shielded = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)
+    expect(shielded).toContain('Raise Shield (summary)')
+    const parry = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, feats: [{ name: 'Parry Expert', type: 'Class Feat', level: 1 }] }} onClose={() => {}} />)
+    expect(parry).toContain('Parry active (summary)')
+  } finally { content.entries = [] }
+})
+
 it('shows official deity epithets in the subtitle and picker while retaining canonical saved names', () => {
   const deity = mapAonHit({ _id: 'deity-285', _source: { category: 'deity', name: 'Iomedae', epithet: 'The Inheritor', skill: ['Intimidation'] } }, 'pf2e')
   if (!deity) throw new Error('Missing deity mapping')

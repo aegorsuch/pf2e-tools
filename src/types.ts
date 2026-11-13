@@ -117,6 +117,7 @@ export interface Character {
   blessedArmament?: { weaponId: string; rune: string }
   haftStrikerWeaponId?: string
   raging?: boolean
+  parrying?: boolean
   activeFeatEffects?: string[]
   focusPointsSpentSinceRefocus?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
