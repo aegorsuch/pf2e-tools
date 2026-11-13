@@ -13,6 +13,21 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('hides removal for an automatic Order Explorer feat but preserves alternative choices', () => {
+  const fire: ContentEntry = { id: 'fire-lung', name: 'Fire Lung', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Druid'], description: '', data: { prerequisite: 'flame order' }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), className: 'Druid', order: 'Animal', level: 2,
+    feats: [{ name: 'Order Explorer', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Flame' },
+      { name: 'Fire Lung', type: 'Class Feat', level: 1, takenLevel: 2, slot: 'class:1:order-explorer:class:2:0' }] }
+  const row = (entries: ContentEntry[]) => {
+    const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['class']} save={() => {}} />)
+    return markup.match(/<li class="feat-slot-row[^"]*">(?:(?!<\/li>)[\s\S])*Fire Lung(?:(?!<\/li>)[\s\S])*<\/li>/)?.[0] ?? ''
+  }
+  expect(row([fire])).toContain('Fire Lung')
+  expect(row([fire])).not.toContain('Clear L02 Class feat selection')
+  expect(row([fire, { ...fire, id: 'other', name: 'Other Flame Feat' }])).toContain('Clear L02 Class feat selection')
+})
+
 it('selects Free Heart without choosing a background in the feat picker', () => {
   const feat: ContentEntry = { id: 'free-heart', name: 'Free Heart', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }

@@ -25,6 +25,7 @@ const toggle = (list: GameSystem[], s: GameSystem) =>
   list.includes(s) ? list.filter((x) => x !== s) : [...list, s]
 
 const ALL_SYSTEMS = SYSTEMS.map((s) => s.id)
+const NO_ENTRIES: ContentEntry[] = []
 
 const blank = (systems: GameSystem[]): ContentEntry => ({
   id: newId(), systems, kind: 'feat', source: 'homebrew', name: '', level: 1,
@@ -207,7 +208,7 @@ export default function App() {
       )}
 
       {characters?.find((c) => c.id === editingId) && (
-        <CharacterBuilder character={characters.find((c) => c.id === editingId)!} onClose={() => setEditingId(null)} />
+        <CharacterBuilder character={characters.find((c) => c.id === editingId)!} catalog={entries ?? NO_ENTRIES} onClose={() => setEditingId(null)} />
       )}
 
       {showSettings && (

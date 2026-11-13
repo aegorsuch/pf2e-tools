@@ -1,6 +1,5 @@
 import { Info } from './Info'
 import { confirmRemoval } from './confirmRemoval'
-import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
@@ -21,6 +20,7 @@ import { faithfulSteedChange } from './companions'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
+import { DeferredDetails } from './DeferredDetails'
 import type { Character, ContentEntry, EntryKind } from './types'
 
 const NONE: ContentEntry[] = []
@@ -172,12 +172,12 @@ function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   </div>
 }
 
-export function CharacterBuilder({ character: c, onClose }: { character: Character; onClose: () => void }) {
+export function CharacterBuilder({ character: c, catalog, onClose }: { character: Character; catalog: ContentEntry[]; onClose: () => void }) {
   const systemsKey = c.systems.join()
-  const entries = useLiveQuery(
-    () => db.content.filter((e) => !e.deleted && e.systems.some((s) => c.systems.includes(s))).toArray(),
-    [systemsKey],
-  ) ?? NONE
+  const entries = useMemo(() => {
+    const systems = systemsKey.split(',')
+    return catalog.filter(e => e.systems.some(s => systems.includes(s)))
+  }, [catalog, systemsKey])
   const save = (patch: Partial<Character>) => {
     return db.transaction('rw', db.characters, async () => {
       const current = await db.characters.get(c.id)
@@ -277,7 +277,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     const slots = plannedSlots(c).filter((slot) => slot.category === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
     return (
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>{title}</strong>
           <span>{filled}/{slots.length}</span>
@@ -290,7 +290,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
             </button>
           )}
         </div>
-      </details>
+      </DeferredDetails>
     )
   }
 
@@ -308,7 +308,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
       </div>
       <AbilitiesSection {...section} />
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
           <span>{ancestryLabel(c.ancestry, c.heritage) || 'Choose ancestry'}</span>
@@ -332,9 +332,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <AbilityBoostChoices {...section} groups={['ancestry']} />
           <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
         </div>
-      </details>
+      </DeferredDetails>
 
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Background</strong>
           <span>{c.background || 'Choose background'}</span>
@@ -352,9 +352,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           {background?.data.feat && <small>Background grants: <b>{String(background.data.feat)}</b></small>}
           <Achievements {...section} />
         </div>
-      </details>
+      </DeferredDetails>
 
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Class</strong>
           <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
@@ -389,10 +389,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <ClassFeatures {...section} />
           <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" />
         </div>
-      </details>
+      </DeferredDetails>
 
       {featSection('archetype')}
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
@@ -407,8 +407,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <SkillsSection {...section} part="defense" />
         </div>
-      </details>
-      <details className="character-section">
+      </DeferredDetails>
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Deity</strong>
           <span>{deity ? deityLabel(deity) : c.deity || 'Optional'}</span>
@@ -417,9 +417,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
           <DeityCard deity={deity} />
         </div>
-      </details>
+      </DeferredDetails>
 
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Equipment</strong>
           <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0)} items</span>
@@ -449,11 +449,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <WeaponList {...section} />
           <EquipmentSearch {...section} />
         </div>
-      </details>
+      </DeferredDetails>
 
       <FormulasSection {...section} />
       {featSection('general')}
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Languages</strong>
           <span>{languageSummary}</span>
@@ -461,9 +461,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <LanguagesSection {...section} />
         </div>
-      </details>
+      </DeferredDetails>
       <MinionsSection {...section} />
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Offense</strong>
           <span>Perception {signed(defense.perception)}, {weaponCount} Weapon{weaponCount === 1 ? '' : 's'}</span>
@@ -471,14 +471,14 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />
         </div>
-      </details>
+      </DeferredDetails>
       {featSection('skill')}
-      <details className="character-section">
+      <DeferredDetails>
         <summary className="character-section-summary"><strong>Skills</strong></summary>
         <div className="character-section-content">
           <SkillsSection {...section} />
         </div>
-      </details>
+      </DeferredDetails>
       <SpellsSection {...section} />
     </section>
   )

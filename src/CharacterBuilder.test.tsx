@@ -1,12 +1,17 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { CharacterBuilder } from './CharacterBuilder'
+import { CharacterBuilder as Builder } from './CharacterBuilder'
+import type { ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import type { Character, ContentEntry } from './types'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
+vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children: ReactNode }) =>
+  <details className="character-section">{children}</details> }))
+const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
+  <Builder {...props} catalog={content.entries} />
 
 it('shows Free Heart background selection in Background only while the feat is active', () => {
   const background: ContentEntry = { id: 'performer', kind: 'background', name: 'Performer', systems: ['pf2e'],
