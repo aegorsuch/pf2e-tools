@@ -388,7 +388,8 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
-  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key))
+  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key)
+    || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster')
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }

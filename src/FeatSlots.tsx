@@ -150,6 +150,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
   const choose = (key: string, category: FeatSlotCategory, level: number, name: string) => {
     const slot = allSlots.find((slot) => slot.key === key) ?? { key, category, level }
+    if (slot.grantedBy === 'Eldritch Trickster' && name === 'N/A') return
     const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot)).find((option) => option.value === name && !option.disabled)
     if (name && name !== 'N/A' && !option) return
     const feats = c.feats.filter((f) => f.slot !== key)
@@ -193,7 +194,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
+      if (slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster'
+        || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
         removeExtra(slot.category, slot.level, slot.key)
@@ -317,6 +319,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
+          const requiredGrant = s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster'
           const popupOption = (option: FeatOption) => <li key={`${option.entry.id}:${option.value}`} className="picker-option-row">
             <button type="button" aria-label={`${label}: ${option.label}`} disabled={option.disabled}
               className={option.entry.name === current ? 'active' : undefined}
@@ -376,7 +379,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     </div>}
                     <ul className="feat-modal-list">
                       <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>- empty -</button></li>
-                      {picksType && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
+                      {picksType && s.grantedBy !== 'Eldritch Trickster' && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
                       {suggested.length > 0 && <>
                         <li className="feat-modal-level">Suggested prerequisites</li>
                         {suggested.map(popupOption)}
@@ -406,10 +409,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 </label>}
               </div>}
               <button type="button" aria-label={locked ? `${label} slot is granted by a house rule`
-                : lastSlot ? `Clear ${label} feat selection`
+                : lastSlot || requiredGrant ? `Clear ${label} feat selection`
                 : `Remove ${label}${extra ? ' extra' : ''} feat slot ${s.key.split(':')[2]}`}
-                title={locked ? 'Granted by a house rule' : lastSlot ? 'Clear selection' : 'Remove slot'}
-                disabled={locked || lastSlot && !current}
+                title={locked ? 'Granted by a house rule' : lastSlot || requiredGrant ? 'Clear selection' : 'Remove slot'}
+                disabled={locked || (lastSlot || requiredGrant) && !current}
                 onClick={() => removeSlot(s, extra)}>−</button>
               {firstAtLevel && (!granted || !slots.some((o) => o.category === s.category && o.level === s.level && !isGrantedSlot(o.key)))
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
