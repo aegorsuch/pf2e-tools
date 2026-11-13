@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, MASTERMIND_SKILLS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, MASTERMIND_SKILLS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -205,7 +205,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       return
     }
     if (!missing.length && !stale.length) {
-      if (missingSteed) void save(missingSteed)
+      const migration = migrateAncestralLinguistics(c)
+      if (missingSteed || migration) void save({ ...missingSteed, ...migration })
       return
     }
     const added = missing.map((d) => ({ d, entry: entries.find((e) => e.kind === 'feat' && e.name === d.name)! }))
@@ -219,10 +220,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const savedEthnicity = c.ethnicity?.trim().toLowerCase()
   const unavailableEthnicity = !!savedEthnicity && !ethnicities.some(name => name.toLowerCase() === savedEthnicity)
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
-  const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
-  const dailyLanguages = activeFeatsNamed(c, 'Ancestral Linguistics').flatMap(feat => feat.choice
-    && !knownLanguages.some(language => language.toLowerCase() === feat.choice!.toLowerCase()) ? [feat.choice] : [])
-  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}${dailyLanguages.length ? `; ${dailyLanguages.join(', ')} (temporary)` : ''}`
+  const knownLanguages = [...new Map([...lockedLanguages, ...(migrateAncestralLinguistics(c)?.languages ?? c.languages)].map((l) => [l.toLowerCase(), l])).values()]
+  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
   const of = useMemo(() => {
     const groups = new Map<EntryKind, ContentEntry[]>()
     for (const entry of entries) {

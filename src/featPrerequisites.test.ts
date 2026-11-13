@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, languageAllowance, maxHp, plannedSlots, ranksAt, senses } from './builder'
+import { additionalSkillCount, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses } from './builder'
 import { featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -156,11 +156,6 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
-  it('does not count the temporary Ancestral Linguistics choice as a permanent language', () => {
-    const elf: Character = { ...base, ancestry: 'Elf', feats: [{ ...selected('Ancestral Linguistics'), choice: 'Draconic' }] }
-    expect(languageAllowance(elf, []).locked).not.toContain('Draconic')
-    expect(elf.languages).not.toContain('Draconic')
-  })
   it.each([
     ['Cite the Deep Lore', 'Society', 'Blend In', 'Elf'],
     ["Diplomat's Facade", 'Deception', 'Lie to Me', 'Elf'],

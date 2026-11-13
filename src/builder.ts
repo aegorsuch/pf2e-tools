@@ -2948,6 +2948,14 @@ const allLanguages = (entries: ContentEntry[]) => Object.values(languageGroups(e
 // Languages a class always teaches
 const CLASS_LANGUAGES: Record<string, string[]> = { Druid: ['Wildsong'] }
 
+export function migrateAncestralLinguistics(c: Character): Partial<Character> | undefined {
+  const legacy = activeFeatsNamed(c, 'Ancestral Linguistics').filter(feat => feat.choice?.trim())
+  if (!legacy.length) return undefined
+  const languages = [...new Map([...c.languages, ...legacy.map(feat => feat.choice!.trim())]
+    .map(language => [language.toLowerCase(), language])).values()]
+  return { languages, feats: c.feats.map(feat => legacy.includes(feat) ? { ...feat, choice: undefined } : feat) }
+}
+
 // Fixed languages (Common, ancestry, class) plus how many more the character may pick
 export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
@@ -2966,5 +2974,6 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
   const feats = (prodigy ? 2 : 0) + activeFeatsNamed(c, 'Multilingual').length
     * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0))
-  return { locked, sources, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats }
+  return { locked, sources, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats
+    + activeFeatsNamed(c, 'Ancestral Linguistics').length }
 }
