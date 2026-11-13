@@ -40,6 +40,15 @@ it('skips skill allocation calculations in offense and defense', () => {
   }
 })
 
+it('keeps the primary Mastermind skill choice in Skills', () => {
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Mastermind', rogueRacketSkills: { Mastermind: 'Religion' } }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Mastermind racket skill"')
+  expect(markup).toContain('<option selected="">Religion</option>')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />))
+    .not.toContain('aria-label="Mastermind racket skill"')
+})
+
 it('automatically refunds redundant training while preserving conditional alternate grants', () => {
   const c: Character = { ...base, level: 5, skillPicks: ['Nature', 'Survival'] }
   expect(skillRankBudget(c, [ranger]).trained).toBe(3)

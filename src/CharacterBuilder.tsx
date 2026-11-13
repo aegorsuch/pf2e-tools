@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, MASTERMIND_SKILLS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -359,7 +359,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
           {c.className !== 'Druid' && subclasses.length > 0 && <>
-            <Pick label={c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : 'Subclass'}
+            <Pick label={c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : 'Subclass'}
               kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />
@@ -375,16 +375,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
                 {classSkills(klass).choices.map((s) => <option key={s}>{s}</option>)}
               </SearchableSelect>
           )}
-          {rogueRackets(c, entries).includes('Mastermind') && <label>Mastermind skill{' '}
-            <select aria-label="Mastermind racket skill" value={c.rogueRacketSkills?.Mastermind ?? ''} onChange={event => {
-              const skill = event.target.value
-              if (skill && !MASTERMIND_SKILLS.includes(skill)) return
-              save({ rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: skill } })
-            }}>
-              <option value="">Choose skill</option>
-              {MASTERMIND_SKILLS.map(skill => <option key={skill}>{skill}</option>)}
-            </select>
-          </label>}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>

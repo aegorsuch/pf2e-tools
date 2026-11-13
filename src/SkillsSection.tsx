@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
-  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
+  ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
@@ -314,6 +314,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   return (
     <>
       {!klass && <small>Pick a class to fill in class proficiencies.</small>}
+      {c.className === 'Rogue' && selectedSubclass(c, entries) === 'Mastermind' && <label>Mastermind skill{' '}
+        <select aria-label="Mastermind racket skill" value={c.rogueRacketSkills?.Mastermind ?? ''} onChange={event => {
+          const skill = event.target.value
+          if (skill && !MASTERMIND_SKILLS.includes(skill)) return
+          save({ rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: skill } })
+        }}>
+          <option value="">Choose skill</option>
+          {MASTERMIND_SKILLS.map(skill => <option key={skill}>{skill}</option>)}
+        </select>
+      </label>}
       <div className="skill-rank-budget" aria-label="Remaining skill selections">
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>

@@ -27,16 +27,20 @@ it('shows Free Heart background selection in Background only while the feat is a
   } finally { content.entries = [] }
 })
 
-it('shows Mastermind skill selection for an additional racket', () => {
+it('labels Rogue subclass as Racket without duplicating an additional Mastermind skill selector', () => {
+  const racket: ContentEntry = { id: 'thief', systems: ['pf2e'], kind: 'subclass', source: 'official', name: 'Thief',
+    level: 1, traits: [], description: '', data: { class: 'Rogue' }, effects: [], updatedAt: 0 }
+  content.entries = [racket]
   const c: Character = { id: 'mastermind', systems: ['pf2e'], name: 'Test', level: 10, className: 'Rogue', subclass: 'Thief',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Mastermind' }],
-    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
-  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toContain('aria-label="Mastermind racket skill"')
-  for (const skill of ['Arcana', 'Nature', 'Occultism', 'Religion']) expect(markup).toContain(`<option>${skill}</option>`)
-  expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, level: 9 }} onClose={() => {}} />))
-    .not.toContain('aria-label="Mastermind racket skill"')
+    rogueRacketSkills: { Mastermind: 'Religion' }, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('aria-label="Racket"')
+    expect(markup).not.toContain('aria-label="Subclass"')
+    expect(markup).not.toContain('aria-label="Mastermind racket skill"')
+  } finally { content.entries = [] }
 })
 
 it('imports druidic orders as subclass descriptions without adding a second primary picker', () => {
