@@ -14,8 +14,10 @@ interface AchievementOption {
 }
 
 const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
-const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall)\b/i
+const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall|tian xia origin)\b/i
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
+const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
+const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
   'knights of lastwall',
@@ -26,6 +28,7 @@ const lastwallAccess = new Set([
 
 export function achievementKey(access: string) {
   const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
+  if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
 }
 
@@ -41,19 +44,25 @@ function achievementLabel(requirement: string) {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
+function narrativeRequirement(entry: ContentEntry, access: string) {
+  return ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name) && achievementKey(access) === 'from nidal'
+    ? NIDAL_HUSBANDRY : access
+}
+
 export function achievementOptions(entries: ContentEntry[]) {
   const cached = achievementCache.get(entries)
   if (cached) return cached
   const options = new Map<string, AchievementOption>()
   for (const entry of entries) {
     if (entry.deleted || entry.kind !== 'feat') continue
-    const requirement = String(entry.data.access ?? '').trim().replace(/\s+/g, ' ')
+    const requirement = narrativeRequirement(entry, String(entry.data.access ?? '').trim().replace(/\s+/g, ' '))
     if (!narrativeAccess.test(requirement)) continue
     const key = achievementKey(requirement)
     const existing = options.get(key)
     if (existing) {
       if (!existing.feats.includes(entry.name)) existing.feats.push(entry.name)
-    } else options.set(key, { key, requirement: key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_MEMBERSHIP : achievementLabel(requirement), feats: [entry.name] })
+    } else options.set(key, { key, requirement: key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_MEMBERSHIP
+      : key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : achievementLabel(requirement), feats: [entry.name] })
   }
   const result = [...options.values()].sort((a, b) => a.requirement.localeCompare(b.requirement))
   for (const option of result) option.feats.sort((a, b) => a.localeCompare(b))
@@ -88,7 +97,8 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
   const access = String(entry.data.access ?? '').trim().replace(/\s+/g, ' ')
   if (!access || /^(?:(?:rarity|access)\s*:\s*)?(?:uncommon|rare|unique)(?:\s+(?:feat|option))?[.!?]?$/i.test(access)) return undefined
   const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase())
-  const achievement = narrativeAccess.test(access) && c.achievements?.some(value => achievementKey(value) === achievementKey(access))
+  const narrative = narrativeRequirement(entry, access)
+  const achievement = narrativeAccess.test(narrative) && c.achievements?.some(value => achievementKey(value) === achievementKey(narrative))
   return {
     requirement: access,
     automatic: ethnicity || !!achievement,

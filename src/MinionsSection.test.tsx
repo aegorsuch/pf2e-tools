@@ -28,6 +28,28 @@ function findToggle(node: ReactNode, label: string): ((event: { target: { checke
   return found
 }
 
+it('uses full companion stat names, omits redundant level, and keeps AC adjustment sources inside its popover', () => {
+  const c: Character = {
+    id: 'labels', systems: ['pf2e'], name: 'Test', level: 7, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: '' }], activeSpells: ['Magic Hide', 'Enlarge Companion'],
+    spells: [{ name: 'Magic Hide', rank: 1, cantrip: false }, { name: 'Enlarge Companion', rank: 2, cantrip: false }],
+  }
+  const cat: ContentEntry = {
+    id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat', level: 1,
+    traits: [], description: '', data: { size: 'Medium', hp: 6 }, effects: [], updatedAt: 1,
+  }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[cat]} save={() => {}} />)
+  for (const label of ['Hit Points', 'Armor Class', 'Fortitude', 'Reflex', 'Strength', 'Dexterity',
+    'Constitution', 'Intelligence', 'Wisdom', 'Charisma']) expect(markup).toContain(`<small>${label}</small>`)
+  for (const label of ['Level', 'HP', 'AC', 'Fort', 'Ref', 'Str', 'Dex', 'Con', 'Int', 'Wis', 'Cha'])
+    expect(markup).not.toContain(`<small>${label}</small>`)
+  expect(markup).toContain('aria-label="Magic Hide, Enlarge Companion note"')
+  expect(markup).not.toContain('</button> (Magic Hide, Enlarge Companion)')
+  expect(markup).toContain('+1 Status (Magic Hide); -1 Status (clumsy 1; Enlarge Companion)')
+})
+
 it('syncs companion spell toggles in both directions, persists targets, and gates heightened choices', () => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Test', level: 6, className: 'Ranger',

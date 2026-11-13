@@ -57,18 +57,45 @@ export function ancestryLabel(ancestry?: string, heritage?: string) {
 export const characterSummary = (c: Character, entries: ContentEntry[]) =>
   [ancestryLabel(c.ancestry, c.heritage), classLabel(c, entries), c.level].filter((value) => value !== '').join(' ')
 
-// A heritage belongs to an ancestry via its ancestry field (SF2e id or AoN field) or ancestry trait;
-// heritages naming no ancestry (versatile ones) are offered to everyone. Both systems' heritages are merged.
+// PF2e's index omits parent ancestry. Exceptional names are verified against AoN ancestry heritage listings.
+const HERITAGE_PARENTS = new Map(Object.entries({
+  Human: ['Half-Elf', 'Half-Orc'],
+  Conrasu: ['Rite of Light', 'Rite of Passage', 'Rite of Reinforcement', 'Rite of Invocation', 'Rite of Knowing'],
+  Ghoran: ['Ancient Ash', 'Enchanting Lily', 'Strong Oak', 'Thorned Rose'],
+  Kashrishi: ['Athamasi', 'Lethoci', 'Nascent', 'Trogloshi', 'Xyloshi'],
+  'Awakened Animal': ['Climbing Animal', 'Flying Animal', 'Running Animal', 'Swimming Animal'],
+  Ratfolk: ['Deep Rat', 'Desert Rat', 'Longsnout Rat', 'Sewer Rat', 'Shadow Rat', 'Snow Rat', 'Tunnel Rat'],
+  Wayang: ['Shadow of the Courtier', 'Shadow of the Hermit', 'Shadow of the Sailor', 'Shadow of the Smith', 'Shadow of the Wanderer'],
+  Yaksha: ['Deny the Firstborn Pursuit', "Deny Lady Nanbyo's Charity", "Deny the Traitor's Rebirth",
+    'Respite of Cloudless Paths', 'Respite of Loam and Leaf', 'Respite of a Thousand Roofs'],
+  Yaoguai: ['Born of Animal', 'Born of Celestial', 'Born of Elements', 'Born of Item', 'Born of Vegetation'],
+  Dragonet: ['Homing Drake', 'House Drake'],
+  Sprite: ['Dijiang'],
+}).flatMap(([ancestry, names]) => names.map(name => [slug(name), slug(ancestry)] as const)))
+
+const VERSATILE_HERITAGES = new Set([
+  'Aasimar', 'Aphorite', 'Ganzi', 'Tiefling', 'Ifrit', 'Oread', 'Suli', 'Sylph', 'Undine', 'Ardande', 'Talos',
+  'Changeling', 'Nephilim', 'Aiuvarin', 'Dromaar', 'Dhampir', 'Dragonblood', 'Duskwalker', 'Hungerseed',
+  'Reflection', 'Fadrim', 'Beastkin',
+].map(slug))
+
 export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
-  const all = entries.filter((e) => e.kind === 'heritage')
+  const all = entries.filter((e) => e.kind === 'heritage' && !e.deleted)
   if (!ancestry) return all
   const target = slug(ancestry)
-  const names = new Set(entries.filter((e) => e.kind === 'ancestry').map((e) => slug(e.name)))
+  const names = new Set([target, ...entries.filter((e) => e.kind === 'ancestry' && !e.deleted).map((e) => slug(e.name))])
   return all.filter((e) => {
     const linked = e.data.ancestry ? slug(String(e.data.ancestry)) : ''
     if (linked) return linked === target
+    const name = slug(e.name)
+    if (VERSATILE_HERITAGES.has(name) || e.data.versatile === true || e.traits.some(trait => slug(trait) === 'versatile')) return true
     const tagged = e.traits.map(slug).filter((t) => names.has(t))
-    return tagged.length === 0 || tagged.includes(target)
+    if (tagged.length) return tagged.includes(target)
+    const parent = HERITAGE_PARENTS.get(name)
+    if (parent) return parent === target
+    const named = [...names].filter(ancestry => name.endsWith(`-${ancestry}`))
+    if (named.length) return named.includes(target)
+    return e.source === 'homebrew'
   })
 }
 
@@ -2054,8 +2081,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const flat = !ranged || thrown ? str : traits.includes('propulsive') ? Math.floor(str / 2) : 0
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
-    c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, w.name)
-    || c.level >= 4 && hasFeat(c, 'Verdant Weapon Jousting') && w.verdantWeapon
+    c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
+    || c.level >= 4 && hasFeat(c, 'Verdant Weapon Jousting') && !!livingSource?.verdantWeapon && canBeVerdantWeapon(c, entries, livingSource)
     || c.level >= 14 && hasFeat(c, 'Living Weapon Joust') && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource))
   const pristineLivingWeapon = c.level >= 14
     && ['Pristine Living Weapon', 'Living Weapon', 'Wild Hunter Dedication'].every((name) => hasFeat(c, name))

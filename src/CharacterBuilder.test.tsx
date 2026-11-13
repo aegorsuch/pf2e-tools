@@ -8,6 +8,25 @@ import type { Character, ContentEntry } from './types'
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
 
+it('preserves an incompatible saved heritage as disabled rather than selectable or silently erased', () => {
+  content.entries = [
+    { id: 'human', kind: 'ancestry', name: 'Human' },
+    { id: 'dwarf', kind: 'ancestry', name: 'Dwarf' },
+    { id: 'underground', kind: 'heritage', name: 'Underground Dwarf' },
+  ].map(entry => ({ ...entry, kind: entry.kind as ContentEntry['kind'], systems: ['pf2e'], source: 'official',
+    level: 0, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }))
+  const c: Character = {
+    id: 'heritage-test', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human', heritage: 'Underground Dwarf',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('value="Underground Dwarf" disabled="" selected="">Underground Dwarf (not available for this ancestry)</option>')
+    expect(c.heritage).toBe('Underground Dwarf')
+  } finally { content.entries = [] }
+})
+
 it('restores Pioneer protection and terrain choices and hides them for other heritages', () => {
   const c: Character = {
     id: 'pioneer', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Human', heritage: 'Pioneer Human',

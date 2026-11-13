@@ -510,6 +510,7 @@
 .gear-card[open] > summary::before { transform: rotate(45deg); }
 .gear-traits { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .gear-traits span { padding: 0.1rem 0.5rem; border-radius: 4px; background: var(--border, #2c3340); font-size: 0.8rem; }
+.gear-traits .gear-trait { padding: 0.1rem 0.5rem; border-radius: 4px; background: var(--border, #2c3340); font-size: 0.8rem; }
 .gear-stats { display: flex; flex-wrap: wrap; gap: 1rem; }
 .gear-stats span { display: flex; flex-direction: column; align-items: center; font-size: 0.9rem; }
 .gear-stats small { opacity: 0.7; font-size: 0.8em; }

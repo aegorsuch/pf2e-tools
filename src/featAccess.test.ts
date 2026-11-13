@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { achievementOptions, ethnicityOptions, featAccess, featRarity } from './featAccess'
+import { eligibleFeats } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -11,6 +12,43 @@ const feat: ContentEntry = {
   id: 'witch-warden', name: 'Witch Warden', kind: 'feat', systems: ['pf2e'], source: 'official', level: 1,
   traits: ['Human', 'Uncommon'], data: { access: 'Kellid ethnicity' }, description: '', effects: [], updatedAt: 1,
 }
+
+it('shares Tian elementalism access with Intensified Element Stance without bypassing Medicine training', () => {
+  const label = 'Tian Xia origin or exposure to Tian elementalism'
+  const intensified: ContentEntry = { ...feat, name: 'Intensified Element Stance', level: 6, traits: ['Ranger'],
+    data: { access: 'Tian Xia origin', prerequisite: 'Trained in Medicine' } }
+  const dedication = { ...feat, id: 'vanguard', name: 'Five-breath Vanguard Dedication', data: { access: label } }
+  expect(achievementOptions([intensified, dedication])).toEqual([{
+    key: label.toLowerCase(), requirement: label, feats: ['Five-breath Vanguard Dedication', 'Intensified Element Stance'],
+  }])
+  const c: Character = { ...character, className: 'Ranger', level: 6, achievements: [label], skillPicks: ['Medicine'] }
+  const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+  expect(featAccess(c, intensified)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess({ ...c, achievements: ['Tian Xia origin'] }, intensified)?.automatic).toBe(true)
+  expect(eligibleFeats([intensified], c, slot)).toContain(intensified)
+  expect(eligibleFeats([intensified], { ...c, skillPicks: [] }, slot)).not.toContain(intensified)
+  expect(featAccess({ ...c, achievements: [] }, intensified)?.automatic).toBe(false)
+})
+
+it('grants both Nidal steed access through husbandry while still requiring a horse, not just another companion', () => {
+  const label = 'Nidal origin or exposure to Nidalese husbandry'
+  const steeds: ContentEntry[] = ['Chiardmar Steed', 'Nidarrmar Steed'].map(name => ({
+    ...feat, id: name, name, level: 6, traits: ['Ranger'], data: { access: 'You’re from Nidal.', prerequisite: 'horse animal companion' },
+  }))
+  expect(achievementOptions(steeds)).toEqual([{
+    key: label.toLowerCase(), requirement: label, feats: ['Chiardmar Steed', 'Nidarrmar Steed'],
+  }])
+  const c: Character = { ...character, className: 'Ranger', level: 6, achievements: [label] }
+  const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+  for (const steed of steeds) {
+    expect(featAccess(c, steed)).toMatchObject({ automatic: true, source: 'achievement' })
+    expect(featAccess({ ...c, achievements: [] }, steed)?.automatic).toBe(false)
+  }
+  expect(eligibleFeats(steeds, c, slot)).toEqual([])
+  expect(eligibleFeats(steeds, { ...c, companions: [{ id: 'wolf', type: 'Wolf', name: 'Wolf' }] }, slot)).toEqual([])
+  expect(eligibleFeats(steeds, { ...c, companions: [{ id: 'horse', type: 'Horse', name: 'Horse' }] }, slot)).toEqual(steeds)
+  expect(featAccess(c, { ...steeds[0], name: 'Unrelated Nidal Feat' })?.automatic).toBe(false)
+})
 
 it('separates ethnicity access, exact-entry approval and ordinary unrestricted feats', () => {
   expect(featAccess(character, feat)).toEqual({ requirement: 'Kellid ethnicity', automatic: true, approved: false, source: 'ethnicity' })

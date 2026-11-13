@@ -15,7 +15,10 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   return (
     <>
       <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${name}` : undefined}
-        aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+        aria-haspopup="dialog" onClick={() => {
+          dialog.current?.showModal()
+          dialog.current?.querySelector('h4')?.focus()
+        }}>
         {buttonLabel ?? name}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
           aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
         {featActions && !buttonLabel && <> <ActionIcon entry={entry} /></>}
@@ -23,7 +26,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-        <h4 id={titleId}>{name}{featActions && <> <ActionIcon entry={entry} /></>}{entry && <small> (Level {entry.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
+        <h4 id={titleId} tabIndex={-1}>{name}{featActions && <> <ActionIcon entry={entry} /></>}{entry && entry.kind !== 'trait' && <small> (Level {entry.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
         {!!prerequisites?.missing.length && <p className="feat-prerequisite-note" role="status">
           Prerequisites unmet: {prerequisites.missing.join('; ')}
         </p>}

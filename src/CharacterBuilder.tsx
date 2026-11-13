@@ -45,6 +45,7 @@ function Pick({ label, kind, value, options, onChange }: {
     // Populate before the browser opens its native select popup.
     if (!ready) flushSync(() => setReady(true))
   }
+  const unavailable = kind === 'heritage' && !!value && !labels.has(value)
   return (
       <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare} optionCount={labels.size}
         renderDetails={name => {
@@ -53,7 +54,9 @@ function Pick({ label, kind, value, options, onChange }: {
         }}
         onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
         <option value="">No {kind}</option>
-        {value && (!ready || !labels.has(value)) && <option value={value}>{labels.get(value) ?? value}</option>}
+        {value && (!ready || !labels.has(value)) && <option value={value} disabled={unavailable}>
+          {labels.get(value) ?? (unavailable ? `${value} (not available for this ancestry)` : value)}
+        </option>}
         {choices}
       </SearchableSelect>
   )

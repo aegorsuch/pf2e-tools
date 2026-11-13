@@ -1,14 +1,13 @@
 import { Info, SourceNote } from './Info'
 import { confirmRemoval } from './confirmRemoval'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
-import { isMagicHideActive, knowsSpell, magicHideChange, signed, type SectionProps } from './builder'
+import { ABILITY_LABEL, ABILITIES, isMagicHideActive, knowsSpell, magicHideChange, signed, type SectionProps } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
-const ABILITY_NAMES = { str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha' } as const
 
 export function MinionsSection({ c, entries, save }: SectionProps) {
   const companions = c.companions ?? []
@@ -105,17 +104,16 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   </div>
                   {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                   <div className="gear-stats">
-                    <span><small>Level</small><b>{stats.level}</b></span>
-                    <span><small>HP</small><b>{stats.hp}</b></span>
-                    <span><small>AC</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} />}</b></span>
+                    <span><small>Hit Points</small><b>{stats.hp}</b></span>
+                    <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
                     <span><small>Perception</small><b>{signed(stats.perception)}</b></span>
-                    <span><small>Fort</small>{signed(stats.fortitude)}</span>
-                    <span><small>Ref</small>{signed(stats.reflex)}{clumsyNote && <SourceNote source="Enlarge Companion" note={clumsyNote} />}</span>
+                    <span><small>Fortitude</small>{signed(stats.fortitude)}</span>
+                    <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote && <SourceNote source="Enlarge Companion" note={clumsyNote} />}</span>
                     <span><small>Will</small>{signed(stats.will)}</span>
                     {stats.enlarge && enlargeNote && <span><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet<SourceNote source="Enlarge Companion" note={enlargeNote} /></span>}
                   </div>
                   <div className="gear-stats">
-                    {(Object.keys(ABILITY_NAMES) as (keyof typeof ABILITY_NAMES)[]).map((k) => <span key={k}><small>{ABILITY_NAMES[k]}</small>{signed(stats.mods[k])}</span>)}
+                    {ABILITIES.map(k => <span key={k}><small>{ABILITY_LABEL[k]}</small>{signed(stats.mods[k])}</span>)}
                   </div>
                   <div><small>Speed</small> <span>{stats.speed}{stats.canopyCrawler
                     && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>

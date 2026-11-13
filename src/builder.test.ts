@@ -757,6 +757,25 @@ describe('configured gear', () => {
 })
 
 describe('heritagesFor', () => {
+  it('filters untagged PF heritages by ancestry without losing versatile or unusually named choices', () => {
+    const list = [
+      ...['Human', 'Dwarf', 'Elf', 'Conrasu', 'Ghoran', 'Ratfolk', 'Sprite'].map(name => entry('ancestry', name)),
+      ...['Underground Dwarf', 'Rock Dwarf', 'Ancient Elf', 'Skilled Human', 'Versatile Human',
+        'Rite of Light', 'Ancient Ash', 'Deep Rat', 'Dijiang', 'Half-Elf', 'Dragonblood', 'Aiuvarin', 'Changeling'].map(name => entry('heritage', name)),
+      { ...entry('heritage', 'Custom Unrestricted'), source: 'homebrew' as const },
+      entry('heritage', 'Unclassified Official'),
+    ]
+    expect(heritagesFor(list, 'Human').map(entry => entry.name).sort()).toEqual([
+      'Aiuvarin', 'Changeling', 'Custom Unrestricted', 'Dragonblood', 'Half-Elf', 'Skilled Human', 'Versatile Human',
+    ])
+    for (const [ancestry, name] of [['Dwarf', 'Rock Dwarf'], ['Conrasu', 'Rite of Light'], ['Ghoran', 'Ancient Ash'],
+      ['Ratfolk', 'Deep Rat'], ['Sprite', 'Dijiang']]) {
+      expect(heritagesFor(list, ancestry).map(entry => entry.name)).toContain(name)
+    }
+    expect(heritagesFor(list, 'Elf').map(entry => entry.name)).not.toContain('Half-Elf')
+    expect(heritagesFor([{ ...entry('heritage', 'Skilled Human'), deleted: true }], 'Human')).toEqual([])
+  })
+
   it('offers PF2e (trait-tagged) and SF2e (linked) heritages together, plus versatile ones', () => {
     const list = [
       entry('ancestry', 'Gnome'), entry('ancestry', 'Elf'),

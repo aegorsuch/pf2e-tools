@@ -25,6 +25,26 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it('displays locked Living Weapon fundamentals as rune text while retaining genuinely editable upgrades', () => {
+  const c: Character = { ...character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], true), level: 20 }
+  const render = (character: Character) => {
+    const card = findElement(WeaponList({ c: character, entries: [weapon], save: () => {} }),
+      element => element.type === 'details' && element.props['aria-label'] === weapon.name)!
+    return renderToStaticMarkup(card)
+  }
+  const locked = render(c)
+  expect(locked).toContain('<span>Potency <b>+3</b></span>')
+  expect(locked).toContain('<span>Striking <b>Major Striking</b></span>')
+  expect(locked).not.toContain('<label>Potency')
+  expect(locked).not.toContain('<label>Striking')
+  const upgradeable = render({ ...c, level: 10 })
+  expect(upgradeable).toContain('<label>Potency <select')
+  expect(upgradeable).toContain('<label>Striking <select')
+  const ordinary = render({ ...c, feats: [] })
+  expect(ordinary).toContain('<label>Potency <select')
+  expect(ordinary).toContain('<label>Striking <select')
+})
+
 it('shows precise Bulk thresholds and Hardy Traveler contribution without claiming to measure carried inventory', () => {
   const c: Character = { ...character([{ name: 'Hardy Traveler', level: 9, type: 'Ancestry Feat', slot: 'ancestry:9:0' }]),
     abilities: { ...character([]).abilities, str: 14 } }
@@ -441,7 +461,7 @@ it('adds Hooked Trip trait without adding damage or duplicating a natural Trip t
     expect(markup).not.toContain('class="gear-damage"')
     expect(markup).toContain('Damage 2d8 S')
     expect(markup).not.toContain('slashing + Hooked')
-    expect(markup.match(/<span>Trip<\/span>/g)).toHaveLength(1)
+    expect(markup.match(/class="gear-trait" aria-haspopup="dialog">Trip<\/button>/g)).toHaveLength(1)
     expect(markup).toContain('aria-label="Remove Hooked rune"')
   }
 })
@@ -510,6 +530,13 @@ it.each(ARMOR_GAUNTLETS)('inherits plate material and fundamentals for armor-pro
   expect(material()).toBeUndefined()
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Orichalcum</button>')
   expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 0, striking: 0, runes: [] })
+  const card = findElement(WeaponList({ c, entries: [], save: () => {} }),
+    element => element.type === 'details' && element.props['aria-label'] === name)!
+  const markup = renderToStaticMarkup(card)
+  expect(markup).toContain('<span>Potency <b>None</b></span>')
+  expect(markup).toContain('<span>Striking <b>None</b></span>')
+  expect(markup).not.toContain('<label>Potency')
+  expect(markup).not.toContain('<label>Striking')
   expect(effectiveWeapon(c, [], { ...saved, id: 'purchased' }).material).toBe('Peachwood (Standard-Grade)')
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: undefined })) }
   expect(material()).toBeUndefined()

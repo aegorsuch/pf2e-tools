@@ -50,7 +50,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: (['feat', 'spell', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
+    description: (['feat', 'spell', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
       || kind === 'item' && usesFullItemRules(s)) && text(s.markdown).trim()
       ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
     data,

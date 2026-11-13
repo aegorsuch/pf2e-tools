@@ -7,6 +7,7 @@ import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { GearTraits } from './GearTraits'
 import { SearchableSelect } from './SearchableSelect'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
@@ -179,6 +180,9 @@ function Level({ label, value, options, format, onChange, disabled, minimum = 0 
   disabled?: boolean
   minimum?: number
 }) {
+  if (disabled || !options.some(option => option >= minimum && option !== value)) {
+    return <span>{label} <b>{format(value)}</b></span>
+  }
   return (
     <label>{label}{' '}
       <select value={value} disabled={disabled} onChange={(e) => {
@@ -329,7 +333,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               </select>
             </label>}
             {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
-            {a.traits.length > 0 && <div className="gear-traits">{a.traits.map((t) => <span key={t}>{t}</span>)}</div>}
+            {a.traits.length > 0 && <GearTraits traits={a.traits} entries={entries} system={a.entry?.systems[0]} />}
             <div className="gear-stats">
               <span><small>Attack</small><b>{signed(a.attack)}</b></span>
               {a.range > 0 && <span><small>Range</small><b>{a.range} feet</b></span>}
@@ -461,7 +465,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
-            {entry && entry.traits.length > 0 && <div className="gear-traits">{entry.traits.map((t) => <span key={t}>{t}</span>)}</div>}
+            {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
             {entry && (
               <div className="gear-stats">
                 <span><small>Armor Class</small><b>{String(entry.data.ac ?? '—')}</b></span>

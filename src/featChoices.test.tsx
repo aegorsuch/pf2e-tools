@@ -183,7 +183,7 @@ it('imports archetype-specific levels for additional class feats', () => {
   expect(mapped?.data.archetype).toBe('Cavalier')
 })
 
-it('retains full feat, spell, and rune descriptions through snapshot fetching and mapping', async () => {
+it('retains full feat, spell, trait, and rune descriptions through snapshot fetching and mapping', async () => {
   const markdown = '**Full rules**\n\n' + 'Long rules paragraph. '.repeat(100) + '\n\nFinal rule must remain.'
   const fetchFn: typeof fetch = async (_url, init) => {
     const request = JSON.parse(String(init?.body)) as { query: { bool: { filter: { term: { category: string } }[] } } }
@@ -194,7 +194,7 @@ it('retains full feat, spell, and rune descriptions through snapshot fetching an
     }] } }), { status: 200 })
   }
   const hits = await fetchAonHits('pf2e', fetchFn)
-  for (const category of ['feat', 'spell', 'equipment']) {
+  for (const category of ['feat', 'spell', 'trait', 'equipment']) {
     const hit = hits.find((h) => h._id === category)!
     expect(hit._source?.markdown).toBe(markdown)
     const description = mapAonHit(hit, 'pf2e')?.description

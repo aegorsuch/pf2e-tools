@@ -2,7 +2,7 @@ export type GameSystem = 'pf2e' | 'sf2e'
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
-  | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass' | 'familiar'
+  | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass' | 'familiar' | 'trait'
 export type Source = 'official' | 'homebrew'
 export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
 

@@ -528,11 +528,27 @@ it('grants Living Weapon Joust to the one-handed haft attack, not its two-handed
   const haft = ownedWeapons(c, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
   expect(weaponAttack(c, entries, haft).entry?.data.hands).toBe(1)
   expect(weaponAttack(c, entries, haft).traits).toContain('Jousting')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />))
+    .toContain('class="gear-trait" aria-haspopup="dialog">Jousting</button>')
   expect(weaponAttack(c, [spear], source).traits).not.toContain('Jousting')
   expect(weaponAttack({ ...c, level: 13 }, [spear], haft).traits).not.toContain('Jousting')
   expect(weaponAttack({ ...c, feats: c.feats.filter(feat => feat.name !== 'Living Weapon Joust') }, [spear], haft).traits).not.toContain('Jousting')
   expect(weaponAttack({ ...c, weapons: [{ ...source, livingWeapon: false }] }, [spear], haft).traits).not.toContain('Jousting')
   expect(weaponAttack({ ...c, weapons: [] }, [spear], haft).traits).not.toContain('Jousting')
+})
+
+it.each(['Verdant Weapon Jousting', 'Favored Weapon Jousting'])('uses the selected haft source for %s', name => {
+  const spear = content('weapon', 'Spear', { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' })
+  const source = { ...main, name: spear.name, verdantWeapon: name === 'Verdant Weapon Jousting' }
+  const c: Character = { ...base, level: 10, weapons: [source],
+    feats: [feat(name, 4), feat('Haft Striker Stance', 4)] }
+  const patron = { ...deity, data: { ...deity.data, favored_weapon: spear.name } }
+  const entries = [spear, patron]
+  const haft = ownedWeapons(c, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
+  expect(weaponAttack(c, entries, haft).traits).toContain('Jousting')
+  expect(weaponAttack(c, entries, source).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, feats: c.feats.filter(feat => feat.name !== name) }, entries, haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, level: 3 }, entries, haft).traits).not.toContain('Jousting')
 })
 
 it.each([[5, 'Low-Grade'], [9, 'Low-Grade'], [10, 'Standard-Grade'], [15, 'Standard-Grade'], [16, 'High-Grade']] as const)('scales locked Cold Iron Tusks material at level %i without granting independent unarmed runes', (level, grade) => {
@@ -832,9 +848,9 @@ it('syncs Magic Hide across spells and companion controls and marks only the aff
     const spells = renderToStaticMarkup(<SpellsSection c={changed} entries={[cat]} save={() => {}} />)
     expect(minions).toContain(`aria-label="Magic Hide on B"${active ? ' checked=""' : ''}`)
     expect(spells).toContain(`aria-label="Magic Hide active"${active ? ' checked=""' : ''}`)
-    expect(minions.match(/title="\+1 Status \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 1 : 0)
+    expect(minions.match(/title="\+1 Status \(Magic Hide\) \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 1 : 0)
     expect(changed.activeSpells).toContain('Keen Smell')
-    if (active) expect(minions).toMatch(/<b>\d+<button[^>]*>\*<\/button> \(Magic Hide\)/)
+    if (active) expect(minions).toMatch(/<b>\d+<button[^>]*>\*<\/button><span[^>]*popover="auto"/)
   }
 })
 

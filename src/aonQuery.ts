@@ -47,6 +47,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   class: 'class',
   background: 'background',
   heritage: 'heritage',
+  trait: 'trait',
   deity: 'deity',
   'class-feature': 'classFeature',
   language: 'language',
@@ -222,7 +223,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.support) s.companion_support = comp.support
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
         }
-        if (!['feat', 'spell', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
+        if (!['feat', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
           && !(category === 'equipment' && usesFullItemRules(s))) delete s.markdown
       }
       hits.push(hit)
