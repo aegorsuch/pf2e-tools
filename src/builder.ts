@@ -1692,6 +1692,10 @@ function groupRanks<G extends string>(c: Character, entries: ContentEntry[], gro
       if (!applies(m[1])) continue
       for (const g of mentioned(m[1])) ranks[g] = Math.max(ranks[g], rankFromText(m[2]))
     }
+    for (const m of f.description.matchAll(/(?:gain (expert|master|legendary) proficiency in|proficiency ranks? increases? to (expert|master|legendary) for) ([^.]+)/gi)) {
+      if (!applies(m[3])) continue
+      for (const g of mentioned(m[3])) ranks[g] = Math.max(ranks[g], rankFromText(m[1] || m[2]))
+    }
   }
   return ranks
 }

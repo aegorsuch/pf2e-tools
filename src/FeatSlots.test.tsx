@@ -631,6 +631,31 @@ it('alphabetizes selected feat rows within each level without moving their slot 
   expect(markup.slice(markup.indexOf('>Aardvark</button>'))).toContain('Add L02 Class feat slot')
 })
 
+it('alphabetizes skill feats from all sources within their acquisition level', () => {
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 2, background: 'Scholar',
+    extraSlots: [{ category: 'skill', level: 1, count: 3 }],
+    feats: [
+      { name: 'Cite the Deep Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: "Diplomat's Facade", type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1' },
+      { name: 'Zebra', type: 'Skill Feat', level: 1, slot: 'skill:1:0' },
+      { name: 'Acrobatics', type: 'Skill Feat', level: 1, slot: 'skill:1:1' },
+      { name: 'Aardvark', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
+    ] }
+  const background: ContentEntry = { id: 'scholar', name: 'Scholar', kind: 'background', source: 'official',
+    systems: ['sf2e'], level: 1, traits: [], description: '', data: { feat: 'Assurance' }, effects: [], updatedAt: 0 }
+  const assurance: ContentEntry = { ...background, id: 'assurance', name: 'Assurance', kind: 'feat',
+    traits: ['General', 'Skill'], data: {} }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[background, assurance]} save={() => {}} categories={['skill']} />)
+  const names = ['>Acrobatics</button>', '>Assurance <small>', '>Blend In <small>',
+    '>Lie to Me <small>', '>Zebra</button>', 'aria-label="L01 Skill feat"', '>Aardvark</button>']
+  for (const name of names) expect(markup).toContain(name)
+  const positions = names.map(name => markup.indexOf(name))
+  expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  expect(markup.slice(markup.indexOf('>Acrobatics</button>'), markup.indexOf('>Assurance <small>')))
+    .toContain('Remove L01 Skill extra feat slot 1')
+  expect(markup.match(/>Level 01<\/li>/g)).toHaveLength(1)
+})
+
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 13, ancestry: 'Human',

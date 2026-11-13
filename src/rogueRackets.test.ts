@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { armorRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, weaponAttack } from './builder'
+import { armorRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, weaponAttack, weaponRanks } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { WeaponList } from './GearSection'
 import { homebrewCharacterOptions } from './supplemental'
@@ -20,6 +20,20 @@ it('grants primary racket skills and thief damage without adding Dexterity to th
   expect(weaponAttack(base, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('1d4+4 piercing')
   const thrown = { ...dagger, traits: ['Finesse', 'Thrown'], data: { ...dagger.data, weapon_type: 'Ranged' } }
   expect(weaponAttack(base, [thrown], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('1d4+1 piercing')
+})
+
+it('scales Rogue weapon proficiency at levels 5 and 13 from its class features', () => {
+  const klass: ContentEntry = { ...rogue, data: { attack_proficiency: 'Trained in simple weapons, Trained in martial weapons, Trained in unarmed attacks' } }
+  const tricks: ContentEntry = { ...rogue, id: 'tricks', kind: 'classFeature', name: 'Weapon Tricks', level: 5,
+    data: { class: 'Rogue' }, description: 'You gain expert proficiency in simple weapons, martial weapons, and unarmed attacks.' }
+  const master: ContentEntry = { ...tricks, id: 'master-tricks', name: 'Master Tricks', level: 13,
+    description: 'Your proficiency ranks increase to master for all simple weapons, martial weapons, and unarmed attacks.' }
+  const entries = [klass, tricks, master, dagger]
+  for (const [level, rank] of [[1, 1], [4, 1], [5, 2], [12, 2], [13, 3], [20, 3]]) {
+    const c = { ...base, level }
+    expect(weaponRanks(c, entries)).toEqual({ Simple: rank, Martial: rank, Advanced: 0, Unarmed: rank })
+    expect(weaponAttack(c, entries, { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).rank).toBe(rank)
+  }
 })
 
 it('auto-scales racket skills despite lower saved overrides, only after acquisition', () => {

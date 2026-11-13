@@ -217,7 +217,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         ? [{ kind: 'automatic' as const, level: featTakenLevel(feat),
           feat: { name: 'Assurance', source: `Carry Their Memories (${feat.choice}; temporary)`, level: featTakenLevel(feat) } }] : []) : []),
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
-  ].sort((a, b) => a.level - b.level)
+  ].sort((a, b) => {
+    if (a.level !== b.level) return a.level - b.level
+    if (categories?.length !== 1 || categories[0] !== 'skill') return 0
+    const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.feat
+    const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.feat
+    if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
+    return compareFeatSelections(aFeat, bFeat)
+  })
   const Wrapper = bare ? 'div' : 'details'
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
