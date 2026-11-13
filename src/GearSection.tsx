@@ -478,6 +478,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {w.stowed && ' (stowed)'}
           </small>
           {a.traits.length > 0 && <small> {a.traits.join(', ')}</small>}
+          {a.thrownRange > 0 && <small>Thrown range {a.thrownRange} feet</small>}
           {untamedPersistent && <small> {untamedPersistent}</small>}
           {avengerNote && <small> {avengerNote}</small>}
         </div>
@@ -519,7 +520,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <div className="gear-stats">
               <span><small>Attack</small><b><TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal /></b></span>
               {a.range > 0 && <span><small>Range</small><b>{a.range} feet</b></span>}
-              {a.thrownRangeBonus > 0 && !a.range && <span><small>Thrown range</small>+{a.thrownRangeBonus} feet (Strong Arm)</span>}
+              {a.thrownRange > 0 && <span><small>Thrown range</small><b>{a.thrownRange} feet</b></span>}
+              {a.thrownRangeBonus > 0 && !a.range && !a.thrownRange && <span><small>Thrown range</small>+{a.thrownRangeBonus} feet (Strong Arm)</span>}
               <span><small>{a.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(a.mod)}</span>
               <span><small>Proficiency</small>{signed(a.prof)}</span>
               <span><small>Item</small>{signed(a.item)}</span>

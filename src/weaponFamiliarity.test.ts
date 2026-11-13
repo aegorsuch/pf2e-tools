@@ -47,6 +47,8 @@ it('applies Starfinder ancestral weapon familiarity to elf bows, rapier, and elf
   expect(attack(c, bow, entries).rank).toBe(1)
   expect(attack(c, crossbow, entries).rank).toBe(0)
   expect(attack(c, rapier, entries).rank).toBe(2)
+  expect(attack({ ...c, feats: [selected('Ancestral Weapon Familiarity', 'all bows')] }, rapier, entries).rank).toBe(2)
+  expect(attack({ ...c, feats: [selected('Ancestral Weapon Familiarity', 'nano-edge rapier')] }, bow, entries).rank).toBe(1)
   expect(attack(c, bow, entries).criticalSpecialization).toBe(true)
   expect(weaponAccessSources(c, entries, ancestral)).toContain(source.name)
   expect(weaponAccessSources(c, entries, rapier)).not.toContain(source.name)

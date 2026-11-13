@@ -6,6 +6,7 @@ import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
+import { updateSettings } from './settings'
 
 const ranger: ContentEntry = {
   id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
@@ -396,6 +397,72 @@ function findButtonsInto(node: ReactNode, buttons: Map<string, Record<string, un
     findButtonsInto(child.props.children as ReactNode, buttons)
   })
 }
+
+it('adds, trains, and removes custom Lore using regular skill selections', () => {
+  let c: Character = { ...base, level: 5 }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  const findForm = (node: ReactNode): Record<string, unknown> | undefined => {
+    let found: Record<string, unknown> | undefined
+    Children.forEach(node, child => {
+      if (found || !isValidElement<Record<string, unknown>>(child)) return
+      found = child.type === 'form' ? child.props : findForm(child.props.children as ReactNode)
+    })
+    return found
+  }
+  class Input {
+    value = ''
+    error = ''
+    setCustomValidity(message: string) { this.error = message }
+    reportValidity() { return !this.error }
+  }
+  const input = new Input()
+  const form = { elements: { namedItem: () => input }, reset: vi.fn(), closest: () => ({ removeAttribute: vi.fn() }) }
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('HTMLInputElement', Input)
+  vi.stubGlobal('window', { confirm })
+  const submit = (value: string) => {
+    input.value = value
+    input.error = ''
+    ;(findForm(tree())!.onSubmit as (event: unknown) => void)({ preventDefault: () => {}, currentTarget: form })
+  }
+  try {
+    expect(renderToStaticMarkup(tree())).toContain('aria-label="Add Lore skill"')
+    submit('  sailing  ')
+    expect(c.lores).toEqual([{ name: 'sailing Lore', rank: 0 }])
+    expect(skillRankBudget(c, [ranger]).trained).toBe(4)
+    expect(renderToStaticMarkup(tree())).toContain('sailing Lore')
+    submit('SAILING LORE')
+    expect(input.error).toBe('This Lore skill already exists.')
+    expect(c.lores).toHaveLength(1)
+    submit(' ')
+    expect(input.error).toBe('Enter a Lore specialty.')
+    ;(findButtons(tree()).get('sailing Lore Trained')!.onClick as () => void)()
+    expect(ranksAt(c, [ranger])['sailing Lore']).toBe(1)
+    expect(skillRankBudget(c, [ranger]).trained).toBe(3)
+    ;(findButtons(tree()).get('sailing Lore Expert')!.onClick as () => void)()
+    confirm.mockReturnValueOnce(false)
+    ;(findButtons(tree()).get('Remove sailing Lore')!.onClick as () => void)()
+    expect(c.lores).toHaveLength(1)
+    ;(findButtons(tree()).get('Remove sailing Lore')!.onClick as () => void)()
+    expect(c.lores).toEqual([])
+    expect(c.skillPicks).toEqual([])
+    expect(c.skillIncreases).toEqual({})
+    expect(skillRankBudget(c, [ranger]).trained).toBe(4)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
+it('does not auto-scale custom Lore before it is trained', () => {
+  const c: Character = { ...base, level: 7, lores: [{ name: 'Sailing Lore', rank: 0 }] }
+  updateSettings({ autoLores: true })
+  try {
+    expect(ranksAt(c, [ranger])['Sailing Lore']).toBe(0)
+    expect(ranksAt({ ...c, skillPicks: ['Sailing Lore'] }, [ranger])['Sailing Lore']).toBe(3)
+  } finally {
+    updateSettings({ autoLores: false })
+  }
+})
 
 it('uses skill circles for class picks and shows remaining rank budgets', () => {
   let c: Character = { ...base, level: 5, skillIncreases: { 3: 'Nature' } }

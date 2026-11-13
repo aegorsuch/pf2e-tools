@@ -12,6 +12,8 @@ import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
+import { fetchAonHits } from './aonQuery'
+import { mapAonHit } from './aon'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 
 const base: Character = {
@@ -149,6 +151,30 @@ it('provides both playing-card usages with one shared deck and automatic fundame
   expect(html).not.toContain('aria-label="Remove Dagger (Playing Card)"')
   expect(ownedWeapons({ ...c, level: 1 }, [dagger, dart]).some(weapon => weapon.id.startsWith('playing-card:'))).toBe(false)
   expect(c.playingCardEnhancements?.runes).toEqual(['Shifting'])
+})
+
+it('imports thrown range and applies Strong Arm to playing card daggers', async () => {
+  const fetchFn: typeof fetch = async (_url, init) => new Response(JSON.stringify({ hits: { hits:
+    String(init?.body).includes('"category":"weapon"') ? [{ _id: 'weapon-358', _source: {
+      name: 'Dagger', category: 'weapon', level: 0, trait: ['Agile', 'Finesse', 'Thrown', 'Versatile'],
+      weapon_type: 'Melee', damage: '1d4 P',
+      markdown: '<traits>\n<trait label="Thrown 10 ft." url="/Traits.aspx?ID=195" />\n</traits>',
+    } }] : [] } }))
+  const hit = (await fetchAonHits('pf2e', fetchFn))[0]
+  expect(hit._source?.markdown).toBeUndefined()
+  const dagger = mapAonHit(hit, 'pf2e')!
+  expect(dagger.data.thrown_range).toBe(10)
+  const c: Character = { ...base, feats: [feat("Fane's Fourberie", 2), feat('Strong Arm', 2)] }
+  const card = ownedWeapons(c, [dagger]).find(weapon => weapon.name === 'Dagger (Playing Card)')!
+  expect(weaponAttack(c, [dagger], card)).toMatchObject({ thrownRange: 20, range: 0, ability: 'dex' })
+  expect(weaponAttack({ ...c, feats: [c.feats[0]] }, [dagger], card).thrownRange).toBe(10)
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} />)
+  expect(html).toContain('<small>Thrown range</small><b>20 feet</b>')
+  expect(html).not.toContain('+10 feet (Strong Arm)')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} displayOnly />))
+    .toContain('Thrown range 20 feet')
+  const parameterized = { ...dagger, traits: ['Thrown 30 feet'], data: { ...dagger.data, thrown_range: 0 } }
+  expect(weaponAttack(c, [parameterized], card).thrownRange).toBe(40)
 })
 
 it('tracks augmentation limits and extra slots from earned feats without rewriting installed augmentations', () => {

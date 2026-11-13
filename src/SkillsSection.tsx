@@ -10,6 +10,7 @@ import { warmaskSource } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
+import { confirmRemoval } from './confirmRemoval'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const RESISTANCE_NOTES: Record<string, string> = {
@@ -149,7 +150,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       : s.kind === 'save' ? saveCircumstance : armorSkill
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
-        <span className="skill-name">{s.name} <b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
+        <span className="skill-name">{s.name} {editingSkills && c.lores.some(lore => lore.name === s.name)
+          && <button type="button" className="lore-remove" aria-label={`Remove ${s.name}`} onClick={() => confirmRemoval(`"${s.name}"`, () => {
+            const stillGranted = [...featLores(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills].includes(s.name)
+            const skillIncreases = Object.fromEntries(Object.entries(c.skillIncreases ?? {}).filter(([, skill]) => skill !== s.name))
+            const rankOverrides = { ...c.rankOverrides }
+            delete rankOverrides[s.name]
+            save({ lores: c.lores.filter(lore => lore.name !== s.name),
+              ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides } : {}) })
+          })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
@@ -312,6 +321,30 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
+      <details className="lore-add">
+        <summary aria-label="Add Lore skill" title="Add Lore skill">+</summary>
+        <form onSubmit={event => {
+          event.preventDefault()
+          const form = event.currentTarget
+          const input = form.elements.namedItem('lore')
+          if (!(input instanceof HTMLInputElement)) return
+          const value = input.value.trim().replace(/\s+/g, ' ')
+          const name = /(?:^|\s)lore$/i.test(value) ? value : `${value} Lore`
+          if (!value || /^lore$/i.test(value)) {
+            input.setCustomValidity('Enter a Lore specialty.')
+          } else if (lores.some(lore => lore.toLowerCase() === name.toLowerCase())) {
+            input.setCustomValidity('This Lore skill already exists.')
+          }
+          if (!input.reportValidity()) return
+          save({ lores: [...c.lores, { name, rank: 0 }] })
+          form.reset()
+          form.closest('details')?.removeAttribute('open')
+        }}>
+          <label>Lore specialty <input name="lore" aria-label="Lore specialty" required
+            onInput={event => event.currentTarget.setCustomValidity('')} /></label>
+          <button type="submit">Add Lore</button>
+        </form>
+      </details>
       {wasteland && <small>Wasteland Warrior: {hazardNote}</small>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}

@@ -4,29 +4,35 @@ import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
+import { isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
+
+export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionProps & { index: number }) {
+  const feat = c.feats[index]
+  if (!feat) return null
+  const ranks = dailyLongevityRanks(c, entries)
+  const options = [...new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name),
+    ...c.lores.map(lore => lore.name), ...Object.keys(ranks).filter(name => /\blore$/i.test(name))])]
+    .filter(skill => (ranks[skill] ?? 0) >= 1).sort()
+  return <span className="feat-choice feat-choice-with-note">
+    <label>Daily Assurance skill{' '}
+      <select aria-label="Carry Their Memories daily Assurance skill" value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+      }}>
+        <option value="">Choose trained skill</option>
+        {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+        {options.map(skill => <option key={skill}>{skill}</option>)}
+      </select>
+    </label>
+    <small>Temporary Assurance until daily preparations; cannot satisfy permanent prerequisites.</small>
+  </span>
+}
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'Carry Their Memories') {
-    const ranks = dailyLongevityRanks(c, entries)
-    const options = [...new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])]
-      .filter(skill => (ranks[skill] ?? 0) >= 1).sort()
-    return <span className="feat-choice feat-choice-with-note">
-      <label>Daily Assurance skill{' '}
-        <select aria-label="Carry Their Memories daily Assurance skill" value={feat.choice ?? ''} onChange={event => {
-          const choice = event.target.value
-          if (choice && !options.includes(choice)) return
-          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
-        }}>
-          <option value="">Choose trained skill</option>
-          {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
-          {options.map(skill => <option key={skill}>{skill}</option>)}
-        </select>
-      </label>
-      <small>Temporary Assurance until daily preparations; cannot satisfy permanent prerequisites.</small>
-    </span>
-  }
+  if (feat.name === 'Carry Their Memories' || isElfAncestralWeaponFamiliarity(c, feat.name)) return null
   if (feat.name === 'Orc Warmask') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const alternatives = warmaskAlternateSkills(c, entries, index)

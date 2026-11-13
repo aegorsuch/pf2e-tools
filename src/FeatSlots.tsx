@@ -2,13 +2,14 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, dailyLongevityRanks, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, statDefs, type PlannedSlot, type SectionProps } from './builder'
-import { FeatChoice } from './FeatChoice'
+import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
+import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
+import { isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
-import { DOMAIN_FEATS, domainSpellDescription } from './featSpells'
+import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 
 interface FeatSlotsProps extends SectionProps {
@@ -114,7 +115,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
-    const choices = ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
+    const choices = entry.name === 'Ancestral Magic'
+      ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
+        slot: slot.key, takenLevel: slot.level }) ?? []).map(spell => spell.name))]
+      : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
       ? undefined : featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
@@ -207,16 +211,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
-  const memories = c.feats.filter(feat => feat.name === 'Carry Their Memories' && feat.choice && featTakenLevel(feat) <= c.level)
-  const memorySkills = new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])
-  const memoryRanks = memories.length ? dailyLongevityRanks(c, entries) : {}
+  const memories = c.feats.flatMap((feat, index) => feat.name === 'Carry Their Memories' && featTakenLevel(feat) <= c.level
+    ? [{ kind: 'memory' as const, level: featTakenLevel(feat), index, feat: { name: 'Assurance', choice: feat.choice } }] : [])
   const rows = [
     ...backgroundFeats.map(feat => ({ kind: 'background' as const, level: 1, feat })),
     ...automaticFeats.map(feat => ({ kind: 'automatic' as const, level: feat.level, feat })),
-    ...(!categories || categories.includes('skill') ? memories.flatMap(feat =>
-      feat.choice && memorySkills.has(feat.choice) && (memoryRanks[feat.choice] ?? 0) >= 1
-        ? [{ kind: 'automatic' as const, level: featTakenLevel(feat),
-          feat: { name: 'Assurance', source: `Carry Their Memories (${feat.choice}; temporary)`, level: featTakenLevel(feat) } }] : []) : []),
+    ...(!categories || categories.includes('skill') ? memories : []),
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => {
     if (a.level !== b.level) return a.level - b.level
@@ -235,6 +235,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
           const heading = !multi && newLevel
             ? <li className="feat-level-heading">Level {String(row.level).padStart(2, '0')}</li> : null
+          if (row.kind === 'memory') return <Fragment key={`memory:${row.index}`}>
+            {heading}
+            <li className={`feat-slot-row automatic-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
+              <EntryDescription name="Assurance" entry={featsByName.get('Assurance')} entries={entries}
+                className="feat-name" grantSource="Carry Their Memories (temporary)" />
+              <CarryTheirMemoriesChoice c={c} entries={entries} save={save} index={row.index} />
+            </li>
+          </Fragment>
           if (row.kind !== 'slot') {
             const { feat } = row
             const background = row.kind === 'background'
@@ -253,7 +261,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
-          const selectedChoice = selection && ['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(selection.name) ? undefined
+          const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories'].includes(selection.name)
+            || isElfAncestralWeaponFamiliarity(c, selection.name)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
             ? `Mastermind - ${c.rogueRacketSkills.Mastermind}` : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)

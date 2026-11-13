@@ -10,7 +10,7 @@ export const AON_ENDPOINTS: Record<GameSystem, string> = {
 export const DATA_FIELDS = [
   'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite', 'access',
   'actions', 'trigger', 'duration', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'usage', 'ac', 'dex_cap', 'strength',
-  'check_penalty', 'range', 'tradition', 'school', 'item_category', 'perception_proficiency',
+  'check_penalty', 'range', 'thrown_range', 'tradition', 'school', 'item_category', 'perception_proficiency',
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
@@ -218,6 +218,11 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     for (const hit of json.hits?.hits ?? []) {
       const s = hit._source
       if (s) {
+        if (category === 'weapon' && typeof s.markdown === 'string') {
+          const traits = /<traits\b[^>]*>([\s\S]*?)<\/traits>/i.exec(s.markdown)?.[1] ?? ''
+          const range = /<trait\b[^>]*\blabel="Thrown\s+(\d+)\s*(?:ft\.?|feet)\s*"[^>]*>/i.exec(traits)?.[1]
+          if (range) s.thrown_range = Number(range)
+        }
         // Keep full rules text for description popups and class features.
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))
         if (found) s.resistances = found

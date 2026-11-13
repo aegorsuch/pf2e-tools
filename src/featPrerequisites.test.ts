@@ -516,6 +516,30 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats(data, { ...c, ancestry: 'Human' }, slot)).not.toContain(data[1])
   })
 
+  it('enforces Wandering Heart environmental heritage requirements without guessing unknown heritages', () => {
+    const prerequisite = 'Arctic Elf, Cavern Elf, Desert Elf, Woodland Elf, or any other elf heritage based on adapting to an environment'
+    for (const heritage of ['Arctic Elf', 'Cavern Elf', 'Desert Elf', 'Woodland Elf', 'Aquatic Elf']) {
+      expect(check(prerequisite, { ...base, ancestry: 'Elf', heritage })).toEqual({ missing: [], manual: [] })
+    }
+    for (const heritage of ['Ancient Elf', 'Seer Elf', 'Whisper Elf', undefined]) {
+      expect(check(prerequisite, { ...base, ancestry: 'Elf', heritage }).missing).toEqual([prerequisite])
+    }
+    expect(check(prerequisite, { ...base, ancestry: 'Elf', heritage: 'Unrecognized Elf' }))
+      .toEqual({ missing: [], manual: [prerequisite] })
+    const feat = entry('feat', 'Wandering Heart', { prerequisite }, 13, ['Elf'])
+    const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
+    const elf = { ...base, level: 13, ancestry: 'Elf' }
+    expect(eligibleFeats([feat], { ...elf, heritage: 'Woodland Elf' }, slot)).toContain(feat)
+    expect(eligibleFeats([feat], { ...elf, heritage: 'Ancient Elf' }, slot)).not.toContain(feat)
+  })
+
+  it('restricts Otherworldly Magic to Elf ancestry without inventing a prerequisite', () => {
+    const feat = entry('feat', 'Otherworldly Magic', {}, 1, ['Elf'])
+    const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+    expect(eligibleFeats([feat], { ...base, ancestry: 'Elf' }, slot)).toContain(feat)
+    expect(eligibleFeats([feat], { ...base, ancestry: 'Human' }, slot)).not.toContain(feat)
+  })
+
   it('handles AND, OR, parentheses, Oxford lists, and inherited rank or specialization wording', () => {
     const data = [entry('feat', 'Cleave'), entry('feat', 'Knockback'), entry('feat', 'Thrash'),
       ...['Armor', 'Construct', 'Weapon'].map((name) => entry('subclass', name, { class: 'Inventor' }))]

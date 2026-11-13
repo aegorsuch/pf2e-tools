@@ -803,6 +803,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
   if (name === 'Beast Trainer') return ['Pet', 'Train Animal']
+  if (name === 'Touch of the Sea') return ['Gale Blast', 'Spout']
   if (name === 'Free Heart') return [...new Set(entries.filter(entry => entry.kind === 'background' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system)) && entry.name !== c.background
     && !featRarity(entry)).map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
@@ -1613,7 +1614,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
       const skill = c.skillIncreases?.[l]
       if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
       if (rankUp) for (const name of autoSkills) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
-      for (const name of lores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+      for (const name of lores) if ((ranks[name] ?? 0) > 0) ranks[name] = Math.max(ranks[name], rankCap(l))
       if (l === 3 || l === 7 || l === 15) {
         for (const name of additionalLores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
       }
@@ -2691,6 +2692,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const ranged = isRanged(entry)
   const thrown = traits.some((t) => t.startsWith('thrown'))
   const strongArm = (thrown || w.id === OVERSIZED_THROW.id) && activeFeatsNamed(c, 'Strong Arm').length > 0
+  const thrownRange = num(entry?.data.thrown_range)
+    || Number(traits.map(trait => /^thrown\s+(\d+)\s*(?:ft\.?|feet)?$/i.exec(trait)?.[1]).find(Boolean) ?? 0)
   const str = abilityMod(c.abilities.str)
   const dex = abilityMod(c.abilities.dex)
   const ability: Ability = ranged ? 'dex' : traits.includes('finesse') && dex > str ? 'dex' : 'str'
@@ -2764,6 +2767,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
     } satisfies TotalBreakdown,
     range: ranged && num(entry?.data.range) > 0 ? num(entry?.data.range) + (strongArm ? 10 : 0) : 0,
+    thrownRange: !ranged && thrown && thrownRange > 0 ? thrownRange + (strongArm ? 10 : 0) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,
     damage: m ? `${dice}d${die}${flat ? signed(flat) : ''}${m[3] ? ` ${m[3]}` : ''}` : '',
   }

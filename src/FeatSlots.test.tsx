@@ -2,10 +2,11 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
-import { FeatChoice } from './FeatChoice'
+import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
 import { featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
+import { grantedFeatSpells } from './featSpells'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -34,6 +35,21 @@ it('does not show a damage choice for Elemental Wrath, including old saved choic
   expect(markup).not.toContain('Elemental Wrath (Fire)')
   expect(markup).not.toContain('Elemental Wrath damage type')
   expect(markup).toContain('grants Caustic Blast with its normal acid damage')
+})
+
+it('does not show an Elf ancestral weapon familiarity choice even with repeatable namesakes and saved choices', () => {
+  const elf: ContentEntry = { id: 'elf-familiarity', name: 'Ancestral Weapon Familiarity', kind: 'feat', source: 'official',
+    systems: ['sf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const astrazoan: ContentEntry = { ...elf, id: 'astrazoan-familiarity', traits: ['Astrazoan'], data: { repeatable: true } }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 1,
+    feats: [{ name: elf.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'all bows' }] }
+  const entries = [elf, astrazoan]
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={() => {}} index={0} />)).toBe('')
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['ancestry']} save={() => {}} />)
+  expect(markup).not.toContain('Ancestral Weapon Familiarity (all bows)')
+  expect(markup).not.toContain('aria-label="Ancestral Weapon Familiarity choice"')
+  expect(renderToStaticMarkup(<FeatChoice c={{ ...c, ancestry: 'Astrazoan' }} entries={entries} save={() => {}} index={0} />))
+    .toContain('aria-label="Ancestral Weapon Familiarity choice"')
 })
 
 it('shows and searches distinct Versatile Rogue racket options', () => {
@@ -138,18 +154,69 @@ it('preserves legacy and qualified Shobhad selections in the weapon selector', (
   }
 })
 
-it('shows daily Assurance from Carry Their Memories without satisfying permanent prerequisites', () => {
-  const c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 5, skillPicks: ['Athletics'],
-    feats: [{ name: 'Carry Their Memories', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Athletics' }] }
+it('provides a daily Assurance choice in Skill Feats at the level Carry Their Memories was selected', () => {
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 9, skillPicks: ['Athletics', 'Society'],
+    feats: [{ name: 'Carry Their Memories', type: 'Ancestry Feat', level: 5, slot: 'ancestry:9:0' }] }
   const assurance: ContentEntry = { id: 'assurance', name: 'Assurance', kind: 'feat', systems: ['sf2e'],
     source: 'official', level: 1, traits: ['General', 'Skill'], description: '', data: {}, effects: [], updatedAt: 0 }
   const target: ContentEntry = { ...assurance, id: 'target', name: 'Target', data: { prerequisite: 'Assurance' } }
-  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[assurance]} save={() => {}} index={0} />)).toContain('Daily Assurance skill')
-  expect(renderToStaticMarkup(<FeatSlots c={c} entries={[assurance]} save={() => {}} categories={['skill']} />))
-    .toContain('Carry Their Memories (Athletics; temporary)')
+  const tree = () => FeatSlots({ c, entries: [assurance], save: patch => { c = { ...c, ...patch } }, categories: ['skill'] })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Carry Their Memories (temporary)')
+  expect(markup).toContain('aria-label="Carry Their Memories daily Assurance skill"')
+  expect(markup.indexOf('Level 09')).toBeLessThan(markup.indexOf('Carry Their Memories (temporary)'))
+  expect(markup.indexOf('Carry Their Memories (temporary)')).toBeLessThan(markup.indexOf('Level 10') === -1 ? markup.length : markup.indexOf('Level 10'))
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[assurance]} save={() => {}} index={0} />)).toBe('')
+  findSelect(CarryTheirMemoriesChoice({ c, entries: [assurance], save: patch => { c = { ...c, ...patch } }, index: 0 }), 'Carry Their Memories daily Assurance skill')!
+    ({ target: { value: 'Athletics' } })
+  expect(c.feats[0].choice).toBe('Athletics')
   expect(featPrerequisiteChecker(c, [assurance, target])(target).missing).toContain('Assurance')
-  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, skillPicks: [] }} entries={[assurance]} save={() => {}} categories={['skill']} />))
-    .not.toContain('Carry Their Memories (Athletics; temporary)')
+  const stale = renderToStaticMarkup(<FeatSlots c={{ ...c, skillPicks: [] }} entries={[assurance]} save={() => {}} categories={['skill']} />)
+  expect(stale).toContain('<option disabled="" selected="">Athletics</option>')
+  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, level: 8 }} entries={[assurance]} save={() => {}} categories={['skill']} />))
+    .not.toContain('Carry Their Memories (temporary)')
+  const withLore: Character = { ...c, feats: [...c.feats, { name: 'Additional Lore', type: 'Skill Feat', level: 1, choice: 'Sailing' }],
+    lores: [{ name: 'Untrained Lore', rank: 0 }] }
+  const loreMarkup = renderToStaticMarkup(<CarryTheirMemoriesChoice c={withLore} entries={[assurance]} save={() => {}} index={0} />)
+  expect(loreMarkup).toContain('<option>Sailing Lore</option>')
+  expect(loreMarkup).not.toContain('<option>Untrained Lore</option>')
+})
+
+it.each(['Gale Blast', 'Spout'])('offers Touch of the Sea (%s) as a distinct ancestry feat', spell => {
+  const source: ContentEntry = { id: 'sea', name: 'Touch of the Sea', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Elf', level: 1 }
+  const tree = () => FeatSlots({ c, entries: [source], save: patch => { c = { ...c, ...patch } }, categories: ['ancestry'] })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Touch of the Sea (Gale Blast)')
+  expect(markup).toContain('Touch of the Sea (Spout)')
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: JSON.stringify([source.name, spell]) } })
+  expect(c.feats[0]).toMatchObject({ name: source.name, choice: spell })
+  expect(renderToStaticMarkup(tree())).toContain(`Touch of the Sea (${spell})`)
+})
+
+it('offers Ancestral Magic variants at the slot rank and saves their spell grants', () => {
+  const magic = mapAonHit({ _id: 'elf-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Elf'],
+    markdown: 'Header\n\n---\n\nChoose a spell.<br/><br/>**[Option(s)](/feats/1)**: primal; 1st _[wisp ally](/spells/1)_; 2nd _[verdant code](/spells/2)_; 3rd _[discharge](/spells/3)_; 5th _[overload systems](/spells/4)_\n\n**Special** You can select this feat more than once.' } }, 'sf2e')!
+  const spells: ContentEntry[] = ['Wisp Ally', 'Verdant Code', 'Discharge', 'Overload Systems'].map(name => ({
+    id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0,
+  }))
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 13,
+    feats: [{ name: magic.name, type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Wisp Ally' }] }
+  const entries = [magic, ...spells]
+  const tree = () => FeatSlots({ c, entries, categories: ['ancestry'], save: patch => { c = { ...c, ...patch } } })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Ancestral Magic (Verdant Code)')
+  expect(markup).toContain('Ancestral Magic (Discharge)')
+  expect(markup).toContain('Ancestral Magic (Overload Systems)')
+  const atNine = renderToStaticMarkup(<FeatSlots c={{ ...c, level: 9 }} entries={entries} categories={['ancestry']} save={() => {}} />)
+  expect(atNine).toContain('Ancestral Magic (Discharge)')
+  expect(atNine).not.toContain('Ancestral Magic (Overload Systems)')
+  findSelect(tree(), 'L09 Ancestry feat')!({ target: { value: JSON.stringify([magic.name, 'Verdant Code']) } })
+  expect(c.feats.find(feat => feat.slot === 'ancestry:9:0')).toMatchObject({ name: magic.name, choice: 'Verdant Code' })
+  expect(grantedFeatSpells(c, entries).map(grant => [grant.entry.name, grant.rank]))
+    .toEqual([['Wisp Ally', 1], ['Verdant Code', 3]])
+  expect(renderToStaticMarkup(tree())).toContain('Ancestral Magic (Verdant Code)')
 })
 
 it('keeps Snare Crafting and its grant source inside one description button', () => {

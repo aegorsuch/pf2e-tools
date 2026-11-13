@@ -469,6 +469,12 @@
 .skill-rank-budget { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 0.5rem; }
 .skill-rank-budget span { display: inline-flex; gap: 0.3rem; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 5px; }
 .skill-rank-budget b { color: var(--text-h); }
+.lore-add > summary { display: inline-grid; place-items: center; cursor: pointer; list-style: none; width: 2rem; height: 2rem; border: 1px solid var(--border); border-radius: 5px; }
+.lore-add > summary::-webkit-details-marker { display: none; }
+.lore-add form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; margin-top: 0.5rem; }
+.lore-add label { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.lore-add input { min-width: 0; max-width: 100%; }
+.lore-remove { padding: 0 0.3rem; margin-right: 0.2rem; }
 .prof-badges { display: flex; flex-wrap: nowrap; gap: 0.5rem 0.6rem; margin-block: 0.5rem; font-size: 0.85em; }
 .prof-badges span { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
 .prof-badge {

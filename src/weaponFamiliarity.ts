@@ -109,3 +109,7 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
   }
   return { access, proficiency, trained, expertise, criticalSpecialization }
 }
+
+export function isElfAncestralWeaponFamiliarity(c: Character, name: string) {
+  return name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry?.toLowerCase() === 'elf'
+}

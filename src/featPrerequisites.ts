@@ -205,6 +205,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (name === 'arctic elf, cavern elf, desert elf, woodland elf, or any other elf heritage based on adapting to an environment') {
+      const heritage = key(facts.heritage ?? '')
+      if (['arctic elf', 'cavern elf', 'desert elf', 'woodland elf', 'aquatic elf'].includes(heritage)) return met()
+      if (!heritage || ['ancient elf', 'seer elf', 'whisper elf', 'half-elf'].includes(heritage)) return missing(text)
+      return manual(text)
+    }
     if (name === 'spellcasting class feature') return resultFor(!!facts.spellcastingClassFeature, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
