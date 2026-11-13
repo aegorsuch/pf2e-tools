@@ -3,8 +3,8 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
-import type { Character, ContentEntry, OwnedWeapon } from './types'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
+import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -23,6 +23,29 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it.each<[string, OwnedArmor['material'], string]>([
+  ['Hide Armor', 'Grisantian Hide', 'Grisantian Hide Armor'],
+  ['Hide Armor', 'Grisantian Hide (High-Grade)', 'Grisantian Hide Armor'],
+  ['Hellknight Plate', 'Orichalcum', 'Orichalcum Hellknight Plate'],
+  ['Wood Breastplate', 'Duskwood', 'Duskwood Breastplate'],
+  ['Wooden Breastplate', 'Duskwood', 'Duskwood Breastplate'],
+  ['Grisantian Hide Armor', 'Grisantian Hide', 'Grisantian Hide Armor'],
+  ['Hide Armor', undefined, 'Hide Armor'],
+])('combines %s and %s into a material-aware armor name without changing its identity', (name, material, expected) => {
+  const armor = { name, material }
+  expect(armorDisplayName(armor)).toBe(expected)
+  expect(armor.name).toBe(name)
+})
+
+it('omits ruleset badges from owned armor cards', () => {
+  const c: Character = { ...character([]), armors: [{ id: 'hide', name: 'Hide Armor', potency: 0, resilient: 0, runes: [], worn: true }] }
+  const armor: ContentEntry = { ...weapon, id: 'hide', name: 'Hide Armor', kind: 'armor', data: { armor_category: 'Medium' } }
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[armor]} save={() => {}} />)
+  expect(markup).toContain('<strong>Hide Armor</strong>')
+  expect(markup).not.toContain('>PF2e</small>')
+  expect(markup).not.toContain('>PF2E</small>')
 })
 
 it('displays locked Living Weapon fundamentals as rune text while retaining genuinely editable upgrades', () => {
@@ -76,6 +99,7 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   ;(armorMaterial.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Orichalcum' } })
   expect(c.armors?.[0]).toMatchObject({ material: 'Orichalcum', potency: 3, resilient: 2 })
   const armorMarkup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)
+  expect(armorMarkup).toContain('<strong>Orichalcum Chain Mail</strong>')
   expect(armorMarkup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(armorMarkup.indexOf('<label>Potency'))
   expect(armorMarkup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(armorMarkup.indexOf('<label>Resilient'))
   expect(armorMarkup).not.toContain('One additional property rune slot')

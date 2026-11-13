@@ -8,14 +8,15 @@ import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoic
 import { ActionIcon } from './ActionIcon'
 import { SpellDamageRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
-import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
-export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 'save'> & { points: number }) {
+export function FocusPointTracker({ c, entries = [], save, points }: Pick<SectionProps, 'c' | 'save'> & { entries?: ContentEntry[]; points: number }) {
   const capacity = Math.min(3, Math.max(0, points))
   if (!capacity) return null
   const spent = new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < capacity))
+  const recovery = refocusRecovery(c, entries, capacity, spent.size)
   return <span className="focus-tracker" role="group" aria-label={`${capacity - spent.size} of ${capacity} focus points available`}>
     {Array.from({ length: capacity }, (_, index) => {
       const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}`
@@ -24,12 +25,13 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
           const next = new Set(spent)
           if (next.has(index)) next.delete(index)
           else next.add(index)
-          void save({ spentFocusPoints: [...next] })
+          void save({ spentFocusPoints: [...next],
+            focusPointsSpentSinceRefocus: Math.max(0, (c.focusPointsSpentSinceRefocus ?? spent.size) + (spent.has(index) ? -1 : 1)) })
         }} />
     })}
-    <button type="button" aria-label="Rest focus points" disabled={spent.size === 0}
-      title="Restore all focus points. Active spells are unchanged."
-      onClick={() => { if (spent.size) void save({ spentFocusPoints: [] }) }}>Rest</button>
+    <button type="button" aria-label="Refocus" disabled={spent.size === 0}
+      title={`Refocus for 10 minutes to recover up to ${recovery} Focus Point${recovery === 1 ? '' : 's'}. Active spells are unchanged.`}
+      onClick={() => { if (spent.size) void save({ spentFocusPoints: [...spent].slice(recovery), focusPointsSpentSinceRefocus: 0 }) }}>Refocus</button>
   </span>
 }
 
@@ -82,9 +84,11 @@ export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
   </fieldset>
 }
 
-export function CompanionSpellOptions({ c, entries, save, name, companionId }: SectionProps & {
+export function CompanionSpellOptions({ c, entries, save, name, companionId, toggleOnly = false, hideToggle = false }: SectionProps & {
   name: 'Canopy Crawler' | 'Enlarge Companion'
   companionId?: string
+  toggleOnly?: boolean
+  hideToggle?: boolean
 }) {
   const canopy = name === 'Canopy Crawler'
   const targetId = companionSpellTarget(c, canopy ? c.canopyCrawlerCompanionId : c.enlargeCompanionId)
@@ -99,7 +103,7 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId }: S
     : canopy ? canopyCrawlerAffects(c, entries, companionId) : isSpellActive(c, entries, name) && companionId === targetId
   const target = canopyCrawlerTarget(c)
   return <div className="row">
-    <label title={tooLarge ? 'Enlarge Companion has no effect on Huge or larger companions.'
+    {!hideToggle && <label title={tooLarge ? 'Enlarge Companion has no effect on Huge or larger companions.'
       : needsHuge && c.level < 7 ? 'Requires rank 4 (character level 7) to enlarge a Large companion.' : undefined}>
       <input type="checkbox" aria-label={`${name}${companionId ? ` on ${companion?.name || companion?.type || companionId}` : ' active'}`}
       disabled={c.level < 3 || enlargeUnavailable || canopy && !!companionId && target === 'Self'} checked={active && !enlargeUnavailable} onChange={(e) => {
@@ -109,8 +113,8 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId }: S
           ...(canopy ? { canopyCrawlerCompanionId: companionId ?? targetId }
             : { enlargeCompanionId: companionId ?? targetId }),
         })
-      }} /> {companionId ? name : 'Active'}</label>
-    {(c.companions?.length ?? 0) > 1 && (!canopy || target !== 'Self') && <label>Companion{' '}
+      }} /> {companionId ? name : 'Active'}</label>}
+    {!toggleOnly && (c.companions?.length ?? 0) > 1 && (!canopy || target !== 'Self') && <label>Companion{' '}
       <select aria-label={`${name} companion`} value={targetId ?? ''} onChange={(e) => {
         if (c.companions?.some((companion) => companion.id === e.target.value))
           save(canopy ? { canopyCrawlerCompanionId: e.target.value } : { enlargeCompanionId: e.target.value })
@@ -122,15 +126,20 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId }: S
   </div>
 }
 
-function SpellItem({ name, entry, note, onRemove, active, onToggle, children }: {
+function SpellItem({ name, entry, note, onRemove, active, onToggle, children, inlineControls }: {
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
   children?: ReactNode
+  inlineControls?: ReactNode
 }) {
   return (
     <li className="spell-item">
       <div className="spell-name">
-        <EntryDescription name={name} entry={entry} /> <ActionIcon entry={entry} />{note && <> <small>({note})</small></>}
+        <div className="row">
+          <div className="spell-title"><EntryDescription name={name} entry={entry} />{inlineControls}</div>
+          <ActionIcon entry={entry} />
+        </div>
+        {note && <small>({note})</small>}
         {children}
       </div>
       {onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
@@ -151,6 +160,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   const granted = grantedWardenSpells(c, entries)
   const featSpells = grantedFeatSpells(c, entries)
   const innate = featSpells.filter(grant => grant.rule.kind === 'innate')
+    .sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.source.localeCompare(b.source))
   const unresolved = unresolvedFeatSpells(c, entries)
   const { spells: focus, points: focusPoints } = focusSpells(c, entries)
   const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
@@ -179,9 +189,11 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
   }
   const controls = (name: string, rank = Math.ceil(c.level / 2)) => <>
     {name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
-      : name === 'Canopy Crawler' || name === 'Enlarge Companion' ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} /> : null}
+      : name === 'Canopy Crawler' || name === 'Enlarge Companion' ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} hideToggle /> : null}
     <SpellDamageRolls name={name} rank={rank} />
   </>
+  const inlineControls = (name: string) => name === 'Canopy Crawler' || name === 'Enlarge Companion'
+    ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} toggleOnly /> : undefined
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
     && !focus.some(grant => grant.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
@@ -266,12 +278,12 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       </>}
       {(focus.length > 0 || granted.length > 0) && (
         <div>
-          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} /></div>
+          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} entries={entries} save={save} points={focusPoints} /></div>
           <ul>
             {focus.filter(spell => !granted.some(warden => warden.name === spell.name)).map((s) => {
               const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
               const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
-              return <SpellItem key={s.name} entry={entry} name={s.name} note={grant ? grantNote(grant) : `${s.source}; rank ${Math.ceil(c.level / 2)}`} {...buffProps(s.name, entry)}>
+              return <SpellItem key={s.name} entry={entry} name={s.name} inlineControls={inlineControls(s.name)} note={grant ? grantNote(grant) : `${s.source}; rank ${Math.ceil(c.level / 2)}`} {...buffProps(s.name, entry)}>
                 {controls(s.name)}
               </SpellItem>
             })}
@@ -283,7 +295,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           {innate.some(grant => dailyInnateUses(c, grant)) && <ResetDailyInnateUses c={c} save={save} />}
         </div>
         <ul>{innate.map((grant) => <SpellItem key={grant.usageKey}
-          name={grant.entry.name} entry={grant.entry} note={grantNote(grant)} {...buffProps(grant.entry.name, grant.entry)}>
+          name={grant.entry.name} entry={grant.entry} inlineControls={inlineControls(grant.entry.name)} note={grantNote(grant)} {...buffProps(grant.entry.name, grant.entry)}>
           <InnateSpellUses c={c} save={save} grant={grant} />
           {controls(grant.entry.name, grant.rank)}
         </SpellItem>)}</ul>
@@ -298,7 +310,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <ul>
             {listedSpells.filter((s) => s.group === g).map((s) => {
               const entry = entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))
-              return <SpellItem key={`${s.name}-${s.index}`} name={s.name} entry={entry} {...buffProps(s.name, entry)}
+              return <SpellItem key={`${s.name}-${s.index}`} name={s.name} entry={entry} inlineControls={inlineControls(s.name)} {...buffProps(s.name, entry)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index),
                   activeSpells: c.activeSpells?.filter((name) => name !== s.name) }) : undefined}>
                 {controls(s.name)}

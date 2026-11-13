@@ -100,6 +100,7 @@ export interface Character {
   ethnicity?: string
   achievements?: string[]
   featAccessOverrides?: string[]
+  gearAccessOverrides?: string[]
   className?: string
   subclass?: string
   heritage?: string
@@ -117,10 +118,11 @@ export interface Character {
   haftStrikerWeaponId?: string
   raging?: boolean
   activeFeatEffects?: string[]
+  focusPointsSpentSinceRefocus?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
-  feats: { name: string; type: string; level: number; choice?: string; slot?: string; takenLevel?: number }[]
+  feats: { name: string; type: string; level: number; choice?: string; culturalWeapon?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]

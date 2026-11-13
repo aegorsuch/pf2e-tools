@@ -1,13 +1,14 @@
 import { Fragment, useState } from 'react'
 import {
-  propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
+  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { GearTraits } from './GearTraits'
+import { gearAccess } from './gearAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
@@ -58,7 +59,20 @@ const TABS = ['Standard', 'Magic', 'Custom', 'All'] as const
 const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
   tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? isMagicItem(e) : e.source !== 'homebrew' && !isMagicItem(e))
 
-export function Search({ entries, kind, label, onPick }: {
+function GearAccess({ c, entries, entry, save }: SectionProps & { entry: ContentEntry }) {
+  const access = gearAccess(c, entries, entry)
+  if (!access) return null
+  return <div className="col gear-access">
+    <small>Access: {access.requirement}{access.automatic
+      ? ` (met${access.sources.length ? `: ${access.sources.join(', ')}` : ''})` : access.approved ? ' (GM approved)' : ' (not met)'}</small>
+    {!access.automatic && <label><input type="checkbox" aria-label={`GM approved access to ${entry.name}`} checked={access.approved}
+      onChange={event => save({ gearAccessOverrides: event.target.checked
+        ? [...new Set([...(c.gearAccessOverrides ?? []), entry.id])]
+        : c.gearAccessOverrides?.filter(id => id !== entry.id) })} /> GM approved access</label>}
+  </div>
+}
+
+export function Search({ c, entries, save, kind, label, onPick }: SectionProps & {
   entries: ContentEntry[]
   kind: 'weapon' | 'armor' | 'shield'
   label: string
@@ -69,7 +83,7 @@ export function Search({ entries, kind, label, onPick }: {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
   if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
-  const pool = baseItems(entries.filter((e) => e.kind === kind))
+  const pool = gearPickerEntries(entries, kind)
   const filters = FILTERS[kind].map((f) => ({ ...f, options: f.fixed ?? [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort((a, b) => a.localeCompare(b)) }))
   const query = q.trim().toLowerCase()
   const matches = [...new Map(
@@ -101,12 +115,20 @@ export function Search({ entries, kind, label, onPick }: {
         <button type="button" onClick={close}>Cancel</button>
       </div>
       <ul className="gear-results">
-        {matches.map((m) => (
+        {matches.map((m) => {
+          const access = gearAccess(c, entries, m)
+          const blocked = !!access && !access.automatic && !access.approved
+          return (
           <li key={m.id}>
-            <span><b>{m.name}</b>{weaponDamage(m) ? ` (${weaponDamage(m)})` : ''}{m.level ? ` (level ${m.level})` : ''}</span>
-            <button type="button" onClick={() => { onPick(m); close() }}>Add</button>
+            <span><b>{m.name}</b>{weaponDamage(m) ? ` (${weaponDamage(m)})` : ''}{m.level ? ` (level ${m.level})` : ''}
+              {' '}<small>{m.systems.map(system => system === 'sf2e' ? 'SF2E' : 'PF2E').join(' / ')}</small>
+            </span>
+            <GearAccess c={c} entries={entries} entry={m} save={save} />
+            <button type="button" disabled={blocked} title={blocked ? 'Meet Access or obtain GM approval before adding.' : undefined}
+              onClick={() => { if (!blocked) { onPick(m); close() } }}>Add</button>
           </li>
-        ))}
+          )
+        })}
         {matches.length === 0 && <li><small>No {kind}s match.</small></li>}
       </ul>
     </div>
@@ -266,7 +288,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
   return (
     <div className="col gear-list">
       {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
-      <Search entries={entries.filter((entry) => entry.kind === 'weapon' && !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
+      <Search c={c} save={save} entries={entries.filter((entry) => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />
       {sorted.map((w) => {
         const displayName = w.name.replace(/ \(Animal Feature\)$/, '')
@@ -333,6 +355,7 @@ export function WeaponList({ c, entries, save }: SectionProps) {
               </select>
             </label>}
             {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
+            {a.entry && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {a.traits.length > 0 && <GearTraits traits={a.traits} entries={entries} system={a.entry?.systems[0]} />}
             <div className="gear-stats">
               <span><small>Attack</small><b>{signed(a.attack)}</b></span>
@@ -431,7 +454,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
   const shield = c.shield
   return (
     <div className="col gear-list">
-      <Search entries={entries} kind="armor" label="Add Armor"
+      <Search c={c} save={save} entries={entries} kind="armor" label="Add Armor"
         onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
         const entry = armorEntry(c, entries, a.name)
@@ -445,8 +468,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
-              <strong>{a.name}</strong>
-              {entry && <small>{entry.systems.map(system => system === 'sf2e' ? 'SF2e' : 'PF2e').join(' / ')}</small>}
+              <strong>{armorDisplayName(a)}</strong>
               <label><input type="checkbox" aria-label={`Worn ${a.name}`} checked={a.worn} disabled={wornLocked}
                 title={body ? 'Attached to character' : wornLocked ? 'Cannot wear armor over attached body armor' : undefined}
                 onChange={(e) => {
@@ -465,6 +487,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
+            {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
             {entry && (
               <div className="gear-stats">
@@ -522,7 +545,7 @@ export function ArmorList({ c, entries, save }: SectionProps) {
             onClick={() => confirmRemoval(`shield "${shield.name}"`, () => save({ shield: undefined }))}>×</button>
         </article>
       ) : (
-        <Search entries={entries} kind="shield" label="Add Shield"
+        <Search c={c} save={save} entries={entries} kind="shield" label="Add Shield"
           onPick={(e) => save({
             shield: {
               id: newId(), name: e.name, raised: false, damage: 0,

@@ -3,6 +3,25 @@ import type { Character, ContentEntry, SpellGrant } from './types'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
+export function refocusRecovery(c: Character, entries: ContentEntry[], capacity: number, spent: number) {
+  let recovery = 1
+  for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
+    const text = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === feat.name
+      && entry.systems.some(system => c.systems.includes(system)))?.description ?? ''
+    if (/When you Refocus, you (?:regain|recover) all your Focus Points/i.test(text)) recovery = capacity
+    const conditional = /spent at least ([23]) Focus Points since the last time you Refocused/i.exec(text)
+    const amount = /(?:recover|regain) ([23]) Focus Points when you Refocus instead of 1/i.exec(text)
+    if (conditional && amount && (c.focusPointsSpentSinceRefocus ?? spent) >= Number(conditional[1])) {
+      recovery = Math.max(recovery, Number(amount[1]))
+    }
+  }
+  return Math.min(capacity, recovery)
+}
+
+const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace' ? 'vanishing tracks' : name.toLowerCase()
+const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
+  || spell.name.toLowerCase() === spellAlias(name)
+
 const featCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
 function featSource(c: Character, entries: ContentEntry[], name: string) {
   let map = featCache.get(entries)
@@ -62,8 +81,9 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         ? { ...baseRule, frequency: 'twice per day' } : baseRule
       const names = rule.choice ? options?.filter(spell => spell.name === feat.choice).map(spell => spell.name) ?? [] : rule.spells
       for (const name of names) {
-        const entry = entries.find(spell => spell.kind === 'spell' && !spell.deleted && spell.name.toLowerCase() === name.toLowerCase()
+        const available = entries.filter(spell => spell.kind === 'spell' && !spell.deleted && matchesSpell(spell, name)
           && spell.systems.some(system => c.systems.includes(system)))
+        const entry = available.find(spell => spell.name.toLowerCase() === name.toLowerCase()) ?? available[0]
         if (entry) out.push({ entry, source: feat.name, rule, rank: rule.heightened || entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
           ? Math.ceil(c.level / 2) : rule.rank ?? entry.level,
           usageKey: JSON.stringify([selection, feat.name, baseRule.spells.map(spell => spell.toLowerCase()).sort(),
@@ -87,7 +107,7 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
   return c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
     return (source?.spellGrants ?? []).flatMap(rule => (rule.choice ? feat.choice ? [feat.choice] : [] : rule.spells)
-      .filter(name => !entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name.toLowerCase() === name.toLowerCase()
+      .filter(name => !entries.some(entry => entry.kind === 'spell' && !entry.deleted && matchesSpell(entry, name)
         && entry.systems.some(system => c.systems.includes(system))))
       .map(name => ({ name, source })))
   })

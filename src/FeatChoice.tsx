@@ -1,5 +1,5 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions, terrainExpertiseOptions } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions, terrainExpertiseOptions, weaponHasAncestryTrait } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { SearchableSelect } from './SearchableSelect'
@@ -7,6 +7,26 @@ import { SearchableSelect } from './SearchableSelect'
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const weapon = entries.find(entry => entry.kind === 'weapon' && entry.name === feat.choice && !entry.deleted)
+    const cultural = feat.name === 'Unconventional Weaponry' && !!weapon && !weaponHasAncestryTrait(weapon, entries)
+    return <span className="feat-choice feat-choice-with-note">
+      <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice, culturalWeapon: undefined } : existing) })
+      }}>
+        <option value="">Choose weapon</option>
+        {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+        {options.map(name => <option key={name}>{name}</option>)}
+      </SearchableSelect>
+      {cultural && <label><input type="checkbox" checked={!!feat.culturalWeapon}
+        onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, culturalWeapon: event.target.checked } : existing) })} />
+        {' '}GM confirmed weapon is common in another culture</label>}
+      {cultural && !feat.culturalWeapon && <small>Access and familiarity require confirmation of cultural eligibility.</small>}
+    </span>
+  }
   if (feat.name === 'Favored Terrain') return null
   if (feat.name === 'Terrain Expertise') {
     const options = terrainExpertiseOptions(c, index)

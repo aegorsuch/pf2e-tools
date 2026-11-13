@@ -10,6 +10,21 @@ const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['dat
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
 })
 
+it('merges equivalent cross-system ancestry feats after eligibility filtering but retains different rules and prerequisites', () => {
+  const original = { ...entry('feat', 'Shared Training', {}, 1, ['Human']),
+    description: "Header\n\n---\n\nYou have training with weapons (such as axes). If you are trained, gain a bonus." }
+  const duplicate: ContentEntry = { ...original, id: 'sf-training', systems: ['sf2e'], traits: ['Human', 'Shirren'],
+    description: "Other Header\n\n---\n\nYou've training with weapons (such as swords). If you're trained, gain a bonus.\n\nShared Training leads to... Other Feat" }
+  const different = { ...original, id: 'different-training', description: 'Gain two bonuses instead.' }
+  const restricted = { ...original, id: 'restricted-training', data: { prerequisite: 'Level 5' } }
+  const c: Character = { id: 'dedup', name: 'Test', systems: ['pf2e', 'sf2e'], ancestry: 'Human', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const options = eligibleFeats([entry('ancestry', 'Human'), entry('ancestry', 'Shirren'), original, duplicate, different, restricted],
+    c, { key: 'ancestry:1:0', category: 'ancestry', level: 1 }, { includeUnmetPrerequisites: true })
+  expect(options.map(option => option.id)).toEqual([original.id, different.id, restricted.id])
+})
+
 const entries = [
   entry('ancestry', 'Elf', { attribute: 'Dexterity, Intelligence, Free', attribute_flaw: 'Constitution', hp: 6 }),
   entry('ancestry', 'Human', { attribute: 'Two free ability boosts' }),

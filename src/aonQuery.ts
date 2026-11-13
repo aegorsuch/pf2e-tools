@@ -102,6 +102,7 @@ export function parseFeatFocus(md: string) {
 // Only explicit, unconditional grants. Conditional effects and variable DC/rank rules stay in the source text.
 export function parseFeatSpellGrants(md: string): SpellGrant[] {
   const body = md.split(/\n---\n/)[1]?.replace(/[_*]/g, '') ?? ''
+  const headerFrequency = /^\*\*Frequency\*\*\s+((?:once|twice|\d+ times) per day)\s*$/im.exec(md.split(/\n---\n/)[0])?.[1]
   const grants: SpellGrant[] = []
   const attribute = (/spellcasting (?:attribute|ability)(?: for [^.!?\n]*?)?(?: modifier)? is (Intelligence|Wisdom|Charisma)/i.exec(body)?.[1]
     ?? /(Intelligence|Wisdom|Charisma) is (?:the |your )?(?:key )?spellcasting (?:attribute|ability)/i.exec(body)?.[1]
@@ -121,7 +122,9 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
     if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
       if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
       const tradition = /\b(arcane|divine|occult|primal)\b/i.exec(sentence)?.[1]
-      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b/gi)]
+      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b/gi)].map(match => match[0])
+      if (!frequencies.length && headerFrequency && names.length === 1
+        && sentences.filter(text => /\byou can cast\b.*\binnate\b/i.test(text)).length === 1) frequencies.push(headerFrequency)
       const ranks = [...sentence.matchAll(/\b(\d+)(?:st|nd|rd|th)-(?:rank|level)\b/gi)]
       if (!tradition || frequencies.length !== 1 || ranks.length > 1) continue
       const next = plain(sentences[index + 1] ?? '')
@@ -131,7 +134,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
         || scales(next) && (/^(?:This spell|Its spell rank)\b/i.test(next) && names.length === 1
           || shared && /^You choose which spell/i.test(next))
       const rule: SpellGrant = {
-        kind: 'innate', spells: names, tradition, frequency: frequencies[0][0].toLowerCase().replace('at-will', 'at will'),
+        kind: 'innate', spells: names, tradition, frequency: frequencies[0].toLowerCase().replace('at-will', 'at will'),
         ...(ranks[0] ? { rank: Number(ranks[0][1]) } : {}),
         heightened, shared,
         ...(ability ? { ability } : {}),

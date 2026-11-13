@@ -5,7 +5,7 @@ import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { classSpellcasting, focusSpells, knowsSpell } from './builder'
 import { grantedWardenSpells } from './featChoices'
-import { dailyInnateUses, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -31,12 +31,12 @@ function findUseButton(node: ReactNode, label: string): { disabled?: boolean; on
   return found
 }
 
-it('spends and restores individual focus dots across saves and rests without resetting spells or daily uses', () => {
+it('refocuses one point per ten minutes across saves without resetting spells or daily uses', () => {
   let c: Character = { ...base, activeSpells: ['Animal Feature'], innateSpellUses: { daily: 1 } }
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
   const tree = () => FocusPointTracker({ c, save, points: 3 })
   expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
-  expect(findUseButton(tree(), 'Rest focus points')!.disabled).toBe(true)
+  expect(findUseButton(tree(), 'Refocus')!.disabled).toBe(true)
   findUseButton(tree(), 'Spend focus point 2')!.onClick()
   expect(c.spentFocusPoints).toEqual([1])
   expect(renderToStaticMarkup(tree())).toContain('2 of 3 focus points available')
@@ -46,11 +46,59 @@ it('spends and restores individual focus dots across saves and rests without res
   expect(renderToStaticMarkup(tree())).not.toContain('aria-pressed="true"')
   findUseButton(tree(), 'Restore focus point 2')!.onClick()
   expect(c.spentFocusPoints).toEqual([0, 2])
-  findUseButton(tree(), 'Rest focus points')!.onClick()
+  findUseButton(tree(), 'Refocus')!.onClick()
+  expect(c.spentFocusPoints).toEqual([2])
+  expect(c.focusPointsSpentSinceRefocus).toBe(0)
+  findUseButton(tree(), 'Refocus')!.onClick()
   expect(c.spentFocusPoints).toEqual([])
   expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
   expect(c.activeSpells).toEqual(['Animal Feature'])
   expect(c.innateSpellUses).toEqual({ daily: 1 })
+})
+
+it('applies earned Refocus feats, tracks conditional spending between Refocuses, and excludes Mythic actions', () => {
+  const focus = feat("Warden's Focus", 'When you Refocus, you regain all your Focus Points instead of 1.', 12)
+  const wellspring = feat('Meditative Wellspring', 'If you have spent at least 3 Focus Points since the last time you Refocused, you recover 3 Focus Points when you Refocus instead of 1.', 18)
+  const mythic = feat('Mythic Refocus', 'Spend a Mythic Point; you immediately recover all your Focus Points.', 8)
+  const entries = [focus, wellspring, mythic]
+  expect(refocusRecovery({ ...base, level: 12, feats: [taken(focus.name, 12)] }, entries, 3, 3)).toBe(3)
+  expect(refocusRecovery({ ...base, level: 11, feats: [taken(focus.name, 12)] }, entries, 3, 3)).toBe(1)
+  expect(refocusRecovery({ ...base, level: 18, feats: [taken(wellspring.name, 18)], focusPointsSpentSinceRefocus: 2 }, entries, 3, 3)).toBe(1)
+  expect(refocusRecovery({ ...base, level: 18, feats: [taken(wellspring.name, 18)], focusPointsSpentSinceRefocus: 3 }, entries, 3, 2)).toBe(3)
+  expect(refocusRecovery({ ...base, level: 18, feats: [taken(mythic.name, 8)] }, entries, 3, 3)).toBe(1)
+})
+
+it('reads innate frequency from a feat header and resolves legacy Pass Without Trace to Vanishing Tracks', () => {
+  const source = mapAonHit({ _id: 'unseen', _source: { name: 'Unseen Passage', category: 'feat',
+    markdown: 'Header\n\n**Frequency** once per day\n\n---\n\nYou can cast [pass without trace](/Spells.aspx?ID=215) as an innate primal spell heightened to a spell level equal to half your level rounded up.' } }, 'pf2e')!
+  const c = { ...base, level: 9, feats: [taken(source.name)] }
+  const spell = entry('Vanishing Tracks', 'spell')
+  const [grant] = grantedFeatSpells(c, [source, spell])
+  expect(grant).toMatchObject({ entry: spell, source: source.name, rank: 5, rule: { frequency: 'once per day', tradition: 'primal' } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  expect(unresolvedFeatSpells(c, [source, spell])).toEqual([])
+})
+
+it('alphabetizes innate spell names independently of feat selection order', () => {
+  const sources = ['Zebra', 'Alpha'].map(name => feat(`${name} Magic`, `You can cast [${name}](/Spells.aspx?ID=1) as an innate primal spell once per day.`))
+  const c = { ...base, feats: sources.map(source => taken(source.name)) }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources, entry('Alpha', 'spell'), entry('Zebra', 'spell')]} save={() => {}} />)
+  const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'))
+  expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
+})
+
+it('keeps companion spell names and Active checkboxes together before source notes', () => {
+  const c: Character = { ...base, className: 'Ranger', spells: [
+    { name: 'Canopy Crawler', rank: 2, cantrip: false }, { name: 'Enlarge Companion', rank: 2, cantrip: false },
+  ] }
+  const entries = ['Canopy Crawler', 'Enlarge Companion'].map(name => entry(name, 'spell', {}, ['Focus', 'Ranger']))
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  for (const name of ['Canopy Crawler', 'Enlarge Companion']) {
+    const row = markup.slice(markup.indexOf(`aria-haspopup="dialog">${name}</button>`))
+    expect(row.indexOf(`aria-label="${name} active"`)).toBeGreaterThan(0)
+    expect(row.indexOf(`aria-label="${name} active"`)).toBeLessThan(row.indexOf('</div>'))
+    expect(markup.match(new RegExp(`aria-label="${name} active"`, 'g'))).toHaveLength(1)
+  }
 })
 
 it('shows only earned focus dots when capacity changes and no tracker without a focus pool', () => {

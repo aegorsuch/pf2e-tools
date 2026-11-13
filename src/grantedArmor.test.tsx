@@ -70,7 +70,8 @@ it('preserves ordinary armor and dormant granted configuration when eligibility 
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   expect(ownedArmors(c, []).find(armor => armor.id === 'purchased')?.worn).toBe(false)
   const bodyCard = find(ArmorList({ c, entries: [], save }), element => element.type === 'article'
-    && !!find(element.props.children as ReactNode, child => child.type === 'strong' && child.props.children === 'Reinforced Chassis'))
+    && !!find(element.props.children as ReactNode, child => child.type === 'strong'
+      && String(child.props.children).includes('Reinforced Chassis')))
   const potency = find(bodyCard, element => element.props.label === 'Potency')
   if (!potency) throw new Error('Missing body armor fundamentals')
   ;(potency.props.onChange as (value: number) => void)(2)
@@ -200,7 +201,7 @@ it.each([
   expect(defenses.perception).toBe(withoutArmor.perception)
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain(`Grade: ${grade} (automatic)`)
-  expect(markup).toContain('>SF2e</small>')
+  expect(markup).not.toContain('>SF2e</small>')
   expect(markup).not.toContain('<label>Potency ')
   expect(markup).not.toContain('<label>Resilient ')
   expect(c.armors?.[0]).toMatchObject({ potency: 3, resilient: 3 })
@@ -215,8 +216,8 @@ it('distinguishes PF2e and SF2e armor progression in mixed-system characters', (
   ])
   expect(grantedArmorEntries(c)).toMatchObject([{ systems: ['sf2e'] }, { systems: ['pf2e'] }])
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('>PF2e</small>')
-  expect(markup).toContain('>SF2e</small>')
+  expect(markup).not.toContain('>PF2e</small>')
+  expect(markup).not.toContain('>SF2e</small>')
   expect(markup).toContain('Grade: Paragon (automatic)')
   expect(markup).toContain('Armor upgrades cannot be installed on this armor')
   expect(grantedArmorEntries(c)[0].data.upgrade_slots).toBe(0)

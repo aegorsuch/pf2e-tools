@@ -4,7 +4,7 @@ export interface FeatAccessCheck {
   requirement: string
   automatic: boolean
   approved: boolean
-  source?: 'ethnicity' | 'achievement'
+  source?: 'ethnicity' | 'achievement' | 'background' | 'ancestry'
 }
 
 interface AchievementOption {
@@ -18,6 +18,10 @@ const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|wit
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
+const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
+const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
+const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER]
+  .map(label => [label.toLowerCase(), label]))
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
   'knights of lastwall',
@@ -29,6 +33,8 @@ const lastwallAccess = new Set([
 export function achievementKey(access: string) {
   const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
   if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
+  if (/^rivethun adherent background or (?:you are )?(?:a )?member of the rivethun$/.test(key)) return RIVETHUN_MEMBERSHIP.toLowerCase()
+  if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
 }
 
@@ -39,7 +45,7 @@ function achievementLabel(requirement: string) {
     .replace(/^you(?:['\u2019]re| are| must be) (?:a )?/i, '')
     .replace(/^you /i, '')
     .replace(/^members of /i, 'Member of ')
-    .replace(/\s+(?:has|have) access to (?:this|the) (?:option|feat)[.!?]*$/i, '')
+    .replace(/\s+(?:has|have) access to [^.!?]+[.!?]*$/i, '')
     .replace(/[.!?]+$/, '')
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
@@ -54,15 +60,14 @@ export function achievementOptions(entries: ContentEntry[]) {
   if (cached) return cached
   const options = new Map<string, AchievementOption>()
   for (const entry of entries) {
-    if (entry.deleted || entry.kind !== 'feat') continue
+    if (entry.deleted || !['feat', 'weapon', 'armor', 'shield'].includes(entry.kind)) continue
     const requirement = narrativeRequirement(entry, String(entry.data.access ?? '').trim().replace(/\s+/g, ' '))
     if (!narrativeAccess.test(requirement)) continue
     const key = achievementKey(requirement)
     const existing = options.get(key)
     if (existing) {
       if (!existing.feats.includes(entry.name)) existing.feats.push(entry.name)
-    } else options.set(key, { key, requirement: key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_MEMBERSHIP
-      : key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : achievementLabel(requirement), feats: [entry.name] })
+    } else options.set(key, { key, requirement: achievementLabels.get(key) ?? achievementLabel(requirement), feats: [entry.name] })
   }
   const result = [...options.values()].sort((a, b) => a.requirement.localeCompare(b.requirement))
   for (const option of result) option.feats.sort((a, b) => a.localeCompare(b))
@@ -98,11 +103,14 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
   if (!access || /^(?:(?:rarity|access)\s*:\s*)?(?:uncommon|rare|unique)(?:\s+(?:feat|option))?[.!?]?$/i.test(access)) return undefined
   const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase())
   const narrative = narrativeRequirement(entry, access)
+  const key = achievementKey(narrative)
+  const background = key === RIVETHUN_MEMBERSHIP.toLowerCase() && c.background?.toLowerCase() === 'rivethun adherent'
+  const ancestry = key === DWARVEN_DEFENDER.toLowerCase() && c.ancestry?.toLowerCase() === 'dwarf'
   const achievement = narrativeAccess.test(narrative) && c.achievements?.some(value => achievementKey(value) === achievementKey(narrative))
   return {
     requirement: access,
-    automatic: ethnicity || !!achievement,
+    automatic: ethnicity || background || ancestry || !!achievement,
     approved: c.featAccessOverrides?.includes(entry.id) ?? false,
-    source: ethnicity ? 'ethnicity' : achievement ? 'achievement' : undefined,
+    source: ethnicity ? 'ethnicity' : background ? 'background' : ancestry ? 'ancestry' : achievement ? 'achievement' : undefined,
   }
 }

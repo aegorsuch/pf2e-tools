@@ -528,7 +528,9 @@
 .gear-tabs button.on { border-bottom-color: var(--accent, #7c6cf0); }
 .gear-filters { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .gear-results { max-height: 20rem; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
-.gear-results li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }
+.gear-results li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }
+.gear-results li > span { flex: 1; min-width: 0; }
+.gear-results .gear-access { flex-basis: 100%; order: 1; }
 .language-picker fieldset { border: 1px solid var(--border, #2c3340); border-radius: 8px; }
 .language-grid { display: grid; grid-template-columns: 1fr; gap: 0.25rem 1rem; }
 
@@ -576,6 +578,7 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .feat-slot-row:has(.feat-type-tabs) { flex-wrap: wrap; }
 
 .feat-picker-button { flex: 1 1 10rem; min-width: 0; text-align: left; }
+.searchable-select > .feat-picker-button { flex: none; }
 .feat-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -614,6 +617,8 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .feat-modal-list .picker-details { width: auto; flex: none; text-decoration: underline; }
 .spell-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
 .spell-item .spell-name { flex: 1; }
+.spell-title { display: inline-flex; align-items: center; gap: 0.35rem; }
+.spell-title label { white-space: nowrap; }
 .spell-remove { padding: 0.1rem 0.4rem; }
 details.info > summary { list-style: none; font-weight: 600; font-size: 1em; }
 details.info > summary::-webkit-details-marker { display: none; }

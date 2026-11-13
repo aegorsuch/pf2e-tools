@@ -13,6 +13,33 @@ const feat: ContentEntry = {
   traits: ['Human', 'Uncommon'], data: { access: 'Kellid ethnicity' }, description: '', effects: [], updatedAt: 1,
 }
 
+it('shows Rivethun membership while automatically accepting its background and retaining old checked wording', () => {
+  const access = 'Rivethun Adherent background or you are a member of the Rivethun'
+  const source = { ...feat, data: { access } }
+  expect(achievementOptions([source])[0].requirement).toBe('Member of the Rivethun')
+  expect(featAccess({ ...character, background: 'Rivethun Adherent' }, source)).toMatchObject({ automatic: true, source: 'background' })
+  expect(featAccess({ ...character, achievements: [access] }, source)?.automatic).toBe(true)
+  expect(featAccess({ ...character, achievements: ['Member of the Rivethun'] }, source)?.automatic).toBe(true)
+  expect(featAccess(character, source)?.automatic).toBe(false)
+})
+
+it('shows only defender training as an achievement and accepts actual Dwarf ancestry automatically', () => {
+  const access = 'You are a dwarf or have undergone defender training in a dwarven settlement such as Highhelm.'
+  const source = { ...feat, data: { access } }
+  const [option] = achievementOptions([source])
+  expect(option.requirement).toBe('Undergone defender training in a dwarven settlement such as Highhelm')
+  expect(featAccess({ ...character, ancestry: 'Dwarf' }, source)).toMatchObject({ automatic: true, source: 'ancestry' })
+  expect(featAccess({ ...character, ancestry: 'Human', achievements: [option.key] }, source)?.automatic).toBe(true)
+  expect(featAccess({ ...character, ancestry: 'Human', achievements: [access] }, source)?.automatic).toBe(true)
+  expect(featAccess({ ...character, ancestry: 'Human' }, source)?.automatic).toBe(false)
+})
+
+it('capitalizes membership labels and shares equipment membership with feat achievements', () => {
+  const armor: ContentEntry = { ...feat, kind: 'armor', data: { access: 'a character who is a member of the Hellknights has access to this armor.' } }
+  const [option] = achievementOptions([armor])
+  expect(option.requirement).toBe('Member of the Hellknights')
+  expect(featAccess({ ...character, achievements: [option.key] }, armor)?.automatic).toBe(true)
+})
 it('shares Tian elementalism access with Intensified Element Stance without bypassing Medicine training', () => {
   const label = 'Tian Xia origin or exposure to Tian elementalism'
   const intensified: ContentEntry = { ...feat, name: 'Intensified Element Stance', level: 6, traits: ['Ranger'],
