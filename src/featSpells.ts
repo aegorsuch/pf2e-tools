@@ -43,6 +43,13 @@ const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCa
 
 const featCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
 function featSource(c: Character, entries: ContentEntry[], name: string) {
+  if (name === 'Ancestral Magic') {
+    const ancestries = [c.ancestry, c.heritage, ...c.feats.filter(feat => feat.name === 'Adopted Ancestry'
+      && featTakenLevel(feat) <= c.level).map(feat => feat.choice)].filter((value): value is string => !!value)
+    return entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
+      && entry.systems.some(system => c.systems.includes(system))
+      && entry.traits.some(trait => ancestries.some(ancestry => ancestry.toLowerCase() === trait.toLowerCase())))
+  }
   let map = featCache.get(entries)
   if (!map) {
     map = new Map()
@@ -54,7 +61,33 @@ function featSource(c: Character, entries: ContentEntry[], name: string) {
   return c.systems.map(system => map.get(`${system}:${name}`)).find(Boolean)
 }
 
+function ancestralMagicRules(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  const source = featSource(c, entries, 'Ancestral Magic')
+  const options = /Option\(s\):\s*(arcane|divine|occult|primal)\s*;([^\n]*)/i.exec(source?.description ?? '')
+  if (!options) return undefined
+  const level = featTakenLevel(feat)
+  const rank = level >= 17 ? 7 : level >= 13 ? 5 : level >= 9 ? 3 : 1
+  const used = new Set(c.feats.filter(other => other.name === feat.name
+    && (feat.slot ? other.slot !== feat.slot : other !== feat)).flatMap(other => other.choice ? [other.choice.toLowerCase()] : []))
+  const spells = [...options[2].matchAll(/(?:^|;)\s*(\d+)(?:st|nd|rd|th)\s+([^;]+)/gi)]
+    .filter(match => Number(match[1]) <= rank)
+    .flatMap(match => match[2].split(',').map(name => name.trim().replace(/[.)]+$/, '')).filter(Boolean))
+    .filter(name => !used.has(name.toLowerCase()))
+  return { tradition: options[1], rank, spells }
+}
+
+export function ancestralMagicAvailable(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  return !!ancestralMagicRules(c, entries, feat)?.spells.length
+}
+
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (feat.name === 'Ancestral Magic') {
+    const rules = ancestralMagicRules(c, entries, feat)
+    return entries.filter(spell => spell.kind === 'spell' && !spell.deleted
+      && spell.systems.some(system => c.systems.includes(system))
+      && rules?.spells.some(name => matchesSpell(spell, name)))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   const entry = featSource(c, entries, feat.name)
   const rule = entry?.spellGrants?.find(grant => grant.choice)
   if (!rule && feat.name !== 'Qi Spells') return undefined
@@ -75,6 +108,14 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Ancestral Magic') {
+      const rule = ancestralMagicRules(c, entries, feat)
+      const spell = feat.choice && featSpellOptions(c, entries, feat)?.find(entry => entry.name === feat.choice)
+      if (rule && spell) out.push({ entry: spell, source: feat.name,
+        rule: { kind: 'innate', spells: [spell.name], tradition: rule.tradition, frequency: 'once per day' },
+        rank: rule.rank, usageKey: JSON.stringify([selection, feat.name, spell.name.toLowerCase()]) })
+      continue
+    }
     const rules = source?.spellGrants ?? []
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {

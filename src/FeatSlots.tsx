@@ -52,7 +52,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
-      && !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level)
+      && (grant.name === 'Augmented Body' || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
@@ -209,7 +209,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             return <Fragment key={`${row.kind}:${feat.name}`}>
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
-                {background && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
+                {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
                 <EntryDescription name={displayName(feat.name)} entry={entry} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
               </li>

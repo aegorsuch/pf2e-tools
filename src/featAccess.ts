@@ -52,7 +52,8 @@ function achievementLabel(requirement: string) {
 }
 
 function narrativeRequirement(entry: ContentEntry, access: string) {
-  return ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name) && achievementKey(access) === 'from nidal'
+  return ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)
+    && (achievementKey(access) === 'from nidal' || /^you\ufffdre from nidal[.!?]*$/i.test(access))
     ? NIDAL_HUSBANDRY : access
 }
 
@@ -113,7 +114,7 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
   const ancestry = key === DWARVEN_DEFENDER.toLowerCase() && c.ancestry?.toLowerCase() === 'dwarf'
   const achievement = isAchievementRequirement(narrative) && c.achievements?.some(value => achievementKey(value) === key)
   return {
-    requirement: access,
+    requirement: key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : narrative,
     automatic: ethnicity || background || ancestry || !!achievement,
     approved: c.featAccessOverrides?.includes(entry.id) ?? false,
     source: ethnicity ? 'ethnicity' : background ? 'background' : ancestry ? 'ancestry' : achievement ? 'achievement' : undefined,

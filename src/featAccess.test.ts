@@ -64,7 +64,7 @@ it('shares Tian elementalism access with Intensified Element Stance without bypa
   }])
   const c: Character = { ...character, className: 'Ranger', level: 6, achievements: [label], skillPicks: ['Medicine'] }
   const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
-  expect(featAccess(c, intensified)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess(c, intensified)).toMatchObject({ requirement: label, automatic: true, source: 'achievement' })
   expect(featAccess({ ...c, achievements: ['Tian Xia origin'] }, intensified)?.automatic).toBe(true)
   expect(eligibleFeats([intensified], c, slot)).toContain(intensified)
   expect(eligibleFeats([intensified], { ...c, skillPicks: [] }, slot)).not.toContain(intensified)
@@ -83,6 +83,8 @@ it('grants both Nidal steed access through husbandry while still requiring a hor
   const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
   for (const steed of steeds) {
     expect(featAccess(c, steed)).toMatchObject({ automatic: true, source: 'achievement' })
+    expect(featAccess(c, { ...steed, data: { ...steed.data, access: 'You\ufffdre from Nidal.' } }))
+      .toMatchObject({ requirement: label, automatic: true })
     expect(featAccess({ ...c, achievements: [] }, steed)?.automatic).toBe(false)
   }
   expect(eligibleFeats(steeds, c, slot)).toEqual([])

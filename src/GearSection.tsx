@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, shieldParagonActive, shieldRaised, type SectionProps,
+  activeFeatsNamed, animalStrengthSource, animalStrengthRuneSources, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveHandwraps, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, shieldParagonActive, shieldRaised, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -18,6 +18,52 @@ import type { ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './ty
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
 const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
+
+export function Augmentations({ c, entries, save }: SectionProps) {
+  const [picked, setPicked] = useState('')
+  const [slot, setSlot] = useState('standard')
+  if (!c.systems.includes('sf2e')) return null
+  const installed = c.augmentations ?? []
+  const limit = augmentationLimit(c)
+  const standardUsed = installed.filter(item => item.slot === 'standard').length
+  const bodySlots = augmentationBodySlots(c)
+  const adapted = activeFeatsNamed(c, 'Adapted Augmentations').length > 0
+  const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
+    && String(entry.data.item_category).toLowerCase() === 'augmentations')
+    .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
+  const selected = options.find(entry => entry.id === picked)
+  const exemption = selected && augmentationExemption(selected)
+  const available = !!selected && canInstallAugmentation(c, selected, slot)
+  return <section className="col" aria-label="Augmentations">
+    <h4>Augmentations</h4>
+    <small>Implant limit: {standardUsed}/{limit}. Apex augmentations do not count toward this limit.</small>
+    <small>Augmentation effects are not applied automatically; review each item's rules.</small>
+    {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
+    <ul>{installed.map(item => {
+      const entry = entries.find(candidate => candidate.id === item.entryId)
+      const invalid = item.slot.startsWith('body:') && !bodySlots.includes(item.slot) || item.slot === 'adapted' && !adapted
+      return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
+        {' '}<small>({item.slot === 'standard' ? 'implant limit' : item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : item.slot === 'adapted' ? 'Adapted Augmentations' : 'Augmented Body'}{invalid ? '; source unavailable' : ''})</small>
+        {' '}<button type="button" onClick={() => confirmRemoval(`augmentation "${item.name}"`,
+          () => save({ augmentations: installed.filter(existing => existing.id !== item.id) }))}>Remove</button></li>
+    })}</ul>
+    <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value={picked} onChange={event => setPicked(event.target.value)}>
+      <option value="">Choose augmentation</option>
+      {options.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
+    </SearchableSelect>
+    {!exemption && <label>Implant slot{' '}<select aria-label="Augmentation implant slot" value={slot} onChange={event => setSlot(event.target.value)}>
+      <option value="standard">Standard ({standardUsed}/{limit})</option>
+      {bodySlots.map((value, index) => <option key={value} value={value}>Augmented Body {index + 1}{installed.some(item => item.slot === value) ? ' (used)' : ''}</option>)}
+      {adapted && <option value="adapted">Adapted Augmentations{installed.some(item => item.slot === 'adapted') ? ' (used)' : ''}</option>}
+    </select></label>}
+    <button type="button" disabled={!available} onClick={() => {
+      if (!selected || !available) return
+      save({ augmentations: [...installed, { id: newId(), entryId: selected.id, name: selected.name, slot: exemption ?? slot }] })
+      setPicked('')
+    }}>Add augmentation</button>
+    {selected && !available && <small role="status">This augmentation or implant slot is unavailable. Check level, rarity, and slot limits.</small>}
+  </section>
+}
 
 export function BulkLimits({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const limits = bulkLimits(c, entries)

@@ -9,6 +9,9 @@ import { ActionIcon } from './ActionIcon'
 import { SpellDamageRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
+import { featTakenLevel } from './featChoices'
+import { SearchableSelect } from './SearchableSelect'
+import { featSpellOptions } from './featSpells'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -277,6 +280,22 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         </div>
       )}
       </>}
+      {c.feats.map((feat, index) => {
+        if (!['First World Magic', 'Ancestral Magic'].includes(feat.name) || featTakenLevel(feat) > c.level) return null
+        const options = featSpellOptions(c, entries, feat) ?? []
+        return <span className="feat-choice" key={feat.slot ?? `${feat.name}:${index}`}>
+          <SearchableSelect label={`${feat.name} spell`} aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
+            const choice = event.target.value || undefined
+            if (choice && !options.some(spell => spell.name === choice)) return
+            save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+          }}>
+            <option value="">Choose spell</option>
+            {feat.choice && !options.some(spell => spell.name === feat.choice) && <option disabled value={feat.choice}>{feat.choice} (unavailable)</option>}
+            {[...new Set(options.map(spell => spell.name))].map(name => <option key={name}>{name}</option>)}
+          </SearchableSelect>
+          {!options.length && <small>No available spells. Check ancestry, earlier choices, and imported spell data.</small>}
+        </span>
+      })}
       {(focus.length > 0 || granted.length > 0) && (
         <div>
           <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} entries={entries} save={save} points={focusPoints} /></div>

@@ -119,6 +119,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)
+  if (['First World Magic', 'Ancestral Magic'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
       const choice = event.target.value || undefined

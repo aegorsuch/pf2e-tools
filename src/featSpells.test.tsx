@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { classSpellcasting, focusSpells, knowsSpell } from './builder'
+import { classSpellcasting, eligibleFeats, featChoiceOptions, focusSpells, knowsSpell } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
@@ -85,6 +85,37 @@ it('alphabetizes innate spell names independently of feat selection order', () =
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources, entry('Alpha', 'spell'), entry('Zebra', 'spell')]} save={() => {}} />)
   const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'))
   expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
+})
+
+it('grants each First World Adept spell once daily at rank two', () => {
+  const source = feat('First World Adept', 'You gain [invisibility](/Spells.aspx?ID=164) and [revealing light](/Spells.aspx?ID=1653) as 2nd-rank primal innate spells. You can cast each of these primal innate spells once per day.', 9)
+  const c = { ...base, level: 9, feats: [taken(source.name, 9)] }
+  const grants = grantedFeatSpells(c, [source, entry('Invisibility', 'spell'), entry('Revealing Light', 'spell')])
+  expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, dailyInnateUses(c, grant)?.limit]))
+    .toEqual([['Invisibility', 2, 'primal', 1], ['Revealing Light', 2, 'primal', 1]])
+  expect(dailyInnateUses(c, grants[0])?.key).not.toBe(dailyInnateUses(c, grants[1])?.key)
+})
+
+it('selects only unused ancestry spells at the feat slot rank and grants the correct innate rank', () => {
+  const magic = mapAonHit({ _id: 'gnome-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Gnome'],
+    markdown: 'Header\n\n---\n\nChoose a spell.<br/><br/>**[Option(s)](/feats/1)**: primal; 1st _[charm](/spells/1)_; 2nd _[invisibility](/spells/2)_; 3rd _[veil of privacy](/spells/3)_\n\n**Special** You can select this feat more than once.' } }, 'sf2e')!
+  const spells = ['Charm', 'Invisibility', 'Veil of Privacy'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Gnome', level: 9,
+    feats: [{ ...taken(magic.name, 5, 'Charm'), slot: 'ancestry:5:0' }] }
+  expect(featChoiceOptions('Ancestral Magic', c, [magic, ...spells], 'ancestry:9:0')).toBeUndefined()
+  expect(featChoiceOptions('First World Magic', c, [magic, ...spells], 'ancestry:1:0')).toBeUndefined()
+  const slot = { key: 'ancestry:9:0', category: 'ancestry' as const, level: 9 }
+  expect(eligibleFeats([magic, ...spells], c, slot)).toContain(magic)
+  const second = { ...taken(magic.name, 5, 'Invisibility'), slot: slot.key }
+  const two = { ...c, feats: [...c.feats, second] }
+  expect(featSpellOptions(two, [magic, ...spells], second)?.map(spell => spell.name)).toEqual(['Invisibility', 'Veil of Privacy'])
+  expect(grantedFeatSpells(two, [magic, ...spells]).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition]))
+    .toEqual([['Charm', 1, 'primal'], ['Invisibility', 3, 'primal']])
+  const allUsed = { ...c, feats: [...c.feats, { ...second, choice: 'Invisibility', slot: 'ancestry:9:0' },
+    { ...second, choice: 'Veil of Privacy', slot: 'ancestry:13:0' }], level: 17 }
+  expect(eligibleFeats([magic, ...spells], allUsed, { ...slot, key: 'ancestry:17:0', level: 17 })).not.toContain(magic)
+  const markup = renderToStaticMarkup(<SpellsSection c={two} entries={[magic, ...spells]} save={() => {}} />)
+  expect(markup).toContain('Ancestral Magic spell')
 })
 
 it('keeps companion spell names and Active checkboxes together before source notes', () => {

@@ -10,7 +10,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, shieldParagonActive, shieldRaised, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
-import { BulkLimits, HandwrapsGear } from './GearSection'
+import { Augmentations, BulkLimits, HandwrapsGear } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
@@ -345,11 +345,12 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Gear</strong>
-          <span>{c.equipment.length + (c.handwraps ? 1 : 0)} items</span>
+          <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0)} items</span>
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
           <HandwrapsGear {...section} />
+          <Augmentations {...section} />
           <ul>
             {c.equipment.map((g, i) => (
               <li key={`${g.name}-${i}`}>

@@ -235,7 +235,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     )
   }
   if (part === 'defense') {
-    const res = resistances(c, entries)
+    const res = [...resistances(c, entries)].sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
     const researched = researchedSpellResistance(c, entries)

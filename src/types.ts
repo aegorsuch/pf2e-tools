@@ -129,6 +129,7 @@ export interface Character {
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
+  augmentations?: { id: string; entryId: string; name: string; slot: string }[]
   formulas?: string[]
   snareFormulaChoices?: string[]
   brastlewarkFormulaMode?: 'standard' | 'other'

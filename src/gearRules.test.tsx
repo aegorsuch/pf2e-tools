@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange, parryValue, savingThrowBreakdown,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canInstallAugmentation, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange, parryValue, savingThrowBreakdown,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
-import { ArmorList, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, WeaponList } from './GearSection'
 import { ClassFeatures } from './ClassFeatures'
 import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
@@ -26,6 +26,38 @@ const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1,
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
 
+it('tracks augmentation limits and extra slots from earned feats without rewriting installed augmentations', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 9, heritage: 'Synthflesh Verthani',
+    feats: [feat('Transgnomanist', 5), feat('Easily Augmented'), feat('Augmented Shell', 9),
+      feat('Reconfigurable Frame', 5), feat('Reconfigurable Frame', 5), feat('Augmented Perfection', 17)],
+    augmentations: [{ id: 'a', entryId: 'plating', name: 'Dermal Plating', slot: 'body:0' }] }
+  const implant = { ...content('item', 'Dermal Plating', { item_category: 'Augmentations' }), id: 'plating', systems: ['sf2e'] as const }
+  expect(augmentationLimit(c)).toBe(10)
+  const markup = renderToStaticMarkup(<Augmentations c={c} entries={[{ ...implant, systems: ['sf2e'] }]} save={() => {}} />)
+  expect(markup).toContain('Implant limit: 0/10')
+  expect(markup).toContain('Augmented Body 1 (used)')
+  expect(markup).toContain('Dermal Plating')
+  expect(c.augmentations?.[0].slot).toBe('body:0')
+  expect(renderToStaticMarkup(<Augmentations c={{ ...c, systems: ['pf2e'] }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('enforces normal and feat-granted implant slots while permitting exempt augmentations', () => {
+  const implant: ContentEntry = { ...content('item', 'Dermal Plating', { item_category: 'Augmentations', rarity: 'common' }),
+    systems: ['sf2e'] }
+  const installed = Array.from({ length: 4 }, (_, index) => ({ id: String(index), entryId: String(index), name: `Implant ${index}`, slot: 'standard' }))
+  const c: Character = { ...base, systems: ['sf2e'], level: 5, feats: [feat('Transgnomanist', 5), feat('Adapted Augmentations')],
+    augmentations: installed }
+  expect(canInstallAugmentation(c, implant, 'standard')).toBe(false)
+  expect(canInstallAugmentation(c, implant, 'body:0')).toBe(true)
+  expect(canInstallAugmentation(c, { ...implant, level: 6 }, 'body:0')).toBe(false)
+  expect(canInstallAugmentation(c, { ...implant, level: 2 }, 'adapted')).toBe(false)
+  expect(canInstallAugmentation(c, { ...implant, data: { ...implant.data, rarity: 'rare' } }, 'adapted')).toBe(false)
+  expect(canInstallAugmentation(c, implant, 'adapted')).toBe(true)
+  expect(canInstallAugmentation(c, { ...implant, traits: ['Apex'] }, 'standard')).toBe(true)
+  expect(canInstallAugmentation(c, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
+  expect(canInstallAugmentation({ ...c, feats: [] }, implant, 'body:0')).toBe(false)
+  expect(canInstallAugmentation({ ...c, augmentations: [...installed, { id: 'body', entryId: implant.id, name: implant.name, slot: 'body:0' }] }, implant, 'body:0')).toBe(false)
+})
 it.each(['Celestial Form', 'Fiendish Form'])('gates %s flight on the house rule and acquisition level without suppressing other flight', name => {
   const previous = getSettings().championFormNoFlight
   const c: Character = { ...base, level: 18, feats: [feat(name, 18)] }
@@ -745,6 +777,15 @@ it('derives Primal Aegis from current Wisdom without granting future, absent or 
   expect(resistances({ ...c, abilities: { ...c.abilities, wis: 8 } }, [])).toEqual([])
   expect(resistances({ ...c, level: 17 }, [])).toEqual([])
   expect(resistances({ ...c, feats: [] }, [])).toEqual([])
+})
+
+it('alphabetizes resistance types in the Defense display', () => {
+  const fire = content('feat', 'Fire Guard', { resistances: 'fire=5' })
+  const acid = content('feat', 'Acid Guard', { resistances: 'acid=3' })
+  const c = { ...base, feats: [feat(fire.name), feat(acid.name)] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[fire, acid]} save={() => {}} part="defense" />)
+  expect(markup.indexOf('Acid 3')).toBeGreaterThan(-1)
+  expect(markup.indexOf('Acid 3')).toBeLessThan(markup.indexOf('Fire 5'))
 })
 
 it.each([[10, 3], [11, 3], [12, 4], [15, 4], [16, 5], [19, 5], [20, 6]])('activates Harden Flesh resistance %i -> %i with its adamantine exception', (level, value) => {

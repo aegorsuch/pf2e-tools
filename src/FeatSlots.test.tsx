@@ -526,10 +526,10 @@ it('shows the current background skill feat above level-based skill feats', () =
   ]
   const render = (character: Character) => renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={['skill']} bare />)
   const markup = render(c)
-  expect(markup).toContain('Background Skill Feat')
+  expect(markup).not.toContain('Background Skill Feat')
   expect(markup).toContain('Survey Wildlife')
-  expect(markup.indexOf('Background Skill Feat')).toBeLessThan(markup.indexOf('Level 02'))
-  expect(render({ ...c, background: undefined })).not.toContain('Background Skill Feat')
+  expect(markup.indexOf('Survey Wildlife')).toBeLessThan(markup.indexOf('Level 02'))
+  expect(render({ ...c, background: undefined })).not.toContain('Survey Wildlife')
 })
 
 it('includes action symbols in feat choices and shows add control on each level top row', () => {
@@ -587,12 +587,11 @@ it('routes mixed background grants to their own feat sections and hides rows whe
   const render = (category: 'skill' | 'general', background = c.background) =>
     renderToStaticMarkup(<FeatSlots c={{ ...c, background }} entries={entries} save={() => {}} categories={[category]} bare />)
   const general = render('general')
-  expect(general).toContain('Background General Feat')
   expect(general).toContain('Toughness')
   expect(general).not.toContain('Background Skill Feat')
-  expect(general.indexOf('Background General Feat')).toBeLessThan(general.indexOf('L03 General'))
+  expect(general.indexOf('Toughness')).toBeLessThan(general.indexOf('L03 General'))
   const skill = render('skill')
-  expect(skill).toContain('Background Skill Feat')
+  expect(skill).not.toContain('Background Skill Feat')
   expect(skill).toContain('Assurance')
   expect(skill).not.toContain('Toughness')
   for (const category of ['skill', 'general'] as const) {

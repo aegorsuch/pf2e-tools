@@ -22,6 +22,7 @@ export const DATA_FIELDS = [
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 export const usesFullItemRules = (source: Record<string, unknown>) =>
   /Property Runes|Precious Material/i.test(String(source.item_subcategory)) || source.item_category === 'Materials'
+  || source.item_category === 'Augmentations'
 
 // Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
 const REMASTER_ONLY = (category: string) => ({
@@ -120,6 +121,13 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   const cantrip = /Choose one cantrip from the \[([^\]]+)\]\([^)]*\) spell list/i.exec(body)
   if (cantrip && /innate spell at[- ]will/i.test(body)) {
     grants.push({ kind: 'innate', spells: [], choice: 'cantrip', tradition: cantrip[1], heightened: true, frequency: 'at will', ...(ability ? { ability } : {}) })
+  }
+  const separateDaily = /You gain ([^\n]+?) as (\d+)(?:st|nd|rd|th)-rank (arcane|divine|occult|primal) innate spells\.\s*You can cast each of these (?:arcane|divine|occult|primal) innate spells once per day\./i.exec(body)
+  if (separateDaily) {
+    const spells = [...separateDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+      .map(match => match[1])
+    if (spells.length) grants.push({ kind: 'innate', spells, rank: Number(separateDaily[2]),
+      tradition: separateDaily[3], frequency: 'once per day', heightened: false, ...(ability ? { ability } : {}) })
   }
   const higherDC = /using the higher of your class DC or\s+spell DC/i.test(body)
   if ((!higherDC && /class DC|whichever is higher/i.test(body)) || /At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants

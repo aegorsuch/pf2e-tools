@@ -42,6 +42,23 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  it('grants each Order Explorer a first-level feat from its chosen order at the acquisition level', () => {
+    const animal = entry('feat', 'Animal Companion', { prerequisite: 'animal order' }, 1, ['Druid'])
+    const flame = entry('feat', 'Leshy Familiar', { prerequisite: 'leaf order' }, 1, ['Druid'])
+    const general = entry('feat', 'Other Druid Feat', {}, 1, ['Druid'])
+    const c: Character = { ...base, className: 'Druid', order: 'Storm', level: 4, feats: [
+      { ...selected('Order Explorer', 2), choice: 'Animal' },
+      { ...selected('Order Explorer', 4), choice: 'Leaf' },
+    ] }
+    const slots = plannedSlots(c).filter(slot => slot.grantedBy === 'Order Explorer')
+    expect(slots.map(slot => [slot.level, slot.maxFeatLevel, slot.grantedOrder])).toEqual([[2, 1, 'Animal'], [4, 1, 'Leaf']])
+    expect(eligibleFeats([animal, flame, general], c, slots[0])).toEqual([animal])
+    expect(eligibleFeats([animal, flame, general], c, slots[1])).toEqual([flame])
+    const untamed = entry('feat', 'Untamed Form', { prerequisite: 'untamed order' }, 1, ['Druid'])
+    const wild = { ...c, feats: [{ ...selected('Order Explorer', 2), choice: 'Wild' }] }
+    expect(eligibleFeats([untamed], wild, plannedSlots(wild).find(slot => slot.grantedBy === 'Order Explorer')!)).toEqual([untamed])
+    expect(plannedSlots({ ...c, level: 1 }).filter(slot => slot.grantedBy === 'Order Explorer')).toEqual([])
+  })
   it.each([
     ['Ranger', 'Snarecrafter Dedication', 'Snarecrafter', 'rangerSnarecrafter', 'archetype:2:g99'],
     ['Champion', 'Cavalier Dedication', 'Cavalier', 'championCavalier', 'archetype:2:g98'],

@@ -1,6 +1,6 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, isGrantedArmor } from './grantedArmor'
 export { featTakenLevel } from './featChoices'
@@ -208,7 +208,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -234,6 +234,34 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export function augmentationLimit(c: Character) {
+  const count = (name: string) => activeFeatsNamed(c, name).length
+  return 4 + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
+    + count('Easily Augmented') * (c.heritage?.toLowerCase() === 'synthflesh verthani' ? 2 : 1)
+    + 2 * (count('Augmented Dedication') + count('Augmented Perfection'))
+}
+export function augmentationBodySlots(c: Character) {
+  const count = ['Augmented Body', 'Transgnomanist', 'Augmented Dedication']
+    .reduce((sum, name) => sum + activeFeatsNamed(c, name).length, 0)
+  return Array.from({ length: count }, (_, index) => `body:${index}`)
+}
+export function augmentationExemption(entry: ContentEntry) {
+  if (entry.traits.some(trait => trait.toLowerCase() === 'apex')) return 'apex'
+  return /\b(?:this|the) augmentation (?:doesn.t|does not) count (?:against|toward|towards) (?:your|the) (?:total )?implant limit\b/i.test(entry.description)
+    ? 'exempt' : undefined
+}
+export function canInstallAugmentation(c: Character, entry: ContentEntry, slot: string) {
+  if (entry.kind !== 'item' || entry.deleted || !entry.systems.includes('sf2e')
+    || String(entry.data.item_category).toLowerCase() !== 'augmentations') return false
+  const installed = c.augmentations ?? []
+  if (augmentationExemption(entry)) return true
+  if (slot === 'standard') return installed.filter(item => item.slot === 'standard').length < augmentationLimit(c)
+  if (installed.some(item => item.slot === slot)) return false
+  if (augmentationBodySlots(c).includes(slot)) return entry.level <= c.level
+    && !installed.some(item => item.slot.startsWith('body:') && item.name.toLowerCase() === entry.name.toLowerCase())
+  return slot === 'adapted' && activeFeatsNamed(c, 'Adapted Augmentations').length > 0 && entry.level <= 1
+    && !entry.traits.some(trait => /^(uncommon|rare|unique)$/i.test(trait)) && !/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity))
+}
 export const shieldParagonActive = (c: Character) => !!c.shield && activeFeatsNamed(c, 'Shield Paragon').length > 0
 export const shieldRaised = (c: Character) => !!c.shield && (c.shield.raised || shieldParagonActive(c))
 export const isFeatEffectActive = (c: Character, name: string) =>
@@ -252,7 +280,7 @@ export const HOMEBREW_DEDICATIONS = [
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
-export const isGrantedSlot = (key: string) => /:g\d+$/.test(key)
+export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
 
 export function plannedSlots(c: Character): PlannedSlot[] {
   const base: FeatSlot[] = [
@@ -285,6 +313,17 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     slots.push({ key: `${id}:g${i}`, category: g.category, level, ...(limited ? { maxFeatLevel: g.level } : {}),
       ...(name === 'Multitalented' ? { grantedBy: name } : {}) })
   })
+  let unslottedExplorer = 0
+  for (const feat of c.feats) {
+    if (feat.name !== 'Order Explorer') continue
+    const identity = feat.slot ?? `unslotted-${unslottedExplorer++}`
+    const level = featTakenLevel(feat)
+    if (c.className !== 'Druid' || level > c.level || !feat.choice || !Object.hasOwn(DRUID_ORDERS, feat.choice)) continue
+    const group = `class:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `class:1:order-explorer:${identity}`, category: 'class', level, maxFeatLevel: 1,
+      grantedBy: 'Order Explorer', grantedOrder: feat.choice })
+  }
   for (const d of activeHomebrewDedications(c)) {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
@@ -536,6 +575,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(generalOnly && traits.has('skill'))
       && (!ownedArchetype || isDedication(e) || ownedArchetype(e).length === 0)
       && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
+      && (!slot.grantedOrder || new RegExp(`\\b${slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder} order\\b`, 'i').test(String(e.data.prerequisite ?? '')))
+      && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
+        { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level }))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
@@ -637,6 +679,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const selected = new Set(c.feats.flatMap((feat) => feat.slot !== slotKey && hasWardenChoice(feat) && feat.choice ? [feat.choice] : []))
     return wardenSpellOptions({ name }, entries).map((spell) => spell.name).filter((choice) => !selected.has(choice))
   }
+  if (name === 'First World Magic' || name === 'Ancestral Magic') return undefined
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
@@ -975,7 +1018,7 @@ const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/,\s(?=Trai
 
 // The skill each druidic order grants
 export const DRUID_ORDERS: Record<string, string> = {
-  Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Athletics', Wild: 'Intimidation',
+  Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Medicine', Wild: 'Intimidation',
 }
 
 // The initial order spell (a focus spell) each druidic order grants
@@ -1049,9 +1092,7 @@ export function autoClassSkills(c: Character, entries: ContentEntry[]) {
   const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
   const picked = c.classSkill && choices.includes(c.classSkill) ? c.classSkill : undefined
   const divine = c.className === 'Champion' ? tokens(byName(entries, 'deity', c.deity)?.data.skill) : []
-  // Order Explorer adds a second druidic order, whose skill is also trained
-  const explored = c.className === 'Druid' ? c.feats.flatMap((f) => f.name === 'Order Explorer' && f.choice && DRUID_ORDERS[f.choice] ? [DRUID_ORDERS[f.choice]] : []) : []
-  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...explored, ...divine])]
+  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...divine])]
 }
 
 export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
@@ -1189,6 +1230,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Snarecrafter Dedication').length) {
     grants.push({ name: 'Snare Crafting', source: 'Snarecrafter Dedication', level: sourceLevel('Snarecrafter Dedication') })
+  }
+  for (const name of ['Transgnomanist', 'Augmented Dedication']) {
+    if (activeFeatsNamed(c, name).length) grants.push({ name: 'Augmented Body', source: name, level: sourceLevel(name) })
   }
   if (activeFeatsNamed(c, 'Raging Intimidation').length) {
     for (const [name, minimum, rank] of [['Intimidating Glare', 1, 1], ['Scare to Death', 15, 4]] as const) {

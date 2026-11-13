@@ -884,10 +884,12 @@ describe('class skill choice', () => {
 })
 
 describe('Order Explorer', () => {
-  it('trains the second order skill', () => {
+  it('does not grant the explored order skill', () => {
     const druid = entry('class', 'Druid', { skill_proficiency: 'Trained in Nature' })
     const c = { ...base, className: 'Druid', order: 'Animal', feats: [{ name: 'Order Explorer', type: 'class', level: 2, choice: 'Storm' }] }
-    expect(ranksAt(c, [druid])).toMatchObject({ Athletics: 1, Acrobatics: 1 })
+    expect(ranksAt(c, [druid]).Athletics).toBe(1)
+    expect(ranksAt(c, [druid]).Acrobatics ?? 0).toBe(0)
+    expect(ranksAt({ ...c, order: 'Wave' }, [druid]).Medicine).toBe(1)
   })
 })
 
