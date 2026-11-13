@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
-  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
+  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featChoiceOptions, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, dailyLongevityRanks, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
@@ -67,6 +67,14 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const skillNames = new Set(skills.map((stat) => stat.name))
+  const longevity = editingSkills ? activeFeatsNamed(c, 'Ancestral Longevity')[0] : undefined
+  const longevityIndex = longevity ? c.feats.indexOf(longevity) : -1
+  const longevityOptions = longevity ? featChoiceOptions(longevity.name, c, entries, longevity.slot ?? '', longevityIndex) ?? [] : []
+  const expertLongevity = longevity ? activeFeatsNamed(c, 'Expert Longevity')[0] : undefined
+  const expertLongevityIndex = expertLongevity ? c.feats.indexOf(expertLongevity) : -1
+  const expertLongevityOptions = expertLongevity
+    ? (featChoiceOptions(expertLongevity.name, c, entries, expertLongevity.slot ?? '', expertLongevityIndex) ?? [])
+      .filter(name => name !== longevity?.choice) : []
   const offense = stats.filter((stat) => stat.kind === 'perception')
   const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
@@ -190,6 +198,24 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
               >{letter}</button>
             )
           })}
+          {longevity && <button type="button" className={longevity.choice === s.name ? 'on' : undefined}
+            aria-label={`${s.name} Ancestral Longevity daily training`} aria-pressed={longevity.choice === s.name}
+            disabled={!longevityOptions.includes(s.name) && longevity.choice !== s.name}
+            title="Ancestral Longevity: temporary trained proficiency"
+            onClick={() => {
+              if (!longevityOptions.includes(s.name) && longevity.choice !== s.name) return
+              save({ feats: c.feats.map((feat, index) => index === longevityIndex
+                ? { ...feat, choice: longevity.choice === s.name ? undefined : s.name } : feat) })
+            }}>DT</button>}
+          {expertLongevity && <button type="button" className={expertLongevity.choice === s.name ? 'on' : undefined}
+            aria-label={`${s.name} Expert Longevity daily expert`} aria-pressed={expertLongevity.choice === s.name}
+            disabled={!expertLongevityOptions.includes(s.name) && expertLongevity.choice !== s.name}
+            title="Expert Longevity: temporary expert proficiency"
+            onClick={() => {
+              if (!expertLongevityOptions.includes(s.name) && expertLongevity.choice !== s.name) return
+              save({ feats: c.feats.map((feat, index) => index === expertLongevityIndex
+                ? { ...feat, choice: expertLongevity.choice === s.name ? undefined : s.name } : feat) })
+            }}>DE</button>}
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}
@@ -313,7 +339,10 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
             <b>{RANK_LETTERS[index]}</b>{budget[rank]}
           </span>
         ))}
+        {longevity && <span title="Ancestral Longevity daily training remaining"><b>Daily T</b>{longevity.choice && longevityOptions.includes(longevity.choice) ? 0 : 1}</span>}
+        {expertLongevity && <span title="Expert Longevity daily expert remaining"><b>Daily E</b>{expertLongevity.choice && expertLongevityOptions.includes(expertLongevity.choice) ? 0 : 1}</span>}
       </div>
+      {longevity && <small>Use DT{expertLongevity && ' or DE'} to choose temporary {expertLongevity ? 'trained or expert proficiency' : 'trained proficiency'} until daily preparations. Temporary proficiency cannot satisfy permanent prerequisites or skill increases.</small>}
       {wasteland && <small>Wasteland Warrior: {hazardNote}</small>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}

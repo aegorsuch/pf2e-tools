@@ -78,6 +78,50 @@ it('grants elf feat skills or provides replacement training in Skills without do
   expect(renderToStaticMarkup(tree())).toContain('<b>T</b>4')
 })
 
+it('allocates Ancestral Longevity daily training in Skills without spending permanent selections', () => {
+  let c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'],
+    feats: [{ name: 'Ancestral Longevity', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0', choice: 'Acrobatics' }] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('<b>Daily T</b>0')
+  expect(findButtons(tree()).get('Acrobatics Ancestral Longevity daily training')?.['aria-pressed']).toBe(true)
+  expect(findButtons(tree()).get('Athletics Ancestral Longevity daily training')?.disabled).toBe(true)
+  ;(findButtons(tree()).get('Medicine Ancestral Longevity daily training')!.onClick as () => void)()
+  expect(c.feats[0].choice).toBe('Medicine')
+  expect(c.skillPicks).toEqual(['Athletics'])
+  expect(builder.dailyLongevityRanks(c, [ranger]).Medicine).toBe(1)
+  expect(ranksAt(c, [ranger]).Medicine).toBeUndefined()
+  expect(skillRankBudget(c, [ranger]).trained).toBe(3)
+  ;(findButtons(tree()).get('Medicine Ancestral Longevity daily training')!.onClick as () => void)()
+  expect(c.feats[0].choice).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).toContain('<b>Daily T</b>1')
+  expect(renderToStaticMarkup(SkillsSection({ c: { ...c, level: 4 }, entries: [ranger], save: () => {} })))
+    .not.toContain('Ancestral Longevity daily training')
+})
+
+it('allocates Expert Longevity daily proficiency only to permanently trained skills', () => {
+  let c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics', 'Society'],
+    feats: [
+      { name: 'Ancestral Longevity', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Acrobatics' },
+      { name: 'Expert Longevity', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0', choice: 'Athletics' },
+    ] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('<b>Daily E</b>0')
+  expect(findButtons(tree()).get('Acrobatics Expert Longevity daily expert')?.disabled).toBe(true)
+  ;(findButtons(tree()).get('Acrobatics Expert Longevity daily expert')!.onClick as () => void)()
+  expect(c.feats[1].choice).toBe('Athletics')
+  ;(findButtons(tree()).get('Society Expert Longevity daily expert')!.onClick as () => void)()
+  expect(c.feats[1].choice).toBe('Society')
+  expect(builder.dailyLongevityRanks(c, [ranger]).Society).toBe(2)
+  expect(ranksAt(c, [ranger]).Society).toBe(1)
+  expect(c.skillIncreases).toBeUndefined()
+  ;(findButtons(tree()).get('Society Expert Longevity daily expert')!.onClick as () => void)()
+  expect(renderToStaticMarkup(tree())).toContain('<b>Daily E</b>1')
+  expect(renderToStaticMarkup(SkillsSection({ c: { ...c, level: 8 }, entries: [ranger], save: () => {} })))
+    .not.toContain('Expert Longevity daily expert')
+  expect(renderToStaticMarkup(SkillsSection({ c: { ...c, feats: [c.feats[1]] }, entries: [ranger], save: () => {} })))
+    .not.toContain('Expert Longevity daily expert')
+})
+
 it('restores spent training when overlapping grants disappear without removing saved picks', () => {
   const c: Character = { ...base, level: 5, skillPicks: ['Nature', 'Society', 'Survival'] }
   const background: ContentEntry = { ...feyBound, name: 'Scholar', data: { skill: 'Society' } }

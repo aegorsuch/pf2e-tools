@@ -1,5 +1,5 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, languageAllowance, languageGroups, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait, warmaskAlternateSkills } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait, warmaskAlternateSkills } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -55,23 +55,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </label>}
     </span>
   }
-  if (feat.name === 'Ancestral Linguistics') {
-    const known = new Set([...languageAllowance(c, entries).locked, ...c.languages].map(language => language.toLowerCase()))
-    const options = Object.entries(languageGroups(entries)).flatMap(([rarity, languages]) =>
-      languages.filter(([name]) => !known.has(name.toLowerCase())).map(([name]) => ({ name, rarity })))
-    return <span className="feat-choice feat-choice-with-note">
-      <SearchableSelect label="Daily language" aria-label="Ancestral Linguistics daily language" value={feat.choice ?? ''} onChange={event => {
-        const choice = event.target.value
-        if (choice && !options.some(option => option.name === choice)) return
-        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
-      }}>
-        <option value="">Choose language</option>
-        {feat.choice && !options.some(option => option.name === feat.choice) && <option disabled>{feat.choice}</option>}
-        {options.map(option => <option key={option.name} value={option.name}>{option.name} ({option.rarity})</option>)}
-      </SearchableSelect>
-      <small>Temporary until daily preparations; confirm access to non-common languages. Cannot satisfy permanent prerequisites.</small>
-    </span>
-  }
+  if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
     const choice = feat.choice ? combinationName(entries, feat.choice) : ''
@@ -183,8 +167,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </SearchableSelect>
   }
   if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper',
-    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan',
-    'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) {
+    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
     const label = feat.name === 'Adopted Ancestry' ? 'ancestry'
@@ -201,8 +184,6 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {options.map((choice) => <option key={choice}>{choice}</option>)}
       </SearchableSelect>
       {noteId && <small id={noteId}>Ancestry access and physiological requirements need GM approval.</small>}
-      {['Ancestral Longevity', 'Expert Longevity'].includes(feat.name)
-        && <small>Temporary until daily preparations; cannot satisfy permanent prerequisites or skill increases.</small>}
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
         && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}
     </span>

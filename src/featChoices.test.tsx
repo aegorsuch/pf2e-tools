@@ -6,6 +6,7 @@ import { fetchAonHits } from './aonQuery'
 import { FeatChoice } from './FeatChoice'
 import { SearchableSelect } from './SearchableSelect'
 import { FeatSlots } from './FeatSlots'
+import { AncestralLinguisticsChoice, LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats } from './builder'
@@ -68,6 +69,24 @@ function findSelects(node: ReactNode): SelectHandler[] {
 }
 
 function findSelect(node: ReactNode) { return findSelects(node)[0] }
+
+it('selects and preserves Ancestral Linguistics daily language in Languages', () => {
+  let c: Character = { ...base, level: 5, ancestry: 'Elf', languages: ['Dwarven'],
+    feats: [{ name: 'Ancestral Linguistics', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Draconic' }] }
+  const props = () => ({ c, entries: [], index: 0, save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(<LanguagesSection {...props()} />)).toContain('Ancestral Linguistics daily language')
+  expect(renderToStaticMarkup(<LanguagesSection {...props()} />)).toContain('Draconic')
+  expect(FeatChoice(props())).toBeNull()
+  findSelect(AncestralLinguisticsChoice(props()))!.onChange({ target: { value: 'Dwarven' } })
+  expect(c.feats[0].choice).toBe('Draconic')
+  findSelect(AncestralLinguisticsChoice(props()))!.onChange({ target: { value: 'Elven' } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0].choice).toBe('Elven')
+  expect(c.languages).toEqual(['Dwarven'])
+  expect(renderToStaticMarkup(<LanguagesSection {...props()} />)).toContain('Temporary until daily preparations')
+  expect(renderToStaticMarkup(<LanguagesSection {...props()} c={{ ...c, level: 4 }} />))
+    .not.toContain('Ancestral Linguistics daily language')
+})
 
 it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {
   let c: Character = { ...base, level: 13, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 },

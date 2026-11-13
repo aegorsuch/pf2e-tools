@@ -1,5 +1,25 @@
 import { useState } from 'react'
-import { languageAllowance, languageGroups, type SectionProps } from './builder'
+import { featTakenLevel, languageAllowance, languageGroups, type SectionProps } from './builder'
+import { SearchableSelect } from './SearchableSelect'
+
+export function AncestralLinguisticsChoice({ c, entries, save, index }: SectionProps & { index: number }) {
+  const feat = c.feats[index]
+  const known = new Set([...languageAllowance(c, entries).locked, ...c.languages].map(language => language.toLowerCase()))
+  const options = Object.entries(languageGroups(entries)).flatMap(([rarity, languages]) =>
+    languages.filter(([name]) => !known.has(name.toLowerCase())).map(([name]) => ({ name, rarity })))
+  return <span className="feat-choice feat-choice-with-note">
+    <SearchableSelect label="Ancestral Linguistics daily language" aria-label="Ancestral Linguistics daily language" value={feat.choice ?? ''} onChange={event => {
+      const choice = event.target.value
+      if (choice && !options.some(option => option.name === choice)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+    }}>
+      <option value="">Choose language</option>
+      {feat.choice && !options.some(option => option.name === feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
+      {options.map(option => <option key={option.name} value={option.name}>{option.name} ({option.rarity})</option>)}
+    </SearchableSelect>
+    <small>Temporary until daily preparations; confirm access to non-common languages. Cannot satisfy permanent prerequisites.</small>
+  </span>
+}
 
 export function LanguagesSection({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
@@ -23,6 +43,8 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   }
   return (
     <div className="col language-picker">
+      {c.feats.map((feat, index) => feat.name === 'Ancestral Linguistics' && featTakenLevel(feat) <= c.level
+        ? <AncestralLinguisticsChoice key={feat.slot ?? index} c={c} entries={entries} save={save} index={index} /> : null)}
       <label>Search languages{' '}
         <input type="search" value={query} onChange={event => setQuery(event.target.value)} />
       </label>
