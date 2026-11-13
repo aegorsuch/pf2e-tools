@@ -9,7 +9,7 @@ import { FeatSlots } from './FeatSlots'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats } from './builder'
-import { classSpellcasting, ranksAt, weaponAttack } from './builder'
+import { classSpellcasting, ranksAt, researchedSpellResistanceChoices, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const spell = (name: string, tier: string): ContentEntry => ({
@@ -56,15 +56,49 @@ it('lets an existing Scrapper choose a calculated skill variant and flags varian
   expect(renderToStaticMarkup(tree())).not.toContain('Saved skill variant is unavailable')
 })
 
-function findSelect(node: ReactNode): { onChange: (event: { target: { value: string } }) => void } | undefined {
-  let found: { onChange: (event: { target: { value: string } }) => void } | undefined
+type SelectHandler = { onChange: (event: { target: { value: string } }) => void }
+function findSelects(node: ReactNode): SelectHandler[] {
+  const found: SelectHandler[] = []
   Children.forEach(node, (child) => {
-    if (found || !isValidElement<Record<string, unknown>>(child)) return
-    if (child.type === 'select' || child.type === SearchableSelect) found = { onChange: child.props.onChange as (event: { target: { value: string } }) => void }
-    else found = findSelect(child.props.children as ReactNode)
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'select' || child.type === SearchableSelect) found.push({ onChange: child.props.onChange as SelectHandler['onChange'] })
+    else found.push(...findSelects(child.props.children as ReactNode))
   })
   return found
 }
+
+function findSelect(node: ReactNode) { return findSelects(node)[0] }
+
+it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {
+  let c: Character = { ...base, level: 13, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 },
+    feats: [{ name: 'Researched Spell Resistance', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
+  const tree = () => FeatChoice({ c, entries: [], index: 0, save: patch => { c = { ...c, ...patch } } })
+  findSelect(tree())!.onChange({ target: { value: 'Primal' } })
+  expect(c.feats[0].choice).toBeUndefined()
+  findSelect(tree())!.onChange({ target: { value: 'Arcane' } })
+  expect(findSelects(tree())).toHaveLength(1)
+  c = { ...c, rankOverrides: { ...c.rankOverrides, Arcana: 3 } }
+  expect(findSelects(tree())).toHaveLength(2)
+  findSelects(tree())[1].onChange({ target: { value: 'Arcane' } })
+  findSelects(tree())[1].onChange({ target: { value: 'Divine' } })
+  expect(c.feats[0].choice).toBe('Arcane')
+  findSelects(tree())[1].onChange({ target: { value: 'Primal' } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0].choice).toBe('Arcane, Primal')
+  expect(findSelects(tree())).toHaveLength(2)
+  c = { ...c, rankOverrides: { ...c.rankOverrides, Nature: 3 } }
+  findSelects(tree())[2].onChange({ target: { value: 'Occult' } })
+  expect(c.feats[0].choice).toBe('Arcane, Primal, Occult')
+  c = { ...c, rankOverrides: { ...c.rankOverrides, Occultism: 3, Religion: 1 } }
+  findSelects(tree())[3].onChange({ target: { value: 'Divine' } })
+  expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane', 'Primal', 'Occult', 'Divine'])
+  expect(findSelects(tree())).toHaveLength(4)
+  c = { ...c, rankOverrides: { ...c.rankOverrides, Arcana: 2 } }
+  expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane'])
+  expect(renderToStaticMarkup(tree())).toContain('Saved tradition is unavailable')
+  findSelects(tree())[0].onChange({ target: { value: '' } })
+  expect(c.feats[0].choice).toBeUndefined()
+})
 
 it.each([
   ['Adopted Ancestry', 'Human', 'ancestry'],

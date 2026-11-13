@@ -302,7 +302,7 @@
 }
 
 .feat-choice-with-note { flex-wrap: wrap; }
-.feat-choice-with-note small { flex-basis: 100%; }
+.feat-choice-with-note small { flex-basis: 100%; white-space: normal; }
 .feat-slot-row:has(.feat-choice) { flex-wrap: wrap; }
 .feat-slot-row:has(.feat-access-controls) { flex-wrap: wrap; }
 .feat-access-controls { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -372,10 +372,6 @@
 
 .achievement-list input {
   flex-shrink: 0;
-}
-
-.achievement-list small {
-  display: block;
 }
 
 .focus-spells-heading,

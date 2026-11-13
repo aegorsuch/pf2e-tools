@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, maxHp,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -66,6 +66,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     (baseRanks[name] ?? 0) <= (grant.without[name] ?? 0) || level > grant.level)
   const improvisation = untrainedSkillProficiency(c)
   const armorBonus = part === 'defense' ? armorSaveBonus(c, entries) : 0
+  const saveCircumstance = part === 'defense' ? savingThrowCircumstance(c, entries) : undefined
   const canReachRank = (name: string, target: number) => {
     let rank = baseRanks[name] ?? 0
     if (rank < 1) return false
@@ -124,7 +125,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       : s.kind === 'save' ? armorBonus : 0
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
-      : s.kind === 'save' && hazardFinderBonus(c) ? { value: 1, source: 'Hazard Finder' } : undefined
+      : s.kind === 'save' ? saveCircumstance : undefined
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} <b>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
@@ -223,6 +224,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const res = resistances(c, entries)
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
+    const researched = researchedSpellResistance(c, entries)
     return (
       <>
         <div className="defense-summary">
@@ -232,6 +234,11 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         {rageToggle}
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
         {hazardToggle}
+        {researched && <>
+          <FeatEffectToggle c={c} save={save} name="Researched Spell Resistance" label="Researched spell resistance active"
+            title={`Only against spells and effects with these tradition traits: ${researched.traditions.join(', ')}.`} />
+          <small>Researched Spell Resistance: +1 circumstance to saves only against {researched.traditions.join(', ')} spells and effects. Enable only for a matching effect.</small>
+        </>}
         <FeatEffectToggle c={c} save={save} name="Harden Flesh" label="Harden Flesh active"
           title="Until the beginning of your next turn. Clear this when the effect ends." />
         <FeatEffectToggle c={c} save={save} name="Heart of the Kaiju" label="Kaiju form resistance active"

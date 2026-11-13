@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
   activeAnimalFeatures, animalSkinBenefits, armorClass, armorRanks, armorSpecialization, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveWeapon, eligibleFeats, featEffectChange,
-  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, resistances, senses, speed, weaponAttack,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, WeaponList } from './GearSection'
@@ -491,6 +491,24 @@ it('applies Jousting only to qualifying selected verdant, living, or favored one
   }
 })
 
+it('grants Living Weapon Joust to the one-handed haft attack, not its two-handed source', () => {
+  const spear = content('weapon', "Dancer's Spear", { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' })
+  const source = { ...main, name: spear.name, livingWeapon: true }
+  const c: Character = { ...base, level: 14, weapons: [source], feats: [
+    feat('Living Weapon', 8), feat('Living Weapon Joust', 14), feat('Haft Striker Stance', 4),
+  ] }
+  const legacyHaft = { ...HAFT_STRIKER_WEAPON, data: { weapon_category: 'Simple', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning' } }
+  const entries = [spear, legacyHaft]
+  const haft = ownedWeapons(c, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
+  expect(weaponAttack(c, entries, haft).entry?.data.hands).toBe(1)
+  expect(weaponAttack(c, entries, haft).traits).toContain('Jousting')
+  expect(weaponAttack(c, [spear], source).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, level: 13 }, [spear], haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, feats: c.feats.filter(feat => feat.name !== 'Living Weapon Joust') }, [spear], haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, weapons: [{ ...source, livingWeapon: false }] }, [spear], haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, weapons: [] }, [spear], haft).traits).not.toContain('Jousting')
+})
+
 it.each([[5, 'Low-Grade'], [9, 'Low-Grade'], [10, 'Standard-Grade'], [15, 'Standard-Grade'], [16, 'High-Grade']] as const)('scales locked Cold Iron Tusks material at level %i without granting independent unarmed runes', (level, grade) => {
   const c = { ...base, level, feats: [feat('Cold Iron Tusks', 5)] }
   const tusks = ownedWeapons(c, []).find((weapon) => weapon.name === ORC_TUSKS.name)!
@@ -698,6 +716,31 @@ it('limits Hazard Finder to hazard checks, does not stack it with shields, and n
   expect(initiativeBonus(superior, [])).toBe(defenseSummary(superior, []).perception)
   expect(defenseSummary({ ...c, feats: [] }, [])).toEqual(defenseSummary({ ...c, feats: [], activeFeatEffects: [] }, []))
   expect(defenseSummary({ ...c, level: 7 }, [])).toEqual(defenseSummary({ ...c, level: 7, activeFeatEffects: [] }, []))
+})
+
+it('applies researched resistance only in its matching-effect context and never stacks circumstance save bonuses', () => {
+  const c: Character = { ...base, level: 13, rankOverrides: { Arcana: 3, Nature: 1 },
+    feats: [{ ...feat('Researched Spell Resistance', 13), choice: 'Arcane, Primal' }],
+    activeFeatEffects: ['Researched Spell Resistance'] }
+  const normal = defenseSummary({ ...c, activeFeatEffects: [] }, [])
+  const active = defenseSummary(c, [])
+  expect(researchedSpellResistance(c, [])?.traditions).toEqual(['Arcane', 'Primal'])
+  expect(active.fortitude).toBe(normal.fortitude + 1)
+  expect(active.reflex).toBe(normal.reflex + 1)
+  expect(active.will).toBe(normal.will + 1)
+  expect(active.perception).toBe(normal.perception)
+  expect(active.ac).toBe(normal.ac)
+  const both = { ...c, feats: [...c.feats, feat('Hazard Finder', 8)], activeFeatEffects: [...c.activeFeatEffects!, 'Hazard Finder'] }
+  expect(defenseSummary(both, []).reflex).toBe(normal.reflex + 1)
+  expect(researchedSpellResistance({ ...c, level: 12 }, [])).toBeUndefined()
+  expect(researchedSpellResistance({ ...c, feats: [] }, [])).toBeUndefined()
+  expect(researchedSpellResistance({ ...c, rankOverrides: { Arcana: 1, Nature: 1 } }, [])).toBeUndefined()
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(markup).toContain('aria-label="Researched spell resistance active" checked=""')
+  expect(markup).toContain('only against Arcane, Primal spells and effects')
+  expect(markup).toContain('<small>Circumstance</small>+1')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, activeFeatEffects: [] }} entries={[]} save={() => {}} part="defense" />))
+    .not.toContain('<small>Circumstance</small>+1')
 })
 
 it('exposes persisted defensive contexts and shows conditional bonuses without changing ordinary saves', () => {

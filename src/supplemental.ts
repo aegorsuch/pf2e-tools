@@ -9,7 +9,7 @@ export const HAFT_STRIKER_WEAPON: ContentEntry = {
   level: 0,
   traits: ['Agile', 'Finesse'],
   description: 'You treat the haft of your wielded weapon as a simple weapon dealing 1d4 bludgeoning damage. The haft is in the club group and has the agile and finesse traits.',
-  data: { weapon_category: 'Simple', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning' },
+  data: { weapon_category: 'Simple', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning', hands: 1 },
   effects: [],
   updatedAt: 1,
 }

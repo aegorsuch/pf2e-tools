@@ -739,6 +739,47 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
 
 export const hazardFinderBonus = (c: Character) => isFeatEffectActive(c, 'Hazard Finder') ? 1 : 0
 
+const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
+
+export function researchedSpellResistanceChoices(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  const ranks = ranksAt(c, entries)
+  const saved = feat.choice?.split(',').map(value => value.trim()).filter(Boolean) ?? []
+  const traditions: string[] = []
+  const rows: { value: string; options: string[] }[] = []
+  let capacity = 1
+  for (let index = 0; index < 4; index++) {
+    const value = saved[index] ?? ''
+    const options: string[] = traditions.length === index && index < capacity
+      ? TRADITION_SKILLS.filter(([tradition, skill]) =>
+        !traditions.includes(tradition) && (ranks[skill] ?? 0) >= (index === 0 ? 2 : 1)).map(([tradition]) => tradition)
+      : []
+    if (!value && index > 0 && !options.length) break
+    rows.push({ value, options })
+    if (!value) break
+    if (options.includes(value)) {
+      traditions.push(value)
+      const skill = TRADITION_SKILLS.find(([tradition]) => tradition === value)?.[1]
+      if (skill && (ranks[skill] ?? 0) >= 3) capacity++
+    }
+  }
+  return { rows, traditions }
+}
+
+export function researchedSpellResistance(c: Character, entries: ContentEntry[]) {
+  const feat = activeFeatsNamed(c, 'Researched Spell Resistance')[0]
+  if (!feat) return undefined
+  const { traditions } = researchedSpellResistanceChoices(c, entries, feat)
+  return traditions.length ? { traditions, bonus: isFeatEffectActive(c, feat.name) ? 1 : 0 } : undefined
+}
+
+export function savingThrowCircumstance(c: Character, entries: ContentEntry[]) {
+  const sources = [
+    ...(hazardFinderBonus(c) ? ['Hazard Finder'] : []),
+    ...(researchedSpellResistance(c, entries)?.bonus ? ['Researched Spell Resistance'] : []),
+  ]
+  return sources.length ? { value: 1, source: sources.join(', ') } : undefined
+}
+
 export function perceptionCircumstance(c: Character) {
   if (activeFeatsNamed(c, 'Superior Sight').length) return { value: 2, source: 'Superior Sight' }
   if (hazardFinderBonus(c)) return { value: 1, source: 'Hazard Finder' }
@@ -1219,15 +1260,16 @@ export function armorSaveBonus(c: Character, entries: ContentEntry[]) {
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
   const resilient = armorSaveBonus(c, entries)
+  const circumstance = savingThrowCircumstance(c, entries)?.value ?? 0
   const save = (name: string, ability: Ability) =>
     abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? perceptionItemBonus(c) : resilient)
   return {
     perception: save('Perception', 'wis') + perceptionCircumstanceBonus(c),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
-    fortitude: save('Fortitude', 'con') + hazardFinderBonus(c),
-    reflex: save('Reflex', 'dex') + hazardFinderBonus(c),
-    will: save('Will', 'wis') + hazardFinderBonus(c),
+    fortitude: save('Fortitude', 'con') + circumstance,
+    reflex: save('Reflex', 'dex') + circumstance,
+    will: save('Will', 'wis') + circumstance,
   }
 }
 
@@ -1565,7 +1607,7 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
   || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
-  SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
+  SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
 export function armorEntry(c: Character, entries: ContentEntry[], name: string) {
   return grantedArmorEntries(c, selectedSubclass(c, entries)).find(entry => entry.name === name)
@@ -1957,11 +1999,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? category === 'Unarmed' ? Math.max(baseDie, 6) : dieSteps.find((step) => step > baseDie) ?? baseDie
     : baseDie
   const flat = !ranged || thrown ? str : traits.includes('propulsive') ? Math.floor(str / 2) : 0
+  const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, w.name)
     || c.level >= 4 && hasFeat(c, 'Verdant Weapon Jousting') && w.verdantWeapon
-    || c.level >= 14 && hasFeat(c, 'Living Weapon Joust') && w.livingWeapon && canBeLivingWeapon(c, entries, w))
-  const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
+    || c.level >= 14 && hasFeat(c, 'Living Weapon Joust') && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource))
   const pristineLivingWeapon = c.level >= 14
     && ['Pristine Living Weapon', 'Living Weapon', 'Wild Hunter Dedication'].every((name) => hasFeat(c, name))
     && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource)

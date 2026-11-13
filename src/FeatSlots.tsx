@@ -61,9 +61,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
       return compareFeatSelections(aFeat, bFeat)
     })
-  const searchKey = `${categories?.join(',') ?? '*'}:query`
-  const q = (search[searchKey] ?? search['*'] ?? '').trim().toLowerCase()
-  const matches = (o: ContentEntry, query = q) => !query || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(query))
+  const matches = (o: ContentEntry, query: string) => !query || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(query))
   const isDedication = (o?: ContentEntry) => !!o?.traits.some((t) => /^dedication$/i.test(t))
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
@@ -188,10 +186,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
-      {onSearch && slots.length > 0 && <label>Search {title.toLowerCase()}{' '}
-        <input type="search" aria-label={`Search ${title.toLowerCase()}`} value={search[searchKey] ?? search['*'] ?? ''}
-          onChange={event => onSearch(searchKey, event.target.value)} />
-      </label>}
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
@@ -234,7 +228,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           // Archetype pickers only build their (very long) list while the popup is open
           // Lists are only built while a picker is open; selects open on focus
           const lazy = !!onSearch && !open
-          const slotQuery = (search[`${s.key}:query`] ?? q).trim().toLowerCase()
+          const slotQuery = (search[`${s.key}:query`] ?? '').trim().toLowerCase()
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) => matches(o, slotQuery) && (!picksType || (type === 'dedication') === isDedication(o)))
           const shown = picksType ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, FeatOption[]>()
@@ -275,7 +269,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <div className="feat-modal-backdrop" onClick={() => onSearch?.(`${s.key}:open`, '')}>
                   <div className="feat-modal" role="dialog" aria-label={`${label} feat picker`} onClick={(e) => e.stopPropagation()}>
                     <label>Search feats{' '}
-                      <input type="search" aria-label={`Search ${label} feats`} value={search[`${s.key}:query`] ?? search[searchKey] ?? search['*'] ?? ''}
+                      <input type="search" aria-label={`Search ${label} feats`} value={search[`${s.key}:query`] ?? ''}
                         onChange={event => {
                           onSearch?.(`${s.key}:query`, event.target.value)
                           onSearch?.(`${s.key}:limit`, '')

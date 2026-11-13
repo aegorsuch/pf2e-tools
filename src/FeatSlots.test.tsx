@@ -9,7 +9,7 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
-it('keeps feat searches scoped to their section and gives dedication popups their own query', () => {
+it('omits section search bars and ignores their stale queries while preserving picker searches', () => {
   const c: Character = { ...emptyRanger(), level: 2 }
   const feats = ['Alpha', 'Beta'].flatMap((name): ContentEntry[] => [{
     id: name, name, level: 1, traits: ['Ranger'], systems: ['pf2e'],
@@ -25,10 +25,10 @@ it('keeps feat searches scoped to their section and gives dedication popups thei
   const isolated = renderToStaticMarkup(classTree({ 'ancestry:query': 'Alpha', 'class:1:0:open': '1' }))
   expect(isolated).toContain('<option value="Alpha">')
   expect(isolated).toContain('<option value="Beta">')
-  const filtered = renderToStaticMarkup(classTree({ 'class:query': '  BETA ', 'class:1:0:open': '1' }))
-  expect(filtered).toContain('aria-label="Search class feats"')
-  expect(filtered).toContain('<option value="Beta">')
-  expect(filtered).not.toContain('<option value="Alpha">')
+  const unfiltered = renderToStaticMarkup(classTree({ 'class:query': '  BETA ', '*': 'unrelated', 'class:1:0:open': '1' }))
+  expect(unfiltered).not.toContain('type="search"')
+  expect(unfiltered).toContain('<option value="Beta">')
+  expect(unfiltered).toContain('<option value="Alpha">')
   const popup = renderToStaticMarkup(FeatSlots({ c, entries: feats, categories: ['archetype'], save, onSearch: () => {},
     search: { 'archetype:2:0:open': '1', 'archetype:2:0:type': 'dedication', 'archetype:2:0:query': 'beta' } }))
   expect(popup).toContain('aria-label="Search L02 Dedication feats"')
@@ -48,7 +48,30 @@ it('keeps Favored Terrain editable in class feats and displays the same restored
   }
   const tree = () => FeatSlots({ c, entries: [terrain], categories: ['class'], save: patch => { c = { ...c, ...patch } } })
   expect(renderToStaticMarkup(tree())).toContain('>Favored Terrain (Forest)</button>')
-  expect(renderToStaticMarkup(tree())).toContain('aria-label="Favored Terrain terrain"')
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Favored Terrain terrain"')
+})
+
+it('unlocks Farabellus Flip for either saved Society membership wording but retains Acrobatics and armor requirements', () => {
+  const flip: ContentEntry = {
+    id: 'flip', name: 'Farabellus Flip', kind: 'feat', systems: ['pf2e'], level: 4,
+    traits: ['Ranger', 'Barbarian', 'Fighter', 'Uncommon'], source: 'official', description: '',
+    data: { access: 'Member of the Pathfinder Society.', prerequisite: 'Trained in Acrobatics; trained in medium armor' },
+    effects: [], updatedAt: 1,
+  }
+  const ranger: ContentEntry = { ...flip, id: 'ranger', kind: 'class', name: 'Ranger', traits: [], level: 1,
+    data: { defense_proficiency: 'Trained in light armor, Trained in medium armor, Trained in unarmored defense' } }
+  const c: Character = { ...emptyRanger(), level: 4, skillPicks: ['Acrobatics'] }
+  const tree = (character: Character) => <FeatSlots c={character} entries={[flip, ranger]} categories={['class']} save={() => {}} />
+  expect(renderToStaticMarkup(tree(c))).toContain('GM approval needed')
+  for (const membership of ['member of the pathfinder society', 'A character who is a member of the Pathfinder Society has access to this option.']) {
+    const saved: Character = JSON.parse(JSON.stringify({ ...c, achievements: [membership] }))
+    const markup = renderToStaticMarkup(tree(saved))
+    expect(markup).toContain('Farabellus Flip (Uncommon) * Access: Member of the Pathfinder Society. (met)')
+    expect(markup).not.toContain('value="Farabellus Flip" disabled=""')
+    expect(renderToStaticMarkup(tree({ ...saved, skillPicks: [] }))).toContain('Missing Trained in Acrobatics')
+    expect(renderToStaticMarkup(<FeatSlots c={saved} entries={[flip]} categories={['class']} save={() => {}} />))
+      .toContain('Missing trained in medium armor')
+  }
 })
 
 it('unlocks Wild Hunter through a saved achievement without bypassing level or skill prerequisites', () => {

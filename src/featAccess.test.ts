@@ -71,6 +71,37 @@ it('groups Lastwall membership access wordings into one named achievement and pr
   expect(featAccess(character, entries[0])?.automatic).toBe(false)
 })
 
+it.each([
+  ['A character who is a member of the Pathfinder Society has access to this option.', 'Member of the Pathfinder Society'],
+  ['You are a member of the Eyeswide.', 'Member of the Eyeswide'],
+  ["You've trained with or defeated a member of the wild hunt.", 'Trained with or defeated a member of the wild hunt'],
+  ['You\u2019ve trained with a member of the wild hunt.', 'Trained with a member of the wild hunt'],
+  ['You have trained with a member of the wild hunt.', 'Trained with a member of the wild hunt'],
+])('shortens achievement wording without changing saved access conditions: %s', (access, label) => {
+  const entry = { ...feat, data: { access } }
+  const [option] = achievementOptions([entry])
+  expect(option.requirement).toBe(label)
+  const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [option.key] }))
+  expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess({ ...character, achievements: [access] }, entry)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess(character, entry)?.automatic).toBe(false)
+})
+
+it('groups equivalent membership labels without dropping rank requirements', () => {
+  const entries = [
+    { ...feat, id: 'society', name: 'Society Feat', data: { access: 'Member of the Pathfinder Society.' } },
+    { ...feat, id: 'society-alt', name: 'Other Society Feat', data: { access: 'A character who is a member of the Pathfinder Society has access to this option.' } },
+    { ...feat, id: 'society-rank', name: 'Ranked Society Feat', data: { access: 'Member of the Pathfinder Society at the rank of second mark or higher.' } },
+  ]
+  const options = achievementOptions(entries)
+  expect(options).toHaveLength(2)
+  const member = options.find(option => option.requirement === 'Member of the Pathfinder Society')
+  expect(member?.feats).toEqual(['Other Society Feat', 'Society Feat'])
+  const saved = { ...character, achievements: [member!.key] }
+  expect(featAccess(saved, entries[1])?.automatic).toBe(true)
+  expect(featAccess(saved, entries[2])?.automatic).toBe(false)
+})
+
 it.each(['Uncommon', 'Rare', 'Unique'])('shows %s rarity without inventing an Access requirement', rarity => {
   const entry = { ...feat, traits: [rarity], data: {} }
   expect(featAccess(character, entry)).toBeUndefined()
@@ -93,4 +124,21 @@ it('derives ethnicity choices without interpreting nationalities or complex cond
   expect(ethnicityOptions([feat, ...entries, ...prerequisites])).toEqual(['Kellid', 'Mountain Dwarf', 'Nidalese', 'Tian-Dan', 'Varisian'])
   expect(featAccess({ ...character, ethnicity: 'Varisian' }, entries[0])?.automatic).toBe(true)
   expect(featAccess(character, entries[3])?.automatic).toBe(false)
+})
+
+it('offers only ethnicities associated with the selected ancestry', () => {
+  const entries: ContentEntry[] = [
+    { ...feat, id: 'human', traits: ['Human'], data: { access: 'Kellid ethnicity' } },
+    { ...feat, id: 'dwarf', traits: ['Dwarf'], data: { access: 'mountain dwarf ethnicity' } },
+    { ...feat, id: 'elf', traits: ['Elf'], data: { prerequisite: 'Mualijae ethnicity, Ilverani ethnicity, or Vourinoi ethnicity' } },
+    { ...feat, id: 'orc', traits: ['Orc'], data: { access: 'Matanji ethnicity' } },
+    { ...feat, id: 'halfling', traits: ['Halfling'], data: { access: 'Jaric ethnicity' } },
+    { ...feat, id: 'deleted', deleted: true, traits: ['Human'], data: { access: 'Old ethnicity' } },
+  ]
+  expect(ethnicityOptions(entries, 'Human')).toEqual(['Kellid'])
+  expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Mountain Dwarf'])
+  expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ilverani', 'Mualijae', 'Vourinoi'])
+  expect(ethnicityOptions(entries, 'Orc')).toEqual(['Matanji'])
+  expect(ethnicityOptions(entries, 'Halfling')).toEqual(['Jaric'])
+  expect(ethnicityOptions(entries, 'Android')).toEqual([])
 })

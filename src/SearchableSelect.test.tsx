@@ -45,11 +45,22 @@ it('filters grouped choices without enabling unavailable options or dropping unk
 })
 
 it('labels search separately from selection and respects disabled controls', () => {
-  const markup = renderToStaticMarkup(<SearchableSelect label="Background" aria-label="Background" value="Scholar" disabled>
+  const markup = renderToStaticMarkup(<SearchableSelect label="Background" aria-label="Background" value="Scholar" optionCount={100} disabled>
     <option value="Scholar">Scholar</option>
   </SearchableSelect>)
   expect(markup).toContain('aria-label="Search background"')
   expect(markup).toContain('placeholder="Search background"')
   expect(markup).toContain('<select aria-label="Background" disabled=""')
   expect(markup).toContain('<option value="Scholar" selected="">')
+})
+
+it.each([0, 2, 10, 11])('only shows search for long lists with %i choices, excluding the placeholder', count => {
+  const markup = renderToStaticMarkup(<SearchableSelect aria-label="Armor material" value="">
+    <option value="">Add material</option>
+    <optgroup label="Materials">
+      {Array.from({ length: count }, (_, index) => <option key={index} value={`material-${index}`}>Material {index}</option>)}
+    </optgroup>
+  </SearchableSelect>)
+  expect(markup.includes('type="search"')).toBe(count > 10)
+  expect(markup).toContain('<select aria-label="Armor material"')
 })

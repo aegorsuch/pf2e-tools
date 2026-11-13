@@ -67,7 +67,7 @@ it('keeps Ancestral Skills training fixed, refunds redundant picks and spends on
   expect(c.skillIncreases).toEqual({ 7: 'Diplomacy' })
 })
 
-it('synchronizes Favored Terrain between Offense and its feat and applies Terrain Master automatically', () => {
+it('keeps Offense terrain synchronized without a redundant feat selector and applies Terrain Master automatically', () => {
   let c: Character = { ...base, level: 11, feats: [
     { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },
     { name: 'Terrain Master', type: 'Class Feat', level: 8, slot: 'class:8:0' },
@@ -98,19 +98,17 @@ it('synchronizes Favored Terrain between Offense and its feat and applies Terrai
   expect(markup).toContain('ignore non-magical difficult terrain')
   expect(c.feats[0].choice).toBe('Aquatic')
   const featTree = () => FeatChoice({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } }, index: 0 })
-  walk(featTree())
-  expect(controls.get('Favored Terrain terrain')!.value).toBe('Aquatic')
-  ;(controls.get('Favored Terrain terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Plains' } })
+  expect(featTree()).toBeNull()
+  walk(tree())
+  ;(controls.get('Favored Terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Plains' } })
   walk(tree())
   expect(controls.get('Favored Terrain')!.value).toBe('Plains')
   expect(c.favoredTerrain).toBeUndefined()
   expect(renderToStaticMarkup(tree())).toContain('35 ft.')
   c = { ...c, favoredTerrain: 'Forest' }
-  walk(featTree())
   walk(tree())
-  expect(controls.get('Favored Terrain terrain')!.value).toBe('Forest')
   expect(controls.get('Favored Terrain')!.value).toBe('Forest')
-  ;(controls.get('Favored Terrain terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Desert' } })
+  ;(controls.get('Favored Terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Desert' } })
   expect(c.feats[0].choice).toBe('Desert')
   expect(c.favoredTerrain).toBeUndefined()
   const beforeMaster = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} part="offense" />)

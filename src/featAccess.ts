@@ -25,8 +25,20 @@ const lastwallAccess = new Set([
 ])
 
 export function achievementKey(access: string) {
-  const key = access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'").replace(/[.!?]+$/, '').toLowerCase()
+  const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
+}
+
+function achievementLabel(requirement: string) {
+  const label = requirement
+    .replace(/^a character who is (?:a )?/i, '')
+    .replace(/^you(?:['\u2019]ve| have) /i, '')
+    .replace(/^you(?:['\u2019]re| are| must be) (?:a )?/i, '')
+    .replace(/^you /i, '')
+    .replace(/^members of /i, 'Member of ')
+    .replace(/\s+(?:has|have) access to (?:this|the) (?:option|feat)[.!?]*$/i, '')
+    .replace(/[.!?]+$/, '')
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 export function achievementOptions(entries: ContentEntry[]) {
@@ -41,7 +53,7 @@ export function achievementOptions(entries: ContentEntry[]) {
     const existing = options.get(key)
     if (existing) {
       if (!existing.feats.includes(entry.name)) existing.feats.push(entry.name)
-    } else options.set(key, { key, requirement: key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_MEMBERSHIP : requirement, feats: [entry.name] })
+    } else options.set(key, { key, requirement: key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_MEMBERSHIP : achievementLabel(requirement), feats: [entry.name] })
   }
   const result = [...options.values()].sort((a, b) => a.requirement.localeCompare(b.requirement))
   for (const option of result) option.feats.sort((a, b) => a.localeCompare(b))
@@ -56,8 +68,10 @@ function accessEthnicities(access: string) {
   })
 }
 
-export function ethnicityOptions(entries: ContentEntry[]) {
-  return [...new Set(entries.filter(entry => !entry.deleted && entry.kind === 'feat')
+export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
+  const target = ancestry?.trim().toLowerCase()
+  return [...new Set(entries.filter(entry => !entry.deleted && entry.kind === 'feat'
+    && (!target || entry.traits.some(trait => trait.toLowerCase() === target)))
     .flatMap(entry => [entry.data.access, entry.data.prerequisite]
       .flatMap(requirement => String(requirement ?? '').split(/[,;]|\s+and\s+/i).flatMap(accessEthnicities)))
     .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase())))]

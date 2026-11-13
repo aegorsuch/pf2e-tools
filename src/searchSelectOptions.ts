@@ -5,6 +5,14 @@ function optionText(node: ReactNode): string {
     ? optionText(child.props.children) : String(child)).join('')
 }
 
+export function selectOptionCount(children: ReactNode): number {
+  return Children.toArray(children).reduce<number>((count, node) => {
+    if (!isValidElement<ComponentPropsWithoutRef<'option'>>(node)) return count
+    if (node.type === 'optgroup') return count + selectOptionCount(node.props.children)
+    return count + Number(node.type === 'option' && String(node.props.value ?? optionText(node.props.children)) !== '')
+  }, 0)
+}
+
 export function searchSelectOptions(children: ReactNode, query: string, value: string) {
   const q = query.trim().toLowerCase()
   let matches = 0

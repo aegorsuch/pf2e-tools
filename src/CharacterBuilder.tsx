@@ -44,7 +44,7 @@ function Pick({ label, kind, value, options, onChange }: {
     if (!ready) flushSync(() => setReady(true))
   }
   return (
-      <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare}
+      <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare} optionCount={labels.size}
         onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
         <option value="">No {kind}</option>
         {value && (!ready || !labels.has(value)) && <option value={value}>{labels.get(value) ?? value}</option>}
@@ -130,7 +130,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     })
   })
   const section = { c, entries, save }
-  const ethnicities = useMemo(() => ethnicityOptions(entries), [entries])
+  const ethnicities = useMemo(() => c.ancestry ? ethnicityOptions(entries, c.ancestry) : [], [entries, c.ancestry])
+  const savedEthnicity = c.ethnicity?.trim().toLowerCase()
+  const unavailableEthnicity = !!savedEthnicity && !ethnicities.some(name => name.toLowerCase() === savedEthnicity)
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
   const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
@@ -205,15 +207,17 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </summary>
         <div className="character-section-content">
           <div className="row">
-            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
+            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined })} />
             <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
-              <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={c.ethnicity ?? ''} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
+              <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={c.ethnicity ?? ''} disabled={!c.ancestry} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
-                {c.ethnicity && !ethnicities.includes(c.ethnicity) && <option>{c.ethnicity}</option>}
+                {c.ethnicity && !ethnicities.includes(c.ethnicity) && <option value={c.ethnicity} disabled={unavailableEthnicity}>
+                  {c.ethnicity}{unavailableEthnicity ? ` (not available for ${c.ancestry ?? 'this ancestry'})` : ''}
+                </option>}
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
               </SearchableSelect>
           </div>
-          <small>Ethnicity options come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
+          <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />

@@ -27,7 +27,7 @@ export function Achievements({ c, entries, save }: SectionProps) {
                 else next.delete(option.key)
                 void save({ achievements: [...next] })
               }} />
-              <span>{option.requirement}<small>Unlocks access: {option.feats.join(', ')}</small></span>
+              <span>{option.requirement}</span>
             </label>
           </li>)}
         </ul>
