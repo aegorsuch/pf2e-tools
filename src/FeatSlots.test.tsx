@@ -737,6 +737,30 @@ it('alphabetizes selected feat rows within each level without moving their slot 
   expect(markup.slice(markup.indexOf('>Aardvark</button>'))).toContain('Add L02 Class feat slot')
 })
 
+it('lists class-granted Shield Block as a non-removable general feat', () => {
+  const c: Character = { ...emptyRanger(), className: 'Champion', level: 1 }
+  const feature: ContentEntry = {
+    id: 'champion-shield', systems: ['pf2e'], kind: 'classFeature', source: 'official',
+    name: 'Shield Block', level: 1, traits: [], description: '', data: { class: 'Champion' }, effects: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feature]} save={() => {}} categories={['general']} />)
+  expect(markup).toContain('>Shield Block <small>(Champion)</small></button>')
+  expect(markup).toContain('automatic-feat-row')
+  expect(markup).not.toContain('aria-label="Remove Shield Block"')
+  expect(c.feats).toEqual([])
+
+  const feat: ContentEntry = { ...feature, id: 'shield-feat', kind: 'feat', traits: ['General'] }
+  const selected: Character = { ...c, level: 3, feats: [{ name: 'Shield Block', type: 'General Feat', level: 1, slot: 'general:3:0' }] }
+  const selectedMarkup = renderToStaticMarkup(<FeatSlots c={selected} entries={[feature, feat]} save={() => {}} categories={['general']} />)
+  expect(selectedMarkup).not.toContain('automatic-feat-row')
+  expect(selectedMarkup).toContain('Shield Block')
+  const background: ContentEntry = { ...feature, id: 'background', name: 'Background', kind: 'background', data: { feat: 'Shield Block' } }
+  const backgroundMarkup = renderToStaticMarkup(<FeatSlots c={{ ...c, background: 'Background' }}
+    entries={[feature, feat, background]} save={() => {}} categories={['general']} />)
+  expect(backgroundMarkup).not.toContain('automatic-feat-row')
+  expect(backgroundMarkup).toContain('background-feat-row')
+})
+
 it('alphabetizes skill feats from all sources within their acquisition level', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 2, background: 'Scholar',
     extraSlots: [{ category: 'skill', level: 1, count: 3 }],

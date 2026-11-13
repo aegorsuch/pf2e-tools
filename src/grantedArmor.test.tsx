@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { armorClass, armorEntry, armorGauntlet, armorSpecialization, defenseSummary, equippedShield, hardwoodShield, ownedArmors, shieldRaisedChange, wornArmor } from './builder'
+import { armorClass, armorEntry, armorGauntlet, armorSpecialization, defenseSummary, equippedShield, hardwoodShield, ownedArmors, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
 import { ArmorList } from './GearSection'
 import { SkillsSection } from './SkillsSection'
 import { grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -40,6 +40,50 @@ it('preserves ordinary shields while generated hardwood shield is equipped and r
   expect(equippedShield(c)).toMatchObject({ id: 'granted-shield:hardwood', raised: true })
   expect(c.shield).toEqual(ordinary)
   expect(equippedShield({ ...c, feats: [] })).toEqual(ordinary)
+})
+
+it('applies shield material and reinforcing rune durability without lowering higher base stats', () => {
+  const entry: ContentEntry = { id: 'cold-iron', kind: 'item', name: 'Cold Iron Shield (Standard-Grade)', systems: ['pf2e'], source: 'official',
+    level: 7, traits: [], data: { item_subcategory: 'Precious Material Shields' },
+    description: 'The shield has Hardness 7, HP 28, and BT 14.', effects: [], updatedAt: 0 }
+  const buckler = { ...entry, id: 'buckler', name: 'Cold Iron Buckler (Standard-Grade)' }
+  const tower = { ...entry, id: 'tower', name: 'Duskwood Tower Shield (High-Grade)' }
+  const shield = { id: 'ordinary', name: 'Steel Shield', hardness: 5, hp: 20, damage: 2, raised: false }
+  expect(shieldMaterialOptions([entry, buckler, tower], shield, ['pf2e'])).toEqual([entry])
+  expect(shieldMaterialOptions([entry, buckler, tower], { ...shield, name: 'Buckler' }, ['pf2e'])).toEqual([buckler])
+  expect(shieldMaterialOptions([entry, buckler, tower], { ...shield, name: 'Tower Shield' }, ['pf2e'])).toEqual([tower])
+  const material = shieldMaterial(entry)
+  expect(material).toEqual({ name: entry.name, hardness: 7, hp: 28 })
+  expect(shieldStats({ ...shield, material, reinforcingRune: 'Minor' })).toEqual({ hardness: 8, hp: 64 })
+  expect(shieldStats({ ...shield, reinforcingRune: 'Supreme' })).toEqual({ hardness: 12, hp: 128 })
+  expect(shieldStats({ ...shield, hardness: 12, hp: 100, reinforcingRune: 'Minor' })).toEqual({ hardness: 12, hp: 100 })
+  expect(shieldStats({ ...shield, material: { name: 'Unknown' } })).toEqual({ hardness: 5, hp: 20 })
+})
+
+it('saves shield material and runes separately from base stats, including granted shields', () => {
+  const entry: ContentEntry = { id: 'cold-iron', kind: 'item', name: 'Cold Iron Shield (Standard-Grade)', systems: ['pf2e'], source: 'official',
+    level: 7, traits: [], data: { item_subcategory: 'Precious Material Shields' },
+    description: 'The shield has Hardness 7, HP 28, and BT 14.', effects: [], updatedAt: 0 }
+  let c: Character = { ...base, className: 'Druid', level: 10, feats: [feat('Hardwood Armor')],
+    shield: { id: 'ordinary', name: 'Steel Shield', hardness: 5, hp: 20, damage: 2, raised: false } }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => ArmorList({ c, entries: [entry], save, part: 'shield' })
+  const materialPicker = find(tree(), element => element.props['aria-label'] === 'Shield material')
+  ;(materialPicker?.props.onChange as (event: unknown) => void)({ target: { value: entry.id } })
+  expect(c.shield?.material).toEqual({ name: entry.name, hardness: 7, hp: 28 })
+  const runeControls = Children.toArray(tree().props.children)
+  expect(runeControls.length).toBeGreaterThan(0)
+  const runeControl = find(tree(), element => 'rune' in element.props && typeof element.props.onChange === 'function')
+  ;(runeControl?.props.onChange as (rune: string) => void)('Minor')
+  expect(c.shield?.reinforcingRune).toBe('Minor')
+  expect(c.shield).toMatchObject({ hardness: 5, hp: 20, damage: 2 })
+  expect(renderToStaticMarkup(tree())).toContain('Hardness 8; Hit Points 64; Broken Threshold 32.')
+  const generatedControl = find(tree(), element => 'rune' in element.props && element.props.rune === undefined
+    && typeof element.props.onChange === 'function')
+  ;(generatedControl?.props.onChange as (rune: string) => void)('Greater')
+  expect(c.hardwoodShield?.reinforcingRune).toBe('Greater')
+  expect(shieldStats(hardwoodShield(c)!)).toEqual({ hardness: 11, hp: 104 })
+  expect(JSON.parse(JSON.stringify(c)).shield).toEqual(c.shield)
 })
 
 it('provides Ranger and Druid copies without the impulse trait', () => {

@@ -453,9 +453,9 @@ it.each([
   expect(markup).toContain(`Damage 2d8 S + ${damage}`)
   expect(markup).not.toContain('class="gear-damage"')
   if (note) {
-    expect(markup).toContain(`title="${note}"`)
+    expect(markup).toContain(`title="${note} (${rune})"`)
     expect(markup).toContain(`aria-label="${rune} note"`)
-    expect(markup).toContain(`*</button> (${rune})`)
+    expect(markup).not.toContain(`*</button> (${rune})`)
     expect(markup).toContain('popover="auto"')
   }
 })
@@ -476,6 +476,19 @@ it('shows attack and compact damage including rune damage in the weapon summary'
   expect(summary).toContain('Damage 4d6+4 P + 1d6 force')
   expect(summary).not.toContain('Shifting')
   expect(markup).not.toContain('class="gear-damage"')
+})
+
+it('omits rune names from multiple damage notes in editable and display-only views', () => {
+  const c = character([])
+  c.weapons![0].runes = ['Astral (Greater)', 'Holy']
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toMatch(/Damage 2d8 S \+ 1d6 spirit<button[^>]*>\*<\/button><span[^>]*>.*?<\/span>, 1d4 spirit<button/)
+    expect(markup).not.toContain('*</button> (Astral (Greater))')
+    expect(markup).not.toContain('*</button> (Holy)')
+    expect(markup).toContain('Greater Astral: spirit damage ignores spirit resistance.')
+    expect(markup).toContain('Holy: 2d4 spirit instead against unholy targets.')
+  }
 })
 
 it('adds Hooked Trip trait without adding damage or duplicating a natural Trip trait', () => {

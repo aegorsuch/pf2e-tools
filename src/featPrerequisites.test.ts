@@ -27,6 +27,28 @@ it('checks champion blessing prerequisites at the feat selection level', () => {
   expect(check('blessed swiftness', c).missing).toEqual(['blessed swiftness'])
 })
 
+it('grants Shield Block from matching class features or the Warpriest doctrine', () => {
+  const classes = ['Champion', 'Fighter', 'Druid', 'Inventor', 'Exemplar', 'Commander', 'Guardian', 'Runesmith']
+  const features = classes.map(name => ({ ...entry('classFeature', 'Shield Block', { class: name }), id: `shield:${name}` }))
+  for (const className of classes) {
+    const c = { ...base, level: 1, className }
+    expect(automaticFeatGrants(c, features)).toContainEqual({ name: 'Shield Block', source: className, level: 1 })
+    expect(check('Shield Block', c, features)).toEqual({ missing: [], manual: [] })
+    expect(automaticFeatGrants({ ...c, level: 0 }, features)).not.toContainEqual(expect.objectContaining({ name: 'Shield Block' }))
+  }
+  const cleric = { ...base, level: 1, className: 'Cleric', subclass: 'Warpriest' }
+  expect(automaticFeatGrants(cleric, features)).toContainEqual({ name: 'Shield Block', source: 'Warpriest', level: 1 })
+  expect(check('Shield Block', cleric, features)).toEqual({ missing: [], manual: [] })
+  expect(automaticFeatGrants({ ...cleric, subclass: 'Cloistered Cleric' }, features))
+    .not.toContainEqual(expect.objectContaining({ name: 'Shield Block' }))
+  expect(automaticFeatGrants({ ...cleric, systems: ['sf2e'] }, features))
+    .not.toContainEqual(expect.objectContaining({ name: 'Shield Block' }))
+  const fighter = { ...base, level: 1, className: 'Fighter' }
+  const feature = features.find(item => item.data.class === 'Fighter')!
+  expect(automaticFeatGrants(fighter, [{ ...feature, id: 'foreign', systems: ['sf2e'] }, feature]))
+    .toContainEqual({ name: 'Shield Block', source: 'Fighter', level: 1 })
+})
+
 it('checks champion sanctification and devotion spell prerequisites from actual choices', () => {
   const deity = entry('deity', 'Patron', { divine_font: 'Heal', sanctification: 'holy, unholy' })
   const c: Character = { ...base, className: 'Champion', deity: deity.name, sanctification: 'Holy', devotionSpell: 'Lay on Hands' }

@@ -40,7 +40,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const featsByName = featByName(entries)
   const grantedType = (name: string) => {
     const entry = featsByName.get(name)
-    return entry ? featType(entry, c) : name === 'Untrained Improvisation' ? 'General Feat' : 'Skill Feat'
+    return entry ? featType(entry, c) : ['Untrained Improvisation', 'Shield Block'].includes(name) ? 'General Feat' : 'Skill Feat'
   }
   const background = entries.find((entry) => entry.kind === 'background' && entry.name === c.background)
   const backgroundFeats = typeof background?.data.feat === 'string'

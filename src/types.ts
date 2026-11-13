@@ -53,6 +53,8 @@ export interface OwnedShield {
   hp: number
   damage: number
   raised: boolean
+  material?: { name: string; hardness?: number; hp?: number }
+  reinforcingRune?: 'Minor' | 'Lesser' | 'Moderate' | 'Greater' | 'Major' | 'Supreme'
 }
 
 export interface FeatSlot {
@@ -157,7 +159,7 @@ export interface Character {
   }
   warmask?: { worn?: boolean; attuned?: boolean; alternateSkill?: string }
   shield?: OwnedShield
-  hardwoodShield?: { equipped?: boolean; raised?: boolean; damage?: number }
+  hardwoodShield?: { equipped?: boolean; raised?: boolean; damage?: number; reinforcingRune?: OwnedShield['reinforcingRune'] }
   lores: { name: string; rank: number }[]
   languages: string[]
   // Original Pathbuilder data kept so nothing is lost on import

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isFavoredWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isFavoredWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, rogueRackets, SHIELD_RUNES, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
-import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
+import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { warmaskSource } from './warmask'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 
@@ -249,6 +249,25 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
   )
 }
 
+function ShieldRune({ rune, entries, onChange }: {
+  rune: OwnedShield['reinforcingRune']; entries: ContentEntry[]; onChange: (rune: OwnedShield['reinforcingRune']) => void
+}) {
+  if (rune) {
+    const name = `Reinforcing Rune (${rune})`
+    return <div className="gear-runes"><span>Shield rune</span>
+      <GearTag name={name} entry={entries.find(entry => entry.kind === 'item' && entry.name === name)}
+        onRemove={() => onChange(undefined)} />
+    </div>
+  }
+  return <label>Shield rune{' '}<select aria-label="Add shield rune" value="" onChange={event => {
+    const choice = (['Minor', 'Lesser', 'Moderate', 'Greater', 'Major', 'Supreme'] as const).find(name => name === event.target.value)
+    if (choice) onChange(choice)
+  }}>
+    <option value="">Add reinforcing rune...</option>
+    {Object.entries(SHIELD_RUNES).map(([name, data]) => <option key={name} value={name}>{name} (Level {data.level})</option>)}
+  </select></label>
+}
+
 function Level({ label, value, options, format, onChange, disabled, minimum = 0 }: {
   label: string
   value: number
@@ -477,7 +496,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           <strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />
             {a.damage && <>, Damage {compactDamage}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
-                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
+                && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             {w.stowed && ' (stowed)'}
           </small>
           {a.traits.length > 0 && <small> {a.traits.join(', ')}</small>}
@@ -493,7 +512,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           }}>
             <summary><strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />{a.damage && <>, Damage {compactDamage}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
-                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}</small></summary>
+                && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}</small></summary>
             {avengerNote && <small>{avengerNote}</small>}
             {forms.length > 0 && <label>Weapon form{' '}
               <select aria-label={`${combinationName(entries, w.name)} weapon form`}
@@ -622,6 +641,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
   const shield = c.shield
   const woodShield = hardwoodShield(c)
   const equipped = equippedShield(c)
+  const materialOptions = part !== 'armor' && shield && !shield.material ? shieldMaterialOptions(entries, shield, c.systems) : []
   return (
     <div className="col gear-list">
       {part !== 'shield' && <><Search c={c} save={save} entries={entries} kind="armor" label="Add Armor"
@@ -716,10 +736,36 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked)) }} /> Raised (+2 AC)</label>
           </header>
           <div className="row">
-            <label>Hardness <input type="number" min={0} value={shield.hardness} onChange={(e) => save({ shield: { ...shield, hardness: Math.max(0, +e.target.value || 0) } })} /></label>
-            <label>Hit Points <input type="number" min={0} value={shield.hp} onChange={(e) => save({ shield: { ...shield, hp: Math.max(0, +e.target.value || 0) } })} /></label>
+            {shield.material ? <div className="gear-runes"><span>Material</span>
+              <GearTag name={shield.material.name} kind="material"
+                entry={entries.find(entry => entry.kind === 'item' && entry.name === shield.material?.name)}
+                onRemove={() => save({ shield: { ...shield, material: undefined } })} />
+            </div> : <SearchableSelect label="Material" aria-label="Shield material" value="" onChange={event => {
+              const entry = materialOptions.find(option => option.id === event.target.value)
+              if (entry) save({ shield: { ...shield, material: shieldMaterial(entry) } })
+            }}>
+              <option value="">Add material...</option>
+              {materialOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (Level {entry.level})</option>)}
+            </SearchableSelect>}
+            <ShieldRune rune={shield.reinforcingRune} entries={entries}
+              onChange={reinforcingRune => save({ shield: { ...shield, reinforcingRune } })} />
+          </div>
+          {!shield.material && !materialOptions.length && <small>No matching materials available. Sync Archives of Nethys content if needed.</small>}
+          {shield.material && (shield.material.hardness === undefined || shield.material.hp === undefined)
+            && <small>Material durability unavailable; enter its base stats below.</small>}
+          {shield.material && <small>Material special effects are not applied automatically.</small>}
+          <div className="row">
+            <label>Base Hardness <input type="number" min={0} value={shield.material?.hardness ?? shield.hardness} onChange={(e) => {
+              const hardness = Math.max(0, +e.target.value || 0)
+              save({ shield: shield.material ? { ...shield, material: { ...shield.material, hardness } } : { ...shield, hardness } })
+            }} /></label>
+            <label>Base Hit Points <input type="number" min={0} value={shield.material?.hp ?? shield.hp} onChange={(e) => {
+              const hp = Math.max(0, +e.target.value || 0)
+              save({ shield: shield.material ? { ...shield, material: { ...shield.material, hp } } : { ...shield, hp } })
+            }} /></label>
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
           </div>
+          <small>Hardness {shieldStats(shield).hardness}; Hit Points {shieldStats(shield).hp}; Broken Threshold {Math.floor(shieldStats(shield).hp / 2)}.</small>
           <button type="button" className="spell-remove" aria-label={`Remove ${shield.name}`} title="Remove"
             onClick={() => confirmRemoval(`shield "${shield.name}"`, () => save({ shield: undefined }))}>×</button>
         </article>
@@ -740,7 +786,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             disabled={equipped?.id !== woodShield.id || shieldParagonActive(c)}
             onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> Raised (+2 AC)</label>
         </header>
-        <small>Hardness {woodShield.hardness}; Hit Points {woodShield.hp}; Broken Threshold {Math.floor(woodShield.hp / 2)}. Material and stats improve automatically.</small>
+        <small>Hardness {shieldStats(woodShield).hardness}; Hit Points {shieldStats(woodShield).hp}; Broken Threshold {Math.floor(shieldStats(woodShield).hp / 2)}. Material and base stats improve automatically.</small>
+        <ShieldRune rune={woodShield.reinforcingRune} entries={entries}
+          onChange={reinforcingRune => save({ hardwoodShield: { ...c.hardwoodShield, reinforcingRune } })} />
         <label>Damage <input type="number" min={0} value={woodShield.damage}
           onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, damage: Math.max(0, +event.target.value || 0) } })} /></label>
       </article>}</>}

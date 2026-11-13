@@ -1,4 +1,4 @@
-import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
+import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -277,7 +277,35 @@ export function hardwoodShield(c: Character) {
   return { id: 'granted-shield:hardwood', name: `Duskwood Shield (${high ? 'High' : 'Standard'}-Grade)`,
     hardness: Math.max(high ? 8 : 5, 3 + increments),
     hp: Math.max(high ? 32 : 20, 12 + 4 * increments),
-    damage: c.hardwoodShield?.damage ?? 0, raised: !!c.hardwoodShield?.raised }
+    damage: c.hardwoodShield?.damage ?? 0, raised: !!c.hardwoodShield?.raised, reinforcingRune: c.hardwoodShield?.reinforcingRune }
+}
+export const SHIELD_RUNES = {
+  Minor: { level: 4, hardness: 3, hp: 44, maxHardness: 8, maxHp: 64 },
+  Lesser: { level: 7, hardness: 3, hp: 52, maxHardness: 10, maxHp: 80 },
+  Moderate: { level: 10, hardness: 3, hp: 64, maxHardness: 13, maxHp: 104 },
+  Greater: { level: 13, hardness: 5, hp: 80, maxHardness: 15, maxHp: 120 },
+  Major: { level: 16, hardness: 5, hp: 84, maxHardness: 17, maxHp: 136 },
+  Supreme: { level: 19, hardness: 7, hp: 108, maxHardness: 20, maxHp: 160 },
+} as const
+export function shieldStats(shield: Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'>) {
+  const hardness = shield.material?.hardness ?? shield.hardness
+  const hp = shield.material?.hp ?? shield.hp
+  const rune = shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
+  return {
+    hardness: rune ? Math.max(hardness, Math.min(hardness + rune.hardness, rune.maxHardness)) : hardness,
+    hp: rune ? Math.max(hp, Math.min(hp + rune.hp, rune.maxHp)) : hp,
+  }
+}
+export function shieldMaterialOptions(entries: ContentEntry[], shield: OwnedShield, systems: Character['systems']) {
+  const type = /tower shield/i.test(shield.name) ? 'Tower Shield' : /buckler/i.test(shield.name) ? 'Buckler' : 'Shield'
+  return entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.some(system => systems.includes(system))
+    && entry.data.item_subcategory === 'Precious Material Shields'
+    && /^.+? (Tower Shield|Buckler|Shield) \((?:Low|Standard|High)-Grade\)$/.exec(entry.name)?.[1] === type)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['material']> {
+  const stats = /Hardness\s+(\d+).*?\bHP\s+(\d+)/i.exec(entry.description)
+  return stats ? { name: entry.name, hardness: Number(stats[1]), hp: Number(stats[2]) } : { name: entry.name }
 }
 export function equippedShield(c: Character) {
   const generated = hardwoodShield(c)
@@ -1519,8 +1547,22 @@ export function senses(c: Character, entries: ContentEntry[]) {
   return out.sort((a, b) => a.value.localeCompare(b.value))
 }
 
+const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number }[] = []
+  let shieldFeatures = shieldFeaturesCache.get(entries)
+  if (!shieldFeatures) {
+    shieldFeatures = entries.filter(feature => feature.kind === 'classFeature' && feature.name === 'Shield Block' && !feature.deleted)
+    shieldFeaturesCache.set(entries, shieldFeatures)
+  }
+  const shieldBlockFeature = shieldFeatures.find(feature => feature.data.class === c.className && feature.level <= c.level
+    && feature.systems.some(system => c.systems.includes(system)))
+  if (shieldBlockFeature && c.className) {
+    grants.push({ name: 'Shield Block', source: c.className, level: shieldBlockFeature.level })
+  } else if (c.level >= 1 && c.systems.includes('pf2e') && c.className === 'Cleric'
+    && selectedSubclass(c, entries) === 'Warpriest') {
+    grants.push({ name: 'Shield Block', source: 'Warpriest', level: 1 })
+  }
   if (isPioneerHuman(c)) grants.push({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1 })
   if (c.ancestry === 'Orc' && c.heritage === 'Hold-Scarred Orc') {
     grants.push({ name: 'Diehard', source: 'Hold-Scarred Orc', level: 1 })
