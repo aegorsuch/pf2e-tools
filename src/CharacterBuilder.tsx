@@ -110,6 +110,28 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
+function EquipmentSearch({ c, entries, save }: SectionProps) {
+  const [query, setQuery] = useState('')
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return q
+      ? entries.filter(e => e.kind === 'item' && e.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
+      : []
+  }, [entries, query])
+  return <>
+    <input placeholder="Search equipment" value={query} onChange={event => setQuery(event.target.value)} />
+    <ul>
+      {matches.map(g => <li key={g.id}>
+        {detail(g) ? <Info label={g.name}>{detail(g)}</Info> : <b>{g.name}</b>} <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
+        <button onClick={() => {
+          const have = c.equipment.find(item => item.name === g.name)
+          save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item) : [...c.equipment, { name: g.name, qty: 1 }] })
+        }}>Add</button>
+      </li>)}
+    </ul>
+  </>
+}
+
 function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   if (!isPioneerHuman(c)) return null
   const options = terrainExpertiseOptions(c, 'pioneer')
@@ -138,7 +160,6 @@ function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
 }
 
 export function CharacterBuilder({ character: c, onClose }: { character: Character; onClose: () => void }) {
-  const [gearQuery, setGearQuery] = useState('')
   const systemsKey = c.systems.join()
   const entries = useLiveQuery(
     () => db.content.filter((e) => !e.deleted && e.systems.some((s) => c.systems.includes(s))).toArray(),
@@ -200,13 +221,6 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   }, [entries])
   const named = (kind: EntryKind, name?: string) => (name ? of(kind).find((e) => e.name === name) : undefined)
   const deity = named('deity', c.deity)
-
-  const gearMatches = useMemo(() => {
-    const q = gearQuery.trim().toLowerCase()
-    return q
-      ? entries.filter((e) => e.kind === 'item' && e.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
-      : []
-  }, [entries, gearQuery])
 
   const ancestry = named('ancestry', c.ancestry)
   const klass = named('class', c.className)
@@ -401,18 +415,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
             ))}
             </ul></div>
           })}
-          <input placeholder="Search equipment" value={gearQuery} onChange={(e) => setGearQuery(e.target.value)} />
-          <ul>
-            {gearMatches.map((g) => (
-              <li key={g.id}>
-                {detail(g) ? <Info label={g.name}>{detail(g)}</Info> : <b>{g.name}</b>} <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
-                <button onClick={() => {
-                  const have = c.equipment.find((x) => x.name === g.name)
-                  save({ equipment: have ? c.equipment.map((x) => (x === have ? { ...x, qty: x.qty + 1 } : x)) : [...c.equipment, { name: g.name, qty: 1 }] })
-                }}>Add</button>
-              </li>
-            ))}
-          </ul>
+          <EquipmentSearch {...section} />
         </div>
       </details>
 

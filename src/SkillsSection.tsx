@@ -41,20 +41,21 @@ function ProficiencyBadges({ groups, ranks, labels }: { groups: readonly string[
 }
 
 export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
+  const editingSkills = part === 'skills'
   const stats = statDefs(c)
-  const klass = entries.find((e) => e.kind === 'class' && e.name === c.className)
-  const bg = entries.find((e) => e.kind === 'background' && e.name === c.background)
-  const extraBackgroundSkills = backgroundSkills(freeHeartBackground(c, entries))
+  const klass = editingSkills ? entries.find((e) => e.kind === 'class' && e.name === c.className) : undefined
+  const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
+  const extraBackgroundSkills = editingSkills ? backgroundSkills(freeHeartBackground(c, entries)) : []
   const ranks = ranksAt(c, entries)
-  const displayRanks = dailyLongevityRanks(c, entries)
-  const lores = [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])]
+  const displayRanks = editingSkills ? dailyLongevityRanks(c, entries) : ranks
+  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
-  const budget = skillRankBudget(c, entries)
+  const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
-  const ancestrySkills = ancestralSkills(c, entries)
-  const heritageSkills = isPioneerHuman(c) ? ['Survival'] : []
+  const ancestrySkills = editingSkills ? ancestralSkills(c, entries) : []
+  const heritageSkills = editingSkills && isPioneerHuman(c) ? ['Survival'] : []
   const grantedTraining = [...ancestrySkills, ...heritageSkills]
-  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills, ...grantedTraining])
+  const fixed = new Set(editingSkills ? [...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills, ...grantedTraining] : [])
   const terrainExpertise = terrainExpertiseBenefits(c)
   const wasteland = activeFeatsNamed(c, 'Wasteland Warrior').length > 0
   const hazardNote = 'Disable environmental hazards using Survival instead of Athletics or Thievery. '
@@ -70,8 +71,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
-  const baseRanks = ranksAt(noPaidIncreases, entries, 99, false)
-  const rankGrants = ['Technomagical Scrapper', 'Greenwatch Initiate', 'Ancestral Skills'].flatMap(name => {
+  const baseRanks = editingSkills ? ranksAt(noPaidIncreases, entries, 99, false) : ranks
+  const rankGrants = (editingSkills ? ['Technomagical Scrapper', 'Greenwatch Initiate', 'Ancestral Skills'] : []).flatMap(name => {
     const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
     return feat ? [{ level: featTakenLevel(feat), without: ranksAt({
       ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== name),

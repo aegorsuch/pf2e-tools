@@ -1,9 +1,10 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { SkillsSection } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
+import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 
 const ranger: ContentEntry = {
@@ -23,6 +24,24 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('skips skill allocation calculations in offense and defense', () => {
+  const budget = vi.spyOn(builder, 'skillRankBudget')
+  const daily = vi.spyOn(builder, 'dailyLongevityRanks')
+  try {
+    for (const part of ['offense', 'defense'] as const) {
+      renderToStaticMarkup(<SkillsSection c={base} entries={[ranger]} save={() => {}} part={part} />)
+    }
+    expect(budget).not.toHaveBeenCalled()
+    expect(daily).not.toHaveBeenCalled()
+    renderToStaticMarkup(<SkillsSection c={base} entries={[ranger]} save={() => {}} />)
+    expect(budget).toHaveBeenCalled()
+    expect(daily).toHaveBeenCalled()
+  } finally {
+    budget.mockRestore()
+    daily.mockRestore()
+  }
+})
 
 it('automatically refunds redundant training while preserving conditional alternate grants', () => {
   const c: Character = { ...base, level: 5, skillPicks: ['Nature', 'Survival'] }
