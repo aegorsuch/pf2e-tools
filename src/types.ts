@@ -129,6 +129,10 @@ export interface Character {
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
+  formulas?: string[]
+  snareFormulaChoices?: string[]
+  brastlewarkFormulaMode?: 'standard' | 'other'
+  brastlewarkFormulaChoices?: string[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
   collapsedWeaponIds?: string[]

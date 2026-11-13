@@ -16,6 +16,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import { MinionsSection } from './MinionsSection'
+import { FormulasSection } from './FormulasSection'
 import { faithfulSteedChange } from './companions'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
@@ -339,6 +340,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
+      <FormulasSection {...section} />
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Gear</strong>
