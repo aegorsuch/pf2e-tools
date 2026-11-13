@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { FeatChoice } from './FeatChoice'
+import { SearchableSelect } from './SearchableSelect'
 import { FeatSlots } from './FeatSlots'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel, wardenSpellOptions } from './featChoices'
@@ -59,7 +60,7 @@ function findSelect(node: ReactNode): { onChange: (event: { target: { value: str
   let found: { onChange: (event: { target: { value: string } }) => void } | undefined
   Children.forEach(node, (child) => {
     if (found || !isValidElement<Record<string, unknown>>(child)) return
-    if (child.type === 'select') found = { onChange: child.props.onChange as (event: { target: { value: string } }) => void }
+    if (child.type === 'select' || child.type === SearchableSelect) found = { onChange: child.props.onChange as (event: { target: { value: string } }) => void }
     else found = findSelect(child.props.children as ReactNode)
   })
   return found

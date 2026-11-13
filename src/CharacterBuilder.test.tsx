@@ -23,6 +23,8 @@ it('shows ancestry-specific Lore in Skills and feat-adjusted Bulk limits inside 
   }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    for (const label of ['ancestry', 'heritage', 'background', 'class', 'deity'])
+      expect(markup).toContain(`aria-label="Search ${label}"`)
     expect(markup).toContain('Human Lore')
     const gear = markup.slice(markup.indexOf('<strong>Gear</strong>'), markup.indexOf('<strong>General Feats</strong>'))
     expect(gear).toContain('aria-label="Bulk limits"')
@@ -94,6 +96,8 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
   expect(markup).not.toContain('Other Feat Slots')
   expect(markup).not.toContain('Skills &amp; proficiencies')
+  const background = markup.slice(markup.indexOf('<strong>Background</strong>'), markup.indexOf('<strong>Class</strong>'))
+  expect(background).toContain('<h4>Achievements</h4>')
 })
 
 it('shows official deity epithets in the subtitle and picker while retaining canonical saved names', () => {
@@ -158,7 +162,7 @@ it.each([
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup).toContain(`<strong>Class</strong><span>${label}</span>`)
   expect(markup).toContain(`<option value="${name}" selected="">${name}</option>`)
-  if (className === 'Barbarian') expect(markup).toContain('<label>Instinct')
-  if (className === 'Inventor') expect(markup).toContain('<label>Innovation')
+  if (className === 'Barbarian') expect(markup).toContain('>Instinct</label>')
+  if (className === 'Inventor') expect(markup).toContain('>Innovation</label>')
   content.entries = []
 })

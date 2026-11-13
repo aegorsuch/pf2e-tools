@@ -2,6 +2,7 @@ import { useId, useRef } from 'react'
 import type { ContentEntry } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import type { FeatAccessCheck } from './featAccess'
+import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
 
 export function EntryDescription({ name, entry, className, prerequisites, access }: {
@@ -10,6 +11,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const featActions = entry?.kind === 'feat' && typeof entry.data.actions === 'string' && entry.data.actions.trim() !== ''
+  const rarity = entry && featRarity(entry)
   return (
     <>
       <button type="button" className={className} aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
@@ -19,7 +21,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-        <h4 id={titleId}>{name}{featActions && <> <ActionIcon entry={entry} /></>}{entry && <small> (Level {entry.level})</small>}</h4>
+        <h4 id={titleId}>{name}{featActions && <> <ActionIcon entry={entry} /></>}{entry && <small> (Level {entry.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
         {!!prerequisites?.missing.length && <p className="feat-prerequisite-note" role="status">
           Prerequisites unmet: {prerequisites.missing.join('; ')}
         </p>}
@@ -27,7 +29,9 @@ export function EntryDescription({ name, entry, className, prerequisites, access
           Check prerequisites manually: {prerequisites.manual.join('; ')}
         </p>}
         {access && <p className="feat-prerequisite-note">
-          Access: {access.requirement}. {access.automatic ? 'Granted by selected ethnicity.' : access.approved ? 'GM approved access.' : 'Access not established; GM permission required.'}
+          Access: {access.requirement}{/[.!?]$/.test(access.requirement) ? '' : '.'} {access.automatic
+            ? access.source === 'achievement' ? 'Satisfied by checked achievement.' : 'Granted by selected ethnicity.'
+            : access.approved ? 'GM approved access.' : 'Access not established; GM permission required.'}
           {' '}Access does not replace prerequisites.
         </p>}
         <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>

@@ -4,9 +4,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
+import { Achievements } from './Achievements'
+import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
 import { ClassFeatures } from './ClassFeatures'
-import { FeatSlots } from './FeatSlots'
+import { SearchableFeatSlots } from './FeatSlots'
 import { BulkLimits, HandwrapsGear } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
@@ -42,14 +44,12 @@ function Pick({ label, kind, value, options, onChange }: {
     if (!ready) flushSync(() => setReady(true))
   }
   return (
-    <label>
-      {label}{' '}
-      <select value={value ?? ''} onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
+      <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare}
+        onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
         <option value="">No {kind}</option>
         {value && (!ready || !labels.has(value)) && <option value={value}>{labels.get(value) ?? value}</option>}
         {choices}
-      </select>
-    </label>
+      </SearchableSelect>
   )
 }
 
@@ -129,10 +129,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       entryIds: [...new Set([...c.entryIds, ...added.map(({ entry }) => entry.id)])],
     })
   })
-  const [featSearch, setFeatSearch] = useState<Record<string, string>>({})
   const section = { c, entries, save }
   const ethnicities = useMemo(() => ethnicityOptions(entries), [entries])
-  const searchProps = { search: featSearch, onSearch: (key: string, text: string) => setFeatSearch((prev) => ({ ...prev, [key]: text })) }
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
   const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
@@ -175,7 +173,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <span>{filled}/{slots.length}</span>
         </summary>
         <div className="character-section-content">
-          <FeatSlots {...section} {...searchProps} categories={[category]} title={title} bare />
+          <SearchableFeatSlots {...section} categories={[category]} title={title} bare />
           {category === 'archetype' && slots.length === 0 && (
             <button type="button" onClick={() => save({ extraSlots: [...c.extraSlots, { category: 'archetype', level: Math.max(2, c.level), count: 1 }] })}>
               Add Dedication feat slot
@@ -209,19 +207,17 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <div className="row">
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined })} />
             <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
-            <label>Ethnicity{' '}
-              <select aria-label="Ethnicity" value={c.ethnicity ?? ''} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
+              <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={c.ethnicity ?? ''} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
                 {c.ethnicity && !ethnicities.includes(c.ethnicity) && <option>{c.ethnicity}</option>}
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
-              </select>
-            </label>
+              </SearchableSelect>
           </div>
           <small>Ethnicity options come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <AbilityBoostChoices {...section} groups={['ancestry']} />
-          <FeatSlots {...section} {...searchProps} categories={['ancestry']} title="Ancestry Feats" />
+          <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
         </div>
       </details>
 
@@ -236,6 +232,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
           <AbilityBoostChoices {...section} groups={['background']} />
           {background?.data.skill && <small>Trained skills: <b>{String(background.data.skill)}</b></small>}
           {background?.data.feat && <small>Background grants: <b>{String(background.data.feat)}</b></small>}
+          <Achievements {...section} />
         </div>
       </details>
 
@@ -254,27 +251,21 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
             {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
           </>}
           {classSkills(klass).choices.length > 0 && (
-            <label>
-              Class skill{' '}
-              <select value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
+              <SearchableSelect label="Class skill" aria-label="Class skill" value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
                 <option value="">Choose skill</option>
                 {classSkills(klass).choices.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </label>
+              </SearchableSelect>
           )}
           {c.className === 'Druid' && (
-            <label>
-              Druidic Order{' '}
-              <select value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
+              <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
                 {Object.keys(DRUID_ORDERS).filter((o) => o === c.order || !c.feats.some((f) => f.name === 'Order Explorer' && f.choice === o)).map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </label>
+              </SearchableSelect>
           )}
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
-          <FeatSlots {...section} {...searchProps} categories={['class']} title="Class Feats" />
+          <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" />
         </div>
       </details>
 

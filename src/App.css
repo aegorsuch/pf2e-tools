@@ -357,6 +357,80 @@
   margin-bottom: 8px;
 }
 
+.achievement-list {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.achievement-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.achievement-list input {
+  flex-shrink: 0;
+}
+
+.achievement-list small {
+  display: block;
+}
+
+.focus-spells-heading,
+.focus-tracker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.focus-tracker {
+  gap: 2px;
+  min-width: 0;
+}
+
+.searchable-select {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+.searchable-select > input,
+.searchable-select > select {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.focus-point {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-width: 24px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.focus-point::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--text-h);
+  border-radius: 50%;
+}
+
+.focus-point[aria-pressed='true']::before {
+  background: var(--text-h);
+}
+
 .character-section > summary,
 .character-subsection > summary {
   list-style: none;

@@ -81,6 +81,7 @@ describe('official passive feat mechanics', () => {
       { name: 'Land', feet: 30 }, { name: 'Climb', feet: 30, source: 'Favored Terrain (Forest)' },
     ])
     expect(speed({ ...master, favoredTerrain: undefined }, [])).toBe(40)
+    expect(speed({ ...master, favoredTerrain: undefined, activeFeatEffects: [] }, [])).toBe(40)
     expect(speed({ ...c, favoredTerrain: 'Forest' }, [])).toBe(40)
     const aquatic = { ...c, feats: [{ ...favored, choice: 'Aquatic' }, c.feats[1]] }
     expect(movementSpeeds(aquatic, [])[1]).toMatchObject({ name: 'Swim', feet: 30 })

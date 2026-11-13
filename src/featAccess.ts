@@ -4,6 +4,49 @@ export interface FeatAccessCheck {
   requirement: string
   automatic: boolean
   approved: boolean
+  source?: 'ethnicity' | 'achievement'
+}
+
+interface AchievementOption {
+  key: string
+  requirement: string
+  feats: string[]
+}
+
+const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
+const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall)\b/i
+const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
+const lastwallAccess = new Set([
+  LASTWALL_MEMBERSHIP.toLowerCase(),
+  'knights of lastwall',
+  'knights of lastwall have access to this feat',
+  'a character who is a member of the knights of lastwall has access to this option',
+  'you are a member of the knights of lastwall',
+])
+
+export function achievementKey(access: string) {
+  const key = access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'").replace(/[.!?]+$/, '').toLowerCase()
+  return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
+}
+
+export function achievementOptions(entries: ContentEntry[]) {
+  const cached = achievementCache.get(entries)
+  if (cached) return cached
+  const options = new Map<string, AchievementOption>()
+  for (const entry of entries) {
+    if (entry.deleted || entry.kind !== 'feat') continue
+    const requirement = String(entry.data.access ?? '').trim().replace(/\s+/g, ' ')
+    if (!narrativeAccess.test(requirement)) continue
+    const key = achievementKey(requirement)
+    const existing = options.get(key)
+    if (existing) {
+      if (!existing.feats.includes(entry.name)) existing.feats.push(entry.name)
+    } else options.set(key, { key, requirement: key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_MEMBERSHIP : requirement, feats: [entry.name] })
+  }
+  const result = [...options.values()].sort((a, b) => a.requirement.localeCompare(b.requirement))
+  for (const option of result) option.feats.sort((a, b) => a.localeCompare(b))
+  achievementCache.set(entries, result)
+  return result
 }
 
 function accessEthnicities(access: string) {
@@ -21,14 +64,21 @@ export function ethnicityOptions(entries: ContentEntry[]) {
     .sort((a, b) => a.localeCompare(b))
 }
 
-export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck | undefined {
-  const access = String(entry.data.access ?? '').trim().replace(/\s+/g, ' ')
+export function featRarity(entry: ContentEntry) {
   const rarity = entry.traits.find(trait => /^(uncommon|rare|unique)$/i.test(trait))
     ?? (/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity)) ? String(entry.data.rarity) : undefined)
-  if (!access && !rarity) return undefined
+  return rarity ? rarity[0].toUpperCase() + rarity.slice(1).toLowerCase() : undefined
+}
+
+export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck | undefined {
+  const access = String(entry.data.access ?? '').trim().replace(/\s+/g, ' ')
+  if (!access || /^(?:(?:rarity|access)\s*:\s*)?(?:uncommon|rare|unique)(?:\s+(?:feat|option))?[.!?]?$/i.test(access)) return undefined
+  const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase())
+  const achievement = narrativeAccess.test(access) && c.achievements?.some(value => achievementKey(value) === achievementKey(access))
   return {
-    requirement: access || `${rarity}; no automatic access condition listed`,
-    automatic: !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase()),
+    requirement: access,
+    automatic: ethnicity || !!achievement,
     approved: c.featAccessOverrides?.includes(entry.id) ?? false,
+    source: ethnicity ? 'ethnicity' : achievement ? 'achievement' : undefined,
   }
 }

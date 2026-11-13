@@ -2,6 +2,7 @@ import { Info } from './Info'
 import { blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
+import { SearchableSelect } from './SearchableSelect'
 
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
@@ -39,26 +40,26 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
               {sanctification.options.map((option) => <option key={option}>{option}</option>)}
             </select>
           </label>
-          {targets.length > 1 ? <label>Blessed armament{' '}
-            <select aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
+          {targets.length > 1 ? <span>Blessed armament{' '}
+            <SearchableSelect aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
               if (!e.target.value || targets.some((weapon) => weapon.id === e.target.value))
                 save({ blessedArmament: { weaponId: e.target.value, rune: c.blessedArmament?.rune ?? '' } })
             }}>
               {!target && <option value="">Choose armament</option>}
               {c.blessedArmament?.weaponId && !target && <option value={c.blessedArmament.weaponId} disabled>Unavailable armament</option>}
               {[...targets].sort((a, b) => a.name.localeCompare(b.name)).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
-            </select>
-          </label> : target ? <span>Blessed armament: {target.name}</span> : null}
+            </SearchableSelect>
+          </span> : target ? <span>Blessed armament: {target.name}</span> : null}
           {!targets.length && <small>Add your deity's favored weapon, or handwraps for a favored unarmed attack.</small>}
-          <label>Free property rune{' '}
-            <select aria-label="Blessed armament rune" disabled={!target} value={c.blessedArmament?.rune ?? ''} onChange={(e) => {
+          <span>Free property rune{' '}
+            <SearchableSelect aria-label="Blessed armament rune" disabled={!target} value={c.blessedArmament?.rune ?? ''} onChange={(e) => {
               if (target) save({ blessedArmament: { weaponId: target.id, rune: e.target.value } })
             }}>
               <option value="">Choose rune</option>
               {c.blessedArmament?.rune && !runes.includes(runeName(c.blessedArmament.rune)) && <option value={c.blessedArmament.rune} disabled>Unavailable: {c.blessedArmament.rune}</option>}
               {runes.map((rune) => <option key={rune}>{rune}</option>)}
-            </select>
-          </label>
+            </SearchableSelect>
+          </span>
           <small>One free rune outside normal property rune slots; grants critical specialization. Radiant Armament (10) and Armament Paragon (20) expand rune choices.</small>
         </>}
       </div>}

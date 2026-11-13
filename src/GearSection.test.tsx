@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
@@ -63,7 +63,7 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   expect(armorMarkup).not.toContain('<small>Armor Class <b>')
   ;(armorMaterial.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Duskwood' } })
   expect(c.armors?.[0]).toMatchObject({ material: 'Duskwood', potency: 3, resilient: 2 })
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('aria-haspopup="dialog">Duskwood</button>')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('aria-haspopup="dialog">Duskwood (Standard-Grade)</button>')
   c = { ...c, feats: [{ name: 'Living Weapon', type: 'Class Feat', level: 1 }] }
   c.weapons![0].livingWeapon = true
   const locked = findElement(WeaponList({ c, entries: [weapon], save }), (element) => element.props['aria-label'] === 'Weapon material')
@@ -76,6 +76,24 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   expect(livingMarkup).not.toContain('High-grade peachwood:')
 })
 
+it('offers one Grisantian Hide choice and automatically displays its level-appropriate grade', () => {
+  let c: Character = { ...character([]), level: 18,
+    armors: [{ id: 'armor', name: 'Hide Armor', worn: true, potency: 2, resilient: 1, runes: [] }] }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const initial = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)
+  expect(initial.match(/<option>Grisantian Hide<\/option>/g)).toHaveLength(1)
+  expect(initial).not.toContain('<option>Grisantian Hide (')
+  const picker = findElement(ArmorList({ c, entries: [], save }), element => element.props['aria-label'] === 'Armor material')
+  if (!picker) throw new Error('Missing material picker')
+  ;(picker.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Grisantian Hide' } })
+  expect(c.armors?.[0].material).toBe('Grisantian Hide')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('>Grisantian Hide (Standard-Grade)</button>')
+  c = { ...c, level: 19 }
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)).toContain('>Grisantian Hide (High-Grade)</button>')
+  expect(c.armors?.[0]).toMatchObject({ material: 'Grisantian Hide', potency: 2, resilient: 1 })
+  expect(save).toHaveBeenCalledTimes(1)
+})
+
 it('opens grade-specific weapon and armor material rules with the correct item level', () => {
   const item = (name: string, level: number, description: string): ContentEntry =>
     ({ ...weapon, id: name, kind: 'item', name, level, description })
@@ -86,7 +104,7 @@ it('opens grade-specific weapon and armor material rules with the correct item l
     item('Grisantian Pelt Armor (High-Grade)', 19, 'High-grade armor rules.'),
     item('Grisantian Pelt', 0, 'Object rules.'),
   ]
-  const c: Character = { ...character([{ name: 'Living Weapon', level: 1, type: 'Class Feat' }], true), level: 18,
+  const c: Character = { ...character([{ name: 'Living Weapon', level: 1, type: 'Class Feat' }], true), level: 19,
     armors: [{ id: 'armor', name: 'Hide Armor', worn: true, material: 'Grisantian Hide (High-Grade)', potency: 0, resilient: 0, runes: [] }] }
   const weapons = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(weapons).toContain('Peachwood (High-Grade)<small> (Level 18)</small>')
@@ -256,20 +274,30 @@ it('syncs Living Weapon fundamentals and property edits across weapons and inher
 })
 
 it('lets users select the Haft Striker source and keeps all inherited enhancements read-only', () => {
-  let c = character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 }])
-  c.weapons = [{ ...c.weapons![0], id: 'first', name: 'Spear' }, { ...c.weapons![0], id: 'second', name: 'Hammer', runes: ['Frost'] }]
+  let c = character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
+    { name: 'Living Weapon', type: 'Class Feat', level: 1 }])
+  c.weapons = [{ ...c.weapons![0], id: 'first', name: 'Spear', livingWeapon: true }, { ...c.weapons![0], id: 'second', name: 'Hammer', runes: ['Frost'] }]
   const entries = [
     { ...weapon, name: 'Spear', data: { hands: 2, weapon_group: 'Spear', damage: '1d8 piercing' } },
     { ...weapon, name: 'Hammer', data: { hands: 2, weapon_group: 'Hammer', damage: '1d12 bludgeoning' } },
   ]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const living = findElement(WeaponList({ c, entries, save }), element => element.props['aria-label'] === 'Living Weapon: inherited from Spear')!
+  expect(living.props).toMatchObject({ checked: true, disabled: true })
+  expect(living.props.onChange).toBeUndefined()
+  const haft = ownedWeapons(c, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
+  expect(effectiveWeapon(c, entries, haft)).toMatchObject({ livingWeapon: true, material: 'Peachwood (Standard-Grade)' })
   const selector = findElement(WeaponList({ c, entries, save }), (element) => element.props['aria-label'] === 'Haft weapon')
   if (!selector) throw new Error('Missing haft source selector')
   ;(selector.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'second' } })
   expect(c.haftStrikerWeaponId).toBe('second')
+  c = JSON.parse(JSON.stringify(c))
+  expect(effectiveWeapon(c, entries, haft).livingWeapon).toBe(false)
   const card = findElement(WeaponList({ c, entries, save }), (element) => element.props['aria-label'] === 'Haft Striker Stance')
   if (!card) throw new Error('Missing haft card')
   const markup = renderToStaticMarkup(card)
+  expect(findElement(card, element => element.props['aria-label'] === 'Living Weapon: inherited from Hammer')!.props)
+    .toMatchObject({ checked: false, disabled: true })
   expect(markup).toContain('title="Inherited from Hammer"')
   expect(markup).not.toContain('aria-label="Remove Frost rune"')
   expect(markup).not.toContain('aria-label="Add property rune"')
@@ -482,13 +510,13 @@ it.each(ARMOR_GAUNTLETS)('inherits plate material and fundamentals for armor-pro
   expect(material()).toBeUndefined()
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Orichalcum</button>')
   expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 0, striking: 0, runes: [] })
-  expect(effectiveWeapon(c, [], { ...saved, id: 'purchased' }).material).toBe('Peachwood (Greater)')
+  expect(effectiveWeapon(c, [], { ...saved, id: 'purchased' }).material).toBe('Peachwood (Standard-Grade)')
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: undefined })) }
   expect(material()).toBeUndefined()
   expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: undefined, runes: [] })
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: 'Duskwood' })) }
   expect(material()).toBeUndefined()
-  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Duskwood</button>')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Duskwood (Standard-Grade)</button>')
   expect(saved).toMatchObject({ material: 'Peachwood (Greater)', runes: ['Flaming', 'Frost', 'Shock', 'Thundering'] })
 })
 
@@ -637,16 +665,17 @@ it('copies a chosen carried weapon onto Animal Feature attacks instead of handwr
   expect(renderToStaticMarkup(tree())).toContain('Saved Animal Strength weapon unavailable')
 })
 
-it('groups identical Animal Strength rune loadouts by first weapon while preserving distinct fundamentals and saved sources', () => {
+it('groups identical transferable Animal Strength runes despite Living Weapon Shifting, preserving distinct fundamentals and saved sources', () => {
   const bow = { ...weapon, id: 'bow', name: 'Composite Longbow', data: { weapon_category: 'Martial', damage: '1d8 piercing', range: 100 } }
   const spear = { ...weapon, id: 'spear', name: "Dancer's Spear" }
   const runes = ['Flaming', 'Frost']
   let c: Character = { ...character([
     { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
     { name: 'Animal Strength', type: 'Class Feat', level: 6 },
+    { name: 'Living Weapon', type: 'Class Feat', level: 1 },
   ]), activeSpells: ['Animal Feature'], weapons: [
     { id: 'bow', name: bow.name, potency: 2, striking: 1, runes },
-    { id: 'spear', name: spear.name, potency: 2, striking: 1, runes: [...runes].reverse() },
+    { id: 'spear', name: spear.name, potency: 2, striking: 1, runes: [...runes].reverse(), livingWeapon: true },
     { id: 'potency', name: 'Higher Potency', potency: 3, striking: 1, runes },
     { id: 'striking', name: 'Higher Striking', potency: 2, striking: 2, runes },
     { id: 'property', name: 'Other Properties', potency: 2, striking: 1, runes: ['Shock'] },
@@ -657,6 +686,9 @@ it('groups identical Animal Strength rune loadouts by first weapon while preserv
   const control = () => findElement(WeaponList({ c, entries: [bow, spear], save }),
     element => element.props['aria-label'] === 'Animal Strength runes: Claws')!
   const markup = renderToStaticMarkup(control())
+  expect([...markup.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match => match[1])).toEqual([
+    'Composite Longbow', 'Higher Potency', 'Higher Striking', 'No runes', 'Other Properties',
+  ])
   expect(markup).toContain('>Composite Longbow</option>')
   expect(markup).not.toContain('value="spear"')
   for (const id of ['potency', 'striking', 'property']) expect(markup).toContain(`value="${id}"`)
@@ -670,6 +702,17 @@ it('groups identical Animal Strength rune loadouts by first weapon while preserv
   expect(renderToStaticMarkup(control())).toContain('value="spear"')
   ;(control().props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'potency' } })
   expect(effectiveWeapon(c, [bow, spear], claws).potency).toBe(3)
+})
+
+it('groups Animal Strength rune sources separately for slashing Claws and piercing Jaws', () => {
+  const c: Character = { ...character([{ name: 'Animal Strength', type: 'Class Feat', level: 6 }]), weapons: [
+    { id: 'vorpal', name: weapon.name, potency: 2, striking: 1, runes: ['Flaming', 'Vorpal'] },
+    { id: 'plain', name: weapon.name, potency: 2, striking: 1, runes: ['Flaming'] },
+  ] }
+  const target: OwnedWeapon = { id: 'claws', name: 'Claws (Animal Feature)', potency: 0, striking: 0, runes: [] }
+  expect(animalStrengthRuneSources(c, [weapon], target)).toHaveLength(2)
+  expect(animalStrengthRuneSources(c, [weapon], { ...target, id: 'jaws', name: 'Jaws (Animal Feature)' }))
+    .toMatchObject([{ weapon: { id: 'vorpal' }, ids: ['vorpal', 'plain'] }])
 })
 
 const handwrapSourceCases: [Character['handwraps'], string][] = [

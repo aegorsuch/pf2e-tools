@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
-  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, featTakenLevel, maxHp,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, wornArmor, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, maxHp,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, perceptionItemBonus, perceptionCircumstance, hazardFinderBonus, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -17,7 +17,7 @@ const RESISTANCE_NOTES: Record<string, string> = {
 function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
   name: string; label: string; title: string; ariaLabel?: string
 }) {
-  if (!activeFeatsNamed(c, name).length) return null
+  if (!activeFeatsNamed(c, name).length || name === 'Favored Terrain' && activeFeatsNamed(c, 'Terrain Master').length) return null
   return <label title={title}><input type="checkbox" aria-label={ariaLabel} checked={isFeatEffectActive(c, name)}
     onChange={(event) => save(featEffectChange(c, name, event.target.checked))} /> {label}</label>
 }
@@ -65,6 +65,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const canSpendAt = (name: string, level: number) => rankGrants.every(grant =>
     (baseRanks[name] ?? 0) <= (grant.without[name] ?? 0) || level > grant.level)
   const improvisation = untrainedSkillProficiency(c)
+  const armorBonus = part === 'defense' ? armorSaveBonus(c, entries) : 0
   const canReachRank = (name: string, target: number) => {
     let rank = baseRanks[name] ?? 0
     if (rank < 1) return false
@@ -120,16 +121,16 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
-      : s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will' ? wornArmor(c)?.resilient ?? 0 : 0
+      : s.kind === 'save' ? armorBonus : 0
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
       : s.kind === 'save' && hazardFinderBonus(c) ? { value: 1, source: 'Hazard Finder' } : undefined
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} <b>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
-          && <SourceNote source="Imitate Fauna" note="+4 Status (Imitate Fauna; Impersonate an animal)" />}
+          && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
-            && <SourceNote source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}</b></span>
+            && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
@@ -159,7 +160,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}
-          {improvised && <SourceNote source={improvised.source} note={improvised.trainedActions
+          {improvised && <SourceNote inlineSource={false} source={improvised.source} note={improvised.trainedActions
             ? 'Untrained skill proficiency improved. You can also attempt trained-only skill actions; your proficiency rank remains untrained.'
             : 'Untrained skill proficiency improved. Trained-only skill actions still require training.'} />}
         </span>
@@ -179,7 +180,6 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   if (part === 'offense') {
     const athlete = ragingAthleteBenefits(c, entries)
     const terrain = favoredTerrainBenefits(c, entries)
-    const originalTerrain = activeFeatsNamed(c, 'Favored Terrain')[0]?.choice
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
@@ -192,10 +192,10 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           title="Apply favored terrain benefits only while you are in that terrain." />
         {isFeatEffectActive(c, 'Favored Terrain') && !terrain
           && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
-        {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Temporary favored terrain{' '}
-          <select aria-label="Temporary favored terrain" value={c.favoredTerrain ?? originalTerrain ?? ''} onChange={event => {
+        {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Favored Terrain{' '}
+          <select aria-label="Favored Terrain" value={selectedFavoredTerrain(c) ?? ''} onChange={event => {
             if (!FAVORED_TERRAINS.includes(event.target.value)) return
-            save({ favoredTerrain: event.target.value === originalTerrain ? undefined : event.target.value })
+            save(favoredTerrainChange(c, event.target.value))
           }}>
             {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
           </select>

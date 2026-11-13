@@ -28,7 +28,7 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
-  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood (Greater)' | 'Peachwood (Standard-Grade)' | 'Peachwood (High-Grade)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood' | 'Peachwood (Greater)' | 'Peachwood (Standard-Grade)' | 'Peachwood (High-Grade)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   livingWeapon?: boolean
   verdantWeapon?: boolean
   stowed?: boolean
@@ -41,7 +41,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   worn: boolean
-  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 export interface OwnedShield {
@@ -98,6 +98,7 @@ export interface Character {
   level: number
   ancestry?: string
   ethnicity?: string
+  achievements?: string[]
   featAccessOverrides?: string[]
   className?: string
   subclass?: string
@@ -127,6 +128,7 @@ export interface Character {
   livingWeaponEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
+  inventorArmorSuit?: 'Power Suit' | 'Subterfuge Suit'
   shield?: OwnedShield
   lores: { name: string; rank: number }[]
   languages: string[]
@@ -144,6 +146,7 @@ export interface Character {
   spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
+  spentFocusPoints?: number[]
   innateSpellUses?: Record<string, number>
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   animalFeatures?: NonNullable<Character['animalFeature']>[]

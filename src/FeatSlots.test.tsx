@@ -3,10 +3,123 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
 import { plannedSlots, ranksAt, unslottedFeats } from './builder'
+import { achievementOptions } from './featAccess'
 import type { Character, ContentEntry } from './types'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('keeps feat searches scoped to their section and gives dedication popups their own query', () => {
+  const c: Character = { ...emptyRanger(), level: 2 }
+  const feats = ['Alpha', 'Beta'].flatMap((name): ContentEntry[] => [{
+    id: name, name, level: 1, traits: ['Ranger'], systems: ['pf2e'],
+    kind: 'feat', source: 'official', description: '', data: {}, effects: [], updatedAt: 0,
+  }, {
+    id: `${name}-dedication`, name: `${name} Dedication`, level: 2, traits: ['Archetype', 'Dedication'],
+    systems: ['pf2e'], kind: 'feat', source: 'official',
+    description: '', data: { archetype: name }, effects: [], updatedAt: 0,
+  }])
+  const save = vi.fn()
+  const classTree = (search: Record<string, string>) => FeatSlots({ c, entries: feats, categories: ['class'],
+    title: 'Class Feats', save, search, onSearch: () => {} })
+  const isolated = renderToStaticMarkup(classTree({ 'ancestry:query': 'Alpha', 'class:1:0:open': '1' }))
+  expect(isolated).toContain('<option value="Alpha">')
+  expect(isolated).toContain('<option value="Beta">')
+  const filtered = renderToStaticMarkup(classTree({ 'class:query': '  BETA ', 'class:1:0:open': '1' }))
+  expect(filtered).toContain('aria-label="Search class feats"')
+  expect(filtered).toContain('<option value="Beta">')
+  expect(filtered).not.toContain('<option value="Alpha">')
+  const popup = renderToStaticMarkup(FeatSlots({ c, entries: feats, categories: ['archetype'], save, onSearch: () => {},
+    search: { 'archetype:2:0:open': '1', 'archetype:2:0:type': 'dedication', 'archetype:2:0:query': 'beta' } }))
+  expect(popup).toContain('aria-label="Search L02 Dedication feats"')
+  expect(popup).toContain('L02 Dedication: Beta Dedication')
+  expect(popup).not.toContain('L02 Dedication: Alpha Dedication')
+  expect(save).not.toHaveBeenCalled()
+})
+
+it('keeps Favored Terrain editable in class feats and displays the same restored selection as Offense', () => {
+  let c: Character = { ...emptyRanger(), level: 11, favoredTerrain: 'Forest', feats: [
+    { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },
+    { name: 'Terrain Master', type: 'Class Feat', level: 8, slot: 'class:8:0' },
+  ] }
+  const terrain: ContentEntry = {
+    id: 'terrain', name: 'Favored Terrain', kind: 'feat', systems: ['pf2e'], level: 2, traits: ['Ranger'],
+    source: 'official', description: '', data: {}, effects: [], updatedAt: 1,
+  }
+  const tree = () => FeatSlots({ c, entries: [terrain], categories: ['class'], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('>Favored Terrain (Forest)</button>')
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Favored Terrain terrain"')
+})
+
+it('unlocks Wild Hunter through a saved achievement without bypassing level or skill prerequisites', () => {
+  const access = 'You\u2019ve trained with or defeated a member of the wild hunt.'
+  const wild: ContentEntry = {
+    id: 'wild', name: 'Wild Hunter Dedication', level: 8, traits: ['Archetype', 'Dedication', 'Uncommon'],
+    systems: ['pf2e'], kind: 'feat', source: 'official', description: '', effects: [], updatedAt: 1,
+    data: { archetype: 'Wild Hunter', access,
+      prerequisite: 'expert in Perception; Expert in Nature, Expert in Stealth, or Expert in Survival' },
+  }
+  const key = achievementOptions([wild])[0].key
+  const ranger: ContentEntry = { ...wild, id: 'ranger', kind: 'class', name: 'Ranger', level: 1, traits: [],
+    data: { perception_proficiency: 'Expert' } }
+  let c: Character = { ...emptyRanger(), level: 8, rankOverrides: { Nature: 2 } }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries: [wild, ranger], categories: ['archetype'], save,
+    search: { 'archetype:8:0:open': '1', 'archetype:8:0:type': 'dedication' } })
+  const prefix = 'L08 Dedication: Wild Hunter Dedication (Uncommon)'
+  const blockedLabel = `${prefix} * Access: ${access} (GM approval needed)`
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${blockedLabel}" disabled=""`)
+  findButton(tree(), blockedLabel)!()
+  expect(save).not.toHaveBeenCalled()
+  c = JSON.parse(JSON.stringify({ ...c, achievements: [key] }))
+  const allowedLabel = `${prefix} * Access: ${access} (met)`
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${allowedLabel}">`)
+  findButton(tree(), allowedLabel)!()
+  expect(c.feats).toContainEqual({ name: wild.name, type: 'Dedication Feat', level: 8, slot: 'archetype:8:0' })
+  const selected = renderToStaticMarkup(tree())
+  expect(selected).toContain('Satisfied by checked achievement.')
+  expect(selected).not.toContain('Granted by selected ethnicity.')
+  c = { ...c, achievements: [] }
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Access information"')
+  c = { ...c, feats: [], achievements: [key], rankOverrides: {} }
+  expect(renderToStaticMarkup(tree())).toMatch(/aria-label="L08 Dedication: Wild Hunter Dedication[^"]*Missing[^"]*" disabled=""/)
+  c = { ...c, level: 6, rankOverrides: { Nature: 2 } }
+  expect(renderToStaticMarkup(tree())).not.toContain(prefix)
+})
+
+it.each([
+  { name: 'Brastlewark Snare Engineering', level: 4, prerequisite: 'Snarecrafter Dedication; Snare Crafting' },
+  { name: 'Barricade Snare', level: 6, prerequisite: 'Snarecrafter Dedication' },
+])('allows uncommon $name without synthetic access approval but still enforces prerequisites', ({ name, level, prerequisite }) => {
+  const dedication: ContentEntry = {
+    id: 'snarecrafter', systems: ['pf2e'], kind: 'feat', name: 'Snarecrafter Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], source: 'official', description: '',
+    data: { archetype: 'Snarecrafter' }, effects: [], updatedAt: 1,
+  }
+  const snareFeat: ContentEntry = {
+    ...dedication, id: 'snare-feat', name, level, traits: ['Archetype', 'Uncommon'],
+    data: { archetype: 'Snarecrafter', prerequisite, rarity: 'uncommon' },
+  }
+  const crafting: ContentEntry = { ...dedication, id: 'crafting', name: 'Snare Crafting', level: 1, traits: ['General', 'Skill'], data: {} }
+  let c: Character = { ...emptyRanger(), level, feats: [
+    { name: dedication.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = () => FeatSlots({ c, entries: [dedication, snareFeat, crafting], categories: ['archetype'],
+    search: { [`archetype:${level}:0:open`]: '1' }, save })
+  const label = `L${String(level).padStart(2, '0')} Dedication: ${name} (Uncommon)`
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain(`<button type="button" aria-label="${label}">${name} (Uncommon)</button>`)
+  expect(markup).not.toContain('no automatic access condition')
+  findButton(tree(), label)!()
+  expect(c.feats.some(feat => feat.name === name)).toBe(true)
+  expect(renderToStaticMarkup(tree())).toContain(`(Level ${level}; Uncommon)`)
+  expect(renderToStaticMarkup(tree())).not.toContain('GM approval needed')
+  c = { ...c, feats: [] }
+  expect(renderToStaticMarkup(tree())).not.toContain(label)
+  expect(c.feats).toEqual([])
+  expect(save).toHaveBeenCalledTimes(1)
+})
 
 it('lists Clever Improviser granted Untrained Improvisation under general feats, not skill feats', () => {
   const c: Character = { ...emptyRanger(), level: 5, feats: [
@@ -176,7 +289,7 @@ it('gates access separately, ignores stale next-feat approval, preserves saved a
   const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
   const tree = () => FeatSlots({ c, entries: [witch, other, prerequisite, gloomseer, dragonSpit], categories: ['ancestry'], title: 'Ancestry Feats',
     save, search, onSearch: (key, value) => { search[key] = value } })
-  expect(renderToStaticMarkup(tree())).toContain('<option value="Witch Warden" disabled="">Witch Warden * Access: Kellid ethnicity')
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Witch Warden" disabled="">Witch Warden (Uncommon) * Access: Kellid ethnicity')
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: witch.name } })
   expect(save).not.toHaveBeenCalled()
   search['access:ancestry'] = 'approved'
@@ -718,7 +831,7 @@ it('lists every confirmed missing prerequisite and updates the label as requirem
   expect(render({ ...c, subclass: 'Dragon', skillPicks: ['Intimidation'] })).toContain('value="Dragon Howl">Dragon Howl</option>')
 })
 
-it('keeps unmet archetype feats visible in the modal with required dedication and skill details', () => {
+it('hides unowned archetype feats, keeps Dedication choices, and shows other unmet requirements for owned archetypes', () => {
   const child: ContentEntry = {
     id: 'child', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Defend Mount', level: 4,
     traits: ['Archetype'], data: { archetype: 'Cavalier', prerequisite: 'Cavalier Dedication, trained in Athletics' },
@@ -726,13 +839,19 @@ it('keeps unmet archetype feats visible in the modal with required dedication an
   }
   const dedication: ContentEntry = { ...child, id: 'dedication', name: 'Cavalier Dedication', level: 2,
     traits: ['Archetype', 'Dedication'], data: { archetype: 'Cavalier' } }
-  const c: Character = { ...emptyRanger(), level: 4 }
+  let c: Character = { ...emptyRanger(), level: 4 }
   const save = vi.fn()
-  const tree = FeatSlots({ c, entries: [dedication, child], save, categories: ['archetype'], search: { 'archetype:4:0:open': '1' } })
-  const label = 'L04 Dedication: Defend Mount * Missing Cavalier Dedication; trained in Athletics'
-  expect(renderToStaticMarkup(tree)).toContain(`aria-label="${label}" disabled=""`)
-  findButton(tree, label)!()
+  const tree = (type = 'archetype') => FeatSlots({ c, entries: [dedication, child], save, categories: ['archetype'],
+    search: { 'archetype:4:0:open': '1', 'archetype:4:0:type': type } })
+  expect(renderToStaticMarkup(tree())).not.toContain(child.name)
+  expect(renderToStaticMarkup(tree('dedication'))).toContain('L04 Dedication: Cavalier Dedication')
+  c = { ...c, feats: [{ name: dedication.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+  const label = 'L04 Dedication: Defend Mount * Missing trained in Athletics'
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${label}" disabled=""`)
+  findButton(tree(), label)!()
   expect(save).not.toHaveBeenCalled()
+  c = { ...c, level: 6, feats: [{ ...c.feats[0], takenLevel: 6, slot: 'archetype:6:0' }] }
+  expect(renderToStaticMarkup(tree())).not.toContain(child.name)
 })
 
 it('shows missing prerequisites even when the feat currently has no available subchoices', () => {

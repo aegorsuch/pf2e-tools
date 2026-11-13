@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { SkillsSection } from './SkillsSection'
+import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, weaponRanks } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -66,7 +67,7 @@ it('keeps Ancestral Skills training fixed, refunds redundant picks and spends on
   expect(c.skillIncreases).toEqual({ 7: 'Diplomacy' })
 })
 
-it('persists a temporary Terrain Master choice and explicitly activates its environmental effects', () => {
+it('synchronizes Favored Terrain between Offense and its feat and applies Terrain Master automatically', () => {
   let c: Character = { ...base, level: 11, feats: [
     { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },
     { name: 'Terrain Master', type: 'Class Feat', level: 8, slot: 'class:8:0' },
@@ -85,22 +86,37 @@ it('persists a temporary Terrain Master choice and explicitly activates its envi
     })
   }
   walk(tree())
-  expect(controls.get('Temporary favored terrain')!.value).toBe('Plains')
+  expect(controls.get('Favored Terrain')!.value).toBe('Plains')
+  expect(controls.has('In favored terrain')).toBe(false)
   expect(renderToStaticMarkup(tree())).not.toContain('>Original terrain</option>')
   expect(renderToStaticMarkup(tree())).not.toContain('Terrain Master: choose after')
-  ;(controls.get('Temporary favored terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Aquatic' } })
-  ;(controls.get('In favored terrain')!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  ;(controls.get('Favored Terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Aquatic' } })
   c = JSON.parse(JSON.stringify(c))
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Favored Terrain (Aquatic)')
   expect(markup).toContain('Swim 25 ft.')
   expect(markup).toContain('ignore non-magical difficult terrain')
+  expect(c.feats[0].choice).toBe('Aquatic')
+  const featTree = () => FeatChoice({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } }, index: 0 })
+  walk(featTree())
+  expect(controls.get('Favored Terrain terrain')!.value).toBe('Aquatic')
+  ;(controls.get('Favored Terrain terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Plains' } })
   walk(tree())
-  ;(controls.get('Temporary favored terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Plains' } })
+  expect(controls.get('Favored Terrain')!.value).toBe('Plains')
   expect(c.favoredTerrain).toBeUndefined()
   expect(renderToStaticMarkup(tree())).toContain('35 ft.')
-  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} part="offense" />))
-    .not.toContain('Temporary favored terrain')
+  c = { ...c, favoredTerrain: 'Forest' }
+  walk(featTree())
+  walk(tree())
+  expect(controls.get('Favored Terrain terrain')!.value).toBe('Forest')
+  expect(controls.get('Favored Terrain')!.value).toBe('Forest')
+  ;(controls.get('Favored Terrain terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Desert' } })
+  expect(c.feats[0].choice).toBe('Desert')
+  expect(c.favoredTerrain).toBeUndefined()
+  const beforeMaster = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} part="offense" />)
+  expect(beforeMaster).not.toContain('aria-label="Favored Terrain"')
+  expect(beforeMaster).toContain('aria-label="In favored terrain"')
+  expect(beforeMaster).not.toContain('ignore non-magical difficult terrain')
 })
 
 it('allocates paid increases after Scrapper grants instead of spending earlier increases and invalidating the variant', () => {
@@ -142,21 +158,24 @@ it('does not stack multiple Sunweave item bonuses', () => {
 it('adds and marks Imitate Fauna status bonus only while the known spell is active', () => {
   const c: Character = { ...base, spells: [{ name: 'Imitate Fauna', rank: 2, cantrip: false }], activeSpells: ['Imitate Fauna'] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
-  expect(markup).toMatch(/Deception <b>\+4<button[^>]*>\*<\/button> \(Imitate Fauna\)/)
+  expect(markup).toMatch(/Deception <b>\+4<button[^>]*>\*<\/button><span/)
+  expect(markup).toMatch(/role="note">\+4 status bonus when using Impersonate as an animal\. \(Imitate Fauna\)<\/span>/)
   expect(markup).toContain('aria-label="Imitate Fauna note"')
   expect(markup).toContain('popover="auto"')
   for (const patch of [{ activeSpells: [] }, { spells: [] }]) {
     const inactive = renderToStaticMarkup(<SkillsSection c={{ ...c, ...patch }} entries={[ranger]} save={() => {}} />)
     expect(inactive).toContain('Deception <b>+0</b>')
-    expect(inactive).not.toContain('+4 Status (Imitate Fauna')
+    expect(inactive).not.toContain('Imitate Fauna note')
   }
 })
 
 it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () => {
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Shiny', type: 'Ancestry Feat', level: 1 }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
-  expect(markup).toMatch(/Deception <b>\+0<button[^>]*>\*<\/button> \(Shiny\)/)
-  expect(markup).toMatch(/Performance <b>\+3<button[^>]*>\*<\/button> \(Shiny\)/)
+  expect(markup).toMatch(/Deception <b>\+0<button[^>]*>\*<\/button><span/)
+  expect(markup).toMatch(/Performance <b>\+3<button[^>]*>\*<\/button><span/)
+  expect(markup).not.toContain('</button> (Shiny)')
+  expect(markup).toMatch(/role="note">\+3 circumstance bonus only when using Aid for this skill\. \(Shiny\)<\/span>/)
   expect(markup.match(/\+3 circumstance bonus only when using Aid for this skill\./g)).toHaveLength(8)
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [] }} entries={[ranger]} save={() => {}} />))
     .not.toContain('Shiny note')

@@ -1,18 +1,20 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, baseItems, isMagicItem, armorCategory, isRanged, weaponDamage, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
+  animalStrengthSource, animalStrengthRuneSources, hasAnimalStrength, armorEntry, armorGauntlet, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, deityWeapon, effectiveWeapon, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { SearchableSelect } from './SearchableSelect'
+import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
 import type { ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
 
 const POTENCY = [0, 1, 2, 3]
-const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood (Greater)'] as const
-const ARMOR_MATERIALS = ['Duskwood', 'Orichalcum', 'Grisantian Hide (Standard-Grade)', 'Grisantian Hide (High-Grade)'] as const
+const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
+const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
 
 export function BulkLimits({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const limits = bulkLimits(c, entries)
@@ -86,15 +88,15 @@ export function Search({ entries, kind, label, onPick }: {
       </div>
       <div className="gear-filters">
         {filters.filter((f) => f.options.length > 0).map((f) => (
-          <select key={f.label} aria-label={f.label} value={picked[f.label] ?? ''}
+          <SearchableSelect key={f.label} aria-label={f.label} value={picked[f.label] ?? ''}
             onChange={(e) => setPicked({ ...picked, [f.label]: e.target.value })}>
             <option value="">All {f.label}</option>
             {f.options.map((o) => <option key={o}>{o}</option>)}
-          </select>
+          </SearchableSelect>
         ))}
       </div>
       <div className="row">
-        <input autoFocus placeholder={`Search ${kind}s`} value={q} onChange={(e) => setQ(e.target.value)} />
+        <input type="search" aria-label={`Search ${kind}s`} autoFocus placeholder={`Search ${kind}s`} value={q} onChange={(e) => setQ(e.target.value)} />
         <button type="button" onClick={close}>Cancel</button>
       </div>
       <ul className="gear-results">
@@ -153,7 +155,7 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
       ))}
       {[...freeRunes].sort((a, b) => a.name.localeCompare(b.name)).map((r) => <GearTag key={r.name} name={r.name} entry={entryFor(r.name)} source={r.source} />)}
       {onChange && runes.length < limit && options.some((option) => !runes.includes(option.name)) && (
-        <select aria-label="Add property rune" value="" onChange={(e) => {
+        <SearchableSelect aria-label="Add property rune" value="" onChange={(e) => {
           if (options.some((option) => option.name === e.target.value) && !runes.includes(e.target.value)) {
             onChange([...runes, e.target.value].sort((a, b) => a.localeCompare(b)))
           }
@@ -162,7 +164,7 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
           {options.filter((o) => !runes.includes(o.name)).map((o) => (
             <option key={o.name} value={o.name}>{o.name}{o.level !== undefined ? ` (Level ${o.level})` : ''}</option>
           ))}
-        </select>
+        </SearchableSelect>
       )}
     </div>
   )
@@ -254,7 +256,6 @@ export function WeaponList({ c, entries, save }: SectionProps) {
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   const handwraps = c.handwraps
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
-  const strengthSources = animalStrengthRuneSources(c, entries)
   return (
     <div className="col gear-list">
       {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
@@ -266,18 +267,22 @@ export function WeaponList({ c, entries, save }: SectionProps) {
         const enhanced = effectiveWeapon(c, entries, w)
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
         const strength = hasAnimalStrength(c, entries, w)
+        const strengthSources = strength ? animalStrengthRuneSources(c, entries, w) : []
+        const strengthOptions = [{ id: '', name: handwraps ? handwrapItem.name : 'No runes' },
+          ...strengthSources.map(source => source.weapon)].sort((a, b) => a.name.localeCompare(b.name))
         const strengthSource = animalStrengthSource(c, entries, w)
         const strengthSelection = strengthSource && strengthSources.find(source => source.ids.includes(strengthSource.id))?.weapon.id
         const inherited = !!handwraps && unarmed && !strengthSource
         const fixed = w.id === OVERSIZED_THROW.id
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
+        const inheritedLivingWeapon = !!haft && !!enhanced.livingWeapon
         const canUseLivingWeapon = !fixed && !haft && canBeLivingWeapon(c, entries, w)
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
         const shared = livingWeapon ? livingWeaponEnhancements(c, entries, w) : w
         const canUseVerdantWeapon = canBeVerdantWeapon(c, entries, w)
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
         const automatic = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
-        const freeShifting = livingWeapon
+        const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : w.runes })
         const freeRunes = [...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
@@ -332,30 +337,31 @@ export function WeaponList({ c, entries, save }: SectionProps) {
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
               <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>
-              <label>
-                <select aria-label={`Animal Strength runes: ${displayName}`} value={strengthSelection ?? c.animalStrengthWeapons?.[w.id] ?? ''} onChange={event => {
+                <SearchableSelect aria-label={`Animal Strength runes: ${displayName}`} value={strengthSelection ?? c.animalStrengthWeapons?.[w.id] ?? ''} onChange={event => {
                   if (event.target.value && !strengthSources.some(source => source.weapon.id === event.target.value)) return
                   const sources = { ...c.animalStrengthWeapons }
                   if (event.target.value) sources[w.id] = event.target.value
                   else delete sources[w.id]
                   save({ animalStrengthWeapons: sources })
                 }}>
-                  <option value="">{handwraps ? handwrapItem.name : 'No runes'}</option>
                   {c.animalStrengthWeapons?.[w.id] && !strengthSource
                     && <option disabled value={c.animalStrengthWeapons[w.id]}>Saved weapon unavailable</option>}
-                  {strengthSources.map(({ weapon }) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
-                </select>
-              </label>
+                  {strengthOptions.map(source => <option key={source.id} value={source.id}>{source.name}</option>)}
+                </SearchableSelect>
               {c.animalStrengthWeapons?.[w.id] && !strengthSource
                 && <small role="status">Saved Animal Strength weapon unavailable; normal unarmed runes apply. Choose another carried weapon.</small>}
             </>}
             {enhanced.runes.includes('Shockwave') && <small>Shockwave splash does not harm you.</small>}
             {haft && <>
-              {haftStrikerWeapons(c, entries).length > 1 && <label>Haft weapon{' '}
-                <select aria-label="Haft weapon" value={haft.id} onChange={(e) => save({ haftStrikerWeaponId: e.target.value })}>
-                  {haftStrikerWeapons(c, entries).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
-                </select>
+              {canBeLivingWeapon(c, entries, haft) && <label>
+                <input type="checkbox" aria-label={`Living Weapon: inherited from ${haft.name}`}
+                  checked={inheritedLivingWeapon} disabled /> Living Weapon
               </label>}
+              {haftStrikerWeapons(c, entries).length > 1 && <span>Haft weapon{' '}
+                <SearchableSelect aria-label="Haft weapon" value={haft.id} onChange={(e) => save({ haftStrikerWeaponId: e.target.value })}>
+                  {haftStrikerWeapons(c, entries).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
+                </SearchableSelect>
+              </span>}
             </>}
             {favored?.id === w.id && <small>Favored weapon of {c.deity}; fundamental runes scale with character level.</small>}
             {unarmed && enhanced.material && <div className="gear-runes">
@@ -370,16 +376,16 @@ export function WeaponList({ c, entries, save }: SectionProps) {
                   source={plate ? `Inherited from ${plate.name}` : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
                   onRemove={livingWeapon || plate || w.verdantWeapon && canUseVerdantWeapon ? undefined : () =>
                     update(w.id, { material: undefined, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency)) })} />
-              </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <label>Material{' '}
-                <select aria-label="Weapon material" value="" onChange={(e) => {
+              </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
+                <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
                   const material = WEAPON_MATERIALS.find((name) => name === e.target.value)
                   if (!material) return
                   update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material)) })
                 }}>
                   <option value="">Add material...</option>
                   {WEAPON_MATERIALS.map((name) => <option key={name}>{name}</option>)}
-                </select>
-              </label>}
+                </SearchableSelect>
+              </span>}
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
               <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
@@ -408,22 +414,50 @@ export function WeaponList({ c, entries, save }: SectionProps) {
 
 export function ArmorList({ c, entries, save }: SectionProps) {
   const armors = ownedArmors(c, entries)
-  const update = (id: string, patch: Partial<OwnedArmor>) => save({ armors: armors.map((a) => (a.id === id ? { ...a, ...patch } : a)) })
+  const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
+  const saveArmors = (next: OwnedArmor[]) => save({ armors: [
+    ...(c.armors ?? []).filter(armor => isGrantedArmor(armor.id) && !armors.some(current => current.id === armor.id)),
+    ...next.map(armor => !canWearWithAttachedArmor(armor, attached)
+      ? { ...armor, worn: c.armors?.find(saved => saved.id === armor.id)?.worn ?? armor.worn } : armor),
+  ] })
+  const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   const shield = c.shield
   return (
     <div className="col gear-list">
       <Search entries={entries} kind="armor" label="Add Armor"
-        onPick={(e) => save({ armors: [...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }] })} />
+        onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
-        const entry = entries.find((e) => e.kind === 'armor' && e.name === a.name)
+        const entry = armorEntry(c, entries, a.name)
+        const body = !!entry?.data.attached
+        const wornLocked = body || !canWearWithAttachedArmor(a, attached)
+        const runesAllowed = entry?.data.runes_allowed !== false
+        const granted = isGrantedArmor(a.id)
+        const starfinder = granted && entry?.systems.includes('sf2e') ? entry : undefined
+        const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
+        const automatic = granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 }
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
               <strong>{a.name}</strong>
-              <label><input type="checkbox" checked={a.worn}
-                onChange={(e) => save({ armors: armors.map((x) => ({ ...x, worn: x.id === a.id ? e.target.checked : e.target.checked ? false : x.worn })) })} /> Worn</label>
+              {entry && <small>{entry.systems.map(system => system === 'sf2e' ? 'SF2e' : 'PF2e').join(' / ')}</small>}
+              <label><input type="checkbox" aria-label={`Worn ${a.name}`} checked={a.worn} disabled={wornLocked}
+                title={body ? 'Attached to character' : wornLocked ? 'Cannot wear armor over attached body armor' : undefined}
+                onChange={(e) => {
+                  if (wornLocked) return
+                  saveArmors(armors.map((x) => ({ ...x, worn: x.id === a.id ? e.target.checked : attached ? x.worn : e.target.checked ? false : x.worn })))
+                }} /> Worn</label>
             </header>
+            {a.id === INVENTOR_ARMOR_ID && <SearchableSelect label="Innovation armor" aria-label="Inventor armor suit" value={a.name}
+              onChange={event => {
+                const suit = INVENTOR_SUITS.find(name => name === event.target.value)
+                if (suit) save({ inventorArmorSuit: suit })
+              }}>
+              {INVENTOR_SUITS.map(name => <option key={name}>{name}</option>)}
+            </SearchableSelect>}
             {entry?.description && <Info label="Summary">{entry.description}</Info>}
+            {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
+            {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
+            {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && entry.traits.length > 0 && <div className="gear-traits">{entry.traits.map((t) => <span key={t}>{t}</span>)}</div>}
             {entry && (
               <div className="gear-stats">
@@ -431,15 +465,20 @@ export function ArmorList({ c, entries, save }: SectionProps) {
                 <span><small>Dexterity cap</small>{String(entry.data.dex_cap ?? '—')}</span>
                 <span><small>Check</small>{String(entry.data.check_penalty ?? '—')}</span>
                 <span><small>Strength</small>{String(entry.data.strength ?? '—')}</span>
+                {granted && <span><small>Category</small>{String(entry.data.armor_category ?? '—')}</span>}
+                {granted && <span><small>Group</small>{String(entry.data.armor_group || '—')}</span>}
+                {granted && <span><small>Speed</small>{String(entry.data.speed_penalty ?? 0)}</span>}
+                {starfinder && <span><small>Grade AC increase</small>+{Number(entry.data.grade_ac_bonus)}</span>}
+                {starfinder && <span><small>Saving throws</small>+{Number(entry.data.grade_save_bonus)}</span>}
               </div>
             )}
             <div className="row">
               {a.material ? <div className="gear-runes"><span>Material</span>
-                <Material name={a.material} entries={entries} equipment="Armor" source="Locked by Wood armor group"
-                  onRemove={isWoodArmor(entries, a) ? undefined : () =>
+                <Material name={a.material} entries={entries} equipment="Armor" source={body ? 'Attached to character' : 'Locked by Wood armor group'}
+                  onRemove={body || isWoodArmor(entries, a) ? undefined : () =>
                     update(a.id, { material: undefined, runes: a.runes.slice(0, maxPropertyRunes(a.potency)) })} />
-              </div> : <label>Material{' '}
-                <select aria-label="Armor material" value="" onChange={(e) => {
+              </div> : body ? <span>Material: Attached</span> : <span>Material{' '}
+                <SearchableSelect aria-label="Armor material" value="" onChange={(e) => {
                   if (isWoodArmor(entries, a)) return
                   const material = ARMOR_MATERIALS.find((name) => name === e.target.value)
                   if (!material) return
@@ -447,16 +486,17 @@ export function ArmorList({ c, entries, save }: SectionProps) {
                 }}>
                   <option value="">Add material...</option>
                   {ARMOR_MATERIALS.map((name) => <option key={name}>{name}</option>)}
-                </select>
-              </label>}
-              <Level label="Potency" value={a.potency} options={POTENCY} format={(n) => (n ? `+${n}` : 'None')}
-                onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, maxPropertyRunes(potency, a.material)) })} />
-              <Level label="Resilient" value={a.resilient} options={POTENCY} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
-                onChange={(resilient) => update(a.id, { resilient })} />
+                </SearchableSelect>
+              </span>}
+              {runesAllowed && !starfinder && <Level label="Potency" value={a.potency} options={POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
+                onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, maxPropertyRunes(potency, a.material)) })} />}
+              {runesAllowed && !starfinder && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
+                onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
-            <Runes runes={a.runes} entries={entries} options={propertyRunes(entries, 'Armor')} limit={maxPropertyRunes(a.potency, a.material)} onChange={(runes) => update(a.id, { runes })} />
-            <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
-              onClick={() => confirmRemoval(`armor "${a.name}"`, () => save({ armors: armors.filter((x) => x.id !== a.id) }))}>×</button>
+            {runesAllowed ? <Runes runes={a.runes} entries={entries} options={propertyRunes(entries, 'Armor')} limit={maxPropertyRunes(runePotency, a.material)} onChange={(runes) => update(a.id, { runes })} />
+              : <small>Armor runes cannot be etched onto this shell.</small>}
+            {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
+              onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id)))}>×</button>}
           </article>
         )
       })}

@@ -6,7 +6,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { classSpellcasting, focusSpells, knowsSpell } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells } from './featSpells'
-import { InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
+import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -30,6 +30,36 @@ function findUseButton(node: ReactNode, label: string): { disabled?: boolean; on
   })
   return found
 }
+
+it('spends and restores individual focus dots across saves and rests without resetting spells or daily uses', () => {
+  let c: Character = { ...base, activeSpells: ['Animal Feature'], innateSpellUses: { daily: 1 } }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const tree = () => FocusPointTracker({ c, save, points: 3 })
+  expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
+  expect(findUseButton(tree(), 'Rest focus points')!.disabled).toBe(true)
+  findUseButton(tree(), 'Spend focus point 2')!.onClick()
+  expect(c.spentFocusPoints).toEqual([1])
+  expect(renderToStaticMarkup(tree())).toContain('2 of 3 focus points available')
+  findUseButton(tree(), 'Spend focus point 1')!.onClick()
+  findUseButton(tree(), 'Spend focus point 3')!.onClick()
+  expect(renderToStaticMarkup(tree())).toContain('0 of 3 focus points available')
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-pressed="true"')
+  findUseButton(tree(), 'Restore focus point 2')!.onClick()
+  expect(c.spentFocusPoints).toEqual([0, 2])
+  findUseButton(tree(), 'Rest focus points')!.onClick()
+  expect(c.spentFocusPoints).toEqual([])
+  expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
+  expect(c.activeSpells).toEqual(['Animal Feature'])
+  expect(c.innateSpellUses).toEqual({ daily: 1 })
+})
+
+it('shows only earned focus dots when capacity changes and no tracker without a focus pool', () => {
+  const c: Character = { ...base, spentFocusPoints: [2] }
+  const markup = renderToStaticMarkup(<FocusPointTracker c={c} save={() => {}} points={1} />)
+  expect(markup).toContain('1 of 1 focus points available')
+  expect(markup).not.toContain('focus point 2')
+  expect(FocusPointTracker({ c, save: () => {}, points: 0 })).toBeNull()
+})
 
 it('persists spent daily uses, blocks overspending, undoes use and resets without ending active spells', () => {
   const source = feat('Daily Magic', 'You can cast [invisibility](/Spells.aspx?ID=1) as a 2nd-rank arcane innate spell twice per day.')

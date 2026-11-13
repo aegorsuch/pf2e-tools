@@ -1,6 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, OwnedArmor, OwnedWeapon } from './types'
 import { canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, isGrantedArmor } from './grantedArmor'
 export { featTakenLevel } from './featChoices'
 import { getSettings } from './settings'
 import { createFeatPrerequisiteChecker, type PrerequisiteFacts } from './featPrerequisites'
@@ -201,7 +202,8 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
 export const isFeatEffectActive = (c: Character, name: string) =>
-  !!activeFeatsNamed(c, name).length && !!c.activeFeatEffects?.includes(name)
+  !!activeFeatsNamed(c, name).length && (!!c.activeFeatEffects?.includes(name)
+    || name === 'Favored Terrain' && !!activeFeatsNamed(c, 'Terrain Master').length)
 
 export function featEffectChange(c: Character, name: string, active: boolean) {
   return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])] }
@@ -474,11 +476,15 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const orderExplorerOk = availableOrders(c).length > 0
   const prerequisites = featSelectionPrerequisiteChecker(c, entries, slot)
+  const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites({
+    ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= Math.min(c.level, slot.level)),
+  }, entries, slot.key, true) : undefined
   return featIndex(entries)
     .filter(({ entry: e, traits }) => featSelectionLevel(e, c, entries, slot.category) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
+      && (!ownedArchetype || isDedication(e) || ownedArchetype(e).length === 0)
       && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
@@ -551,6 +557,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     ])]
     return DEVOTED_BLESSINGS.filter((blessing) => !used.includes(blessing))
   }
+  if (name === 'Inventor Dedication') return ['Armor', 'Construct', 'Weapon']
   if (name === 'Second Innovation' || name === 'Third Innovation') {
     const used = [selectedSubclass(c, entries), ...c.feats.flatMap((feat) =>
       feat.slot !== slotKey && ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice ? [feat.choice] : [])]
@@ -659,10 +666,19 @@ const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === n
 
 export const FAVORED_TERRAINS = ['Aquatic', 'Arctic', 'Desert', 'Forest', 'Mountain', 'Plains', 'Sky', 'Swamp', 'Underground']
 
-export function favoredTerrainBenefits(c: Character, entries: ContentEntry[]) {
+export function selectedFavoredTerrain(c: Character) {
   const original = activeFeatsNamed(c, 'Favored Terrain')[0]?.choice
   const temporary = activeFeatsNamed(c, 'Terrain Master').length ? c.favoredTerrain : undefined
-  const terrain = temporary && FAVORED_TERRAINS.includes(temporary) ? temporary : original
+  return temporary && FAVORED_TERRAINS.includes(temporary) ? temporary : original
+}
+
+export function favoredTerrainChange(c: Character, choice: string | undefined,
+  index = c.feats.indexOf(activeFeatsNamed(c, 'Favored Terrain')[0])): Partial<Character> {
+  return { feats: c.feats.map((feat, i) => i === index ? { ...feat, choice } : feat), favoredTerrain: undefined }
+}
+
+export function favoredTerrainBenefits(c: Character, entries: ContentEntry[]) {
+  const terrain = selectedFavoredTerrain(c)
   if (!terrain || !FAVORED_TERRAINS.includes(terrain) || !isFeatEffectActive(c, 'Favored Terrain')) return undefined
   return { terrain, enhanced: c.className === 'Ranger' && c.level >= 11
     || classFeatures(entries, c).some(feature => feature.name === 'Unimpeded Journey') }
@@ -1195,9 +1211,14 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   return ranks
 }
 
+export function armorSaveBonus(c: Character, entries: ContentEntry[]) {
+  const worn = wornArmor(c, entries)
+  return Math.max(worn?.resilient ?? 0, num(worn && armorEntry(c, entries, worn.name)?.data.grade_save_bonus))
+}
+
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
-  const resilient = wornArmor(c)?.resilient ?? 0
+  const resilient = armorSaveBonus(c, entries)
   const save = (name: string, ability: Ability) =>
     abilityMod(c.abilities[ability]) + proficiencyBonus(ranks[name] ?? 0, c.level) + (name === 'Perception' ? perceptionItemBonus(c) : resilient)
   return {
@@ -1227,7 +1248,7 @@ const ARMOR_SPECIALIZATIONS: Record<string, {
 export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
   if (!worn) return undefined
-  const armor = byName(entries, 'armor', worn.name)
+  const armor = armorEntry(c, entries, worn.name)
   const groups = tokens(armor?.data.armor_group).map((g) => g.toLowerCase())
   const category = String(armor?.data.armor_category ?? '').toLowerCase()
   // Class features apply to every group; feats may limit it to named groups and armor categories
@@ -1246,7 +1267,8 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   if (!group) return undefined
   const rule = ARMOR_SPECIALIZATIONS[group.name.toLowerCase()]
   const base = category === 'medium' ? rule?.medium : category === 'heavy' ? rule?.heavy : undefined
-  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage, value: base + worn.potency } : undefined
+  const improvement = armor?.data.armor_grade ? num(armor.data.grade_save_bonus) : worn.potency
+  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage, value: base + improvement } : undefined
   const summary = benefit ? `${benefit.value} ${rule.label}`
     : rule ? `Value not specified for ${category || 'unknown-category'} armor` : undefined
   return {
@@ -1266,7 +1288,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior'].includes(feat.name))
       .map((feat) => byName(entries, 'feat', feat.name)),
     ...c.equipment.map((g) => byName(entries, 'item', g.name)),
-    wornArmor(c) ? byName(entries, 'armor', wornArmor(c)!.name) : undefined,
+    wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
@@ -1304,18 +1326,18 @@ export function resistances(c: Character, entries: ContentEntry[]) {
 }
 
 export const wornArmor = (c: Character, entries: ContentEntry[] = []): OwnedArmor | undefined =>
-  c.armors?.filter((armor) => armor.worn).map((armor) => effectiveArmor(c, entries, armor))[0]
+  ownedArmors(c, entries).find(armor => armor.worn)
 export const perceptionItemBonus = (c: Character) => Math.max(0, ...(wornArmor(c)?.runes ?? []).map((rune) => {
   const name = runeName(rune)
   return name === 'Sunweave' ? 1 : name === 'Sunweave (Greater)' ? 2 : name === 'Sunweave (Major)' ? 3 : 0
 }))
 
-const armorCategory_ = (e: ContentEntry) => armorCategory(e).toLowerCase()
+const armorCategory_ = (e: ContentEntry) => e.data.armor_category === 'Special' ? 'special' : armorCategory(e).toLowerCase()
 
 function equippedArmorEntry(c: Character, entries: ContentEntry[]) {
-  const worn = wornArmor(c)
+  const worn = wornArmor(c, entries)
   return worn
-    ? byName(entries, 'armor', worn.name)
+    ? armorEntry(c, entries, worn.name)
     : c.armors
       ? undefined
       : c.equipment
@@ -1332,7 +1354,7 @@ export function animalSkinBenefits(c: Character, entries: ContentEntry[]) {
 }
 
 export function armorClass(c: Character, entries: ContentEntry[]) {
-  const worn = wornArmor(c)
+  const worn = wornArmor(c, entries)
   const armor = equippedArmorEntry(c, entries)
   const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
   const categoryKey = armorCategory === 'unarmored' ? 'unarmored' : `${armorCategory}_armor`
@@ -1343,8 +1365,8 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
     klass?.data.armor_class_proficiency,
     klass?.data.ac_proficiency,
   ]
-  let rank = proficiencyFields.reduce<number>((best, value) => Math.max(best, rankFromText(value)), 0)
-  const featureRank = classFeatures(entries, c).reduce<number>((best, feature) => {
+  let rank = armorCategory === 'special' ? 0 : proficiencyFields.reduce<number>((best, value) => Math.max(best, rankFromText(value)), 0)
+  const featureRank = armorCategory === 'special' ? 0 : classFeatures(entries, c).reduce<number>((best, feature) => {
     const name = feature.name.toLowerCase()
     const applies = name.includes('armor expertise')
       || (armorCategory === 'unarmored' ? name.includes('unarmored') : name.includes(`${armorCategory} armor`))
@@ -1354,7 +1376,10 @@ export function armorClass(c: Character, entries: ContentEntry[]) {
     if (name.includes('expert')) return Math.max(best, 2)
     return best
   }, 0)
-  rank = Math.max(rank, featureRank, armorRanks(c, entries)[armorCategory === 'unarmored' ? 'Unarmored' : armorCategory === 'light' ? 'Light' : armorCategory === 'medium' ? 'Medium' : 'Heavy'])
+  const ranks = armorRanks(c, entries)
+  rank = Math.max(rank, featureRank, num(armor?.data.min_proficiency),
+    armor?.data.medium_proficiency ? ranks.Medium : 0,
+    armorCategory === 'special' ? 0 : ranks[armorCategory === 'unarmored' ? 'Unarmored' : armorCategory === 'light' ? 'Light' : armorCategory === 'medium' ? 'Medium' : 'Heavy'])
   const dexterity = abilityMod(c.abilities.dex)
   const skin = animalSkinBenefits(c, entries)
   const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
@@ -1375,11 +1400,16 @@ export function animalStrengthWeapons(c: Character, entries: ContentEntry[]) {
     && ![OVERSIZED_THROW.id, HAFT_STRIKER_WEAPON.id].includes(weapon.id))
 }
 
-export function animalStrengthRuneSources(c: Character, entries: ContentEntry[]) {
+function animalStrengthEnhancements(entries: ContentEntry[], weapon: OwnedWeapon, source: OwnedWeapon): OwnedWeapon {
+  const enhanced = { ...weapon, potency: source.potency, striking: source.striking, runes: source.runes, material: undefined }
+  return { ...enhanced, runes: enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) }
+}
+
+export function animalStrengthRuneSources(c: Character, entries: ContentEntry[], target: OwnedWeapon) {
   const sources = new Map<string, { weapon: OwnedWeapon; ids: string[] }>()
   if (!activeFeatsNamed(c, 'Animal Strength').length) return []
   for (const weapon of animalStrengthWeapons(c, entries)) {
-    const enhanced = effectiveWeapon(c, entries, weapon)
+    const enhanced = animalStrengthEnhancements(entries, target, effectiveWeapon(c, entries, weapon))
     const key = JSON.stringify([enhanced.potency, enhanced.striking, enhanced.runes.map(rune => runeName(rune).toLowerCase()).sort()])
     const existing = sources.get(key)
     if (existing) existing.ids.push(weapon.id)
@@ -1537,24 +1567,62 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
 export const weaponEntry = (entries: ContentEntry[], name: string) =>
   SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name && isAutomaticUnarmed(name))
   ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find((entry) => entry.name === name)
+export function armorEntry(c: Character, entries: ContentEntry[], name: string) {
+  return grantedArmorEntries(c, selectedSubclass(c, entries)).find(entry => entry.name === name)
+    ?? byName(entries, 'armor', name)
+}
+
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
-  if (c.armors) return c.armors.map((armor) => effectiveArmor(c, entries, armor))
-  const best = c.equipment
+  const grants = grantedArmorEntries(c, selectedSubclass(c, entries))
+  const attached = grants.find(entry => entry.data.attached)
+  const best = c.armors ? undefined : c.equipment
     .map((g) => byName(entries, 'armor', g.name))
     .filter((e): e is ContentEntry => !!e)
     .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
-  return c.equipment.filter((g) => byName(entries, 'armor', g.name))
-    .map((g) => effectiveArmor(c, entries, { id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+  const saved = c.armors ?? c.equipment.filter((g) => byName(entries, 'armor', g.name))
+    .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+  const ordinary = saved.filter(armor => !isGrantedArmor(armor.id))
+    .map(armor => effectiveArmor(c, entries, canWearWithAttachedArmor(armor, attached) ? armor : { ...armor, worn: false }))
+  const generated = grants.map(entry => {
+    const existing = saved.find(armor => armor.id === entry.id)
+    return effectiveArmor(c, entries, {
+      potency: 0, resilient: 0, runes: [], ...existing, id: entry.id, name: entry.name,
+      worn: entry.data.attached ? true : attached ? false : existing?.worn ?? !ordinary.some(armor => armor.worn),
+    })
+  })
+  return [...generated, ...ordinary]
 }
 
 export function isWoodArmor(entries: ContentEntry[], armor: OwnedArmor) {
   return tokens(byName(entries, 'armor', armor.name)?.data.armor_group).some((group) => group.toLowerCase() === 'wood')
 }
 
+function scaledMaterial(material: OwnedArmor['material'], level: number, equipment: 'Armor'): OwnedArmor['material']
+function scaledMaterial(material: OwnedWeapon['material'], level: number, equipment: 'Weapon'): OwnedWeapon['material']
+function scaledMaterial(material: OwnedWeapon['material'], level: number, equipment: 'Armor' | 'Weapon'): OwnedWeapon['material'] {
+  const base = material?.replace(/\s*\([^)]+\)$/, '')
+  if (base === 'Duskwood') return level >= (equipment === 'Armor' ? 19 : 17) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)'
+  if (base === 'Grisantian Hide') return level >= 19 ? 'Grisantian Hide (High-Grade)' : 'Grisantian Hide (Standard-Grade)'
+  if (base === 'Peachwood') return level >= 18 ? 'Peachwood (High-Grade)' : 'Peachwood (Standard-Grade)'
+  if (base === 'Cold Iron') return level >= 16 ? 'Cold Iron (High-Grade)' : level >= 10 ? 'Cold Iron (Standard-Grade)' : 'Cold Iron (Low-Grade)'
+  return material
+}
+
 export function effectiveArmor(c: Character, entries: ContentEntry[], armor: OwnedArmor): OwnedArmor {
-  return isWoodArmor(entries, armor)
-    ? { ...armor, material: c.level >= 19 ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' }
-    : armor
+  const grant = grantedArmorEntries(c, selectedSubclass(c, entries)).find(entry => entry.id === armor.id)
+  if (grant) {
+    const automatic = automaticArmorFundamentals(c.level, grant)
+    const runesAllowed = grant.data.runes_allowed !== false
+    const fundamentalsAllowed = runesAllowed && !grant.systems.includes('sf2e')
+    return { ...armor, name: grant.name, material: grant.data.attached
+      ? grant.data.fixed_material === 'Orichalcum' ? 'Orichalcum' : undefined
+      : scaledMaterial(armor.material, c.level, 'Armor'),
+      potency: fundamentalsAllowed ? Math.max(armor.potency, automatic.potency) : 0,
+      resilient: fundamentalsAllowed ? Math.max(armor.resilient, automatic.resilient) : 0,
+      runes: runesAllowed ? armor.runes : [] }
+  }
+  const material = scaledMaterial(isWoodArmor(entries, armor) ? 'Duskwood' : armor.material, c.level, 'Armor')
+  return material === armor.material ? armor : { ...armor, material }
 }
 
 export function armorGauntlet(c: Character, entries: ContentEntry[]) {
@@ -1795,6 +1863,8 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (weapon.id === OVERSIZED_THROW.id) return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
+  const scaled = scaledMaterial(weapon.material, c.level, 'Weapon')
+  if (scaled !== weapon.material) weapon = { ...weapon, material: scaled }
   const favored = deityWeapon(c, entries)?.id === weapon.id
   const automatic = automaticWeaponFundamentals(c.level)
   if (hasAutomaticWeaponFundamentals(c, entries, weapon)) weapon = { ...weapon,
@@ -1806,12 +1876,13 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   const haft = weapon.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
   if (haft) {
     const source = effectiveWeapon(c, entries, haft)
-    const inherited = { ...weapon, potency: source.potency, striking: source.striking, material: source.material, runes: source.runes }
+    const inherited = { ...weapon, livingWeapon: !!source.livingWeapon && canBeLivingWeapon(c, entries, haft),
+      potency: source.potency, striking: source.striking, material: source.material, runes: source.runes }
     weapon = { ...inherited, runes: source.runes.filter((rune) => weaponRuneApplies(entries, inherited, rune)) }
   }
   if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') {
     let enhanced = weapon
-    const peachwood = c.level >= 18 ? 'Peachwood (High-Grade)' : 'Peachwood (Standard-Grade)'
+    const peachwood = scaledMaterial('Peachwood', c.level, 'Weapon')
     if (weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)) {
       const shared: OwnedWeapon = { ...weapon, ...livingWeaponEnhancements(c, entries, weapon), material: peachwood }
       enhanced = { ...shared, runes: livingWeaponRunes(shared).filter((rune) => weaponRuneApplies(entries, shared, rune)) }
@@ -1825,13 +1896,11 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   }
   const animalSource = animalStrengthSource(c, entries, weapon)
   if (animalSource) {
-    const source = effectiveWeapon(c, entries, animalSource)
-    const enhanced = { ...weapon, potency: source.potency, striking: source.striking, runes: source.runes, material: undefined }
-    return { ...enhanced, runes: enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) }
+    return animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource))
   }
   const fundamentals = c.handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[c.handwraps.grade ?? 'Commercial'] : c.handwraps
   const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
-    ? c.level >= 16 ? 'Cold Iron (High-Grade)' : c.level >= 10 ? 'Cold Iron (Standard-Grade)' : 'Cold Iron (Low-Grade)' : undefined
+    ? scaledMaterial('Cold Iron (Low-Grade)', c.level, 'Weapon') : undefined
   const enhanced: OwnedWeapon = { ...weapon, material,
     potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
     striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0), runes: c.handwraps?.runes ?? [] }

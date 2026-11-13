@@ -12,6 +12,27 @@ import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './feat
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
+export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 'save'> & { points: number }) {
+  const capacity = Math.min(3, Math.max(0, points))
+  if (!capacity) return null
+  const spent = new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < capacity))
+  return <span className="focus-tracker" role="group" aria-label={`${capacity - spent.size} of ${capacity} focus points available`}>
+    {Array.from({ length: capacity }, (_, index) => {
+      const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}`
+      return <button key={index} type="button" className="focus-point" aria-label={label}
+        title={label} aria-pressed={!spent.has(index)} onClick={() => {
+          const next = new Set(spent)
+          if (next.has(index)) next.delete(index)
+          else next.add(index)
+          void save({ spentFocusPoints: [...next] })
+        }} />
+    })}
+    <button type="button" aria-label="Rest focus points" disabled={spent.size === 0}
+      title="Restore all focus points. Active spells are unchanged."
+      onClick={() => { if (spent.size) void save({ spentFocusPoints: [] }) }}>Rest</button>
+  </span>
+}
+
 export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'save'> & {
   grant: ReturnType<typeof grantedFeatSpells>[number]
 }) {
@@ -129,6 +150,7 @@ function SpellItem({ name, entry, note, onRemove, active, onToggle, children }: 
 
 export function SpellsSection({ c, entries, save }: SectionProps) {
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
+  const [query, setQuery] = useState('')
   const sc = c.spellcasting
   const casting = classSpellcasting(c, entries)
   const traditions = casting?.traditions ?? []
@@ -179,12 +201,14 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
 
   const matches = useMemo(() => {
     if (!selectedTradition) return []
+    const q = query.trim().toLowerCase()
     return entries
       .filter((e) => e.kind === 'spell')
       .filter((e) => !selectedTradition || String(e.data.tradition ?? '').toLowerCase().includes(selectedTradition.toLowerCase()))
+      .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some(trait => trait.toLowerCase().includes(q)))
       .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
       .slice(0, 40)
-  }, [entries, selectedTradition])
+  }, [entries, selectedTradition, query])
 
   const castAbility = casting?.ability ?? sc?.ability
   const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
@@ -249,7 +273,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       </>}
       {(focus.length > 0 || granted.length > 0) && (
         <div>
-          <b>Focus Spells</b> <small>(Focus Points: {focusPoints})</small>
+          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} /></div>
           <ul>
             {focus.filter(spell => !granted.some(warden => warden.name === spell.name)).map((s) => {
               const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
@@ -295,6 +319,9 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           <option value="">Any tradition</option>
           {traditions.map((t) => <option key={t}>{t}</option>)}
         </select>}
+        {casting && traditions.length > 0 && <label>Search spells{' '}
+          <input type="search" aria-label="Search spells" value={query} onChange={event => setQuery(event.target.value)} />
+        </label>}
       </div>
       <ul>
         {matches.map((m) => {
@@ -312,6 +339,7 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           )
         })}
       </ul>
+      {query.trim() && selectedTradition && !matches.length && <small role="status">No matching spells.</small>}
       </div>
     </details>
   )

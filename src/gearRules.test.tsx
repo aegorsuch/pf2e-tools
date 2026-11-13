@@ -25,6 +25,44 @@ const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1,
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
 
+it.each(['Grisantian Hide', 'Grisantian Hide (Standard-Grade)', 'Grisantian Hide (High-Grade)'] as const)(
+  'scales saved %s at the armor threshold without rewriting character data', (material) => {
+    const c: Character = { ...base, armors: [{ id: 'armor', name: 'Full Plate', material, worn: true, potency: 2, resilient: 2, runes: ['Shadow'] }] }
+    const original = JSON.stringify(c)
+    for (const level of [18, 19, 18]) {
+      const current = { ...c, level }
+      const expected = level >= 19 ? 'Grisantian Hide (High-Grade)' : 'Grisantian Hide (Standard-Grade)'
+      expect(ownedArmors(current, [])[0]).toMatchObject({ material: expected, potency: 2, resilient: 2, runes: ['Shadow'] })
+      expect(effectiveWeapon(current, [], { ...main, id: GAUNTLET.id, name: GAUNTLET.name }).material).toBe(expected)
+    }
+    expect(JSON.stringify(c)).toBe(original)
+  })
+
+it.each([
+  ['Peachwood', 17, 'Peachwood (Standard-Grade)'],
+  ['Peachwood', 18, 'Peachwood (High-Grade)'],
+  ['Peachwood (Greater)', 18, 'Peachwood (High-Grade)'],
+  ['Duskwood', 16, 'Duskwood (Standard-Grade)'],
+  ['Duskwood', 17, 'Duskwood (High-Grade)'],
+  ['Cold Iron (Standard-Grade)', 9, 'Cold Iron (Low-Grade)'],
+  ['Cold Iron (Low-Grade)', 10, 'Cold Iron (Standard-Grade)'],
+  ['Cold Iron (Standard-Grade)', 16, 'Cold Iron (High-Grade)'],
+] as const)('scales ordinary %s weapons at level %i to %s', (material, level, expected) => {
+  const weapon = { ...main, material }
+  expect(effectiveWeapon({ ...base, level }, [sword], weapon)).toMatchObject({ material: expected, potency: 3, striking: 1 })
+  expect(weapon.material).toBe(material)
+})
+
+it('uses the armor Duskwood threshold for inherited gauntlets rather than the earlier weapon threshold', () => {
+  const c: Character = { ...base, armors: [{ id: 'armor', name: 'Full Plate', material: 'Duskwood', worn: true, potency: 2, resilient: 1, runes: [] }] }
+  for (const level of [18, 19]) {
+    const current = { ...c, level }
+    const expected = level >= 19 ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)'
+    expect(ownedArmors(current, [])[0].material).toBe(expected)
+    expect(effectiveWeapon(current, [], { ...main, id: GAUNTLET.id, name: GAUNTLET.name }).material).toBe(expected)
+  }
+})
+
 it.each([
   ['Wood', 'Medium', 6, 'damage', 'Piercing'], ['Wood', 'Heavy', 8, 'damage', 'Piercing'],
   ['Skeletal', 'Medium', 6, 'resistance', 'Precision'], ['Skeletal', 'Heavy', 8, 'resistance', 'Precision'],

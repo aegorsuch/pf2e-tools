@@ -1,12 +1,13 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, type PlannedSlot, type SectionProps } from './builder'
+import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, deityDomains, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
-import { featAccess } from './featAccess'
+import { featAccess, featRarity } from './featAccess'
 import { DOMAIN_FEATS } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 
@@ -26,6 +27,12 @@ const LABEL: Record<FeatSlotCategory, string> = {
 }
 
 type FeatOption = { entry: ContentEntry; choice?: string; value: string; label: string; disabled?: boolean }
+
+export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSearch'>) {
+  const [search, setSearch] = useState<Record<string, string>>({})
+  return <FeatSlots {...props} search={search}
+    onSearch={(key, text) => setSearch(previous => ({ ...previous, [key]: text }))} />
+}
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
   const allSlots = plannedSlots(c)
@@ -54,8 +61,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
       return compareFeatSelections(aFeat, bFeat)
     })
-  const q = (search['*'] ?? '').trim().toLowerCase()
-  const matches = (o: ContentEntry) => !q || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(q))
+  const searchKey = `${categories?.join(',') ?? '*'}:query`
+  const q = (search[searchKey] ?? search['*'] ?? '').trim().toLowerCase()
+  const matches = (o: ContentEntry, query = q) => !query || [o.name, String(o.data.archetype ?? ''), ...o.traits].some((t) => t.toLowerCase().includes(query))
   const isDedication = (o?: ContentEntry) => !!o?.traits.some((t) => /^dedication$/i.test(t))
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
@@ -80,8 +88,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const prerequisites = prerequisitesFor(entry, slot)
     const unmet = prerequisites.missing.length > 0
     const access = featAccess(c, entry)
+    const rarity = featRarity(entry)
     const accessMissing = access && !access.automatic && !access.approved
-    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${access
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${access
       ? ` * Access: ${access.requirement} (${access.automatic ? 'met' : access.approved ? 'GM approved' : 'GM approval needed'})` : ''}`
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
@@ -179,6 +188,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title}</h4></summary>}
+      {onSearch && slots.length > 0 && <label>Search {title.toLowerCase()}{' '}
+        <input type="search" aria-label={`Search ${title.toLowerCase()}`} value={search[searchKey] ?? search['*'] ?? ''}
+          onChange={event => onSearch(searchKey, event.target.value)} />
+      </label>}
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
@@ -202,8 +215,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
+          const selectedChoice = selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedName = selection
-            ? `${displayName(selection.name)}${selection.choice ? ` (${choiceLabel(selection.name, selection.choice)})` : ''}` : current
+            ? `${displayName(selection.name)}${selectedChoice ? ` (${choiceLabel(selection.name, selectedChoice)})` : ''}` : current
           const sources = featPrerequisiteSources(entries, {
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits(c),
           })
@@ -220,7 +234,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           // Archetype pickers only build their (very long) list while the popup is open
           // Lists are only built while a picker is open; selects open on focus
           const lazy = !!onSearch && !open
-          const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) => matches(o) && (!picksType || (type === 'dedication') === isDedication(o)))
+          const slotQuery = (search[`${s.key}:query`] ?? q).trim().toLowerCase()
+          const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) => matches(o, slotQuery) && (!picksType || (type === 'dedication') === isDedication(o)))
           const shown = picksType ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, FeatOption[]>()
           for (const option of shown) {
@@ -247,7 +262,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {current || '- empty -'}
                 </button>
               ) : <select aria-label={`${label} feat`} value={current}
-                onFocus={onSearch ? () => onSearch(`${s.key}:open`, '1') : undefined}
+                onFocus={onSearch ? () => flushSync(() => onSearch(`${s.key}:open`, '1')) : undefined}
                 onBlur={onSearch ? () => onSearch(`${s.key}:open`, '') : undefined} onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">- empty -</option>
                 {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => (
@@ -259,6 +274,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {picksType && open && (
                 <div className="feat-modal-backdrop" onClick={() => onSearch?.(`${s.key}:open`, '')}>
                   <div className="feat-modal" role="dialog" aria-label={`${label} feat picker`} onClick={(e) => e.stopPropagation()}>
+                    <label>Search feats{' '}
+                      <input type="search" aria-label={`Search ${label} feats`} value={search[`${s.key}:query`] ?? search[searchKey] ?? search['*'] ?? ''}
+                        onChange={event => {
+                          onSearch?.(`${s.key}:query`, event.target.value)
+                          onSearch?.(`${s.key}:limit`, '')
+                        }} />
+                    </label>
                     {!multiclassOnly && <div className="feat-type-tabs" role="tablist">
                       {([['archetype', 'Archetype'], ['dedication', 'Dedication']] as const).map(([value, text]) => (
                         <button key={value} type="button" role="tab" aria-selected={type === value} className={type === value ? 'active' : undefined}
@@ -280,6 +302,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                         )),
                       ])}
                     </ul>
+                    {!options.length && <small role="status">No matching feats.</small>}
                     {options.length > shown.length && (
                       <button type="button" onClick={() => onSearch?.(`${s.key}:limit`, String(shown.length + PAGE))}>Show more ({options.length - shown.length} left, or use search)</button>
                     )}
@@ -287,7 +310,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </div>
                 </div>
               )}
-              {featIndex >= 0 && (!selection.choice || selectedChoices === undefined
+              {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
                 || selection.name === 'Technomagical Scrapper' && !selectedChoices.includes(selection.choice))
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {access && !access.automatic && !access.approved && <div className="feat-access-controls">

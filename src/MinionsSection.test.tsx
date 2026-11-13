@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { MinionsSection } from './MinionsSection'
+import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -9,7 +10,7 @@ function findSelect(node: ReactNode, label: string): ((event: { target: { value:
   let found: ((event: { target: { value: string } }) => void) | undefined
   Children.forEach(node, (child) => {
     if (found || !isValidElement<Record<string, unknown>>(child)) return
-    found = child.type === 'select' && child.props['aria-label'] === label
+    found = (child.type === 'select' || child.type === SearchableSelect) && child.props['aria-label'] === label
       ? child.props.onChange as (event: { target: { value: string } }) => void
       : findSelect(child.props.children as ReactNode, label)
   })

@@ -1,12 +1,18 @@
+import { useState } from 'react'
 import { languageAllowance, languageGroups, type SectionProps } from './builder'
 
 export function LanguagesSection({ c, entries, save }: SectionProps) {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
   const { locked, slots, sources } = languageAllowance(c, entries)
   const groups = languageGroups(entries)
   const lockedKeys = new Set(locked.map((l) => l.toLowerCase()))
   const listed = new Set(Object.values(groups).flat().map(([l]) => l.toLowerCase()))
   const picked = c.languages.filter((l) => !lockedKeys.has(l.toLowerCase()))
-  const custom = picked.filter((l) => !listed.has(l.toLowerCase()))
+  const custom = picked.filter((l) => !listed.has(l.toLowerCase()) && (!q || l.toLowerCase().includes(q)))
+  const shown = Object.entries(groups).map(([category, langs]) => ({
+    category, langs: langs.filter(([lang, who]) => !q || `${lang} ${who}`.toLowerCase().includes(q)),
+  })).filter(group => group.langs.length)
   const grantOnly = new Set(['wildsong'])
   const left = slots - picked.length
   const toggle = (lang: string) => {
@@ -17,7 +23,10 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   }
   return (
     <div className="col language-picker">
-      {Object.entries(groups).map(([category, langs]) => (
+      <label>Search languages{' '}
+        <input type="search" value={query} onChange={event => setQuery(event.target.value)} />
+      </label>
+      {shown.map(({ category, langs }) => (
         <fieldset key={category}>
           <legend>{category} Languages</legend>
           <div className="language-grid">
@@ -43,6 +52,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
           </div>
         </fieldset>
       )}
+      {q && !shown.length && !custom.length && <small role="status">No matching languages.</small>}
     </div>
   )
 }
