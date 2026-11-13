@@ -170,6 +170,14 @@ describe('official passive feat mechanics', () => {
     ])
   })
 
+  it('grants Stormwind Flight Speed only while the known spell is active', () => {
+    const c: Character = { ...base, level: 8, spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }],
+      activeSpells: ['Stormwind Flight'], feats: [{ name: 'Fleet', type: 'General Feat', level: 1 }] }
+    expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 30, source: 'Stormwind Flight' })
+    expect(movementSpeeds({ ...c, activeSpells: [] }, [])).toHaveLength(1)
+    expect(movementSpeeds({ ...c, spells: [] }, [])).toHaveLength(1)
+  })
+
   it('applies Greenwatch expert Survival at acquisition, preserves later increases, and grants its prerequisite skill feats', () => {
     const greenwatch = { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }
     const c: Character = { ...base, level: 7, skillPicks: ['Survival'], feats: [greenwatch] }
@@ -482,7 +490,9 @@ describe('ancestryLabel', () => {
 
   describe('class labels', () => {
     it.each([
-      ['Ranger', 'Outwit', 'Outwit Ranger'],
+      ['Ranger', 'Outwit', 'Outwit Edge Ranger'],
+      ['Rogue', 'Thief', 'Thief Racket Rogue'],
+      ['Bard', 'Warrior', 'Warrior Muse Bard'],
       ['Champion', 'Justice', 'Champion of Justice'],
       ['Barbarian', 'Giant', 'Giant Instinct Barbarian'],
       ['Barbarian', 'Giant Instinct', 'Giant Instinct Barbarian'],
@@ -502,12 +512,12 @@ describe('ancestryLabel', () => {
         imported: { source: 'pathbuilder', raw: { build: { class: 'Ranger', specials: ['Hunt Prey', 'Outwit'] } }, unmapped: [] },
       }
       expect(subclassOptions(c, data)).toEqual([outwit])
-      expect(classLabel(c, data)).toBe('Outwit Ranger')
-      expect(classLabel({ ...c, subclass: 'Precision' }, data)).toBe('Precision Ranger')
+      expect(classLabel(c, data)).toBe('Outwit Edge Ranger')
+      expect(classLabel({ ...c, subclass: 'Precision' }, data)).toBe('Precision Edge Ranger')
       expect(classLabel({ ...c, subclass: '' }, data)).toBe('Ranger')
       expect(classLabel({ ...c, className: 'Champion' }, data)).toBe('Champion')
       expect(classLabel({ ...c, imported: undefined, feats: [{ name: "Hunter's Edge", type: 'Class Feature', level: 1, choice: 'Outwit' }] }, data))
-        .toBe('Outwit Ranger')
+        .toBe('Outwit Edge Ranger')
       expect(classLabel({ ...base, className: 'Druid', imported: { source: 'pathbuilder', raw: { class: 'Druid', specials: ['Animal Order'] }, unmapped: [] } }))
         .toBe('Druid of the Animal Order')
     const explorer = { name: 'Order Explorer', type: 'Class Feat', level: 2, choice: 'Animal' }

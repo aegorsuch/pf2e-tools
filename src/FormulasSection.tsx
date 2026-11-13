@@ -3,7 +3,7 @@ import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { featRarity } from './featAccess'
-import { formulaKey as key, formulaSources, knownFormulas } from './formulas'
+import { formulaKey as key, formulaSources, gadgetLimits, knownFormulas, snareAdvancements, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { ContentEntry } from './types'
 
 export function FormulasSection({ c, entries, save }: SectionProps) {
@@ -17,20 +17,24 @@ export function FormulasSection({ c, entries, save }: SectionProps) {
   const basic = snares.filter(item => item.level === 1 && !featRarity(item))
   const other = sources.brastlewark ? snares.filter(item => item.level <= featTakenLevel(sources.brastlewark!)
     && featRarity(item) === 'Uncommon' && item.traits.some(trait => key(trait) === 'magical')) : []
+  const gadgets = gadgetLimits(c, entries)
+  const snareRanks = snareAdvancements(c, entries)
+  const gadgetOptions = items.filter(item => item.traits.some(trait => key(trait) === 'gadget')
+    && !['Rare', 'Unique'].includes(featRarity(item) ?? ''))
   const unique = (list: ContentEntry[]) => [...new Map(list.map(item => [key(item.name), item])).values()]
     .sort((a, b) => a.name.localeCompare(b.name))
-  const options = (field: 'snareFormulaChoices' | 'brastlewarkFormulaChoices', count: number, candidates: ContentEntry[], label: string) => {
+  const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices' | 'gadgetFormulaChoices', count: number, candidates: ContentEntry[], label: string, offset = 0) => {
     const values = c[field] ?? []
-    return Array.from({ length: count }, (_, index) => {
+    return Array.from({ length: count }, (_, i) => {
+      const index = i + offset
       const current = values[index] ?? ''
       const choices = unique(candidates).filter(item => key(item.name) === key(current) || !knownKeys.has(key(item.name)))
-      return <label key={index}>{label} {index + 1}{' '}
-        <select aria-label={`${label} ${index + 1}`} value={current} onChange={event => {
+      return <label key={index}>{label} {i + 1}{' '}
+        <select aria-label={`${label} ${i + 1}`} value={current} onChange={event => {
           const value = event.target.value
           if (value && !choices.some(item => item.name === value)) return
           const update = () => {
-            const next = Array.from({ length: count }, (_, i) => i === index ? value : values[i] ?? '')
-            save({ [field]: next })
+            save({ [field]: updateFormulaChoice(values, index, value) })
           }
           if (current && current !== value) confirmRemoval(`formula choice "${current}"`, update)
           else update()
@@ -43,9 +47,17 @@ export function FormulasSection({ c, entries, save }: SectionProps) {
     })
   }
   const q = key(query)
-  const matches = q.length < 2 ? [] : unique(items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name)))).slice(0, 40)
+  const restricted = new Set(STANDARD_SNARE_FORMULAS.map(key))
+  const matches = q.length < 2 ? [] : unique(items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name))
+    && (sources.brastlewark || !restricted.has(key(item.name))))).slice(0, 40)
+  const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0) + snareRanks.length * 3
+  const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
+    + (sources.brastlewark ? c.brastlewarkFormulaMode === 'standard' ? 2
+      : c.brastlewarkFormulaMode === 'other' ? (c.brastlewarkFormulaChoices ?? []).slice(0, 2).filter(Boolean).length : 0 : 0)
+    + (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0).filter(Boolean).length
+    + snareRanks.reduce((sum, { rank }) => sum + (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3).filter(Boolean).length, 0)
   return <details className="character-section">
-    <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known</span></summary>
+    <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} feat choices`}</span></summary>
     <div className="character-section-content">
       {sources.snareCrafting && <div className="col">
         <b>Snare Crafting</b><small>Choose four common 1st-level snare formulas.</small>
@@ -67,8 +79,19 @@ export function FormulasSection({ c, entries, save }: SectionProps) {
           {options('brastlewarkFormulaChoices', 2, other, 'Brastlewark formula')}
         </>}
       </div>}
-      {c.feats.some(feat => feat.name === 'Snarecrafter Dedication' && featTakenLevel(feat) <= c.level)
-        && <small>Snarecrafter Dedication adds three snare formulas when your Crafting proficiency increases to expert, master, or legendary. Add those below; Rangers can use Survival instead.</small>}
+      {gadgets && <div className="col">
+        <b>Gadget Specialist</b><small>Choose common or uncommon gadget formulas.</small>
+        {options('gadgetFormulaChoices', gadgets.formulas, gadgetOptions, 'Gadget formula')}
+      </div>}
+      {snareRanks.map(({ rank, level }) => {
+        const title = ['Expert', 'Master', 'Legendary'][rank - 2]
+        return <div className="col" key={rank}>
+          <b>Snarecrafter Dedication: {title}</b>
+          <small>Choose three snares of level {level} or lower; confirm access to restricted formulas.</small>
+          {options('snareAdvancementFormulaChoices', 3, snares.filter(item => item.level <= level
+            && (sources.brastlewark || !restricted.has(key(item.name)))), `${title} snare formula`, (rank - 2) * 3)}
+        </div>
+      })}
       {known.length > 0 && <ul>{known.map(formula => {
         const entry = items.find(item => key(item.name) === key(formula.name))
         return <li key={key(formula.name)}>

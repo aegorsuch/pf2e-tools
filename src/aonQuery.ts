@@ -114,6 +114,13 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
         heightened: true, condition: 'Only within your claimed territory' })
     }
   }
+  const territorialDaily = /While in your territory, you can cast ([^\n]+?) as innate divine spells, each once per day\./i.exec(body)
+  if (territorialDaily) {
+    const spells = [...territorialDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+      .map(match => match[1])
+    if (spells.length) grants.push({ kind: 'innate', spells, tradition: 'divine', frequency: 'once per day',
+      condition: 'Only within your claimed territory' })
+  }
   const attribute = (/spellcasting (?:attribute|ability)(?: for [^.!?\n]*?)?(?: modifier)? is (Intelligence|Wisdom|Charisma)/i.exec(body)?.[1]
     ?? /(Intelligence|Wisdom|Charisma) is (?:the |your )?(?:key )?spellcasting (?:attribute|ability)/i.exec(body)?.[1]
     ?? /(?:use|using) (Intelligence|Wisdom|Charisma) as your spellcasting (?:attribute|ability)/i.exec(body)?.[1])?.toLowerCase()
@@ -161,7 +168,8 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
         grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))
       } else grants.push(rule)
     } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition) spells?\b/i.test(sentence)
-      && !/\b(?:if|choose|depending|based on)\b/i.test(sentence) && (!/\bor\b/i.test(sentence) || names.length > 1)) {
+      || /\byou gain the \[[^\]]+\]\(\/Spells\.aspx[^)]*\) order\.$/i.test(sentence.trim())) {
+      if (/\b(?:if|choose|depending|based on)\b/i.test(sentence) || /\bor\b/i.test(sentence) && names.length <= 1) continue
       grants.push({ kind: 'focus', spells: names, heightened: true, ...(ability ? { ability } : {}),
         ...(/\bor\b/i.test(sentence) ? { choice: 'listed' as const } : {}),
         tradition: /\bare (arcane|divine|occult|primal) spells/i.exec(body)?.[1] })

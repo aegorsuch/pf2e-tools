@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canInstallAugmentation, championBlessings, characterSummary, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, featEffectChange, parryValue, savingThrowBreakdown,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, parryValue, savingThrowBreakdown,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
 } from './builder'
 import { companionStats } from './companions'
-import { ArmorList, Augmentations, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
 import { ClassFeatures } from './ClassFeatures'
 import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
@@ -25,6 +25,121 @@ const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['d
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it('applies Martial Experience to untrained weapons and grants training at level 11', () => {
+  const c: Character = { ...base, level: 10, feats: [feat('Martial Experience', 5)] }
+  const atTen = weaponAttack(c, [sword], main)
+  expect(atTen.rank).toBe(0)
+  expect(atTen.prof).toBe(10)
+  expect(atTen.breakdown.parts.find(part => part.label === 'Proficiency')?.note).toContain('Martial Experience')
+  const atEleven = weaponAttack({ ...c, level: 11 }, [sword], main)
+  expect(atEleven.rank).toBe(1)
+  expect(atEleven.prof).toBe(13)
+  expect(weaponAttack({ ...c, feats: [] }, [sword], main).prof).toBe(0)
+})
+
+it('grants Soaring Armor flight only while the innovation is worn and the feat is active', () => {
+  const c: Character = { ...base, level: 14, className: 'Inventor', subclass: 'Armor',
+    feats: [feat('Soaring Armor', 14)] }
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Soaring Armor' })
+  expect(movementSpeeds({ ...c, level: 13 }, []).some(speed => speed.name === 'Fly')).toBe(false)
+  expect(movementSpeeds({ ...c, armors: [
+    { id: 'granted-armor:inventor', name: 'Power Suit', worn: false, potency: 0, resilient: 0, runes: [] },
+    { id: 'ordinary', name: 'Other Armor', worn: true, potency: 0, resilient: 0, runes: [] },
+  ] }, []).some(speed => speed.name === 'Fly')).toBe(false)
+})
+
+it('tracks Poison Weapon doses and Improved Poison Weapon damage', () => {
+  const c: Character = { ...base, level: 8, feats: [feat('Poison Weapon', 4), feat('Improved Poison Weapon', 8)], simplePoisonsSpent: 3 }
+  const html = renderToStaticMarkup(<SimplePoisons c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('5/8 remaining; 2d4')
+  expect(html).toContain('critically failed attack does not waste')
+  expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, level: 7 }} entries={[]} save={() => {}} />)).toContain('4/7 remaining; 1d4')
+  expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('lists only known and craftable gadgets for daily preparations', () => {
+  const c: Character = { ...base, level: 4, feats: [feat('Gadget Specialist', 4)], gadgetFormulaChoices: ['Little Gadget'] }
+  const entries = [content('item', 'Little Gadget', {}, 3, ['Gadget']), content('item', 'Future Gadget', {}, 5, ['Gadget']),
+    content('item', 'Unknown Gadget', {}, 1, ['Gadget'])]
+  const html = renderToStaticMarkup(<Gadgets c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Prepare 2 temporary gadgets')
+  expect(html).toContain('Little Gadget (Level 3)')
+  expect(html).not.toContain('Unknown Gadget')
+  expect(html).not.toContain('Future Gadget')
+  expect(renderToStaticMarkup(<Gadgets c={{ ...c, feats: [] }} entries={entries} save={() => {}} />)).toBe('')
+})
+
+it('marks one eligible weapon innovation with scaled fundamentals and locked material', () => {
+  const weapon = content('weapon', 'Prototype', { weapon_category: 'Advanced', damage: '1d8 piercing' }, 0)
+  const inventor: Character = { ...base, level: 10, className: 'Inventor', subclass: 'Weapon' }
+  const item: OwnedWeapon = { id: 'innovation', name: weapon.name, potency: 0, striking: 0, runes: [],
+    material: 'Cold Iron (Low-Grade)', inventorInnovation: true }
+  expect(canBeWeaponInnovation(inventor, [weapon], item)).toBe(true)
+  expect(effectiveWeapon(inventor, [weapon], item)).toMatchObject({ material: 'Orichalcum', potency: 2, striking: 1 })
+  expect(effectiveWeapon({ ...inventor, subclass: 'Armor' }, [weapon], item)).toMatchObject({
+    material: 'Cold Iron (Standard-Grade)', potency: 0, striking: 0,
+  })
+
+  expect(canBeWeaponInnovation(inventor, [{ ...weapon, level: 1 }], item)).toBe(false)
+  expect(canBeWeaponInnovation(inventor, [{ ...weapon, traits: ['Rare'] }], item)).toBe(false)
+  expect(canBeWeaponInnovation({ ...inventor, gearAccessOverrides: [weapon.id] }, [{ ...weapon, traits: ['Rare'] }], item)).toBe(true)
+  const martial = content('class', 'Inventor', { attack_proficiency: 'Trained in martial weapons' })
+  expect(weaponAttack(inventor, [weapon, martial], item).rank).toBe(1)
+  expect(item.material).toBe('Cold Iron (Low-Grade)')
+  expect(renderToStaticMarkup(<WeaponList c={{ ...inventor, weapons: [item] }} entries={[weapon]} save={() => {}} />))
+    .toContain('aria-label="Weapon Innovation: Prototype"')
+})
+
+it('treats a combination weapon as one choice with shared runes and form-specific effects', () => {
+  const melee = content('weapon', 'Hammer Gun (Melee)', { url: 'same', weapon_category: 'Martial', damage: '1d10 slashing' }, 1, ['Combination', 'Uncommon'])
+  const ranged = content('weapon', 'Hammer Gun (Ranged)', { url: 'same', weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' }, 1, ['Combination', 'Uncommon'])
+  const entries = [melee, ranged]
+  const character: Character = { ...base, feats: [{ ...feat('Unconventional Weaponry'), choice: 'Hammer Gun', culturalWeapon: true }] }
+  const weapon: OwnedWeapon = { id: 'combo', name: ranged.name, potency: 2, striking: 1, runes: ['Vorpal'] }
+  expect(combinationForms(entries, weapon.name)).toHaveLength(2)
+  expect(featChoiceOptions('Unconventional Weaponry', character, entries, '')).toEqual(['Hammer Gun'])
+  expect(weaponAttack(character, entries, weapon)).toMatchObject({ damage: '2d6 piercing', range: 60, item: 2 })
+  expect(weaponAttack(character, entries, { ...weapon, combinationForm: 'Melee' })).toMatchObject({ damage: '2d10+1 slashing', range: 0, item: 2 })
+  expect(effectiveWeapon(character, entries, { ...weapon, combinationForm: 'Melee' }).runes).toEqual(['Vorpal'])
+  expect(eligibleWeaponRunes(entries, { ...weapon, runes: [] }).map(rune => rune.name)).toContain('Vorpal')
+  const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} />)
+  expect(html).toContain('aria-label="Hammer Gun weapon form"')
+  expect(combinationForms([melee, { ...ranged, data: { ...ranged.data, url: 'different' } }], melee.name)).toEqual([])
+})
+
+it('shows alloyed metal on melee unarmed attacks without overwriting existing materials', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', level: 12,
+    feats: [feat('Iron Fists'), feat('Alloyed Attacks', 5, 'Silver')] }
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Silver Fists')
+  expect(html).toContain('melee unarmed attacks have Silver properties')
+  expect(featChoiceOptions('Alloyed Attacks', c, [], '')).not.toContain('Adamantine')
+  expect(featChoiceOptions('Alloyed Attacks', { ...c, level: 13 }, [], '')).toContain('Adamantine')
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, feats: [feat('Iron Fists'), feat('Alloyed Attacks', 5, 'Adamantine')] }}
+    entries={[]} save={() => {}} />)).not.toContain('Adamantine Fists')
+})
+
+it('provides both playing-card usages with one shared deck and automatic fundamentals', () => {
+  const dagger = content('weapon', 'Dagger', { damage: '1d4 piercing', weapon_category: 'Simple' }, 0)
+  const dart = content('weapon', 'Dart', { damage: '1d4 piercing', weapon_category: 'Simple', weapon_type: 'Ranged', range: 20 }, 0)
+  const c: Character = { ...base, level: 10, feats: [feat("Fane's Fourberie", 2)],
+    playingCardEnhancements: { potency: 0, striking: 0, runes: ['Shifting'] } }
+  const weapons = ownedWeapons(c, [dagger, dart]).filter(weapon => weapon.id.startsWith('playing-card:'))
+  expect(weapons.map(weapon => weapon.name)).toEqual(['Dagger (Playing Card)', 'Dart (Playing Card)'])
+  for (const weapon of weapons) expect(effectiveWeapon(c, [dagger, dart], weapon)).toMatchObject({
+    potency: 2, striking: 1, runes: ['Shifting'], material: undefined,
+  })
+  const holy = content('item', 'Holy', { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a melee weapon' }, 1)
+  const withHoly = { ...c, playingCardEnhancements: { potency: 0, striking: 0, runes: ['Holy'] } }
+  expect(weaponAttack(withHoly, [dagger, dart, holy], weapons[0]).traits).toContain('Holy')
+  expect(weaponAttack(withHoly, [dagger, dart, holy], weapons[1]).traits).not.toContain('Holy')
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger, dart]} save={() => {}} />)
+  expect(html).toContain('Material: playing cards')
+  expect(html).not.toContain('aria-label="Remove Dagger (Playing Card)"')
+  expect(ownedWeapons({ ...c, level: 1 }, [dagger, dart]).some(weapon => weapon.id.startsWith('playing-card:'))).toBe(false)
+  expect(c.playingCardEnhancements?.runes).toEqual(['Shifting'])
+})
 
 it('tracks augmentation limits and extra slots from earned feats without rewriting installed augmentations', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 9, heritage: 'Synthflesh Verthani',
@@ -847,6 +962,26 @@ it('applies parry AC context without stacking with shield or hazard finder, and 
   expect(armorClass({ ...hazard, parrying: false }, [rapier, improved])).toBe(normal + 1)
 })
 
+it('uses +2 for Twin Parry only with two wielded melee weapons and a parry weapon', () => {
+  const claw = content('weapon', 'Clawed Gauntlet', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d4 slashing' }, 1, ['Parry'])
+  const sword = content('weapon', 'Sword', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d6 slashing' })
+  const c: Character = { ...base, level: 4, feats: [feat('Twin Parry', 4)], parrying: true,
+    weapons: [{ id: 'a', name: claw.name, potency: 0, striking: 0, runes: [] }, { id: 'b', name: sword.name, potency: 0, striking: 0, runes: [] }] }
+  expect(parryValue(c, [claw, sword])).toBe(2)
+  expect(armorClass(c, [claw, sword]) - armorClass({ ...c, parrying: false }, [claw, sword])).toBe(2)
+  expect(parryValue({ ...c, weapons: [c.weapons![0], { ...c.weapons![1], stowed: true }] }, [claw, sword])).toBe(1)
+  expect(parryValue({ ...c, feats: [] }, [claw, sword])).toBe(1)
+})
+
+it('adds Nimble Elf speed and Tree Climber climb speed only when feats are active', () => {
+  const elf = content('ancestry', 'Elf', { speed: 30 })
+  const c: Character = { ...base, ancestry: 'Elf', level: 9, feats: [feat('Nimble Elf', 1), feat('Tree Climber', 9)] }
+  expect(speed(c, [elf])).toBe(35)
+  expect(movementSpeeds(c, [elf])).toContainEqual({ name: 'Climb', feet: 10, source: 'Tree Climber' })
+  expect(movementSpeeds({ ...c, level: 8 }, [elf])).not.toContainEqual(expect.objectContaining({ source: 'Tree Climber' }))
+  expect(speed({ ...c, feats: [] }, [elf])).toBe(30)
+})
+
 it('explains calculated AC, saves and attacks with capped Dexterity and non-stacking conditional bonuses', () => {
   const armor = content('armor', 'Plate', { armor_category: 'Heavy', ac: 5, dex_cap: 1 })
   const weapon = content('weapon', 'Rapier', { weapon_category: 'Martial', hands: 1, damage: '1d6 piercing' }, 1, ['Finesse'])
@@ -1131,6 +1266,6 @@ it.each([
 
 it('summarizes heritage, ancestry, subclass, and final level without duplicating ancestry', () => {
   const c = { ...base, ancestry: 'Human', heritage: 'Wintertouched Human', className: 'Ranger', subclass: 'Outwit', level: 20 }
-  expect(characterSummary(c, [])).toBe('Wintertouched Human Outwit Ranger 20')
-  expect(characterSummary({ ...c, heritage: 'Wintertouched' }, [])).toBe('Wintertouched Human Outwit Ranger 20')
+  expect(characterSummary(c, [])).toBe('Wintertouched Human Outwit Edge Ranger 20')
+  expect(characterSummary({ ...c, heritage: 'Wintertouched' }, [])).toBe('Wintertouched Human Outwit Edge Ranger 20')
 })

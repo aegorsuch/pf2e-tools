@@ -20,6 +20,59 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('applies Pale Horse only while mounted on the faithful steed and scales retaliation', () => {
+    const companions: NonNullable<Character['companions']> = [
+      { id: 'first', type: 'Bear', name: '', paleHorse: 'Fire' },
+      { id: 'second', type: 'Bear', name: '', paleHorse: 'Void' },
+    ]
+    const c: Character = { ...base, className: 'Champion', level: 20, companions, feats: [
+      { ...feat('Faithful Steed'), slot: 'class:2:0' }, { ...feat('Pale Horse'), slot: 'class:12:0' },
+    ] }
+    expect(companionStats(c, [bear], 'Bear')?.paleHorse).toEqual({ damage: 'Fire', resistance: 10, retaliation: '3d6' })
+    expect(companionStats({ ...c, level: 16 }, [bear], 'Bear')?.paleHorse?.retaliation).toBe('2d6')
+    expect(companionStats({ ...c, level: 12 }, [bear], 'Bear')?.paleHorse?.retaliation).toBe('1d6')
+    expect(companionStats({ ...c, level: 11 }, [bear], 'Bear')?.paleHorse).toBeUndefined()
+    expect(companionStats(c, [bear], 'Bear', undefined, 'second')?.paleHorse).toBeUndefined()
+    expect(companionStats({ ...c, companions: [{ ...companions[0], paleHorse: undefined }] }, [bear], 'Bear')?.paleHorse).toBeUndefined()
+  })
+
+  it.each([['Celestial Mount', 'Celestial', 'Unholy 10'], ['Fiendish Mount', 'Fiend', 'Holy 10']])(
+    'applies %s benefits to the first companion', (name, trait, weakness) => {
+      const companions = [{ id: 'first', type: 'Bear', name: '' }, { id: 'second', type: 'Bear', name: '' }]
+      const c: Character = { ...base, className: 'Champion', level: 20, companions,
+        feats: [{ ...feat(name), slot: 'class:20:0' }] }
+      const result = companionStats(c, [bear], 'Bear')!
+      expect(result.hp).toBe(companionStats({ ...c, feats: [] }, [bear], 'Bear')!.hp + 40)
+      expect(result.senses).toContain('Darkvision')
+      expect(result.speed).toContain('fly 35 feet')
+      expect(result.grantedTraits).toContain(trait)
+      expect(result.weakness).toBe(weakness)
+      expect(companionStats(c, [bear], 'Bear', undefined, 'second')!.weakness).toBeUndefined()
+      expect(companionStats({ ...c, level: 19 }, [bear], 'Bear')!.weakness).toBeUndefined()
+    },
+  )
+
+  it('applies Stealthy Companion and Primal Howl only to the eligible companion', () => {
+    const companions = [{ id: 'first', type: 'Bear', name: '' }, { id: 'second', type: 'Bear', name: '' }]
+    const c: Character = { ...base, level: 15, companions, feats: [feat('Stealthy Companion'), feat('Primal Howl')] }
+    const advance = { mature: true, advanced: 'Nimble', specializations: ['Ambusher'] }
+    const stealthyBear = { ...bear, data: { ...bear.data, skill: 'Stealth' } }
+    const stats = companionStats(c, [stealthyBear], bear.name, advance)!
+    expect(stats.skills.find(skill => skill.name === 'Stealth')?.rank).toBe(4)
+    expect(stats.stealthyCompanion).toBe(true)
+    expect(stats.primalHowl).toBe('7d6')
+    const other = companionStats(c, [bear], bear.name, undefined, 'second')!
+    expect(other.stealthyCompanion).toBe(false)
+    expect(other.primalHowl).toBeUndefined()
+    const without = companionStats({ ...c, feats: [] }, [stealthyBear], bear.name, advance)!
+    expect(without.skills.find(skill => skill.name === 'Stealth')?.rank).toBe(3)
+    expect(companionStats(c, [bear], bear.name, advance)!.skills.find(skill => skill.name === 'Stealth')?.rank).toBe(3)
+  })
+
+  it('does not apply future companion advancement feats', () => {
+    const c: Character = { ...base, level: 4, feats: [{ ...feat('Incredible Companion', 'Nimble'), slot: 'class:8:0' }] }
+    expect(companionAdvancement(c)).toMatchObject({ mature: false, advanced: undefined })
+  })
   it('applies Chiardmar Steed only to the first horse, stacking specialization Speed and respecting acquisition level', () => {
     const horse = entry('companion', 'Horse', { ...bear.data, speed_raw: '40 feet, swim 20 feet', mount: true })
     const companions = [{ id: 'first', type: 'Horse', name: '' }, { id: 'second', type: 'Horse', name: '' }]

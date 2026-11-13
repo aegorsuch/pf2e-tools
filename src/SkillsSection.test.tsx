@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { SkillsSection } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
-import { armorRanks, defenseSummary, initiativeBonus, ranksAt, weaponRanks } from './builder'
+import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const ranger: ContentEntry = {
@@ -24,6 +24,19 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('automatically refunds redundant training while preserving conditional alternate grants', () => {
+  const c: Character = { ...base, level: 5, skillPicks: ['Nature', 'Survival'] }
+  expect(skillRankBudget(c, [ranger]).trained).toBe(3)
+  expect(skillRankBudget({ ...c, className: undefined }, [ranger]).trained).toBe(0)
+  const sf: Character = { ...base, systems: ['sf2e'], ancestry: 'Elf', skillPicks: ['Society'], feats: [
+    { name: 'Cite the Deep Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Medicine' },
+  ] }
+  const sfRanger: ContentEntry = { ...ranger, systems: ['sf2e'] }
+  expect(skillRankBudget(sf, [sfRanger]).trained).toBe(3)
+  expect(ranksAt(sf, [sfRanger]).Medicine).toBe(1)
+  expect(skillRankBudget({ ...sf, feats: [] }, [sfRanger]).trained).toBe(3)
+})
+
 it('shows Toughness contribution next to expanded Defense HP without changing the total', () => {
   const c: Character = { ...base, level: 20, ancestry: 'Human', abilities: { ...base.abilities, con: 20 },
     feats: [{ name: 'Toughness', type: 'General Feat', level: 1, slot: 'general:3:0' }] }
@@ -35,19 +48,29 @@ it('shows Toughness contribution next to expanded Defense HP without changing th
     .not.toContain('Toughness')
 })
 
-it('keeps Pioneer training fixed, refunds redundant picks, and applies Terrain Expertise only to Survival', () => {
+it('shows only the highest resistance for each damage type', () => {
+  const fire5: ContentEntry = { ...ranger, id: 'fire5', kind: 'feat', name: 'Fire Guard', data: { resistances: 'fire=5' } }
+  const fire10: ContentEntry = { ...fire5, id: 'fire10', name: 'Fire Ward', data: { resistances: 'fire=10' } }
+  const c: Character = { ...base, feats: [fire5, fire10].map(entry => ({ name: entry.name, type: 'Ancestry Feat', level: 1 })) }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[fire5, fire10]} save={() => {}} part="defense" />)
+  expect(markup).toContain('Fire 10 (Fire Ward)')
+  expect(markup).not.toContain('Fire 5 (Fire Guard)')
+})
+
+it('keeps Pioneer training fixed, refunds redundant picks, and notes conditional Terrain Expertise on Survival', () => {
   let c: Character = { ...base, systems: ['sf2e'], level: 7, heritage: 'Pioneer Human', pioneerTerrain: 'Forest',
     skillPicks: ['Survival'], activeFeatEffects: ['Terrain Expertise'] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
-  expect(renderToStaticMarkup(tree())).toContain('Survival <b>+10</b>')
-  expect(renderToStaticMarkup(tree())).toContain('Terrain Expertise active')
+  expect(renderToStaticMarkup(tree())).toContain('Survival <b>+9')
+  expect(renderToStaticMarkup(tree())).toContain('+1 circumstance bonus to Survival in Forest terrain')
+  expect(renderToStaticMarkup(tree())).not.toContain('Terrain Expertise active')
   expect(findButtons(tree()).get('Survival Trained')?.disabled).toBe(false)
   ;(findButtons(tree()).get('Survival Trained')!.onClick as () => void)()
   expect(c.skillPicks).toEqual([])
   expect(ranksAt(c, [ranger]).Survival).toBe(1)
   expect(findButtons(tree()).get('Survival Trained')?.disabled).toBe(true)
   c = { ...c, activeFeatEffects: [] }
-  expect(renderToStaticMarkup(tree())).toContain('Survival <b>+9</b>')
+  expect(renderToStaticMarkup(tree())).toContain('Survival <b>+9')
   c = { ...c, pioneerEnvironment: 'Heat' }
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
   expect(defense).toContain('heat environmental effects are one step less extreme')

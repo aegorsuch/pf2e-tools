@@ -187,10 +187,16 @@ export default function App() {
           </label>}
           <EffectsEditor effects={draft.effects} onChange={(effects) => setDraft({ ...draft, effects })} />
           {(draft.kind === 'armor' || draft.kind === 'weapon') && (
-            <select value={String(draft.data.group ?? '')}
-              onChange={(e) => setDraft({ ...draft, data: { ...draft.data, group: e.target.value } })}>
+            <select value={String(draft.data[draft.kind === 'weapon' ? 'weapon_group' : 'armor_group']
+              ?? entries?.find(group => group.id === draft.data.group)?.name ?? '')}
+              onChange={(e) => {
+                const data = { ...draft.data }
+                delete data.group
+                data[draft.kind === 'weapon' ? 'weapon_group' : 'armor_group'] = e.target.value
+                setDraft({ ...draft, data })
+              }}>
               <option value="">No {draft.kind} group</option>
-              {entries?.filter((g) => g.kind === `${draft.kind}Group`).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              {entries?.filter((g) => g.kind === `${draft.kind}Group`).map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
             </select>
           )}
           <div className="row">

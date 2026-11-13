@@ -1,11 +1,15 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, dailyLongevityRanks, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, type SectionProps,
 } from './builder'
-import { ArmorList, WeaponList } from './GearSection'
+import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { TotalBreakdown } from './TotalBreakdown'
+import { warmaskSource } from './warmask'
+import { armorModifications, armorOverdriveActive } from './inventorArmor'
+import { INVENTOR_ARMOR_ID } from './grantedArmor'
+import { wornArmor } from './builder'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const RESISTANCE_NOTES: Record<string, string> = {
@@ -40,15 +44,17 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const stats = statDefs(c)
   const klass = entries.find((e) => e.kind === 'class' && e.name === c.className)
   const bg = entries.find((e) => e.kind === 'background' && e.name === c.background)
+  const extraBackgroundSkills = backgroundSkills(freeHeartBackground(c, entries))
   const ranks = ranksAt(c, entries)
-  const lores = [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s))])]
+  const displayRanks = dailyLongevityRanks(c, entries)
+  const lores = [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])]
   const picks = c.skillPicks ?? []
   const budget = skillRankBudget(c, entries)
   const remaining = budget.trained
   const ancestrySkills = ancestralSkills(c, entries)
   const heritageSkills = isPioneerHuman(c) ? ['Survival'] : []
   const grantedTraining = [...ancestrySkills, ...heritageSkills]
-  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg), ...grantedTraining])
+  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills, ...grantedTraining])
   const terrainExpertise = terrainExpertiseBenefits(c)
   const wasteland = activeFeatsNamed(c, 'Wasteland Warrior').length > 0
   const hazardNote = 'Disable environmental hazards using Survival instead of Athletics or Thievery. '
@@ -98,7 +104,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       return
     }
     if (r === 1 && currentRank === 1) {
-      if ((!fixed.has(name) || grantedTraining.includes(name)) && picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
+      if (picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
       return
     }
     const target = currentRank === r ? r - 1 : r
@@ -125,49 +131,60 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     save({ skillIncreases: next, rankOverrides: overrides })
   }
   const renderRows = (rows: typeof stats) => rows.map((s) => {
-    const rank = ranks[s.name] ?? 0
+    const rank = displayRanks[s.name] ?? 0
+    const permanentRank = ranks[s.name] ?? 0
     const baseRank = baseRanks[s.name] ?? 0
     const abil = abilityMod(c.abilities[s.ability])
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
+    const warmaskBonus = c.warmask?.worn && c.warmask.attuned && warmaskSource(c)?.skill === s.name ? 1 : 0
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
-      : s.kind === 'save' ? armorBonus : 0
+      : s.kind === 'save' ? armorBonus : warmaskBonus
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
+    const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
+    const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
+      && armorModifications(c).some(mod => mod.name === modification)
+      ? { source: modification, value: (ranks.Crafting ?? 0) >= 3 ? 2 : 1 } : undefined
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
-      : s.kind === 'save' ? saveCircumstance
-        : s.name === 'Survival' && terrainExpertise?.bonus ? { value: terrainExpertise.bonus, source: 'Terrain Expertise' } : undefined
+      : s.kind === 'save' ? saveCircumstance : armorSkill
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} <b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
+          {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while worn and attuned." />}
+          {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
             && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}
-          {s.name === 'Survival' && wasteland && <SourceNote inlineSource={false} source="Wasteland Warrior" note={hazardNote} />}</b></span>
+          {s.name === 'Survival' && wasteland && <SourceNote inlineSource={false} source="Wasteland Warrior" note={hazardNote} />}
+          {s.name === 'Survival' && terrainExpertise && <SourceNote inlineSource={false} source="Terrain Expertise"
+            note={`+1 circumstance bonus to Survival in ${terrainExpertise.terrains.join(', ')} terrain.`} />}
+          {rank > permanentRank && <SourceNote inlineSource={false} source={rank === 2 ? 'Expert Longevity' : 'Ancestral Longevity'}
+            note={`Temporary ${RANKS[rank]} proficiency until daily preparations; rank buttons show permanent training.`} />}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
-            const target = rank === i + 1 ? i : i + 1
+            const target = permanentRank === i + 1 ? i : i + 1
             const trainedDisabled = i === 0 && (
-              rank === 0 ? remaining <= 0
-                : rank === 1 ? fixed.has(s.name) && !grantedTraining.includes(s.name) || !picks.includes(s.name)
+              permanentRank === 0 ? remaining <= 0
+                : permanentRank === 1 ? !picks.includes(s.name)
                   : baseRank > 1
             )
             const disabled = s.kind !== 'skill' || i + 1 > maxRank || (i === 0
               ? trainedDisabled
-              : target < baseRank || (target > rank && !canReachRank(s.name, target)))
+              : target < baseRank || (target > permanentRank && !canReachRank(s.name, target)))
             return (
               <button
                 key={letter}
                 type="button"
-                className={rank >= i + 1 ? 'on' : ''}
-                aria-pressed={rank === i + 1}
+                className={permanentRank >= i + 1 ? 'on' : ''}
+                aria-pressed={permanentRank === i + 1}
                 aria-label={`${s.name} ${RANKS[i + 1]}`}
                 disabled={disabled}
                 title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
                   ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
                     : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
-                  : i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
+                  : i === 0 && fixed.has(s.name) ? picks.includes(s.name) ? 'Refund redundant training choice' : 'Trained granted by class or background' : RANKS[i + 1]}
                 onClick={() => setRank(s.name, i + 1)}
               >{letter}</button>
             )
@@ -230,16 +247,23 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
         })}</small>
         {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
-        <WeaponList c={c} entries={entries} save={save} />
+        <WeaponList c={c} entries={entries} save={save} displayOnly />
       </>
     )
   }
   if (part === 'defense') {
-    const res = [...resistances(c, entries)].sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
+    const res = [...resistances(c, entries).reduce((highest, resistance) => {
+      const key = resistance.damage.toLowerCase()
+      const existing = highest.get(key)
+      if (!existing || resistance.value > existing.value) highest.set(key, resistance)
+      return highest
+    }, new Map<string, ReturnType<typeof resistances>[number]>()).values()]
+      .sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
     const researched = researchedSpellResistance(c, entries)
     const hpBonuses = hitPointBonuses(c)
+    const oaken = oakenResilience(c, entries)
     return (
       <>
         <div className="defense-summary">
@@ -273,8 +297,8 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}</small>
+        {oaken && <small>Weakness: Fire {oaken.fireWeakness} (Oaken Resilience)</small>}
         <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
-        <ArmorList c={c} entries={entries} save={save} />
       </>
     )
   }
@@ -289,11 +313,6 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           </span>
         ))}
       </div>
-      {terrainExpertise && <label title={`Only for Survival checks in ${terrainExpertise.terrains.join(', ')} terrain.`}>
-        <input type="checkbox" aria-label="Terrain Expertise active" checked={!!terrainExpertise.bonus}
-          onChange={event => save(featEffectChange(c, 'Terrain Expertise', event.target.checked))} />
-        {' '}In Terrain Expertise terrain ({terrainExpertise.terrains.join(', ')}): +1 circumstance to Survival
-      </label>}
       {wasteland && <small>Wasteland Warrior: {hazardNote}</small>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}

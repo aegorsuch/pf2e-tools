@@ -90,11 +90,12 @@ function accessEthnicities(access: string) {
 
 export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
   const target = ancestry?.trim().toLowerCase()
-  return [...new Set(entries.filter(entry => !entry.deleted && entry.kind === 'feat'
+  const additional = target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []
+  return [...new Set([...additional, ...entries.filter(entry => !entry.deleted && entry.kind === 'feat'
     && (!target || entry.traits.some(trait => trait.toLowerCase() === target)))
     .flatMap(entry => [entry.data.access, entry.data.prerequisite]
       .flatMap(requirement => String(requirement ?? '').split(/[,;]|\s+and\s+/i).flatMap(accessEthnicities)))
-    .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase())))]
+    .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase()))])]
     .sort((a, b) => a.localeCompare(b))
 }
 

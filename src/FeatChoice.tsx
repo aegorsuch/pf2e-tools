@@ -1,33 +1,151 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions, terrainExpertiseOptions, weaponHasAncestryTrait } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, languageAllowance, languageGroups, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait, warmaskAlternateSkills } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
+import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
-    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
-    const weapon = entries.find(entry => entry.kind === 'weapon' && entry.name === feat.choice && !entry.deleted)
-    const cultural = feat.name === 'Unconventional Weaponry' && !!weapon && !weaponHasAncestryTrait(weapon, entries)
+  if (feat.name === 'Carry Their Memories') {
+    const ranks = dailyLongevityRanks(c, entries)
+    const options = [...new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])]
+      .filter(skill => (ranks[skill] ?? 0) >= 1).sort()
     return <span className="feat-choice feat-choice-with-note">
-      <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={feat.choice ?? ''} onChange={event => {
+      <label>Daily Assurance skill{' '}
+        <select aria-label="Carry Their Memories daily Assurance skill" value={feat.choice ?? ''} onChange={event => {
+          const choice = event.target.value
+          if (choice && !options.includes(choice)) return
+          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+        }}>
+          <option value="">Choose trained skill</option>
+          {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+          {options.map(skill => <option key={skill}>{skill}</option>)}
+        </select>
+      </label>
+      <small>Temporary Assurance until daily preparations; cannot satisfy permanent prerequisites.</small>
+    </span>
+  }
+  if (feat.name === 'Orc Warmask') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const alternatives = warmaskAlternateSkills(c, entries, index)
+    return <span className="feat-choice feat-choice-with-note">
+      <label>Power source{' '}<select aria-label="Orc Warmask power source" value={feat.choice ?? ''} disabled={!!feat.choice}
+        onChange={event => {
+          const choice = event.target.value
+          if (!options.includes(choice)) return
+          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+        }}>
+        <option value="">Choose source</option>
+        {options.map(option => <option key={option}>{option}</option>)}
+      </select></label>
+      <small>Source cannot be changed after selection.</small>
+      {alternatives.length > 0 && <label>Alternate trained skill{' '}
+        <select aria-label="Orc Warmask alternate skill" value={c.warmask?.alternateSkill ?? ''} onChange={event => {
+          const alternateSkill = event.target.value
+          if (alternateSkill && !alternatives.includes(alternateSkill)) return
+          save({ warmask: { ...c.warmask, alternateSkill: alternateSkill || undefined } })
+        }}>
+          <option value="">Choose skill</option>
+          {c.warmask?.alternateSkill && !alternatives.includes(c.warmask.alternateSkill)
+            && <option disabled>{c.warmask.alternateSkill}</option>}
+          {alternatives.map(skill => <option key={skill}>{skill}</option>)}
+        </select>
+      </label>}
+    </span>
+  }
+  if (feat.name === 'Ancestral Linguistics') {
+    const known = new Set([...languageAllowance(c, entries).locked, ...c.languages].map(language => language.toLowerCase()))
+    const options = Object.entries(languageGroups(entries)).flatMap(([rarity, languages]) =>
+      languages.filter(([name]) => !known.has(name.toLowerCase())).map(([name]) => ({ name, rarity })))
+    return <span className="feat-choice feat-choice-with-note">
+      <SearchableSelect label="Daily language" aria-label="Ancestral Linguistics daily language" value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value
+        if (choice && !options.some(option => option.name === choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+      }}>
+        <option value="">Choose language</option>
+        {feat.choice && !options.some(option => option.name === feat.choice) && <option disabled>{feat.choice}</option>}
+        {options.map(option => <option key={option.name} value={option.name}>{option.name} ({option.rarity})</option>)}
+      </SearchableSelect>
+      <small>Temporary until daily preparations; confirm access to non-common languages. Cannot satisfy permanent prerequisites.</small>
+    </span>
+  }
+  if (feat.name === 'Elemental Wrath') return <label>Damage type{' '}
+    <select aria-label="Elemental Wrath damage type" value={feat.choice ?? ''} onChange={event => {
+      const choice = event.target.value
+      if (choice && !['Acid', 'Cold', 'Electricity', 'Fire'].includes(choice)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+    }}>
+      <option value="">Choose damage type</option>
+      {feat.choice && !['Acid', 'Cold', 'Electricity', 'Fire'].includes(feat.choice) && <option disabled>{feat.choice}</option>}
+      {['Acid', 'Cold', 'Electricity', 'Fire'].map(type => <option key={type}>{type}</option>)}
+    </select>
+  </label>
+  if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
+    const choice = feat.choice ? combinationName(entries, feat.choice) : ''
+    const weapon = weaponEntry(entries, choice)
+      ?? entries.find(entry => entry.kind === 'weapon' && combinationName(entries, entry.name) === choice && !entry.deleted)
+    const options = (featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []).map(option =>
+      choice && weapon && /^Shobhad Longrifle(?: \((?:Pathfinder|Starfinder)\))?$/.test(choice)
+        && weaponEntry(entries, option)?.id === weapon.id ? choice : option)
+    const cultural = feat.name === 'Unconventional Weaponry' && !!weapon
+      && (!featRarity(weapon) || ![weapon, ...combinationForms(entries, weapon.name)].some(form => weaponHasAncestryTrait(form, entries)))
+    const rareException = feat.name === 'Unconventional Weaponry' && !!weapon
+      && /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(weapon.name) && featRarity(weapon) === 'Rare'
+    return <span className="feat-choice feat-choice-with-note">
+      <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={choice} onChange={event => {
         const choice = event.target.value || undefined
         if (choice && !options.includes(choice)) return
-        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice, culturalWeapon: undefined } : existing) })
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice, culturalWeapon: undefined, rareWeaponOverride: undefined } : existing) })
       }}>
         <option value="">Choose weapon</option>
-        {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+        {choice && !options.includes(choice) && <option disabled>{choice}</option>}
         {options.map(name => <option key={name}>{name}</option>)}
       </SearchableSelect>
       {cultural && <label><input type="checkbox" checked={!!feat.culturalWeapon}
         onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, culturalWeapon: event.target.checked } : existing) })} />
         {' '}GM confirmed weapon is common in another culture</label>}
       {cultural && !feat.culturalWeapon && <small>Access and familiarity require confirmation of cultural eligibility.</small>}
+      {rareException && <label><input type="checkbox" checked={!!feat.rareWeaponOverride}
+        onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, rareWeaponOverride: event.target.checked } : existing) })} />
+        {' '}GM allows rare Shobhad Longrifle for this feat (house rule)</label>}
+      {rareException && !feat.rareWeaponOverride && <small>Official rules exclude this rare weapon without a house rule.</small>}
     </span>
   }
   if (feat.name === 'Favored Terrain') return null
+  if (feat.name === 'Beast Trainer' || feat.name === 'Hold Mark' || feat.name === 'Alloyed Attacks') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const label = feat.name === 'Beast Trainer' ? 'Granted feat' : feat.name === 'Hold Mark' ? 'Emblem' : 'Metal'
+    return <label>{label}{' '}
+      <select aria-label={`${feat.name} choice`} value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+      }}>
+        <option value="">Choose {label.toLowerCase()}</option>
+        {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </select>
+    </label>
+  }
+  if (feat.name === 'Versatile Rogue') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const racket = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === 'Rogue')
+    return <span className="feat-choice feat-choice-with-note">
+      <SearchableSelect label="Additional racket" aria-label="Versatile Rogue racket" value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+      }}>
+        <option value="">Choose racket</option>
+        {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </SearchableSelect>
+      {racket && <small>{racket.description}</small>}
+    </span>
+  }
   if (feat.name === 'Terrain Expertise') {
     const options = terrainExpertiseOptions(c, index)
     const choice = options.find(terrain => terrain.toLowerCase() === feat.choice?.trim().toLowerCase()) ?? feat.choice ?? ''
@@ -72,10 +190,13 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
-  if (feat.name === 'Adopted Ancestry' || feat.name === 'Skill Training' || feat.name === 'Shiny' || feat.name === 'Weapon Proficiency' || feat.name === 'Technomagical Scrapper') {
+  if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper',
+    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan', 'Free Heart',
+    'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
-    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
+    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Free Heart' ? 'background'
+      : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     return <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
       <SearchableSelect aria-label={`${feat.name} ${label}`} aria-describedby={noteId} value={feat.choice ?? ''} onChange={(e) => {
@@ -88,6 +209,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {options.map((choice) => <option key={choice}>{choice}</option>)}
       </SearchableSelect>
       {noteId && <small id={noteId}>Ancestry access and physiological requirements need GM approval.</small>}
+      {['Ancestral Longevity', 'Expert Longevity'].includes(feat.name)
+        && <small>Temporary until daily preparations; cannot satisfy permanent prerequisites or skill increases.</small>}
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
         && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}
     </span>
@@ -119,7 +242,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)
-  if (['First World Magic', 'Ancestral Magic'].includes(feat.name)) return null
+  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
       const choice = event.target.value || undefined

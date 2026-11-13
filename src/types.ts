@@ -31,6 +31,8 @@ export interface OwnedWeapon {
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood' | 'Peachwood (Greater)' | 'Peachwood (Standard-Grade)' | 'Peachwood (High-Grade)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   livingWeapon?: boolean
   verdantWeapon?: boolean
+  inventorInnovation?: boolean
+  combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
 }
 export interface OwnedArmor {
@@ -112,6 +114,7 @@ export interface Character {
   order?: string
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)
   classSkill?: string
+  rogueRacketSkills?: Record<string, string>
   background?: string
   deity?: string
   blessing?: '' | 'Blessed Armament' | 'Blessed Shield' | 'Blessed Swiftness'
@@ -125,23 +128,34 @@ export interface Character {
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
-  feats: { name: string; type: string; level: number; choice?: string; culturalWeapon?: boolean; slot?: string; takenLevel?: number }[]
+  feats: { name: string; type: string; level: number; choice?: string; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
+  simplePoisonsSpent?: number
   augmentations?: { id: string; entryId: string; name: string; slot: string }[]
   formulas?: string[]
   snareFormulaChoices?: string[]
+  snareAdvancementFormulaChoices?: string[]
+  gadgetFormulaChoices?: string[]
+  gadgetPreparations?: string[]
+  gadgetUsed?: boolean[]
   brastlewarkFormulaMode?: 'standard' | 'other'
   brastlewarkFormulaChoices?: string[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
   weapons?: OwnedWeapon[]
   collapsedWeaponIds?: string[]
   livingWeaponEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
+  playingCardEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
   inventorArmorSuit?: 'Power Suit' | 'Subterfuge Suit'
+  inventorArmorModifications?: Partial<Record<'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic', string>> & {
+    enhanced?: string; incredible?: string; overdrive?: boolean; voidHealing?: boolean
+  }
+  warmask?: { worn?: boolean; attuned?: boolean; alternateSkill?: string }
   shield?: OwnedShield
+  hardwoodShield?: { equipped?: boolean; raised?: boolean; damage?: number }
   lores: { name: string; rank: number }[]
   languages: string[]
   // Original Pathbuilder data kept so nothing is lost on import
@@ -156,12 +170,15 @@ export interface Character {
   // Legacy skill-rank overrides; saves and Perception are always derived from class/features
   rankOverrides?: Record<string, number>
   spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
+  minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
+  oakenResilienceRank?: number
   spentFocusPoints?: number[]
   innateSpellUses?: Record<string, number>
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   animalFeatures?: NonNullable<Character['animalFeature']>[]
+  untamedShiftEffects?: ('Claws' | 'Jaws' | 'Elemental' | 'Plant' | 'Wings')[]
   animalStrengthWeapons?: Record<string, string>
   favoredTerrain?: string
   magicHideCompanionId?: string
@@ -170,7 +187,9 @@ export interface Character {
   enlargeCompanionSize?: 'Large' | 'Huge'
   enlargeCompanionId?: string
   // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
-  companions?: { id: string; name: string; type: string; auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string }[]
+  companions?: { id: string; name: string; type: string; auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]
+  familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
+  pet?: { name?: string; aquatic?: boolean; abilities?: string[] }
   faithfulSteedGranted?: boolean
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]

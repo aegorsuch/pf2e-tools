@@ -59,9 +59,33 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
   const simplicity = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Deadly Simplicity' && entry.traits.includes('Cleric'))
+  const rangerCopies = ['Effortless Concentration', 'Forgotten Presence'].flatMap(name => {
+    const original = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
+      && entry.name === name && entry.traits.includes('Druid'))
+    if (!original) return []
+    return [{ ...original, id: `homebrew:ranger-${name.toLowerCase().replaceAll(' ', '-')}`, source: 'homebrew' as const,
+      traits: [...original.traits.filter(trait => !['Druid', 'Bard', 'Necromancer', 'Sorcerer', 'Summoner', 'Witch', 'Wizard'].includes(trait)), 'Ranger'],
+      data: { ...Object.fromEntries(Object.entries(original.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger' },
+      updatedAt: 1 }]
+  })
+  const strongArm = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
+    && entry.name === 'Strong Arm' && entry.traits.includes('Rogue'))
+  const hardwood = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
+    && entry.name === 'Hardwood Armor' && entry.traits.includes('Kineticist'))
   return [
+    ...rangerCopies,
+    ...(hardwood ? [{
+      ...hardwood, id: 'homebrew:hardwood-armor-ranger-druid', source: 'homebrew' as const,
+      traits: hardwood.traits.filter(trait => !['Impulse', 'Kineticist'].includes(trait)).concat(['Ranger', 'Druid']),
+      description: 'You create a wooden breastplate. Its material and fundamental runes automatically improve with your level. Druids also create a wooden shield, which improves as you level.',
+      data: { class: 'Ranger, Druid' }, updatedAt: 1,
+    }] : []),
+    ...(strongArm ? [{ ...strongArm, id: 'homebrew:strong-arm-ranger-barbarian', source: 'homebrew' as const,
+      traits: [...strongArm.traits.filter(trait => trait !== 'Rogue'), 'Ranger', 'Barbarian'],
+      data: { ...Object.fromEntries(Object.entries(strongArm.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger, Barbarian' },
+      updatedAt: 1 }] : []),
     homebrewFeat('favored-weapon-jousting', 'Favored Weapon Jousting', 4, ['Champion'],
-      "You know how to use the favored weapon of your deity while riding your animal companion. If one handed and melee, your deity's favored weapon gains the jousting trait.", { class: 'Champion' }),
+      "You know how to use the favored weapon of your deity while riding your animal companion. If one handed and melee, your deity's favored weapon gains the jousting trait.", { class: 'Champion', prerequisite: 'Favored Weapon Symbol' }),
     homebrewFeat('cold-iron-tusks', 'Cold Iron Tusks', 5, ['Orc', 'Uncommon'],
       'Like all orcs, you have tusks, but, uniquely, you coat or inlay them with cold iron, allowing your bite to easily damage demons.', { ancestry: 'Orc', rarity: 'uncommon' }),
     homebrewFeat('primal-nimbleness', 'Primal Nimbleness', 1, ['Druid', 'Ranger'],
@@ -88,7 +112,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       "You cultivate a divine conduit within your deity's symbol that can manifest into your deity's favored weapon. You spend 10 minutes focusing divine energy into your deity's symbol, imprinting it with the potential of your deity's favored weapon.\n\nWhen holding or wearing the imprinted holy symbol, you can use an Interact action to cause the divine energy to surge outward, immediately growing the weapon directly from the symbol into your hand. A second Interact action causes the divine matter to swiftly retract back into the holy symbol.\n\nThe favored weapon from your icon can be etched with weapon runes or affixed with talismans as normal, which are safely suppressed when the weapon is retracted inside the symbol.", { class: 'Champion' }),
     homebrewFeat('verdant-weapon-jousting', 'Verdant Weapon Jousting', 4, ['Druid'],
       'You know how to use your verdant weapon while riding your animal companion. If one handed and melee, your verdant weapon gains the jousting trait.', { class: 'Druid' }),
-    homebrewFeat('living-weapon-joust', 'Living Weapon Joust', 14, ['Archetype'],
+    homebrewFeat('living-weapon-joust', 'Living Weapon Jousting', 14, ['Archetype'],
       'You know how to use your living weapon while riding your animal companion. If one handed and melee, your living weapon gains the jousting trait.', { archetype: 'Wild Hunter' }),
     homebrewFeat('pristine-living-weapon', 'Pristine Living Weapon', 14, ['Archetype'],
       'Prerequisites: Living Weapon, Wild Hunter Dedication.\n\nYour living weapon can cut through the resistances of magical creatures. The weapon is treated as cold iron and silver. If you critically hit a creature that has a weakness to cold iron or silver, the target takes 1d6 persistent bleed damage as the primal energies within your weapon slow its natural healing.',
@@ -101,6 +125,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('third-innovation', 'Third Innovation', 16, ['Inventor'],
       'Choose a third innovation, different from your other innovations, and gain its benefits.',
       { class: 'Inventor', prerequisite: 'Second Innovation' }),
+    homebrewFeat('versatile-rogue', 'Versatile Rogue', 10, ['Rogue'],
+      "Your street-smart adaptability lets you master more than one style of underhanded work. Choose a rogue's racket you don't already have. You gain the trained skill, skill feat, and special benefits of that racket.\n\nSpecial: You do not gain an additional key attribute boost from this racket. You can select this feat multiple times, choosing a different rogue's racket each time.",
+      { class: 'Rogue', repeatable: true }),
     {
       ...homebrewFeat('summertouched-human', 'Summertouched Human', 1, ['Human'],
         'The power of summer flows through you. You gain fire resistance equal to half your level (minimum 1), and you treat environmental heat effects as if they were one step less extreme (incredible heat becomes extreme, extreme heat becomes severe, and so on).',
@@ -119,6 +146,12 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       data: { ...Object.fromEntries(Object.entries(simplicity.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Champion' },
       updatedAt: 1,
     }] : []),
+    {
+      ...homebrewFeat('caravan-contortionist', 'Caravan Contortionist', 1, [],
+        'You spent your youth traveling with a nomadic caravan troupe, dazzling crowds by folding yourself into tiny crates, slipping through narrow hoops, and performing daring acrobatic stunts. Life on the road taught you how to slip out of tight binds—both literal and figurative—and how traveling performers survive between towns.\n\nChoose two attribute boosts. One must be to Dexterity or Charisma, and one is a free attribute boost.\n\nYou’re trained in the Acrobatics skill and the Caravan Lore skill. You gain the Quick Squeeze skill feat.',
+        { attribute: 'Dexterity, Charisma', skill: 'Acrobatics, Caravan Lore', feat: 'Quick Squeeze' }),
+      kind: 'background',
+    },
   ]
 }
 
@@ -137,6 +170,8 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const flyssa = entries.find((entry) => entry.id === 'aon:pf2e:weapon-285' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   return [...(base ? [{
     ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew' as const, name: 'Clawed Gauntlet',
+    traits: base.traits.filter(trait => trait.toLowerCase() !== 'uncommon'),
+    data: { ...base.data, rarity: 'common' },
     description: 'Four curved blades mounted over the fist give this close-combat gauntlet the appearance of claws.',
     updatedAt: 1,
   }] : []), ...(katana ? [{
@@ -164,6 +199,16 @@ export const ANIMAL_FEATURE_JAWS: ContentEntry = {
   data: { ...FIST.data, damage: '1d8 piercing' },
 }
 
+export const UNTAMED_CLAWS: ContentEntry = {
+  ...ANIMAL_FEATURE_CLAWS, id: 'supplemental:untamed-claws', name: 'Untamed Claws',
+  description: 'Untamed Shift grants agile, finesse claws dealing 1d6 slashing damage. A free hand is required to attack.',
+}
+
+export const UNTAMED_JAWS: ContentEntry = {
+  ...ANIMAL_FEATURE_JAWS, id: 'supplemental:untamed-jaws', name: 'Untamed Jaws',
+  description: 'Untamed Shift grants jaws dealing 1d8 piercing damage.',
+}
+
 export const HANDWRAPS: ContentEntry = {
   ...FIST, id: 'supplemental:handwraps', kind: 'item', name: 'Handwraps of Mighty Blows', level: 2,
   traits: ['Invested', 'Magical'],
@@ -188,7 +233,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
   Paragon: { potency: 3, striking: 3, upgrades: 4 },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, ORC_TUSKS, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, GAUNTLET]
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, ORC_TUSKS, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [

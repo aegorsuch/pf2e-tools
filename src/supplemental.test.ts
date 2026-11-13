@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewWeapons, IRON_FIST, ORC_TUSKS } from './supplemental'
-import { effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { backgroundSkills, boostSlots, effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
@@ -9,6 +9,45 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze', () => {
+  const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Caravan Contortionist')!
+  const c = { ...base, background: background.name }
+  expect(background.kind).toBe('background')
+  expect(backgroundSkills(background)).toEqual(['Acrobatics', 'Caravan Lore'])
+  expect(boostSlots(c, [background]).find(slot => slot.key === 'background:0')?.options).toEqual(['dex', 'cha'])
+  expect(background.data.feat).toBe('Quick Squeeze')
+})
+
+it('provides ranger copies of the druid feats without changing their rules', () => {
+  const originals: ContentEntry[] = ['Effortless Concentration', 'Forgotten Presence'].map((name, index) => ({
+    ...HAFT_STRIKER_WEAPON, id: `official:${index}`, kind: 'feat', name, level: index ? 8 : 16,
+    traits: ['Druid', 'Uncommon'], description: `${name} rules`, data: { class: 'Druid', archetype: 'Other' },
+  }))
+  const copies = homebrewCharacterOptions(originals).filter(entry => entry.id.startsWith('homebrew:ranger-'))
+  expect(copies).toHaveLength(2)
+  for (const [index, copy] of copies.entries()) {
+    expect(copy).toMatchObject({ name: originals[index].name, level: originals[index].level, source: 'homebrew',
+      description: originals[index].description, traits: ['Uncommon', 'Ranger'], data: { class: 'Ranger' } })
+    expect(copy.data.archetype).toBeUndefined()
+  }
+})
+
+it('provides Strong Arm to Ranger and Barbarian and applies its range only to thrown attacks', () => {
+  const original: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'strong-arm', kind: 'feat', name: 'Strong Arm',
+    level: 2, traits: ['Rogue'], description: 'Increase thrown range increment by 10 feet.', data: { class: 'Rogue' } }
+  const copy = homebrewCharacterOptions([original]).find(entry => entry.id === 'homebrew:strong-arm-ranger-barbarian')!
+  expect(copy).toMatchObject({ name: original.name, level: 2, traits: ['Ranger', 'Barbarian'], data: { class: 'Ranger, Barbarian' } })
+  const javelin: ContentEntry = { ...HAFT_STRIKER_WEAPON, name: 'Javelin', traits: ['Thrown'], data: { weapon_type: 'Ranged', range: 30, damage: '1d6 P' } }
+  const dagger: ContentEntry = { ...HAFT_STRIKER_WEAPON, name: 'Dagger', traits: ['Thrown'], data: { weapon_type: 'Melee', damage: '1d4 P' } }
+  const bow: ContentEntry = { ...javelin, name: 'Bow', traits: [], data: { ...javelin.data, range: 100 } }
+  const c: Character = { ...base, feats: [{ name: 'Strong Arm', type: 'Class Feat', level: 2 }] }
+  const owned = (name: string, id = name) => ({ id, name, potency: 0, striking: 0, runes: [] })
+  expect(weaponAttack(c, [javelin], owned('Javelin')).range).toBe(40)
+  expect(weaponAttack(c, [dagger], owned('Dagger')).thrownRangeBonus).toBe(10)
+  expect(weaponAttack(c, [bow], owned('Bow')).range).toBe(100)
+  expect(weaponAttack(c, [], owned('Oversized Throw', OVERSIZED_THROW.id)).range).toBe(30)
+  expect(weaponAttack({ ...c, feats: [] }, [javelin], owned('Javelin')).range).toBe(30)
+})
 it('copies current Katana stats into Claymore without changing the source or using legacy stats', () => {
   const katana: ContentEntry = {
     ...HAFT_STRIKER_WEAPON, id: 'aon:pf2e:weapon-411', name: 'Katana',
@@ -107,7 +146,7 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
   const [clawed] = homebrewWeapons([{ ...tekko, id: 'aon:pf2e:weapon-101', name: 'Tekko-kagi', traits: ['Trip'] }, tekko])
   expect(clawed).toMatchObject({
     id: 'homebrew:clawed-gauntlet', name: 'Clawed Gauntlet', source: 'homebrew', updatedAt: 1,
-    traits: tekko.traits, data: tekko.data,
+    traits: tekko.traits.filter(trait => trait !== 'Uncommon'), data: { ...tekko.data, rarity: 'common' },
   })
   expect(clawed.description).not.toContain('Bastet')
   expect(weaponCategory(clawed)).toBe('Martial')
@@ -121,7 +160,7 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
   expect(provided).toMatchObject({ name: 'Clawed Gauntlet', potency: 1, striking: 1, runes: ['Wounding'] })
   expect(isLockedWeapon(c, 'Clawed Gauntlet', [clawed])).toBe(true)
   expect(isLockedWeapon(c, 'Gauntlet', [clawed])).toBe(false)
-  expect(weaponAttack(c, [clawed], provided)).toMatchObject({ ability: 'dex', item: 0, damage: '1d4+1 slashing', traits: tekko.traits })
+  expect(weaponAttack(c, [clawed], provided)).toMatchObject({ ability: 'dex', item: 0, damage: '1d4+1 slashing', traits: clawed.traits })
   const regular: Character = { ...c, armors: c.armors!.map((armor) => ({ ...armor, gauntlet: 'Gauntlet' })) }
   const back = ownedWeapons(regular, [clawed]).find((weapon) => weapon.id === GAUNTLET.id)!
   expect(effectiveWeapon(regular, [clawed], back).runes).toEqual([])

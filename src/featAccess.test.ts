@@ -218,8 +218,8 @@ it('offers only ethnicities associated with the selected ancestry', () => {
   ]
   expect(ethnicityOptions(entries, 'Human')).toEqual(['Kellid'])
   expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Mountain Dwarf'])
-  expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ilverani', 'Mualijae', 'Vourinoi'])
-  expect(ethnicityOptions(entries, 'Orc')).toEqual(['Matanji'])
+  expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ekujae', 'Ilverani', 'Mualijae', 'Spiresworn', 'Vourinoi'])
+  expect(ethnicityOptions(entries, 'Orc')).toEqual(['Belkzen', 'Matanji'])
   expect(ethnicityOptions(entries, 'Halfling')).toEqual(['Jaric'])
   expect(ethnicityOptions(entries, 'Android')).toEqual([])
 })

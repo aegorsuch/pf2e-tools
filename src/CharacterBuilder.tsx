@@ -7,10 +7,10 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, parryValue, plannedSlots, shieldParagonActive, shieldRaised, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
-import { Augmentations, BulkLimits, HandwrapsGear } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
@@ -30,19 +30,29 @@ const deityLabel = (deity: ContentEntry) => typeof deity.data.epithet === 'strin
   ? `${deity.name}, ${deity.data.epithet.trim().replace(/^The /, 'the ')}`
   : deity.name
 
-function Pick({ label, kind, value, options, onChange }: {
+function Pick({ label, kind, value, options, onChange, ancestry }: {
   label: string
   kind: string
   value?: string
   options: ContentEntry[]
   onChange: (v: string | undefined) => void
+  ancestry?: string
 }) {
   const [ready, setReady] = useState(false)
   const byName = useMemo(() => new Map(options.map(entry => [entry.name, entry])), [options])
   const labels = useMemo(() => new Map(options.map((entry) => [entry.name, kind === 'deity' ? deityLabel(entry) : entry.name])), [options, kind])
-  const choices = useMemo(() => ready
-    ? [...labels.keys()].sort().map(name => <option key={name} value={name}>{labels.get(name)}</option>)
-    : null, [labels, ready])
+  const choices = useMemo(() => {
+    if (!ready) return null
+    const option = (name: string) => <option key={name} value={name}>{labels.get(name)}</option>
+    if (kind !== 'heritage') return [...labels.keys()].sort().map(option)
+    const names = [...labels.keys()].sort()
+    return [false, true].map(versatile => {
+      const group = names.filter(name => isVersatileHeritage(byName.get(name)!) === versatile)
+      return group.length > 0 && <optgroup key={String(versatile)} label={versatile ? 'Versatile' : ancestry ?? 'Ancestry'}>
+        {group.map(option)}
+      </optgroup>
+    })
+  }, [labels, ready, kind, byName, ancestry])
   const prepare = () => {
     // Populate before the browser opens its native select popup.
     if (!ready) flushSync(() => setReady(true))
@@ -135,11 +145,14 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     [systemsKey],
   ) ?? NONE
   const save = (patch: Partial<Character>) => {
-    const next = { ...c, ...patch, updatedAt: Date.now() }
-    Object.assign(next, faithfulSteedChange(next, entries))
-    // Boost-built characters keep their scores in sync with ancestry/background/class/level changes
-    if (next.boosts) next.abilities = computeAbilities(next, entries)
-    return db.characters.put(next)
+    return db.transaction('rw', db.characters, async () => {
+      const current = await db.characters.get(c.id)
+      if (!current) throw new Error('Character no longer exists')
+      const next = { ...current, ...patch, updatedAt: Math.max(Date.now(), current.updatedAt + 1) }
+      Object.assign(next, faithfulSteedChange(next, entries))
+      if (next.boosts) next.abilities = computeAbilities(next, entries)
+      await db.characters.put(next)
+    })
   }
   // House rules: keep the free Dedications (e.g. Ranger's Snarecrafter) in step with the rule, class and level
   const wanted = activeHomebrewDedications(c)
@@ -173,7 +186,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const unavailableEthnicity = !!savedEthnicity && !ethnicities.some(name => name.toLowerCase() === savedEthnicity)
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...c.languages].map((l) => [l.toLowerCase(), l])).values()]
-  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
+  const dailyLanguages = activeFeatsNamed(c, 'Ancestral Linguistics').flatMap(feat => feat.choice
+    && !knownLanguages.some(language => language.toLowerCase() === feat.choice!.toLowerCase()) ? [feat.choice] : [])
+  const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}${dailyLanguages.length ? `; ${dailyLanguages.join(', ')} (temporary)` : ''}`
   const of = useMemo(() => {
     const groups = new Map<EntryKind, ContentEntry[]>()
     for (const entry of entries) {
@@ -189,7 +204,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const gearMatches = useMemo(() => {
     const q = gearQuery.trim().toLowerCase()
     return q
-      ? entries.filter((e) => GEAR.includes(e.kind) && e.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
+      ? entries.filter((e) => e.kind === 'item' && e.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
       : []
   }, [entries, gearQuery])
 
@@ -202,6 +217,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
   const parry = parryValue(c, entries)
+  const weaponCount = ownedWeapons(c, entries).length
+  const classSlots = plannedSlots(c).filter(slot => slot.category === 'class')
+  const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
 
   const featSection = (category: 'general' | 'skill' | 'archetype') => {
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
@@ -247,7 +265,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <div className="row">
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined })} />
-            <Pick label="Heritage" kind="heritage" value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
+            <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
               <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={c.ethnicity ?? ''} disabled={!c.ancestry} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
                 {c.ethnicity && !ethnicities.includes(c.ethnicity) && <option value={c.ethnicity} disabled={unavailableEthnicity}>
@@ -283,7 +301,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Class</strong>
-          <span>{classLabel(c, entries) || 'Choose class'}</span>
+          <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
         </summary>
         <div className="character-section-content">
           <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
@@ -300,6 +318,16 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
                 {classSkills(klass).choices.map((s) => <option key={s}>{s}</option>)}
               </SearchableSelect>
           )}
+          {rogueRackets(c, entries).includes('Mastermind') && <label>Mastermind skill{' '}
+            <select aria-label="Mastermind racket skill" value={c.rogueRacketSkills?.Mastermind ?? ''} onChange={event => {
+              const skill = event.target.value
+              if (skill && !['Arcana', 'Nature', 'Occultism', 'Religion'].includes(skill)) return
+              save({ rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: skill } })
+            }}>
+              <option value="">Choose skill</option>
+              {['Arcana', 'Nature', 'Occultism', 'Religion'].map(skill => <option key={skill}>{skill}</option>)}
+            </select>
+          </label>}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
@@ -318,10 +346,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
-          {(c.shield || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
-            {c.shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
+          {(equippedShield(c) || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
+            {equippedShield(c) && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label="Raise Shield (summary)" checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
-                onChange={(event) => c.shield && !shieldParagonActive(c) && save({ shield: { ...c.shield, raised: event.target.checked } })} /> Raise Shield (+2 AC)</label>}
+                onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> Raise Shield (+2 AC)</label>}
             {parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
               onChange={(event) => save({ parrying: event.target.checked })} /> Parry (+{parry} AC)</label>}
           </span>}
@@ -341,26 +369,39 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
-      <FormulasSection {...section} />
       <details className="character-section">
         <summary className="character-section-summary">
-          <strong>Gear</strong>
+          <strong>Equipment</strong>
           <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0)} items</span>
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
+          <h4>Weapons</h4>
+          <WeaponList {...section} />
+          <h4>Armor and shield</h4>
+          <ArmorList {...section} />
           <HandwrapsGear {...section} />
           <Augmentations {...section} />
-          <ul>
-            {c.equipment.map((g, i) => (
+          <Gadgets {...section} />
+          <SimplePoisons {...section} />
+          {['Other equipment', 'Arrows', 'Bolts', 'Bullets'].map(group => {
+            const rows = c.equipment.map((item, index) => ({ item, index })).filter(({ item }) => {
+              const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(item.name)?.[0].toLowerCase()
+              const category = ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
+              return category === group
+            })
+            if (!rows.length) return null
+            return <div key={group}><h4>{group}</h4><ul>
+            {rows.map(({ item: g, index: i }) => (
               <li key={`${g.name}-${i}`}>
                 {g.name} <ActionIcon entry={entries.find((entry) => GEAR.includes(entry.kind) && entry.name === g.name)} /> x<input type="number" min={1} style={{ width: '4em' }} value={g.qty}
                   onChange={(e) => save({ equipment: c.equipment.map((x, j) => (j === i ? { ...x, qty: Math.max(1, +e.target.value || 1) } : x)) })} />{' '}
                 <button onClick={() => confirmRemoval(`gear "${g.name}"`, () => save({ equipment: c.equipment.filter((_, j) => j !== i) }))}>Remove</button>
               </li>
             ))}
-          </ul>
-          <input placeholder="Search weapons, armor and gear" value={gearQuery} onChange={(e) => setGearQuery(e.target.value)} />
+            </ul></div>
+          })}
+          <input placeholder="Search equipment" value={gearQuery} onChange={(e) => setGearQuery(e.target.value)} />
           <ul>
             {gearMatches.map((g) => (
               <li key={g.id}>
@@ -375,6 +416,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         </div>
       </details>
 
+      <FormulasSection {...section} />
       {featSection('general')}
       <details className="character-section">
         <summary className="character-section-summary">
@@ -389,7 +431,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       <details className="character-section">
         <summary className="character-section-summary">
           <strong>Offense</strong>
-          <span>Perception {signed(defense.perception)}</span>
+          <span>Perception {signed(defense.perception)}, {weaponCount} Weapon{weaponCount === 1 ? '' : 's'}</span>
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />

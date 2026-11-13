@@ -34,6 +34,26 @@ it('remaps Dwarven weapons to scaling category proficiency without changing unre
   expect(attack({ ...c, className: undefined }, advanced, entries).rank).toBe(0)
 })
 
+it('applies Starfinder ancestral weapon familiarity to elf bows, rapier, and elf-trait weapons', () => {
+  const source: ContentEntry = { ...content('Ancestral Weapon Familiarity', 'feat', {}, ['Elf']), systems: ['sf2e'],
+    description: 'You gain access to all uncommon weapons with your ancestry trait.\n\nOption(s): all bows or nano-edge rapier' }
+  const bow = { ...weapon('Star Bow', 'Advanced'), data: { weapon_category: 'Advanced', weapon_group: 'Bow' } }
+  const crossbow = { ...weapon('Crossbow', 'Advanced'), data: { weapon_category: 'Advanced', weapon_group: 'Crossbow' } }
+  const rapier = weapon('Nano-Edge Rapier', 'Martial')
+  const ancestral = weapon('Elven Laser', 'Advanced', ['Elf'], 'uncommon')
+  const c: Character = { ...character, systems: ['sf2e'], ancestry: 'Elf',
+    feats: [selected('Ancestral Weapon Familiarity')] }
+  const entries = [wizard, source, bow, crossbow, rapier, ancestral]
+  expect(attack(c, bow, entries).rank).toBe(1)
+  expect(attack(c, crossbow, entries).rank).toBe(0)
+  expect(attack(c, rapier, entries).rank).toBe(2)
+  expect(attack(c, bow, entries).criticalSpecialization).toBe(true)
+  expect(weaponAccessSources(c, entries, ancestral)).toContain(source.name)
+  expect(weaponAccessSources(c, entries, rapier)).not.toContain(source.name)
+  expect(attack({ ...c, level: 4 }, bow, entries).criticalSpecialization).toBe(false)
+  expect(attack({ ...c, feats: [] }, bow, entries).rank).toBe(0)
+})
+
 it('grants only stated weapon Access, not all ancestry gear or rare versions, and persists GM approval separately', () => {
   const uncommon = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')
   const rare = { ...uncommon, id: 'rare-waraxe', data: { ...uncommon.data, rarity: 'rare' }, traits: ['Dwarf', 'Rare'] }
@@ -93,6 +113,46 @@ it('requires cultural eligibility confirmation rather than treating every uncomm
   const overlapping = { ...character, feats: [selected('Oni Weapon Familiarity'),
     { ...selected('Unconventional Weaponry', nodachi.name), culturalWeapon: true }] }
   expect(attack(overlapping, nodachi, [wizard, nodachi]).rank).toBe(2)
+})
+
+it('allows culturally common weapons and makes the rare Shobhad exception explicit', () => {
+  const common = weapon('Cultural Rifle', 'Martial', ['Dwarf'])
+  const rare = weapon('Shobhad Longrifle', 'Martial', [], 'rare')
+  const entries = [wizard, dwarf, common, rare]
+  const selection = selected('Unconventional Weaponry', common.name)
+  const c = { ...character, feats: [selection] }
+  expect(featChoiceOptions('Unconventional Weaponry', c, entries, '')).toContain(common.name)
+  expect(featChoiceOptions('Unconventional Weaponry', c, entries, '')).toContain('Shobhad Longrifle (Pathfinder)')
+  expect(weaponAccessSources(c, entries, common)).toEqual([])
+  expect(weaponAccessSources({ ...c, feats: [{ ...selection, culturalWeapon: true }] }, entries, common))
+    .toEqual(['Unconventional Weaponry'])
+  const rifle = { ...selection, choice: rare.name, culturalWeapon: true }
+  expect(weaponAccessSources({ ...c, feats: [rifle] }, entries, rare)).toEqual([])
+  expect(weaponAccessSources({ ...c, feats: [{ ...rifle, rareWeaponOverride: true }] }, entries, rare))
+    .toEqual(['Unconventional Weaponry'])
+})
+
+it('keeps Pathfinder and Starfinder Shobhad Longrifles distinct across saved selections', () => {
+  const pf = { ...weapon('Shobhad Longrifle', 'Martial', [], 'rare'), id: 'pf', data: {
+    weapon_category: 'Martial', damage: '1d6 P', rarity: 'rare', weapon_group: 'Firearm' } }
+  const sf: ContentEntry = { ...weapon('Shobhad Longrifle', 'Martial', ['Shobhad']), id: 'sf', systems: ['sf2e'],
+    data: { weapon_category: 'Martial', damage: '1d8 P', rarity: 'common', weapon_group: 'Sniper' } }
+  const c: Character = { ...character, systems: ['pf2e', 'sf2e'], feats: [
+    { ...selected('Unconventional Weaponry', 'Shobhad Longrifle (Starfinder)'), culturalWeapon: true },
+  ] }
+  for (const entries of [[wizard, pf, sf], [wizard, sf, pf]]) {
+    expect(gearPickerEntries(entries, 'weapon').map(entry => entry.name)).toEqual(expect.arrayContaining([
+      'Shobhad Longrifle (Pathfinder)', 'Shobhad Longrifle (Starfinder)',
+    ]))
+    const make = (name: string) => weaponAttack(c, entries, { id: name, name, potency: 0, striking: 0, runes: [] })
+    expect(make('Shobhad Longrifle (Starfinder)')).toMatchObject({ rank: 2, entry: { id: 'sf' } })
+    expect(make('Shobhad Longrifle (Pathfinder)')).toMatchObject({ rank: 1, entry: { id: 'pf' } })
+    expect(make('Shobhad Longrifle').entry?.id).toBe(entries[1].id)
+  }
+  const sfOnly = { ...c, systems: ['sf2e'] as Character['systems'] }
+  expect(gearPickerEntries([sf], 'weapon').map(entry => entry.name)).toEqual(['Shobhad Longrifle (Starfinder)'])
+  expect(gearPickerEntries([pf], 'weapon').map(entry => entry.name)).toEqual(['Shobhad Longrifle (Pathfinder)'])
+  expect(weaponAttack(sfOnly, [wizard, sf], { id: 'w', name: 'Shobhad Longrifle (Starfinder)', potency: 0, striking: 0, runes: [] }).rank).toBe(2)
 })
 
 it('does not mistake legacy named training for training with all ancestry weapons', () => {

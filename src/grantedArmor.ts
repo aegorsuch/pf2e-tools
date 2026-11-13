@@ -1,7 +1,9 @@
 import { featTakenLevel } from './featChoices'
 import type { Character, ContentEntry, OwnedArmor } from './types'
+import { armorModifications } from './inventorArmor'
 
 export const INVENTOR_ARMOR_ID = 'granted-armor:inventor'
+export const HARDWOOD_ARMOR_ID = 'granted-armor:hardwood'
 export const INVENTOR_SUITS = ['Power Suit', 'Subterfuge Suit'] as const
 export const isGrantedArmor = (id: string) => id.startsWith('granted-armor:')
 export const canWearWithAttachedArmor = (armor: OwnedArmor, body?: ContentEntry) =>
@@ -51,6 +53,14 @@ export function grantedArmorEntries(c: Character, innovation = c.subclass): Cont
     ...(chassis ? { fixed_material: 'Orichalcum' } : { strength: 3 }),
   }, chassis ? [] : body.ancestry === 'Lizardfolk' ? ['Aquadynamic', 'Comfort'] : ['Comfort'],
   'Attached medium plate armor. Cannot be removed or worn with other armor; accepts armor runes.')] : []
+  if (hardwoodActive(c)) {
+    const kineticist = c.className === 'Kineticist'
+    entries.push(armorEntry(HARDWOOD_ARMOR_ID, kineticist ? 'Hardwood Armor' : 'Wooden Breastplate', {
+      armor_group: 'Wood', ac: kineticist ? 3 : 4, dex_cap: kineticist ? 2 : 1,
+      check_penalty: -2, speed_penalty: -5, strength: kineticist ? 2 : 3, bulk: kineticist ? 1 : 2,
+      fixed_material: 'Duskwood', highest_armor_proficiency: kineticist,
+    }, [], kineticist ? 'Hardwood Armor uses your highest armor proficiency.' : 'Wooden breastplate granted by Hardwood Armor.'))
+  }
   if (c.systems.includes('sf2e')) {
     const shell = starfinderBodyArmor(c, name => active.some(feat => feat.name === name))
     if (shell) entries.push(shell)
@@ -60,14 +70,22 @@ export function grantedArmorEntries(c: Character, innovation = c.subclass): Cont
       || c.className === 'Inventor' && ['Second Innovation', 'Third Innovation'].includes(feat.name)))
   if (c.systems.includes('pf2e') && armorInnovation) {
     const power = c.inventorArmorSuit !== 'Subterfuge Suit'
+    const heavy = power && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
     entries.push(armorEntry(INVENTOR_ARMOR_ID, power ? 'Power Suit' : 'Subterfuge Suit', {
-      innovation: true, armor_group: 'Composite', ac: power ? 5 : 2, dex_cap: power ? 1 : 4,
-      check_penalty: power ? -2 : -1, speed_penalty: power ? -5 : 0, strength: power ? 3 : 0,
-      bulk: power ? 2 : 1, url: 'https://2e.aonprd.com/Innovations.aspx?ID=1',
-    }, [], 'Armor innovation. Accepts fundamental and property runes like ordinary armor.'))
+      innovation: true, armor_category: heavy ? 'Heavy' : 'Medium', armor_group: heavy ? 'Plate' : 'Composite',
+      ac: power ? 5 : 2, dex_cap: power ? 1 : 4, check_penalty: power ? -2 : -1,
+      speed_penalty: heavy ? -10 : power ? -5 : 0, strength: power ? 3 : 0,
+      bulk: heavy ? 3 : power ? 2 : 1, medium_proficiency: heavy, url: 'https://2e.aonprd.com/Innovations.aspx?ID=1',
+    }, heavy ? ['Bulwark', 'Entrench Melee', 'Entrench Ranged'] : [], 'Armor innovation. Accepts fundamental and property runes like ordinary armor.'))
   }
   return entries
 }
+
+export const hardwoodActive = (c: Character) => c.systems.includes('pf2e')
+  && ['Ranger', 'Druid', 'Kineticist'].includes(c.className ?? '')
+  && c.feats.some(feat => feat.name === 'Hardwood Armor' && featTakenLevel(feat) <= c.level)
+
+export const hardwoodHasShield = (c: Character) => hardwoodActive(c) && c.className !== 'Ranger'
 
 function starfinderBodyArmor(c: Character, hasFeat: (name: string) => boolean): ContentEntry | undefined {
   const ancestry = c.ancestry

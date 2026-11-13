@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
+import { ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, dailyLongevityRanks, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { FeatChoice } from './FeatChoice'
 import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
@@ -52,7 +52,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
-      && (grant.name === 'Augmented Body' || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
+      && (grant.name === 'Augmented Body' || grant.name === 'Assurance' && grant.source.startsWith('Exceptional Artisan (')
+        || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
@@ -80,7 +81,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
   })
   const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
-  const displayName = (name: string) => name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
+  const displayName = (name: string) => (name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
+    .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
   const prerequisiteChecks = new Map<string, ReturnType<typeof featSelectionPrerequisiteChecker>>()
@@ -99,8 +101,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const rarity = featRarity(entry)
     const accessMissing = access && !access.automatic && !access.approved
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
-    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${access
-      ? ` * Access: ${access.requirement}${access.automatic ? ' (met)' : access.approved ? ' (GM approved)' : ''}` : ''}`
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
+      ? ` * Access: ${access.requirement}` : ''}`
     const choices = featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
@@ -188,15 +190,22 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
+  const memories = c.feats.filter(feat => feat.name === 'Carry Their Memories' && feat.choice && featTakenLevel(feat) <= c.level)
+  const memorySkills = new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])
+  const memoryRanks = memories.length ? dailyLongevityRanks(c, entries) : {}
   const rows = [
     ...backgroundFeats.map(feat => ({ kind: 'background' as const, level: 1, feat })),
     ...automaticFeats.map(feat => ({ kind: 'automatic' as const, level: feat.level, feat })),
+    ...(!categories || categories.includes('skill') ? memories.flatMap(feat =>
+      feat.choice && memorySkills.has(feat.choice) && (memoryRanks[feat.choice] ?? 0) >= 1
+        ? [{ kind: 'automatic' as const, level: featTakenLevel(feat),
+          feat: { name: 'Assurance', source: `Carry Their Memories (${feat.choice}; temporary)`, level: featTakenLevel(feat) } }] : []) : []),
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => a.level - b.level)
   const Wrapper = bare ? 'div' : 'details'
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
-      {!bare && <summary><h4>{title}</h4></summary>}
+      {!bare && <summary><h4>{title} {slots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length}/{slots.length}</h4></summary>}
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
@@ -233,7 +242,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             : currentEntry ? prerequisitesFor(currentEntry, s) : undefined
           const picksType = s.category === 'archetype'
           const popup = !!onSearch || picksType
-          const multiclassOnly = s.grantedBy === 'Multitalented'
+          const multiclassOnly = s.grantedBy === 'Multitalented' || s.grantedBy === 'Eldritch Trickster'
           const type = multiclassOnly ? 'dedication'
             : search[`${s.key}:type`] || (currentEntry ? (isDedication(currentEntry) ? 'dedication' : 'archetype') : 'archetype')
           const open = search[`${s.key}:open`] === '1'

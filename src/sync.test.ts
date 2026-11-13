@@ -11,9 +11,10 @@ const backend = vi.hoisted(() => ({
   },
   from: vi.fn(),
 }))
+const database = vi.hoisted(() => ({ table: vi.fn(), transaction: vi.fn() }))
 
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => backend }))
-vi.mock('./db', () => ({ db: {} }))
+vi.mock('./db', () => ({ db: database }))
 const auth = backend.auth
 
 beforeEach(() => {
@@ -43,6 +44,18 @@ describe('authentication', () => {
     await vi.waitFor(() => expect(changed).toHaveBeenCalledWith(user))
     expect(failed).not.toHaveBeenCalled()
     stop()
+  })
+
+  it('does not overwrite a newer local spell change with an in-flight remote pull', async () => {
+    const local = { id: 'character', updatedAt: 30, spells: ['New spell'] }
+    const target = { get: vi.fn().mockResolvedValue(local), put: vi.fn() }
+    database.table.mockReturnValue(target)
+    database.transaction.mockImplementation(async (_mode, _table, action) => action())
+    const { applyRemoteRows } = await import('./sync')
+    await applyRemoteRows('characters', [{ id: 'character', updatedAt: 20 }])
+    expect(target.put).not.toHaveBeenCalled()
+    await applyRemoteRows('characters', [{ id: 'character', updatedAt: 40 }])
+    expect(target.put).toHaveBeenCalledWith({ id: 'character', updatedAt: 40 })
   })
 
   it('reports session initialization errors', async () => {

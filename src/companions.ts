@@ -47,9 +47,10 @@ const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: '
 
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
-  const has = (prefix: string) => c.feats.filter((f) => f.name.startsWith(prefix))
-  const advanced = c.feats.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
-  const specializations = [...new Set(c.feats.filter((feat) => isCompanionSpecialization(feat.name) && feat.level <= c.level)
+  const active = c.feats.filter((feat) => featTakenLevel(feat) <= c.level)
+  const has = (prefix: string) => active.filter((f) => f.name.startsWith(prefix))
+  const advanced = active.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
+  const specializations = [...new Set(active.filter((feat) => isCompanionSpecialization(feat.name))
     .flatMap((f) => (f.choice && (f.choice !== 'Auspice' || f.name === 'Auspicious Mount') ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
   return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0
     || has('Loyal Warhorse').length > 0 || !!advanced, advanced, specializations }
@@ -80,10 +81,20 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const auspiceTraits = servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []
   const firstCompanion = companionId !== undefined && companionId === c.companions?.[0]?.id
   const has = (name: string) => firstCompanion && c.feats.some((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+  const celestialMount = has('Celestial Mount')
+  const fiendishMount = has('Fiendish Mount')
+  const paleHorseChoice = has('Pale Horse') && has('Faithful Steed')
+    ? c.companions?.find(companion => companion.id === companionId)?.paleHorse : undefined
+  const paleHorse = paleHorseChoice && ['Fire', 'Poison', 'Void'].includes(paleHorseChoice)
+    ? { damage: paleHorseChoice, resistance: 10, retaliation: `${c.level >= 20 ? 3 : c.level >= 16 ? 2 : 1}d6` } : undefined
   const sanctification = c.className === 'Champion' && has('Faithful Steed') ? deitySanctification(c, entries).selected : undefined
   const steedTraits = sanctification ? [sanctification] : []
-  const grantedTraits = [...new Set([...auspiceTraits, ...steedTraits])]
-  const weakness = servitor === 'Celestial' ? 'Unholy 5' : servitor === 'Fiend' ? 'Holy 5' : undefined
+  const grantedTraits = [...new Set([...auspiceTraits, ...steedTraits, ...(celestialMount ? ['Celestial'] : []), ...(fiendishMount ? ['Fiend'] : [])])]
+  const weaknesses = [
+    ...(celestialMount ? ['Unholy 10'] : servitor === 'Celestial' ? ['Unholy 5'] : []),
+    ...(fiendishMount ? ['Holy 10'] : servitor === 'Fiend' ? ['Holy 5'] : []),
+  ]
+  const weakness = weaknesses.join(', ') || undefined
   const d = entry.data
   const mods: Record<Ability, number> = { str: num(d.strength), dex: num(d.dexterity), con: num(d.constitution), int: num(d.intelligence), wis: num(d.wisdom), cha: num(d.charisma) }
   const add = (m: Mods) => { for (const [k, v] of Object.entries(m)) mods[k as Ability] += v }
@@ -103,10 +114,13 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     for (const k of s.bump ?? []) rank[k] = bumpRank(rank[k] ?? 0)
     for (const [k, v] of Object.entries(s.set ?? {})) rank[k] = Math.max(rank[k] ?? 0, v)
   }
+  const stealthyCompanion = has('Stealthy Companion')
+  if (stealthyCompanion && specializations.includes('Ambusher')) rank.Stealth = rank.Stealth >= 3 ? 4 : 3
 
   const level = c.level
   const prof = (k: string) => proficiencyBonus(rank[k] ?? 0, level)
-  const hp = num(d.hp) + (6 + mods.con) * level + (auspice ? (level >= 20 ? 30 : level >= 18 ? 25 : 20) + (weakness ? 5 : 0) : 0)
+  const hp = num(d.hp) + (6 + mods.con) * level + (auspice ? (level >= 20 ? 30 : level >= 18 ? 25 : 20)
+    + (servitor === 'Celestial' || servitor === 'Fiend' ? 5 : 0) : 0) + (celestialMount || fiendishMount ? 40 : 0)
   const baseSize = String(d.size ?? '').split(',')[0].trim()
   const naturalSize = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
   const enlargedSize = enlargeCompanionSize(c, naturalSize)
@@ -143,7 +157,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
-  if (auspice) {
+  if (auspice || celestialMount || fiendishMount) {
     const land = Number(/^\d+/.exec(speed)?.[0])
     if (land > 0) {
       const fly = /\bfly\s+(\d+)\s*(?:feet|ft)\b/i.exec(speed)
@@ -165,18 +179,23 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     .sort((a, b) => a.name.localeCompare(b.name))
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
+  const senses = String(d.sense ?? '')
+  const mountSenses = (celestialMount || fiendishMount) && !/\bdarkvision\b/i.test(senses)
+    ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
   return {
-    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks, auspice, auspiceTraits, grantedTraits, weakness,
+    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
-    magicHide, canopyCrawler, enlarge, clumsy,
+    magicHide, canopyCrawler, enlarge, clumsy, stealthyCompanion,
+    primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,
     perception: total('Perception', 'wis'),
     fortitude: total('Fortitude', 'con'),
     reflex: total('Reflex', 'dex'),
     will: total('Will', 'wis'),
-    senses: String(d.sense ?? ''),
+    senses: mountSenses,
     support: String(d.companion_support ?? ''),
     maneuver: String(d.companion_maneuver ?? ''),
     mount: d.mount === true,
   }
+
 }

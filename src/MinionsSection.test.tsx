@@ -28,6 +28,71 @@ function findToggle(node: ReactNode, label: string): ((event: { target: { checke
   return found
 }
 
+it('shows one advancement choice and summarizes companion type and stage', () => {
+  const c: Character = {
+    id: 'companion', systems: ['pf2e'], name: 'Test', level: 10, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Incredible Companion', type: 'Class Feat', level: 8, choice: 'Nimble' },
+      { name: 'Incredible Mount', type: 'Class Feat', level: 8 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'snow', type: 'Snow Leopard', name: '' }],
+  }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Nimble Snow Leopard')
+  expect(markup.match(/aria-label="Companion advancement"/g)).toHaveLength(1)
+})
+
+it('shows feat-granted familiar choices and a separate aquatic pet with bonus abilities', () => {
+  const c: Character = {
+    id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: ['Leshy Familiar', 'Enhanced Familiar', 'Friend of the Sea'].map(name => ({ name, type: 'Class Feat', level: 1 })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { leshyAbility: 'Fungus', abilities: ['Flier'] }, pet: { abilities: ['Climber'] },
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Leshy Familiar')
+  expect(html).toContain('Daily familiar or master abilities (1/4)')
+  expect(html).toContain('Leshy familiar granted ability')
+  expect(html).toContain('Aquatic Pet')
+  expect(html).toContain('HP 56')
+  expect(html).toContain('Darkvision and Tough')
+  expect(html).toContain('Climb Speed 25 feet.')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
+})
+
+it('shows a pet only when Beast Trainer grants Pet', () => {
+  const c: Character = {
+    id: 'trainer', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Beast Trainer', type: 'Ancestry Feat', level: 1, choice: 'Pet' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)).toContain('aria-label="Pet name"')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [{ ...c.feats[0], choice: 'Train Animal' }] }} entries={[]} save={() => {}} />))
+    .not.toContain('aria-label="Pet name"')
+})
+
+it('provides one extra Leshy Familiar Secrets ability and requires second-rank spell slots for Verdant Burst', () => {
+  let c: Character = {
+    id: 'leshy', systems: ['pf2e'], name: 'Test', level: 4, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }, { name: 'Leshy Familiar Secrets', type: 'Class Feat', level: 4 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const tree = () => MinionsSection({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
+  findSelect(tree(), 'Leshy Familiar Secrets ability')?.({ target: { value: 'Verdant Burst' } })
+  expect(c.familiar?.leshySecret).toBe('Verdant Burst')
+  expect(renderToStaticMarkup(tree())).toContain('three-action Heal at rank 1')
+  c = { ...c, className: 'Ranger' }
+  expect(renderToStaticMarkup(tree())).toContain('Verdant Burst requires a 2nd-rank spell slot')
+  findSelect(tree(), 'Leshy Familiar Secrets ability')?.({ target: { value: 'Purify Air' } })
+  expect(renderToStaticMarkup(tree())).toContain('+2 circumstance to saves against inhaled effects')
+  c = { ...c, feats: c.feats.slice(0, 1) }
+  expect(renderToStaticMarkup(tree())).not.toContain('Leshy Familiar Secrets ability')
+  expect(c.familiar?.leshySecret).toBe('Purify Air')
+})
+
 it('uses full companion stat names, omits redundant level, and keeps AC adjustment sources inside its popover', () => {
   const c: Character = {
     id: 'labels', systems: ['pf2e'], name: 'Test', level: 7, className: 'Ranger',

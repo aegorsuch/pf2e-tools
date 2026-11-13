@@ -65,7 +65,7 @@ export function familiarityChoiceOptions(name: string, c: Character, entries: Co
     .map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
 }
 
-export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 'Simple' | 'Martial' | 'Advanced' | 'Unarmed') {
+export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 'Simple' | 'Martial' | 'Advanced' | 'Unarmed', entries: ContentEntry[] = []) {
   const access: string[] = []
   let proficiency: 'Simple' | 'Martial' | undefined
   let trained = false
@@ -73,6 +73,26 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
   let criticalSpecialization = false
   for (const feat of c.feats) {
     if (featTakenLevel(feat) > c.level) continue
+    if (feat.name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry) {
+      const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === feat.name
+        && entry.systems.includes('sf2e') && entry.traits.some(trait => key(trait) === key(c.ancestry!)))
+      if (!source || /traditional weapons of another ancestry/i.test(source.description)) continue
+      const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1] ?? ''
+      const ancestralTrait = weapon.traits.some(trait => key(trait) === key(c.ancestry!))
+      const group = key(String(weapon.data.weapon_group ?? ''))
+      const matchesList = options.split(/\s*,\s*|\s+or\s+/i).some(option => key(option) === key(weapon.name))
+        || /\ball bows\b/i.test(options) && group === 'bow'
+        || /\baxes\b/i.test(options) && group === 'axe'
+        || /\bany doshko\b/i.test(options) && /\bdoshko\b/i.test(weapon.name)
+        || /\bany pick\b/i.test(options) && group === 'pick'
+      if (ancestralTrait && uncommonWeapon(weapon)) access.push(feat.name)
+      if (ancestralTrait || matchesList) {
+        if (category === 'Martial') proficiency = 'Simple'
+        else if (category === 'Advanced' && proficiency !== 'Simple') proficiency = 'Martial'
+        criticalSpecialization ||= c.level >= 5
+      }
+      continue
+    }
     const rule = RULES[feat.name]
     if (!rule) continue
     const trait = !!rule.trait && weapon.traits.some(trait => trait.toLowerCase() === rule.trait!.toLowerCase())

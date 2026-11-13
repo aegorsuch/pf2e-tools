@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { eligibleFeats, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, plannedSlots } from './builder'
+import { additionalSkillCount, automaticFeatGrants, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, languageAllowance, maxHp, plannedSlots, ranksAt, senses } from './builder'
 import { featPrerequisiteSuggestions } from './featPrerequisites'
+import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -15,6 +16,78 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('requires a master skill for Exceptional Artisan and restricts its bonus feat to the selected skill', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 9, ancestry: 'Orc', rankOverrides: { Crafting: 3 },
+    feats: [{ name: 'Exceptional Artisan', type: 'Ancestry Feat', level: 9, choice: 'Crafting', slot: 'ancestry:9:0' }] }
+  expect(check('master in at least one skill', c).missing).toEqual([])
+  expect(check('master in at least one skill', { ...c, rankOverrides: {} }).missing).toHaveLength(1)
+  expect(featChoiceOptions('Exceptional Artisan', c, [], c.feats[0].slot!)).toEqual(['Crafting'])
+  expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Assurance', source: 'Exceptional Artisan (Crafting)', level: 9 })
+  const slot = plannedSlots(c).find(candidate => candidate.grantedBy === 'Exceptional Artisan')!
+  const skillFeat = (name: string, skill: string): ContentEntry => ({ ...entry('feat', name, { skill }, 1, ['General', 'Skill']), systems: ['sf2e'] })
+  expect(eligibleFeats([skillFeat('Quick Repair', 'Crafting'), skillFeat('Quick Squeeze', 'Acrobatics')], c, slot)
+    .map(feat => feat.name)).toEqual(['Quick Repair'])
+  expect(eligibleFeats([skillFeat('Quick Repair', 'Crafting')], { ...c, rankOverrides: {} }, slot)).toEqual([])
+})
+
+it('grants both prescient feats at the level Predictive Purchase is taken', () => {
+  const c: Character = { ...base, level: 10, feats: [selected('Predictive Purchase', 10)] }
+  expect(automaticFeatGrants(c, [])).toEqual(expect.arrayContaining([
+    { name: 'Prescient Planner', source: 'Predictive Purchase', level: 10 },
+    { name: 'Prescient Consumable', source: 'Predictive Purchase', level: 10 },
+  ]))
+  expect(automaticFeatGrants({ ...c, level: 9 }, [])).toEqual([])
+})
+
+it('enforces the Rogue sneak attack dice prerequisite at the selection level', () => {
+  const c: Character = { ...base, className: 'Rogue' }
+  expect(check('sneak attack 2d6', c, [], 4).missing).toEqual(['sneak attack 2d6'])
+  expect(check('sneak attack 2d6', c, [], 5).missing).toEqual([])
+})
+
+it('checks proficiency in sawtooth sabers, including weapon familiarity', () => {
+  const saber = entry('weapon', 'Sawtooth Saber', { weapon_category: 'Advanced' }, 0)
+  const rogue = entry('class', 'Rogue', { attack_proficiency: 'Trained in martial weapons' })
+  const c: Character = { ...base, className: 'Rogue', level: 8 }
+  expect(check('trained in sawtooth sabers', c, [saber, rogue]).missing).toEqual(['trained in sawtooth sabers'])
+  const trained = { ...c, feats: [{ ...selected('Weapon Proficiency'), choice: 'Sawtooth Saber' }] }
+  expect(check('trained in sawtooth sabers', trained, [saber, rogue]).missing).toEqual([])
+  expect(check('trained in sawtooth sabers', c, [rogue]).manual).toEqual(['trained in sawtooth sabers'])
+})
+
+it('grants Free Heart background skills and feat without its attribute boosts', () => {
+  const background = entry('background', 'Performer', { skill: 'Performance, Theater Lore', feat: 'Fascinating Performance', ability: 'Charisma' })
+  const rare = entry('background', 'Secret', { rarity: 'rare' })
+  const klass = entry('class', 'Bard', { skill_proficiency: 'Trained in Performance' })
+  const c: Character = { ...base, level: 1, className: 'Bard', ancestry: 'Elf',
+    feats: [{ ...selected('Free Heart'), choice: 'Performer' }] }
+  const entries = [background, rare, klass]
+  expect(featChoiceOptions('Free Heart', c, entries, '')).toEqual(['Performer'])
+  expect(ranksAt(c, entries)).toMatchObject({ Performance: 1, 'Theater Lore': 1 })
+  expect(automaticFeatGrants(c, entries)).toContainEqual({ name: 'Fascinating Performance', source: 'Free Heart (Performer)', level: 1 })
+  expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount({ ...c, feats: [] }, entries) + 1)
+  expect(ranksAt({ ...c, level: 0 }, entries)['Theater Lore']).toBeUndefined()
+})
+
+it('applies daily longevity proficiency without qualifying permanent prerequisites', () => {
+  const c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'], feats: [
+    { ...selected('Ancestral Longevity', 1), choice: 'Acrobatics' },
+    { ...selected('Expert Longevity', 9), choice: 'Athletics' },
+  ] }
+  expect(dailyLongevityRanks(c, [])).toMatchObject({ Acrobatics: 1, Athletics: 2 })
+  expect(ranksAt(c, []).Acrobatics).toBeUndefined()
+  expect(check('trained in Acrobatics', c).missing).toContain('trained in Acrobatics')
+  expect(check('expert in Athletics', c).missing).toContain('expert in Athletics')
+  expect(dailyLongevityRanks({ ...c, level: 8 }, []).Athletics).toBe(1)
+  expect(dailyLongevityRanks({ ...c, feats: [c.feats[1]] }, []).Athletics).toBe(1)
+})
+
+it.each(['Celestial Form', 'Fiendish Form'])('%s grants darkvision even when flight is disabled', name => {
+  const c: Character = { ...base, level: 18, feats: [selected(name, 18)] }
+  expect(senses(c, [])).toContainEqual({ value: 'Darkvision', source: name })
+  expect(senses({ ...c, level: 17 }, [])).toEqual([])
+})
 
 it('suggests exact General and Skill feat prerequisites for this class and ancestry without confusing longer feat names', () => {
   const titan = entry('feat', 'Titan Wrestler', {}, 1, ['General', 'Skill'])
@@ -42,6 +115,96 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  it('does not count the temporary Ancestral Linguistics choice as a permanent language', () => {
+    const elf: Character = { ...base, ancestry: 'Elf', feats: [{ ...selected('Ancestral Linguistics'), choice: 'Draconic' }] }
+    expect(languageAllowance(elf, []).locked).not.toContain('Draconic')
+    expect(elf.languages).not.toContain('Draconic')
+  })
+  it.each([
+    ['Cite the Deep Lore', 'Society', 'Blend In', 'Elf'],
+    ["Diplomat's Facade", 'Deception', 'Lie to Me', 'Elf'],
+    ['Broken Hand Technique', 'Athletics', 'Titan Wrestler', 'Orc'],
+    ['Spelunker', 'Acrobatics', 'Quick Squeeze', 'Orc'],
+  ])('grants %s skill and feat, with an alternate when already trained', (name, skill, bonus, ancestry) => {
+    const character: Character = { ...base, systems: ['sf2e'], ancestry, feats: [selected(name)] }
+    expect(ranksAt(character, [])[skill]).toBe(1)
+    expect(automaticFeatGrants(character, [])).toContainEqual({ name: bonus, source: name, level: 1 })
+    const duplicate = { ...character, skillPicks: [skill], feats: [{ ...character.feats[0], choice: 'Medicine' }] }
+    expect(featChoiceOptions(name, duplicate, [], 'class:1:0', 0)).toContain('Medicine')
+    expect(ranksAt(duplicate, []).Medicine).toBe(1)
+    expect(automaticFeatGrants({ ...character, systems: ['pf2e'] }, []).some(grant => grant.source === name)).toBe(false)
+  })
+  it('grants Hold-Scarred Orc ancestry HP and Diehard', () => {
+    const orc: Character = { ...base, level: 1, ancestry: 'Orc', heritage: 'Hold-Scarred Orc' }
+    const ancestry = entry('ancestry', 'Orc', { hp: 10 })
+    expect(maxHp(orc, [ancestry])).toBe(12)
+    expect(automaticFeatGrants(orc, [])).toContainEqual({ name: 'Diehard', source: 'Hold-Scarred Orc', level: 1 })
+    expect(check('Diehard', orc).missing).toEqual([])
+    expect(maxHp({ ...orc, heritage: undefined }, [ancestry])).toBe(10)
+  })
+  it('grants Forager from the Starfinder Orc Rugged Survivalist, not the Pathfinder archetype', () => {
+    const orc: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', feats: [selected('Rugged Survivalist', 9)] }
+    expect(automaticFeatGrants(orc, [])).toContainEqual({ name: 'Forager', source: 'Rugged Survivalist', level: 9 })
+    expect(automaticFeatGrants({ ...orc, level: 8 }, [])).toEqual([])
+    expect(automaticFeatGrants({ ...orc, systems: ['pf2e'] }, [])).toEqual([])
+  })
+  it('hides redundant Orc ancestral unarmed attack when Tusks or Iron Fists is already selected', () => {
+    const feat: ContentEntry = { ...entry('feat', 'Ancestral Unarmed Attack', {}, 1, ['Orc']), systems: ['sf2e'] }
+    const orc: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', level: 5 }
+    const slot = { category: 'ancestry' as const, key: 'ancestry:5:0', level: 5 }
+    expect(eligibleFeats([feat], { ...orc, feats: [] }, slot)).toEqual([feat])
+    expect(eligibleFeats([feat], { ...orc, feats: [selected('Tusks')] }, slot)).toEqual([])
+    expect(eligibleFeats([feat], { ...orc, feats: [selected('Iron Fists')] }, slot)).toEqual([])
+  })
+  it('grants Beast Trainer and Hold Mark choices only at their acquisition levels', () => {
+    const orc: Character = { ...base, ancestry: 'Orc', feats: [
+      { ...selected('Beast Trainer', 5), choice: 'Pet' },
+      { ...selected('Hold Mark', 9), choice: 'Empty Hand' },
+    ] }
+    expect(ranksAt(orc, []).Nature).toBe(1)
+    expect(ranksAt(orc, []).Intimidation).toBe(1)
+    expect(automaticFeatGrants(orc, [])).toContainEqual({ name: 'Pet', source: 'Beast Trainer', level: 5 })
+    expect(ranksAt({ ...orc, level: 4 }, []).Nature ?? 0).toBe(0)
+    expect(ranksAt({ ...orc, level: 8 }, []).Intimidation ?? 0).toBe(0)
+    expect(automaticFeatGrants({ ...orc, feats: [{ ...orc.feats[0], choice: 'Train Animal' }] }, []))
+      .toContainEqual({ name: 'Train Animal', source: 'Beast Trainer', level: 5 })
+    expect(automaticFeatGrants({ ...orc, feats: [{ ...orc.feats[0], choice: undefined }] }, [])).toEqual([])
+  })
+  it('requires a prior primal innate spell for First World Adept and a familiar for familiar feats', () => {
+    const source = mapAonHit({ _id: 'first-world', _source: { name: 'First World Magic', category: 'feat', level: 1, trait: ['Gnome'],
+      markdown: 'Header\n\n---\n\nChoose one cantrip from the [primal](/SpellLists.aspx?Tradition=4) spell list. You can cast this cantrip as an innate spell at will.' } }, 'pf2e')!
+    const spell = entry('spell', 'Light', { tradition: 'primal' }, 1, ['Cantrip'])
+    const gnome: Character = { ...base, className: 'Ranger', ancestry: 'Gnome', level: 9,
+      feats: [{ ...selected(source.name, 1), type: 'Ancestry Feat', choice: spell.name }] }
+    expect(check('at least one primal innate spell', gnome, [source, spell]).missing).toEqual([])
+    expect(check('at least one primal innate spell', { ...gnome, feats: [] }, [source, spell]).missing).toHaveLength(1)
+    expect(check('at least one primal innate spell', { ...gnome, feats: [{ ...gnome.feats[0], choice: undefined }] }, [source, spell]).missing).toHaveLength(1)
+    expect(check('a familiar', gnome).missing).toHaveLength(1)
+    expect(check('a familiar', { ...gnome, feats: [selected('Animal Accomplice')] }).missing).toEqual([])
+  })
+  it('requires limited telepathy for Distant Telepath', () => {
+    const elf: Character = { ...base, systems: ['sf2e'], ancestry: 'Elf', heritage: 'Asanan Elf' }
+    expect(check('limited telepathy', elf).missing).toEqual([])
+    expect(check('limited telepathy', { ...elf, heritage: 'Other Elf' }).missing).toEqual(['limited telepathy'])
+    expect(check('limited telepathy', { ...elf, ancestry: 'Lashunta', heritage: undefined }).missing).toEqual([])
+    expect(check('limited telepathy', { ...elf, systems: ['pf2e'] }).missing).toEqual(['limited telepathy'])
+  })
+  it('requires a construct companion for No! No! I Created You!', () => {
+    const inventor: Character = { ...base, className: 'Inventor', subclass: 'Construct' }
+    expect(check('construct companion', inventor).missing).toEqual([])
+    expect(check('construct companion', { ...inventor, subclass: 'Armor' }).missing).toEqual(['construct companion'])
+    expect(check('construct companion', { ...inventor, subclass: 'Armor', feats: [{ ...selected('Second Innovation', 8), choice: 'Construct' }] }, [], 7).missing).toEqual(['construct companion'])
+    expect(check('construct companion', { ...inventor, subclass: 'Armor', feats: [{ ...selected('Second Innovation', 8), choice: 'Construct' }] }).missing).toEqual([])
+  })
+  it('permits a second Ubiquitous Gadgets only at level 14 or later', () => {
+    const gadget = entry('feat', 'Ubiquitous Gadgets', { prerequisite: 'Gadget Specialist' }, 8, ['Inventor'])
+    const inventor: Character = { ...base, className: 'Inventor', level: 16,
+      feats: [selected('Gadget Specialist', 4), selected('Ubiquitous Gadgets', 8)] }
+    const slot = (level: number) => ({ key: `class:${level}:0`, category: 'class' as const, level })
+    expect(eligibleFeats([gadget], inventor, slot(12))).toEqual([])
+    expect(eligibleFeats([gadget], inventor, slot(14))).toEqual([gadget])
+    expect(eligibleFeats([gadget], { ...inventor, feats: [...inventor.feats, selected('Ubiquitous Gadgets', 14)] }, slot(16))).toEqual([])
+  })
   it('grants each Order Explorer a first-level feat from its chosen order at the acquisition level', () => {
     const animal = entry('feat', 'Animal Companion', { prerequisite: 'animal order' }, 1, ['Druid'])
     const flame = entry('feat', 'Leshy Familiar', { prerequisite: 'leaf order' }, 1, ['Druid'])

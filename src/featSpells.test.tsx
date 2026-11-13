@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { classSpellcasting, eligibleFeats, featChoiceOptions, focusSpells, knowsSpell } from './builder'
+import { classSpellcasting, eligibleFeats, featChoiceOptions, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
@@ -30,6 +30,19 @@ function findUseButton(node: ReactNode, label: string): { disabled?: boolean; on
   })
   return found
 }
+
+it('grants Sacral Monarch spells once each per day only within the claimed territory', () => {
+  const source = feat('Sacral Monarch', 'While in your territory, you can cast [_banishment_](/Spells.aspx?ID=1448) and [_inevitable disaster_](/Spells.aspx?ID=930) as innate divine spells, each once per day.', 14)
+  const spells = ['Banishment', 'Inevitable Disaster'].map(name => ({ ...entry(name, 'spell'), level: 5 }))
+  const c: Character = { ...base, level: 14, feats: [taken(source.name, 14)] }
+  expect(source.spellGrants).toHaveLength(1)
+  const grants = grantedFeatSpells(c, [source, ...spells])
+  expect(grants.map(grant => grant.entry.name)).toEqual(['Banishment', 'Inevitable Disaster'])
+  expect(grants.every(grant => grant.rank === 5 && grant.rule.frequency === 'once per day'
+    && grant.rule.condition === 'Only within your claimed territory')).toBe(true)
+  expect(grants[0].usageKey).not.toBe(grants[1].usageKey)
+  expect(grantedFeatSpells({ ...c, level: 13 }, [source, ...spells])).toEqual([])
+})
 
 it('refocuses one point per ten minutes across saves without resetting spells or daily uses', () => {
   let c: Character = { ...base, activeSpells: ['Animal Feature'], innateSpellUses: { daily: 1 } }
@@ -94,6 +107,111 @@ it('grants each First World Adept spell once daily at rank two', () => {
   expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, dailyInnateUses(c, grant)?.limit]))
     .toEqual([['Invisibility', 2, 'primal', 1], ['Revealing Light', 2, 'primal', 1]])
   expect(dailyInnateUses(c, grants[0])?.key).not.toBe(dailyInnateUses(c, grants[1])?.key)
+})
+
+it('grants Grown of Oak at the correct innate rank and applies only the selected active cast rank', () => {
+  const grown = feat('Grown of Oak', 'You can cast [oaken resilience](/Spells.aspx?ID=1617) at will as an innate primal spell with a spell rank one lower than the highest rank of spells you can cast.', 6)
+  const spell = { ...entry('Oaken Resilience', 'spell', { duration: '10 minutes' }), level: 2 }
+  const entries = [grown, spell]
+  const c: Character = { ...base, level: 10, className: 'Druid', feats: [taken(grown.name, 6)], activeSpells: ['Oaken Resilience'] }
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: spell, rank: 4, rule: { frequency: 'at will', tradition: 'primal' } }])
+  expect(oakenResilience(c, entries)).toBeUndefined()
+  for (const [rank, resistance, fireWeakness] of [[2, 2, 3], [3, 2, 3], [4, 4, 6], [8, 8, 12]]) {
+    const active = { ...c, oakenResilienceRank: rank }
+    expect(oakenResilience(active, entries)).toEqual({ rank, resistance, fireWeakness })
+    expect(resistances(active, entries)).toEqual([
+      { damage: 'Bludgeoning', value: resistance, source: spell.name },
+      { damage: 'Piercing', value: resistance, source: spell.name },
+    ])
+    expect(oakenResilience({ ...active, activeSpells: [] }, entries)).toBeUndefined()
+    expect(oakenResilience({ ...active, feats: [] }, entries)).toBeUndefined()
+  }
+  expect(oakenResilience({ ...c, oakenResilienceRank: 11 }, entries)).toBeUndefined()
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Oaken Resilience cast rank')
+  expect(html).toContain('Active on you')
+  expect(unresolvedFeatSpells(c, [grown])).toMatchObject([{ name: 'Oaken Resilience' }])
+})
+
+it('grants only the chosen Touch of the Sea cantrip', () => {
+  const source = feat('Touch of the Sea', 'Choose either gale blast or spout.', 1)
+  const spells = ['Gale Blast', 'Spout', 'Light'].map(name => entry(name, 'spell', {}, ['Cantrip']))
+  const c: Character = { ...base, level: 7, feats: [taken(source.name, 1, 'Spout')] }
+  expect(featSpellOptions(c, [source, ...spells], c.feats[0])?.map(spell => spell.name)).toEqual(['Gale Blast', 'Spout'])
+  expect(grantedFeatSpells(c, [source, ...spells])).toMatchObject([{ entry: spells[1], rank: 4, rule: { frequency: 'at will', tradition: 'primal' } }])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 1, 'Light')] }, [source, ...spells])).toEqual([])
+})
+
+it('applies Elemental Wrath damage and trait only to its granted spell', () => {
+  const source = feat('Elemental Wrath', 'Choose acid, cold, electricity, or fire.', 1)
+  const spell = { ...entry('Acid Splash', 'spell', {}, ['Cantrip', 'Acid']), description: 'Deal acid damage.' }
+  const c: Character = { ...base, level: 5, feats: [taken(source.name, 1, 'Fire')] }
+  const grant = grantedFeatSpells(c, [source, spell])[0]
+  expect(grant).toMatchObject({ rank: 3, entry: { traits: ['Cantrip', 'Fire'], description: expect.stringContaining('fire damage') } })
+  expect(spell.traits).toEqual(['Cantrip', 'Acid'])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name)] }, [source, spell])).toEqual([])
+  expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: 'Acid Splash or Caustic Splash' }])
+})
+
+it('applies Untamed Shift selected effects, attack runes, heightening, and form resistance', () => {
+  const c: Character = { ...base, className: 'Druid', order: 'Wild', level: 11,
+    feats: [taken('Untamed Form'), taken('Elemental Shape', 10), taken('Soaring Shape', 8)],
+    handwraps: { potency: 2, striking: 1, runes: [] },
+    activeSpells: ['Untamed Shift', 'Untamed Form'], untamedShiftEffects: ['Claws', 'Elemental', 'Wings'] }
+  expect(focusSpells(c, []).spells.map(spell => spell.name)).toEqual(expect.arrayContaining(['Untamed Shift', 'Untamed Form']))
+  const claw = ownedWeapons(c, []).find(weapon => weapon.name === 'Untamed Claws')!
+  expect(weaponAttack(c, [], claw)).toMatchObject({ item: 2, damage: '2d6 slashing' })
+  expect(resistances(c, [])).toEqual(expect.arrayContaining([
+    { damage: 'Critical hits', value: 5, source: 'Untamed Shift' },
+    { damage: 'Precision', value: 5, source: 'Untamed Shift' },
+    { damage: 'Fire', value: 5, source: 'Elemental Shape (polymorphed)' },
+  ]))
+  expect(movementSpeeds(c, []).some(speed => speed.name === 'Fly')).toBe(false)
+  expect(movementSpeeds({ ...c, level: 19 }, [])).toContainEqual({ name: 'Fly', feet: 30, source: 'Untamed Shift' })
+  const shifted = { ...c, activeSpells: [] }
+  expect(ownedWeapons(shifted, []).some(weapon => weapon.name === 'Untamed Claws')).toBe(false)
+  expect(resistances(shifted, [])).toEqual([])
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Untamed Shift: Claws')
+})
+
+it('grants Life Preserver and A Different Sort of Fey innate spells', () => {
+  const life = feat('Life Preserver', 'You can cast [life seal](/spells/171-life-seal) once per day as a 3rd-rank primal innate spell. You can target only yourself, but the duration increases to 10 minutes.', 9)
+  const fey = feat('A Different Sort of Fey', 'You can cast [discharge](/spells/66-discharge), [electrotether](/spells/87-electrotether), and [irradiate](/spells/166-irradiate) once per day each as 3rd-rank primal innate spells.', 13)
+  const spells = ['Life Seal', 'Discharge', 'Electrotether', 'Irradiate'].map(name => entry(name, 'spell'))
+  const c = { ...base, level: 13, feats: [taken(life.name, 9), taken(fey.name, 13)] }
+  const grants = grantedFeatSpells(c, [life, fey, ...spells])
+  expect(grants.map(grant => grant.entry.name)).toEqual(spells.map(spell => spell.name))
+  expect(grants.every(grant => grant.rank === 3 && dailyInnateUses(c, grant)?.limit === 1)).toBe(true)
+  expect(new Set(grants.map(grant => dailyInnateUses(c, grant)?.key)).size).toBe(4)
+})
+
+it('recognizes the truncated order-spell grant in Impaling Briars source data', () => {
+  const raw = 'Header\n\n---\n\nYou can fill an area with devastating briars. You gain the [_impaling briars_](/Spells.aspx?ID=1857) order.'
+  expect(parseFeatSpellGrants(raw)).toEqual([{ kind: 'focus', spells: ['impaling briars'], heightened: true, tradition: undefined }])
+})
+
+it('grants the selected ancestry-specific cantrip at will and heightens it', () => {
+  const source = mapAonHit({ _id: 'gnome-cantrip', _source: { name: 'Ancestral Cantrip', category: 'feat', level: 1, trait: ['Gnome'],
+    markdown: 'Header\n\n---\n\nChoose one cantrip.<br/><br/>**[Option(s)](/feats/1)**: primal; _[adhere](/spells/1)_' } }, 'sf2e')!
+  const adhere = { ...entry('Adhere', 'spell', { tradition: 'Primal' }, ['Cantrip']), systems: ['sf2e' as const] }
+  const other = { ...entry('Light', 'spell', { tradition: 'Primal' }, ['Cantrip']), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Gnome', level: 7, feats: [taken(source.name, 1, 'Adhere')] }
+  expect(featSpellOptions(c, [source, adhere, other], c.feats[0])).toEqual([adhere])
+  expect(grantedFeatSpells(c, [source, adhere, other])).toMatchObject([{ entry: adhere, rank: 4, rule: { tradition: 'primal', frequency: 'at will' } }])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 1, 'Light')] }, [source, adhere, other])).toEqual([])
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, adhere]} save={() => {}} />)).toContain('Ancestral Cantrip spell')
+})
+
+it('allows listed ancestral cantrips when the source omits a tradition without inventing one', () => {
+  const source = mapAonHit({ _id: 'urog-cantrip', _source: { name: 'Ancestral Cantrip', category: 'feat', level: 1, trait: ['Urog'],
+    markdown: 'Header\n\n---\n\nChoose one cantrip.<br/><br/>**[Option(s)](/feats/1)**: _[guidance](/spells/1)_, or _[measure](/spells/2)_' } }, 'sf2e')!
+  const guidance = { ...entry('Guidance', 'spell', {}, ['Cantrip']), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Urog', feats: [taken(source.name, 1, 'Guidance')] }
+  expect(featSpellOptions(c, [source, guidance], c.feats[0])).toEqual([guidance])
+  expect(grantedFeatSpells(c, [source, guidance])[0].rule).toMatchObject({
+    tradition: undefined, condition: 'Tradition not specified in ancestry source; verify with GM',
+  })
 })
 
 it('selects only unused ancestry spells at the feat slot rank and grants the correct innate rank', () => {

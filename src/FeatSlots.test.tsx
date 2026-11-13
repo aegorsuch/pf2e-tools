@@ -2,13 +2,46 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
+import { FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
-import { plannedSlots, ranksAt, unslottedFeats } from './builder'
+import { featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
 import type { Character, ContentEntry } from './types'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('preserves legacy and qualified Shobhad selections in the weapon selector', () => {
+  const pf: ContentEntry = { id: 'pf', name: 'Shobhad Longrifle', kind: 'weapon', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: '', data: { weapon_category: 'Martial', rarity: 'rare' }, effects: [], updatedAt: 0 }
+  const sf: ContentEntry = { ...pf, id: 'sf', systems: ['sf2e'], data: { weapon_category: 'Martial', rarity: 'common' } }
+  const c: Character = { ...emptyRanger(), systems: ['pf2e', 'sf2e'],
+    feats: [{ name: 'Unconventional Weaponry', type: 'Ancestry Feat', level: 1, choice: 'Shobhad Longrifle' }] }
+  for (const [choice, entries] of [
+    ['Shobhad Longrifle', [sf, pf]],
+    ['Shobhad Longrifle (Starfinder)', [sf]],
+    ['Shobhad Longrifle (Pathfinder)', [pf]],
+  ] as const) {
+    const markup = renderToStaticMarkup(<FeatChoice c={{ ...c, feats: [{ ...c.feats[0], choice }] }}
+      entries={[...entries]} save={() => {}} index={0} />)
+    expect(markup).toContain(`<option selected="">${choice}</option>`)
+    expect(markup).not.toContain(`<option disabled="">${choice}</option>`)
+  }
+})
+
+it('shows daily Assurance from Carry Their Memories without satisfying permanent prerequisites', () => {
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 5, skillPicks: ['Athletics'],
+    feats: [{ name: 'Carry Their Memories', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Athletics' }] }
+  const assurance: ContentEntry = { id: 'assurance', name: 'Assurance', kind: 'feat', systems: ['sf2e'],
+    source: 'official', level: 1, traits: ['General', 'Skill'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const target: ContentEntry = { ...assurance, id: 'target', name: 'Target', data: { prerequisite: 'Assurance' } }
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[assurance]} save={() => {}} index={0} />)).toContain('Daily Assurance skill')
+  expect(renderToStaticMarkup(<FeatSlots c={c} entries={[assurance]} save={() => {}} categories={['skill']} />))
+    .toContain('Carry Their Memories (Athletics; temporary)')
+  expect(featPrerequisiteChecker(c, [assurance, target])(target).missing).toContain('Assurance')
+  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, skillPicks: [] }} entries={[assurance]} save={() => {}} categories={['skill']} />))
+    .not.toContain('Carry Their Memories (Athletics; temporary)')
+})
 
 it('keeps Snare Crafting and its grant source inside one description button', () => {
   const c: Character = { ...emptyRanger(), level: 2,
@@ -119,7 +152,8 @@ it('unlocks Farabellus Flip for either saved Society membership wording but reta
   for (const membership of ['member of the pathfinder society', 'A character who is a member of the Pathfinder Society has access to this option.']) {
     const saved: Character = JSON.parse(JSON.stringify({ ...c, achievements: [membership] }))
     const markup = renderToStaticMarkup(tree(saved))
-    expect(markup).toContain('Farabellus Flip (Uncommon) * Access: Member of the Pathfinder Society. (met)')
+    expect(markup).toContain('Farabellus Flip (Uncommon)')
+    expect(markup).not.toContain('Access: Member of the Pathfinder Society. (met)')
     expect(markup).not.toContain('value="Farabellus Flip" disabled=""')
     expect(renderToStaticMarkup(tree({ ...saved, skillPicks: [] }))).toContain('Missing Trained in Acrobatics')
     expect(renderToStaticMarkup(<FeatSlots c={saved} entries={[flip]} categories={['class']} save={() => {}} />))
@@ -148,7 +182,7 @@ it('unlocks Wild Hunter through a saved achievement without bypassing level or s
   findButton(tree(), blockedLabel)!()
   expect(save).not.toHaveBeenCalled()
   c = JSON.parse(JSON.stringify({ ...c, achievements: [key] }))
-  const allowedLabel = `${prefix} * Access: ${access} (met)`
+  const allowedLabel = prefix
   expect(renderToStaticMarkup(tree())).toContain(`aria-label="${allowedLabel}">`)
   findButton(tree(), allowedLabel)!()
   expect(c.feats).toContainEqual({ name: wild.name, type: 'Dedication Feat', level: 8, slot: 'archetype:8:0' })

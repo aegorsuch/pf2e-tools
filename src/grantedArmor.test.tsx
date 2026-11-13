@@ -1,10 +1,11 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { armorClass, armorEntry, armorSpecialization, defenseSummary, ownedArmors, wornArmor } from './builder'
+import { armorClass, armorEntry, armorGauntlet, armorSpecialization, defenseSummary, equippedShield, hardwoodShield, ownedArmors, shieldRaisedChange, wornArmor } from './builder'
 import { ArmorList } from './GearSection'
 import { SkillsSection } from './SkillsSection'
-import { grantedArmorEntries, INVENTOR_ARMOR_ID } from './grantedArmor'
+import { grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
+import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -14,6 +15,41 @@ const base: Character = {
 }
 const feat = (name: string, choice?: string, level = 1): Character['feats'][number] =>
   ({ name, choice, level, type: 'Ancestry Feat' })
+
+it.each(['Ranger', 'Druid', 'Kineticist'])('grants locked, scaling Hardwood Armor to %s without replacing owned gear', className => {
+  const c: Character = { ...base, className, level: 11, feats: [feat('Hardwood Armor')],
+    armors: [{ id: 'existing', name: 'Chain Mail', worn: false, potency: 1, resilient: 0, runes: [] }] }
+  const armor = ownedArmors(c, []).find(item => item.id === HARDWOOD_ARMOR_ID)
+  expect(armor).toMatchObject({ name: className === 'Kineticist' ? 'Hardwood Armor' : 'Wooden Breastplate',
+    potency: 2, resilient: 1, material: 'Duskwood (Standard-Grade)' })
+  expect(ownedArmors(c, []).some(item => item.id === 'existing')).toBe(true)
+  expect(ownedArmors({ ...c, level: 20 }, [])[0]).toMatchObject({ potency: 3, resilient: 3, material: 'Duskwood (High-Grade)' })
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />))
+    .not.toContain('aria-label="Remove Duskwood (Standard-Grade) material"')
+  expect(ownedArmors({ ...c, feats: [] }, []).some(item => item.id === HARDWOOD_ARMOR_ID)).toBe(false)
+  expect(!!hardwoodShield(c)).toBe(className !== 'Ranger')
+})
+
+it('preserves ordinary shields while generated hardwood shield is equipped and raised', () => {
+  const ordinary = { id: 'ordinary', name: 'Steel Shield', hardness: 5, hp: 20, damage: 2, raised: false }
+  let c: Character = { ...base, className: 'Druid', level: 10, feats: [feat('Hardwood Armor')], shield: ordinary }
+  expect(equippedShield(c)?.id).toBe('ordinary')
+  c = { ...c, hardwoodShield: { equipped: true } }
+  expect(hardwoodShield(c)).toMatchObject({ hardness: 6, hp: 24 })
+  c = { ...c, ...shieldRaisedChange(c, true) }
+  expect(equippedShield(c)).toMatchObject({ id: 'granted-shield:hardwood', raised: true })
+  expect(c.shield).toEqual(ordinary)
+  expect(equippedShield({ ...c, feats: [] })).toEqual(ordinary)
+})
+
+it('provides Ranger and Druid copies without the impulse trait', () => {
+  const original: ContentEntry = { id: 'hardwood', kind: 'feat', name: 'Hardwood Armor', systems: ['pf2e'], source: 'official',
+    level: 1, traits: ['Impulse', 'Kineticist', 'Wood', 'Primal'], data: {}, description: '', effects: [], updatedAt: 0 }
+  const copy = homebrewCharacterOptions([original]).find(entry => entry.name === 'Hardwood Armor')!
+  expect(copy.data.class).toBe('Ranger, Druid')
+  expect(copy.traits).toEqual(['Wood', 'Primal', 'Ranger', 'Druid'])
+  expect(original.traits).toContain('Impulse')
+})
 
 function find(node: ReactNode, predicate: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
   for (const child of Children.toArray(node)) {
@@ -110,6 +146,13 @@ it('does not grant Inventor armor from other innovations or future feats', () =>
   expect(ownedArmors({ ...base, className: 'Inventor', subclass: 'Weapon' }, [])).toHaveLength(0)
   expect(ownedArmors({ ...base, feats: [feat('Inventor Dedication', 'Construct')] }, [])).toHaveLength(0)
   expect(ownedArmors({ ...base, feats: [feat('Inventor Dedication', 'Armor', 2)] }, [])).toHaveLength(0)
+})
+
+it('provides the configured gauntlet for a worn Power Suit only', () => {
+  const c: Character = { ...base, className: 'Inventor', subclass: 'Armor',
+    armors: [{ id: INVENTOR_ARMOR_ID, name: 'Power Suit', worn: true, potency: 1, resilient: 0, runes: [], gauntlet: 'Clawed Gauntlet' }] }
+  expect(armorGauntlet(c, [])).toMatchObject({ name: 'Clawed Gauntlet' })
+  expect(armorGauntlet({ ...c, inventorArmorSuit: 'Subterfuge Suit' }, [])).toBeUndefined()
 })
 
 it.each([

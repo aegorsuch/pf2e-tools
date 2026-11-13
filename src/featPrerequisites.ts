@@ -19,6 +19,7 @@ export interface PrerequisiteFacts {
   ranks: Record<string, number>
   armor: Record<string, number>
   weapons: Record<string, number>
+  weaponRank?: (name: string) => number | undefined
   abilities: Character['abilities']
   senses: string[]
   spellcastingClassFeature?: boolean
@@ -26,6 +27,10 @@ export interface PrerequisiteFacts {
   focusPool?: boolean
   wardenSpells?: string[]
   companionTypes?: string[]
+  familiar?: boolean
+  primalInnateSpell?: boolean
+  limitedTelepathy?: boolean
+  constructCompanion?: boolean
 }
 
 const key = (text: string) => text.trim().toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ')
@@ -198,6 +203,11 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const name = key(text).replace(/\.$/, '')
     if (name === 'spellcasting class feature') return resultFor(!!facts.spellcastingClassFeature, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
+    if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
+    if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
+    if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)
+    if (name === 'sneak attack 2d6' && facts.className === 'Rogue') return resultFor(level >= 5, text)
+    if (name === 'construct companion' || name === 'a construct companion') return resultFor(!!facts.constructCompanion, text)
     if (name === 'an animal companion') return resultFor(!!facts.companionTypes?.length
       || facts.feats.some(feat => key(feat.name) === 'animal companion')
       || facts.features.some(feature => ['animal companion', 'an animal companion'].includes(key(feature))), text)
@@ -232,6 +242,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const skill = Object.keys(facts.ranks).find((skill) => key(skill) === subject)
       const armor = /^(light|medium|heavy) armor$|^(unarmored) defense$/.exec(subject)
       const weapon = /^(simple|martial|advanced) weapons?$|^(unarmed) attacks?$/.exec(subject)
+      if (/^(?:at least )?(?:one|any) skill$/.test(subject)) {
+        return resultFor(Object.entries(facts.ranks).some(([stat, value]) =>
+          !/^(?:perception|fortitude|reflex|will)$/i.test(stat) && value >= rank), text)
+      }
       if (skill) return resultFor(rankSatisfied(subject === 'crafting' && survivalForCrafting && facts.className === 'Ranger'
         ? Math.max(facts.ranks[skill], facts.ranks.Survival ?? 0) : facts.ranks[skill], rank), text)
       if (/^[\w' -]+ lore$/.test(subject) && !/\b(?:and|or)\b/.test(subject)) return resultFor(rankSatisfied(0, rank), text)
@@ -245,6 +259,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       if (weapon) {
         const group = weapon[1] ?? weapon[2]
         return resultFor(rankSatisfied(facts.weapons[group[0].toUpperCase() + group.slice(1)] ?? 0, rank), text)
+      }
+      if (subject === 'sawtooth sabers') {
+        const weaponRank = facts.weaponRank?.('Sawtooth Saber')
+        return weaponRank === undefined ? manual(text) : resultFor(rankSatisfied(weaponRank, rank), text)
       }
     }
     const role = ROLE_PATTERN.exec(name)

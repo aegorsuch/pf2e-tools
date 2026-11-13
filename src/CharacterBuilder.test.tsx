@@ -63,10 +63,28 @@ it('shows ancestry-specific Lore in Skills and feat-adjusted Bulk limits inside 
     for (const label of ['ancestry', 'heritage', 'background', 'class', 'deity'])
       expect(markup).not.toContain(`aria-label="Search ${label}"`)
     expect(markup).toContain('Human Lore')
-    const gear = markup.slice(markup.indexOf('<strong>Gear</strong>'), markup.indexOf('<strong>General Feats</strong>'))
+    const gear = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     expect(gear).toContain('aria-label="Bulk limits"')
     expect(gear).toContain('Encumbered above <b>8</b> Bulk; maximum <b>13</b> Bulk.')
   } finally { content.entries = [] }
+})
+
+it('keeps equipment editing separate from offensive attack summaries', () => {
+  const c: Character = {
+    id: 'equipment', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: 'Arrows', qty: 10 }, { name: 'Bolts', qty: 10 }, { name: 'Bullets', qty: 10 }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
+  const offense = markup.slice(markup.indexOf('<strong>Offense</strong>'), markup.indexOf('<strong>Skill Feats</strong>'))
+  expect(equipment).toContain('Add Weapon')
+  expect(equipment).toContain('Add Armor')
+  for (const name of ['Arrows', 'Bolts', 'Bullets']) expect(equipment).toContain(`<h4>${name}</h4>`)
+  expect(offense).toContain('1 Weapon')
+  expect(offense).toContain('Fist')
+  expect(offense).not.toContain('Add Weapon')
 })
 
 it('keeps large background and deity catalogs searchable before lazy choices are populated', () => {
@@ -156,7 +174,7 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
   const headings = [...markup.matchAll(/<summary class="character-section-summary"><strong>([^<]+)<\/strong>/g)]
     .map((match) => match[1])
   expect(headings).toEqual([
-    'Ability Scores', 'Ancestry', 'Background', 'Class', 'Dedications', 'Defense', 'Deity', 'Formulas', 'Gear',
+    'Ability Scores', 'Ancestry', 'Background', 'Class', 'Dedications', 'Defense', 'Deity', 'Equipment', 'Formulas',
     'General Feats', 'Languages', 'Minions', 'Offense', 'Skill Feats', 'Skills', 'Spells',
   ])
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
@@ -235,7 +253,7 @@ it('defers unused picker choices while retaining saved values and deity labels',
 })
 
 it.each([
-  ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Ranger'],
+  ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Edge Ranger'],
   ['cause', 'Champion', 'Justice', 'Champion of Justice'],
   ['instinct', 'Barbarian', 'Giant', 'Giant Instinct Barbarian'],
   ['innovation', 'Inventor', 'Construct', 'Construct Inventor'],
@@ -250,7 +268,7 @@ it.each([
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toContain(`<strong>Class</strong><span>${label}</span>`)
+  expect(markup).toContain(`<strong>Class</strong><span>${label}, 0/1</span>`)
   expect(markup).toContain(`<option value="${name}" selected="">${name}</option>`)
   if (className === 'Barbarian') expect(markup).toContain('>Instinct</label>')
   if (className === 'Inventor') expect(markup).toContain('>Innovation</label>')

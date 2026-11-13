@@ -65,6 +65,16 @@ const CHUNK = 200
 
 const chunks = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n))
 
+export async function applyRemoteRows(table: Table, bodies: { id: string; updatedAt: number }[]) {
+  const target = db.table<{ id: string; updatedAt: number }, string>(table)
+  await db.transaction('rw', target, async () => {
+    for (const body of bodies) {
+      const current = await target.get(body.id)
+      if (!current || current.updatedAt < body.updatedAt) await target.put(body)
+    }
+  })
+}
+
 // Supabase caps responses at 1000 rows, so page through id/updated_at (bodies are fetched only when needed).
 async function fetchRemoteIndex(table: Table) {
   const index = new Map<string, number>()
@@ -101,8 +111,7 @@ async function syncTable(table: Table, userId: string) {
     const { data, error } = await supabase.from(table).select('body').in('id', c)
     if (error) throw error
     const bodies = (data ?? []).map((r) => r.body)
-    if (table === 'characters') await db.characters.bulkPut(bodies)
-    else await db.content.bulkPut(bodies)
+    await applyRemoteRows(table, bodies)
   }
 }
 
