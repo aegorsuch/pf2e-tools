@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -183,6 +183,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
       const current = await db.characters.get(c.id)
       if (!current) throw new Error('Character no longer exists')
       const next = { ...current, ...patch, updatedAt: Math.max(Date.now(), current.updatedAt + 1) }
+      Object.assign(next, syncOrderExplorerFeats(next, entries))
       Object.assign(next, faithfulSteedChange(next, entries))
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
@@ -206,7 +207,8 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
     }
     if (!missing.length && !stale.length) {
       const migration = migrateAncestralLinguistics(c)
-      if (missingSteed || migration) void save({ ...missingSteed, ...migration })
+      const orderFeats = syncOrderExplorerFeats(c, entries)
+      if (missingSteed || migration || orderFeats) void save({ ...missingSteed, ...migration, ...orderFeats })
       return
     }
     const added = missing.map((d) => ({ d, entry: entries.find((e) => e.kind === 'feat' && e.name === d.name)! }))

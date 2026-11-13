@@ -389,7 +389,7 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key)
-    || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster')
+    || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer')
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -687,6 +687,32 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       seen.add(equivalence)
       return true
     }).map(({ entry }) => entry)
+}
+
+export function syncOrderExplorerFeats(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
+  let feats = c.feats
+  let entryIds = c.entryIds
+  for (const slot of plannedSlots(c).filter(slot => slot.grantedBy === 'Order Explorer')) {
+    const selected = feats.find(feat => feat.slot === slot.key)
+    if (selected) {
+      const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === selected.name
+        && entry.systems.some(system => c.systems.includes(system)))
+      if (!source) continue
+      const order = slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder
+      if (new RegExp(`\\b${order} order\\b`, 'i').test(String(source.data.prerequisite ?? ''))) continue
+      feats = feats.filter(feat => feat !== selected)
+      if (!feats.some(feat => feat.name === selected.name)) {
+        const ids = new Set(entries.filter(entry => entry.kind === 'feat' && entry.name === selected.name).map(entry => entry.id))
+        entryIds = entryIds.filter(id => !ids.has(id))
+      }
+    }
+    const candidates = eligibleFeats(entries, { ...c, feats, entryIds }, slot)
+    if (candidates.length !== 1) continue
+    const entry = candidates[0]
+    feats = [...feats, { name: entry.name, type: 'Class Feat', level: entry.level, slot: slot.key, takenLevel: slot.level }]
+    entryIds = [...new Set([...entryIds, entry.id])]
+  }
+  return feats === c.feats ? undefined : { feats, entryIds }
 }
 
 export const MASTERMIND_SKILLS = ['Arcana', 'Nature', 'Occultism', 'Religion']

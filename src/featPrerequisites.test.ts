@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses } from './builder'
+import { additionalSkillCount, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
 import { featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -257,6 +257,40 @@ describe('shared prerequisite enforcement', () => {
     const wild = { ...c, feats: [{ ...selected('Order Explorer', 2), choice: 'Wild' }] }
     expect(eligibleFeats([untamed], wild, plannedSlots(wild).find(slot => slot.grantedBy === 'Order Explorer')!)).toEqual([untamed])
     expect(plannedSlots({ ...c, level: 1 }).filter(slot => slot.grantedBy === 'Order Explorer')).toEqual([])
+  })
+  it.each([
+    ['Animal', 'Animal Companion', 'animal'], ['Flame', 'Fire Lung', 'flame'],
+    ['Leaf', 'Leshy Familiar', 'leaf'], ['Stone', 'Steadying Stone', 'stone'],
+    ['Storm', 'Storm Born', 'storm'], ['Wave', 'Shore Step', 'wave'], ['Wild', 'Untamed Form', 'untamed'],
+  ])('automatically selects the available %s order feat', (order, name, prerequisite) => {
+    const feat = entry('feat', name, { prerequisite: `${prerequisite} order` }, 1, ['Druid'])
+    const c: Character = { ...base, className: 'Druid', order: 'Leaf', level: 4, feats: [
+      { ...selected('Order Explorer', 2), choice: order },
+    ] }
+    const patch = syncOrderExplorerFeats(c, [feat])!
+    const granted = patch.feats!.find(selectedFeat => selectedFeat.name === name)
+    expect(granted).toMatchObject({ name, takenLevel: 2, slot: 'class:1:order-explorer:class:2:0' })
+    expect(patch.entryIds).toContain(feat.id)
+    expect(syncOrderExplorerFeats({ ...c, ...patch }, [feat])).toBeUndefined()
+    expect(syncOrderExplorerFeats({ ...c, level: 1 }, [feat])).toBeUndefined()
+  })
+
+  it('updates old order selections when the order changes, but leaves genuine alternatives to the user', () => {
+    const fire = entry('feat', 'Fire Lung', { prerequisite: 'flame order' }, 1, ['Druid'])
+    const wave = entry('feat', 'Shore Step', { prerequisite: 'wave order' }, 1, ['Druid'])
+    const anotherWave = entry('feat', 'Another Wave Feat', { prerequisite: 'wave order' }, 1, ['Druid'])
+    const slot = 'class:1:order-explorer:class:2:0'
+    const c: Character = { ...base, className: 'Druid', order: 'Animal', level: 4,
+      feats: [{ ...selected('Order Explorer', 2), choice: 'Wave' }, { ...selected('Fire Lung'), slot, takenLevel: 2 }],
+      entryIds: [fire.id] }
+    expect(syncOrderExplorerFeats(c, [])).toBeUndefined()
+    const patch = syncOrderExplorerFeats(c, [fire, wave])!
+    expect(patch.feats!.map(feat => feat.name)).toEqual(['Order Explorer', 'Shore Step'])
+    expect(patch.entryIds).toEqual([wave.id])
+    const multiple = syncOrderExplorerFeats(c, [fire, wave, anotherWave])!
+    expect(multiple.feats!.map(feat => feat.name)).toEqual(['Order Explorer'])
+    expect(syncOrderExplorerFeats({ ...c, feats: [...c.feats.slice(0, 1), { ...selected('Shore Step'), slot }] },
+      [fire, wave, anotherWave])).toBeUndefined()
   })
   it.each([
     ['Ranger', 'Snarecrafter Dedication', 'Snarecrafter', 'rangerSnarecrafter', 'archetype:2:g99'],
