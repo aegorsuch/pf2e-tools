@@ -8,6 +8,8 @@ import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
+import { WeaponList } from './GearSection'
+import { MinionsSection } from './MinionsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -122,28 +124,40 @@ it('grants each First World Adept spell once daily at rank two', () => {
   expect(dailyInnateUses(c, grants[0])?.key).not.toBe(dailyInnateUses(c, grants[1])?.key)
 })
 
-it('grants Grown of Oak at the correct innate rank and applies only the selected active cast rank', () => {
+it('heightens Grown of Oak automatically for the character and leshy familiar', () => {
   const grown = feat('Grown of Oak', 'You can cast [oaken resilience](/Spells.aspx?ID=1617) at will as an innate primal spell with a spell rank one lower than the highest rank of spells you can cast.', 6)
   const spell = { ...entry('Oaken Resilience', 'spell', { duration: '10 minutes' }), level: 2 }
   const entries = [grown, spell]
-  const c: Character = { ...base, level: 10, className: 'Druid', feats: [taken(grown.name, 6)], activeSpells: ['Oaken Resilience'] }
+  const c: Character = { ...base, level: 10, className: 'Druid',
+    feats: [taken(grown.name, 6), taken('Leshy Familiar')], activeSpells: ['Oaken Resilience'],
+    oakenResilienceRank: 2, familiar: { oakenResilienceActive: false, oakenResilienceRank: 2 } }
   expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: spell, rank: 4, rule: { frequency: 'at will', tradition: 'primal' } }])
-  expect(oakenResilience(c, entries)).toBeUndefined()
-  for (const [rank, resistance, fireWeakness] of [[2, 2, 3], [3, 2, 3], [4, 4, 6], [8, 8, 12]]) {
-    const active = { ...c, oakenResilienceRank: rank }
-    expect(oakenResilience(active, entries)).toEqual({ rank, resistance, fireWeakness })
-    expect(resistances(active, entries)).toEqual([
-      { damage: 'Bludgeoning', value: resistance, source: spell.name },
-      { damage: 'Piercing', value: resistance, source: spell.name },
-    ])
-    expect(oakenResilience({ ...active, activeSpells: [] }, entries)).toBeUndefined()
-    expect(oakenResilience({ ...active, feats: [] }, entries)).toBeUndefined()
-  }
-  expect(oakenResilience({ ...c, oakenResilienceRank: 11 }, entries)).toBeUndefined()
+  expect(oakenResilience(c, entries)).toEqual({ rank: 4, resistance: 4, fireWeakness: 6 })
+  expect(resistances(c, entries)).toEqual([
+    { damage: 'Bludgeoning', value: 4, source: spell.name },
+    { damage: 'Piercing', value: 4, source: spell.name },
+  ])
+  expect(oakenResilience({ ...c, level: 18 }, entries)).toEqual({ rank: 8, resistance: 8, fireWeakness: 12 })
+  expect(oakenResilience({ ...c, activeSpells: [] }, entries)).toBeUndefined()
+  expect(oakenResilience({ ...c, feats: [] }, entries)).toBeUndefined()
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(html).toContain('Oaken Resilience cast rank')
+  expect(html).toContain('Cast rank 4 (Grown of Oak)')
+  expect(html).not.toContain('Oaken Resilience cast rank')
   expect(html).toContain('Active on you')
+  const minions = (character: Character) => renderToStaticMarkup(<MinionsSection c={character} entries={entries} save={() => {}} />)
+  expect(minions(c)).toContain('Bludgeoning and piercing resistance 4; fire weakness 6')
+  expect(minions({ ...c, level: 18 })).toContain('Bludgeoning and piercing resistance 8; fire weakness 12')
+  expect(minions({ ...c, activeSpells: [] })).not.toContain('Bludgeoning and piercing resistance')
+  expect(minions(c)).not.toContain('Oaken Resilience active on leshy familiar')
   expect(unresolvedFeatSpells(c, [grown])).toMatchObject([{ name: 'Oaken Resilience' }])
+})
+
+it('keeps manual cast rank for Oaken Resilience without Grown of Oak', () => {
+  const c: Character = { ...base, spells: [{ name: 'Oaken Resilience', rank: 2, cantrip: false }],
+    activeSpells: ['Oaken Resilience'], oakenResilienceRank: 6 }
+  expect(oakenResilience(c, [])).toEqual({ rank: 6, resistance: 6, fireWeakness: 9 })
+  expect(oakenResilience({ ...c, oakenResilienceRank: 11 }, [])).toBeUndefined()
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)).toContain('Oaken Resilience cast rank')
 })
 
 it('grants only the chosen Touch of the Sea cantrip', () => {
@@ -187,6 +201,13 @@ it('applies Untamed Shift selected effects, attack runes, heightening, and form 
   expect(resistances(shifted, [])).toEqual([])
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Untamed Shift: Claws')
+  expect(html).not.toContain('Wings require casting with two actions')
+  for (const displayOnly of [false, true]) {
+    const weapons = renderToStaticMarkup(<WeaponList c={{ ...c, level: 19 }} entries={[]} save={() => {}} displayOnly={displayOnly} />)
+    expect(weapons).toContain('<strong>Claws</strong>')
+    expect(weapons).toContain(' + 4d6 persistent bleed')
+    expect(weapons).not.toContain('on a hit (Untamed Shift)')
+  }
 })
 
 it('grants Life Preserver and A Different Sort of Fey innate spells', () => {

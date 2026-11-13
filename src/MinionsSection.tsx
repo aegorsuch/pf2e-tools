@@ -1,11 +1,11 @@
 import { Info, SourceNote } from './Info'
-import { confirmRemoval } from './confirmRemoval'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
+import type { Character } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
 const PET_ABILITIES = ['Amphibious', 'Burrower', 'Climber', 'Darkvision', 'Echolocation', 'Fast Movement', 'Flier', 'Manual Dexterity', 'Scent', 'Tough']
@@ -22,13 +22,38 @@ const PET_ABILITY_NOTES: Record<string, string> = {
   Tough: 'Maximum HP increases by 2 per level.',
 }
 
-export function MinionsSection({ c, entries, save }: SectionProps) {
+function minionSummaryData(c: Character) {
   const companions = c.companions ?? []
-  const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
-  const types = entries.filter((e) => e.kind === 'companion').sort((a, b) => a.name.localeCompare(b.name))
   const advancement = companionAdvancement(c)
+  const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
   const leshy = activeFeatsNamed(c, 'Leshy Familiar').length > 0
   const familiar = leshy || c.className === 'Witch' || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
+  const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
+  const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
+    || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
+  return { companions, advancement, stage, leshy, familiar, seaFriend, pet }
+}
+
+export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
+  const { companions, stage, leshy, familiar, seaFriend, pet } = minionSummaryData(c)
+  return <summary className="character-section-summary">
+    <strong>Minions</strong>
+    <span>{[...companions.map((comp, index) => `${index === 0 ? stage : 'Young'} ${comp.type}${comp.name ? ` (${comp.name})` : ''}`),
+      ...(familiar ? [leshy ? 'Leshy Familiar' : 'Familiar'] : []), ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
+  </summary>
+}
+
+export function MinionsSection(props: SectionProps) {
+  return <details className="character-section">
+    <MinionsSummary {...props} />
+    <MinionsContent {...props} />
+  </details>
+}
+
+export function MinionsContent({ c, entries, save }: SectionProps) {
+  const { companions, advancement, stage, leshy, familiar, seaFriend, pet } = minionSummaryData(c)
+  const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
+  const types = entries.filter((e) => e.kind === 'companion').sort((a, b) => a.name.localeCompare(b.name))
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + (c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0)
   const familiarAbilities = (c.familiar?.abilities ?? []).slice(0, familiarCapacity).filter(Boolean)
@@ -41,11 +66,9 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
       reflex: base(savingThrowBreakdown(c, entries, 'Reflex', ranks)), will: base(savingThrowBreakdown(c, entries, 'Will', ranks)) }
   })() : undefined
   const familiarSecrets = familiar && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
+  const oaken = leshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 ? oakenResilience(c, entries) : undefined
   const highestSlot = Math.max(c.className === 'Druid' ? Math.ceil(c.level / 2) : 0,
     ...Object.entries(c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
-  const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
-  const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
-    || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
   const petAbilities = c.pet?.abilities ?? []
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
     .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)))
@@ -59,15 +82,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
     save({ companions: companions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
   const setFeatChoice = (featIndex: number, choice: string) =>
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
-  const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
-
   return (
-    <details className="character-section">
-      <summary className="character-section-summary">
-        <strong>Minions</strong>
-        <span>{[...companions.map((comp, index) => `${index === 0 ? stage : 'Young'} ${comp.type}${comp.name ? ` (${comp.name})` : ''}`),
-          ...(familiar ? [leshy ? 'Leshy Familiar' : 'Familiar'] : []), ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
-      </summary>
       <div className="character-section-content">
         <details className="character-subsection" open>
           <summary><h4>Animal Companions ({companions.length})</h4></summary>
@@ -94,8 +109,6 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
                   <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value })}>
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
-                  <button type="button" className="spell-remove" aria-label={`Remove ${comp.name || comp.type}`} title="Remove"
-                    onClick={() => confirmRemoval(`companion "${comp.name || comp.type}"`, () => save({ companions: companions.filter((x) => x.id !== comp.id) }))}>×</button>
                 </header>
                 {magicHideKnown && <label><input type="checkbox" aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
                   onChange={(e) => save(magicHideChange(c, e.target.checked, comp.id))} /> Magic Hide</label>}
@@ -248,20 +261,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
           </div>}
           {c.className === 'Witch' && <small>One ability must be your patron's unique familiar ability.</small>}
           {leshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 && knowsSpell(c, entries, 'Oaken Resilience') && <>
-            <label><input type="checkbox" aria-label="Oaken Resilience active on leshy familiar" checked={!!c.familiar?.oakenResilienceActive}
-              onChange={event => save({ familiar: { ...c.familiar, oakenResilienceActive: event.target.checked } })} /> Oaken Resilience active on leshy familiar</label>
-            {c.familiar?.oakenResilienceActive && <>
-              <label>Cast rank <select aria-label="Leshy familiar Oaken Resilience cast rank" value={c.familiar.oakenResilienceRank ?? ''}
-                onChange={event => {
-                  const rank = Number(event.target.value)
-                  save({ familiar: { ...c.familiar, oakenResilienceRank: Number.isInteger(rank) && rank >= 2 && rank <= 10 ? rank : undefined } })
-                }}><option value="">Choose cast rank</option>
-                {Array.from({ length: 9 }, (_, i) => i + 2).map(rank => <option key={rank} value={rank}>{rank}</option>)}
-              </select></label>
-              {Number.isInteger(c.familiar.oakenResilienceRank) && c.familiar.oakenResilienceRank! >= 2 && c.familiar.oakenResilienceRank! <= 10
-                ? <small>Bludgeoning and piercing resistance {2 * (1 + Math.floor((c.familiar.oakenResilienceRank! - 2) / 2))}; fire weakness {3 * (1 + Math.floor((c.familiar.oakenResilienceRank! - 2) / 2))}.</small>
-                : <small>Choose the cast rank to calculate effects.</small>}
-            </>}
+            {oaken && <small>Oaken Resilience: Bludgeoning and piercing resistance {oaken.resistance}; fire weakness {oaken.fireWeakness}.</small>}
             <small>Grown of Oak targets your leshy familiar only if within 30 feet when cast.</small>
           </>}
         </details>}
@@ -294,6 +294,5 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
           <small>Pet abilities must include abilities natural to the chosen animal; review ability effects and Command an Animal rules.</small>
         </details>}
       </div>
-    </details>
   )
 }

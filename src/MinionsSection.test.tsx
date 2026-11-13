@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
-import { MinionsSection } from './MinionsSection'
+import { MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
@@ -129,7 +129,7 @@ it('provides one extra Leshy Familiar Secrets ability and requires second-rank s
     feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }, { name: 'Leshy Familiar Secrets', type: 'Class Feat', level: 4 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   }
-  const tree = () => MinionsSection({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
+  const tree = () => MinionsContent({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
   findSelect(tree(), 'Leshy Familiar Secrets ability')?.({ target: { value: 'Verdant Burst' } })
   expect(c.familiar?.leshySecret).toBe('Verdant Burst')
   expect(renderToStaticMarkup(tree())).toContain('three-action Heal at rank 1')
@@ -251,12 +251,13 @@ it.each([
   expect(markup).not.toContain(specialized)
   expect(markup).not.toContain('Add animal companion')
   expect(markup).toContain('aria-label="Companion type"')
+  expect(markup).not.toContain('aria-label="Remove Wolf"')
   expect(markup).not.toContain('aria-label="Companion name"')
   expect(markup).toContain('<strong>Wolf</strong>')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
     .not.toContain('Add animal companion')
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const choose = findSelect(MinionsSection({ c, entries: [wolf], save }), 'Companion specialization 2')
+  const choose = findSelect(MinionsContent({ c, entries: [wolf], save }), 'Companion specialization 2')
   if (!choose) throw new Error('Missing specialization dropdown')
   choose({ target: { value: 'Racer' } })
   expect(c.feats[1]).toMatchObject({ name: specialized, choice: 'Racer' })
@@ -264,7 +265,7 @@ it.each([
   c = { ...c, feats: [...c.feats].reverse() }
   const reordered = renderToStaticMarkup(<MinionsSection c={c} entries={[wolf]} save={save} />)
   expect(reordered.indexOf('aria-label="Companion advancement"')).toBeLessThan(reordered.indexOf('aria-label="Companion specialization 1"'))
-  const advance = findSelect(MinionsSection({ c, entries: [wolf], save }), 'Companion advancement')
+  const advance = findSelect(MinionsContent({ c, entries: [wolf], save }), 'Companion advancement')
   if (!advance) throw new Error('Missing advancement dropdown')
   advance({ target: { value: 'Savage' } })
   expect(c.feats[1]).toMatchObject({ name: advanced, choice: 'Savage' })
@@ -279,7 +280,7 @@ it.each([
   expect(sorted.indexOf('aria-label="Companion specialization 1"')).toBeLessThan(sorted.indexOf('aria-label="Companion specialization 3"'))
   expect(sorted.indexOf('<span>Ambusher</span>')).toBeLessThan(sorted.indexOf('<span>Racer</span>'))
   expect(sorted.indexOf('<span>Racer</span>')).toBeLessThan(sorted.indexOf('<span>Wrecker</span>'))
-  const changeFirst = findSelect(MinionsSection({ c, entries: [wolf], save }), 'Companion specialization 4')
+  const changeFirst = findSelect(MinionsContent({ c, entries: [wolf], save }), 'Companion specialization 4')
   if (!changeFirst) throw new Error('Missing alphabetized specialization')
   changeFirst({ target: { value: 'Bully' } })
   expect(c.feats[3]).toMatchObject({ name: specialized, choice: 'Bully' })
@@ -299,7 +300,7 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
     traits: [], description: '', data: { size: 'Large', mount: true }, effects: [], updatedAt: 1,
   }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const select = findSelect(MinionsSection({ c, entries: [horse], save }), 'Choose Faithful Steed')
+  const select = findSelect(MinionsContent({ c, entries: [horse], save }), 'Choose Faithful Steed')
   if (!select) throw new Error('Missing Faithful Steed selection')
   select({ target: { value: 'invalid' } })
   expect(c.companions).toEqual([])
@@ -325,7 +326,7 @@ it('saves Auspice specialization and servitor choices only when Auspicious Mount
     traits: [], description: '', data: { size: 'Large', mount: true, speed: 40 }, effects: [], updatedAt: 1,
   }
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
-  const tree = () => MinionsSection({ c, entries: [horse], save })
+  const tree = () => MinionsContent({ c, entries: [horse], save })
   expect(renderToStaticMarkup(tree())).toContain('<option value="Auspice">Auspice</option>')
   const choose = findSelect(tree(), 'Companion specialization 1')!
   choose({ target: { value: 'Auspice' } })

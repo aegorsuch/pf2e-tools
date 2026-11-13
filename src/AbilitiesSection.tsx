@@ -81,14 +81,19 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
 }
 
 export function AbilitiesSection({ c, entries, save }: SectionProps) {
+  return <details className="character-section">
+    <summary className="character-section-summary"><strong>Ability Scores</strong></summary>
+    <AbilitiesContent c={c} entries={entries} save={save} />
+  </details>
+}
+
+export function AbilitiesContent({ c, entries, save }: SectionProps) {
   const slots = boostSlots(c, entries)
   const builderOn = !!c.boosts
   const scores = computeAbilities(c, entries)
   const sharedGroups = [...new Set(slots.map((slot) => slot.group))]
 
   return (
-    <details className="character-section">
-      <summary className="character-section-summary"><strong>Ability Scores</strong></summary>
       <div className="character-section-content">
         {!builderOn && (
           <div className="row">
@@ -109,6 +114,5 @@ export function AbilitiesSection({ c, entries, save }: SectionProps) {
           </>
         )}
       </div>
-    </details>
   )
 }

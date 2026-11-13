@@ -2,7 +2,7 @@ import { Info } from './Info'
 import { confirmRemoval } from './confirmRemoval'
 import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
+import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
@@ -13,9 +13,9 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoi
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { SkillsSection } from './SkillsSection'
-import { SpellsSection } from './SpellsSection'
-import { MinionsSection } from './MinionsSection'
-import { FormulasSection } from './FormulasSection'
+import { SpellsContent, SpellsSummary } from './SpellsSection'
+import { MinionsContent, MinionsSummary } from './MinionsSection'
+import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { faithfulSteedChange } from './companions'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
@@ -307,7 +307,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <label>Level <input type="number" min={1} max={20} value={c.level}
           onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
       </div>
-      <AbilitiesSection {...section} />
+      <DeferredDetails>
+        <summary className="character-section-summary"><strong>Ability Scores</strong></summary>
+        <AbilitiesContent {...section} />
+      </DeferredDetails>
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
@@ -451,7 +454,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         </div>
       </DeferredDetails>
 
-      <FormulasSection {...section} />
+      <DeferredDetails>
+        <FormulasSummary {...section} />
+        <FormulasContent {...section} />
+      </DeferredDetails>
       {featSection('general')}
       <DeferredDetails>
         <summary className="character-section-summary">
@@ -462,7 +468,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <LanguagesSection {...section} />
         </div>
       </DeferredDetails>
-      <MinionsSection {...section} />
+      <DeferredDetails>
+        <MinionsSummary {...section} />
+        <MinionsContent {...section} />
+      </DeferredDetails>
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Offense</strong>
@@ -479,7 +488,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <SkillsSection {...section} />
         </div>
       </DeferredDetails>
-      <SpellsSection {...section} />
+      <DeferredDetails>
+        <SpellsSummary {...section} />
+        <SpellsContent {...section} />
+      </DeferredDetails>
     </section>
   )
 }

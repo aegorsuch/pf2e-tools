@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
+import { AbilitiesContent, AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { computeAbilities, type SectionProps } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -77,7 +77,7 @@ describe('ability score boost controls', () => {
         c.abilities = computeAbilities(c, entries)
       },
     })
-    const scorePanel = findElement(AbilitiesSection(props()), (type) => type === AbilityBoostChoices)
+    const scorePanel = findElement(AbilitiesContent(props()), (type) => type === AbilityBoostChoices)
     const scoreGroups = scorePanel?.groups as string[]
     expect(scoreGroups).toContain('class')
 

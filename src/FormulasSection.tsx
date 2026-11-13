@@ -6,7 +6,28 @@ import { featRarity } from './featAccess'
 import { formulaKey as key, formulaSources, gadgetLimits, knownFormulas, snareAdvancements, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { ContentEntry } from './types'
 
-export function FormulasSection({ c, entries, save }: SectionProps) {
+export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const sources = formulaSources(c, entries)
+  const known = knownFormulas(c, entries)
+  const gadgets = gadgetLimits(c, entries)
+  const snareRanks = snareAdvancements(c, entries)
+  const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0) + snareRanks.length * 3
+  const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
+    + (sources.brastlewark ? c.brastlewarkFormulaMode === 'standard' ? 2
+      : c.brastlewarkFormulaMode === 'other' ? (c.brastlewarkFormulaChoices ?? []).slice(0, 2).filter(Boolean).length : 0 : 0)
+    + (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0).filter(Boolean).length
+    + snareRanks.reduce((sum, { rank }) => sum + (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3).filter(Boolean).length, 0)
+  return <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} feat choices`}</span></summary>
+}
+
+export function FormulasSection(props: SectionProps) {
+  return <details className="character-section">
+    <FormulasSummary {...props} />
+    <FormulasContent {...props} />
+  </details>
+}
+
+export function FormulasContent({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
   const sources = formulaSources(c, entries)
   const known = knownFormulas(c, entries)
@@ -50,15 +71,7 @@ export function FormulasSection({ c, entries, save }: SectionProps) {
   const restricted = new Set(STANDARD_SNARE_FORMULAS.map(key))
   const matches = q.length < 2 ? [] : unique(items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name))
     && (sources.brastlewark || !restricted.has(key(item.name))))).slice(0, 40)
-  const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0) + snareRanks.length * 3
-  const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
-    + (sources.brastlewark ? c.brastlewarkFormulaMode === 'standard' ? 2
-      : c.brastlewarkFormulaMode === 'other' ? (c.brastlewarkFormulaChoices ?? []).slice(0, 2).filter(Boolean).length : 0 : 0)
-    + (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0).filter(Boolean).length
-    + snareRanks.reduce((sum, { rank }) => sum + (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3).filter(Boolean).length, 0)
-  return <details className="character-section">
-    <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} feat choices`}</span></summary>
-    <div className="character-section-content">
+  return <div className="character-section-content">
       {sources.snareCrafting && <div className="col">
         <b>Snare Crafting</b><small>Choose four common 1st-level snare formulas.</small>
         {options('snareFormulaChoices', 4, basic, 'Snare Crafting formula')}
@@ -112,5 +125,4 @@ export function FormulasSection({ c, entries, save }: SectionProps) {
       </li>)}</ul>}
       {q.length >= 2 && !matches.length && <small role="status">No matching formulas.</small>}
     </div>
-  </details>
 }

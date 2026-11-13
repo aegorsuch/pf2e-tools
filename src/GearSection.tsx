@@ -13,7 +13,7 @@ import { formulaKey, gadgetLimits, knownFormulas } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
-import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedWeapon } from './types'
 import { warmaskSource } from './warmask'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
@@ -419,7 +419,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const a = weaponAttack(c, entries, w)
         const enhanced = effectiveWeapon(c, entries, w)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
-        const plainName = enhanced.name === 'Iron Fist' ? 'Fists' : enhanced.name.replace(/ \(Animal Feature\)$/, '')
+        const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
+          : enhanced.name === UNTAMED_CLAWS.name ? 'Claws' : enhanced.name.replace(/ \(Animal Feature\)$/, '')
         const displayName = alloy ? `${alloy} ${plainName}` : plainName
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
@@ -467,7 +468,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           : undefined
         const compactDamage = a.damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
         const untamedPersistent = c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
-          ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'} on a hit (Untamed Shift)` : undefined
+          ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
@@ -476,12 +477,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           <strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />
             {a.damage && <>, Damage {compactDamage}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
-                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}</>}
+                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             {w.stowed && ' (stowed)'}
           </small>
           {a.traits.length > 0 && <small> {a.traits.join(', ')}</small>}
           {a.thrownRange > 0 && <small>Thrown range {a.thrownRange} feet</small>}
-          {untamedPersistent && <small> {untamedPersistent}</small>}
           {avengerNote && <small> {avengerNote}</small>}
         </div>
         return (
@@ -493,7 +493,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           }}>
             <summary><strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />{a.damage && <>, Damage {compactDamage}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
-                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}</>}</small></summary>
+                && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}</small></summary>
             {avengerNote && <small>{avengerNote}</small>}
             {forms.length > 0 && <label>Weapon form{' '}
               <select aria-label={`${combinationName(entries, w.name)} weapon form`}
@@ -516,7 +516,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </select>
             </label>}
             {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
-            {untamedPersistent && <small>{untamedPersistent}</small>}
             {a.entry && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {a.traits.length > 0 && <GearTraits traits={a.traits} entries={entries} system={a.entry?.systems[0]} />}
             <div className="gear-stats">

@@ -1967,8 +1967,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
 }
 
 export function oakenResilience(c: Character, entries: ContentEntry[]) {
-  const rank = c.oakenResilienceRank
-  if (!Number.isInteger(rank) || rank === undefined || rank < 2 || rank > 10 || !isSpellActive(c, entries, 'Oaken Resilience')) return undefined
+  if (!isSpellActive(c, entries, 'Oaken Resilience')) return undefined
+  const rank = grantedFeatSpells(c, entries).find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')?.rank
+    ?? c.oakenResilienceRank
+  if (!Number.isInteger(rank) || rank === undefined || rank < 2 || rank > 10) return undefined
   const steps = 1 + Math.floor((rank - 2) / 2)
   return { rank, resistance: 2 * steps, fireWeakness: 3 * steps }
 }

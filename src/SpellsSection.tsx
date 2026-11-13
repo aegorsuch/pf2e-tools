@@ -130,9 +130,10 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   </div>
 }
 
-function SpellItem({ name, entry, note, onRemove, active, onToggle, children, inlineControls }: {
+function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls }: {
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
+  activeLabel?: string
   children?: ReactNode
   inlineControls?: ReactNode
 }) {
@@ -147,26 +148,49 @@ function SpellItem({ name, entry, note, onRemove, active, onToggle, children, in
         {children}
       </div>
       {onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
-        onChange={(e) => onToggle(e.target.checked)} /> {name === 'Oaken Resilience' ? 'Active on you' : 'Active'}</label>}
+        onChange={(e) => onToggle(e.target.checked)} /> {activeLabel ?? (name === 'Oaken Resilience' ? 'Active on you' : 'Active')}</label>}
       {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
         onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
     </li>
   )
 }
 
-export function SpellsSection({ c, entries, save }: SectionProps) {
-  const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
-  const [query, setQuery] = useState('')
-  const sc = c.spellcasting
-  const casting = classSpellcasting(c, entries)
-  const traditions = casting?.traditions ?? []
+function spellSummaryData(c: Character, entries: ContentEntry[]) {
   const spells = c.spells ?? []
   const granted = grantedWardenSpells(c, entries)
   const featSpells = grantedFeatSpells(c, entries)
   const innate = featSpells.filter(grant => grant.rule.kind === 'innate')
     .sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.source.localeCompare(b.source))
-  const unresolved = unresolvedFeatSpells(c, entries)
   const { spells: focus, points: focusPoints } = focusSpells(c, entries)
+  const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
+    && !focus.some(grant => grant.name === s.name))
+  return { spells, granted, featSpells, innate, focus, focusPoints, manualSpells }
+}
+
+export function SpellsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const { manualSpells, granted, focus, innate } = spellSummaryData(c, entries)
+  return <summary className="character-section-summary">
+    <strong>Spells</strong>
+    <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells</span>
+  </summary>
+}
+
+export function SpellsSection(props: SectionProps) {
+  return <details className="character-section">
+    <SpellsSummary {...props} />
+    <SpellsContent {...props} />
+  </details>
+}
+
+export function SpellsContent({ c, entries, save }: SectionProps) {
+  const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
+  const [query, setQuery] = useState('')
+  const sc = c.spellcasting
+  const casting = classSpellcasting(c, entries)
+  const traditions = casting?.traditions ?? []
+  const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells } = spellSummaryData(c, entries)
+  const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
+  const unresolved = unresolvedFeatSpells(c, entries)
   const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
   const grantNote = (grant: typeof featSpells[number]) => {
     const ability = grant.rule.ability ?? (grant.rule.kind === 'innate' ? 'cha' : casting?.ability)
@@ -187,6 +211,8 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     if (['Animal Feature', 'Untamed Shift', 'Canopy Crawler', 'Enlarge Companion', "Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision"].includes(name) || name !== 'Magic Hide' && !timed) return {}
     return {
       active: name === 'Magic Hide' ? isMagicHideActive(c, entries) : c.activeSpells?.includes(name),
+      activeLabel: name === 'Oaken Resilience' && grownOfOakSpell && activeFeatsNamed(c, 'Leshy Familiar').length
+        ? 'Active on you and leshy familiar' : undefined,
       onToggle: (active: boolean) => save(name === 'Magic Hide' ? magicHideChange(c, active) : {
         activeSpells: [...(c.activeSpells ?? []).filter((spell) => spell !== name), ...(active ? [name] : [])],
       }),
@@ -209,10 +235,11 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
           }} /> {choice.name}{!activeFeatsNamed(c, choice.feat).length && <small> (requires {choice.feat})</small>}</label>
       })}
       {activeUntamedShiftEffects(c, entries).includes('Plant') && <small>Reach 10 feet, or 15 feet with a reach weapon.</small>}
-      {activeUntamedShiftEffects(c, entries).includes('Wings') && <small>Wings require casting with two actions.</small>}
     </fieldset>}
     {name === 'Untamed Form' && <small>Track the chosen battle form's other statistics separately; this toggle does not replace your character statistics.</small>}
-    {name === 'Oaken Resilience' && <label>Cast rank{' '}
+    {name === 'Oaken Resilience' && (grownOfOakSpell
+      ? <small>Cast rank {grownOfOakSpell.rank} (Grown of Oak)</small>
+      : <label>Cast rank{' '}
       <select aria-label="Oaken Resilience cast rank" value={c.oakenResilienceRank ?? ''} onChange={(event) => {
         const value = Number(event.target.value)
         save({ oakenResilienceRank: Number.isInteger(value) && value >= 2 && value <= 10 ? value : undefined })
@@ -221,13 +248,11 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         {Array.from({ length: 9 }, (_, i) => i + 2).map(value => <option key={value} value={value}>{value}</option>)}
       </select>
       {!c.oakenResilienceRank && <small> Choose cast rank to apply resistance and weakness.</small>}
-    </label>}
+    </label>)}
     <SpellDamageRolls name={name} rank={rank} />
   </>
   const inlineControls = (name: string) => name === 'Canopy Crawler' || name === 'Enlarge Companion'
     ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} toggleOnly /> : undefined
-  const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
-    && !focus.some(grant => grant.name === s.name))
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
     save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch, rank: casting.rank, ...(casting.ability ? { ability: casting.ability } : {}) } })
@@ -263,11 +288,6 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
 
   return (
-    <details className="character-section">
-      <summary className="character-section-summary">
-        <strong>Spells</strong>
-        <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells</span>
-      </summary>
       <div className="character-section-content">
       {c.className === 'Champion' && c.level >= 1 && <label>Devotion spell{' '}
         <select aria-label="Devotion spell" value={c.devotionSpell && championDevotionOptions(c, entries).includes(c.devotionSpell) ? c.devotionSpell : ''} onChange={event => {
@@ -433,6 +453,5 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
       </ul>
       {query.trim() && selectedTradition && !matches.length && <small role="status">No matching spells.</small>}
       </div>
-    </details>
   )
 }
