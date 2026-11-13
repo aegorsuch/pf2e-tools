@@ -912,12 +912,26 @@ describe('class skill choice', () => {
 })
 
 describe('Order Explorer', () => {
-  it('does not grant the explored order skill', () => {
+  it('grants explored order skills only while the house rule and feat are active', () => {
     const druid = entry('class', 'Druid', { skill_proficiency: 'Trained in Nature' })
-    const c = { ...base, className: 'Druid', order: 'Animal', feats: [{ name: 'Order Explorer', type: 'class', level: 2, choice: 'Storm' }] }
-    expect(ranksAt(c, [druid]).Athletics).toBe(1)
-    expect(ranksAt(c, [druid]).Acrobatics ?? 0).toBe(0)
-    expect(ranksAt({ ...c, order: 'Wave' }, [druid]).Medicine).toBe(1)
+    const c = { ...base, level: 10, className: 'Druid', order: 'Animal', feats: [
+      { name: 'Order Explorer', type: 'class', level: 2, choice: 'Storm' },
+      { name: 'Order Explorer', type: 'class', level: 4, choice: 'Wild' },
+    ] }
+    const previous = getSettings()
+    try {
+      updateSettings({ orderExplorerSkills: true, autoClassSkills: false })
+      expect(ranksAt(c, [druid])).toMatchObject({ Athletics: 1, Acrobatics: 1, Intimidation: 1 })
+      expect(ranksAt({ ...c, level: 1 }, [druid]).Acrobatics ?? 0).toBe(0)
+      expect(ranksAt(c, [druid], 4).Intimidation ?? 0).toBe(0)
+      expect(ranksAt({ ...c, className: 'Ranger' }, [druid]).Intimidation ?? 0).toBe(0)
+      updateSettings({ autoClassSkills: true })
+      expect(ranksAt(c, [druid])).toMatchObject({ Athletics: 3, Acrobatics: 3, Intimidation: 3 })
+      updateSettings({ orderExplorerSkills: false, autoClassSkills: false })
+      expect(ranksAt(c, [druid]).Acrobatics ?? 0).toBe(0)
+      expect(ranksAt(c, [druid]).Intimidation ?? 0).toBe(0)
+      expect(ranksAt({ ...c, order: 'Wave' }, [druid]).Medicine).toBe(1)
+    } finally { updateSettings(previous) }
   })
 })
 

@@ -254,6 +254,11 @@ export default function App() {
             General Training and Advanced General Training: Once Each
           </label>
           <label>
+            <input type="checkbox" checked={settings.orderExplorerSkills}
+              onChange={(e) => updateSettings({ orderExplorerSkills: e.target.checked })} />{' '}
+            Order Explorer Grants Skills
+          </label>
+          <label>
             <input type="checkbox" checked={settings.rangerSnarecrafter}
               onChange={(e) => updateSettings({ rangerSnarecrafter: e.target.checked })} />{' '}
             Ranger Snarecrafter Dedication

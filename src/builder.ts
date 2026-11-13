@@ -1325,6 +1325,9 @@ export function availableOrders(c: Character, exceptIndex = -1) {
 export function autoClassSkills(c: Character, entries: ContentEntry[]) {
   const { fixed, choices } = classSkills(byName(entries, 'class', c.className))
   const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
+  const explored = c.className === 'Druid' && getSettings().orderExplorerSkills
+    ? activeFeatsNamed(c, 'Order Explorer').flatMap(feat => feat.choice && DRUID_ORDERS[feat.choice] ? [DRUID_ORDERS[feat.choice]] : [])
+    : []
   const picked = c.classSkill && choices.includes(c.classSkill) ? c.classSkill : undefined
   const rackets = rogueRackets(c, entries)
   const divine = c.className === 'Champion' || rackets.includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill) : []
@@ -1335,7 +1338,7 @@ export function autoClassSkills(c: Character, entries: ContentEntry[]) {
     ...(rackets.includes('Scoundrel') ? ['Deception', 'Diplomacy'] : []),
     ...(rackets.includes('Mastermind') ? ['Society', ...(extra && SCRAPPER_SKILLS.includes(extra) ? [extra] : [])] : []),
   ]
-  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...divine, ...racketSkills])]
+  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...explored, ...divine, ...racketSkills])]
 }
 
 export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {

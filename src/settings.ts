@@ -3,6 +3,8 @@ import { useSyncExternalStore } from 'react'
 export interface Settings {
   // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
+  // House rule: Order Explorer grants training in the explored order's skill
+  orderExplorerSkills: boolean
   // House rule: the character's Lore skills also rank up for free as the level allows
   autoLores: boolean
   // Variant rule: Free Archetype grants an archetype feat at every even level
@@ -21,7 +23,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true }
+const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 
