@@ -11,6 +11,33 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('selects Free Heart without choosing a background in the feat picker', () => {
+  const feat: ContentEntry = { id: 'free-heart', name: 'Free Heart', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const background: ContentEntry = { ...feat, id: 'performer', name: 'Performer', kind: 'background', traits: [] }
+  let c: Character = { ...emptyRanger(), ancestry: 'Elf', level: 1 }
+  const tree = () => FeatSlots({ c, entries: [feat, background], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('>Free Heart</option>')
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: 'Free Heart' } })
+  expect(c.feats[0]).toMatchObject({ name: 'Free Heart' })
+  expect(c.feats[0].choice).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Free Heart background"')
+})
+
+it('shows and searches distinct Versatile Rogue racket options', () => {
+  const feat: ContentEntry = { id: 'versatile', name: 'Versatile Rogue', kind: 'feat', source: 'homebrew',
+    systems: ['pf2e'], level: 10, traits: ['Rogue'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), className: 'Rogue', subclass: 'Thief', level: 10 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['class'], save,
+    search: { 'class:10:0:open': '1', 'class:10:0:query': 'ruffian' }, onSearch: () => {} })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('L10 Class: Versatile Rogue (Ruffian)')
+  expect(markup).not.toContain('L10 Class: Versatile Rogue (Scoundrel)')
+  findButton(tree(), 'L10 Class: Versatile Rogue (Ruffian)')!()
+  expect(c.feats[0]).toMatchObject({ name: 'Versatile Rogue', choice: 'Ruffian', slot: 'class:10:0' })
+})
+
 it('preserves legacy and qualified Shobhad selections in the weapon selector', () => {
   const pf: ContentEntry = { id: 'pf', name: 'Shobhad Longrifle', kind: 'weapon', systems: ['pf2e'], source: 'official',
     level: 1, traits: [], description: '', data: { weapon_category: 'Martial', rarity: 'rare' }, effects: [], updatedAt: 0 }

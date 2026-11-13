@@ -103,7 +103,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
-    const choices = featChoiceOptions(entry.name, c, entries, slot.key)
+    const choices = entry.name === 'Free Heart' ? undefined : featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
       ? choices.map((choice) => {
@@ -250,7 +250,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const slotQuery = (open ? search[`${s.key}:query`] ?? '' : '').trim().toLowerCase()
           const suggestible = ['general', 'skill'].includes(s.category)
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
-            matches(o, slotQuery, suggestible ? suggestions.get(o.name) : undefined) && (!picksType || (type === 'dedication') === isDedication(o)))
+            (matches(o, slotQuery, suggestible ? suggestions.get(o.name) : undefined)
+              || o.name === 'Versatile Rogue' && !!featChoiceOptions(o.name, c, entries, s.key)?.some(choice => choice.toLowerCase().includes(slotQuery)))
+            && (!picksType || (type === 'dedication') === isDedication(o)))
           if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name)) - Number(suggestions.has(a.name))
             || featSelectionLevel(a, c, entries, s.category) - featSelectionLevel(b, c, entries, s.category)
             || a.name.localeCompare(b.name))
@@ -269,7 +271,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               continue
             }
             const level = featSelectionLevel(option, c, entries, s.category)
-            optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...optionsFor(option, s)])
+            const variants = optionsFor(option, s).filter(variant => option.name !== 'Versatile Rogue'
+              || matches(option, slotQuery) || variant.choice?.toLowerCase().includes(slotQuery))
+            optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
           }
           const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
           const granted = isGrantedSlot(s.key)

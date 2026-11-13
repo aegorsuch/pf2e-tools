@@ -1,7 +1,8 @@
 import { expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { armorRanks, eligibleFeats, featChoiceOptions, plannedSlots, ranksAt, weaponAttack } from './builder'
+import { armorRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, weaponAttack } from './builder'
+import { getSettings, updateSettings } from './settings'
 import { WeaponList } from './GearSection'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -19,6 +20,39 @@ it('grants primary racket skills and thief damage without adding Dexterity to th
   expect(weaponAttack(base, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('1d4+4 piercing')
   const thrown = { ...dagger, traits: ['Finesse', 'Thrown'], data: { ...dagger.data, weapon_type: 'Ranged' } }
   expect(weaponAttack(base, [thrown], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('1d4+1 piercing')
+})
+
+it('auto-scales racket skills despite lower saved overrides, only after acquisition', () => {
+  const settings = getSettings()
+  try {
+    updateSettings({ autoClassSkills: true })
+    for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]]) {
+      expect(ranksAt({ ...base, level, rankOverrides: { Thievery: 1 } }, [rogue]).Thievery).toBe(rank)
+    }
+    const c: Character = { ...base, level: 15, rankOverrides: { Thievery: 1, Intimidation: 1, Stealth: 2 },
+      feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ruffian' }] }
+    expect(ranksAt(c, [rogue])).toMatchObject({ Thievery: 4, Intimidation: 4, Stealth: 2 })
+    expect(ranksAt(c, [rogue], 10).Intimidation).toBe(1) // saved override, not the later racket
+    expect(ranksAt({ ...c, rankOverrides: {} }, [rogue], 10).Intimidation).toBeUndefined()
+    expect(ranksAt(c, [rogue], 11).Intimidation).toBe(3)
+    expect(ranksAt({ ...c, rankOverrides: { Thievery: 4 } }, [rogue], 4).Thievery).toBe(4)
+    const mastermind: Character = { ...base, level: 15, subclass: 'Scoundrel', rogueRacketSkills: { Mastermind: 'Nature' },
+      feats: [{ ...c.feats[0], choice: 'Mastermind' }] }
+    expect(ranksAt(mastermind, [rogue])).toMatchObject({ Deception: 4, Diplomacy: 4, Society: 4, Nature: 4 })
+    updateSettings({ autoClassSkills: false })
+    expect(ranksAt(c, [rogue])).toMatchObject({ Thievery: 1, Intimidation: 1 })
+  } finally { updateSettings(settings) }
+})
+
+it('checks additional racket prerequisites at the level the feat was acquired', () => {
+  const ruffian: ContentEntry = { ...rogue, id: 'ruffian', kind: 'subclass', name: 'Ruffian', data: { class: 'Rogue' } }
+  const target: ContentEntry = { ...rogue, id: 'target', kind: 'feat', name: 'Ruffian Feat',
+    traits: ['Rogue'], data: { prerequisite: 'ruffian racket' } }
+  const c: Character = { ...base, level: 12, feats: [{ name: 'Versatile Rogue', type: 'Class Feat',
+    level: 10, slot: 'class:10:0', choice: 'Ruffian' }] }
+  expect(featPrerequisiteChecker(c, [ruffian], 9)(target).missing).toEqual(['ruffian racket'])
+  expect(featPrerequisiteChecker(c, [ruffian], 10)(target).missing).toEqual([])
+  expect(featPrerequisiteChecker({ ...c, level: 9 }, [ruffian])(target).missing).toEqual(['ruffian racket'])
 })
 
 it('offers a different repeatable racket with its grants and bonus skill feat slot', () => {

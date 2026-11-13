@@ -517,6 +517,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const additionalSubclasses = character.feats.flatMap((feat) => feat.choice && (
         character.className === 'Bard' && feat.name === 'Multifarious Muse'
         || character.className === 'Inventor' && ['Second Innovation', 'Third Innovation'].includes(feat.name)
+        || character.className === 'Rogue' && feat.name === 'Versatile Rogue' && ROGUE_RACKETS.some(racket => racket === feat.choice)
       ) ? [feat.choice] : [])
       const museFeats = character.className === 'Bard' ? [subclass, ...additionalSubclasses].flatMap((name) => {
         const muse = entries.find((entry) => entry.kind === 'subclass' && entry.data.class === 'Bard' && entry.name === name)
@@ -1311,7 +1312,7 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
     const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []))
@@ -1531,7 +1532,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   const klass = byName(entries, 'class', c.className)
   const ranks: Record<string, number> = {}
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
-  autoClassSkills(c, entries).forEach(bump)
+  autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
   backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)).forEach(bump)
   if (isPioneerHuman(c)) bump('Survival')
@@ -1552,7 +1553,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
 // Ranks from class/background/picks plus skill increases below `beforeLevel`; legacy overrides apply only to skills.
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
   const ranks = baseRanks(c, entries, beforeLevel)
-  const autoSkills = autoClassSkills(c, entries)
+  const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
   const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries)] : []
@@ -1591,13 +1592,17 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   if (withOverrides) {
     const skillNames = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
     for (const [name, rank] of Object.entries(c.rankOverrides ?? {})) {
-      if (skillNames.has(name)) ranks[name] = Math.max(rank, scrapperGrants[name] ?? rank)
+      if (skillNames.has(name)) {
+        const autoFloor = rankUp && autoSkills.includes(name)
+          ? Math.max(1, ...[...increases].map(rankCap)) : 0
+        ranks[name] = Math.max(rank, scrapperGrants[name] ?? rank, autoFloor)
+      }
     }
   }
   if (greenwatch) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
   for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
-    ...autoClassSkills(c, entries),
+    ...autoSkills,
     ...backgroundSkills(byName(entries, 'background', c.background)),
     ...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)),
     ...(isPioneerHuman(c) ? ['Survival'] : []),

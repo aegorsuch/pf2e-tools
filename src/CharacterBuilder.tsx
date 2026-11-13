@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -228,6 +228,9 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
   const background = named('background', c.background)
+  const freeHeart = activeFeatsNamed(c, 'Free Heart')[0]
+  const freeHeartOptions = freeHeart ? new Set(featChoiceOptions('Free Heart', c, entries, freeHeart.slot ?? '') ?? []) : undefined
+  const extraBackground = freeHeartBackground(c, entries)
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
   const parry = parryValue(c, entries)
@@ -305,6 +308,11 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
         <div className="character-section-content">
           <Pick label="Background" kind="background" value={c.background} options={of('background')} onChange={(v) => save({ background: v })} />
           {background && <Info label={background.name}>{detail(background)}</Info>}
+          {freeHeart && <Pick label="Free Heart background" kind="background" value={freeHeart.choice}
+            options={of('background').filter(entry => freeHeartOptions?.has(entry.name))}
+            onChange={(choice) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat) })} />}
+          {extraBackground && <Info label={`Free Heart: ${extraBackground.name}`}>{detail(extraBackground)}</Info>}
+          {freeHeart && <small>Free Heart grants the background's trained skill and skill feat, but not its attribute boosts.</small>}
           <AbilityBoostChoices {...section} groups={['background']} />
           {background?.data.skill && <small>Trained skills: <b>{String(background.data.skill)}</b></small>}
           {background?.data.feat && <small>Background grants: <b>{String(background.data.feat)}</b></small>}
@@ -326,6 +334,10 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
               onChange={(v) => save({ subclass: v ?? '' })} />
             {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
           </>}
+          {rogueRackets(c, entries).filter(racket => racket !== subclassName).map(racket => {
+            const entry = subclasses.find(candidate => candidate.name === racket)
+            return entry ? <Info key={racket} label={`${racket} racket (Versatile Rogue)`}>{entry.description}</Info> : null
+          })}
           {classSkills(klass).choices.length > 0 && (
               <SearchableSelect label="Class skill" aria-label="Class skill" value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
                 <option value="">Choose skill</option>

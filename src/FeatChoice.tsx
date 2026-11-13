@@ -191,11 +191,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </SearchableSelect>
   }
   if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper',
-    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan', 'Free Heart',
+    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan',
     'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
-    const label = feat.name === 'Adopted Ancestry' ? 'ancestry' : feat.name === 'Free Heart' ? 'background'
+    const label = feat.name === 'Adopted Ancestry' ? 'ancestry'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     return <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
@@ -242,7 +242,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)
-  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip'].includes(feat.name)) return null
+  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
       const choice = event.target.value || undefined

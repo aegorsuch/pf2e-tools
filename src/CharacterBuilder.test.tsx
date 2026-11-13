@@ -8,6 +8,25 @@ import type { Character, ContentEntry } from './types'
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
 
+it('shows Free Heart background selection in Background only while the feat is active', () => {
+  const background: ContentEntry = { id: 'performer', kind: 'background', name: 'Performer', systems: ['pf2e'],
+    source: 'official', level: 0, traits: [], description: 'Traveling performer.', data: { skill: 'Performance', feat: 'Fascinating Performance' }, effects: [], updatedAt: 0 }
+  content.entries = [background]
+  const c: Character = { id: 'free-heart', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Elf',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Free Heart', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Performer' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    const section = markup.slice(markup.indexOf('<strong>Background</strong>'), markup.indexOf('<strong>Class</strong>'))
+    expect(section).toContain('aria-label="Free Heart background"')
+    expect(section).toContain('Performer')
+    expect(section).toContain('not its attribute boosts')
+    expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, level: 0 }} onClose={() => {}} />))
+      .not.toContain('aria-label="Free Heart background"')
+  } finally { content.entries = [] }
+})
+
 it('preserves an incompatible saved heritage as disabled rather than selectable or silently erased', () => {
   content.entries = [
     { id: 'human', kind: 'ancestry', name: 'Human' },
