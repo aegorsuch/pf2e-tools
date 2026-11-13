@@ -34,6 +34,11 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           {sanctification.options.map((option) => <option key={option}>{option}</option>)}
         </select>
       </label>}
+      {c.className === 'Champion' && c.level >= 1 && <label>
+        <input type="checkbox" aria-label="Legacy Tenets of Good" checked={!!c.legacyTenetsOfGood}
+          onChange={event => save({ legacyTenetsOfGood: event.target.checked })} /> Follow legacy Tenets of Good
+        <small> Confirm legacy compatibility with your GM; remastered causes do not automatically grant these tenets.</small>
+      </label>}
       {c.className === 'Champion' && c.level >= 3 && <div className="col">
         <label>Blessing of the Devoted{' '}
           <select aria-label="Blessing of the Devoted" value={blessing ?? ''} onChange={(e) => {

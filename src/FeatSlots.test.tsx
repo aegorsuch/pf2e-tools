@@ -1070,6 +1070,32 @@ it('adds slots beside a selected feat and removes only the chosen extra slot', (
   expect(c.entryIds).toEqual(['first', 'third'])
 })
 
+it('keeps the level-one add button when a granted Champion feat sorts before the standard slot', () => {
+  let c: Character = {
+    ...emptyRanger(), className: 'Champion', level: 1,
+    feats: [
+      { name: 'Natural Ambition', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Alpha', type: 'Class Feat', level: 1, slot: 'class:1:g1' },
+      { name: 'Zeal', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+    ],
+  }
+  const tree = () => FeatSlots({ c, entries: [], save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  const add = findButton(tree(), 'Add L01 Class feat slot')
+  expect(add).toBeDefined()
+  add!()
+  expect(plannedSlots(c).filter(slot => slot.category === 'class' && slot.level === 1).map(slot => slot.key))
+    .toContain('class:1:1')
+  expect(c.feats.map(feat => feat.name)).toEqual(['Natural Ambition', 'Alpha', 'Zeal'])
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  c = { ...c, extraSlots: [], feats: c.feats.filter(feat => feat.slot !== 'class:1:0') }
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  c = { ...c, dismissedFeatSlots: ['class:1:0'] }
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  findButton(tree(), 'Add L01 Class feat slot')!()
+  expect(c.dismissedFeatSlots).toEqual([])
+})
+
 it('removes existing counted extras without changing other slots', () => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 3,

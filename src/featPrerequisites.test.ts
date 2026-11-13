@@ -56,6 +56,30 @@ it('checks champion sanctification and devotion spell prerequisites from actual 
   expect(check('Any feat with the oath trait', sworn, [oath], 2).missing).toEqual([])
 })
 
+it('treats Reactive Strike as the legacy Attack of Opportunity prerequisite at its acquisition level', () => {
+  const reactive = entry('feat', 'Reactive Strike', {}, 6, ['Champion'])
+  const stance = entry('feat', 'Impassable Wall Stance', { prerequisite: 'Attack of Opportunity' }, 8, ['Champion'])
+  const fighterStrike = entry('classFeature', 'Reactive Strike', { class: 'Fighter' }, 1)
+  const entries = [reactive, stance, fighterStrike]
+  const champion: Character = { ...base, className: 'Champion', feats: [selected('Reactive Strike', 6)] }
+  expect(featPrerequisiteChecker(champion, entries, 8)(stance)).toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker(champion, entries, 5)(stance).missing).toEqual(['Attack of Opportunity'])
+  expect(featPrerequisiteChecker({ ...champion, feats: [] }, entries, 8)(stance).missing).toEqual(['Attack of Opportunity'])
+  expect(featPrerequisiteChecker({ ...base, className: 'Fighter', feats: [] }, entries, 8)(stance))
+    .toEqual({ missing: [], manual: [] })
+})
+
+it('resolves Tenets of Good only when explicitly confirmed for a Champion', () => {
+  const c: Character = { ...base, className: 'Champion', subclass: 'Justice' }
+  const oath = entry('feat', 'Dragonslayer Oath', { prerequisite: 'tenets of good' }, 2, ['Champion', 'Oath'])
+  const evaluate = (character: Character, level = character.level) => featPrerequisiteChecker(character, [oath], level)(oath)
+  expect(evaluate(c)).toEqual({ missing: [], manual: ['tenets of good'] })
+  expect(evaluate({ ...c, legacyTenetsOfGood: true })).toEqual({ missing: [], manual: [] })
+  expect(evaluate({ ...c, legacyTenetsOfGood: true }, 0)).toEqual({ missing: [], manual: ['tenets of good'] })
+  expect(evaluate({ ...c, className: 'Fighter', legacyTenetsOfGood: true })).toEqual({ missing: [], manual: ['tenets of good'] })
+  expect(evaluate(JSON.parse(JSON.stringify({ ...c, legacyTenetsOfGood: true })))).toEqual({ missing: [], manual: [] })
+})
+
 it('requires a master skill for Exceptional Artisan and restricts its bonus feat to the selected skill', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 9, ancestry: 'Orc', rankOverrides: { Crafting: 3 },
     feats: [{ name: 'Exceptional Artisan', type: 'Ancestry Feat', level: 9, choice: 'Crafting', slot: 'ancestry:9:0' }] }

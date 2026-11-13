@@ -568,6 +568,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         championBlessings: championBlessings(character),
         sanctification: character.className === 'Champion' && byName(entries, 'deity', character.deity)?.data.sanctification
           ? deitySanctification(character, entries).selected ?? 'None' : undefined,
+        legacyTenetsOfGood: character.className === 'Champion' && !!character.legacyTenetsOfGood,
         devotionSpells: focus.spells.map(spell => spell.name),
         championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
           ? 'protective' : character.className === 'Champion' && ['Desecration', 'Iniquity', 'Obedience'].includes(subclass ?? '')

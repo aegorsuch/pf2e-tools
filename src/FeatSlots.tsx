@@ -313,8 +313,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               || matches(option, slotQuery) || variant.label.toLowerCase().includes(slotQuery))
             optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
           }
-          const firstAtLevel = !slots.slice(0, index).some((slot) => slot.category === s.category && slot.level === s.level)
           const granted = isGrantedSlot(s.key)
+          const sameLevel = (slot: PlannedSlot) => slot.category === s.category && slot.level === s.level
+          const addSlotIndex = slots.findIndex(slot => sameLevel(slot) && !isGrantedSlot(slot.key))
+          const showAddSlot = index === (addSlotIndex >= 0 ? addSlotIndex : slots.findIndex(sameLevel))
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
@@ -419,7 +421,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 title={locked ? 'Granted by a house rule' : lastSlot || requiredGrant ? 'Clear selection' : 'Remove slot'}
                 disabled={locked || (lastSlot || requiredGrant) && !current}
                 onClick={() => removeSlot(s, extra)}>−</button>}
-              {firstAtLevel && (!granted || !slots.some((o) => o.category === s.category && o.level === s.level && !isGrantedSlot(o.key)))
+              {showAddSlot
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
                   onClick={() => addSlot(s.category, s.level)}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}

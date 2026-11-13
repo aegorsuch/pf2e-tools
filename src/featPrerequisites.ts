@@ -33,6 +33,7 @@ export interface PrerequisiteFacts {
   constructCompanion?: boolean
   championBlessings?: string[]
   sanctification?: 'Holy' | 'Unholy' | 'None'
+  legacyTenetsOfGood?: boolean
   devotionSpells?: string[]
   championReaction?: 'protective' | 'offensive'
 }
@@ -221,6 +222,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.className === 'Champion' && ['blessed armament', 'blessed shield', 'blessed swiftness'].includes(name)) {
       return resultFor(!!facts.championBlessings?.some(blessing => key(blessing) === name), text)
     }
+    if (name === 'tenets of good') {
+      return facts.className === 'Champion' && level >= 1 && facts.legacyTenetsOfGood ? met() : manual(text)
+    }
     if (facts.className === 'Champion' && ['holy', 'unholy', "you aren't unholy"].includes(name)) {
       if (!facts.sanctification) return manual(text)
       return resultFor(name === "you aren't unholy" ? facts.sanctification !== 'Unholy' : key(facts.sanctification) === name, text)
@@ -323,15 +327,17 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       }
     }
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
-    if (facts.features.some((feature) => key(feature) === reference)) return met()
-    const content = knownEntries(reference)
+    const references = reference === 'attack of opportunity' ? [reference, 'reactive strike']
+      : reference === 'reactive strike' ? [reference, 'attack of opportunity'] : [reference]
+    if (facts.features.some((feature) => references.includes(key(feature)))) return met()
+    const content = references.flatMap(knownEntries)
     if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference, text)
     if (content.some((entry) => entry.kind === 'ancestry')) return resultFor(key(facts.ancestry ?? '') === reference, text)
     if (content.some((entry) => entry.kind === 'class')) return resultFor(key(facts.className ?? '') === reference, text)
-    const selected = facts.feats.filter((feat) => key(feat.name) === reference)
+    const selected = facts.feats.filter((feat) => references.includes(key(feat.name)))
     if (selected.length) {
-      if (trail.has(reference)) return missing(`Circular prerequisite: ${text}`)
-      const next = new Set([...trail, reference])
+      if (references.some(value => trail.has(value))) return missing(`Circular prerequisite: ${text}`)
+      const next = new Set([...trail, ...references])
       const checks = selected.map((feat) => {
         const sources = featPrerequisiteSources(entries, {
           ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds,
