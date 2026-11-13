@@ -250,6 +250,39 @@ it('selects only unused ancestry spells at the feat slot rank and grants the cor
   expect(markup).toContain('Ancestral Magic spell')
 })
 
+it('offers Elf Ancestral Magic spells by feat slot and grants them as daily primal innate spells', () => {
+  const magic = mapAonHit({ _id: 'elf-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Elf'],
+    markdown: "Header\n\n---\n\nYour ancestry has a powerful connection to one or more magical traditions.<br /> Choose one 1st-rank spell from your ancestry's magic entry.<br/><br/>**[Option(s)](/feats/1057-ancestral-magic)**: primal; **1st** _[wisp ally](/spells/365-wisp-ally)_; **2nd** _[verdant code](/spells/339-verdant-code)_; **3rd** _[discharge](/spells/66-discharge)_; **5th** _[overload systems](/spells/207-overload-systems)_\n\n**Special** If you have multiple spells listed for your ancestry, you can select this feat more than once. If you do, you must select a different spell." } }, 'sf2e')!
+  const spells = ['Wisp Ally', 'Verdant Code', 'Discharge', 'Overload Systems']
+    .map(name => ({ ...entry(name, 'spell'), systems: ['sf2e' as const] }))
+  const entries = [magic, ...spells]
+  const expected = [
+    { level: 5, rank: 1, names: ['Wisp Ally'] },
+    { level: 9, rank: 3, names: ['Discharge', 'Verdant Code', 'Wisp Ally'] },
+    { level: 13, rank: 5, names: ['Discharge', 'Overload Systems', 'Verdant Code', 'Wisp Ally'] },
+    { level: 17, rank: 7, names: ['Discharge', 'Overload Systems', 'Verdant Code', 'Wisp Ally'] },
+  ]
+  for (const { level, rank, names } of expected) {
+    const feat = { ...taken(magic.name, 5, names[0]), slot: `ancestry:${level}:0` }
+    const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Elf', level, feats: [feat] }
+    expect(featSpellOptions(c, entries, feat)?.map(spell => spell.name)).toEqual(names)
+    const [grant] = grantedFeatSpells(c, entries)
+    expect(grant).toMatchObject({ entry: { name: names[0] }, rank,
+      rule: { kind: 'innate', tradition: 'primal', frequency: 'once per day' } })
+    expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  }
+  const first = { ...taken(magic.name, 5, 'Wisp Ally'), slot: 'ancestry:5:0' }
+  const second = { ...taken(magic.name, 5, 'Verdant Code'), slot: 'ancestry:9:0' }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Elf', level: 9, feats: [first, second] }
+  expect(eligibleFeats(entries, { ...c, feats: [first] }, { key: second.slot, category: 'ancestry', level: 9 })).toContain(magic)
+  expect(featSpellOptions(c, entries, second)?.map(spell => spell.name)).toEqual(['Discharge', 'Verdant Code'])
+  expect(grantedFeatSpells(c, entries).map(grant => [grant.entry.name, grant.rank]))
+    .toEqual([['Wisp Ally', 1], ['Verdant Code', 3]])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Ancestral Magic spell')
+  expect(markup).toContain('Verdant Code')
+})
+
 it('keeps companion spell names and Active checkboxes together before source notes', () => {
   const c: Character = { ...base, className: 'Ranger', spells: [
     { name: 'Canopy Crawler', rank: 2, cantrip: false }, { name: 'Enlarge Companion', rank: 2, cantrip: false },
