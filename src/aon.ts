@@ -18,7 +18,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const traits = Array.isArray(s.trait) ? s.trait.filter((t): t is string => typeof t === 'string') : []
   const level = typeof s.level === 'number' ? s.level : 0
   const data: Record<string, string | number | boolean> = {
-    url: s.url ? AON_SITES[system] + text(s.url) : '',
+    url: s.url ? AON_SITES[system] + text(s.url) + (system === 'pf2e' && hit._id === 'feat-219' ? '&NoRedirect=1' : '') : '',
     sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source),
   }
   for (const f of DATA_FIELDS) {

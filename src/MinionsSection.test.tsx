@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import { MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
+import { armorClass } from './builder'
 import type { Character, ContentEntry } from './types'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
@@ -42,6 +43,21 @@ it('shows one advancement choice and summarizes companion type and stage', () =>
   expect(markup.match(/aria-label="Companion advancement"/g)).toHaveLength(1)
 })
 
+it('shows the same advancement used for companion stats when multiple feats have saved choices', () => {
+  const c: Character = {
+    id: 'companion', systems: ['pf2e'], name: 'Test', level: 10, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Incredible Companion', type: 'Class Feat', level: 8, choice: 'Savage' },
+      { name: 'Incredible Mount', type: 'Class Feat', level: 8, choice: 'Nimble' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: '' }],
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Savage Cat')
+  expect(html).toContain('<option value="Savage" selected="">Savage</option>')
+  expect(html).not.toContain('<option value="Nimble" selected="">Nimble</option>')
+})
+
 it('shows feat-granted familiar choices and a separate aquatic pet with bonus abilities', () => {
   const c: Character = {
     id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
@@ -71,6 +87,39 @@ it('shows a pet only when Beast Trainer grants Pet', () => {
   expect(renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)).toContain('aria-label="Pet name"')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [{ ...c.feats[0], choice: 'Train Animal' }] }} entries={[]} save={() => {}} />))
     .not.toContain('aria-label="Pet name"')
+})
+
+it('applies active familiar Tough and displays recognized daily ability effects', () => {
+  const c: Character = {
+    id: 'familiar', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 },
+      { name: 'Enhanced Familiar', type: 'Class Feat', level: 2 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Flier', '', 'tough', 'Climber'] },
+  }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('<small>Hit Points</small> <b>56</b> (includes Tough)')
+  expect(markup).toContain('Flier: Fly Speed 25 feet.')
+  expect(markup).toContain('Climber: Climb Speed 25 feet.')
+  const reduced = renderToStaticMarkup(<MinionsSection c={{ ...c, feats: c.feats.slice(0, 1) }} entries={[]} save={() => {}} />)
+  expect(reduced).toContain('<small>Hit Points</small> <b>40</b>')
+  expect(reduced).not.toContain('Climber: Climb Speed 25 feet.')
+  expect(c.familiar?.abilities).toEqual(['Flier', '', 'tough', 'Climber'])
+})
+
+it('does not apply the owner’s raised shield bonus to familiar AC', () => {
+  const c: Character = {
+    id: 'familiar-defense', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 14, con: 12, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    shield: { id: 'shield', name: 'Shield', raised: true, hardness: 5, hp: 20, damage: 0 },
+  }
+  expect(armorClass(c, [])).toBe(14)
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('<small>Armor Class</small><b>12</b>')
+  expect(markup).toContain('<small>Fortitude</small>+1')
 })
 
 it('provides one extra Leshy Familiar Secrets ability and requires second-rank spell slots for Verdant Burst', () => {

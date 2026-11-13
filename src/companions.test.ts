@@ -121,6 +121,9 @@ describe('animal companions', () => {
     expect(existing).toEqual([{ id: 'custom', type: 'Sarkorian Direwolf', name: 'Existing' }])
     expect(faithfulSteedChange({ ...champion, feats: [] }, [horse])).toBeUndefined()
     expect(faithfulSteedChange({ ...champion, level: 1 }, [horse])).toBeUndefined()
+    const later = { ...champion, level: 4, feats: [{ ...feat('Faithful Steed'), slot: 'class:6:0' }] }
+    expect(faithfulSteedChange(later, [horse])).toBeUndefined()
+    expect(faithfulSteedChange({ ...later, level: 6 }, [horse])).toEqual(change)
     expect(faithfulSteedChange(champion, [])).toBeUndefined()
     expect(faithfulSteedChange(champion, [{ ...horse, deleted: true }])).toBeUndefined()
   })
@@ -204,6 +207,7 @@ describe('animal companions', () => {
     expect(specializationOptions(c, [], 0)).toContain('Ambusher')
     expect(specializationOptions(c, [], 1)).not.toContain('Auspice')
     expect(specializationOptions({ ...c, level: 15 }, [], 0)).not.toContain('Auspice')
+    expect(specializationOptions({ ...c, level: 16, feats: [{ ...c.feats[0], slot: 'class:18:0' }] }, [], 0)).not.toContain('Auspice')
     expect(companionAdvancement({ ...c, feats: [feat('Specialized Mount', 'Auspice')] }).specializations).not.toContain('Auspice')
     const content = entry('feat', 'Auspicious Mount', {}, 16, ['Champion'])
     const taken = { ...c, className: 'Champion', feats: [{ ...c.feats[0], slot: 'class:16:0' }] }

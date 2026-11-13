@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
@@ -19,6 +19,21 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
     <details className="character-subsection">
       <summary><h4>Class Features ({features.length})</h4></summary>
       {!imported && <p>Class feature data is still loading.</p>}
+      {c.className === 'Champion' && activeFeatsNamed(c, 'Dragonslayer Oath').length > 0 && <div className="col">
+        <b>Dragonslayer Oath (legacy)</b>
+        <small>Against dragons, Retributive Strike deals +4 circumstance damage (+6 with master weapon proficiency).
+          Glimpse of Redemption grants resistance {7 + c.level}; Liberating Step grants +4 circumstance to its checks and allows two Steps.
+          These benefits apply only to the corresponding legacy champion reactions; verify legacy prerequisites with your GM.</small>
+      </div>}
+      {c.className === 'Champion' && c.level >= 1 && <label>Sanctification{' '}
+        <select aria-label="Sanctification" value={sanctification.selected ?? ''} disabled={!!sanctification.required || !sanctification.options.length} onChange={(e) => {
+          const choice = sanctification.options.find((option) => option === e.target.value)
+          if (!sanctification.required) save({ sanctification: choice })
+        }}>
+          {!sanctification.required && <option value="">None</option>}
+          {sanctification.options.map((option) => <option key={option}>{option}</option>)}
+        </select>
+      </label>}
       {c.className === 'Champion' && c.level >= 3 && <div className="col">
         <label>Blessing of the Devoted{' '}
           <select aria-label="Blessing of the Devoted" value={blessing ?? ''} onChange={(e) => {
@@ -31,15 +46,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         </label>
         {extraBlessings.length > 0 && <small>Additional blessings: {extraBlessings.join(', ')}. Change these with their feat choices.</small>}
         {championBlessings(c).includes('Blessed Armament') && <>
-          <label>Sanctification{' '}
-            <select aria-label="Sanctification" value={sanctification.selected ?? ''} disabled={!!sanctification.required || !sanctification.options.length} onChange={(e) => {
-              const choice = sanctification.options.find((option) => option === e.target.value)
-              if (!sanctification.required) save({ sanctification: choice })
-            }}>
-              {!sanctification.required && <option value="">None</option>}
-              {sanctification.options.map((option) => <option key={option}>{option}</option>)}
-            </select>
-          </label>
           {targets.length > 1 ? <span>Blessed armament{' '}
             <SearchableSelect aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
               if (!e.target.value || targets.some((weapon) => weapon.id === e.target.value))

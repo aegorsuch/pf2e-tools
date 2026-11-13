@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useMemo, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, UNTAMED_SHIFT_CHOICES, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, UNTAMED_SHIFT_CHOICES, type SectionProps } from './builder'
 import { ANIMAL_FEATURES } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
@@ -269,6 +269,15 @@ export function SpellsSection({ c, entries, save }: SectionProps) {
         <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells</span>
       </summary>
       <div className="character-section-content">
+      {c.className === 'Champion' && c.level >= 1 && <label>Devotion spell{' '}
+        <select aria-label="Devotion spell" value={c.devotionSpell && championDevotionOptions(c, entries).includes(c.devotionSpell) ? c.devotionSpell : ''} onChange={event => {
+          const choice = championDevotionOptions(c, entries).find(option => option === event.target.value)
+          save({ devotionSpell: choice })
+        }}>
+          <option value="">Choose devotion spell</option>
+          {championDevotionOptions(c, entries).map(option => <option key={option}>{option}</option>)}
+        </select>
+      </label>}
       {casting && <>
       <div className="row">
         {!casting.ability && <label>Casting ability{' '}

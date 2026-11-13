@@ -54,6 +54,19 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
   expect(markup).toContain('sneak attack applies to your prey')
 })
 
+it('shows Ruffian weapon benefits only for eligible damage dice', () => {
+  const c: Character = { ...base, subclass: 'Ruffian' }
+  const weapon = (id: string, category: string, damage: string): ContentEntry =>
+    ({ ...dagger, id, name: id, data: { weapon_category: category, damage } })
+  const entries = [weapon('Simple d8', 'Simple', '1d8 piercing'), weapon('Simple d10', 'Simple', '1d10 piercing'),
+    weapon('Martial d6', 'Martial', '1d6 piercing'), weapon('Martial d8', 'Martial', '1d8 piercing')]
+  const weapons = entries.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
+  const markup = renderToStaticMarkup(createElement(WeaponList, { c: { ...c, weapons }, entries, save: () => {}, displayOnly: true }))
+  expect(markup.match(/Ruffian: this weapon can deal sneak attack damage/g)).toHaveLength(2)
+  expect(renderToStaticMarkup(createElement(WeaponList, { c: { ...base, weapons }, entries, save: () => {}, displayOnly: true })))
+    .not.toContain('Ruffian: this weapon')
+})
+
 it('grants both Mastermind skills only after its skill choice', () => {
   const c = { ...base, subclass: 'Mastermind', rogueRacketSkills: { Mastermind: 'Occultism' } }
   expect(ranksAt(c, [rogue])).toMatchObject({ Society: 1, Occultism: 1 })

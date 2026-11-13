@@ -7,6 +7,7 @@ import { classSpellcasting, eligibleFeats, featChoiceOptions, focusSpells, knows
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
+import { ClassFeatures } from './ClassFeatures'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -20,6 +21,18 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
   _id: name, _source: { name, category: 'feat', level, markdown: `Header\n\n---\n\n${markdown}` },
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
+
+it('shows champion sanctification and devotion spell choices without a blessing', () => {
+  const deity = entry('Patron', 'deity', { divine_font: 'Heal', sanctification: 'holy, unholy' })
+  const c: Character = { ...base, level: 1, className: 'Champion', deity: deity.name, devotionSpell: 'Lay on Hands' }
+  const spells = renderToStaticMarkup(<SpellsSection c={c} entries={[deity, entry('Lay on Hands', 'spell')]} save={() => {}} />)
+  expect(spells).toContain('aria-label="Devotion spell"')
+  expect(spells).toContain('Lay on Hands')
+  expect(spells).toContain('Devotion Spells')
+  expect(spells).not.toContain('Touch of the Void')
+  const features = renderToStaticMarkup(<ClassFeatures c={c} entries={[deity]} save={() => {}} />)
+  expect(features).toContain('aria-label="Sanctification"')
+})
 
 function findUseButton(node: ReactNode, label: string): { disabled?: boolean; onClick: () => void } | undefined {
   let found: { disabled?: boolean; onClick: () => void } | undefined

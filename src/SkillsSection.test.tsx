@@ -37,6 +37,15 @@ it('automatically refunds redundant training while preserving conditional altern
   expect(skillRankBudget({ ...sf, feats: [] }, [sfRanger]).trained).toBe(3)
 })
 
+it('restores spent training when overlapping grants disappear without removing saved picks', () => {
+  const c: Character = { ...base, level: 5, skillPicks: ['Nature', 'Society', 'Survival'] }
+  const background: ContentEntry = { ...feyBound, name: 'Scholar', data: { skill: 'Society' } }
+  expect(skillRankBudget({ ...c, background: background.name }, [ranger, background]).trained).toBe(3)
+  expect(skillRankBudget({ ...c, background: undefined }, [ranger, background]).trained).toBe(2)
+  expect(skillRankBudget({ ...c, className: undefined, background: background.name }, [ranger, background]).trained).toBe(0)
+  expect(c.skillPicks).toEqual(['Nature', 'Society', 'Survival'])
+})
+
 it('shows Toughness contribution next to expanded Defense HP without changing the total', () => {
   const c: Character = { ...base, level: 20, ancestry: 'Human', abilities: { ...base.abilities, con: 20 },
     feats: [{ name: 'Toughness', type: 'General Feat', level: 1, slot: 'general:3:0' }] }

@@ -560,6 +560,13 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         // Prerequisites describe available capabilities, not the current combat toggle.
         senses: senses({ ...character, raging: true }, entries).map((sense) => sense.value),
         spellcastingClassFeature: casting, maxSpellRank, focusPool: hasFocusPool,
+        championBlessings: championBlessings(character),
+        sanctification: character.className === 'Champion' && byName(entries, 'deity', character.deity)?.data.sanctification
+          ? deitySanctification(character, entries).selected ?? 'None' : undefined,
+        devotionSpells: focus.spells.map(spell => spell.name),
+        championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
+          ? 'protective' : character.className === 'Champion' && ['Desecration', 'Iniquity', 'Obedience'].includes(subclass ?? '')
+            ? 'offensive' : undefined,
         familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name)),
         primalInnateSpell: innateGrants.some(grant => grant.rule.tradition?.toLowerCase() === 'primal'),
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
@@ -1231,6 +1238,9 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   const out = new Map<string, { name: string; source: string }>()
   const add = (name: string, source: string) => { if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name: spellName(entries, name), source }) }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  if (c.className === 'Champion' && c.level >= 1 && c.devotionSpell && championDevotionOptions(c, entries).includes(c.devotionSpell)) {
+    add(c.devotionSpell, 'Devotion Spells')
+  }
   const orders = c.className === 'Druid' ? [c.order, ...active.flatMap((f) => f.name === 'Order Explorer' ? [f.choice] : [])] : []
   const addOrder = (order?: string) => { if (order && ORDER_SPELLS[order]) add(ORDER_SPELLS[order], `${order} Order`) }
   if (c.className === 'Druid') {
@@ -1261,6 +1271,12 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   const pool = new Set([...spells.map(spell => spell.name), ...grantedWardenSpells(c, entries).map(spell => spell.name)])
   const nonCantrips = [...pool].filter(name => !byName(entries, 'spell', name)?.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
   return { spells, points: pool.size ? Math.min(3, Math.max(nonCantrips + bonusPoints, 1 + points)) : 0 }
+}
+
+export function championDevotionOptions(c: Character, entries: ContentEntry[]): NonNullable<Character['devotionSpell']>[] {
+  const font = tokens(byName(entries, 'deity', c.deity)?.data.divine_font).map(value => value.toLowerCase())
+  return ['Shields of the Spirit', ...(font.includes('heal') ? ['Lay on Hands' as const] : []),
+    ...(font.includes('harm') ? ['Touch of the Void' as const] : [])]
 }
 
 // Orders not yet used by the main order or another Order Explorer feat

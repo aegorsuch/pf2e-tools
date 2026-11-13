@@ -24,9 +24,13 @@ export const usesFullItemRules = (source: Record<string, unknown>) =>
   /Property Runes|Precious Material/i.test(String(source.item_subcategory)) || source.item_category === 'Materials'
   || source.item_category === 'Augmentations'
 
-// Legacy docs carry remaster_id (pointing to their remaster replacement); skip those.
-const REMASTER_ONLY = (category: string) => ({
-  bool: { filter: [{ term: { category } }], must_not: [{ exists: { field: 'remaster_id' } }] },
+// Keep the requested legacy Dragonslayer Oath; its remaster replacement has different mechanics.
+const contentQuery = (category: string, system: GameSystem) => ({
+  bool: { filter: [{ term: { category } }], must_not: [
+    category === 'feat' && system === 'pf2e'
+      ? { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219'] } }] } }
+      : { exists: { field: 'remaster_id' } },
+  ] },
 })
 
 export const SUBCLASS_CLASSES: Record<string, string> = {
@@ -199,7 +203,7 @@ export function parseResistances(t: string) {
 
 export type Hit = { _id?: string; _source?: Record<string, unknown> }
 
-// Fetch every category from AoN (remaster only). `fetchFn` is injectable for Node and browser use.
+// Fetch remastered content and explicitly supported legacy entries.
 export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, onProgress?: (n: number) => void) {
   const hits: Hit[] = []
   for (const category of Object.keys(CATEGORY_TO_KIND)) {
@@ -207,7 +211,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     const res = await fetchFn(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: REMASTER_ONLY(category), _source: [...SOURCE_FIELDS, 'markdown'] }),
+      body: JSON.stringify({ size: 10000, query: contentQuery(category, system), _source: [...SOURCE_FIELDS, 'markdown'] }),
     })
     if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
     const json = (await res.json()) as { hits?: { hits?: Hit[] } }

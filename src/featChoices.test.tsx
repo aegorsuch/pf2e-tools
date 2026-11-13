@@ -206,6 +206,24 @@ it('retains full feat, spell, trait, and rune descriptions through snapshot fetc
     .toBe('Available summary.')
 })
 
+it('requests Dragonslayer Oath alongside remastered Pathfinder feats without enabling other legacy entries', async () => {
+  const queries: Record<string, unknown> = {}
+  const fetchFn: typeof fetch = async (_url, init) => {
+    const request = JSON.parse(String(init?.body)) as { query: { bool: { filter: { term: { category: string } }[] } } }
+    queries[request.query.bool.filter[0].term.category] = request.query
+    return new Response(JSON.stringify({ hits: { hits: [] } }), { status: 200 })
+  }
+  await fetchAonHits('pf2e', fetchFn)
+  expect(queries.feat).toEqual({ bool: { filter: [{ term: { category: 'feat' } }], must_not: [
+    { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219'] } }] } },
+  ] } })
+  expect(queries.spell).toEqual({ bool: { filter: [{ term: { category: 'spell' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
+  expect(mapAonHit({ _id: 'feat-219', _source: { category: 'feat', name: 'Dragonslayer Oath', url: '/Feats.aspx?ID=219' } }, 'pf2e')?.data.url)
+    .toBe('https://2e.aonprd.com/Feats.aspx?ID=219&NoRedirect=1')
+  await fetchAonHits('sf2e', fetchFn)
+  expect(queries.feat).toEqual({ bool: { filter: [{ term: { category: 'feat' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
+})
+
 it('retains whether deity sanctification is required when snapshotting rules', async () => {
   const fetchFn: typeof fetch = async (_url, init) => {
     const request = JSON.parse(String(init?.body)) as { query: { bool: { filter: { term: { category: string } }[] } } }

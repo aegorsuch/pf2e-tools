@@ -1,7 +1,7 @@
 import { Info, SourceNote } from './Info'
 import { confirmRemoval } from './confirmRemoval'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, signed, type SectionProps } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { newId } from './db'
@@ -31,6 +31,15 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
   const familiar = leshy || c.className === 'Witch' || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + (c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0)
+  const familiarAbilities = (c.familiar?.abilities ?? []).slice(0, familiarCapacity).filter(Boolean)
+  const familiarTough = familiarAbilities.some(ability => ability.trim().toLowerCase() === 'tough')
+  const familiarDefense = familiar ? (() => {
+    const base = (breakdown: TotalBreakdown) => breakdown.parts
+      .filter(part => !/\((?:circumstance|status)\)/i.test(part.label)).reduce((sum, part) => sum + part.value, 0)
+    const ranks = ranksAt(c, entries)
+    return { ac: base(armorClassBreakdown(c, entries)), fortitude: base(savingThrowBreakdown(c, entries, 'Fortitude', ranks)),
+      reflex: base(savingThrowBreakdown(c, entries, 'Reflex', ranks)), will: base(savingThrowBreakdown(c, entries, 'Will', ranks)) }
+  })() : undefined
   const familiarSecrets = familiar && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
   const highestSlot = Math.max(c.className === 'Druid' ? Math.ceil(c.level / 2) : 0,
     ...Object.entries(c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
@@ -41,8 +50,9 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
     .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)))
     .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
-      || Number(!a.feat.choice) - Number(!b.feat.choice)
-      || (a.feat.choice ?? '').localeCompare(b.feat.choice ?? ''))
+      || (isCompanionAdvancement(a.feat.name) && isCompanionAdvancement(b.feat.name)
+        ? Number(!ADVANCED_TYPES.some(type => type === a.feat.choice)) - Number(!ADVANCED_TYPES.some(type => type === b.feat.choice))
+        : Number(!a.feat.choice) - Number(!b.feat.choice) || (a.feat.choice ?? '').localeCompare(b.feat.choice ?? '')))
     .filter(({ feat }, index, all) => !isCompanionAdvancement(feat.name)
       || all.findIndex(({ feat: other }) => isCompanionAdvancement(other.name)) === index)
   const update = (id: string, patch: Partial<NonNullable<typeof c.companions>[number]>) =>
@@ -61,7 +71,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
       <div className="character-section-content">
         <details className="character-subsection" open>
           <summary><h4>Animal Companions ({companions.length})</h4></summary>
-          {companions.length === 0 && c.feats.some((feat) => feat.name === 'Faithful Steed' && feat.level <= c.level) && <span>Faithful Steed{' '}
+          {companions.length === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && <span>Faithful Steed{' '}
             <SearchableSelect aria-label="Choose Faithful Steed" value="" onChange={(e) => {
               const type = types.find((type) => type.name === e.target.value)
               if (type) save({ faithfulSteedGranted: true, companions: [{ id: newId(), type: type.name, name: '' }] })
@@ -182,6 +192,16 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
           <summary><h4>{leshy ? 'Leshy Familiar' : 'Familiar'}</h4></summary>
           <label>Name <input aria-label="Familiar name" value={c.familiar?.name ?? ''}
             onChange={event => save({ familiar: { ...c.familiar, name: event.target.value } })} /></label>
+          <div><small>Hit Points</small> <b>{c.level * (familiarTough ? 7 : 5)}</b>{familiarTough && ' (includes Tough)'}</div>
+          {familiarDefense && <>
+            <div className="gear-stats">
+              <span><small>Armor Class</small><b>{familiarDefense.ac}</b></span>
+              <span><small>Fortitude</small>{signed(familiarDefense.fortitude)}</span>
+              <span><small>Reflex</small>{signed(familiarDefense.reflex)}</span>
+              <span><small>Will</small>{signed(familiarDefense.will)}</span>
+            </div>
+            <small>Uses your AC and saves before your circumstance and status modifiers.</small>
+          </>}
           {leshy && <label>Granted ability{' '}
             <select aria-label="Leshy familiar granted ability" value={c.familiar?.leshyAbility ?? ''} onChange={event => {
               const value = event.target.value
@@ -190,7 +210,7 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
               <option value="">Choose ability</option><option>Plant</option><option>Fungus</option>
             </select> <small>Does not count against daily choices.</small>
           </label>}
-          <div><small>Daily familiar or master abilities ({(c.familiar?.abilities ?? []).slice(0, familiarCapacity).filter(Boolean).length}/{familiarCapacity})</small></div>
+          <div><small>Daily familiar or master abilities ({familiarAbilities.length}/{familiarCapacity})</small></div>
           {Array.from({ length: familiarCapacity }, (_, index) => <label key={index}>Ability {index + 1}{' '}
             <input aria-label={`Familiar ability ${index + 1}`} value={c.familiar?.abilities?.[index] ?? ''}
               onChange={event => {
@@ -201,6 +221,11 @@ export function MinionsSection({ c, entries, save }: SectionProps) {
               }} />
           </label>)}
           <small>Enter familiar or master abilities selected during daily preparations; verify eligibility and effects against their rules.</small>
+          {familiarAbilities.filter((ability, index) => familiarAbilities.findIndex(other => other.trim().toLowerCase() === ability.trim().toLowerCase()) === index)
+            .flatMap(ability => {
+              const name = PET_ABILITIES.find(option => option.toLowerCase() === ability.trim().toLowerCase())
+              return name && name !== 'Tough' ? [<small key={name}>{name}: {PET_ABILITY_NOTES[name]}</small>] : []
+            })}
           {familiarSecrets && <div className="col">
             <label>Leshy Familiar Secrets{' '}
               <select aria-label="Leshy Familiar Secrets ability" value={c.familiar?.leshySecret ?? ''} onChange={event => {

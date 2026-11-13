@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, automaticFeatGrants, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, languageAllowance, maxHp, plannedSlots, ranksAt, senses } from './builder'
+import { additionalSkillCount, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, languageAllowance, maxHp, plannedSlots, ranksAt, senses } from './builder'
 import { featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -16,6 +16,45 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('checks champion blessing prerequisites at the feat selection level', () => {
+  const c: Character = { ...base, className: 'Champion', blessing: 'Blessed Shield',
+    feats: [{ ...selected('Second Blessing', 8), choice: 'Blessed Armament' }] }
+  expect(check('blessed shield', c, [], 2).missing).toEqual(['blessed shield'])
+  expect(check('blessed shield', c, [], 3).missing).toEqual([])
+  expect(check('blessed armament', c, [], 7).missing).toEqual(['blessed armament'])
+  expect(check('blessed armament', c, [], 8).missing).toEqual([])
+  expect(check('blessed swiftness', c).missing).toEqual(['blessed swiftness'])
+})
+
+it('checks champion sanctification and devotion spell prerequisites from actual choices', () => {
+  const deity = entry('deity', 'Patron', { divine_font: 'Heal', sanctification: 'holy, unholy' })
+  const c: Character = { ...base, className: 'Champion', deity: deity.name, sanctification: 'Holy', devotionSpell: 'Lay on Hands' }
+  const entries = [deity]
+  expect(championDevotionOptions(c, entries)).toEqual(['Shields of the Spirit', 'Lay on Hands'])
+  expect(focusSpells(c, entries)).toMatchObject({ points: 1, spells: [{ name: 'Lay On Hands', source: 'Devotion Spells' }] })
+  expect(check('holy', c, entries).missing).toEqual([])
+  expect(check('unholy', c, entries).missing).toEqual(['unholy'])
+  expect(check("you aren't unholy", c, entries).missing).toEqual([])
+  expect(check('devotion spell (_lay on hands_)', c, entries).missing).toEqual([])
+  expect(check('_touch of the void_', c, entries).missing).toEqual(['_touch of the void_'])
+  expect(check('holy', c).manual).toEqual(['holy'])
+  const unsanctified = { ...c, sanctification: undefined, devotionSpell: 'Touch of the Void' as const }
+  expect(check('holy', unsanctified, entries).missing).toEqual(['holy'])
+  expect(focusSpells(unsanctified, entries).spells).toEqual([])
+  expect(check('champion’s aura', c, entries).missing).toEqual([])
+  const justice = { ...c, subclass: 'Justice' }
+  const resistance = 'champion’s reaction that grants an ally resistance to an enemy’s damage (including the grandeur, justice, liberation, and redemption causes)'
+  const strike = 'champion’s reaction that grants extra damage with your Strikes (including the desecration, iniquity, and obedience causes)'
+  expect(check(resistance, justice, entries).missing).toEqual([])
+  expect(check(strike, justice, entries).missing).toEqual([strike])
+  expect(check(resistance, { ...c, subclass: 'Iniquity' }, entries).missing).toEqual([resistance])
+  expect(check(resistance, c, entries).manual).toEqual([resistance])
+  const oath = entry('feat', 'Oath', {}, 2, ['Champion', 'Oath'])
+  const sworn = { ...c, feats: [selected('Oath', 2)] }
+  expect(check('Any feat with the oath trait', sworn, [oath], 1).missing).toHaveLength(1)
+  expect(check('Any feat with the oath trait', sworn, [oath], 2).missing).toEqual([])
+})
 
 it('requires a master skill for Exceptional Artisan and restricts its bonus feat to the selected skill', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 9, ancestry: 'Orc', rankOverrides: { Crafting: 3 },

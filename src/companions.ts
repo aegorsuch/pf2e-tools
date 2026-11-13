@@ -6,7 +6,7 @@ const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
 export const MAX_SPECIALIZATIONS = 3
 
 export function faithfulSteedChange(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
-  if (c.faithfulSteedGranted || !c.feats.some((feat) => feat.name === 'Faithful Steed' && feat.level <= c.level)) return
+  if (c.faithfulSteedGranted || !c.feats.some((feat) => feat.name === 'Faithful Steed' && featTakenLevel(feat) <= c.level)) return
   if (c.companions?.length) return { faithfulSteedGranted: true }
   const horse = entries.find((entry) => entry.kind === 'companion' && entry.name === 'Horse' && !entry.deleted)
   if (!horse) return
@@ -60,7 +60,7 @@ export function specializationOptions(c: Character, entries: ContentEntry[], exc
   const used = new Set(c.feats.flatMap((f, i) => isCompanionSpecialization(f.name) && i !== exceptIndex && f.choice ? [f.choice] : []))
   const names = new Set([...Object.keys(COMPANION_SPECS), ...entries.filter((e) => e.kind === 'companionSpec').map((e) => e.name)])
   const feat = c.feats[exceptIndex]
-  return [...names].filter((n) => !used.has(n) && (n !== 'Auspice' || feat?.name === 'Auspicious Mount' && feat.level <= c.level))
+  return [...names].filter((n) => !used.has(n) && (n !== 'Auspice' || feat?.name === 'Auspicious Mount' && featTakenLevel(feat) <= c.level))
     .sort((a, b) => a.localeCompare(b))
 }
 

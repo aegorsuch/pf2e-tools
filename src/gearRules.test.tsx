@@ -19,6 +19,16 @@ const base: Character = {
   abilities: { str: 12, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('shows Dragonslayer Oath reaction benefits only after acquisition', () => {
+  const c: Character = { ...base, level: 10, feats: [{ ...feat('Dragonslayer Oath', 2), slot: 'class:6:0' }] }
+  const markup = renderToStaticMarkup(<ClassFeatures c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Dragonslayer Oath (legacy)')
+  expect(markup).toContain('resistance 17')
+  expect(markup).toContain('only to the corresponding legacy champion reactions')
+  expect(renderToStaticMarkup(<ClassFeatures c={{ ...c, level: 5 }} entries={[]} save={() => {}} />))
+    .not.toContain('Dragonslayer Oath (legacy)')
+})
 const feat = (name: string, level = 1, choice?: string) => ({ name, level, choice, type: 'Class Feat' })
 const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
   ({ id: name, systems: ['pf2e'], kind, source: 'official', name, data, level, traits, description: '', effects: [], updatedAt: 1 })

@@ -31,6 +31,10 @@ export interface PrerequisiteFacts {
   primalInnateSpell?: boolean
   limitedTelepathy?: boolean
   constructCompanion?: boolean
+  championBlessings?: string[]
+  sanctification?: 'Holy' | 'Unholy' | 'None'
+  devotionSpells?: string[]
+  championReaction?: 'protective' | 'offensive'
 }
 
 const key = (text: string) => text.trim().toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ')
@@ -208,6 +212,39 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)
     if (name === 'sneak attack 2d6' && facts.className === 'Rogue') return resultFor(level >= 5, text)
     if (name === 'construct companion' || name === 'a construct companion') return resultFor(!!facts.constructCompanion, text)
+    if (facts.className === 'Champion' && ['blessed armament', 'blessed shield', 'blessed swiftness'].includes(name)) {
+      return resultFor(!!facts.championBlessings?.some(blessing => key(blessing) === name), text)
+    }
+    if (facts.className === 'Champion' && ['holy', 'unholy', "you aren't unholy"].includes(name)) {
+      if (!facts.sanctification) return manual(text)
+      return resultFor(name === "you aren't unholy" ? facts.sanctification !== 'Unholy' : key(facts.sanctification) === name, text)
+    }
+    if (facts.className === 'Champion' && name === "champion's aura") return resultFor(level >= 1, text)
+    if (facts.className === 'Champion' && name === 'devotion spells') return resultFor(level >= 1, text)
+    if (name === 'any feat with the oath trait') {
+      const selectedSources = facts.feats.map(feat => featPrerequisiteSources(entries, {
+        ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds,
+      }))
+      const oath = (entry: ContentEntry) => entry.traits.some(trait => key(trait) === 'oath')
+      if (selectedSources.some(sources => sources.length && sources.every(oath))) return met()
+      return selectedSources.some(sources => !sources.length || sources.some(oath)) ? manual(text) : missing(text)
+    }
+    if (facts.className === 'Champion' && (name === "champion's reaction"
+      || name.startsWith("champion's reaction that grants "))) {
+      if (!facts.championReaction) return manual(text)
+      if (name === "champion's reaction") return met()
+      if (name.startsWith("champion's reaction that grants an ally resistance")) {
+        return resultFor(facts.championReaction === 'protective', text)
+      }
+      if (name.startsWith("champion's reaction that grants extra damage with your strikes")) {
+        return resultFor(facts.championReaction === 'offensive', text)
+      }
+    }
+    const devotionSpell = /^devotion spell\s*\((.+)\)$/.exec(name)
+    const spell = (devotionSpell?.[1] ?? name).replace(/^[_*]+|[_*]+$/g, '')
+    if (facts.className === 'Champion' && ['lay on hands', 'touch of the void', 'shields of the spirit'].includes(spell)) {
+      return resultFor(!!facts.devotionSpells?.some(value => key(value) === spell), text)
+    }
     if (name === 'an animal companion') return resultFor(!!facts.companionTypes?.length
       || facts.feats.some(feat => key(feat.name) === 'animal companion')
       || facts.features.some(feature => ['animal companion', 'an animal companion'].includes(key(feature))), text)

@@ -119,6 +119,7 @@ export interface Character {
   deity?: string
   blessing?: '' | 'Blessed Armament' | 'Blessed Shield' | 'Blessed Swiftness'
   sanctification?: 'Holy' | 'Unholy'
+  devotionSpell?: 'Lay on Hands' | 'Touch of the Void' | 'Shields of the Spirit'
   blessedArmament?: { weaponId: string; rune: string }
   haftStrikerWeaponId?: string
   raging?: boolean
