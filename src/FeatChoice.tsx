@@ -1,5 +1,5 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, deityDomains, researchedSpellResistanceChoices, featChoiceOptions, orderMagicOptions, terrainExpertiseOptions } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { SearchableSelect } from './SearchableSelect'
@@ -8,6 +8,18 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   const feat = c.feats[index]
   if (!feat) return null
   if (feat.name === 'Favored Terrain') return null
+  if (feat.name === 'Terrain Expertise') {
+    const options = terrainExpertiseOptions(c, index)
+    const choice = options.find(terrain => terrain.toLowerCase() === feat.choice?.trim().toLowerCase()) ?? feat.choice ?? ''
+    return <SearchableSelect label="Terrain" aria-label="Terrain Expertise terrain" value={choice} onChange={event => {
+      if (event.target.value && !options.includes(event.target.value)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: event.target.value || undefined } : existing) })
+    }}>
+      <option value="">Choose terrain</option>
+      {choice && !options.includes(choice) && <option disabled>{choice}</option>}
+      {options.map(terrain => <option key={terrain}>{terrain}</option>)}
+    </SearchableSelect>
+  }
   if (feat.name === 'Researched Spell Resistance') {
     const { rows } = researchedSpellResistanceChoices(c, entries, feat)
     return <span className="feat-choice feat-choice-with-note">

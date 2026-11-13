@@ -5,8 +5,8 @@ import type { FeatAccessCheck } from './featAccess'
 import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
 
-export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel }: {
-  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string
+export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, grantSource }: {
+  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; grantSource?: string
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -19,6 +19,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
         {buttonLabel ?? name}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
           aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
         {featActions && !buttonLabel && <> <ActionIcon entry={entry} /></>}
+        {grantSource && <> <small>({grantSource})</small></>}
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>

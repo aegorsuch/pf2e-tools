@@ -36,8 +36,13 @@ export const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name
 export function maxHp(c: Character, entries: ContentEntry[]) {
   const ancestry = num(byName(entries, 'ancestry', c.ancestry)?.data.hp)
   const cls = num(byName(entries, 'class', c.className)?.data.hp)
-  const toughness = c.feats.some((feat) => feat.name.toLowerCase() === 'toughness') ? c.level : 0
-  return ancestry + (cls + abilityMod(c.abilities.con)) * c.level + toughness
+  return ancestry + (cls + abilityMod(c.abilities.con)) * c.level
+    + hitPointBonuses(c).reduce((total, bonus) => total + bonus.value, 0)
+}
+
+export function hitPointBonuses(c: Character) {
+  return c.feats.some(feat => feat.name.toLowerCase() === 'toughness' && featTakenLevel(feat) <= c.level)
+    ? [{ source: 'Toughness', value: c.level }] : []
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -543,6 +548,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
   if (name === 'Favored Terrain') return [...FAVORED_TERRAINS]
+  if (name === 'Terrain Expertise') return terrainExpertiseOptions(c, index)
   if (DOMAIN_FEATS.includes(name)) {
     if (name.startsWith('Advanced')) return [...new Set(c.feats.flatMap(feat =>
       ["Domain Initiate", "Deity's Domain"].includes(feat.name) && feat.choice ? [feat.choice] : []))].sort()
@@ -665,6 +671,28 @@ export function cannyAcumenOptions(c: Character, entries: ContentEntry[]) {
 const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === name)
 
 export const FAVORED_TERRAINS = ['Aquatic', 'Arctic', 'Desert', 'Forest', 'Mountain', 'Plains', 'Sky', 'Swamp', 'Underground']
+
+export const isPioneerHuman = (c: Character) => c.heritage?.trim().toLowerCase() === 'pioneer human'
+
+export const terrainExpertiseTerrains = (c: Character) =>
+  [...FAVORED_TERRAINS, ...(c.systems.includes('sf2e') ? ['Space'] : [])].sort((a, b) => a.localeCompare(b))
+
+export function terrainExpertiseOptions(c: Character, source: number | 'pioneer' = -1) {
+  const used = new Set([
+    ...c.feats.flatMap((feat, index) => feat.name === 'Terrain Expertise' && index !== source && feat.choice ? [feat.choice] : []),
+    ...(isPioneerHuman(c) && source !== 'pioneer' && c.pioneerTerrain ? [c.pioneerTerrain] : []),
+  ].map(terrain => terrain.trim().toLowerCase()))
+  return terrainExpertiseTerrains(c).filter(terrain => !used.has(terrain.toLowerCase()))
+}
+
+export function terrainExpertiseBenefits(c: Character) {
+  const choices = [
+    ...activeFeatsNamed(c, 'Terrain Expertise').flatMap(feat => feat.choice ? [feat.choice] : []),
+    ...(isPioneerHuman(c) && c.pioneerTerrain ? [c.pioneerTerrain] : []),
+  ].map(terrain => terrain.trim().toLowerCase())
+  const terrains = terrainExpertiseTerrains(c).filter(terrain => choices.includes(terrain.toLowerCase()))
+  return terrains.length ? { terrains, bonus: c.activeFeatEffects?.includes('Terrain Expertise') ? 1 : 0 } : undefined
+}
 
 export function selectedFavoredTerrain(c: Character) {
   const original = activeFeatsNamed(c, 'Favored Terrain')[0]?.choice
@@ -1041,6 +1069,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
 
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number }[] = []
+  if (isPioneerHuman(c)) grants.push({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1 })
   const sourceLevel = (name: string) => Math.min(...activeFeatsNamed(c, name).map(featTakenLevel))
   if (activeFeatsNamed(c, 'Clever Improviser').length) {
     grants.push({ name: 'Untrained Improvisation', source: 'Clever Improviser', level: sourceLevel('Clever Improviser') })
@@ -1075,6 +1104,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
   autoClassSkills(c, entries).forEach(bump)
   backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
+  if (isPioneerHuman(c)) bump('Survival')
   c.skillPicks?.forEach(bump)
   featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
@@ -1137,6 +1167,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   for (const name of [
     ...autoClassSkills(c, entries),
     ...backgroundSkills(byName(entries, 'background', c.background)),
+    ...(isPioneerHuman(c) ? ['Survival'] : []),
     ...skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
   return ranks
@@ -2051,7 +2082,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
   Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
     + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries) + ancestralSkills(c, entries).filter(name =>
-      autoClassSkills(c, entries).includes(name) || backgroundSkills(byName(entries, 'background', c.background)).includes(name)).length)
+      autoClassSkills(c, entries).includes(name) || backgroundSkills(byName(entries, 'background', c.background)).includes(name)
+      || isPioneerHuman(c) && name === 'Survival').length
+    + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
 
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {

@@ -3,6 +3,7 @@ import { mapAonHit } from './aon'
 import { describe, expect, it } from 'vitest'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
+import { hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -36,6 +37,46 @@ const base: Character = {
 }
 
 describe('official passive feat mechanics', () => {
+  it('grants Pioneer Human Survival and Terrain Expertise without consuming a feat or training pick', () => {
+    const c: Character = { ...base, ancestry: 'Human', heritage: 'Pioneer Human', level: 19, skillPicks: [] }
+    expect(ranksAt(c, entries).Survival).toBe(1)
+    expect(ranksAt({ ...c, skillIncreases: { 3: 'Survival', 7: 'Survival' } }, entries).Survival).toBe(3)
+    expect(ranksAt({ ...c, rankOverrides: { Survival: 0 } }, entries).Survival).toBe(1)
+    expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount(base, entries))
+    expect(automaticFeatGrants(c, entries)).toContainEqual({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1 })
+    const terrain = entry('feat', 'Terrain Expertise', { prerequisite: 'Trained in Survival' }, 1, ['General', 'Skill'])
+    const target = entry('feat', 'Terrain Follow-up', { prerequisite: 'Terrain Expertise; Trained in Survival' })
+    expect(featPrerequisiteChecker(c, [...entries, terrain, target])(target)).toEqual({ missing: [], manual: [] })
+    const other = { ...c, heritage: 'Versatile Human' }
+    expect(ranksAt(other, entries).Survival ?? 0).toBe(0)
+    expect(automaticFeatGrants(other, entries)).not.toContainEqual(expect.objectContaining({ name: 'Terrain Expertise' }))
+  })
+
+  it('gives exactly one replacement training pick when class, background, or both also grant Survival', () => {
+    const ranger = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' })
+    const hunter = entry('background', 'Hunter', { skill: 'Survival' })
+    const data = [...entries.filter(entry => entry.name !== 'Ranger'), ranger, hunter]
+    for (const [className, background] of [['Ranger', 'Scholar'], ['Wizard', 'Hunter'], ['Ranger', 'Hunter']]) {
+      const c: Character = { ...base, className, background, heritage: 'Pioneer Human' }
+      expect(additionalSkillCount(c, data) - additionalSkillCount({ ...c, heritage: undefined }, data)).toBe(1)
+      expect(skillRankBudget({ ...c, skillPicks: ['Athletics'] }, data).trained).toBe(additionalSkillCount(c, data) - 1)
+    }
+  })
+
+  it('applies Terrain Expertise only in chosen terrain, supports SF space, and prevents duplicate choices', () => {
+    const c: Character = { ...base, systems: ['sf2e'], heritage: 'Pioneer Human', pioneerTerrain: 'Forest',
+      activeFeatEffects: ['Terrain Expertise'], feats: [{ name: 'Terrain Expertise', type: 'Skill Feat', level: 1, slot: 'skill:2:0', choice: 'Space' }], level: 7 }
+    expect(terrainExpertiseBenefits(c)).toEqual({ terrains: ['Forest', 'Space'], bonus: 1 })
+    expect(terrainExpertiseBenefits({ ...c, activeFeatEffects: [] })?.bonus).toBe(0)
+    expect(terrainExpertiseBenefits({ ...c, systems: ['pf2e'], heritage: undefined })).toBeUndefined()
+    expect(terrainExpertiseBenefits({ ...c, level: 1 })).toEqual({ terrains: ['Forest'], bonus: 1 })
+    expect(terrainExpertiseOptions(c)).not.toContain('Forest')
+    expect(terrainExpertiseOptions(c)).not.toContain('Space')
+    expect(terrainExpertiseOptions(c, 'pioneer')).toContain('Forest')
+    expect(terrainExpertiseOptions(c, 0)).toContain('Space')
+    expect(terrainExpertiseBenefits(JSON.parse(JSON.stringify(c)))).toEqual(terrainExpertiseBenefits(c))
+  })
+
   it('grants ancestry-specific Ancestral Skills training and replacement choices for class/background overlaps', () => {
     const feat = mapAonHit({ _id: 'human-ancestral-skills', _source: {
       category: 'feat', name: 'Ancestral Skills', level: 1, trait: ['Human'],
@@ -620,6 +661,11 @@ describe('defenses', () => {
     expect(armorClass(c, data)).toBe(24)
     expect(maxHp(c, data)).toBe(56)
     expect(maxHp({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(61)
+    expect(hitPointBonuses({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }))
+      .toEqual([{ source: 'Toughness', value: c.level }])
+    const future = { ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1, slot: 'general:7:0' }] }
+    expect(maxHp(future, data)).toBe(56)
+    expect(hitPointBonuses(future)).toEqual([])
   })
 
   it('finds archetype feats whose Dedication is missing', () => {

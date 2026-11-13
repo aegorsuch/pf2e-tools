@@ -9,6 +9,18 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('keeps Snare Crafting and its grant source inside one description button', () => {
+  const c: Character = { ...emptyRanger(), level: 2,
+    feats: [{ name: 'Snarecrafter Dedication', type: 'Archetype Feat', level: 2, slot: 'class:2:0' }] }
+  const entry: ContentEntry = {
+    id: 'snare-crafting', name: 'Snare Crafting', kind: 'feat', systems: ['pf2e'], source: 'official',
+    level: 1, traits: ['General', 'Skill'], description: 'Craft snares.', data: {}, effects: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[entry]} save={() => {}} categories={['skill']} />)
+  expect(markup).toContain('class="feat-name" aria-haspopup="dialog">Snare Crafting <small>(Snarecrafter Dedication)</small></button>')
+  expect(markup).not.toContain('</button><small>(Snarecrafter Dedication)')
+})
+
 it('omits section search bars and ignores their stale queries while preserving picker searches', () => {
   const c: Character = { ...emptyRanger(), level: 2 }
   const feats = ['Alpha', 'Beta'].flatMap((name): ContentEntry[] => [{
@@ -194,10 +206,10 @@ it('lists Clever Improviser granted Untrained Improvisation under general feats,
   }
   const props = { c, entries: [entry], save: () => {} }
   const markup = renderToStaticMarkup(<FeatSlots {...props} categories={['general']} />)
-  expect(markup).toContain('>Untrained Improvisation</button>')
+  expect(markup).toContain('>Untrained Improvisation <small>(Clever Improviser)</small></button>')
   expect(markup).not.toContain('Granted General Feat')
-  expect(markup.indexOf('Level 05')).toBeLessThan(markup.indexOf('>Untrained Improvisation</button>'))
-  expect(renderToStaticMarkup(<FeatSlots {...props} categories={['skill']} />)).not.toContain('>Untrained Improvisation</button>')
+  expect(markup.indexOf('Level 05')).toBeLessThan(markup.indexOf('>Untrained Improvisation <small>'))
+  expect(renderToStaticMarkup(<FeatSlots {...props} categories={['skill']} />)).not.toContain('>Untrained Improvisation <small>')
 })
 
 it('interleaves free feats with earned slots at acquisition levels and keeps skill grants in their own section', () => {
@@ -217,16 +229,16 @@ it('interleaves free feats with earned slots at acquisition levels and keeps ski
   const render = (character: Character, categories: ('general' | 'skill')[]) =>
     renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={categories} />)
   const general = render(c, ['general'])
-  expect(general).toContain('>Untrained Improvisation</button>')
+  expect(general).toContain('>Untrained Improvisation <small>(Clever Improviser)</small></button>')
   expect(general).not.toContain('Granted General Feat')
-  expect(general).not.toContain('>Experienced Tracker</button>')
-  expect(general.indexOf('Clear L07 General')).toBeLessThan(general.indexOf('>Untrained Improvisation</button>'))
+  expect(general).not.toContain('>Experienced Tracker <small>')
+  expect(general.indexOf('Clear L07 General')).toBeLessThan(general.indexOf('>Untrained Improvisation <small>'))
   const skill = render(c, ['skill'])
-  expect(skill).not.toContain('>Untrained Improvisation</button>')
+  expect(skill).not.toContain('>Untrained Improvisation <small>')
   expect(skill).not.toContain('Granted Skill Feat')
-  expect(skill).toContain('>Experienced Tracker</button>')
-  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('>Experienced Tracker</button>'))
-  expect(skill.indexOf('>Experienced Tracker</button>')).toBeLessThan(skill.indexOf('Clear L08 Skill'))
+  expect(skill).toContain('>Experienced Tracker <small>(Greenwatch Initiate)</small></button>')
+  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('>Experienced Tracker <small>'))
+  expect(skill.indexOf('>Experienced Tracker <small>')).toBeLessThan(skill.indexOf('Clear L08 Skill'))
   expect(skill.match(/>Level 08<\/li>/g)).toHaveLength(1)
   expect(render({ ...c, level: 7 }, ['skill', 'general'])).not.toContain('automatic-feat-row')
   expect(render({ ...c, feats: [] }, ['skill', 'general'])).not.toContain('automatic-feat-row')
@@ -422,8 +434,8 @@ it('shows automatic intimidation feats as read-only skill grants without duplica
     renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={save} categories={categories} />)
   const markup = render(c)
   expect(markup.match(/class="feat-slot-row automatic-feat-row"/g)).toHaveLength(2)
-  expect(markup).toContain('>Intimidating Glare</button>')
-  expect(markup).toContain('>Scare to Death</button>')
+  expect(markup).toContain('>Intimidating Glare <small>(Raging Intimidation)</small></button>')
+  expect(markup).toContain('>Scare to Death <small>(Raging Intimidation)</small></button>')
   expect(markup).toContain('(Raging Intimidation)')
   expect(markup).not.toContain('Remove Intimidating Glare')
   expect(render(c, ['class'])).not.toContain('automatic-feat-row')

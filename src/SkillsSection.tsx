@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorClass, armorRanks, weaponRanks, backgroundSkills, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
-  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, maxHp,
+  ancestralSkills, FAVORED_TERRAINS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, armorSaveBonus, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, type SectionProps,
 } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
@@ -45,7 +45,15 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
   const budget = skillRankBudget(c, entries)
   const remaining = budget.trained
   const ancestrySkills = ancestralSkills(c, entries)
-  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg), ...ancestrySkills])
+  const heritageSkills = isPioneerHuman(c) ? ['Survival'] : []
+  const grantedTraining = [...ancestrySkills, ...heritageSkills]
+  const fixed = new Set([...autoClassSkills(c, entries), ...backgroundSkills(bg), ...grantedTraining])
+  const terrainExpertise = terrainExpertiseBenefits(c)
+  const wasteland = activeFeatsNamed(c, 'Wasteland Warrior').length > 0
+  const hazardNote = 'Disable environmental hazards using Survival instead of Athletics or Thievery. '
+    + ((ranks.Survival ?? 0) >= 3
+      ? 'Master Survival satisfies Athletics or Thievery requirements of Master or lower, but not Legendary.'
+      : 'Check the hazard\'s proficiency requirements. At Master Survival, you qualify for requirements of Master or lower in Athletics or Thievery.')
   const skills = [
     ...stats.filter((stat) => stat.kind === 'skill'),
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
@@ -89,7 +97,7 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       return
     }
     if (r === 1 && currentRank === 1) {
-      if ((!fixed.has(name) || ancestrySkills.includes(name)) && picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
+      if ((!fixed.has(name) || grantedTraining.includes(name)) && picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
       return
     }
     const target = currentRank === r ? r - 1 : r
@@ -125,19 +133,21 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
       : s.kind === 'save' ? armorBonus : 0
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
-      : s.kind === 'save' ? saveCircumstance : undefined
+      : s.kind === 'save' ? saveCircumstance
+        : s.name === 'Survival' && terrainExpertise?.bonus ? { value: terrainExpertise.bonus, source: 'Terrain Expertise' } : undefined
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} <b>{signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
-            && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}</b></span>
+            && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}
+          {s.name === 'Survival' && wasteland && <SourceNote inlineSource={false} source="Wasteland Warrior" note={hazardNote} />}</b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = rank === i + 1 ? i : i + 1
             const trainedDisabled = i === 0 && (
               rank === 0 ? remaining <= 0
-                : rank === 1 ? fixed.has(s.name) && !ancestrySkills.includes(s.name) || !picks.includes(s.name)
+                : rank === 1 ? fixed.has(s.name) && !grantedTraining.includes(s.name) || !picks.includes(s.name)
                   : baseRank > 1
             )
             const disabled = s.kind !== 'skill' || i + 1 > maxRank || (i === 0
@@ -151,8 +161,9 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
                 aria-pressed={rank === i + 1}
                 aria-label={`${s.name} ${RANKS[i + 1]}`}
                 disabled={disabled}
-                title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && ancestrySkills.includes(s.name)
-                  ? picks.includes(s.name) ? 'Refund redundant training choice; Ancestral Skills keeps this skill trained' : 'Trained granted by Ancestral Skills'
+                title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
+                  ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
+                    : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
                   : i === 0 && fixed.has(s.name) ? 'Trained granted by class or background' : RANKS[i + 1]}
                 onClick={() => setRank(s.name, i + 1)}
               >{letter}</button>
@@ -225,15 +236,19 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
     const researched = researchedSpellResistance(c, entries)
+    const hpBonuses = hitPointBonuses(c)
     return (
       <>
         <div className="defense-summary">
           <span><small>Armor Class</small><b>{armorClass(c, entries)}</b></span>
-          <span><small>Hit Points</small><b>{maxHp(c, entries)}</b></span>
+          <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
+            && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}</b></span>
         </div>
         {rageToggle}
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
         {hazardToggle}
+        {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
+          && <small>Pioneer Human: {c.pioneerEnvironment.toLowerCase()} environmental effects are one step less extreme. This is not damage resistance.</small>}
         {researched && <>
           <FeatEffectToggle c={c} save={save} name="Researched Spell Resistance" label="Researched spell resistance active"
             title={`Only against spells and effects with these tradition traits: ${researched.traditions.join(', ')}.`} />
@@ -271,6 +286,12 @@ export function SkillsSection({ c, entries, save, part = 'skills' }: SectionProp
           </span>
         ))}
       </div>
+      {terrainExpertise && <label title={`Only for Survival checks in ${terrainExpertise.terrains.join(', ')} terrain.`}>
+        <input type="checkbox" aria-label="Terrain Expertise active" checked={!!terrainExpertise.bonus}
+          onChange={event => save(featEffectChange(c, 'Terrain Expertise', event.target.checked))} />
+        {' '}In Terrain Expertise terrain ({terrainExpertise.terrains.join(', ')}): +1 circumstance to Survival
+      </label>}
+      {wasteland && <small>Wasteland Warrior: {hazardNote}</small>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}
       </div>

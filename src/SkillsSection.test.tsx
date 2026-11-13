@@ -24,6 +24,49 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows Toughness contribution next to expanded Defense HP without changing the total', () => {
+  const c: Character = { ...base, level: 20, ancestry: 'Human', abilities: { ...base.abilities, con: 20 },
+    feats: [{ name: 'Toughness', type: 'General Feat', level: 1, slot: 'general:3:0' }] }
+  const entries: ContentEntry[] = [{ ...ranger, data: { ...ranger.data, hp: 10 } },
+    { ...ranger, id: 'human', kind: 'ancestry', name: 'Human', data: { hp: 8 } }]
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
+  expect(markup).toContain('328<small> (+20 Toughness)</small>')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [] }} entries={entries} save={() => {}} part="defense" />))
+    .not.toContain('Toughness')
+})
+
+it('keeps Pioneer training fixed, refunds redundant picks, and applies Terrain Expertise only to Survival', () => {
+  let c: Character = { ...base, systems: ['sf2e'], level: 7, heritage: 'Pioneer Human', pioneerTerrain: 'Forest',
+    skillPicks: ['Survival'], activeFeatEffects: ['Terrain Expertise'] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('Survival <b>+10</b>')
+  expect(renderToStaticMarkup(tree())).toContain('Terrain Expertise active')
+  expect(findButtons(tree()).get('Survival Trained')?.disabled).toBe(false)
+  ;(findButtons(tree()).get('Survival Trained')!.onClick as () => void)()
+  expect(c.skillPicks).toEqual([])
+  expect(ranksAt(c, [ranger]).Survival).toBe(1)
+  expect(findButtons(tree()).get('Survival Trained')?.disabled).toBe(true)
+  c = { ...c, activeFeatEffects: [] }
+  expect(renderToStaticMarkup(tree())).toContain('Survival <b>+9</b>')
+  c = { ...c, pioneerEnvironment: 'Heat' }
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(defense).toContain('heat environmental effects are one step less extreme')
+  expect(defense).toContain('This is not damage resistance')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, heritage: undefined }} entries={[ranger]} save={() => {}} part="defense" />))
+    .not.toContain('environmental effects')
+})
+
+it('shows Wasteland Survival substitution and only qualifies Master-or-lower hazard requirements at Master', () => {
+  const c: Character = { ...base, level: 13, heritage: 'Pioneer Human',
+    feats: [{ name: 'Wasteland Warrior', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
+  expect(render(c)).toContain('using Survival instead of Athletics or Thievery')
+  expect(render(c)).toContain('At Master Survival, you qualify')
+  expect(render({ ...c, rankOverrides: { Survival: 3 } })).toContain('Master Survival satisfies')
+  expect(render({ ...c, rankOverrides: { Survival: 4 } })).toContain('but not Legendary')
+  expect(render({ ...c, level: 12 })).not.toContain('Wasteland Warrior')
+})
+
 it('applies Clever Improviser only to untrained skills while leaving ranks, trained skills, Perception and saves unchanged', () => {
   const c: Character = { ...base, level: 5, feats: [
     { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },

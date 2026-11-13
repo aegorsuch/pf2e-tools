@@ -134,6 +134,7 @@ export const ANIMAL_FEATURES = [
 export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const base = entries.find((entry) => entry.id === 'aon:pf2e:weapon-304' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   const katana = entries.find((entry) => entry.id === 'aon:pf2e:weapon-411' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
+  const flyssa = entries.find((entry) => entry.id === 'aon:pf2e:weapon-285' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   return [...(base ? [{
     ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew' as const, name: 'Clawed Gauntlet',
     description: 'Four curved blades mounted over the fist give this close-combat gauntlet the appearance of claws.',
@@ -141,6 +142,10 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   }] : []), ...(katana ? [{
     ...katana, id: 'homebrew:claymore', source: 'homebrew' as const, name: 'Claymore',
     description: 'A homebrew claymore using katana statistics.',
+    updatedAt: 1,
+  }] : []), ...(flyssa ? [{
+    ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
+    description: 'A homebrew seax using flyssa statistics.',
     updatedAt: 1,
   }] : [])]
 }

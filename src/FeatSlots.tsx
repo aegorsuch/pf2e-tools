@@ -210,8 +210,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
                 {background && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
-                <EntryDescription name={displayName(feat.name)} entry={entry} className="feat-name" access={entry ? featAccess(c, entry) : undefined} />
-                {row.kind === 'automatic' && <small>({row.feat.source})</small>}
+                <EntryDescription name={displayName(feat.name)} entry={entry} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
+                  grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
               </li>
             </Fragment>
           }

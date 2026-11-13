@@ -8,6 +8,23 @@ import type { Character, ContentEntry } from './types'
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
 
+it('restores Pioneer protection and terrain choices and hides them for other heritages', () => {
+  const c: Character = {
+    id: 'pioneer', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Human', heritage: 'Pioneer Human',
+    pioneerEnvironment: 'Cold', pioneerTerrain: 'Forest',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={JSON.parse(JSON.stringify(c))} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Pioneer Human environmental protection"')
+  expect(markup).toContain('<option selected="">Cold</option>')
+  expect(markup).toContain('<option selected="">Forest</option>')
+  expect(markup).toContain('Terrain Expertise <small>(Pioneer Human)</small></button>')
+  const other = renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: 'Versatile Human' }} onClose={() => {}} />)
+  expect(other).not.toContain('aria-label="Pioneer Human')
+  expect(other).not.toContain('Terrain Expertise <small>(Pioneer Human)')
+})
+
 it('shows ancestry-specific Lore in Skills and feat-adjusted Bulk limits inside Gear', () => {
   content.entries = ['Ancestral Skills', 'Hardy Traveler'].map(name => ({
     id: name, systems: ['sf2e'], name, kind: 'feat', source: 'official', traits: ['Human'], data: {},

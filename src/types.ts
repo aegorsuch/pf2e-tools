@@ -103,6 +103,8 @@ export interface Character {
   className?: string
   subclass?: string
   heritage?: string
+  pioneerEnvironment?: 'Cold' | 'Heat'
+  pioneerTerrain?: string
   // Druidic order, which grants a skill
   order?: string
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)

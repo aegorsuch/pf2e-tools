@@ -28,6 +28,23 @@ it('copies current Katana stats into Claymore without changing the source or usi
   expect(homebrewWeapons([{ ...katana, source: 'homebrew' }])).toEqual([])
 })
 
+it('copies Flyssa mechanics into a separate homebrew Seax without changing the official weapon', () => {
+  const flyssa: ContentEntry = {
+    ...HAFT_STRIKER_WEAPON, id: 'aon:pf2e:weapon-285', name: 'Flyssa', level: 0,
+    traits: ['Agile', 'Finesse', 'Versatile'],
+    data: { weapon_category: 'Martial', weapon_group: 'Knife', weapon_type: 'Melee', damage: '1d6 S',
+      damage_type: 'Piercing, Slashing', hands: '1', bulk: 0.1, price: 100, rarity: 'common',
+      url: 'https://2e.aonprd.com/Weapons.aspx?ID=285' },
+  }
+  const original = JSON.stringify(flyssa)
+  const [seax] = homebrewWeapons([flyssa])
+  expect(seax).toMatchObject({ id: 'homebrew:seax', name: 'Seax', source: 'homebrew', traits: flyssa.traits, data: flyssa.data })
+  expect(weaponAttack(base, [seax], { id: 'seax', name: 'Seax', potency: 0, striking: 0, runes: [] }))
+    .toMatchObject({ damage: '1d6+1 S', ability: 'dex', traits: ['Agile', 'Finesse', 'Versatile'] })
+  expect(JSON.stringify(flyssa)).toBe(original)
+  expect(homebrewWeapons([{ ...flyssa, deleted: true }])).toEqual([])
+})
+
 it('uses simple proficiency and finesse for the haft while retaining Strength damage', () => {
   const attack = weaponAttack(base, [HAFT_STRIKER_WEAPON, {
     ...HAFT_STRIKER_WEAPON, id: 'ranger', kind: 'class', name: 'Ranger',

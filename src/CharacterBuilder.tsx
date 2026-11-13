@@ -7,7 +7,7 @@ import { AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, unslottedFeats } from './builder'
+import { DRUID_ORDERS, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, heritagesFor, isPioneerHuman, languageAllowance, plannedSlots, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { BulkLimits, HandwrapsGear } from './GearSection'
@@ -94,6 +94,33 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
 
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
+
+function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  if (!isPioneerHuman(c)) return null
+  const options = terrainExpertiseOptions(c, 'pioneer')
+  const terrain = options.find(terrain => terrain.toLowerCase() === c.pioneerTerrain?.trim().toLowerCase()) ?? c.pioneerTerrain ?? ''
+  return <div className="col">
+    <div className="row">
+      <label>Environmental protection{' '}
+        <select aria-label="Pioneer Human environmental protection" value={c.pioneerEnvironment ?? ''} onChange={event => {
+          const value = event.target.value
+          if (value === '' || value === 'Cold' || value === 'Heat') save({ pioneerEnvironment: value === '' ? undefined : value })
+        }}>
+          <option value="">Choose cold or heat</option><option>Cold</option><option>Heat</option>
+        </select>
+      </label>
+      <SearchableSelect label="Terrain Expertise" aria-label="Pioneer Human Terrain Expertise terrain" value={terrain} onChange={event => {
+        if (event.target.value && !options.includes(event.target.value)) return
+        save({ pioneerTerrain: event.target.value || undefined })
+      }}>
+        <option value="">Choose terrain</option>
+        {terrain && !options.includes(terrain) && <option disabled>{terrain}</option>}
+        {options.map(terrain => <option key={terrain}>{terrain}</option>)}
+      </SearchableSelect>
+    </div>
+    <small>Pioneer Human grants Trained Survival and free Terrain Expertise. If your class or background also trains Survival, choose one additional trained skill in Skills.</small>
+  </div>
+}
 
 export function CharacterBuilder({ character: c, onClose }: { character: Character; onClose: () => void }) {
   const [gearQuery, setGearQuery] = useState('')
@@ -223,6 +250,7 @@ export function CharacterBuilder({ character: c, onClose }: { character: Charact
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
               </SearchableSelect>
           </div>
+          <PioneerHumanOptions {...section} />
           <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
