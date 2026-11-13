@@ -803,11 +803,6 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Order Magic') return orderMagicOptions(c, index)
   if (name === 'Canny Acumen') return [...CANNY_STATS]
   if (name === 'Beast Trainer') return ['Pet', 'Train Animal']
-  if (name === 'Ancestral Longevity' || name === 'Expert Longevity') {
-    const ranks = ranksAt(c, entries)
-    return [...new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])]
-      .filter(skill => name === 'Ancestral Longevity' ? !(ranks[skill] ?? 0) : (ranks[skill] ?? 0) === 1).sort()
-  }
   if (name === 'Free Heart') return [...new Set(entries.filter(entry => entry.kind === 'background' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system)) && entry.name !== c.background
     && !featRarity(entry)).map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
@@ -1358,6 +1353,29 @@ export const skillIncreaseLevels = (c: Character) => range(3, 19, 2).filter((l) 
 const rankCap = (level: number) => (level >= 15 ? 4 : level >= 7 ? 3 : 2)
 export const canIncreaseTo = (level: number, currentRank: number) => currentRank < rankCap(level)
 
+export const LONGEVITY_EXPERT_SLOT = 'expert-longevity'
+export function longevityExpertLevel(c: Character) {
+  if (!activeFeatsNamed(c, 'Ancestral Longevity').length) return undefined
+  const feat = activeFeatsNamed(c, 'Expert Longevity')[0]
+  return feat ? featTakenLevel(feat) : undefined
+}
+
+export function normalizeLongevitySkills(c: Character): Character {
+  const training = activeFeatsNamed(c, 'Ancestral Longevity')[0]
+  const expert = longevityExpertLevel(c) === undefined ? undefined : activeFeatsNamed(c, 'Expert Longevity')[0]
+  const valid = new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])
+  const trainingChoice = training?.choice && valid.has(training.choice) ? training.choice : undefined
+  const expertChoice = expert?.choice && valid.has(expert.choice) ? expert.choice : undefined
+  if (!trainingChoice && !expertChoice) return c
+  return {
+    ...c,
+    skillPicks: trainingChoice ? [...new Set([...(c.skillPicks ?? []), trainingChoice])] : c.skillPicks,
+    skillIncreases: expertChoice ? { [LONGEVITY_EXPERT_SLOT]: expertChoice, ...c.skillIncreases } : c.skillIncreases,
+    feats: c.feats.map(feat => feat === training && trainingChoice || feat === expert && expertChoice
+      ? { ...feat, choice: undefined } : feat),
+  }
+}
+
 const featData = (c: Character, entries: ContentEntry[], field: string) =>
   c.feats.flatMap((f) => {
     const v = byName(entries, 'feat', f.name)?.data[field]
@@ -1560,6 +1578,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
 
 // Ranks from class/background/picks plus skill increases below `beforeLevel`; legacy overrides apply only to skills.
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
+  c = { ...normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }), level: c.level }
   const ranks = baseRanks(c, entries, beforeLevel)
   const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const rankUp = getSettings().autoClassSkills
@@ -1579,11 +1598,17 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const ancestral = activeFeatsNamed(c, 'Ancestral Skills').find(feat => featTakenLevel(feat) < beforeLevel)
   const ancestralLevel = ancestral && featTakenLevel(ancestral)
   const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
+  const longevityLevel = longevityExpertLevel({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
-    ...(greenwatchLevel === undefined ? [] : [greenwatchLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel])])].sort((a, b) => a - b)
+    ...(greenwatchLevel === undefined ? [] : [greenwatchLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
+    ...(longevityLevel === undefined ? [] : [longevityLevel])])].sort((a, b) => a - b)
   for (const l of levels) {
+    if (l === longevityLevel) {
+      const skill = c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]
+      if (skill && ranks[skill] === 1) ranks[skill] = 2
+    }
     if (increases.has(l)) {
       const skill = c.skillIncreases?.[l]
       if (skill) ranks[skill] = Math.min(4, (ranks[skill] ?? 0) + 1)
@@ -1622,13 +1647,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 export const proficiencyBonus = (rank: number, level: number) => (rank > 0 ? level + rank * 2 : 0)
 
 export function dailyLongevityRanks(c: Character, entries: ContentEntry[]) {
-  const ranks = ranksAt(c, entries)
-  const training = activeFeatsNamed(c, 'Ancestral Longevity')[0]
-  const expert = activeFeatsNamed(c, 'Expert Longevity')[0]
-  const valid = new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])
-  if (training?.choice && valid.has(training.choice) && !(ranks[training.choice] ?? 0)) ranks[training.choice] = 1
-  if (training && expert?.choice && expert.choice !== training.choice && valid.has(expert.choice) && ranks[expert.choice] === 1) ranks[expert.choice] = 2
-  return ranks
+  return ranksAt(c, entries)
 }
 
 export function untrainedSkillProficiency(c: Character) {
@@ -2770,6 +2789,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {
     if (featTakenLevel(selected) > c.level) return total
     if (selected.name === 'Natural Skill') return total + 2
+    if (selected.name === 'Ancestral Longevity') return total + 1
     const feat = byName(entries, 'feat', selected.name)
     const text = `${feat?.description ?? ''} ${String(feat?.data.skill ?? '')}`
     const grant = /(?:trained|become trained)\s+in\s+(one|two|three|four|1|2|3|4)\s+(?:additional\s+)?skills?\s+of\s+your\s+choice/i.exec(text)
@@ -2780,6 +2800,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
 }
 
 export function skillRankBudget(c: Character, entries: ContentEntry[]) {
+  c = normalizeLongevitySkills(c)
   let effectivePicks = [...(c.skillPicks ?? [])]
   let currentRanks = effectivePicks.length ? ranksAt({ ...c, skillPicks: effectivePicks }, entries, 99, false) : {}
   for (const skill of c.skillPicks ?? []) {
@@ -2791,6 +2812,7 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
     }
   }
   const remaining = { trained: Math.max(0, additionalSkillCount(c, entries) - effectivePicks.length), expert: 0, master: 0, legendary: 0 }
+  if (longevityExpertLevel(c) !== undefined && !c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]) remaining.expert++
   for (const level of skillIncreaseLevels(c)) {
     if (c.skillIncreases?.[level]) continue
     const rank = rankCap(level)

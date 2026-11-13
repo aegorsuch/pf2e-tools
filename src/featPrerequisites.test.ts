@@ -109,15 +109,17 @@ it('grants Free Heart background skills and feat without its attribute boosts', 
   expect(ranksAt({ ...c, level: 0 }, entries)['Theater Lore']).toBeUndefined()
 })
 
-it('applies daily longevity proficiency without qualifying permanent prerequisites', () => {
+it('preserves legacy longevity choices as regular proficiency for prerequisites', () => {
   const c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'], feats: [
-    { ...selected('Ancestral Longevity', 1), choice: 'Acrobatics' },
+    { ...selected('Ancestral Longevity', 5), choice: 'Acrobatics' },
     { ...selected('Expert Longevity', 9), choice: 'Athletics' },
   ] }
   expect(dailyLongevityRanks(c, [])).toMatchObject({ Acrobatics: 1, Athletics: 2 })
-  expect(ranksAt(c, []).Acrobatics).toBeUndefined()
-  expect(check('trained in Acrobatics', c).missing).toContain('trained in Acrobatics')
-  expect(check('expert in Athletics', c).missing).toContain('expert in Athletics')
+  expect(ranksAt(c, []).Acrobatics).toBe(1)
+  expect(check('trained in Acrobatics', c).missing).toEqual([])
+  expect(check('expert in Athletics', c).missing).toEqual([])
+  expect(ranksAt(c, [], 5).Acrobatics).toBeUndefined()
+  expect(ranksAt(c, [], 9).Athletics).toBe(1)
   expect(dailyLongevityRanks({ ...c, level: 8 }, []).Athletics).toBe(1)
   expect(dailyLongevityRanks({ ...c, feats: [c.feats[1]] }, []).Athletics).toBe(1)
 })
