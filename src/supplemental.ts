@@ -59,7 +59,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
   const simplicity = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Deadly Simplicity' && entry.traits.includes('Cleric'))
-  const rangerCopies = ['Effortless Concentration', 'Forgotten Presence'].flatMap(name => {
+  const rangerCopies = ['Effortless Concentration', 'Forgotten Presence', 'Timeless Nature'].flatMap(name => {
     const original = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
       && entry.name === name && entry.traits.includes('Druid'))
     if (!original) return []

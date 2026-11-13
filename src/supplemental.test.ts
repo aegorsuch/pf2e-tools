@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
-import { backgroundSkills, boostSlots, effectiveWeapon, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
@@ -19,17 +19,21 @@ it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze'
 })
 
 it('provides ranger copies of the druid feats without changing their rules', () => {
-  const originals: ContentEntry[] = ['Effortless Concentration', 'Forgotten Presence'].map((name, index) => ({
-    ...HAFT_STRIKER_WEAPON, id: `official:${index}`, kind: 'feat', name, level: index ? 8 : 16,
+  const originals: ContentEntry[] = ['Effortless Concentration', 'Forgotten Presence', 'Timeless Nature'].map((name, index) => ({
+    ...HAFT_STRIKER_WEAPON, id: `official:${index}`, kind: 'feat', name, level: [16, 8, 14][index],
     traits: ['Druid', 'Uncommon'], description: `${name} rules`, data: { class: 'Druid', archetype: 'Other' },
   }))
   const copies = homebrewCharacterOptions(originals).filter(entry => entry.id.startsWith('homebrew:ranger-'))
-  expect(copies).toHaveLength(2)
+  expect(copies).toHaveLength(3)
   for (const [index, copy] of copies.entries()) {
     expect(copy).toMatchObject({ name: originals[index].name, level: originals[index].level, source: 'homebrew',
       description: originals[index].description, traits: ['Uncommon', 'Ranger'], data: { class: 'Ranger' } })
     expect(copy.data.archetype).toBeUndefined()
   }
+  const slot = (level: number) => ({ key: `class:${level}:0`, category: 'class' as const, level })
+  expect(eligibleFeats([...originals, ...copies], { ...base, level: 13 }, slot(12)).map(feat => feat.name)).not.toContain('Timeless Nature')
+  expect(eligibleFeats([...originals, ...copies], { ...base, level: 14 }, slot(14)).find(feat => feat.name === 'Timeless Nature')?.id)
+    .toBe('homebrew:ranger-timeless-nature')
 })
 
 it('provides Strong Arm to Ranger and Barbarian and applies its range only to thrown attacks', () => {
