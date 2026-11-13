@@ -468,11 +468,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'} on a hit (Untamed Shift)` : undefined
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
-        const damageDie = Number(/^\d+d(\d+)/.exec(a.damage)?.[1])
-        const ruffianNote = rogueRackets(c, entries).includes('Ruffian') && a.entry
-          && (weaponCategory(a.entry) === 'Simple' && damageDie <= 8
-            || ['Martial', 'Advanced'].includes(weaponCategory(a.entry)) && damageDie <= 6) && damageDie > 0
-          ? 'Ruffian: this weapon can deal sneak attack damage; critical specialization applies against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         if (displayOnly) return <div key={w.id} className="gear-card">
@@ -485,7 +480,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {a.traits.length > 0 && <small> {a.traits.join(', ')}</small>}
           {untamedPersistent && <small> {untamedPersistent}</small>}
           {avengerNote && <small> {avengerNote}</small>}
-          {ruffianNote && <small> {ruffianNote}</small>}
         </div>
         return (
           <details key={w.id} className="gear-card" aria-label={displayName} open={!c.collapsedWeaponIds?.includes(w.id)} onToggle={event => {
@@ -498,7 +492,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} />}</Fragment>)}</>}</small></summary>
             {avengerNote && <small>{avengerNote}</small>}
-            {ruffianNote && <small>{ruffianNote}</small>}
             {forms.length > 0 && <label>Weapon form{' '}
               <select aria-label={`${combinationName(entries, w.name)} weapon form`}
                 value={w.combinationForm ?? (w.name.endsWith('(Melee)') ? 'Melee' : 'Ranged')}

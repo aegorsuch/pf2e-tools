@@ -124,17 +124,18 @@ it('auto-scales the Avenger deity skill for primary and additional rackets', () 
   } finally { updateSettings(settings) }
 })
 
-it('shows Ruffian weapon benefits only for eligible damage dice', () => {
+it('omits Ruffian weapon helper text in both weapon views', () => {
   const c: Character = { ...base, subclass: 'Ruffian' }
   const weapon = (id: string, category: string, damage: string): ContentEntry =>
     ({ ...dagger, id, name: id, data: { weapon_category: category, damage } })
   const entries = [weapon('Simple d8', 'Simple', '1d8 piercing'), weapon('Simple d10', 'Simple', '1d10 piercing'),
     weapon('Martial d6', 'Martial', '1d6 piercing'), weapon('Martial d8', 'Martial', '1d8 piercing')]
   const weapons = entries.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
-  const markup = renderToStaticMarkup(createElement(WeaponList, { c: { ...c, weapons }, entries, save: () => {}, displayOnly: true }))
-  expect(markup.match(/Ruffian: this weapon can deal sneak attack damage/g)).toHaveLength(2)
-  expect(renderToStaticMarkup(createElement(WeaponList, { c: { ...base, weapons }, entries, save: () => {}, displayOnly: true })))
-    .not.toContain('Ruffian: this weapon')
+  for (const displayOnly of [true, false]) {
+    const markup = renderToStaticMarkup(createElement(WeaponList, { c: { ...c, weapons }, entries, save: () => {}, displayOnly }))
+    expect(markup).not.toContain('Ruffian: this weapon')
+    for (const weapon of entries) expect(markup).toContain(weapon.name)
+  }
 })
 
 it('grants both Mastermind skills only after its skill choice', () => {
