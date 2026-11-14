@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { SkillsSection } from './SkillsSection'
+import { ArmorProficiency, SkillsSection } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import * as builder from './builder'
@@ -598,7 +598,7 @@ it('raises save and Perception ranks from class feature text and summarizes defe
   expect(defenseSummary(c, entries)).toMatchObject({ fortitude: 26, reflex: 28, will: 24 })
 })
 
-it('shows weapon and armor proficiency badges from class text and features', () => {
+it('shows weapon proficiency in Offense and armor proficiency in Equipment', () => {
   const klass: ContentEntry = {
     ...ranger,
     data: {
@@ -620,6 +620,9 @@ it('shows weapon and armor proficiency badges from class text and features', () 
   expect(weaponRanks(c, entries)).toEqual({ Simple: 3, Martial: 3, Advanced: 0, Unarmed: 3 })
   expect(armorRanks(c, entries)).toEqual({ Light: 2, Medium: 2, Heavy: 0, Unarmored: 2 })
   const props = { c, entries, save: () => {} }
-  expect(renderToStaticMarkup(<SkillsSection {...props} part="offense" />)).not.toContain('Initiative bonus')
-  expect(renderToStaticMarkup(<SkillsSection {...props} part="defense" />)).toContain('Unarmored')
+  const offense = renderToStaticMarkup(<SkillsSection {...props} part="offense" />)
+  expect(offense).not.toContain('Initiative bonus')
+  expect(offense).toContain('class="prof-badges"')
+  expect(renderToStaticMarkup(<SkillsSection {...props} part="defense" />)).not.toContain('class="prof-badges"')
+  expect(renderToStaticMarkup(<ArmorProficiency c={c} entries={entries} />)).toContain('Unarmored')
 })

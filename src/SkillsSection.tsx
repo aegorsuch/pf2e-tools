@@ -41,6 +41,10 @@ function ProficiencyBadges({ groups, ranks, labels }: { groups: readonly string[
   )
 }
 
+export function ArmorProficiency({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  return <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
+}
+
 export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const editingSkills = part === 'skills'
   const c = editingSkills ? normalizeLongevitySkills(original) : original
@@ -313,7 +317,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}</small>
         {oaken && <small>Weakness: Fire {oaken.fireWeakness} (Oaken Resilience)</small>}
-        <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
       </>
     )
   }

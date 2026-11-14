@@ -48,6 +48,24 @@ it('labels Rogue subclass as Racket without duplicating an additional Mastermind
   } finally { content.entries = [] }
 })
 
+it('shows armor proficiency badges in Equipment directly above Armor', () => {
+  content.entries = []
+  const c: Character = {
+    id: 'armor-proficiency', systems: ['pf2e'], name: 'Test', level: 1, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const equipmentStart = markup.indexOf('<strong>Equipment</strong>')
+  const armorHeading = markup.indexOf('<h4>Armor</h4>', equipmentStart)
+  const proficiency = markup.indexOf('<div class="prof-badges">', equipmentStart)
+  const defenseStart = markup.indexOf('<strong>Defense</strong>')
+  const deityStart = markup.indexOf('<strong>Deity</strong>')
+  expect(proficiency).toBeGreaterThan(equipmentStart)
+  expect(proficiency).toBeLessThan(armorHeading)
+  expect(markup.slice(defenseStart, deityStart)).not.toContain('class="prof-badges"')
+})
+
 it('imports druidic orders as subclass descriptions without adding a second primary picker', () => {
   const order = mapAonHit({ _id: 'druidic-order-8', _source: { category: 'druidic-order', name: 'Animal',
     markdown: 'Animal order description.' } }, 'pf2e')

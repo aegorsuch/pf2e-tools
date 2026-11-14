@@ -12,7 +12,7 @@ import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { SkillsSection } from './SkillsSection'
+import { ArmorProficiency, SkillsSection } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
@@ -437,6 +437,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
+          <ArmorProficiency c={c} entries={entries} />
           <h4>Armor</h4>
           <ArmorList {...section} part="armor" />
           <EquipmentGroup {...section} group="Arrows" rows={equipmentGroups.Arrows} />
