@@ -10,6 +10,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
+import { weaponWithModifications } from './inventorWeapon'
 import { minorMagicSpells } from './minorMagic'
 
 export type Ability = keyof Character['abilities']
@@ -310,6 +311,13 @@ export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['ma
 export function equippedShield(c: Character) {
   const generated = hardwoodShield(c)
   return generated && (c.hardwoodShield?.equipped ?? !c.shield) ? generated : c.shield
+}
+export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
+  const shield = equippedShield(c)
+  if (!shield) return 0
+  const entry = entries.find(item => item.kind === 'shield' && (item.id === shield.id || item.name === shield.name))
+  const bonus = num(entry?.data.ac)
+  return bonus > 0 ? bonus : /buckler/i.test(shield.name) ? 1 : 2
 }
 export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {
   const shield = equippedShield(c)
@@ -1841,8 +1849,15 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
 }
 
 export function weaponAccessSources(c: Character, entries: ContentEntry[], weapon: ContentEntry) {
+  const inventorFirearmAccess = getSettings().inventorFirearmAccess
+    && c.className === 'Inventor' && c.systems.includes('pf2e')
+    && weapon.systems.includes('pf2e') && featRarity(weapon) === 'Uncommon'
+    && (String(weapon.data.weapon_group ?? '').toLowerCase() === 'firearm'
+      || String(weapon.data.weapon_category ?? '').toLowerCase() === 'ammunition' && /firearm ammunition/i.test(weapon.name)
+      || weapon.name === 'Bladed Gauntlet')
   return [...weaponFamiliarity(c, weapon, weaponCategory(weapon), entries).access,
-    ...(unconventionalWeapon(c, entries, weapon) ? ['Unconventional Weaponry'] : [])]
+    ...(unconventionalWeapon(c, entries, weapon) ? ['Unconventional Weaponry'] : []),
+    ...(inventorFirearmAccess ? ['Inventor Firearm Access'] : [])]
 }
 
 export function weaponRanks(c: Character, entries: ContentEntry[]) {
@@ -2088,7 +2103,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const dexterity = abilityMod(c.abilities.dex)
   const skin = animalSkinBenefits(c, entries)
   const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
-  const raised = shieldRaised(c) ? 2 : 0
+  const raised = shieldRaised(c) ? shieldAcBonus(c, entries) : 0
   const parry = parryBonus(c, entries)
   const candidates = [
     { label: 'Raised shield', value: raised },
@@ -2777,6 +2792,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       : specialization.includes('weapon specialization') || c.className === 'Barbarian' && c.level >= 7 ? 2 : 1
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
+  entry = weaponWithModifications(c, w, entry)
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)
   const thrown = traits.some((t) => t.startsWith('thrown'))

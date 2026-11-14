@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import { featChoiceOptions, gearPickerEntries, weaponAccessSources, weaponAttack } from './builder'
 import { gearAccess } from './gearAccess'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -70,6 +71,46 @@ it('grants only stated weapon Access, not all ancestry gear or rare versions, an
   expect(gearAccess(saved, entries, armor)?.approved).toBe(true)
   expect(gearAccess(saved, entries, rare)?.approved).toBe(false)
   expect(gearAccess(c, entries, weapon('Longsword', 'Martial'))).toBeUndefined()
+})
+
+it('grants Inventors Access to uncommon firearms and firearm ammunition, but not rare firearms', () => {
+  const firearm = content('Air Repeater', 'weapon', {
+    weapon_category: 'Simple', weapon_group: 'Firearm', rarity: 'uncommon', damage: '1d4 P',
+  })
+  const ammunition = content('Firearm Ammunition (10 rounds)', 'weapon', {
+    weapon_category: 'Ammunition', rarity: 'uncommon',
+  })
+  const rareFirearm = { ...firearm, id: 'rare-firearm', data: { ...firearm.data, rarity: 'rare' } }
+  const nonFirearm = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')
+  const entries = [firearm, ammunition, rareFirearm, nonFirearm]
+  const inventor = { ...character, className: 'Inventor' }
+
+  expect(weaponAccessSources(inventor, entries, firearm)).toEqual(['Inventor Firearm Access'])
+  expect(weaponAccessSources(inventor, entries, ammunition)).toEqual(['Inventor Firearm Access'])
+  expect(gearAccess(inventor, entries, firearm)).toMatchObject({ automatic: true, sources: ['Inventor Firearm Access'] })
+  expect(weaponAccessSources(inventor, entries, rareFirearm)).toEqual([])
+  expect(weaponAccessSources(inventor, entries, nonFirearm)).toEqual([])
+  expect(weaponAccessSources(character, entries, firearm)).toEqual([])
+})
+
+it('toggles Inventor Access for uncommon firearms, ammunition, and Bladed Gauntlet together', () => {
+  const firearm = weapon('Air Repeater', 'Simple', [], 'uncommon')
+  firearm.data.weapon_group = 'Firearm'
+  const ammunition = content('Firearm Ammunition (10 rounds)', 'weapon', {
+    weapon_category: 'Ammunition', rarity: 'uncommon',
+  })
+  const gauntlet = weapon('Bladed Gauntlet', 'Simple', [], 'uncommon')
+  const entries = [firearm, ammunition, gauntlet]
+  const inventor = { ...character, className: 'Inventor' }
+  const original = getSettings().inventorFirearmAccess
+  try {
+    updateSettings({ inventorFirearmAccess: true })
+    for (const entry of entries) expect(weaponAccessSources(inventor, entries, entry)).toEqual(['Inventor Firearm Access'])
+    updateSettings({ inventorFirearmAccess: false })
+    for (const entry of entries) expect(weaponAccessSources(inventor, entries, entry)).toEqual([])
+  } finally {
+    updateSettings({ inventorFirearmAccess: original })
+  }
 })
 
 it('uses membership achievements for armor Access without conflating permission with proficiency', () => {

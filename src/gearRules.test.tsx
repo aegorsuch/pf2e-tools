@@ -243,6 +243,24 @@ it('treats a shield as raised for active Shield Paragon without changing the sav
   expect(markup).toMatch(/type="checkbox" disabled="" checked="".*?Raised \(\+2 AC\)/)
 })
 
+it.each(['Buckler', 'Gauntlet Buckler'])('uses %s AC bonus when raised', name => {
+  const shieldEntry = content('shield', name, { ac: 1 })
+  const shield = { id: 's', name, hardness: 3, hp: 6, damage: 0, raised: true }
+  const c: Character = { ...base, shield }
+  expect(armorClass(c, [shieldEntry])).toBe(armorClass({ ...c, shield: undefined }, [shieldEntry]) + 1)
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[shieldEntry]} save={() => {}} />)).toContain('Raised (+1 AC)')
+  expect(armorClass(c, [])).toBe(armorClass({ ...c, shield: undefined }, []) + 1)
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raised (+1 AC)')
+})
+
+it('shows shield base durability without allowing base hardness or HP edits', () => {
+  const c: Character = { ...base, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Base Hardness 5; Base Hit Points 20')
+  expect(markup).not.toContain('Base Hardness <input')
+  expect(markup).not.toContain('Base Hit Points <input')
+})
+
 it.each<[number, number, number, HardlightGrade]>([
   [1, 0, 0, 'Commercial'], [2, 1, 0, 'Tactical'], [3, 1, 0, 'Tactical'],
   [4, 1, 1, 'Advanced'], [9, 1, 1, 'Advanced'], [10, 2, 1, 'Superior'],

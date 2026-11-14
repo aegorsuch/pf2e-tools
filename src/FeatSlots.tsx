@@ -222,7 +222,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => {
     if (a.level !== b.level) return a.level - b.level
-    if (categories?.length !== 1 || categories[0] !== 'skill') return 0
+    if (categories?.length !== 1 || !['general', 'skill'].includes(categories[0])) return 0
     const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.feat
     const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.feat
     if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)

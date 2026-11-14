@@ -407,7 +407,7 @@ it('keeps purchased and free Shifting runes out of weapon damage', () => {
     const c = character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], free)
     c.weapons![0].runes = free ? ['Flaming'] : ['Shifting', 'Flaming']
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon, shifting]} save={() => {}} />)
-    expect(markup).toContain('Damage 2d8 S + Flaming')
+    expect(markup).toContain('Damage 2d8 S + 1d6 fire')
     expect(markup).toContain(free ? 'title="Granted by Living Weapon"' : 'aria-label="Remove Shifting rune"')
   }
 })
@@ -446,6 +446,10 @@ it.each([
   ['Astral (Greater)', '1d6 spirit', 'Greater Astral: spirit damage ignores spirit resistance.'],
   ['Holy', '1d4 spirit', 'Holy: 2d4 spirit instead against unholy targets.'],
   ['Unholy', '1d4 spirit', 'Unholy: 2d4 spirit instead against holy targets.'],
+  ['Flaming', '1d6 fire', '1d10 persistent fire damage on a critical hit.'],
+  ['Flaming (Greater)', '1d6 fire', '2d10 persistent fire damage on a critical hit; fire damage from this weapon ignores fire resistance.'],
+  ['Ashen', '1d4 persistent fire', 'On hit, target must attempt a DC 25 Will save or be confused for 1 round.'],
+  ['Ashen (Greater)', '1d8 persistent fire', 'On hit, target must attempt a DC 35 Will save or be confused for 1 round; critical failure extends confusion to 1 minute.'],
 ] as const)('shows %s damage numerically with compact conditional markers', (rune, damage, note) => {
   const c = character([])
   c.weapons![0].runes = [rune]

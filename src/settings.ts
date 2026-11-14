@@ -20,10 +20,12 @@ export interface Settings {
   generalFeatsOnly: boolean
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
+  // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
+  inventorFirearmAccess: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true }
+const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

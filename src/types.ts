@@ -32,6 +32,9 @@ export interface OwnedWeapon {
   livingWeapon?: boolean
   verdantWeapon?: boolean
   inventorInnovation?: boolean
+  inventorModifications?: Partial<Record<'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic', string>> & {
+    complexSimplicityTraits?: string[]
+  }
   combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
 }

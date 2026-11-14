@@ -214,6 +214,11 @@ export default function App() {
       {showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
           <label>
+            <input type="checkbox" checked={settings.inventorFirearmAccess}
+              onChange={(e) => updateSettings({ inventorFirearmAccess: e.target.checked })} />{' '}
+            Inventor Access: Firearms, Firearm Ammunition, and Bladed Gauntlet
+          </label>
+          <label>
             <input type="checkbox" checked={settings.autoClassSkills}
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
             Auto-Advance Class-Specific Skills

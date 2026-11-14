@@ -1213,6 +1213,17 @@ it('keeps an existing Advanced General Training choice selected under level 09',
   expect(markup).toContain('aria-label="Clear L09 General feat selection"')
 })
 
+it('alphabetizes automatic and selected general feats at the same level', () => {
+  const c: Character = { ...emptyRanger(), className: 'Fighter', level: 1, feats: [
+    { name: 'General Training', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+    { name: 'Fleet', type: 'General Feat', level: 1, slot: 'general:1:g0' },
+  ] }
+  const shieldBlock: ContentEntry = { id: 'fighter-shield-block', name: 'Shield Block', kind: 'classFeature', source: 'official',
+    systems: ['pf2e'], level: 1, traits: [], description: '', data: { class: 'Fighter' }, effects: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[shieldBlock]} categories={['general']} save={() => {}} />)
+  expect(markup.indexOf('>Fleet</button>')).toBeLessThan(markup.indexOf('Shield Block'))
+})
+
 it('opens Living Weapon details from its name instead of a separate summary or inline choice', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
