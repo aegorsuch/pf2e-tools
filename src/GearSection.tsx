@@ -794,12 +794,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       </article>}</>}
       {part !== 'shield' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
         <header><strong>Orc Warmask</strong></header>
-        <small>Invested worn mask; level {c.level}, negligible Bulk. Donning or removing takes 1 minute.</small>
-        <label><input type="checkbox" checked={!!c.warmask?.worn}
-          onChange={event => save({ warmask: { ...c.warmask, worn: event.target.checked } })} /> Worn</label>
-        <label><input type="checkbox" checked={!!c.warmask?.attuned}
-          onChange={event => save({ warmask: { ...c.warmask, attuned: event.target.checked } })} /> Attuned (1 hour and 50 gp)</label>
-        {warmaskSource(c) && <small>While worn and attuned: +1 item bonus to {warmaskSource(c)?.skill}.</small>}
+        <small>Always worn and attuned while this feat is active; level {c.level}, negligible Bulk.</small>
+        {warmaskSource(c) && <small>+1 item bonus to {warmaskSource(c)?.skill}.</small>}
       </article>}
     </div>
   )

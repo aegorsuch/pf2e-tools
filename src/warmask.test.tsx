@@ -29,15 +29,18 @@ it('grants warmask training and feat, with an alternate when already trained', (
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} index={0} save={() => {}} />)).toContain('Alternate trained skill')
 })
 
-it('applies the worn and attuned bonus and preserves mask state while feat is inactive', () => {
-  const c: Character = { ...base, warmask: { worn: true, attuned: true } }
+it('treats the warmask as always worn and attuned while the feat is active', () => {
+  const c: Character = { ...base }
   const html = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
-  expect(html).toContain('+1 item bonus while worn and attuned')
-  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, warmask: { ...c.warmask, worn: false } }} entries={[]} save={() => {}} />))
-    .not.toContain('+1 item bonus while worn and attuned')
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Orc Warmask')
+  expect(html).toContain('+1 item bonus while the feat is active; the mask is always worn and attuned.')
+  expect(html).toContain('aria-label="Orc Warmask note"')
+  expect(html).toContain('<span class="skill-part"><small>Item</small>+1</span>')
+  const gear = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
+  expect(gear).toContain('Always worn and attuned while this feat is active')
+  expect(gear).not.toContain('type="checkbox"')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, warmask: { worn: false, attuned: false } }} entries={[]} save={() => {}} />))
+    .toContain('+1 item bonus while the feat is active; the mask is always worn and attuned.')
   expect(renderToStaticMarkup(<ArmorList c={{ ...c, level: 0 }} entries={[]} save={() => {}} />)).not.toContain('Orc Warmask')
-  expect(c.warmask).toEqual({ worn: true, attuned: true })
 })
 
 it('grants the chosen daily spell at rank 1 with the warmask tradition and shared daily use', () => {

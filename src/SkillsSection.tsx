@@ -138,7 +138,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const abil = abilityMod(c.abilities[s.ability])
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
-    const warmaskBonus = c.warmask?.worn && c.warmask.attuned && warmaskSource(c)?.skill === s.name ? 1 : 0
+    const warmaskBonus = warmaskSource(c)?.skill === s.name ? 1 : 0
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
       : s.kind === 'save' ? armorBonus : warmaskBonus
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
@@ -162,7 +162,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
-          {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while worn and attuned." />}
+          {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
             && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}
