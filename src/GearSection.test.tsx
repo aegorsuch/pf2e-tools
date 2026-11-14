@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
+import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 
@@ -118,6 +119,34 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   expect(livingMarkup).not.toContain('aria-label="Remove Peachwood (Standard-Grade) material"')
   expect(livingMarkup).not.toContain('Material locked by Living Weapon')
   expect(livingMarkup).not.toContain('High-grade peachwood:')
+})
+
+it('allows a fifth Orichalcum rune with Inventor Rune Capacity modification on weapon or armor', () => {
+  const weaponCharacter: Character = {
+    ...character([]), className: 'Inventor', subclass: 'Weapon', level: 15,
+    weapons: [{
+      id: 'innovation', name: 'Longsword', potency: 3, striking: 3, inventorInnovation: true,
+      runes: ['Flaming', 'Frost', 'Shock', 'Wounding'],
+      inventorModifications: { revolutionary: 'Rune Capacity' },
+    }],
+  }
+  const weaponMarkup = renderToStaticMarkup(<WeaponList c={weaponCharacter} entries={[weapon]} save={() => {}} />)
+  expect(weaponMarkup).toContain('aria-label="Add property rune"')
+  expect(renderToStaticMarkup(<WeaponList c={{
+    ...weaponCharacter,
+    weapons: [{ ...weaponCharacter.weapons![0], inventorModifications: undefined }],
+  }} entries={[weapon]} save={() => {}} />)).not.toContain('aria-label="Add property rune"')
+
+  const armorCharacter: Character = {
+    ...character([]), className: 'Inventor', subclass: 'Armor', level: 15,
+    armors: [{
+      id: INVENTOR_ARMOR_ID, name: 'Power Suit', material: 'Orichalcum', potency: 3, resilient: 3, worn: true,
+      runes: ['Flaming', 'Frost', 'Shock', 'Wounding'],
+    }],
+    inventorArmorModifications: { revolutionary: 'Rune Capacity' },
+  }
+  expect(renderToStaticMarkup(<ArmorList c={armorCharacter} entries={[]} save={() => {}} />))
+    .toContain('aria-label="Add property rune"')
 })
 
 it('offers one Grisantian Hide choice and automatically displays its level-appropriate grade', () => {

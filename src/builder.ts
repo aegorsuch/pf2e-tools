@@ -10,7 +10,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { weaponWithModifications } from './inventorWeapon'
+import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { minorMagicSpells } from './minorMagic'
 
 export type Ability = keyof Character['abilities']
@@ -2740,7 +2740,9 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     if (weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)) enhanced = { ...enhanced, material: 'Orichalcum' }
     if (plate) enhanced = { ...enhanced, material: plate.material, potency: plate.potency, striking: plate.resilient }
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
-      runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)).slice(0, maxPropertyRunes(enhanced.potency, enhanced.material)) } : enhanced)
+      runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
+        .slice(0, maxPropertyRunes(enhanced.potency, enhanced.material,
+          hasWeaponRuneCapacity(c, weapon, weaponEntry(entries, weapon.name)))) } : enhanced)
   }
   const animalSource = animalStrengthSource(c, entries, weapon)
   if (animalSource) {
@@ -2755,9 +2757,11 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   return withBlessedArmament(c, entries, { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })
 }
 
-export const maxPropertyRunes = (potency: number, material?: OwnedWeapon['material']) => {
+export const maxPropertyRunes = (potency: number, material?: OwnedWeapon['material'], runeCapacity = false) => {
   const slots = Math.max(0, Math.min(3, potency))
-  return slots + (slots > 0 && material === 'Orichalcum' ? 1 : 0)
+  const materialBonus = slots > 0 && material === 'Orichalcum' ? 1 : 0
+  const modificationBonus = slots > 0 && runeCapacity ? 1 : 0
+  return Math.min(4 + Number(materialBonus > 0 && modificationBonus > 0), slots + materialBonus + modificationBonus)
 }
 
 const WEAPON_CATEGORIES = ['Simple', 'Martial', 'Advanced', 'Unarmed'] as const

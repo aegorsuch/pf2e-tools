@@ -16,7 +16,7 @@ import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { warmaskSource } from './warmask'
-import { complexSimplicityTraits, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
+import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 
 const POTENCY = [0, 1, 2, 3]
@@ -438,6 +438,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
         const enhanced = effectiveWeapon(c, entries, w)
+        const runeCapacity = hasWeaponRuneCapacity(c, w, a.entry)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
         const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws' : enhanced.name.replace(/ \(Animal Feature\)$/, '')
@@ -598,12 +599,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
                   source={plate ? `Inherited from ${plate.name}` : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
                   onRemove={livingWeapon || plate || innovation || w.verdantWeapon && canUseVerdantWeapon ? undefined : () =>
-                    update(w.id, { material: undefined, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency)) })} />
+                    update(w.id, { material: undefined, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) })} />
               </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
                 <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
                   const material = WEAPON_MATERIALS.find((name) => name === e.target.value)
                   if (!material) return
-                  update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material)) })
+                  update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material, runeCapacity)) })
                 }}>
                   <option value="">Add material...</option>
                   {WEAPON_MATERIALS.map((name) => <option key={name}>{name}</option>)}
@@ -613,14 +614,14 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
               <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
-                onChange={(potency) => update(w.id, { potency, runes: shared.runes.slice(0, maxPropertyRunes(potency, enhanced.material)) })} />
+                onChange={(potency) => update(w.id, { potency, runes: shared.runes.slice(0, maxPropertyRunes(potency, enhanced.material, runeCapacity)) })} />
               <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />
             </div>}
             {!fixed && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
               : enhanced.runes.filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting'))}
               entries={entries} options={unarmed || haft ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
-              limit={maxPropertyRunes(enhanced.potency, enhanced.material)} freeRunes={freeRunes}
+              limit={maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity)} freeRunes={freeRunes}
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : haft ? `Inherited from ${haft.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || haft ? undefined : (runes) => update(w.id, { runes })} />}
             <div className="row">
@@ -719,7 +720,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const granted = isGrantedArmor(a.id)
         const modifications = a.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
         const capacity = modifications.some(mod => mod.name === 'Rune Capacity') ? 1 : 0
-        const runeLimit = (potency: number, material: OwnedArmor['material']) => Math.min(4, maxPropertyRunes(potency, material) + capacity)
+        const runeLimit = (potency: number, material: OwnedArmor['material']) => maxPropertyRunes(potency, material, capacity > 0)
         const starfinder = granted && entry?.systems.includes('sf2e') ? entry : undefined
         const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
         const automatic = granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 }
@@ -798,7 +799,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" checked={equipped?.id === shield.id && shieldRaised(c)}
                 disabled={equipped?.id !== shield.id || shieldParagonActive(c)}
-                onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked)) }} /> Raised (+{shieldAcBonus(c, entries)} AC)</label>
+                onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked)) }} />
+              {/\bbuckler\b/i.test(shield.name) ? 'Raise buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
           <div className="row">
             {shield.material ? <div className="gear-runes"><span>Material</span>
@@ -841,7 +843,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, equipped: event.target.checked } })} /> Equipped</label>
           <label><input type="checkbox" checked={equipped?.id === woodShield.id && shieldRaised(c)}
             disabled={equipped?.id !== woodShield.id || shieldParagonActive(c)}
-            onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> Raised (+{shieldAcBonus(c, entries)} AC)</label>
+            onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
+            {/\bbuckler\b/i.test(woodShield.name) ? 'Raise buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
         <small>Hardness {shieldStats(woodShield).hardness}; Hit Points {shieldStats(woodShield).hp}; Broken Threshold {Math.floor(shieldStats(woodShield).hp / 2)}. Material and base stats improve automatically.</small>
         <ShieldRune rune={woodShield.reinforcingRune} entries={entries}
@@ -851,7 +854,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       </article>}</>}
       {part !== 'shield' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
         <header><strong>Orc Warmask</strong></header>
-        <small>Always worn and attuned while this feat is active; level {c.level}, negligible Bulk.</small>
         {warmaskSource(c) && <small>+1 item bonus to {warmaskSource(c)?.skill}.</small>}
       </article>}
     </div>

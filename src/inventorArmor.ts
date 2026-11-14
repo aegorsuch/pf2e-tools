@@ -26,7 +26,7 @@ export const ARMOR_MODIFICATIONS: Modification[] = [
   { name: 'Multisensory Mask', tier: 'revolutionary', suit: 'Subterfuge Suit', note: 'Concealed from all creatures, including nonvisual senses; concealment ends after a hostile action until restored with one manipulate action. Cannot Hide or Sneak using it.' },
   { name: 'Perfect Fortification', tier: 'revolutionary', suit: 'Power Suit', note: 'DC 13 flat check to turn critical hits into hits; resistance to precision damage.' },
   { name: 'Physical Protections', tier: 'revolutionary', requires: ['Dense Plating', 'Layered Mesh', 'Tensile Absorption'], note: 'Resistance to all physical damage, including bleed.' },
-  { name: 'Rune Capacity', tier: 'revolutionary', note: 'One extra armor property rune, maximum four.' },
+  { name: 'Rune Capacity', tier: 'revolutionary', note: 'One extra armor property rune, up to five with Orichalcum.' },
 ]
 
 export type ArmorModificationSlot = 'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic'

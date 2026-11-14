@@ -248,9 +248,9 @@ it.each(['Buckler', 'Gauntlet Buckler'])('uses %s AC bonus when raised', name =>
   const shield = { id: 's', name, hardness: 3, hp: 6, damage: 0, raised: true }
   const c: Character = { ...base, shield }
   expect(armorClass(c, [shieldEntry])).toBe(armorClass({ ...c, shield: undefined }, [shieldEntry]) + 1)
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[shieldEntry]} save={() => {}} />)).toContain('Raised (+1 AC)')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[shieldEntry]} save={() => {}} />)).toContain('Raise buckler (+1 AC)')
   expect(armorClass(c, [])).toBe(armorClass({ ...c, shield: undefined }, []) + 1)
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raised (+1 AC)')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raise buckler (+1 AC)')
 })
 
 it('hides shield base durability while keeping calculated durability visible', () => {
@@ -456,6 +456,8 @@ it.each(['Living Weapon', 'Verdant Weapon'])('does not activate %s upgrades befo
 it('gives Orichalcum one extra rune slot without increasing fundamental limits or stacking initiative circumstances', () => {
   for (const potency of [1, 2, 3]) expect(maxPropertyRunes(potency, 'Orichalcum')).toBe(potency + 1)
   expect(maxPropertyRunes(0, 'Orichalcum')).toBe(0)
+  expect(maxPropertyRunes(3, 'Orichalcum', true)).toBe(5)
+  expect(maxPropertyRunes(3, undefined, true)).toBe(4)
   const c: Character = { ...base, armors: [{ id: 'a', name: 'Plate', material: 'Orichalcum', potency: 3, resilient: 3, worn: true, runes: [] }] }
   const normal = initiativeBonus({ ...c, armors: [] }, [])
   expect(initiativeBonus(c, [])).toBe(normal + 1)

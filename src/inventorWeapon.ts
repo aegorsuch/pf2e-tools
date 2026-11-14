@@ -31,7 +31,7 @@ export const WEAPON_MODIFICATIONS: WeaponModification[] = [
   { name: 'Impossible Alloy', tier: 'revolutionary', note: 'The weapon counts as all seven skymetals against weaknesses.' },
   { name: 'Momentum Enhancer', tier: 'revolutionary', note: 'Adds Agile; a weapon with Reload can be reloaded once per round as a free action.' },
   { name: 'Omnirange Stabilizers', tier: 'revolutionary', note: 'Ranged only. Removes Volley, or increases range by 50 feet or its base increment, whichever is greater.' },
-  { name: 'Rune Capacity', tier: 'revolutionary', note: 'Allows one additional property rune, to a maximum of four.' },
+  { name: 'Rune Capacity', tier: 'revolutionary', note: 'Allows one additional property rune, up to five with Orichalcum.' },
 ]
 
 const slotTier: Record<WeaponModificationSlot, number> = {
@@ -110,6 +110,12 @@ export function weaponModificationOptions(
     && (option.name === current || !selected.has(option.name))
     && !(option.name === 'Complex Simplicity' && hasEnhancedDamage)
     && !(option.name === 'Enhanced Damage' && hasComplexSimplicity))
+}
+
+export function hasWeaponRuneCapacity(c: Character, weapon: OwnedWeapon, entry?: ContentEntry) {
+  return weaponModificationSlots(c, weapon, entry).some(slot =>
+    weapon.inventorModifications?.[slot] === 'Rune Capacity'
+    && weaponModificationOptions(c, weapon, entry, slot).some(option => option.name === 'Rune Capacity'))
 }
 
 export function complexSimplicityTraits() {
