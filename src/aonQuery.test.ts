@@ -54,6 +54,8 @@ it('preserves weapon versatile damage labels from full AoN traits', async () => 
       { _id: 'other', _source: { category, trait: ['Versatile'], markdown: '<traits><trait label="Versatile S" /></traits>' } },
       { _id: 'combination', _source: { category, name: 'Dagger Pistol (Melee)', trait: ['Versatile'],
         markdown: '<traits><trait label="Combination" /></traits><title level="2">Melee</title>\n<traits><trait label="Versatile S" /></traits><title level="2">Ranged</title>\n<traits><trait label="Versatile B" /></traits>' } },
+      { _id: 'stock', _source: { category, trait: ['Attached', 'Two-Hand'],
+        markdown: '<traits><trait label="Attached" /><trait label="Two-Hand d8" /></traits>' } },
     ] : []
     return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
   }
@@ -61,4 +63,5 @@ it('preserves weapon versatile damage labels from full AoN traits', async () => 
   expect(hits.find(hit => hit._id === 'dagger')?._source?.trait).toEqual(['Agile', 'Versatile B'])
   expect(hits.find(hit => hit._id === 'other')?._source?.trait).toEqual(['Versatile S'])
   expect(hits.find(hit => hit._id === 'combination')?._source?.trait).toEqual(['Versatile S'])
+  expect(hits.find(hit => hit._id === 'stock')?._source?.trait).toEqual(['Attached', 'Two-Hand d8'])
 })

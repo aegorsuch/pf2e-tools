@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, equippedWeaponHands, movementSpeeds, ownedWeapons, senses, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, equippedWeaponHands, movementSpeeds, ownedWeapons, senses, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
@@ -104,6 +104,27 @@ it('links attached weapons to their firearm and persists selection without extra
   expect(renderToStaticMarkup(tree())).toContain('Reinforced Stock (Attached to Arbalest)')
   select('')
   expect(ownedWeapons(c, entries).some(w => w.attachedTo)).toBe(false)
+})
+
+it('uses the attached weapon two-hand die based on its base weapon grip', () => {
+  const gun = { ...weapon, name: 'Gun', data: { hands: '1 or 2', weapon_group: 'Firearm', weapon_type: 'Ranged' } }
+  const stock = { ...weapon, name: 'Reinforced Stock', traits: ['Attached', 'Finesse', 'Two-Hand'],
+    data: { hands: '1 or 2', damage: '1d4 bludgeoning' } }
+  const c: Character = { ...character([]), weapons: [
+    { id: 'gun', name: gun.name, potency: 1, striking: 1, runes: [], attachedWeapon: 'Reinforced Stock' },
+  ] }
+  const entries = [gun, stock]
+  const attack = () => weaponAttack(c, entries, ownedWeapons(c, entries).find(w => w.attachedTo === 'gun')!)
+  expect(attack().damage).toBe('2d4 bludgeoning')
+  expect(attack().traits).toContain('Two-Hand d8')
+  c.weapons![0].handsHeld = 2
+  expect(attack().damage).toBe('2d8 bludgeoning')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)).toContain('2d8 B')
+  gun.data.hands = '2'
+  delete c.weapons![0].handsHeld
+  expect(attack().damage).toBe('2d8 bludgeoning')
+  c.weapons![0].attachedWeapon = 'Bayonet'
+  expect(attack().damage).toBe('2d4 piercing')
 })
 
 it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(

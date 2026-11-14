@@ -83,7 +83,7 @@ it('copies Flyssa mechanics into a separate homebrew Seax without changing the o
   const [seax] = homebrewWeapons([flyssa])
   expect(seax).toMatchObject({ id: 'homebrew:seax', name: 'Seax', source: 'homebrew', traits: flyssa.traits, data: flyssa.data })
   expect(weaponAttack(base, [seax], { id: 'seax', name: 'Seax', potency: 0, striking: 0, runes: [] }))
-    .toMatchObject({ damage: '1d6+1 S', ability: 'dex', traits: ['Agile', 'Finesse', 'Versatile'] })
+    .toMatchObject({ damage: '1d6+1 S', ability: 'dex', traits: ['Agile', 'Finesse', 'Versatile P'] })
   expect(JSON.stringify(flyssa)).toBe(original)
   expect(homebrewWeapons([{ ...flyssa, deleted: true }])).toEqual([])
 })

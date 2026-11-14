@@ -2537,7 +2537,11 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
   || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export function weaponEntry(entries: ContentEntry[], name: string) {
-  const entry = resolveWeaponEntry(entries, name)
+  let entry = resolveWeaponEntry(entries, name)
+  if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
+    && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
+    entry = { ...entry, traits: [...entry.traits.filter(trait => !/^two-hand$/i.test(trait.trim())), 'Two-Hand d8'] }
+  }
   if (!entry || !entry.traits.some(trait => /^versatile$/i.test(trait.trim()))
     || entry.traits.some(trait => /^versatile\s+/i.test(trait.trim()))) return entry
   const primary = /(?:^|\s)(bludgeoning|piercing|slashing|[bps])$/i.exec(String(entry.data.damage ?? '').trim())?.[1]?.[0].toUpperCase()
@@ -3089,7 +3093,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   ].filter(source => source.rank === rank).map(source => source.name)
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
   const dice = m ? (+m[1]) * (1 + w.striking) : 0
-  const baseDie = m ? +m[2] : 0
+  const attachedSource = w.attachedTo
+    ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
+  const twoHandDie = attachedSource && weaponHands(entries, attachedSource) === 2
+    ? traits.map(trait => /^two-hand\s+d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean) : undefined
+  const baseDie = m ? Number(twoHandDie ?? m[2]) : 0
   const dieSteps = [4, 6, 8, 10, 12]
   const die = hasFeat(c, 'Deadly Simplicity') && isDeadlySimplicityWeapon(c, entries, entry)
     ? category === 'Unarmed' ? Math.max(baseDie, 6) : dieSteps.find((step) => step > baseDie) ?? baseDie

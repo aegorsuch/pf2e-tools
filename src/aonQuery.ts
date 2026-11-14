@@ -240,6 +240,10 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (versatile && Array.isArray(s.trait)) {
             s.trait = s.trait.map(trait => typeof trait === 'string' && /^versatile$/i.test(trait.trim()) ? versatile : trait)
           }
+          const twoHand = /<trait\b[^>]*\blabel="(Two-Hand\s+d(?:4|6|8|10|12))"\s*[^>]*>/i.exec(traits)?.[1]
+          if (twoHand && Array.isArray(s.trait)) {
+            s.trait = s.trait.map(trait => typeof trait === 'string' && /^two-hand$/i.test(trait.trim()) ? twoHand : trait)
+          }
         }
         // Keep full rules text for description popups and class features.
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))

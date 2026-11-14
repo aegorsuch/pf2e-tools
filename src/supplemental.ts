@@ -24,7 +24,7 @@ export const OVERSIZED_THROW: ContentEntry = {
 export const ATTACHED_WEAPONS: ContentEntry[] = [
   { ...HAFT_STRIKER_WEAPON, id: 'supplemental:bayonet', name: 'Bayonet', traits: ['Agile', 'Attached', 'Finesse'],
     data: { weapon_category: 'Martial', weapon_group: 'Knife', weapon_type: 'Melee', damage: '1d4 piercing', hands: '1 or 2' } },
-  { ...HAFT_STRIKER_WEAPON, id: 'supplemental:reinforced-stock', name: 'Reinforced Stock', traits: ['Attached', 'Finesse', 'Two-Hand'],
+  { ...HAFT_STRIKER_WEAPON, id: 'supplemental:reinforced-stock', name: 'Reinforced Stock', traits: ['Attached', 'Finesse', 'Two-Hand d8'],
     data: { weapon_category: 'Martial', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning', hands: '1 or 2' } },
 ]
 
