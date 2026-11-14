@@ -525,7 +525,10 @@ function featIndex(entries: ContentEntry[]) {
   return index
 }
 
-export function featSelectionLevel(entry: ContentEntry, c: Character, entries: ContentEntry[], category: FeatSlotCategory) {
+export function featSelectionLevel(entry: ContentEntry, c: Character, entries: ContentEntry[], category: FeatSlotCategory,
+  slot?: { key: string; level: number }) {
+  if (entry.name === 'Ubiquitous Gadgets' && category === 'class' && slot && slot.level >= 14
+    && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 14
   if (category !== 'archetype' || typeof entry.data.archetype_levels !== 'string') return entry.level
   const dedications = new Set(c.feats.flatMap((feat) => {
     const content = featByName(entries).get(feat.name)
@@ -696,7 +699,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   return featIndex(entries)
     .filter(({ entry: e, traits }) => (e.name === 'Magical Trickster' && slot.category === 'class'
       && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
-      : featSelectionLevel(e, c, entries, slot.category)) <= (slot.grantedBy === 'Eldritch Trickster'
+      : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
       ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)

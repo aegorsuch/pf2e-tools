@@ -28,6 +28,19 @@ it('hides removal for an automatic Order Explorer feat but preserves alternative
   expect(row([fire, { ...fire, id: 'other', name: 'Other Flame Feat' }])).toContain('Clear L02 Class feat selection')
 })
 
+it('lists the second Ubiquitous Gadgets selection at level 14', () => {
+  const ubiquitous: ContentEntry = { id: 'ubiquitous-gadgets', name: 'Ubiquitous Gadgets', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 8, traits: ['Inventor'], description: '', data: { prerequisite: 'Gadget Specialist' }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), className: 'Inventor', level: 14, feats: [
+    { name: 'Gadget Specialist', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+    { name: 'Ubiquitous Gadgets', type: 'Class Feat', level: 8, slot: 'class:8:0' },
+  ] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[ubiquitous]} categories={['class']} save={() => {}}
+    search={{ 'class:14:0:open': '1' }} onSearch={() => {}} />)
+  expect(markup).toContain('<li class="feat-modal-level">L14</li>')
+  expect(markup).not.toContain('<li class="feat-modal-level">L08</li>')
+})
+
 it('selects Free Heart without choosing a background in the feat picker', () => {
   const feat: ContentEntry = { id: 'free-heart', name: 'Free Heart', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }

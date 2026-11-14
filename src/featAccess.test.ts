@@ -71,6 +71,17 @@ it('shares Tian elementalism access with Intensified Element Stance without bypa
   expect(featAccess({ ...c, achievements: [] }, intensified)?.automatic).toBe(false)
 })
 
+it('uses Tian Xia origin or familiarity with Sun Wukong for Wukong Extension', () => {
+  const label = 'Tian Xia origin or familiar with Sun Wukong'
+  const extension = { ...feat, name: 'Wukong Extension', data: { access: 'Old imported Access condition' } }
+  expect(achievementOptions([extension])).toEqual([{
+    key: label.toLowerCase(), requirement: label, feats: ['Wukong Extension'],
+  }])
+  expect(featAccess({ ...character, achievements: [label] }, extension))
+    .toMatchObject({ requirement: label, automatic: true, source: 'achievement' })
+  expect(featAccess(character, extension)).toMatchObject({ requirement: label, automatic: false })
+})
+
 it('grants both Nidal steed access through husbandry while still requiring a horse, not just another companion', () => {
   const label = 'Nidal origin or exposure to Nidalese husbandry'
   const steeds: ContentEntry[] = ['Chiardmar Steed', 'Nidarrmar Steed'].map(name => ({

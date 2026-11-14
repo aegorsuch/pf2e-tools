@@ -17,11 +17,12 @@ const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
 const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall|tian xia origin)\b/i
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
+const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
 const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
 const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
 const OLD_CHELIAX = 'From Old Cheliax'
-const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER, OLD_CHELIAX]
+const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKONG_EXTENSION_ACCESS, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER, OLD_CHELIAX]
   .map(label => [label.toLowerCase(), label]))
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
@@ -52,7 +53,8 @@ function achievementLabel(requirement: string) {
 }
 
 function narrativeRequirement(entry: ContentEntry, access: string) {
-  return ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)
+  return entry.name === 'Wukong Extension' ? WUKONG_EXTENSION_ACCESS
+    : ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)
     && (achievementKey(access) === 'from nidal' || /^you\ufffdre from nidal[.!?]*$/i.test(access))
     ? NIDAL_HUSBANDRY : access
 }
@@ -107,9 +109,11 @@ export function featRarity(entry: ContentEntry) {
 
 export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck | undefined {
   const access = String(entry.data.access ?? '').trim().replace(/\s+/g, ' ')
-  if (!access || /^(?:(?:rarity|access)\s*:\s*)?(?:uncommon|rare|unique)(?:\s+(?:feat|option))?[.!?]?$/i.test(access)) return undefined
-  const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase())
   const narrative = narrativeRequirement(entry, access)
+  if ((!access && entry.name !== 'Wukong Extension')
+    || entry.name !== 'Wukong Extension'
+      && /^(?:(?:rarity|access)\s*:\s*)?(?:uncommon|rare|unique)(?:\s+(?:feat|option))?[.!?]?$/i.test(access)) return undefined
+  const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase())
   const key = achievementKey(narrative)
   const background = key === RIVETHUN_MEMBERSHIP.toLowerCase() && c.background?.toLowerCase() === 'rivethun adherent'
   const ancestry = key === DWARVEN_DEFENDER.toLowerCase() && c.ancestry?.toLowerCase() === 'dwarf'

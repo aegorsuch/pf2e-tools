@@ -292,7 +292,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               || o.name === 'Versatile Rogue' && optionsFor(o, s).some(option => option.label.toLowerCase().includes(slotQuery)))
             && (!picksType || (type === 'dedication') === isDedication(o)))
           if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name)) - Number(suggestions.has(a.name))
-            || featSelectionLevel(a, c, entries, s.category) - featSelectionLevel(b, c, entries, s.category)
+            || featSelectionLevel(a, c, entries, s.category, s) - featSelectionLevel(b, c, entries, s.category, s)
             || a.name.localeCompare(b.name))
           const shown = popup ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, FeatOption[]>()
@@ -308,7 +308,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               }
               continue
             }
-            const level = featSelectionLevel(option, c, entries, s.category)
+            const level = featSelectionLevel(option, c, entries, s.category, s)
             const variants = optionsFor(option, s).filter(variant => option.name !== 'Versatile Rogue'
               || matches(option, slotQuery) || variant.label.toLowerCase().includes(slotQuery))
             optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
