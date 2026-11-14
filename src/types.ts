@@ -57,6 +57,9 @@ export interface CompanionEquipment {
   name: string
   qty: number
 }
+export type CompanionEquipmentSet = Partial<Record<Exclude<CompanionEquipmentSlot, 'Other'>, CompanionEquipment>> & {
+  Other?: CompanionEquipment[] | CompanionEquipment
+}
 export interface OwnedShield {
   id: string
   name: string
@@ -209,7 +212,7 @@ export interface Character {
   enlargeCompanionSize?: 'Large' | 'Huge'
   enlargeCompanionId?: string
   // Companions and their equipped gear
-  companions?: { id: string; name: string; type: string; equipment?: Partial<Record<CompanionEquipmentSlot, CompanionEquipment>>;
+  companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   pet?: { name?: string; aquatic?: boolean; abilities?: string[] }

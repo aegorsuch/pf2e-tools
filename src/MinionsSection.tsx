@@ -7,10 +7,10 @@ import { CompanionSpellOptions } from './SpellsSection'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
 import { isCompanionEquipmentItem } from './companions'
-import type { Character, CompanionEquipmentSlot, ContentEntry } from './types'
+import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
-const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Saddle', 'Shoes', 'Other']
+const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Other', 'Saddle', 'Shoes']
 const PET_ABILITIES = ['Amphibious', 'Burrower', 'Climber', 'Darkvision', 'Echolocation', 'Fast Movement', 'Flier', 'Manual Dexterity', 'Scent', 'Tough']
 const PET_ABILITY_NOTES: Record<string, string> = {
   Amphibious: 'Breathes air and water; land and swim Speeds equal highest land or swim Speed.',
@@ -46,7 +46,10 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
 }) {
   const options = entries.filter(entry => isCompanionEquipmentItem(entry) && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system)))
-  const bySlot = (slot: CompanionEquipmentSlot, selectedId?: string) => {
+  const selectedOther = Array.isArray(companion.equipment?.Other)
+    ? companion.equipment.Other
+    : companion.equipment?.Other ? [companion.equipment.Other] : []
+  const bySlot = (slot: CompanionEquipmentSlot, selectedIds: string[] = []) => {
     const matches = options.filter(entry => {
       const text = `${entry.name} ${entry.traits.join(' ')} ${String(entry.data.item_category ?? '')} ${String(entry.data.item_subcategory ?? '')}`
       switch (slot) {
@@ -60,22 +63,55 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
     const unique = new Map<string, ContentEntry>()
     for (const entry of matches) {
       const key = entry.name.trim().toLowerCase()
-      if (!unique.has(key) || entry.id === selectedId) unique.set(key, entry)
+      if (!unique.has(key) || selectedIds.includes(entry.id)) unique.set(key, entry)
     }
     return [...unique.values()]
   }
-  const update = (slot: CompanionEquipmentSlot, item: NonNullable<typeof companion.equipment>[CompanionEquipmentSlot] | undefined) => {
+  const saveEquipment = (equipment: NonNullable<typeof companion.equipment>) => {
+    save({ companions: (c.companions ?? []).map(current => current.id === companion.id
+      ? { ...current, equipment: Object.keys(equipment).length ? equipment : undefined } : current) })
+  }
+  const update = (slot: Exclude<CompanionEquipmentSlot, 'Other'>, item: NonNullable<typeof companion.equipment>[Exclude<CompanionEquipmentSlot, 'Other'>] | undefined) => {
     const equipment = { ...companion.equipment }
     if (item) equipment[slot] = item
     else delete equipment[slot]
-    save({ companions: (c.companions ?? []).map(current => current.id === companion.id
-      ? { ...current, equipment: Object.keys(equipment).length ? equipment : undefined } : current) })
+    saveEquipment(equipment)
+  }
+  const updateOther = (item: Pick<CompanionEquipment, 'entryId' | 'name'>, checked: boolean) => {
+    const equipment = { ...companion.equipment }
+    const current = selectedOther.filter(other => other.entryId !== item.entryId)
+    const next = checked ? [...current, { ...item, qty: 1 }] : current
+    if (next.length) equipment.Other = next.sort((a, b) => a.name.localeCompare(b.name))
+    else delete equipment.Other
+    saveEquipment(equipment)
   }
   return <section className="col companion-equipment" aria-label={`${companion.name || companion.type} equipment`}>
     <h5>Equipment</h5>
     {COMPANION_EQUIPMENT_SLOTS.map(slot => {
+      if (slot === 'Other') {
+        const selectedIds = selectedOther.map(item => item.entryId)
+        const slotOptions = bySlot(slot, selectedIds)
+        const unavailable = selectedOther.filter(item => !slotOptions.some(entry => entry.id === item.entryId))
+        return <div key={slot} className="row companion-equipment-slot" role="group"
+          aria-label={`${companion.name || companion.type} Other equipment`}>
+          <strong>Other</strong>
+          <div className="col">
+            {slotOptions.map(entry => <label key={entry.id}>
+              <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${entry.name}`}
+                checked={selectedIds.includes(entry.id)}
+                onChange={event => updateOther({ entryId: entry.id, name: entry.name }, event.target.checked)} />
+              {entry.name}
+            </label>)}
+            {unavailable.map(item => <label key={item.entryId}>
+              <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${item.name}`}
+                checked onChange={() => updateOther(item, false)} />
+              {item.name} (unavailable)
+            </label>)}
+          </div>
+        </div>
+      }
       const selected = companion.equipment?.[slot]
-      const slotOptions = bySlot(slot, selected?.entryId)
+      const slotOptions = bySlot(slot, selected ? [selected.entryId] : [])
       return <div key={slot} className="row companion-equipment-slot">
         <strong>{slot}</strong>
         <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
@@ -91,11 +127,6 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
           {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
         </SearchableSelect>
         {selected && <>
-          <button type="button" aria-label={`Decrease ${slot} quantity`} disabled={selected.qty <= 1}
-            onClick={() => update(slot, { ...selected, qty: Math.max(1, selected.qty - 1) })}>−</button>
-          <span>Qty {selected.qty}</span>
-          <button type="button" aria-label={`Increase ${slot} quantity`}
-            onClick={() => update(slot, { ...selected, qty: selected.qty + 1 })}>+</button>
           <button type="button" className="spell-remove" aria-label={`Remove ${slot} equipment`}
             onClick={() => update(slot, undefined)}>×</button>
         </>}

@@ -88,12 +88,14 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
 })
 
-it('selects alphabetized companion equipment by slot and tracks each quantity', () => {
+it('selects alphabetized companion equipment and allows multiple Other items', () => {
   let c: Character = {
     id: 'equipped-companion', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
-    companions: [{ id: 'cat', type: 'Cat', name: 'Buddy' }],
+    companions: [{ id: 'cat', type: 'Cat', name: 'Buddy', equipment: {
+      Other: { entryId: 'tassel', name: 'Steadyfoot Tassel', qty: 1 },
+    } }],
   }
   const item = (id: string, name: string, subcategory = 'Companion Items'): ContentEntry => ({
     id, name, kind: 'item', systems: ['pf2e'], source: 'official', level: 1, traits: [],
@@ -113,26 +115,39 @@ it('selects alphabetized companion equipment by slot and tracks each quantity', 
   if (!collarSelect) throw new Error('Missing companion collar slot')
   collarSelect({ target: { value: 'collar-a' } })
   expect(c.companions?.[0].equipment?.Collar).toEqual({ entryId: 'collar-a', name: 'Collar of Empathy', qty: 1 })
-  expect(renderToStaticMarkup(tree())).toContain('Qty 1')
   const markup = renderToStaticMarkup(tree())
+  expect(markup).not.toContain('Qty ')
+  expect(findButton(tree(), 'Increase Collar quantity')).toBeUndefined()
+  expect(markup.indexOf('Collar of Empathy')).toBeLessThan(markup.indexOf('Collar of Vigor'))
+  expect(markup.indexOf('Hosteling Statuette')).toBeLessThan(markup.indexOf('Steadyfoot Tassel'))
   expect(markup).toContain('<option value="" selected="">None</option>')
-  expect(markup).toContain('<option value="tassel">Steadyfoot Tassel</option>')
-  expect(markup).toContain('<option value="statuette">Hosteling Statuette</option>')
+  expect(markup).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
+  expect(markup).toContain('aria-label="Buddy Other: Hosteling Statuette"')
   expect(markup).not.toContain('Buddy Harness equipment')
   expect(markup).not.toContain('Buddy Head equipment')
   expect(markup.match(/<option value="anti-dragon">Anti-Dragon Barding<\/option>/g)).toHaveLength(1)
   expect(markup).not.toContain('wrong-category')
-  expect(markup.indexOf('Collar of Empathy')).toBeLessThan(markup.indexOf('Collar of Vigor'))
   expect(markup).not.toContain('<option value="irrelevant">Rope</option>')
-  const increment = findButton(tree(), 'Increase Collar quantity')
-  if (!increment) throw new Error('Missing companion equipment quantity control')
-  increment()
-  expect(c.companions?.[0].equipment?.Collar?.qty).toBe(2)
-  expect(findButton(tree(), 'Decrease Collar quantity')).toBeDefined()
   const remove = findButton(tree(), 'Remove Collar equipment')
   if (!remove) throw new Error('Missing companion equipment removal control')
   remove()
   expect(c.companions?.[0].equipment?.Collar).toBeUndefined()
+
+  const tassel = findToggle(tree(), 'Buddy Other: Steadyfoot Tassel')
+  if (!tassel) throw new Error('Missing Steadyfoot Tassel choice')
+  tassel({ target: { checked: true } })
+  const statuette = findToggle(tree(), 'Buddy Other: Hosteling Statuette')
+  if (!statuette) throw new Error('Missing Hosteling Statuette choice')
+  statuette({ target: { checked: true } })
+  expect(c.companions?.[0].equipment?.Other).toEqual([
+    { entryId: 'statuette', name: 'Hosteling Statuette', qty: 1 },
+    { entryId: 'tassel', name: 'Steadyfoot Tassel', qty: 1 },
+  ])
+  const removeTassel = findToggle(tree(), 'Buddy Other: Steadyfoot Tassel')
+  removeTassel?.({ target: { checked: false } })
+  expect(c.companions?.[0].equipment?.Other).toEqual([
+    { entryId: 'statuette', name: 'Hosteling Statuette', qty: 1 },
+  ])
 })
 
 it('shows a pet only when Beast Trainer grants Pet', () => {
