@@ -31,13 +31,20 @@ export function groupHomebrew(entries: ContentEntry[]) {
     .map(([name, content]) => ({ name, entries: content.sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level) }))
 }
 
-export function HomebrewList({ entries, onEdit, onDelete }: {
+export function HomebrewList({ entries, search = '', onEdit, onDelete }: {
   entries: ContentEntry[]
+  search?: string
   onEdit: (entry: ContentEntry) => void
   onDelete: (id: string) => void
 }) {
-  return groupHomebrew(entries).map((group) => (
-    <details key={group.name} className="character-subsection">
+  const query = search.trim().toLowerCase()
+  const groups = groupHomebrew(entries).map(group => ({
+    ...group, entries: query && !group.name.toLowerCase().includes(query)
+      ? group.entries.filter(entry => entry.name.toLowerCase().includes(query)) : group.entries,
+  })).filter(group => group.entries.length)
+  if (query && !groups.length) return <p>No homebrew matches your search.</p>
+  return groups.map((group) => (
+    <details key={group.name} className="character-subsection homebrew-group" open={query ? true : undefined}>
       <summary><h3>{group.name} ({group.entries.length})</h3></summary>
       <ul className="character-list">
         {group.entries.map((entry) => (

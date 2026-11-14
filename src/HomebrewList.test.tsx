@@ -52,3 +52,19 @@ it('alphabetizes collapsible categories and entries, placing shared class feats 
   expect(markup).not.toContain('open=""')
   expect(markup).not.toContain('Deleted')
 })
+
+it('filters homebrew by entry or category and expands matching groups', () => {
+  const feat = homebrewCharacterOptions([])[0]
+  const entries: ContentEntry[] = [
+    { ...feat, id: 'wolf', kind: 'companion', name: 'Wolf' },
+    { ...feat, id: 'cat', kind: 'companion', name: 'Cat' },
+  ]
+  const render = (search: string) => renderToStaticMarkup(
+    <HomebrewList entries={entries} search={search} onEdit={() => {}} onDelete={() => {}} />,
+  )
+  expect(render('wOlF')).toContain('open=""')
+  expect(render('wOlF')).toContain('Edit Wolf')
+  expect(render('wOlF')).not.toContain('Edit Cat')
+  expect(render('companions')).toContain('Edit Cat')
+  expect(render('missing')).toContain('No homebrew matches your search.')
+})

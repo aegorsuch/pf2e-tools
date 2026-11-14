@@ -173,12 +173,26 @@ function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   </div>
 }
 
+const filteredCatalogs = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+
+function characterCatalog(catalog: ContentEntry[], systemsKey: string) {
+  let filtered = filteredCatalogs.get(catalog)
+  if (!filtered) {
+    filtered = new Map()
+    filteredCatalogs.set(catalog, filtered)
+  }
+  let entries = filtered.get(systemsKey)
+  if (!entries) {
+    const systems = systemsKey.split(',')
+    entries = catalog.filter(e => e.systems.some(s => systems.includes(s)))
+    filtered.set(systemsKey, entries)
+  }
+  return entries
+}
+
 export function CharacterBuilder({ character: c, catalog, onClose }: { character: Character; catalog: ContentEntry[]; onClose: () => void }) {
   const systemsKey = c.systems.join()
-  const entries = useMemo(() => {
-    const systems = systemsKey.split(',')
-    return catalog.filter(e => e.systems.some(s => systems.includes(s)))
-  }, [catalog, systemsKey])
+  const entries = characterCatalog(catalog, systemsKey)
   const save = (patch: Partial<Character>) => {
     return db.transaction('rw', db.characters, async () => {
       const current = await db.characters.get(c.id)

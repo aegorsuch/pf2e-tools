@@ -8,7 +8,7 @@ import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
 import { HomebrewList } from './HomebrewList'
 import { confirmRemoval } from './confirmRemoval'
-import { ensureAonImported } from './aon'
+import { loadRequiredCatalogs } from './catalogLoading'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import { updateSettings, useSettings } from './settings'
@@ -60,6 +60,10 @@ export default function App() {
   const [authError, setAuthError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
+  const [homebrewSearch, setHomebrewSearch] = useState('')
+  const [catalogReady, setCatalogReady] = useState('')
+  const [catalogFailure, setCatalogFailure] = useState<{ key: string; message: string }>()
+  const [catalogRetry, setCatalogRetry] = useState(0)
   const userId = user?.id
   useEffect(() => {
     void ensureSupplementalContent().catch((err: unknown) => {
@@ -69,26 +73,36 @@ export default function App() {
   useEffect(() => onAuthChange(setUser, setAuthError), [])
   // Start backups only once signed in; the first run also pulls data from other devices
   useEffect(() => (userId ? startAutoSync(setStatus) : undefined), [userId])
-  // Official content is part of the app: load it in the background for enabled systems
+  const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
+  const editingCharacter = characters?.find((c) => c.id === editingId)
+  const neededSystems = editingCharacter?.systems ?? draft?.systems
+  const neededKey = neededSystems?.slice().sort().join(',') ?? ''
+  const requestKey = neededKey ? `${editingId ?? 'draft'}:${neededKey}:${catalogRetry}` : ''
+  const fullCatalog = !!editingId || !!draft
+  const catalogError = catalogFailure?.key === requestKey ? catalogFailure.message : ''
+
   useEffect(() => {
     let live = true
-    ;(async () => {
-      for (const sys of enabled) {
-        try {
-          const n = await ensureAonImported(sys, (c) => live && setStatus(`Loading ${sys} content: ${c}`))
-          if (live && n) setStatus(`Loaded ${n} ${sys} entries from Archives of Nethys`)
-        } catch (err) {
-          if (live) setStatus(`Could not load ${sys} content (${err instanceof Error ? err.message : err}); using saved data`)
-        }
-      }
-    })()
+    if (!neededKey) return () => { live = false }
+    void loadRequiredCatalogs(neededKey.split(',') as GameSystem[], setStatus, () => live)
+      .then(ready => { if (live && ready) setCatalogReady(requestKey) })
+      .catch((error: unknown) => {
+        if (live) setCatalogFailure({ key: requestKey, message: error instanceof Error ? error.message : String(error) })
+      })
     return () => { live = false }
-  }, [enabled])
-  const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
-  const entries = useLiveQuery(
-    () => db.content.filter((e) => !e.deleted && e.systems.some((s) => enabled.includes(s))).toArray(),
-    [enabled],
+  }, [neededKey, requestKey])
+  const catalog = useLiveQuery(
+    async () => {
+      const all = fullCatalog ? await db.content.toArray() : [
+        ...await db.content.where('source').equals('homebrew').toArray(),
+        ...await db.content.where('kind').anyOf('class', 'ancestry', 'subclass').toArray(),
+      ]
+      const unique = new Map(all.filter(e => !e.deleted && e.systems.some(s => enabled.includes(s))).map(e => [e.id, e]))
+      return { key: catalogReady, full: fullCatalog, entries: [...unique.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) }
+    },
+    [enabled, catalogReady, fullCatalog],
   )
+  const entries = catalog?.entries
 
   const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
   const sortedCharacters = [...(characters ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
@@ -103,6 +117,7 @@ export default function App() {
       boosts: {}, feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [],
       updatedAt: Date.now(),
     })
+    setCatalogRetry(value => value + 1)
     setEditingId(id)
   }
 
@@ -162,6 +177,7 @@ export default function App() {
       {authError && <p role="alert">Sign-in error: {authError}</p>}
       {refreshError && <p role="alert">{refreshError}</p>}
       {(status || !supabase) && <small>{status || 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</small>}
+      {draft && catalogError && <p role="alert">{catalogError} <button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></p>}
 
       {draft && (
         <form className="col" onSubmit={async (e) => { e.preventDefault(); await saveEntry(draft); setDraft(null) }}>
@@ -207,9 +223,13 @@ export default function App() {
         </form>
       )}
 
-      {characters?.find((c) => c.id === editingId) && (
-        <CharacterBuilder character={characters.find((c) => c.id === editingId)!} catalog={entries ?? NO_ENTRIES} onClose={() => setEditingId(null)} />
-      )}
+      {editingCharacter && ((!neededKey || catalogReady === requestKey) && catalog?.key === catalogReady && catalog.full
+        ? <CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} onClose={() => setEditingId(null)} />
+        : <div role="status">
+          {catalogError ? <><p>{catalogError}</p><button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></>
+            : <p>Loading character content...</p>}
+          <button type="button" onClick={() => setEditingId(null)}>Back to characters</button>
+        </div>)}
 
       {showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
@@ -272,17 +292,17 @@ export default function App() {
       )}
 
       {!editingId && <>
-      <h2>
-        Characters{' '}
-        <button type="button" title="New character" aria-label="New character" onClick={newCharacter}>+</button>
-      </h2>
+      <div className="home-section-heading">
+        <h2>Characters</h2>
+        <button type="button" onClick={newCharacter}>New character</button>
+      </div>
       <ul className="character-list">
         {sortedCharacters.map((c) => (
           <li className="character-row" key={c.id}>
             <span><b>{c.name}</b> - {characterSummary(c, entries ?? [])}</span>
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
-                onClick={() => setEditingId(c.id)}><EditIcon /></button>
+                onClick={() => { setCatalogRetry(value => value + 1); setEditingId(c.id) }}><EditIcon /></button>
               <button type="button" className="icon-button" title="Delete character" aria-label={`Delete ${c.name}`}
                 onClick={() => confirmRemoval(`character "${c.name}" and all its saved options`, () => {
                   void db.characters.put({ ...c, deleted: true, updatedAt: Date.now() }).catch((error: unknown) =>
@@ -292,12 +312,14 @@ export default function App() {
           </li>
         ))}
       </ul>
-      <div className="row">
+      <div className="home-section-heading">
         <h2>Homebrew Content ({homebrew.length})</h2>
-        <button type="button" title="Add homebrew content" aria-label="Add homebrew content"
-          onClick={() => setDraft(blank(enabled))}>+</button>
+        <button type="button" onClick={() => { setCatalogRetry(value => value + 1); setDraft(blank(enabled)) }}>Add homebrew</button>
       </div>
-      <HomebrewList entries={entries ?? []} onEdit={setDraft} onDelete={(id) => {
+      <label className="homebrew-search">Search homebrew
+        <input type="search" value={homebrewSearch} onChange={event => setHomebrewSearch(event.target.value)} />
+      </label>
+      <HomebrewList entries={entries ?? []} search={homebrewSearch} onEdit={entry => { setCatalogRetry(value => value + 1); setDraft(entry) }} onDelete={(id) => {
         void removeEntry(id).catch((error: unknown) =>
           setStatus(`Could not delete homebrew: ${error instanceof Error ? error.message : String(error)}`))
       }} />
