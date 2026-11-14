@@ -1557,6 +1557,8 @@ export function ancestralSkills(c: Character, entries: ContentEntry[]) {
   return statDefs(c).filter(stat => stat.kind === 'skill' && skills.has(stat.name)).map(stat => stat.name)
 }
 
+const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye"])
+
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
   const trained = activeFeatsNamed(c, 'Skill Training').flatMap((feat) => feat.choice && skills.has(feat.choice) ? [feat.choice] : [])
@@ -1568,7 +1570,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     else if (feat.choice && skills.has(feat.choice) && !ranks[feat.choice]) trained.push(feat.choice)
   })
   c.feats.forEach((feat, index) => {
-    if (featTakenLevel(feat) > c.level) return
+    if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name)) return
     const ranks = ancestrySkillBefore(c, entries, index)
     if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
       const baseSkills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']

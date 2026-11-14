@@ -66,6 +66,22 @@ it('shows armor proficiency badges in Equipment directly above Armor', () => {
   expect(markup.slice(defenseStart, deityStart)).not.toContain('class="prof-badges"')
 })
 
+it('renders characters with many unrelated feats without blocking editor startup', () => {
+  content.entries = []
+  const c: Character = {
+    id: 'many-feats', systems: ['pf2e'], name: 'Test', level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: Array.from({ length: 14 }, (_, index) => ({
+      name: `Unrelated Feat ${index}`, type: 'General Feat', level: 1,
+    })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('<strong>Languages</strong>')
+  expect(markup).toContain('1/2: Common')
+})
+
 it('imports druidic orders as subclass descriptions without adding a second primary picker', () => {
   const order = mapAonHit({ _id: 'druidic-order-8', _source: { category: 'druidic-order', name: 'Animal',
     markdown: 'Animal order description.' } }, 'pf2e')
