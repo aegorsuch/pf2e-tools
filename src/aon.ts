@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 
 export const AON_SITES: Record<GameSystem, string> = {
@@ -18,7 +18,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const traits = Array.isArray(s.trait) ? s.trait.filter((t): t is string => typeof t === 'string') : []
   const level = typeof s.level === 'number' ? s.level : 0
   const data: Record<string, string | number | boolean> = {
-    url: s.url ? AON_SITES[system] + text(s.url) + (system === 'pf2e' && hit._id === 'feat-219' ? '&NoRedirect=1' : '') : '',
+    url: s.url ? AON_SITES[system] + text(s.url)
+      + (system === 'pf2e' && RETAINED_LEGACY_FEAT_IDS.some(id => id === hit._id) ? '&NoRedirect=1' : '') : '',
     sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source),
   }
   for (const f of DATA_FIELDS) {

@@ -298,7 +298,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </div>
         {spec ? <small>Armor Specialization: {spec.group}{spec.summary && `, ${spec.summary}`}<SourceNote
           source={`${spec.armor}${spec.feat ? ` via ${spec.feat} feat` : spec.feature ? ` via ${spec.feature} class feature` : ''}`}
-          note={spec.effect} /></small> : <small>Armor Specialization: None</small>}
+          note={spec.effect} />{spec.group === 'Plate' && ' Plate resistance applies to all slashing damage, not only critical hits.'}
+          {spec.group === 'Chain' && ' Chain reduction applies only when you are critically hit.'}</small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r, index) => {
           const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect
             : activeFeatsNamed(c, r.source).length ? RESISTANCE_NOTES[r.source] : undefined

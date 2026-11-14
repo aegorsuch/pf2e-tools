@@ -91,15 +91,26 @@ it('treats Reactive Strike as the legacy Attack of Opportunity prerequisite at i
     .toEqual({ missing: [], manual: [] })
 })
 
-it('resolves Tenets of Good only when explicitly confirmed for a Champion', () => {
+it('maps Champion causes to Tenets of Good and Evil prerequisites', () => {
   const c: Character = { ...base, className: 'Champion', subclass: 'Justice' }
-  const oath = entry('feat', 'Dragonslayer Oath', { prerequisite: 'tenets of good' }, 2, ['Champion', 'Oath'])
-  const evaluate = (character: Character, level = character.level) => featPrerequisiteChecker(character, [oath], level)(oath)
-  expect(evaluate(c)).toEqual({ missing: [], manual: ['tenets of good'] })
-  expect(evaluate({ ...c, legacyTenetsOfGood: true })).toEqual({ missing: [], manual: [] })
-  expect(evaluate({ ...c, legacyTenetsOfGood: true }, 0)).toEqual({ missing: [], manual: ['tenets of good'] })
-  expect(evaluate({ ...c, className: 'Fighter', legacyTenetsOfGood: true })).toEqual({ missing: [], manual: ['tenets of good'] })
-  expect(evaluate(JSON.parse(JSON.stringify({ ...c, legacyTenetsOfGood: true })))).toEqual({ missing: [], manual: [] })
+  const good = entry('feat', 'Esoteric Oath', { prerequisite: 'tenets of good' }, 2, ['Champion', 'Oath'])
+  const evil = entry('feat', 'Evil Oath', { prerequisite: 'tenets of evil' }, 2, ['Champion', 'Oath'])
+  const evaluate = (character: Character, feat: ContentEntry, level = character.level) =>
+    featPrerequisiteChecker(character, [feat], level)(feat)
+  for (const cause of ['Justice', 'Grandeur', 'Liberation', 'Redemption', 'Paladin', 'Redeemer', 'Liberator']) {
+    expect(evaluate({ ...c, subclass: cause }, good)).toEqual({ missing: [], manual: [] })
+    expect(evaluate({ ...c, subclass: cause }, evil)).toEqual({ missing: ['tenets of evil'], manual: [] })
+  }
+  for (const cause of ['Desecration', 'Iniquity', 'Obedience', 'Desecrator', 'Antipaladin', 'Tyrant']) {
+    expect(evaluate({ ...c, subclass: cause }, evil)).toEqual({ missing: [], manual: [] })
+    expect(evaluate({ ...c, subclass: cause }, good)).toEqual({ missing: ['tenets of good'], manual: [] })
+  }
+  expect(evaluate({ ...c, subclass: undefined }, good)).toEqual({ missing: [], manual: ['tenets of good'] })
+  expect(evaluate({ ...c, subclass: undefined, legacyTenetsOfGood: true }, good)).toEqual({ missing: [], manual: [] })
+  expect(evaluate({ ...c, legacyTenetsOfGood: true }, good, 0)).toEqual({ missing: [], manual: ['tenets of good'] })
+  expect(evaluate({ ...c, className: 'Fighter', legacyTenetsOfGood: true }, good)).toEqual({ missing: [], manual: ['tenets of good'] })
+  expect(evaluate(JSON.parse(JSON.stringify({ ...c, subclass: undefined, legacyTenetsOfGood: true })), good))
+    .toEqual({ missing: [], manual: [] })
 })
 
 it('requires a master skill for Exceptional Artisan and restricts its bonus feat to the selected skill', () => {

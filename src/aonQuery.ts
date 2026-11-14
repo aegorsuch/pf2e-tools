@@ -24,11 +24,13 @@ export const usesFullItemRules = (source: Record<string, unknown>) =>
   /Property Runes|Precious Material/i.test(String(source.item_subcategory)) || source.item_category === 'Materials'
   || source.item_category === 'Augmentations'
 
-// Keep the requested legacy Dragonslayer Oath; its remaster replacement has different mechanics.
+// Retain these legacy oaths because their remaster replacements have different mechanics.
+export const RETAINED_LEGACY_FEAT_IDS = ['feat-219', 'feat-1669']
+
 const contentQuery = (category: string, system: GameSystem) => ({
   bool: { filter: [{ term: { category } }], must_not: [
     category === 'feat' && system === 'pf2e'
-      ? { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219'] } }] } }
+      ? { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: RETAINED_LEGACY_FEAT_IDS } }] } }
       : { exists: { field: 'remaster_id' } },
   ] },
 })

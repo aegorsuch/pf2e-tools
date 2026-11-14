@@ -36,7 +36,7 @@ it('saves an explicit Champion confirmation of legacy Tenets of Good', () => {
     let found: Record<string, unknown> | undefined
     Children.forEach(node, child => {
       if (found || !isValidElement<Record<string, unknown>>(child)) return
-      found = child.type === 'input' && child.props['aria-label'] === 'Legacy Tenets of Good'
+      found = child.type === 'input' && child.props['aria-label'] === 'Confirm legacy Tenets of Good'
         ? child.props : findInput(child.props.children as ReactNode)
     })
     return found
@@ -46,6 +46,6 @@ it('saves an explicit Champion confirmation of legacy Tenets of Good', () => {
   onChange({ target: { checked: true } })
   expect(c.legacyTenetsOfGood).toBe(true)
   expect(findInput(tree())?.checked).toBe(true)
-  expect(renderToStaticMarkup(tree())).toContain('Confirm legacy compatibility with your GM')
+  expect(renderToStaticMarkup(tree())).toContain('Known causes map to matching tenets automatically')
   expect(findInput(ClassFeatures({ c: { ...c, className: 'Fighter' }, entries: [], save: () => {} }))).toBeUndefined()
 })

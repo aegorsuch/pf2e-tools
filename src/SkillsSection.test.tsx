@@ -389,6 +389,30 @@ it('shows calculated armor specialization with its source and clickable full rul
   expect(markup).toContain('popover="auto"')
 })
 
+it('clarifies armor specialization trigger conditions for Plate and Chain', () => {
+  const armorSpecFeat: ContentEntry = {
+    ...ranger, id: 'armor-spec', kind: 'feat', name: 'Armor Specialization',
+    data: { grants_armor_specialization: true },
+  }
+  const renderSpecialization = (groupName: string, category: string) => {
+    const armor: ContentEntry = {
+      ...ranger, id: `armor-${groupName}`, kind: 'armor', name: `${groupName} Armor`,
+      data: { armor_group: groupName, armor_category: category },
+    }
+    const group: ContentEntry = {
+      ...ranger, id: `group-${groupName}`, kind: 'armorGroup', name: groupName,
+      description: `${groupName} specialization rules.`, data: {},
+    }
+    const c: Character = {
+      ...base, feats: [{ name: armorSpecFeat.name, type: 'Class Feat', level: 1 }],
+      armors: [{ id: 'armor', name: armor.name, worn: true, potency: 0, resilient: 0, runes: [] }],
+    }
+    return renderToStaticMarkup(<SkillsSection c={c} entries={[ranger, armor, group, armorSpecFeat]} save={() => {}} part="defense" />)
+  }
+  expect(renderSpecialization('Plate', 'Heavy')).toContain('Plate resistance applies to all slashing damage, not only critical hits.')
+  expect(renderSpecialization('Chain', 'Heavy')).toContain('Chain reduction applies only when you are critically hit.')
+})
+
 function findButtons(node: ReactNode) {
   const buttons = new Map<string, Record<string, unknown>>()
   Children.forEach(node, (child) => {

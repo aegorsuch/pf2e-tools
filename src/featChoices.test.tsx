@@ -224,7 +224,7 @@ it('retains full feat, spell, trait, and rune descriptions through snapshot fetc
     .toBe('Available summary.')
 })
 
-it('requests Dragonslayer Oath alongside remastered Pathfinder feats without enabling other legacy entries', async () => {
+it('requests selected legacy Champion oaths alongside remastered Pathfinder feats', async () => {
   const queries: Record<string, unknown> = {}
   const fetchFn: typeof fetch = async (_url, init) => {
     const request = JSON.parse(String(init?.body)) as { query: { bool: { filter: { term: { category: string } }[] } } }
@@ -233,11 +233,13 @@ it('requests Dragonslayer Oath alongside remastered Pathfinder feats without ena
   }
   await fetchAonHits('pf2e', fetchFn)
   expect(queries.feat).toEqual({ bool: { filter: [{ term: { category: 'feat' } }], must_not: [
-    { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219'] } }] } },
+    { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219', 'feat-1669'] } }] } },
   ] } })
   expect(queries.spell).toEqual({ bool: { filter: [{ term: { category: 'spell' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
   expect(mapAonHit({ _id: 'feat-219', _source: { category: 'feat', name: 'Dragonslayer Oath', url: '/Feats.aspx?ID=219' } }, 'pf2e')?.data.url)
     .toBe('https://2e.aonprd.com/Feats.aspx?ID=219&NoRedirect=1')
+  expect(mapAonHit({ _id: 'feat-1669', _source: { category: 'feat', name: 'Esoteric Oath', url: '/Feats.aspx?ID=1669' } }, 'pf2e')?.data.url)
+    .toBe('https://2e.aonprd.com/Feats.aspx?ID=1669&NoRedirect=1')
   await fetchAonHits('sf2e', fetchFn)
   expect(queries.feat).toEqual({ bool: { filter: [{ term: { category: 'feat' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
 })

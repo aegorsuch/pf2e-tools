@@ -3,6 +3,7 @@ import { activeFeatsNamed, blessedArmamentRuneOptions, blessedArmamentTarget, bl
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
+import { championCauseTenets } from './featPrerequisites'
 
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
@@ -34,10 +35,10 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           {sanctification.options.map((option) => <option key={option}>{option}</option>)}
         </select>
       </label>}
-      {c.className === 'Champion' && c.level >= 1 && <label>
-        <input type="checkbox" aria-label="Legacy Tenets of Good" checked={!!c.legacyTenetsOfGood}
-          onChange={event => save({ legacyTenetsOfGood: event.target.checked })} /> Follow legacy Tenets of Good
-        <small> Confirm legacy compatibility with your GM; remastered causes do not automatically grant these tenets.</small>
+      {c.className === 'Champion' && c.level >= 1 && !championCauseTenets(c.subclass) && <label>
+        <input type="checkbox" aria-label="Confirm legacy Tenets of Good" checked={!!c.legacyTenetsOfGood}
+          onChange={event => save({ legacyTenetsOfGood: event.target.checked })} /> Confirm legacy Tenets of Good
+        <small> Known causes map to matching tenets automatically. Use this only when legacy rules apply and your cause is unknown.</small>
       </label>}
       {c.className === 'Champion' && c.level >= 3 && <div className="col">
         <label>Blessing of the Devoted{' '}

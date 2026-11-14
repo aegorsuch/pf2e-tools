@@ -58,6 +58,15 @@ const ROLE_CLASSES: Record<string, string> = {
 }
 const ROLE_PATTERN = new RegExp(`^(.+?) (${Object.keys(ROLE_CLASSES).sort((a, b) => b.length - a.length).join('|')})$`)
 const rankPrefix = /^(untrained|trained|expert|master|legendary)\s+(?:in|with)\s+/i
+const GOOD_CHAMPION_CAUSES = new Set(['justice', 'grandeur', 'liberation', 'redemption', 'paladin', 'redeemer', 'liberator'])
+const EVIL_CHAMPION_CAUSES = new Set(['desecration', 'iniquity', 'obedience', 'desecrator', 'antipaladin', 'tyrant'])
+
+export function championCauseTenets(cause?: string) {
+  const normalized = key(cause ?? '')
+  if (GOOD_CHAMPION_CAUSES.has(normalized)) return 'good'
+  if (EVIL_CHAMPION_CAUSES.has(normalized)) return 'evil'
+  return undefined
+}
 
 interface ContentIndex {
   named: Map<string, ContentEntry[]>
@@ -222,8 +231,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.className === 'Champion' && ['blessed armament', 'blessed shield', 'blessed swiftness'].includes(name)) {
       return resultFor(!!facts.championBlessings?.some(blessing => key(blessing) === name), text)
     }
-    if (name === 'tenets of good') {
-      return facts.className === 'Champion' && level >= 1 && facts.legacyTenetsOfGood ? met() : manual(text)
+    if (name === 'tenets of good' || name === 'tenets of evil') {
+      if (facts.className !== 'Champion' || level < 1) return manual(text)
+      const tenets = championCauseTenets(facts.subclass)
+      if (tenets === name.replace('tenets of ', '')) return met()
+      if (tenets) return missing(text)
+      return name === 'tenets of good' && facts.legacyTenetsOfGood ? met() : manual(text)
     }
     if (facts.className === 'Champion' && ['holy', 'unholy', "you aren't unholy"].includes(name)) {
       if (!facts.sanctification) return manual(text)
