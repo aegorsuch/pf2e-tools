@@ -541,6 +541,8 @@
 .companion-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .companion-choices > select { max-width: 100%; min-width: 0; }
 .gear-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; }
+.weapon-offense-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
+.weapon-offense-header label { display: inline-flex; align-items: center; gap: 0.25rem; }
 .gear-card > summary { align-items: baseline; cursor: pointer; display: flex; flex-wrap: wrap; gap: 0.75rem; list-style: none; }
 .gear-card > summary::-webkit-details-marker { display: none; }
 .gear-card > summary::before { border-bottom: 2px solid currentColor; border-right: 2px solid currentColor; content: ''; display: inline-block; flex-shrink: 0; height: 7px; transform: rotate(-45deg); width: 7px; }

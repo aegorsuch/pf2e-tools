@@ -516,9 +516,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
       {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
       {activeFeatsNamed(c, "Fane's Fourberie").length > 0 && PLAYING_CARD_WEAPONS.some(card => !weapons.some(weapon => weapon.id === card.id))
         && <small role="status">Playing-card weapon statistics unavailable. Sync dagger and dart content.</small>}
-      {!displayOnly && <small>Weapon hands: {handsUsed}/2 (shields not counted).
-        {unknownHands && ' Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'}
-        {handsUsed > 2 && ' Unequip weapons to use at most two hands.'}</small>}
+      {displayOnly && (unknownHands || handsUsed > 2) && <small role="status">
+        {unknownHands ? 'Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'
+          : 'Unequip weapons to use at most two hands.'}
+      </small>}
       {!displayOnly && <Search c={c} save={save} entries={entries.filter((entry) => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
       {sorted.map((w) => {
@@ -535,7 +536,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const attachmentSource = w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined
-        const displayName = `${alloy ? `${alloy} ${plainName}` : plainName}${attachmentSource ? ` (${attachmentSource.name})` : ''}`
+        const displayName = `${alloy ? `${alloy} ${plainName}` : plainName}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
@@ -590,14 +591,38 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         if (displayOnly) return <div key={w.id} className="gear-card">
-          <strong>{displayName}</strong> <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+          <div className="weapon-offense-header">
+            <strong>{displayName}</strong>
+            <label title={linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : cannotEquip
+              ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
+              : undefined}>
+              <input type="checkbox" aria-label={`Equipped ${displayName}`} checked={equipped}
+                disabled={fixedEquipped || cannotEquip}
+                onChange={event => {
+                  if (fixedEquipped || event.target.checked && (hands === undefined || unknownHands || handsUsed + hands > 2)) return
+                  update(w.id, { stowed: !event.target.checked })
+                }} /> Equipped
+            </label>
+            {!linkedSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
+              <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
+                onChange={event => {
+                  const next = Number(event.target.value) as 1 | 2
+                  if (next !== 1 && next !== 2
+                    || equipped && next > (hands ?? 0) && (unknownHands || handsUsed - (hands ?? 0) + next > 2)) return
+                  update(w.id, { handsHeld: next })
+                }}>
+                <option value={1}>1</option>
+                <option value={2} disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > 2)}>2</option>
+              </select>
+            </label>}
+          </div>
+          {cannotEquip && <small>{hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
+          <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
             {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
-          </Fragment>)}
-            {!equipped && ' (unequipped)'}
-          </small>
+          </Fragment>)}</small>
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
@@ -617,32 +642,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
-            </Fragment>)}{!equipped && ' (unequipped)'}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
-            <label title={linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : cannotEquip
-              ? hands === undefined ? 'Weapon hands unavailable; sync weapon content.' : 'Unequip another weapon first.'
-              : undefined}>
-              <input type="checkbox" aria-label={`Equipped ${displayName}`} checked={equipped}
-                disabled={fixedEquipped || cannotEquip}
-                onChange={event => {
-                  if (fixedEquipped || event.target.checked && (hands === undefined || unknownHands || handsUsed + hands > 2)) return
-                  update(w.id, { stowed: !event.target.checked })
-                }} /> Equipped
-              {linkedSource && <small> (follows {linkedSource.name})</small>}
-              {!linkedSource && hands !== undefined && hands > 0 && <small> ({hands} {hands === 1 ? 'hand' : 'hands'})</small>}
-              {cannotEquip && <small> ({hands === undefined || unknownHands ? 'hands unavailable' : 'not enough free weapon hands'})</small>}
-            </label>
-            {!linkedSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
-              <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
-                onChange={event => {
-                  const next = Number(event.target.value) as 1 | 2
-                  if (next !== 1 && next !== 2
-                    || equipped && next > (hands ?? 0) && (unknownHands || handsUsed - (hands ?? 0) + next > 2)) return
-                  update(w.id, { handsHeld: next })
-                }}>
-                <option value={1}>1</option>
-                <option value={2} disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > 2)}>2</option>
-              </select>
-            </label>}
+            </Fragment>)}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
             {!attachmentSource && canAttachWeapon(entries, w) && <label>Attached weapon{' '}
               <select aria-label={`Attached weapon: ${displayName}`} value={w.attachedWeapon ?? ''}
                 onChange={event => {
