@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
-import { featPrerequisiteSuggestions } from './featPrerequisites'
+import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -17,6 +17,25 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('defers compound-name matching regex creation during feat source lookup', () => {
+  const entries = [entry('feat', 'Alpha and Beta', {}, 1, ['General'])]
+  const NativeRegExp = globalThis.RegExp
+  class GuardedRegExp extends NativeRegExp {
+    constructor(pattern: string | RegExp, flags?: string) {
+      if (typeof pattern === 'string' && pattern.startsWith('(^|[^a-z0-9])')) {
+        throw new Error('Compound-name matcher should not be needed for source lookup')
+      }
+      super(pattern, flags)
+    }
+  }
+  vi.stubGlobal('RegExp', GuardedRegExp)
+  try {
+    expect(featPrerequisiteSources(entries, { name: 'Alpha and Beta', entryIds: [], category: 'general' })).toEqual(entries)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
 it('checks champion blessing prerequisites at the feat selection level', () => {
   const c: Character = { ...base, className: 'Champion', blessing: 'Blessed Shield',
     feats: [{ ...selected('Second Blessing', 8), choice: 'Blessed Armament' }] }
@@ -25,6 +44,13 @@ it('checks champion blessing prerequisites at the feat selection level', () => {
   expect(check('blessed armament', c, [], 7).missing).toEqual(['blessed armament'])
   expect(check('blessed armament', c, [], 8).missing).toEqual([])
   expect(check('blessed swiftness', c).missing).toEqual(['blessed swiftness'])
+})
+
+it('grants trained Crafting from Munitions Crafter without lowering existing proficiency', () => {
+  const c: Character = { ...base, className: 'Gunslinger', level: 1, feats: [selected('Munitions Crafter')] }
+  expect(ranksAt(c, []).Crafting).toBe(1)
+  expect(ranksAt({ ...c, rankOverrides: { Crafting: 3 } }, []).Crafting).toBe(3)
+  expect(ranksAt({ ...c, level: 0 }, []).Crafting).toBeUndefined()
 })
 
 it('grants Shield Block from matching class features or the Warpriest doctrine', () => {

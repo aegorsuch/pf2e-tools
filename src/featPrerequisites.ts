@@ -70,7 +70,7 @@ export function championCauseTenets(cause?: string) {
 
 interface ContentIndex {
   named: Map<string, ContentEntry[]>
-  protectedPattern?: RegExp
+  protectedPattern?: RegExp | null
 }
 const indexes = new WeakMap<ContentEntry[], ContentIndex>()
 function contentIndex(entries: ContentEntry[]) {
@@ -80,13 +80,24 @@ function contentIndex(entries: ContentEntry[]) {
   for (const entry of entries) {
     if (entry.deleted || !['feat', 'classFeature', 'heritage', 'ancestry', 'class', 'subclass'].includes(entry.kind)) continue
     const name = key(entry.name)
-    named.set(name, [...(named.get(name) ?? []), entry])
+    const sources = named.get(name)
+    if (sources) sources.push(entry)
+    else named.set(name, [entry])
   }
-  const compoundNames = [...named.keys()].filter((name) => /\band\b|\bor\b|[,;]/.test(name)).sort((a, b) => b.length - a.length)
-  index = { named, protectedPattern: compoundNames.length
-    ? new RegExp(`(^|[^a-z0-9])(${compoundNames.map(escape).join('|')})(?=$|[^a-z0-9])`, 'gi') : undefined }
+  index = { named }
   indexes.set(entries, index)
   return index
+}
+
+function protectedPattern(entries: ContentEntry[]) {
+  const index = contentIndex(entries)
+  if (index.protectedPattern === undefined) {
+    const compoundNames = [...index.named.keys()].filter((name) => /\band\b|\bor\b|[,;]/.test(name))
+      .sort((a, b) => b.length - a.length)
+    index.protectedPattern = compoundNames.length
+      ? new RegExp(`(^|[^a-z0-9])(${compoundNames.map(escape).join('|')})(?=$|[^a-z0-9])`, 'gi') : null
+  }
+  return index.protectedPattern ?? undefined
 }
 
 export function featPrerequisiteSources(entries: ContentEntry[], context: {
@@ -390,7 +401,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const atomic = atom(text, level, trail, inheritedRank, survivalForCrafting)
     if (atomic) return atomic
     const protectedNames: string[] = []
-    const safe = index.protectedPattern ? text.replace(index.protectedPattern, (_, prefix: string, name: string) => {
+    const pattern = protectedPattern(entries)
+    const safe = pattern ? text.replace(pattern, (_, prefix: string, name: string) => {
       protectedNames.push(name)
       return `${prefix}@${protectedNames.length - 1}@`
     }) : text

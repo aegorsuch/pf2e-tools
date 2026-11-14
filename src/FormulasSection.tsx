@@ -3,7 +3,7 @@ import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { featRarity } from './featAccess'
-import { formulaKey as key, formulaSources, gadgetLimits, knownFormulas, snareAdvancements, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
+import { formulaKey as key, formulaSources, gadgetLimits, knownFormulas, munitionsFormulaOptions, munitionsLimits, snareAdvancements, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { ContentEntry } from './types'
 
 export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
@@ -11,11 +11,14 @@ export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entrie
   const known = knownFormulas(c, entries)
   const gadgets = gadgetLimits(c, entries)
   const snareRanks = snareAdvancements(c, entries)
-  const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0) + snareRanks.length * 3
+  const munitions = munitionsLimits(c)
+  const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0)
+    + (munitions ? munitions.formulaChoices : 0) + snareRanks.length * 3
   const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
     + (sources.brastlewark ? c.brastlewarkFormulaMode === 'standard' ? 2
       : c.brastlewarkFormulaMode === 'other' ? (c.brastlewarkFormulaChoices ?? []).slice(0, 2).filter(Boolean).length : 0 : 0)
     + (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0).filter(Boolean).length
+    + (c.munitionsFormulaChoices ?? []).slice(0, munitions?.formulaChoices ?? 0).filter(Boolean).length
     + snareRanks.reduce((sum, { rank }) => sum + (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3).filter(Boolean).length, 0)
   return <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} feat choices`}</span></summary>
 }
@@ -39,17 +42,23 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
   const other = sources.brastlewark ? snares.filter(item => item.level <= featTakenLevel(sources.brastlewark!)
     && featRarity(item) === 'Uncommon' && item.traits.some(trait => key(trait) === 'magical')) : []
   const gadgets = gadgetLimits(c, entries)
+  const munitions = munitionsLimits(c)
   const snareRanks = snareAdvancements(c, entries)
   const gadgetOptions = items.filter(item => item.traits.some(trait => key(trait) === 'gadget')
     && !['Rare', 'Unique'].includes(featRarity(item) ?? ''))
+  const munitionsOptions = munitionsFormulaOptions(items, c.systems)
   const unique = (list: ContentEntry[]) => [...new Map(list.map(item => [key(item.name), item])).values()]
     .sort((a, b) => a.name.localeCompare(b.name))
-  const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices' | 'gadgetFormulaChoices', count: number, candidates: ContentEntry[], label: string, offset = 0) => {
+  const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices'
+    | 'gadgetFormulaChoices' | 'munitionsFormulaChoices', count: number, candidates: ContentEntry[], label: string,
+    offset = 0, distinct = false) => {
     const values = c[field] ?? []
     return Array.from({ length: count }, (_, i) => {
       const index = i + offset
       const current = values[index] ?? ''
-      const choices = unique(candidates).filter(item => key(item.name) === key(current) || !knownKeys.has(key(item.name)))
+      const choices = unique(candidates).filter(item => (!distinct
+        || values.slice(0, count).findIndex(name => typeof name === 'string' && key(name) === key(item.name)) === index)
+        && (key(item.name) === key(current) || !knownKeys.has(key(item.name))))
       return <label key={index}>{label} {i + 1}{' '}
         <select aria-label={`${label} ${i + 1}`} value={current} onChange={event => {
           const value = event.target.value
@@ -95,6 +104,11 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
       {gadgets && <div className="col">
         <b>Gadget Specialist</b><small>Choose common or uncommon gadget formulas.</small>
         {options('gadgetFormulaChoices', gadgets.formulas, gadgetOptions, 'Gadget formula')}
+      </div>}
+      {munitions && <div className="col">
+        <b>Munitions Crafter</b>
+        <small>Formula book includes Black Powder (Dose or Round) and four 1st-level common or uncommon bombs or alchemical ammunition formulas.</small>
+        {options('munitionsFormulaChoices', munitions.formulaChoices, munitionsOptions, 'Munitions Crafter formula', 0, true)}
       </div>}
       {snareRanks.map(({ rank, level }) => {
         const title = ['Expert', 'Master', 'Legendary'][rank - 2]

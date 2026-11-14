@@ -1,14 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { FormulasSection } from './FormulasSection'
-import { gadgetLimits, knownFormulas, snareAdvancements, updateFormulaChoice } from './formulas'
+import { MunitionsCrafter } from './GearSection'
+import { BLACK_POWDER_FORMULA, gadgetLimits, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
 import type { Character, ContentEntry } from './types'
 
 const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
-const item = (name: string, level: number, traits: string[]): ContentEntry => ({
-  id: name, name, kind: 'item', level, traits, systems: ['pf2e'], source: 'official', description: '', data: {}, effects: [], updatedAt: 0,
+const item = (name: string, level: number, traits: string[], data: ContentEntry['data'] = {}): ContentEntry => ({
+  id: name, name, kind: 'item', level, traits, systems: ['pf2e'], source: 'official', description: '', data, effects: [], updatedAt: 0,
 })
 const entries = [
   item('Alarm Snare', 1, ['Snare']), item('Spike Snare', 1, ['Snare']),
@@ -93,4 +94,45 @@ it('tracks gadget formula and daily preparation limits without deleting dormant 
   expect(gadgetLimits({ ...character, rankOverrides: { Crafting: 4 } }, [gadget])).toEqual({ formulas: 9, prepared: 8 })
   expect(knownFormulas({ ...character, rankOverrides: { Crafting: 2 } }, [gadget]).map(formula => formula.name)).not.toContain('Stored')
   expect(character.gadgetFormulaChoices?.[5]).toBe('Stored')
+})
+
+it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily batches', () => {
+  const powder = item(BLACK_POWDER_FORMULA, 0, ['Alchemical', 'Consumable'])
+  const bomb = item('Bottled Lightning', 1, ['Alchemical', 'Bomb'])
+  const ammunition: ContentEntry = { ...item('Alchemical Ammunition (10 rounds)', 1, ['Alchemical', 'Consumable', 'Uncommon'],
+    { weapon_category: 'Ammunition' }), kind: 'weapon' }
+  const rareBomb = item('Rare Bomb', 1, ['Alchemical', 'Bomb', 'Rare'])
+  const highLevelAmmo = item('Greater Alchemical Ammunition', 2, ['Alchemical', 'Consumable'],
+    { weapon_category: 'Ammunition' })
+  const firearmAmmo = item('Firearm Ammunition (10 rounds)', 1, ['Ammunition'], { weapon_category: 'Ammunition' })
+  const horn = item('Black Powder Horn', 1, ['Alchemical', 'Consumable'])
+  const keg = item('Black Powder Keg', 1, ['Alchemical', 'Consumable'])
+  const catalog = [powder, bomb, ammunition, rareBomb, highLevelAmmo, firearmAmmo, horn, keg]
+  const munitionsFeat = { name: 'Munitions Crafter', type: 'Class Feat', level: 1, slot: 'class:1:0' }
+  const character: Character = { ...c, className: 'Gunslinger', level: 4, feats: [munitionsFeat],
+    munitionsFormulaChoices: [bomb.name, ammunition.name], munitionsPreparations: [ammunition.name, bomb.name, powder.name],
+    munitionsUsed: [true] }
+  expect(munitionsLimits(character)).toEqual({ formulaChoices: 4, prepared: 6 })
+  expect(knownFormulas(character, catalog)).toEqual([
+    { name: ammunition.name, source: 'Munitions Crafter' },
+    { name: powder.name, source: 'Munitions Crafter' },
+    { name: bomb.name, source: 'Munitions Crafter' },
+  ])
+  const formulas = renderToStaticMarkup(<FormulasSection c={character} entries={catalog} save={() => {}} />)
+  expect(formulas).toContain('four 1st-level common or uncommon bombs or alchemical ammunition formulas')
+  expect(formulas).toContain('2/4 feat choices')
+  expect(formulas).toContain(`${ammunition.name} (Level 1)`)
+  expect(formulas).not.toContain('Rare Bomb (Level 1)')
+  expect(formulas).not.toContain('Greater Alchemical Ammunition (Level 2)')
+  expect(renderToStaticMarkup(<FormulasSection c={{ ...character, munitionsFormulaChoices: [bomb.name, bomb.name] }}
+    entries={catalog} save={() => {}} />))
+    .toMatch(/<option value="Bottled Lightning" disabled="" selected="">Bottled Lightning \(unavailable\)<\/option>/)
+  const preparation = renderToStaticMarkup(<MunitionsCrafter c={character} entries={catalog} save={() => {}} />)
+  expect(preparation).toContain('Prepare 6 temporary consumables of your level or lower')
+  expect(preparation).toContain('4 rounds')
+  expect(preparation).toContain(`${powder.name} (Level 0; 4 rounds)`)
+  expect(preparation).toContain('Bottled Lightning (Level 1; 1 item)')
+  expect(preparation).not.toContain('Black Powder Horn')
+  expect(preparation).not.toContain('Black Powder Keg')
+  expect(preparation).not.toContain('Firearm Ammunition')
 })

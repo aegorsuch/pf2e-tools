@@ -9,7 +9,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
-import { formulaKey, gadgetLimits, knownFormulas } from './formulas'
+import { formulaKey, gadgetLimits, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
@@ -429,6 +429,54 @@ export function Gadgets({ c, entries, save }: SectionProps) {
       </div>
     })}
     <button type="button" disabled={!used.slice(0, limits.prepared).some(Boolean)} onClick={() => save({ gadgetUsed: [] })}>Daily preparations</button>
+  </div>
+}
+
+export function MunitionsCrafter({ c, entries, save }: SectionProps) {
+  const limits = munitionsLimits(c)
+  if (!limits) return null
+  const known = new Set(knownFormulas(c, entries).map(formula => formulaKey(formula.name)))
+  const candidates = [...new Map(entries.filter(entry => isMunitionsConsumable(entry)
+    && entry.systems.some(system => c.systems.includes(system)) && entry.level <= c.level
+    && known.has(formulaKey(entry.name)))
+    .map(entry => [formulaKey(entry.name), entry])).values()].sort((a, b) => a.name.localeCompare(b.name))
+  const preparations = c.munitionsPreparations ?? []
+  const used = c.munitionsUsed ?? []
+  return <div className="col">
+    <h4>Munitions</h4>
+    <small>Prepare {limits.prepared} temporary consumables of your level or lower from known bomb or alchemical ammunition formulas. Ammunition and black powder doses or rounds are prepared in batches of 4; black powder horns and kegs are excluded.</small>
+    {Array.from({ length: limits.prepared }, (_, index) => {
+      const current = preparations[index] ?? ''
+      const selected = candidates.find(entry => entry.name === current)
+      const quantity = selected ? isMunitionsAmmunition(selected) ? '4 rounds' : '1 item' : ''
+      return <div className="row" key={index}>
+        <SearchableSelect label={`Munitions preparation ${index + 1}`} aria-label={`Prepared munition ${index + 1}`} value={current} onChange={event => {
+          const value = event.target.value
+          if (value && !candidates.some(entry => entry.name === value)) return
+          const update = () => {
+            const next = [...preparations]
+            next[index] = value
+            save({ munitionsPreparations: next })
+          }
+          if (current && current !== value) confirmRemoval(`prepared munition "${current}"`, update)
+          else update()
+        }}>
+          <option value="">Choose bomb or ammunition</option>
+          {current && !selected && <option value={current} disabled>{current} (unavailable)</option>}
+          {candidates.map(entry => <option key={entry.id} value={entry.name}>
+            {entry.name} (Level {entry.level}; {isMunitionsAmmunition(entry) ? '4 rounds' : '1 item'})
+          </option>)}
+        </SearchableSelect>
+        <span>{quantity}</span>
+        <label><input type="checkbox" aria-label={`Prepared munition ${index + 1} used`} checked={!!used[index]} disabled={!current}
+          onChange={event => {
+            const next = [...used]
+            next[index] = event.target.checked
+            save({ munitionsUsed: next })
+          }} /> Used</label>
+      </div>
+    })}
+    <button type="button" disabled={!used.slice(0, limits.prepared).some(Boolean)} onClick={() => save({ munitionsUsed: [] })}>Daily preparations</button>
   </div>
 }
 

@@ -1583,6 +1583,8 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
           replacementIndex++
         }
       }
+    } else if (feat.name === 'Munitions Crafter' && !(ranks.Crafting ?? 0)) {
+      trained.push('Crafting')
     } else if (feat.name === 'Eye for Treasure') {
       const skill = (ranks.Crafting ?? 0) > 0 ? feat.choice : 'Crafting'
       if (skill && skills.has(skill) && !(ranks[skill] ?? 0)) trained.push(skill)

@@ -1,8 +1,42 @@
 import { automaticFeatGrants, featTakenLevel, ranksAt } from './builder'
+import { featRarity } from './featAccess'
 import type { Character, ContentEntry } from './types'
 
 export const STANDARD_SNARE_FORMULAS = ['Pit Illusion Snare', 'Shadow Cloak Snare']
+export const BLACK_POWDER_FORMULA = 'Black Powder (Dose or Round)'
 export const formulaKey = (name: string) => name.trim().toLowerCase()
+
+export function isBlackPowderDose(entry: ContentEntry) {
+  const name = formulaKey(entry.name)
+  return /^black powder\b/.test(name) && /\b(?:dose|round)\b/.test(name) && !/\b(?:horn|keg)\b/.test(name)
+}
+
+export function isMunitionsAmmunition(entry: ContentEntry) {
+  if (isBlackPowderDose(entry)) return true
+  const category = `${entry.data.item_category ?? ''} ${entry.data.item_subcategory ?? ''} ${entry.data.weapon_category ?? ''}`
+  const alchemical = entry.traits.some(trait => formulaKey(trait) === 'alchemical')
+    || /\balchemical\b/i.test(category)
+  return alchemical && /\bammunition\b/i.test(`${entry.name} ${category}`)
+}
+
+export function isMunitionsConsumable(entry: ContentEntry) {
+  if (entry.deleted || !['item', 'weapon'].includes(entry.kind)
+    || /\bblack powder\b.*\b(?:horn|keg)\b/i.test(entry.name)) return false
+  const category = `${entry.data.item_category ?? ''} ${entry.data.item_subcategory ?? ''} ${entry.data.weapon_category ?? ''}`
+  return isBlackPowderDose(entry) || entry.traits.some(trait => formulaKey(trait) === 'bomb')
+    || /\bbomb\b/i.test(category) || isMunitionsAmmunition(entry)
+}
+
+export function munitionsFormulaOptions(entries: ContentEntry[], systems: Character['systems']) {
+  return entries.filter(entry => isMunitionsConsumable(entry) && !isBlackPowderDose(entry)
+    && entry.level === 1 && entry.systems.some(system => systems.includes(system))
+    && !['Rare', 'Unique'].includes(featRarity(entry) ?? ''))
+}
+
+export function munitionsLimits(c: Character) {
+  if (!c.feats.some(feat => feat.name === 'Munitions Crafter' && featTakenLevel(feat) <= c.level)) return undefined
+  return { formulaChoices: 4, prepared: 4 + Math.ceil(c.level / 2) }
+}
 
 export function updateFormulaChoice(values: string[], index: number, value: string) {
   const next = Array.from({ length: Math.max(values.length, index + 1) }, (_, i) => values[i] ?? '')
@@ -45,17 +79,23 @@ export function formulaSources(c: Character, entries: ContentEntry[]) {
     || automaticFeatGrants(c, entries).some(feat => feat.name === 'Snare Crafting')
     || backgroundFeats.includes('snare crafting')
   const brastlewark = active.find(feat => feat.name === 'Brastlewark Snare Engineering')
-  return { snareCrafting, brastlewark }
+  const munitionsCrafter = active.find(feat => feat.name === 'Munitions Crafter')
+  return { snareCrafting, brastlewark, munitionsCrafter }
 }
 
 export function knownFormulas(c: Character, entries: ContentEntry[]) {
-  const { snareCrafting, brastlewark } = formulaSources(c, entries)
+  const { snareCrafting, brastlewark, munitionsCrafter } = formulaSources(c, entries)
   const groups = [
     { source: 'Snare Crafting', names: snareCrafting ? c.snareFormulaChoices ?? [] : [] },
     ...snareAdvancements(c, entries).map(({ rank }) => ({
       source: 'Snarecrafter Dedication', names: (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3),
     })),
     { source: 'Gadget Specialist', names: (c.gadgetFormulaChoices ?? []).slice(0, gadgetLimits(c, entries)?.formulas ?? 0) },
+    { source: 'Munitions Crafter', names: munitionsCrafter
+      ? [entries.find(entry => !entry.deleted && isBlackPowderDose(entry)
+        && entry.systems.some(system => c.systems.includes(system)))?.name ?? BLACK_POWDER_FORMULA,
+        ...(c.munitionsFormulaChoices ?? []).slice(0, 4)]
+      : [] },
     { source: 'Brastlewark Snare Engineering', names: brastlewark
       ? c.brastlewarkFormulaMode === 'standard' ? STANDARD_SNARE_FORMULAS : c.brastlewarkFormulaMode === 'other' ? c.brastlewarkFormulaChoices ?? [] : []
       : [] },

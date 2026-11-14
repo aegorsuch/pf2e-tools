@@ -155,6 +155,9 @@ export interface Character {
   gadgetFormulaChoices?: string[]
   gadgetPreparations?: string[]
   gadgetUsed?: boolean[]
+  munitionsFormulaChoices?: string[]
+  munitionsPreparations?: string[]
+  munitionsUsed?: boolean[]
   brastlewarkFormulaMode?: 'standard' | 'other'
   brastlewarkFormulaChoices?: string[]
   // Configured weapons, armor and shield; armor/shield fall back to equipment when unset
