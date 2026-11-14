@@ -405,13 +405,13 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           {classSkills(klass).choices.length > 0 && (
               <SearchableSelect label="Class skill" aria-label="Class skill" value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
                 <option value="">Choose skill</option>
-                {classSkills(klass).choices.map((s) => <option key={s}>{s}</option>)}
+                {[...classSkills(klass).choices].sort((a, b) => a.localeCompare(b)).map((s) => <option key={s}>{s}</option>)}
               </SearchableSelect>
           )}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
-                {Object.keys(DRUID_ORDERS).filter((o) => o === c.order || !c.feats.some((f) => f.name === 'Order Explorer' && f.choice === o)).map((o) => <option key={o} value={o}>{o}</option>)}
+                {Object.keys(DRUID_ORDERS).filter((o) => o === c.order || !c.feats.some((f) => f.name === 'Order Explorer' && f.choice === o)).sort((a, b) => a.localeCompare(b)).map((o) => <option key={o} value={o}>{o}</option>)}
               </SearchableSelect>
           )}
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}

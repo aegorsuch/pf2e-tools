@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
   activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, combinationName, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown,
-  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack, weaponEntry,
+  equippedWeaponHands, featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack, weaponEntry, weaponEquipped,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
@@ -13,7 +13,7 @@ import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { fetchAonHits } from './aonQuery'
-import { mapAonHit } from './aon'
+import { mapAonHit, mapAonHits } from './aon'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 
 const base: Character = {
@@ -1329,14 +1329,36 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
     const weapon = ownedWeapons(character, []).find((weapon) => weapon.id === OVERSIZED_THROW.id)!
     expect(weaponAttack(character, [], weapon)).toMatchObject({ ability: 'dex', range: 20, damage: `${dice}d10+1 bludgeoning`, traits: ['Thrown'] })
   }
-  for (const patch of [{ level: 3 }, { raging: false }, { raging: undefined }, { feats: [] }, { className: 'Ranger' }]) {
+  for (const patch of [{ level: 3 }, { feats: [] }]) {
     expect(ownedWeapons({ ...c, ...patch }, []).map((weapon) => weapon.name)).not.toContain(OVERSIZED_THROW.name)
   }
+  const crossbow = content('weapon', 'Crossbow', { hands: 2, weapon_type: 'Ranged', range: 120, damage: '1d8 piercing' })
+  const notRaging: Character = { ...c, raging: false, className: 'Ranger', weapons: [{ ...main, name: 'Crossbow' }],
+    feats: [...c.feats, feat('Strong Arm')] }
+  const thrown = ownedWeapons(notRaging, [crossbow]).find(weapon => weapon.id === OVERSIZED_THROW.id)!
+  expect(weaponEquipped(notRaging, [crossbow], { ...thrown, stowed: true })).toBe(true)
+  expect(equippedWeaponHands(notRaging, [crossbow])).toBe(2)
+  const offense = renderToStaticMarkup(<WeaponList c={notRaging} entries={[crossbow]} save={() => {}} displayOnly />)
+  expect(offense).toContain('Range 30 feet')
+  expect(offense).toContain('Range 120 feet')
+  expect(offense).toContain('Requires Rage and a free hand.')
+  expect(offense).toMatch(/aria-label="Equipped Oversized Throw" disabled="" checked=""/)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('<strong>Oversized Throw</strong>')
   expect(markup).not.toContain('aria-label="Weapon material"')
   expect(markup).not.toContain('aria-label="Add property rune"')
   expect(markup).not.toContain('aria-label="Remove Oversized Throw"')
+})
+
+it('keeps the remastered Unstoppable Juggernaut without removing unrelated or unavailable legacy feats', () => {
+  const hit = (id: string, name: string) => ({ _id: id, _source: { category: 'feat', name } })
+  const legacy = hit('feat-1167', 'Unstoppable Juggernaut')
+  const remaster = hit('feat-5880', 'Unstoppable Juggernaut')
+  const other = hit('feat-123', 'Other Feat')
+  expect(mapAonHits([legacy, remaster, other], 'pf2e').map(entry => entry.id))
+    .toEqual(['aon:pf2e:feat-5880', 'aon:pf2e:feat-123'])
+  expect(mapAonHits([legacy, other], 'pf2e').map(entry => entry.id))
+    .toContain('aon:pf2e:feat-1167')
 })
 
 it('requires a two-handed hammer, spear, or polearm for Haft Striker and inherits compatible runes from its selected source', () => {

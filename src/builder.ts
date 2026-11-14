@@ -1680,7 +1680,8 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     && selectedSubclass(c, entries) === 'Warpriest') {
     grants.push({ name: 'Shield Block', source: 'Warpriest', level: 1 })
   }
-  if (isPioneerHuman(c)) grants.push({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1 })
+  if (isPioneerHuman(c)) grants.push({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1,
+    ...(c.pioneerTerrain ? { choice: c.pioneerTerrain } : {}) })
   if (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Kinship').length) {
     grants.push({ name: 'Adopted Ancestry', choice: 'Orc', source: 'Orc Kinship',
       level: Math.min(...activeFeatsNamed(c, 'Orc Kinship').map(featTakenLevel)) })
@@ -2338,6 +2339,7 @@ export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
 }
 
 export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon): number | undefined {
+  if (weapon.id === OVERSIZED_THROW.id) return 0
   const entry = weaponEntry(entries, weapon.name)
   if (!entry) return undefined
   if (weaponCategory(entry) === 'Unarmed'
@@ -2367,7 +2369,7 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
   }, 0)
 }
 
-const canOversizedThrow = (c: Character) => c.className === 'Barbarian' && c.level >= 4 && !!c.raging && hasFeat(c, 'Oversized Throw')
+const canOversizedThrow = (c: Character) => c.level >= 4 && activeFeatsNamed(c, 'Oversized Throw').length > 0
 
 export const hasDeityWeaponGrant = (c: Character) => !!c.deity && (['Champion', 'Cleric'].includes(c.className ?? '')
   || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)

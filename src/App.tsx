@@ -191,7 +191,7 @@ export default function App() {
             ))}
           </div>
           <select value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as EntryKind })}>
-            {KINDS.map((k) => <option key={k}>{k}</option>)}
+            {[...KINDS].sort((a, b) => a.localeCompare(b)).map((k) => <option key={k}>{k}</option>)}
           </select>
           <input required placeholder="Name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           <input type="number" min={0} max={20} value={draft.level} onChange={(e) => setDraft({ ...draft, level: +e.target.value })} />
@@ -213,7 +213,7 @@ export default function App() {
                 setDraft({ ...draft, data })
               }}>
               <option value="">No {draft.kind} group</option>
-              {entries?.filter((g) => g.kind === `${draft.kind}Group`).map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
+              {entries?.filter((g) => g.kind === `${draft.kind}Group`).sort((a, b) => a.name.localeCompare(b.name)).map((g) => <option key={g.id} value={g.name}>{g.name}</option>)}
             </select>
           )}
           <div className="row">
@@ -233,11 +233,6 @@ export default function App() {
 
       {showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
-          <label>
-            <input type="checkbox" checked={settings.inventorFirearmAccess}
-              onChange={(e) => updateSettings({ inventorFirearmAccess: e.target.checked })} />{' '}
-            Inventor Access: Firearms, Firearm Ammunition, and Bladed Gauntlet
-          </label>
           <label>
             <input type="checkbox" checked={settings.autoClassSkills}
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
@@ -277,6 +272,11 @@ export default function App() {
             <input type="checkbox" checked={settings.singleTrainingFeats}
               onChange={(e) => updateSettings({ singleTrainingFeats: e.target.checked })} />{' '}
             General Training and Advanced General Training: Once Each
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.inventorFirearmAccess}
+              onChange={(e) => updateSettings({ inventorFirearmAccess: e.target.checked })} />{' '}
+            Inventor Access: Bladed Gauntlet, Firearm Ammunition, and Firearms
           </label>
           <label>
             <input type="checkbox" checked={settings.orderExplorerSkills}

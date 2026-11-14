@@ -627,6 +627,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
+          {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
+            {summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
+          {fixed && <small>Requires Rage and a free hand.</small>}
           {innovation && <small>Weapon Innovation is shared across both forms.</small>}
           {avengerNote && <small> {avengerNote}</small>}
         </div>
@@ -719,7 +722,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </label>}
               {haftStrikerWeapons(c, entries).length > 1 && <span>Haft weapon{' '}
                 <SearchableSelect aria-label="Haft weapon" value={haft.id} onChange={(e) => save({ haftStrikerWeaponId: e.target.value })}>
-                  {haftStrikerWeapons(c, entries).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
+                  {haftStrikerWeapons(c, entries).sort((a, b) => a.name.localeCompare(b.name)).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
                 </SearchableSelect>
               </span>}
             </>}
@@ -746,7 +749,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                   update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material, runeCapacity)) })
                 }}>
                   <option value="">Add material...</option>
-                  {WEAPON_MATERIALS.map((name) => <option key={name}>{name}</option>)}
+                  {[...WEAPON_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
               </>}
@@ -813,7 +816,7 @@ function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
         }}>
           <option value="">Choose modification</option>
           {choice && !options.some(option => option.name === choice) && <option value={choice} disabled>{choice} (unavailable)</option>}
-          {options.map(option => <option key={option.name}>{option.name}</option>)}
+          {[...options].sort((a, b) => a.name.localeCompare(b.name)).map(option => <option key={option.name}>{option.name}</option>)}
         </select>
       </label>
     })}
@@ -833,7 +836,7 @@ function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
             set({ complexSimplicityTraits: next })
           }}>
             <option value="">Choose trait</option>
-            {choices.filter(trait => trait === current || !traits.includes(trait)).map(trait => <option key={trait}>{trait}</option>)}
+            {choices.filter(trait => trait === current || !traits.includes(trait)).sort((a, b) => a.localeCompare(b)).map(trait => <option key={trait}>{trait}</option>)}
           </select>
         </label>
       })}
@@ -901,7 +904,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 const suit = INVENTOR_SUITS.find(name => name === event.target.value)
                 if (suit) save({ inventorArmorSuit: suit })
               }}>
-              {INVENTOR_SUITS.map(name => <option key={name}>{name}</option>)}
+              {[...INVENTOR_SUITS].sort((a, b) => a.localeCompare(b)).map(name => <option key={name}>{name}</option>)}
             </SearchableSelect>}
             {a.id === INVENTOR_ARMOR_ID && <ArmorModifications c={c} entries={entries} save={save} />}
             {entry?.description && <Info label="Summary">{entry.description}</Info>}
@@ -943,7 +946,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   update(a.id, { material, runes: a.runes.slice(0, runeLimit(a.potency, material)) })
                 }}>
                   <option value="">Add material...</option>
-                  {ARMOR_MATERIALS.map((name) => <option key={name}>{name}</option>)}
+                  {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
               {runesAllowed && !starfinder && <Level label="Potency" value={a.potency} options={POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
@@ -1041,7 +1044,7 @@ function ArmorModifications({ c, save }: SectionProps) {
     ? <label>{label}{' '}<select aria-label={label} value={settings[field] ?? ''} onChange={event => {
       if (event.target.value && !options.some(mod => mod.name === event.target.value)) return
       set({ [field]: event.target.value || undefined })
-    }}><option value="">Choose modification</option>{options.map(mod => <option key={mod.name}>{mod.name}</option>)}</select></label> : null
+    }}><option value="">Choose modification</option>{[...options].sort((a, b) => a.name.localeCompare(b.name)).map(mod => <option key={mod.name}>{mod.name}</option>)}</select></label> : null
   const labels: Record<ArmorModificationSlot, string> = {
     initial: 'Initial', breakthrough: 'Breakthrough', revolutionary: 'Revolutionary', manifold: 'Manifold', basic: 'Basic',
   }
@@ -1056,7 +1059,7 @@ function ArmorModifications({ c, save }: SectionProps) {
         }}>
           <option value="">Choose modification</option>
           {choice && !options.some(mod => mod.name === choice) && <option value={choice} disabled>{choice} (unavailable)</option>}
-          {options.map(mod => <option key={mod.name}>{mod.name}</option>)}
+          {[...options].sort((a, b) => a.name.localeCompare(b.name)).map(mod => <option key={mod.name}>{mod.name}</option>)}
         </select>
       </label>
     })}

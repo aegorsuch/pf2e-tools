@@ -45,7 +45,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
         }}>
         <option value="">Choose source</option>
-        {options.map(option => <option key={option}>{option}</option>)}
+        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
       </select></label>
       <small>Source cannot be changed after selection.</small>
       {alternatives.length > 0 && <label>Alternate trained skill{' '}
@@ -57,7 +57,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           <option value="">Choose skill</option>
           {c.warmask?.alternateSkill && !alternatives.includes(c.warmask.alternateSkill)
             && <option disabled>{c.warmask.alternateSkill}</option>}
-          {alternatives.map(skill => <option key={skill}>{skill}</option>)}
+          {[...alternatives].sort((a, b) => a.localeCompare(b)).map(skill => <option key={skill}>{skill}</option>)}
         </select>
       </label>}
     </span>
@@ -146,7 +146,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       }}>
         <option value="">Choose mercy</option>
         {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
-        {options.map(option => <option key={option}>{option}</option>)}
+        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
       </select>
     </label>
   }
@@ -161,7 +161,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       }}>
         <option value="">Choose {label.toLowerCase()}</option>
         {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
-        {options.map(option => <option key={option}>{option}</option>)}
+        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
       </select>
     </label>
   }
@@ -178,7 +178,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       }}>
         <option value="">{`Choose ${kind}`}</option>
         {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
-        {options.map(option => <option key={option}>{option}</option>)}
+        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
       </SearchableSelect>
       {subclass && <small>{subclass.description}</small>}
     </span>
@@ -209,7 +209,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           }}>
           <option value="">Choose tradition</option>
           {row.value && !row.options.includes(row.value) && <option disabled value={row.value}>{row.value}</option>}
-          {row.options.map(tradition => <option key={tradition}>{tradition}</option>)}
+          {[...row.options].sort((a, b) => a.localeCompare(b)).map(tradition => <option key={tradition}>{tradition}</option>)}
         </SearchableSelect>
         {row.value && !row.options.includes(row.value) && <small>Saved tradition is unavailable with current skill training or earlier choices.</small>}
       </span>)}
@@ -224,7 +224,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
     }}>
       <option value="">Choose innovation</option>
-      {options.map(option => <option key={option}>{option}</option>)}
+      {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
   if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper', 'Eye for Treasure',
@@ -309,7 +309,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
         }}>
           <option value="">Choose statistic…</option>
-          {CANNY_STATS.map((stat) => <option key={stat} value={stat} disabled={!available.includes(stat)}>{stat}{!available.includes(stat) ? ' (no improvement)' : ''}</option>)}
+          {[...CANNY_STATS].sort((a, b) => a.localeCompare(b)).map((stat) => <option key={stat} value={stat} disabled={!available.includes(stat)}>{stat}{!available.includes(stat) ? ' (no improvement)' : ''}</option>)}
         </SearchableSelect>
       </span>
     )
@@ -324,7 +324,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         }}>
           <option value="">Choose order…</option>
           {feat.choice && !options.includes(feat.choice) && <option value={feat.choice}>{feat.choice}</option>}
-          {options.map((o) => <option key={o} value={o}>{o}</option>)}
+          {[...options].sort((a, b) => a.localeCompare(b)).map((o) => <option key={o} value={o}>{o}</option>)}
         </SearchableSelect>
       </span>
     )
@@ -337,7 +337,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
         }}>
           <option value="">Choose order…</option>
-          {availableOrders(c, index).map((o) => <option key={o} value={o}>{o}</option>)}
+          {availableOrders(c, index).sort((a, b) => a.localeCompare(b)).map((o) => <option key={o} value={o}>{o}</option>)}
         </SearchableSelect>
       </span>
     )

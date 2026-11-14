@@ -153,7 +153,7 @@ it('restores Pioneer protection and terrain choices and hides them for other her
   expect(markup).toContain('aria-label="Pioneer Human environmental protection"')
   expect(markup).toContain('<option selected="">Cold</option>')
   expect(markup).toContain('<option selected="">Forest</option>')
-  expect(markup).toContain('Terrain Expertise <small>(Pioneer Human)</small></button>')
+  expect(markup).toContain('Terrain Expertise (Forest) <small>(Pioneer Human)</small></button>')
   const other = renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: 'Versatile Human' }} onClose={() => {}} />)
   expect(other).not.toContain('aria-label="Pioneer Human')
   expect(other).not.toContain('Terrain Expertise <small>(Pioneer Human)')

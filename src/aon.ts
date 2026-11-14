@@ -79,13 +79,20 @@ async function loadHits(system: GameSystem, onProgress?: (n: number) => void) {
   return fetchAonHits(system, fetch, onProgress)
 }
 
-// Store every AoN entry as official content (replaces prior AoN copies).
-export async function importFromAon(system: GameSystem, onProgress?: (n: number) => void) {
+export function mapAonHits(hits: Hit[], system: GameSystem) {
   const entries: ContentEntry[] = []
-  for (const h of await loadHits(system, onProgress)) {
+  const hasUpdatedJuggernaut = system === 'pf2e' && hits.some(hit => hit._id === 'feat-5880')
+  for (const h of hits) {
+    if (hasUpdatedJuggernaut && h._id === 'feat-1167') continue
     const e = mapAonHit(h, system)
     if (e) entries.push(e)
   }
+  return entries
+}
+
+// Store every AoN entry as official content (replaces prior AoN copies).
+export async function importFromAon(system: GameSystem, onProgress?: (n: number) => void) {
+  const entries = mapAonHits(await loadHits(system, onProgress), system)
   // Tombstone previously imported entries that are no longer in the (remaster-only) results
   const fresh = new Set(entries.map((e) => e.id))
   const stale = await db.content.where('id').startsWith(`aon:${system}:`).filter((e) => !e.deleted && !fresh.has(e.id)).toArray()

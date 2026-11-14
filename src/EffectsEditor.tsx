@@ -46,7 +46,7 @@ export function EffectsEditor({ effects, onChange }: { effects: Effect[]; onChan
       ))}
       <select value="" onChange={(ev) => ev.target.value && onChange([...effects, defaults[ev.target.value as Effect['type']]])}>
         <option value="">+ Add effect...</option>
-        {(Object.keys(defaults) as Effect['type'][]).map((t) => <option key={t}>{t}</option>)}
+        {(Object.keys(defaults) as Effect['type'][]).sort((a, b) => a.localeCompare(b)).map((t) => <option key={t}>{t}</option>)}
       </select>
     </fieldset>
   )

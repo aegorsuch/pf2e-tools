@@ -127,6 +127,8 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt({ ...c, rankOverrides: { Survival: 0 } }, entries).Survival).toBe(1)
     expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount(base, entries))
     expect(automaticFeatGrants(c, entries)).toContainEqual({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1 })
+    expect(automaticFeatGrants({ ...c, pioneerTerrain: 'Arctic' }, entries))
+      .toContainEqual({ name: 'Terrain Expertise', choice: 'Arctic', source: 'Pioneer Human', level: 1 })
     const terrain = entry('feat', 'Terrain Expertise', { prerequisite: 'Trained in Survival' }, 1, ['General', 'Skill'])
     const target = entry('feat', 'Terrain Follow-up', { prerequisite: 'Terrain Expertise; Trained in Survival' })
     expect(featPrerequisiteChecker(c, [...entries, terrain, target])(target)).toEqual({ missing: [], manual: [] })
