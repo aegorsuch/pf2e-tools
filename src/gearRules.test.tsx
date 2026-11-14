@@ -253,12 +253,12 @@ it.each(['Buckler', 'Gauntlet Buckler'])('uses %s AC bonus when raised', name =>
   expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raised (+1 AC)')
 })
 
-it('shows shield base durability without allowing base hardness or HP edits', () => {
+it('hides shield base durability while keeping calculated durability visible', () => {
   const c: Character = { ...base, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('Base Hardness 5; Base Hit Points 20')
-  expect(markup).not.toContain('Base Hardness <input')
-  expect(markup).not.toContain('Base Hit Points <input')
+  expect(markup).not.toContain('Base Hardness')
+  expect(markup).not.toContain('Base Hit Points')
+  expect(markup).toContain('Hardness 5; Hit Points 20; Broken Threshold 10.')
 })
 
 it.each<[number, number, number, HardlightGrade]>([

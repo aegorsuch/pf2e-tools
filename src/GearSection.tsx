@@ -820,7 +820,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             && <small>Material durability unavailable; base shield durability is used.</small>}
           {shield.material && <small>Material special effects are not applied automatically.</small>}
           <div className="row">
-            <small>Base Hardness {shield.hardness}; Base Hit Points {shield.hp}</small>
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
           </div>
           <small>Hardness {shieldStats(shield).hardness}; Hit Points {shieldStats(shield).hp}; Broken Threshold {Math.floor(shieldStats(shield).hp / 2)}.</small>
