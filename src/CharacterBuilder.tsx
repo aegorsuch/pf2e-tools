@@ -16,7 +16,7 @@ import { ArmorProficiency, SkillsSection } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
-import { constructCompanionChange, faithfulSteedChange } from './companions'
+import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -114,7 +114,8 @@ function EquipmentSearch({ c, entries, save }: SectionProps) {
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     return q
-      ? entries.filter(e => e.kind === 'item' && e.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
+      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && e.name.toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
       : []
   }, [entries, query])
   return <>
@@ -275,6 +276,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const shield = equippedShield(c)
   const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
+  const pairedEmpathyBracelets = (c.companions ?? []).flatMap(companion =>
+    companion.equipment?.Collar?.name === 'Collar of Empathy'
+      ? [{ companionId: companion.id, companionName: companion.name || companion.type }]
+      : [])
   const classSlots = plannedSlots(c).filter(slot => slot.category === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
 
@@ -433,10 +438,16 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Equipment</strong>
-          <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0)} items</span>
+          <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} items</span>
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
+          {pairedEmpathyBracelets.length > 0 && <div>
+            <h4>Paired companion equipment</h4>
+            <ul>{pairedEmpathyBracelets.map(({ companionId, companionName }) => <li key={companionId}>
+              <b>Bracelet of Empathy</b> <small>(paired with {companionName}'s Collar of Empathy)</small>
+            </li>)}</ul>
+          </div>}
           <ArmorProficiency c={c} entries={entries} />
           <h4>Armor</h4>
           <ArmorList {...section} part="armor" />

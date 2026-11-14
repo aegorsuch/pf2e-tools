@@ -95,14 +95,17 @@ it('selects alphabetized companion equipment by slot and tracks each quantity', 
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     companions: [{ id: 'cat', type: 'Cat', name: 'Buddy' }],
   }
-  const item = (id: string, name: string): ContentEntry => ({
+  const item = (id: string, name: string, subcategory = 'Companion Items'): ContentEntry => ({
     id, name, kind: 'item', systems: ['pf2e'], source: 'official', level: 1, traits: [],
-    description: '', data: {}, effects: [], updatedAt: 0,
+    description: '', data: { item_subcategory: subcategory }, effects: [], updatedAt: 0,
   })
   const entries = [
     item('collar-z', 'Collar of Vigor'), item('collar-a', 'Collar of Empathy'),
     item('shoes', 'Alacritous Horseshoes (Greater)'), item('saddle', 'Mature Animal Saddle'),
-    item('barding', 'Barding (Light)'), item('irrelevant', 'Rope'),
+    item('barding', 'Barding (Light)'), item('anti-dragon', 'Anti-Dragon Barding'),
+    item('anti-dragon-duplicate', 'Anti-Dragon Barding'), item('tassel', 'Steadyfoot Tassel'),
+    item('statuette', 'Hosteling Statuette'), item('wrong-category', 'Barding of Protection', 'Other Worn Items'),
+    item('irrelevant', 'Rope'),
   ]
   const tree = () => CompanionEquipmentSlots({ c, companion: c.companions![0], entries,
     save: patch => { c = { ...c, ...patch } } })
@@ -112,6 +115,13 @@ it('selects alphabetized companion equipment by slot and tracks each quantity', 
   expect(c.companions?.[0].equipment?.Collar).toEqual({ entryId: 'collar-a', name: 'Collar of Empathy', qty: 1 })
   expect(renderToStaticMarkup(tree())).toContain('Qty 1')
   const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('<option value="" selected="">None</option>')
+  expect(markup).toContain('<option value="tassel">Steadyfoot Tassel</option>')
+  expect(markup).toContain('<option value="statuette">Hosteling Statuette</option>')
+  expect(markup).not.toContain('Buddy Harness equipment')
+  expect(markup).not.toContain('Buddy Head equipment')
+  expect(markup.match(/<option value="anti-dragon">Anti-Dragon Barding<\/option>/g)).toHaveLength(1)
+  expect(markup).not.toContain('wrong-category')
   expect(markup.indexOf('Collar of Empathy')).toBeLessThan(markup.indexOf('Collar of Vigor'))
   expect(markup).not.toContain('<option value="irrelevant">Rope</option>')
   const increment = findButton(tree(), 'Increase Collar quantity')

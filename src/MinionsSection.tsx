@@ -6,10 +6,11 @@ import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices
 import { CompanionSpellOptions } from './SpellsSection'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
-import type { Character, CompanionEquipmentSlot } from './types'
+import { isCompanionEquipmentItem } from './companions'
+import type { Character, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
-const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Harness', 'Head', 'Saddle', 'Shoes']
+const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Saddle', 'Shoes', 'Other']
 const PET_ABILITIES = ['Amphibious', 'Burrower', 'Climber', 'Darkvision', 'Echolocation', 'Fast Movement', 'Flier', 'Manual Dexterity', 'Scent', 'Tough']
 const PET_ABILITY_NOTES: Record<string, string> = {
   Amphibious: 'Breathes air and water; land and swim Speeds equal highest land or swim Speed.',
@@ -43,19 +44,26 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
   entries: SectionProps['entries']
   save: SectionProps['save']
 }) {
-  const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted
+  const options = entries.filter(entry => isCompanionEquipmentItem(entry) && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system)))
-  const bySlot = (slot: CompanionEquipmentSlot) => options.filter(entry => {
-    const text = `${entry.name} ${entry.traits.join(' ')} ${String(entry.data.item_category ?? '')} ${String(entry.data.item_subcategory ?? '')}`
-    switch (slot) {
-      case 'Barding': return /\bbarding\b/i.test(text)
-      case 'Collar': return /\bcollar\b/i.test(text)
-      case 'Harness': return /\b(?:harness|bridle|reins)\b/i.test(text)
-      case 'Head': return /\b(?:goggles|eyewear|headband|helm|mask)\b/i.test(text)
-      case 'Saddle': return /\bsaddle\b/i.test(text)
-      case 'Shoes': return /\b(?:shoes|boots|horseshoes?)\b/i.test(text)
+  const bySlot = (slot: CompanionEquipmentSlot, selectedId?: string) => {
+    const matches = options.filter(entry => {
+      const text = `${entry.name} ${entry.traits.join(' ')} ${String(entry.data.item_category ?? '')} ${String(entry.data.item_subcategory ?? '')}`
+      switch (slot) {
+        case 'Barding': return /\bbarding\b/i.test(text)
+        case 'Collar': return /\bcollar\b/i.test(text)
+        case 'Saddle': return /\bsaddle\b/i.test(text)
+        case 'Shoes': return /\b(?:shoes|boots|horseshoes?)\b/i.test(text)
+        case 'Other': return ['steadyfoottassel', 'hostelingstatuette'].includes(entry.name.toLowerCase().replace(/[^a-z0-9]/g, ''))
+      }
+    }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
+    const unique = new Map<string, ContentEntry>()
+    for (const entry of matches) {
+      const key = entry.name.trim().toLowerCase()
+      if (!unique.has(key) || entry.id === selectedId) unique.set(key, entry)
     }
-  }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
+    return [...unique.values()]
+  }
   const update = (slot: CompanionEquipmentSlot, item: NonNullable<typeof companion.equipment>[CompanionEquipmentSlot] | undefined) => {
     const equipment = { ...companion.equipment }
     if (item) equipment[slot] = item
@@ -67,7 +75,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
     <h5>Equipment</h5>
     {COMPANION_EQUIPMENT_SLOTS.map(slot => {
       const selected = companion.equipment?.[slot]
-      const slotOptions = bySlot(slot)
+      const slotOptions = bySlot(slot, selected?.entryId)
       return <div key={slot} className="row companion-equipment-slot">
         <strong>{slot}</strong>
         <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
@@ -77,7 +85,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
             if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: selected?.qty ?? 1 })
             else if (!event.target.value) update(slot, undefined)
           }}>
-          <option value="">Choose {slot.toLowerCase()}...</option>
+          <option value="">{slot === 'Barding' ? 'None' : `Choose ${slot.toLowerCase()}...`}</option>
           {selected && !slotOptions.some(entry => entry.id === selected.entryId)
             && <option value={selected.entryId} disabled>{selected.name} (unavailable)</option>}
           {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
@@ -262,6 +270,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>
                     {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
                     {stats.senses && <> · <small>Senses</small> {stats.senses}</>}</div>
+                  {stats.equipmentNotes.map(note => <small key={note}>{note}</small>)}
                   {stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
                   {stats.attacks.map((a) => (
                     <div key={a.name}><b>{a.name}</b> <span>{signed(a.attack)}{a.dexterityBased && clumsyNote

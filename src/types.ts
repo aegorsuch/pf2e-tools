@@ -51,7 +51,7 @@ export interface OwnedArmor {
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 
-export type CompanionEquipmentSlot = 'Barding' | 'Collar' | 'Harness' | 'Head' | 'Saddle' | 'Shoes'
+export type CompanionEquipmentSlot = 'Barding' | 'Collar' | 'Saddle' | 'Shoes' | 'Other'
 export interface CompanionEquipment {
   entryId: string
   name: string

@@ -82,6 +82,31 @@ it('renders characters with many unrelated feats without blocking editor startup
   expect(markup).toContain('1/2: Common')
 })
 
+it('shows the paired Bracelet of Empathy while a companion wears its collar', () => {
+  const collar: ContentEntry = {
+    id: 'empathy-collar', name: 'Collar of Empathy', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 9, traits: ['Companion'], description: '', data: { item_subcategory: 'Companion Items' }, effects: [], updatedAt: 0,
+  }
+  content.entries = [collar]
+  const c: Character = {
+    id: 'empathy', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: 'Buddy', equipment: {
+      Collar: { entryId: collar.id, name: collar.name, qty: 1 },
+    } }],
+  }
+  try {
+    const equipment = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+      .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+    expect(equipment).toContain('Bracelet of Empathy')
+    expect(equipment).toContain('paired with Buddy&#x27;s Collar of Empathy')
+    const withoutCollar = { ...c, companions: [{ ...c.companions![0], equipment: undefined }] }
+    expect(renderToStaticMarkup(<CharacterBuilder character={withoutCollar} onClose={() => {}} />))
+      .not.toContain('Bracelet of Empathy')
+  } finally { content.entries = [] }
+})
+
 it('imports druidic orders as subclass descriptions without adding a second primary picker', () => {
   const order = mapAonHit({ _id: 'druidic-order-8', _source: { category: 'druidic-order', name: 'Animal',
     markdown: 'Animal order description.' } }, 'pf2e')

@@ -17,6 +17,16 @@ export const CONSTRUCT_COMPANION_ENTRY: ContentEntry = {
   effects: [], updatedAt: 0,
 }
 
+export const isCompanionEquipmentItem = (entry: ContentEntry) =>
+  entry.kind === 'item' && String(entry.data.item_subcategory ?? '').toLowerCase() === 'companion items'
+
+const HORSESHOE_EFFECTS: Record<string, { speed: number; athletics: number }> = {
+  'Alacritous Horseshoes': { speed: 5, athletics: 2 },
+  'Alacritous Horseshoes (Greater)': { speed: 10, athletics: 3 },
+  'Horseshoes of Speed': { speed: 5, athletics: 2 },
+  'Horseshoes of Speed (Greater)': { speed: 10, athletics: 3 },
+}
+
 export function hasConstructInnovation(c: Character) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   return c.className === 'Inventor' && /^construct(?: innovation)?$/i.test(c.subclass ?? '')
@@ -188,6 +198,11 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     const feet = COMPANION_SPECS[source]?.speed
     return feet ? [{ source, feet }] : []
   })
+  const companion = c.companions?.find(companion => companion.id === companionId)
+  const shoes = companion?.equipment?.Shoes
+  const shoesEntry = shoes && entries.find(entry => entry.id === shoes.entryId && isCompanionEquipmentItem(entry))
+  const horseshoes = shoesEntry && HORSESHOE_EFFECTS[shoesEntry.name]
+  if (horseshoes && shoesEntry) speedBonuses.push({ source: shoesEntry.name, feet: horseshoes.speed })
   const chiardmar = type === 'Horse' && has('Chiardmar Steed')
   if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
@@ -212,13 +227,16 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis'),
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const equipmentNotes = horseshoes && shoesEntry
+    ? [`${shoesEntry.name}: +${horseshoes.athletics} circumstance bonus to Athletics checks to High Jump and Long Jump; when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`]
+    : []
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const senses = String(d.sense ?? '')
   const mountSenses = (celestialMount || fiendishMount) && !/\bdarkvision\b/i.test(senses)
     ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
   return {
-    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
+    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, equipmentNotes, skills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy, stealthyCompanion,

@@ -89,6 +89,23 @@ describe('animal companions', () => {
     expect(companionStats(c, [bear], 'Bear')!.speed).toBe('35 feet')
   })
 
+  it.each([
+    ['Alacritous Horseshoes', 5, 2],
+    ['Alacritous Horseshoes (Greater)', 10, 3],
+  ])('applies %s to its equipped companion', (name, speed, athletics) => {
+    const horse = entry('companion', 'Horse', { ...bear.data, speed_raw: '40 feet' })
+    const shoes = entry('item', name, { item_subcategory: 'Companion Items' }, name.includes('Greater') ? 14 : 7, ['Companion'])
+    const c: Character = { ...base, companions: [{
+      id: 'horse', type: 'Horse', name: 'Buddy',
+      equipment: { Shoes: { entryId: shoes.id, name: shoes.name, qty: 1 } },
+    }] }
+    const stats = companionStats(c, [horse, shoes], 'Horse')!
+    expect(stats.speed).toBe(`${40 + speed} feet`)
+    expect(stats.speedBonuses).toContainEqual({ source: name, feet: speed })
+    expect(stats.equipmentNotes[0]).toContain(`+${athletics} circumstance bonus to Athletics checks`)
+    expect(stats.skills.find(skill => skill.name === 'Athletics')?.bonus).toBe(9)
+  })
+
   it('passes Faithful Steed sanctification to the first companion and its Strikes without mutating content', () => {
     const companions = [{ id: 'first', type: bear.name, name: '' }, { id: 'second', type: bear.name, name: '' }]
     const deity = entry('deity', 'Patron', { sanctification: 'holy, unholy' })
