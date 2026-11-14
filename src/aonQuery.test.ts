@@ -43,3 +43,22 @@ it('loads companion maneuver action costs, requirements, and descriptions from A
     companion_maneuver_description: 'The companion crushes the grabbed creature.',
   })
 })
+
+it('preserves weapon versatile damage labels from full AoN traits', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'weapon' ? [
+      { _id: 'dagger', _source: { category, trait: ['Agile', 'Versatile'],
+        markdown: '<traits><trait label="Agile" /><trait label="Versatile B" url="/Traits.aspx?ID=1" /></traits>' } },
+      { _id: 'other', _source: { category, trait: ['Versatile'], markdown: '<traits><trait label="Versatile S" /></traits>' } },
+      { _id: 'combination', _source: { category, name: 'Dagger Pistol (Melee)', trait: ['Versatile'],
+        markdown: '<traits><trait label="Combination" /></traits><title level="2">Melee</title>\n<traits><trait label="Versatile S" /></traits><title level="2">Ranged</title>\n<traits><trait label="Versatile B" /></traits>' } },
+    ] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const hits = await fetchAonHits('pf2e', fetchFn)
+  expect(hits.find(hit => hit._id === 'dagger')?._source?.trait).toEqual(['Agile', 'Versatile B'])
+  expect(hits.find(hit => hit._id === 'other')?._source?.trait).toEqual(['Versatile S'])
+  expect(hits.find(hit => hit._id === 'combination')?._source?.trait).toEqual(['Versatile S'])
+})

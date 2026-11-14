@@ -1094,6 +1094,17 @@ it('grants locked Dwarf clan weapons with Orichalcum and level-scaled fundamenta
   expect(ownedWeapons({ ...dwarf, ancestry: 'Elf' }, entries).some(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))).toBe(false)
 })
 
+it.each([[1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1], [12, 2, 2], [16, 3, 2], [19, 3, 3]])(
+  'automatically upgrades clan weapon fundamentals at level %i', (level, potency, striking) => {
+    const c: Character = { ...base, ancestry: 'Elf', level }
+    for (const name of [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name]) {
+      const weapon = { id: name, name, potency: 0, striking: 0, runes: [] }
+      expect(effectiveWeapon(c, [], weapon)).toMatchObject({ potency, striking })
+      expect(effectiveWeapon(c, [], { ...weapon, potency: 3, striking: 3 })).toMatchObject({ potency: 3, striking: 3 })
+    }
+  },
+)
+
 it('uses +2 for Twin Parry only with two wielded melee weapons and a parry weapon', () => {
   const claw = content('weapon', 'Clawed Gauntlet', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d4 slashing' }, 1, ['Parry'])
   const sword = content('weapon', 'Sword', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d6 slashing' })

@@ -26,6 +26,20 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it('displays the versatile damage type from cached weapon metadata', () => {
+  const clan = { ...weapon, name: 'Clan Dagger', traits: ['Agile', 'Versatile'],
+    data: { hands: 1, damage: '1d4 P', damage_type: 'Bludgeoning, Piercing' } }
+  const sword = { ...weapon, traits: ['Versatile'], data: { hands: 1, damage: '1d8 S', damage_type: 'Piercing, Slashing' } }
+  const c: Character = { ...character([]), weapons: [
+    { id: 'clan', name: clan.name, potency: 0, striking: 0, runes: [] },
+    { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] },
+  ] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[clan, sword]} save={() => {}} />)
+  expect(markup).toContain('>Versatile B</button>')
+  expect(markup).toContain('>Versatile P</button>')
+  expect(markup).not.toContain('>Versatile</button>')
+})
+
 it('limits equipped weapons by hands while preserving legacy and always-equipped attacks', () => {
   const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
   const dagger = { ...weapon, id: 'dagger', name: 'Dagger', data: { hands: 1 } }

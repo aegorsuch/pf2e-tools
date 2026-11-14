@@ -229,9 +229,17 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
       const s = hit._source
       if (s) {
         if (category === 'weapon' && typeof s.markdown === 'string') {
-          const traits = /<traits\b[^>]*>([\s\S]*?)<\/traits>/i.exec(s.markdown)?.[1] ?? ''
+          const form = /\((Melee|Ranged)\)$/i.exec(String(s.name ?? ''))?.[1]
+          const traits = (form
+            ? new RegExp(`<title\\b[^>]*>\\s*${form}\\s*<\\/title>\\s*<traits\\b[^>]*>([\\s\\S]*?)<\\/traits>`, 'i')
+              .exec(s.markdown)?.[1]
+            : /<traits\b[^>]*>([\s\S]*?)<\/traits>/i.exec(s.markdown)?.[1]) ?? ''
           const range = /<trait\b[^>]*\blabel="Thrown\s+(\d+)\s*(?:ft\.?|feet)\s*"[^>]*>/i.exec(traits)?.[1]
           if (range) s.thrown_range = Number(range)
+          const versatile = /<trait\b[^>]*\blabel="(Versatile\s+[BPS](?:\s*,\s*[BPS])*)"\s*[^>]*>/i.exec(traits)?.[1]
+          if (versatile && Array.isArray(s.trait)) {
+            s.trait = s.trait.map(trait => typeof trait === 'string' && /^versatile$/i.test(trait.trim()) ? versatile : trait)
+          }
         }
         // Keep full rules text for description popups and class features.
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))

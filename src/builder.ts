@@ -2537,6 +2537,18 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
   || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export function weaponEntry(entries: ContentEntry[], name: string) {
+  const entry = resolveWeaponEntry(entries, name)
+  if (!entry || !entry.traits.some(trait => /^versatile$/i.test(trait.trim()))
+    || entry.traits.some(trait => /^versatile\s+/i.test(trait.trim()))) return entry
+  const primary = /(?:^|\s)(bludgeoning|piercing|slashing|[bps])$/i.exec(String(entry.data.damage ?? '').trim())?.[1]?.[0].toUpperCase()
+  const types = String(entry.data.damage_type ?? '').split(',').map(type => type.trim().toLowerCase())
+    .filter(type => /^(bludgeoning|piercing|slashing|b|p|s)$/.test(type)).map(type => type[0].toUpperCase())
+  const alternate = [...new Set(types.filter(type => type !== primary))]
+  if (!primary || !alternate.length) return entry
+  return { ...entry, traits: entry.traits.map(trait => /^versatile$/i.test(trait.trim()) ? `Versatile ${alternate.join(', ')}` : trait) }
+}
+
+function resolveWeaponEntry(entries: ContentEntry[], name: string) {
   const hammerMultipistol = hammerMultipistolEntries(entries).find(entry => entry.name === name)
   if (hammerMultipistol) return hammerMultipistol
   const shobhad = /^Shobhad Longrifle \((Pathfinder|Starfinder)\)$/.exec(name)
@@ -2914,6 +2926,7 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
 export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   return deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)
+    || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
     || !!weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
     || !!weapon.verdantWeapon && canBeVerdantWeapon(c, entries, weapon)
     || !!weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)
