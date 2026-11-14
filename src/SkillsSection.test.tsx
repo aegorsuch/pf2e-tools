@@ -26,6 +26,21 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('applies clan dagger filigree skill bonuses and marks conditional bonuses separately', () => {
+  const c: Character = { ...base, level: 11,
+    weapons: [{ id: 'dagger', name: 'Clan Dagger', potency: 0, striking: 0, runes: [], stowed: true }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
+  const markup = render(c)
+  expect(markup).toMatch(/skill-name">Athletics <b>\+2/)
+  expect(markup).toMatch(/skill-name">Diplomacy <b>\+2/)
+  expect(markup).toMatch(/skill-name">Society <b>\+2/)
+  expect(markup).toContain('+2 item bonus to Coerce.')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
+    .toContain('+2 item bonus to Sense Motive.')
+  expect(render({ ...c, level: 4 })).not.toContain('Clan dagger filigree')
+  expect(render({ ...c, weapons: [] })).not.toContain('Clan dagger filigree')
+})
+
 it('skips skill allocation calculations in offense and defense', () => {
   const budget = vi.spyOn(builder, 'skillRankBudget')
   try {

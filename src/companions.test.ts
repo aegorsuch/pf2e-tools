@@ -102,8 +102,11 @@ describe('animal companions', () => {
     const stats = companionStats(c, [horse, shoes], 'Horse')!
     expect(stats.speed).toBe(`${40 + speed} feet`)
     expect(stats.speedBonuses).toContainEqual({ source: name, feet: speed })
-    expect(stats.equipmentNotes[0]).toContain(`+${athletics} circumstance bonus to Athletics checks`)
-    expect(stats.skills.find(skill => skill.name === 'Athletics')?.bonus).toBe(9)
+    const athleticsSkill = stats.skills.find(skill => skill.name === 'Athletics')
+    expect(athleticsSkill?.bonus).toBe(9)
+    expect(athleticsSkill?.note).toContain(`+${athletics} circumstance bonus to Athletics checks`)
+    expect(athleticsSkill?.note).toContain('when Leaping, move 5 feet farther horizontally or 3 feet higher vertically')
+    expect(athleticsSkill?.noteSource).toBe(name)
   })
 
   it('passes Faithful Steed sanctification to the first companion and its Strikes without mutating content', () => {

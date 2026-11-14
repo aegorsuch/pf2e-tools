@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -135,6 +135,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     delete overrides[name]
     save({ skillIncreases: next, rankOverrides: overrides })
   }
+  const filigree = clanDaggerFiligreeBonus(c, entries)
   const renderRows = (rows: typeof stats) => rows.map((s) => {
     const rank = ranks[s.name] ?? 0
     const permanentRank = ranks[s.name] ?? 0
@@ -143,8 +144,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const warmaskBonus = warmaskSource(c)?.skill === s.name ? 1 : 0
+    const filigreeItem = ['Athletics', 'Diplomacy', 'Society'].includes(s.name) ? filigree : 0
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
-      : s.kind === 'save' ? armorBonus : warmaskBonus
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem)
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
@@ -169,6 +171,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           : signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
+          {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
+          {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
+          {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`+${filigree} item bonus to Coerce.`} />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
             && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}

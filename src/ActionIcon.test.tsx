@@ -22,6 +22,13 @@ it('shows accessible action icons for AoN action costs and preserves mixed costs
   expect(renderToStaticMarkup(<ActionIcon entry={{ ...entry, data: { actions: '10 minutes' } }} />)).toBe('')
 })
 
+it('renders action costs supplied directly for companion maneuvers', () => {
+  const markup = renderToStaticMarkup(<ActionIcon actions="Two Actions" />)
+  expect(markup).toContain('aria-label="Two Actions"')
+  expect(markup.match(/<svg/g)).toHaveLength(1)
+  expect(renderToStaticMarkup(<ActionIcon actions="10 minutes" showOther />)).toBe('10 minutes')
+})
+
 it('formats picker action costs as inline symbols without redundant text', () => {
   expect(actionOptionLabel('Quick Draw', { ...entry, data: { actions: 'Single Action' } }))
     .toBe('Quick Draw ◆')

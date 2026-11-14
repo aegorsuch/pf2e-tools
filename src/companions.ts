@@ -222,21 +222,23 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
       ? speed.replace(/\bclimb\s+\d+\s*(?:feet|ft)\b/i, `climb ${highest} feet`) : `${speed}${speed ? ', ' : ''}climb ${highest} feet`
   }
 
-  const skills = Object.entries(rank)
+  const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis'),
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const equipmentNotes = horseshoes && shoesEntry
-    ? [`${shoesEntry.name}: +${horseshoes.athletics} circumstance bonus to Athletics checks to High Jump and Long Jump; when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`]
-    : []
+  const horseshoeNote = horseshoes && shoesEntry
+    ? `${shoesEntry.name}: +${horseshoes.athletics} circumstance bonus to Athletics checks to High Jump and Long Jump; when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
+    : undefined
+  const companionSkills = skills.map(skill => skill.name === 'Athletics' && horseshoeNote && shoesEntry
+    ? { ...skill, note: horseshoeNote, noteSource: shoesEntry.name } : skill)
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const senses = String(d.sense ?? '')
   const mountSenses = (celestialMount || fiendishMount) && !/\bdarkvision\b/i.test(senses)
     ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
   return {
-    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, equipmentNotes, skills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
+    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills: companionSkills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy, stealthyCompanion,
@@ -248,6 +250,10 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     senses: mountSenses,
     support: String(d.companion_support ?? ''),
     maneuver: String(d.companion_maneuver ?? ''),
+    maneuverActions: String(d.companion_maneuver_actions ?? ''),
+    maneuverTraits: String(d.companion_maneuver_traits ?? ''),
+    maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
+    maneuverDescription: String(d.companion_maneuver_description ?? ''),
     mount: d.mount === true,
   }
 

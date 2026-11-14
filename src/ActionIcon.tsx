@@ -9,8 +9,12 @@ const ACTIONS: Record<string, { count?: number; symbol?: 'free' | 'reaction' }> 
   'reaction': { symbol: 'reaction' },
 }
 
-export function ActionIcon({ entry, showOther = false }: { entry?: ContentEntry; showOther?: boolean }) {
-  const value = entry?.data.actions
+export function ActionIcon({ entry, actions, showOther = false }: {
+  entry?: ContentEntry
+  actions?: string
+  showOther?: boolean
+}) {
+  const value = actions ?? entry?.data.actions
   if (typeof value !== 'string' || !value.trim()) return null
   const parts = value.split(/(single action|one action|two actions|three actions|free action|reaction)/gi)
   if (parts.length === 1) return showOther ? <>{value}</> : null

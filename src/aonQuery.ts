@@ -19,6 +19,7 @@ export const DATA_FIELDS = [
   'domain_primary', 'sanctification', 'sanctification_required', 'warden_spell_tier',
   'deity_category', 'epithet', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
   'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'sense', 'speed_raw', 'mount', 'companion_attacks', 'companion_support', 'companion_maneuver',
+  'companion_maneuver_actions', 'companion_maneuver_traits', 'companion_maneuver_requirements', 'companion_maneuver_description',
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 export const usesFullItemRules = (source: Record<string, unknown>) =>
@@ -193,7 +194,13 @@ export function parseCompanion(md: string) {
     return `${label.replace(/\s*\([^)]*\)/, '').trim()}|${plain(m[2])}|${traits.toLowerCase()}`
   })
   const field = (name: string) => plain(new RegExp(`\\*\\*${name}\\*\\*\\s*([^\\n]+)`).exec(md)?.[1] ?? '')
-  return { attacks: attacks.join(';'), support: field('Support Benefit'), maneuver: field('Advanced Maneuver') }
+  const maneuverActionId = /<document\b[^>]*\bid="action-(\d+)"/i.exec(md)?.[1]
+  return {
+    attacks: attacks.join(';'),
+    support: field('Support Benefit'),
+    maneuver: field('Advanced Maneuver'),
+    maneuverActionUrl: maneuverActionId ? `/Actions.aspx?ID=${maneuverActionId}` : undefined,
+  }
 }
 
 // Resistances in "damage=value" form; value is a number or "half" (half the character's level, minimum 1)
@@ -262,6 +269,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.attacks) s.companion_attacks = comp.attacks
           if (comp.support) s.companion_support = comp.support
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
+          if (comp.maneuverActionUrl) s.companion_maneuver_action_url = comp.maneuverActionUrl
         }
         if (!['feat', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
           && !(category === 'equipment' && usesFullItemRules(s))) delete s.markdown
@@ -269,6 +277,49 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
       hits.push(hit)
     }
     onProgress?.(hits.length)
+  }
+  const maneuverUrls = [...new Set(hits.flatMap(hit => {
+    const source = hit._source
+    return source?.category === 'animal-companion' && typeof source.companion_maneuver_action_url === 'string'
+      ? [source.companion_maneuver_action_url] : []
+  }))]
+  if (maneuverUrls.length) {
+    const response = await fetchFn(AON_ENDPOINTS[system], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        size: maneuverUrls.length,
+        query: { bool: { filter: [{ term: { category: 'action' } }, { terms: { url: maneuverUrls } }] } },
+        _source: ['url', 'actions', 'trait', 'requirements', 'markdown'],
+      }),
+    })
+    if (!response.ok) throw new Error(`AoN companion maneuvers: HTTP ${response.status}`)
+    const json = (await response.json()) as { hits?: { hits?: Hit[] } }
+    const actions = new Map<string, Record<string, unknown>>()
+    for (const hit of json.hits?.hits ?? []) {
+      const source = hit._source
+      if (typeof source?.url === 'string') actions.set(source.url.toLowerCase(), source)
+    }
+    for (const hit of hits) {
+      const source = hit._source
+      const url = source?.companion_maneuver_action_url
+      const action = typeof url === 'string' ? actions.get(url.toLowerCase()) : undefined
+      if (!source || !action) continue
+      if (typeof action.actions === 'string') source.companion_maneuver_actions = action.actions
+      const traits = Array.isArray(action.trait)
+        ? action.trait.filter((trait): trait is string => typeof trait === 'string').join(', ')
+        : typeof action.trait === 'string' ? action.trait : ''
+      if (traits) source.companion_maneuver_traits = traits
+      const markdown = typeof action.markdown === 'string' ? action.markdown : ''
+      const requirements = typeof action.requirements === 'string'
+        ? plain(action.requirements)
+        : plain(/\*\*Requirements\*\*\s*([^\n]+)/i.exec(markdown)?.[1] ?? '')
+      if (requirements) source.companion_maneuver_requirements = requirements
+      const sections = markdown.split(/\n---\n/)
+      const body = sections[sections.length - 1]?.trim() ?? ''
+      const description = plain((body || markdown).replace(/^\*\*Requirements\*\*[^\n]*\n?/i, ''))
+      if (description) source.companion_maneuver_description = description
+    }
   }
   return hits
 }

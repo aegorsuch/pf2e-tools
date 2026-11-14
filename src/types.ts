@@ -37,6 +37,9 @@ export interface OwnedWeapon {
   }
   combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
+  handsHeld?: 1 | 2
+  attachedWeapon?: 'Bayonet' | 'Reinforced Stock'
+  attachedTo?: string
   capacityLoaded?: number
 }
 export interface OwnedArmor {

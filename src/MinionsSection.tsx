@@ -4,6 +4,7 @@ import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanio
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
+import { ActionIcon } from './ActionIcon'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
 import { isCompanionEquipmentItem } from './companions'
@@ -116,6 +117,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
         <strong>{slot}</strong>
         <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
           value={selected?.entryId ?? ''} optionCount={slotOptions.length}
+          onClear={() => update(slot, undefined)}
           onChange={event => {
             const entry = slotOptions.find(option => option.id === event.target.value)
             if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: selected?.qty ?? 1 })
@@ -126,10 +128,6 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
             && <option value={selected.entryId} disabled>{selected.name} (unavailable)</option>}
           {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
         </SearchableSelect>
-        {selected && <>
-          <button type="button" className="spell-remove" aria-label={`Remove ${slot} equipment`}
-            onClick={() => update(slot, undefined)}>×</button>
-        </>}
       </div>
     })}
   </section>
@@ -199,9 +197,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const setFeatChoice = (featIndex: number, choice: string) =>
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
   return (
-      <div className="character-section-content">
+      <div className="character-section-content minions-section-content">
         <details className="character-subsection" open>
-            <summary><h4>Companions ({companions.length})</h4></summary>
+          <summary><h4>{companions.length === 1
+            ? companions[0].type === CONSTRUCT_COMPANION_NAME ? 'Construct Companion' : 'Animal Companion'
+            : 'Animal Companions'}</h4></summary>
             {companions.length === 0 && companionGrant && <span>{companionGrant}{' '}
             <SearchableSelect aria-label="Choose Faithful Steed" value="" onChange={(e) => {
               const type = types.find((type) => type.name === e.target.value)
@@ -217,10 +217,33 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const isConstruct = comp.type === CONSTRUCT_COMPANION_NAME
               const companionAdvances = isConstruct ? constructAdvancement : index === 0 ? advancement : undefined
               const stats = companionStats(c, companionEntries, comp.type, companionAdvances, comp.id)
-            const enlargeNote = stats?.enlarge ? `Enlarge Companion: ${stats.enlarge.size}; +${stats.enlarge.damage} status melee damage; +${stats.enlarge.reachIncrease} feet reach; clumsy 1.` : undefined
-            const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined
-            const acNote = [stats?.magicHide ? '+1 Status (Magic Hide)' : undefined, clumsyNote].filter(Boolean).join('; ') || undefined
-            const acSource = [stats?.magicHide ? 'Magic Hide' : undefined, stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
+              const enlargeNote = stats?.enlarge
+                ? `${stats.enlarge.size}; +${stats.enlarge.damage} status melee damage; +${stats.enlarge.reachIncrease} feet reach; clumsy 1.`
+                : undefined
+              const enlargeModifierNote = enlargeNote
+              const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1)' : undefined
+              const acNote = [stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
+                stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
+              const acSource = [stats?.magicHide ? 'Magic Hide' : undefined,
+                stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
+              const statusControls = [
+                ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
+                  aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
+                  onChange={event => save(magicHideChange(c, event.target.checked, comp.id))} /> Magic Hide</label> }] : []),
+                ...(['Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
+                  .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
+                    save={save} name={name} companionId={comp.id} toggleOnly /> })),
+                ...(index === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && activeFeatsNamed(c, 'Pale Horse').length > 0
+                  ? [{ name: 'Pale Horse', element: <label>Pale Horse{' '}
+                    <select aria-label="Pale Horse mounted damage type" value={comp.paleHorse ?? ''} onChange={event => {
+                      const choice = (['Fire', 'Poison', 'Void'] as const).find(type => type === event.target.value)
+                      update(comp.id, { paleHorse: choice })
+                    }}>
+                      <option value="">Not mounted</option>
+                      {['Fire', 'Poison', 'Void'].map(type => <option key={type}>{type}</option>)}
+                    </select>
+                  </label> }] : []),
+              ].sort((a, b) => a.name.localeCompare(b.name))
             return (
               <article key={comp.id} className="gear-card">
                 <header className="row">
@@ -229,20 +252,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
                 </header>
-                {magicHideKnown && <label><input type="checkbox" aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
-                  onChange={(e) => save(magicHideChange(c, e.target.checked, comp.id))} /> Magic Hide</label>}
-                {index === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && activeFeatsNamed(c, 'Pale Horse').length > 0
-                  && <label>Pale Horse{' '}
-                    <select aria-label="Pale Horse mounted damage type" value={comp.paleHorse ?? ''} onChange={event => {
-                      const choice = (['Fire', 'Poison', 'Void'] as const).find(type => type === event.target.value)
-                      update(comp.id, { paleHorse: choice })
-                    }}>
-                      <option value="">Not mounted</option>
-                      {['Fire', 'Poison', 'Void'].map(type => <option key={type}>{type}</option>)}
-                    </select>
-                  </label>}
-                {(['Canopy Crawler', 'Enlarge Companion'] as const).filter((name) => knowsSpell(c, entries, name)).map((name) =>
-                  <CompanionSpellOptions key={name} c={c} entries={entries} save={save} name={name} companionId={comp.id} />)}
+                {statusControls.length > 0 && <div className="companion-status-toggles" role="group" aria-label="Companion status toggles">
+                  {statusControls.map(({ name, element }) => <div key={name}>{element}</div>)}
+                </div>}
                 {!isConstruct && index === 0 && choices.length > 0 && (
                   <div className="row companion-choices">
                     {choices.map(({ feat, featIndex }) => {
@@ -277,7 +289,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   </div>}
                   <div className="gear-traits">
                     <span>{isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
-                      : index === 0 ? stage : 'Young'}</span><span>{stats.size}{enlargeNote && <SourceNote source="Enlarge Companion" note={enlargeNote} />}</span>
+                      : index === 0 ? stage : 'Young'}</span>                      <span>{stats.size}{enlargeNote
+                        && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}</span>
                     {!isConstruct && index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
                     {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
@@ -290,9 +303,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
                     <span><small>Perception</small><b>{signed(stats.perception)}</b></span>
                     <span><small>Fortitude</small>{signed(stats.fortitude)}</span>
-                    <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote && <SourceNote source="Enlarge Companion" note={clumsyNote} />}</span>
+                    <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote
+                      && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
                     <span><small>Will</small>{signed(stats.will)}</span>
-                    {stats.enlarge && enlargeNote && <span><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet<SourceNote source="Enlarge Companion" note={enlargeNote} /></span>}
+                    {stats.enlarge && enlargeNote && <span><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet
+                      <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} /></span>}
                   </div>
                   <div className="gear-stats">
                     {ABILITIES.map(k => <span key={k}><small>{ABILITY_LABEL[k]}</small>{signed(stats.mods[k])}</span>)}
@@ -301,19 +316,57 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>
                     {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
                     {stats.senses && <> · <small>Senses</small> {stats.senses}</>}</div>
-                  {stats.equipmentNotes.map(note => <small key={note}>{note}</small>)}
                   {stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
-                  {stats.attacks.map((a) => (
-                    <div key={a.name}><b>{a.name}</b> <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
-                      && <SourceNote source="Enlarge Companion" note={clumsyNote} />}</span> {a.traits && <small>({a.traits})</small>} — <span>{a.damage}{!a.ranged && enlargeNote
-                      && <SourceNote source="Enlarge Companion" note={enlargeNote} />}</span></div>
-                  ))}
                   {stats.skills.length > 0 && <div><small>Skills</small> {stats.skills.map((s, index) => <span key={s.name}>
                     {index > 0 && ', '}{s.name} {signed(s.bonus)}{s.clumsy && clumsyNote
-                      && <SourceNote source="Enlarge Companion" note={clumsyNote} />} ({RANK_LETTER[s.rank]})
+                      && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
+                    {s.note && s.noteSource && <SourceNote source={s.noteSource} note={s.note} inlineSource={false} />} ({RANK_LETTER[s.rank]})
                   </span>)}</div>}
-                  {stats.support && <Info label="Support benefit">{stats.support}</Info>}
-                  {stats.maneuver && (index === 0 && (advancement.advanced) ? <div><small>Advanced maneuver</small> {stats.maneuver}</div> : <Info label="Advanced maneuver">{stats.maneuver}</Info>)}
+                  {(stats.attacks.length > 0 || stats.support || stats.maneuver || stats.primalHowl) && <section className="companion-actions">
+                    <h5>Actions and maneuvers</h5>
+                    {stats.attacks.length > 0 && <div className="companion-action-group">
+                      <h6>Attacks</h6>
+                      {stats.attacks.map(a => <div key={a.name} className="companion-action">
+                        <div className="companion-action-title">
+                          <ActionIcon actions="Single Action" />
+                          <b>{a.name}</b>{a.traits && <small>({a.traits})</small>}
+                          <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
+                            && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
+                          <span>— {a.damage}{!a.ranged && enlargeModifierNote
+                            && <SourceNote source="Enlarge Companion" note={enlargeModifierNote} inlineSource={false} />}</span>
+                        </div>
+                      </div>)}
+                    </div>}
+                    {(stats.support || stats.maneuver || stats.primalHowl) && <div className="companion-action-group">
+                      <h6>Maneuvers</h6>
+                      {stats.support && <div className="companion-action">
+                        <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Support Benefit</b></div>
+                        <p className="companion-action-description">{stats.support}</p>
+                      </div>}
+                      {stats.maneuver && <article className="companion-maneuver-card">
+                        <div className="companion-maneuver-heading">
+                          <strong>{stats.maneuver}</strong>
+                          {stats.maneuverActions
+                            ? <ActionIcon actions={stats.maneuverActions} showOther />
+                            : <small>Action cost unavailable</small>}
+                        </div>
+                        {stats.maneuverTraits && <div className="gear-traits companion-maneuver-traits">
+                          {stats.maneuverTraits.split(',').map(trait => trait.trim()).filter(Boolean)
+                            .map(trait => <span className="gear-trait" key={trait}>{trait}</span>)}
+                        </div>}
+                        {stats.maneuverRequirements && <p className="companion-action-requirements">
+                          <strong>Requirements:</strong> {stats.maneuverRequirements}
+                        </p>}
+                        <p className="companion-action-description">
+                          {stats.maneuverDescription || 'Description unavailable from Archives of Nethys.'}
+                        </p>
+                      </article>}
+                      {stats.primalHowl && <div className="companion-action">
+                        <div className="companion-action-title"><ActionIcon actions="Two Actions" /><b>Primal Howl</b></div>
+                        <p className="companion-action-description">Primal, sonic; once per hour: 30-foot cone, {stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.</p>
+                      </div>}
+                    </div>}
+                  </section>}
                   {stats.stealthyCompanion && <div><small>Camouflage</small> In natural terrain, your companion can Hide and Sneak without cover or concealment.</div>}
                   {stats.primalHowl && <div><small>Advanced maneuver</small> <b>Primal Howl</b> (2 actions, primal, sonic; once per hour): 30-foot cone, {stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.</div>}
                   {stats.entry.description && <Info label="About">{stats.entry.description}</Info>}

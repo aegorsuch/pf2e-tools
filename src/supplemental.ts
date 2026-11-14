@@ -21,6 +21,13 @@ export const OVERSIZED_THROW: ContentEntry = {
   data: { weapon_category: 'Simple', weapon_type: 'Ranged', damage: '1d10 bludgeoning', range: 20, hands: '1', url: 'https://2e.aonprd.com/Feats.aspx?ID=5818' },
 }
 
+export const ATTACHED_WEAPONS: ContentEntry[] = [
+  { ...HAFT_STRIKER_WEAPON, id: 'supplemental:bayonet', name: 'Bayonet', traits: ['Agile', 'Attached', 'Finesse'],
+    data: { weapon_category: 'Martial', weapon_group: 'Knife', weapon_type: 'Melee', damage: '1d4 piercing', hands: '1 or 2' } },
+  { ...HAFT_STRIKER_WEAPON, id: 'supplemental:reinforced-stock', name: 'Reinforced Stock', traits: ['Attached', 'Finesse', 'Two-Hand'],
+    data: { weapon_category: 'Martial', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning', hands: '1 or 2' } },
+]
+
 export const FIST: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:fist', name: 'Fist',
   traits: ['Agile', 'Finesse', 'Nonlethal', 'Unarmed'],

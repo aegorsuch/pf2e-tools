@@ -7,7 +7,7 @@ export { featTakenLevel } from './featChoices'
 import { getSettings } from './settings'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
@@ -1184,7 +1184,7 @@ function hasParryTrait(entry?: ContentEntry) {
 
 function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weaponEntry([], weapon.name)) {
   const group = String(entry?.data.weapon_group ?? '').toLowerCase()
-  return !weapon.stowed && activeFeatsNamed(c, 'Defensive Armaments').length > 0 && num(entry?.data.hands) === 2
+  return activeFeatsNamed(c, 'Defensive Armaments').length > 0 && weaponHands(entry ? [entry] : [], weapon) === 2
     && (group === 'crossbow' || group === 'firearm')
 }
 
@@ -1194,7 +1194,7 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
 }
 
 export function hasParryWeapon(c: Character, entries: ContentEntry[]) {
-  return ownedWeapons(c, entries).some(weapon => !weapon.stowed && weaponHasParry(c, entries, weapon))
+  return ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon) && weaponHasParry(c, entries, weapon))
 }
 
 function parryFeatEntries(c: Character, entries: ContentEntry[]) {
@@ -1209,7 +1209,7 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
     const entry = weaponEntry(entries, weapon.name)
     const melee = /melee/i.test(String(entry?.data.weapon_type ?? '')) || !isRanged(entry)
-    return !weapon.stowed && !!entry && weaponCategory(entry) !== 'Unarmed' && melee && num(entry.data.hands) === 1
+    return weaponEquipped(c, entries, weapon) && !!entry && weaponCategory(entry) !== 'Unarmed' && melee && weaponHands(entries, weapon) === 1
   })
   const twinParry = activeFeatsNamed(c, 'Twin Parry').length > 0 && meleeWeapons.length >= 2
     && meleeWeapons.some(weapon => weaponHasParry(c, entries, weapon))
@@ -2272,6 +2272,11 @@ export function isGrantedDwarfClanWeapon(c: Character, entries: ContentEntry[], 
   return dwarfClanWeaponGrants(c, entries).some(grant => grant.id === weapon.id)
 }
 
+export function clanDaggerFiligreeBonus(c: Character, entries: ContentEntry[]) {
+  return c.level >= 5 && ownedWeapons(c, entries).some(weapon =>
+    [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(weapon.name)) ? c.level >= 11 ? 2 : 1 : 0
+}
+
 function carriedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   return c.weapons ?? c.equipment
     .filter((g) => byName(entries, 'weapon', g.name))
@@ -2315,13 +2320,51 @@ export function haftStrikerWeapons(c: Character, entries: ContentEntry[]) {
   if (c.level < 4 || !hasFeat(c, HAFT_STRIKER_WEAPON.name)) return []
   return carriedWeapons(c, entries).filter((weapon) => {
     const entry = weaponEntry(entries, weapon.name)
-    return num(entry?.data.hands) === 2 && !isRanged(entry) && /^(hammer|spear|polearm)$/i.test(String(entry?.data.weapon_group))
+    return !!entry && !isRanged(entry)
+      && (/^(hammer|spear|polearm)$/i.test(String(entry.data.weapon_group)) || /\bstaff\b/i.test(entry.name))
+      && (weaponHands(entries, weapon) === 2 || weaponCanUseTwoHands(entry))
   })
 }
 
 export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
   const weapons = haftStrikerWeapons(c, entries)
   return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
+}
+
+export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
+  return String(entry.data.hands).trim() === '1 or 2'
+    || String(entry.data.hands).trim() === '1'
+      && [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^two-hand\b/i.test(trait))
+}
+
+export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon): number | undefined {
+  const entry = weaponEntry(entries, weapon.name)
+  if (!entry) return undefined
+  if (weaponCategory(entry) === 'Unarmed'
+    || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
+  if (weaponCanUseTwoHands(entry) && weapon.handsHeld === 2) return 2
+  if (String(entry.data.hands).trim() === '1 or 2') return 1
+  const match = /^([12])(?:\+)?$/.exec(String(entry.data.hands ?? '').trim())
+  return match ? Number(match[1]) : undefined
+}
+
+export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
+  if (weapon.attachedTo) {
+    const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
+    return !!source && weaponEquipped(c, entries, source)
+  }
+  if (weapon.name === HAFT_STRIKER_WEAPON.name) {
+    const source = haftStrikerSource(c, entries)
+    return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source) === 2
+  }
+  return weaponHands(entries, weapon) === 0 || !weapon.stowed
+}
+
+export function equippedWeaponHands(c: Character, entries: ContentEntry[]): number {
+  return ownedWeapons(c, entries).reduce((total, weapon) => {
+    if (weapon.attachedTo || weapon.name === HAFT_STRIKER_WEAPON.name || !weaponEquipped(c, entries, weapon)) return total
+    return total + (weaponHands(entries, weapon) ?? 0)
+  }, 0)
 }
 
 const canOversizedThrow = (c: Character) => c.className === 'Barbarian' && c.level >= 4 && !!c.raging && hasFeat(c, 'Oversized Throw')
@@ -2390,6 +2433,12 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   }
   if (favored && !available.some((weapon) => weapon.id === favored.id)) {
     available.push({ id: favored.id, name: favored.entry.name, potency: 0, striking: 0, runes: [] })
+  }
+  for (const source of [...available]) {
+    if (source.attachedWeapon && canAttachWeapon(entries, source)) {
+      available.push({ id: `attached:${source.id}`, name: source.attachedWeapon, attachedTo: source.id,
+        potency: 0, striking: 0, runes: [] })
+    }
   }
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
@@ -2476,6 +2525,10 @@ export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
 ] as const
+export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name)
+  return !!entry && /^(firearm|crossbow)$/i.test(String(entry.data.weapon_group ?? ''))
+}
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
@@ -2498,6 +2551,7 @@ export function weaponEntry(entries: ContentEntry[], name: string) {
   if (card && base) return { ...base, id: card.id, name: card.name }
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
     ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
+    ?? ATTACHED_WEAPONS.find(entry => entry.name === name)
 }
 
 function hammerMultipistolEntries(entries: ContentEntry[]) {
@@ -2867,6 +2921,13 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  if (weapon.attachedTo) {
+    const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
+    if (source) {
+      const base = effectiveWeapon(c, entries, source)
+      return { ...weapon, potency: base.potency, striking: base.striking, material: base.material, runes: base.runes }
+    }
+  }
   if (weapon.id === OVERSIZED_THROW.id) return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
   const clanGrant = dwarfClanWeaponGrants(c, entries).find(grant => grant.id === weapon.id)
   if (clanGrant) weapon = { ...weapon, name: clanGrant.name, material: 'Orichalcum' }

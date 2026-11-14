@@ -433,7 +433,7 @@ it('grants one deity-favored weapon to Champions, Clerics and active Vindicator 
     expect(granted).toHaveLength(1)
     expect(effectiveWeapon(c, [sword, deity], granted[0])).toMatchObject({ potency: 2, striking: 1 })
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword, deity]} save={() => {}} />)
-    expect(markup).toContain('Favored weapon of Iomedae')
+    expect(markup).not.toContain('Favored weapon of Iomedae')
     expect(markup).not.toContain('aria-label="Remove Longsword"')
   }
   const ranger = { ...base, className: 'Ranger', weapons: [] }
@@ -1291,7 +1291,7 @@ it('enlarges only smaller companions, gating Huge at level seven and applying da
   for (const patch of [{ activeSpells: [] }, { spells: [] }, { level: 2 }])
     expect(stats({ ...c, ...patch }).enlarge).toBeUndefined()
   const markup = renderToStaticMarkup(<MinionsSection c={huge} entries={[cat]} save={() => {}} />)
-  expect(markup).toMatch(/Huge<button[^>]*>\*<\/button> \(Enlarge Companion\)/)
+  expect(markup).toMatch(/Huge<button[^>]*>\*<\/button>/)
   expect(markup).toContain('+4 status melee damage; +10 feet reach; clumsy 1.')
   expect(markup).toContain('-1 Status (clumsy 1; Enlarge Companion)')
 })

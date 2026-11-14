@@ -55,6 +55,23 @@ it('opens large lists through a disabled-aware popup trigger without an external
   expect(markup).toContain('<option value="Scholar" selected="">')
 })
 
+it('renders an inline clear control only when configured with a selected value', () => {
+  const clear = () => {}
+  const markup = renderToStaticMarkup(<SearchableSelect aria-label="Companion collar equipment" value="collar">
+    <option value="">Choose collar...</option><option value="collar">Collar</option>
+  </SearchableSelect>)
+  const withClear = renderToStaticMarkup(<SearchableSelect aria-label="Companion collar equipment" value="collar" onClear={clear}>
+    <option value="">Choose collar...</option><option value="collar">Collar</option>
+  </SearchableSelect>)
+  const empty = renderToStaticMarkup(<SearchableSelect aria-label="Companion collar equipment" value="" onClear={clear}>
+    <option value="">Choose collar...</option>
+  </SearchableSelect>)
+  expect(markup).not.toContain('searchable-select-clear')
+  expect(withClear).toContain('aria-label="Clear Companion collar equipment"')
+  expect(withClear).toContain('title="Clear selection"')
+  expect(empty).not.toContain('searchable-select-clear')
+})
+
 it.each([0, 2, 10, 11])('only uses a popup for long lists with %i choices, excluding the placeholder', count => {
   const markup = renderToStaticMarkup(<SearchableSelect aria-label="Armor material" value="">
     <option value="">Add material</option>

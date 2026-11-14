@@ -7,13 +7,14 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   value: string
   label?: string
   onPrepare?: () => void
+  onClear?: () => void
   optionCount?: number
   renderDetails?: (value: string) => ReactNode
 }
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, optionCount, renderDetails, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, renderDetails, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -37,18 +38,23 @@ export function SearchableSelect({ label, onPrepare, optionCount, renderDetails,
   }
   return <span className="searchable-select">
     {label && <label htmlFor={id}>{label}</label>}
-    {searchable && <button onFocus={onPrepare} onPointerDown={onPrepare}
-      type="button" id={id} className="feat-picker-button" aria-label={props['aria-label']} aria-haspopup="dialog"
-      aria-expanded={open} aria-describedby={props['aria-describedby']} disabled={props.disabled} onClick={() => {
-        onPrepare?.()
-        setQuery('')
-        setLimit(PAGE)
-        setOpen(true)
-      }}>{options.find(option => option.value === value)?.label ?? (value || 'Choose')}</button>}
-    <select {...props} ref={select} id={searchable ? `${id}-value` : id} value={value} hidden={searchable}
-      onChange={event => { onChange?.(event); setQuery('') }}>
-      {children}
-    </select>
+    <span className="searchable-select-control">
+      {searchable && <button onFocus={onPrepare} onPointerDown={onPrepare}
+        type="button" id={id} className="feat-picker-button" aria-label={props['aria-label']} aria-haspopup="dialog"
+        aria-expanded={open} aria-describedby={props['aria-describedby']} disabled={props.disabled} onClick={() => {
+          onPrepare?.()
+          setQuery('')
+          setLimit(PAGE)
+          setOpen(true)
+        }}>{options.find(option => option.value === value)?.label ?? (value || 'Choose')}</button>}
+      <select {...props} ref={select} id={searchable ? `${id}-value` : id} value={value} hidden={searchable}
+        onChange={event => { onChange?.(event); setQuery('') }}>
+        {children}
+      </select>
+      {onClear && value && <button type="button" className="searchable-select-clear"
+        aria-label={`Clear ${props['aria-label']}`} title="Clear selection" disabled={props.disabled}
+        onClick={onClear}>×</button>}
+    </span>
     {searchable && open && <PickerDialog label={`${props['aria-label']} picker`} searchLabel={searchLabel}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
       <ul className="feat-modal-list">

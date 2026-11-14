@@ -396,6 +396,30 @@
   vertical-align: top;
 }
 
+.searchable-select-control {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.searchable-select-control > select:not([hidden]) {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.searchable-select-control > .feat-picker-button {
+  flex: 1 1 10rem;
+}
+
+.searchable-select-clear {
+  flex: none;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.1rem 0.4rem;
+}
+
 .searchable-select > input,
 .searchable-select > select {
   box-sizing: border-box;
@@ -527,6 +551,21 @@
 .gear-stats { display: flex; flex-wrap: wrap; gap: 1rem; }
 .gear-stats > span { display: flex; flex-direction: column; align-items: center; font-size: 0.9rem; }
 .gear-stats small { opacity: 0.7; font-size: 0.8em; }
+.minions-section-content { align-items: stretch; text-align: left; }
+.minions-section-content .gear-card { align-items: stretch; text-align: left; }
+.minions-section-content .gear-stats > span { align-items: flex-start; }
+.companion-status-toggles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; }
+.companion-status-toggles > div { display: flex; }
+.companion-status-toggles label { display: inline-flex; align-items: center; gap: 0.25rem; }
+.companion-actions { display: grid; gap: 0.5rem; text-align: left; }
+.companion-actions h5, .companion-action-group h6 { margin: 0; }
+.companion-action-group, .companion-action { display: grid; gap: 0.25rem; }
+.companion-action-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.companion-action-description, .companion-action-requirements { margin: 0; text-align: left; }
+.companion-maneuver-card { display: grid; gap: 0.4rem; padding: 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); text-align: left; }
+.companion-maneuver-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.companion-maneuver-heading strong { font-size: 1.05em; }
+.companion-maneuver-traits { margin: 0; }
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .rune { display: inline-flex; align-items: center; }

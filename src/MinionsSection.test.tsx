@@ -40,6 +40,17 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
   return found
 }
 
+function findSelectClear(node: ReactNode, label: string): (() => void) | undefined {
+  let found: (() => void) | undefined
+  Children.forEach(node, (child) => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === SearchableSelect && child.props['aria-label'] === label
+      ? child.props.onClear as (() => void) | undefined
+      : findSelectClear(child.props.children as ReactNode, label)
+  })
+  return found
+}
+
 it('shows one advancement choice and summarizes companion type and stage', () => {
   const c: Character = {
     id: 'companion', systems: ['pf2e'], name: 'Test', level: 10, className: 'Ranger',
@@ -128,9 +139,10 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   expect(markup.match(/<option value="anti-dragon">Anti-Dragon Barding<\/option>/g)).toHaveLength(1)
   expect(markup).not.toContain('wrong-category')
   expect(markup).not.toContain('<option value="irrelevant">Rope</option>')
-  const remove = findButton(tree(), 'Remove Collar equipment')
-  if (!remove) throw new Error('Missing companion equipment removal control')
-  remove()
+  expect(markup).toContain('aria-label="Clear Buddy Collar equipment"')
+  const clear = findSelectClear(tree(), 'Buddy Collar equipment')
+  if (!clear) throw new Error('Missing companion equipment clear control')
+  clear()
   expect(c.companions?.[0].equipment?.Collar).toBeUndefined()
 
   const tassel = findToggle(tree(), 'Buddy Other: Steadyfoot Tassel')
@@ -221,11 +233,14 @@ it('uses full companion stat names, omits redundant level, and keeps AC adjustme
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     companions: [{ id: 'cat', type: 'Cat', name: '' }], activeSpells: ['Magic Hide', 'Enlarge Companion'],
+    enlargeCompanionId: 'cat',
     spells: [{ name: 'Magic Hide', rank: 1, cantrip: false }, { name: 'Enlarge Companion', rank: 2, cantrip: false }],
   }
   const cat: ContentEntry = {
     id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat', level: 1,
-    traits: [], description: '', data: { size: 'Medium', hp: 6 }, effects: [], updatedAt: 1,
+    traits: [], description: '', data: {
+      size: 'Medium', hp: 6, skill: 'Athletics, Stealth', companion_attacks: 'Jaws|1d8 piercing|',
+    }, effects: [], updatedAt: 1,
   }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[cat]} save={() => {}} />)
   for (const label of ['Hit Points', 'Armor Class', 'Fortitude', 'Reflex', 'Strength', 'Dexterity',
@@ -234,7 +249,77 @@ it('uses full companion stat names, omits redundant level, and keeps AC adjustme
     expect(markup).not.toContain(`<small>${label}</small>`)
   expect(markup).toContain('aria-label="Magic Hide, Enlarge Companion note"')
   expect(markup).not.toContain('</button> (Magic Hide, Enlarge Companion)')
+  expect(markup).not.toContain('</button> (Enlarge Companion)')
   expect(markup).toContain('+1 Status (Magic Hide); -1 Status (clumsy 1; Enlarge Companion)')
+  const skillsStart = markup.indexOf('<small>Skills</small>')
+  const actionsStart = markup.indexOf('<section class="companion-actions">')
+  expect(markup.slice(skillsStart, actionsStart)).not.toContain('</button> (Enlarge Companion)')
+  const attacksStart = markup.indexOf('<h6>Attacks</h6>')
+  const maneuversStart = markup.indexOf('<h6>Maneuvers</h6>')
+  expect(markup.slice(attacksStart, maneuversStart)).not.toContain('</button> (Enlarge Companion)')
+})
+
+it('shows alphabetical companion status controls and groups action costs, maneuver rules, and descriptions', () => {
+  const c: Character = {
+    id: 'actions', systems: ['pf2e'], name: 'Test', level: 16, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Faithful Steed', type: 'Class Feat', level: 1 },
+      { name: 'Pale Horse', type: 'Class Feat', level: 12 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: '' }],
+    spells: ['Canopy Crawler', 'Enlarge Companion', 'Magic Hide'].map(name => ({ name, rank: 2, cantrip: false })),
+  }
+  const cat: ContentEntry = {
+    id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat', level: 1,
+    traits: [], description: '', data: {
+      size: 'Medium', hp: 6, companion_attacks: 'Jaws|1d8 piercing|',
+      companion_support: 'The cat distracts its target.',
+      companion_maneuver: 'Bear Hug', companion_maneuver_actions: 'Two Actions',
+      companion_maneuver_traits: 'Flourish',
+      companion_maneuver_requirements: 'The cat has a creature grabbed.',
+      companion_maneuver_description: 'The cat crushes a grabbed creature.',
+    }, effects: [], updatedAt: 1,
+  }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[cat]} save={() => {}} />)
+  expect(markup).toContain('<h4>Animal Companion</h4>')
+  expect(markup).not.toContain('Companions (1)')
+  expect(markup.indexOf('Canopy Crawler')).toBeLessThan(markup.indexOf('Enlarge Companion'))
+  expect(markup.indexOf('Enlarge Companion')).toBeLessThan(markup.indexOf('Magic Hide'))
+  expect(markup.indexOf('Magic Hide')).toBeLessThan(markup.indexOf('Pale Horse'))
+  expect(markup).toContain('<h5>Actions and maneuvers</h5>')
+  expect(markup).toContain('<h6>Attacks</h6>')
+  expect(markup).toContain('<h6>Maneuvers</h6>')
+  expect(markup).toContain('aria-label="Single Action"')
+  expect(markup).toContain('aria-label="Two Actions"')
+  expect(markup).toContain('class="companion-maneuver-card"')
+  expect(markup).toContain('<strong>Bear Hug</strong>')
+  expect(markup).toContain('class="gear-trait">Flourish</span>')
+  expect(markup).toContain('Requirements:</strong> The cat has a creature grabbed.')
+  expect(markup).toContain('The cat crushes a grabbed creature.')
+})
+
+it('shows horseshoe rules in the Athletics source note instead of beneath Speed', () => {
+  const c: Character = {
+    id: 'horse-note', systems: ['pf2e'], name: 'Test', level: 8, className: 'Champion',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'horse', type: 'Horse', name: 'Buddy', equipment: {
+      Shoes: { entryId: 'shoes', name: 'Alacritous Horseshoes (Greater)', qty: 1 },
+    } }],
+  }
+  const horse: ContentEntry = {
+    id: 'horse', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Horse', level: 1,
+    traits: [], description: '', data: { size: 'Large', hp: 8, speed_raw: '40 feet', skill: 'Athletics' }, effects: [], updatedAt: 1,
+  }
+  const shoes: ContentEntry = {
+    id: 'shoes', systems: ['pf2e'], kind: 'item', source: 'official', name: 'Alacritous Horseshoes (Greater)', level: 14,
+    traits: ['Companion'], description: '', data: { item_subcategory: 'Companion Items' }, effects: [], updatedAt: 1,
+  }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[horse, shoes]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Alacritous Horseshoes (Greater) note"')
+  expect(markup).toContain('+3 circumstance bonus to Athletics checks to High Jump and Long Jump')
+  expect(markup).toContain('when Leaping, move 5 feet farther horizontally or 3 feet higher vertically')
+  expect(markup).not.toContain('<small>Alacritous Horseshoes (Greater):')
 })
 
 it('syncs companion spell toggles in both directions, persists targets, and gates heightened choices', () => {
@@ -380,7 +465,7 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
   select({ target: { value: 'Horse' } })
   expect(c.companions).toMatchObject([{ type: 'Horse', name: '' }])
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[horse]} save={save} />)
-  expect(markup).toContain('Companions (1)')
+  expect(markup).toContain('<h4>Animal Companion</h4>')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('Choose Faithful Steed')
   expect(markup).not.toContain('aria-label="Companion name"')
@@ -439,7 +524,8 @@ it('removes Enlarge size choices for Large companions and disables casting on Hu
   on({ target: { checked: true } })
   expect(c.activeSpells).toContain('Enlarge Companion')
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={save} />)
-  expect(markup).toMatch(/Huge<button[^>]*>\*<\/button> \(Enlarge Companion\)/)
+  expect(markup).toMatch(/Huge<button[^>]*>\*<\/button><span[^>]*popover="auto"/)
+  expect(markup).not.toContain('</button> (Enlarge Companion)')
   expect(markup).not.toContain('Size: Huge')
   c = { ...c, level: 6, activeSpells: [] }
   expect(renderToStaticMarkup(<CompanionSpellOptions {...props()} />))

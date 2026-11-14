@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, movementSpeeds, ownedWeapons, senses } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, equippedWeaponHands, movementSpeeds, ownedWeapons, senses, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
@@ -24,6 +24,113 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it('limits equipped weapons by hands while preserving legacy and always-equipped attacks', () => {
+  const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
+  const dagger = { ...weapon, id: 'dagger', name: 'Dagger', data: { hands: 1 } }
+  const arbalest = { ...weapon, id: 'arbalest', name: 'Arbalest', data: { hands: 2, weapon_group: 'Crossbow', weapon_type: 'Ranged' } }
+  let c: Character = { ...character([]), weapons: [
+    { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] },
+    { id: 'dagger', name: dagger.name, potency: 0, striking: 0, runes: [] },
+    { id: 'bow', name: arbalest.name, potency: 0, striking: 0, runes: [], stowed: true },
+  ] }
+  const entries = [sword, dagger, arbalest]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const input = (name: string) => findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === `Equipped ${name}`)!
+  const toggle = (name: string, checked: boolean) => (input(name).props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked } })
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+  expect(input('Arbalest').props.disabled).toBe(true)
+  expect(input('Fist').props).toMatchObject({ checked: true, disabled: true })
+  toggle('Longsword', false)
+  expect(input('Arbalest').props.disabled).toBe(true)
+  toggle('Dagger', false)
+  expect(input('Arbalest').props.disabled).toBe(false)
+  toggle('Arbalest', true)
+  c = JSON.parse(JSON.stringify(c))
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+  expect(input('Longsword').props.disabled).toBe(true)
+  expect(input('Arbalest').props.checked).toBe(true)
+  const free = { ...weapon, name: 'Free Hand', traits: ['Free-Hand'], data: { hands: 1 } }
+  c.weapons!.push({ id: 'free', name: free.name, potency: 0, striking: 0, runes: [], stowed: true })
+  expect(weaponEquipped(c, [...entries, free], c.weapons![3])).toBe(true)
+  expect(equippedWeaponHands(c, [...entries, free])).toBe(2)
+})
+
+it('links attached weapons to their firearm and persists selection without extra hands', () => {
+  const gun = { ...weapon, name: 'Arbalest', data: { hands: 2, weapon_group: 'Crossbow', weapon_type: 'Ranged' } }
+  const sword = { ...weapon, data: { hands: 1 } }
+  let c: Character = { ...character([]), weapons: [
+    { id: 'gun', name: gun.name, potency: 2, striking: 1, runes: ['Flaming'], material: 'Orichalcum' },
+    { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [], stowed: true },
+  ] }
+  const entries = [gun, sword]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => WeaponList({ c, entries, save })
+  const select = (value: string) => (findElement(tree(), e => e.props['aria-label'] === 'Attached weapon: Arbalest')!
+    .props.onChange as (e: { target: { value: string } }) => void)({ target: { value } })
+  select('Bayonet')
+  c = JSON.parse(JSON.stringify(c))
+  const attached = ownedWeapons(c, entries).find(w => w.attachedTo === 'gun')!
+  expect(attached.name).toBe('Bayonet')
+  expect(effectiveWeapon(c, entries, attached)).toMatchObject({ potency: 2, striking: 1, runes: ['Flaming'], material: 'Orichalcum' })
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+  expect(weaponEquipped(c, entries, attached)).toBe(true)
+  expect(c.weapons?.some(w => w.attachedTo)).toBe(false)
+  const linked = findElement(tree(), e => e.props['aria-label'] === 'Equipped Bayonet (Arbalest)')!
+  expect(linked.props).toMatchObject({ checked: true, disabled: true })
+  const base = findElement(tree(), e => e.props['aria-label'] === 'Equipped Arbalest')!
+  ;(base.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(weaponEquipped(c, entries, attached)).toBe(false)
+  select('Reinforced Stock')
+  expect(ownedWeapons(c, entries).find(w => w.attachedTo === 'gun')?.name).toBe('Reinforced Stock')
+  select('')
+  expect(ownedWeapons(c, entries).some(w => w.attachedTo)).toBe(false)
+})
+
+it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(
+  'grants locked clan dagger filigrees at level %i', (level, expected) => {
+    const c: Character = { ...character([]), level, weapons: [{ id: 'dagger', name: 'Clan Dagger', potency: 0, striking: 0, runes: [] }] }
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+    if (!expected) expect(markup).not.toContain("Bolka&#x27;s Blessing")
+    else {
+      expect(markup).toContain(expected.replace("'", '&#x27;'))
+      expect(markup).toContain(`${level >= 11 ? 'Greater ' : ''}Kols&#x27;s Oath`)
+      expect(markup).toContain(`${level >= 11 ? 'Greater ' : ''}Trudd&#x27;s Strength`)
+      expect(markup).not.toContain('aria-label="Remove Bolka')
+      expect(markup).not.toContain('aria-label="Remove Greater Bolka')
+    }
+  },
+)
+
+it('follows selected haft source including a staff wielded in two hands', () => {
+  const staff = { ...weapon, name: 'Staff', traits: ['Two-Hand d8'], data: { hands: 1, weapon_group: 'Club' } }
+  let c: Character = { ...character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 }]),
+    weapons: [{ id: 'staff', name: 'Staff', potency: 0, striking: 0, runes: [], handsHeld: 2 }] }
+  const entries = [staff]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const get = () => ownedWeapons(c, entries).find(w => w.name === HAFT_STRIKER_WEAPON.name)!
+  expect(weaponEquipped(c, entries, get())).toBe(true)
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+  const input = findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === 'Equipped Haft Striker Stance')!
+  expect(input.props).toMatchObject({ checked: true, disabled: true })
+  const grip = findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === 'Hands: Staff')!
+  ;(grip.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
+  expect(weaponEquipped(c, entries, get())).toBe(false)
+  expect(equippedWeaponHands(c, entries)).toBe(1)
+})
+
+it('blocks equipping when a held weapon has unknown handedness without changing legacy state', () => {
+  const known = { ...weapon, name: 'Dagger', data: { hands: 1 } }
+  const c: Character = { ...character([]), weapons: [
+    { id: 'unknown', name: 'Unknown weapon', potency: 0, striking: 0, runes: [] },
+    { id: 'known', name: 'Dagger', potency: 0, striking: 0, runes: [], stowed: true },
+  ] }
+  const tree = WeaponList({ c, entries: [known], save: () => {} })
+  expect(findElement(tree, e => e.props['aria-label'] === 'Equipped Unknown weapon')?.props)
+    .toMatchObject({ checked: true, disabled: false })
+  expect(findElement(tree, e => e.props['aria-label'] === 'Equipped Dagger')?.props.disabled).toBe(true)
+  expect(renderToStaticMarkup(tree)).toContain('Equipped weapon hands unavailable')
 })
 
 it.each<[string, OwnedArmor['material'], string]>([
