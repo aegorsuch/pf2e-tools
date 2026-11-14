@@ -446,7 +446,7 @@ it('shows spell DC proficiency but no spell slots for focus-only casters', () =>
   expect(markup).toContain('aria-haspopup="dialog">Gravity Weapon</button>')
   expect(markup).toContain('<p>Focus spell description.</p>')
   expect(markup).not.toContain('Filter spells by tradition')
-  expect(markup).not.toContain('Slots per rank')
+  expect(markup).not.toContain('Spell slots:')
 })
 
 it('retains spell slots for slotted casters such as Druids', () => {
@@ -459,7 +459,7 @@ it('retains spell slots for slotted casters such as Druids', () => {
     traits: [], description: '', data: { tradition: 'Primal' }, effects: [], updatedAt: 1,
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid]} save={() => {}} />)
-  expect(markup).toContain('Slots per rank')
+  expect(markup).toContain('Spell slots:')
   expect(markup).toContain('value="2"')
 })
 
@@ -503,7 +503,7 @@ it('hides manual casting configuration for noncasters and collapses the spell se
   expect(markup).toContain('<details class="character-section">')
   expect(markup).toContain('<strong>Spells</strong><span>0 spells</span>')
   expect(markup).not.toContain('Casting ability')
-  expect(markup).not.toContain('Slots per rank')
+  expect(markup).not.toContain('Spell slots:')
   expect(markup).not.toContain('Spellcasting Trained')
 })
 
