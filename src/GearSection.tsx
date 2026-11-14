@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isFavoredWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -800,7 +800,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               <input type="checkbox" checked={equipped?.id === shield.id && shieldRaised(c)}
                 disabled={equipped?.id !== shield.id || shieldParagonActive(c)}
                 onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked)) }} />
-              {/\bbuckler\b/i.test(shield.name) ? 'Raise buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
+              {isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
           <div className="row">
             {shield.material ? <div className="gear-runes"><span>Material</span>
@@ -844,7 +844,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           <label><input type="checkbox" checked={equipped?.id === woodShield.id && shieldRaised(c)}
             disabled={equipped?.id !== woodShield.id || shieldParagonActive(c)}
             onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
-            {/\bbuckler\b/i.test(woodShield.name) ? 'Raise buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
+            {isBucklerShield(woodShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
         <small>Hardness {shieldStats(woodShield).hardness}; Hit Points {shieldStats(woodShield).hp}; Broken Threshold {Math.floor(shieldStats(woodShield).hp / 2)}. Material and base stats improve automatically.</small>
         <ShieldRune rune={woodShield.reinforcingRune} entries={entries}

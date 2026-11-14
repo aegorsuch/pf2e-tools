@@ -6,7 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -268,6 +268,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
   const parry = parryValue(c, entries)
+  const shield = equippedShield(c)
+  const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
   const classSlots = plannedSlots(c).filter(slot => slot.category === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
@@ -399,10 +401,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
-          {(equippedShield(c) || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
-            {equippedShield(c) && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
-              <input type="checkbox" aria-label="Raise Shield (summary)" checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
-                onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> Raise Shield (+{shieldAcBonus(c, entries)} AC)</label>}
+          {(shield || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
+            {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
+              <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
+                onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
             {parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
               onChange={(event) => save({ parrying: event.target.checked })} /> Parry (+{parry} AC)</label>}
           </span>}

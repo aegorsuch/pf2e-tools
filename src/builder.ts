@@ -317,8 +317,9 @@ export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   if (!shield) return 0
   const entry = entries.find(item => item.kind === 'shield' && (item.id === shield.id || item.name === shield.name))
   const bonus = num(entry?.data.ac)
-  return bonus > 0 ? bonus : /buckler/i.test(shield.name) ? 1 : 2
+  return bonus > 0 ? bonus : isBucklerShield(shield.name) ? 1 : 2
 }
+export const isBucklerShield = (name: string) => /buckler/i.test(name)
 export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {
   const shield = equippedShield(c)
   if (!shield) return {}

@@ -248,9 +248,9 @@ it.each(['Buckler', 'Gauntlet Buckler'])('uses %s AC bonus when raised', name =>
   const shield = { id: 's', name, hardness: 3, hp: 6, damage: 0, raised: true }
   const c: Character = { ...base, shield }
   expect(armorClass(c, [shieldEntry])).toBe(armorClass({ ...c, shield: undefined }, [shieldEntry]) + 1)
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[shieldEntry]} save={() => {}} />)).toContain('Raise buckler (+1 AC)')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[shieldEntry]} save={() => {}} />)).toContain('Raise Buckler (+1 AC)')
   expect(armorClass(c, [])).toBe(armorClass({ ...c, shield: undefined }, []) + 1)
-  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raise buckler (+1 AC)')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raise Buckler (+1 AC)')
 })
 
 it('hides shield base durability while keeping calculated durability visible', () => {

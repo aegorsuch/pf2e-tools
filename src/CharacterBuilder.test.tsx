@@ -285,6 +285,9 @@ it('shows defense summary context toggles only for equipped shields or parry-cap
     expect(plain).not.toContain('Parry active (summary)')
     const shielded = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)
     expect(shielded).toContain('Raise Shield (summary)')
+    const buckler = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, shield: { id: 'b', name: 'Buckler', hardness: 3, hp: 6, damage: 0, raised: false } }} onClose={() => {}} />)
+    expect(buckler).toContain('aria-label="Raise Buckler (summary)"')
+    expect(buckler).toContain('Raise Buckler (+1 AC)')
     const locked = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, level: 20,
       feats: [{ name: 'Shield Paragon', type: 'Class Feat', level: 20 }],
       shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)
