@@ -27,6 +27,22 @@ it('offers Old Cheliax access for Hellknight Dedication without removing its tra
   expect(featAccess(saved, { ...hellknight, data: { access: "You're from New Cheliax." } })?.automatic).toBe(false)
 })
 
+it('offers Dongun Hold or Alkenstar as a reusable achievement', () => {
+  const source = { ...feat, name: 'Alkenstar Agent', data: { access: 'You are from Dongun Hold or Alkenstar.' } }
+  const [option] = achievementOptions([source])
+  expect(option).toEqual({
+    key: 'from dongun hold or alkenstar',
+    requirement: 'From Dongun Hold or Alkenstar',
+    feats: ['Alkenstar Agent'],
+  })
+  expect(featAccess({ ...character, achievements: [option.key] }, source)).toMatchObject({
+    automatic: true,
+    source: 'achievement',
+  })
+  expect(featAccess({ ...character, achievements: [option.requirement] }, source)?.automatic).toBe(true)
+  expect(featAccess(character, source)?.automatic).toBe(false)
+})
+
 it('shows Rivethun membership while automatically accepting its background and retaining old checked wording', () => {
   const access = 'Rivethun Adherent background or you are a member of the Rivethun'
   const source = { ...feat, data: { access } }

@@ -47,7 +47,9 @@ const featCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
 function featSource(c: Character, entries: ContentEntry[], name: string) {
   if (name === 'Ancestral Magic' || name === 'Ancestral Cantrip') {
     const ancestries = [c.ancestry, c.heritage, ...c.feats.filter(feat => feat.name === 'Adopted Ancestry'
-      && featTakenLevel(feat) <= c.level).map(feat => feat.choice)].filter((value): value is string => !!value)
+      && featTakenLevel(feat) <= c.level).map(feat => feat.choice),
+      ...(c.systems.includes('pf2e') && c.feats.some(feat => feat.name === 'Orc Kinship' && featTakenLevel(feat) <= c.level) ? ['Orc'] : [])]
+      .filter((value): value is string => !!value)
     return entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
       && entry.systems.some(system => c.systems.includes(system))
       && entry.traits.some(trait => ancestries.some(ancestry => ancestry.toLowerCase() === trait.toLowerCase())))

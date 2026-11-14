@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
-import { MinionsContent, MinionsSection } from './MinionsSection'
+import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
@@ -25,6 +25,17 @@ function findToggle(node: ReactNode, label: string): ((event: { target: { checke
     found = child.type === 'input' && child.props['aria-label'] === label
       ? child.props.onChange as (event: { target: { checked: boolean } }) => void
       : findToggle(child.props.children as ReactNode, label)
+  })
+  return found
+}
+
+function findButton(node: ReactNode, label: string): (() => void) | undefined {
+  let found: (() => void) | undefined
+  Children.forEach(node, (child) => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === 'button' && child.props['aria-label'] === label
+      ? child.props.onClick as () => void
+      : findButton(child.props.children as ReactNode, label)
   })
   return found
 }
@@ -75,6 +86,43 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(html).toContain('Darkvision and Tough')
   expect(html).toContain('Climb Speed 25 feet.')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
+})
+
+it('selects alphabetized companion equipment by slot and tracks each quantity', () => {
+  let c: Character = {
+    id: 'equipped-companion', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: 'Buddy' }],
+  }
+  const item = (id: string, name: string): ContentEntry => ({
+    id, name, kind: 'item', systems: ['pf2e'], source: 'official', level: 1, traits: [],
+    description: '', data: {}, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    item('collar-z', 'Collar of Vigor'), item('collar-a', 'Collar of Empathy'),
+    item('shoes', 'Alacritous Horseshoes (Greater)'), item('saddle', 'Mature Animal Saddle'),
+    item('barding', 'Barding (Light)'), item('irrelevant', 'Rope'),
+  ]
+  const tree = () => CompanionEquipmentSlots({ c, companion: c.companions![0], entries,
+    save: patch => { c = { ...c, ...patch } } })
+  const collarSelect = findSelect(tree(), 'Buddy Collar equipment')
+  if (!collarSelect) throw new Error('Missing companion collar slot')
+  collarSelect({ target: { value: 'collar-a' } })
+  expect(c.companions?.[0].equipment?.Collar).toEqual({ entryId: 'collar-a', name: 'Collar of Empathy', qty: 1 })
+  expect(renderToStaticMarkup(tree())).toContain('Qty 1')
+  const markup = renderToStaticMarkup(tree())
+  expect(markup.indexOf('Collar of Empathy')).toBeLessThan(markup.indexOf('Collar of Vigor'))
+  expect(markup).not.toContain('<option value="irrelevant">Rope</option>')
+  const increment = findButton(tree(), 'Increase Collar quantity')
+  if (!increment) throw new Error('Missing companion equipment quantity control')
+  increment()
+  expect(c.companions?.[0].equipment?.Collar?.qty).toBe(2)
+  expect(findButton(tree(), 'Decrease Collar quantity')).toBeDefined()
+  const remove = findButton(tree(), 'Remove Collar equipment')
+  if (!remove) throw new Error('Missing companion equipment removal control')
+  remove()
+  expect(c.companions?.[0].equipment?.Collar).toBeUndefined()
 })
 
 it('shows a pet only when Beast Trainer grants Pet', () => {
@@ -307,7 +355,7 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
   select({ target: { value: 'Horse' } })
   expect(c.companions).toMatchObject([{ type: 'Horse', name: '' }])
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[horse]} save={save} />)
-  expect(markup).toContain('Animal Companions (1)')
+  expect(markup).toContain('Companions (1)')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('Choose Faithful Steed')
   expect(markup).not.toContain('aria-label="Companion name"')

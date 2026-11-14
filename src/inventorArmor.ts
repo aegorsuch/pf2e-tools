@@ -2,21 +2,21 @@ import { featTakenLevel } from './featChoices'
 import type { Character } from './types'
 
 type Tier = 'initial' | 'breakthrough' | 'revolutionary'
-type Modification = { name: string; tier: Tier; note: string; suit?: 'Power Suit' | 'Subterfuge Suit'; requires?: string[] }
+type Modification = { name: string; tier: Tier; note?: string; suit?: 'Power Suit' | 'Subterfuge Suit'; requires?: string[] }
 
 export const ARMOR_MODIFICATIONS: Modification[] = [
   { name: 'Harmonic Oscillator', tier: 'initial', note: 'Resistance to force and sonic; increases during Overdrive.' },
   { name: 'Metallic Reactance', tier: 'initial', note: 'Resistance to acid and electricity; increases during Overdrive.' },
   { name: 'Muscular Exoskeleton', tier: 'initial', suit: 'Power Suit', note: 'During Overdrive, circumstance bonus to Athletics (+2 at master Crafting).' },
   { name: 'Otherworldly Protection', tier: 'initial', note: 'Resistance to spirit and void; use vitality instead of void if you have void healing. Sanctified creatures also resist opposing sanctification damage.' },
-  { name: 'Phlogistonic Regulator', tier: 'initial', note: 'Resistance to cold and fire; increases during Overdrive.' },
-  { name: 'Speed Boosters', tier: 'initial', note: 'Status bonus to Speed; increases during Overdrive.' },
+  { name: 'Phlogistonic Regulator', tier: 'initial' },
+  { name: 'Speed Boosters', tier: 'initial' },
   { name: 'Subtle Dampeners', tier: 'initial', suit: 'Subterfuge Suit', note: 'During Overdrive, circumstance bonus to Stealth (+2 at master Crafting).' },
   { name: 'Antimagic Plating', tier: 'breakthrough', note: '+1 circumstance to AC and saves against spells; +4 against spells targeting the armor.' },
   { name: 'Camouflage Pigmentation', tier: 'breakthrough', suit: 'Subterfuge Suit', note: 'You can Hide without cover or concealment while wearing the armor.' },
   { name: 'Dense Plating', tier: 'breakthrough', note: 'Resistance to slashing.' },
   { name: 'Enhanced Resistance', tier: 'breakthrough', requires: ['Harmonic Oscillator', 'Metallic Reactance', 'Phlogistonic Regulator', 'Otherworldly Protection'], note: 'Choose one initial resistance modification to use your full level instead of half.' },
-  { name: 'Heavy Construction', tier: 'breakthrough', suit: 'Power Suit', note: 'Heavy plate armor; uses medium armor proficiency. Strength +3 removes its Speed penalty.' },
+  { name: 'Heavy Construction', tier: 'breakthrough', suit: 'Power Suit' },
   { name: 'Hyper Boosters', tier: 'breakthrough', requires: ['Speed Boosters'], note: 'Improves Speed Boosters; legendary Crafting further improves Overdrive Speed.' },
   { name: 'Layered Mesh', tier: 'breakthrough', note: 'Resistance to piercing.' },
   { name: 'Tensile Absorption', tier: 'breakthrough', note: 'Resistance to bludgeoning.' },
@@ -26,7 +26,7 @@ export const ARMOR_MODIFICATIONS: Modification[] = [
   { name: 'Multisensory Mask', tier: 'revolutionary', suit: 'Subterfuge Suit', note: 'Concealed from all creatures, including nonvisual senses; concealment ends after a hostile action until restored with one manipulate action. Cannot Hide or Sneak using it.' },
   { name: 'Perfect Fortification', tier: 'revolutionary', suit: 'Power Suit', note: 'DC 13 flat check to turn critical hits into hits; resistance to precision damage.' },
   { name: 'Physical Protections', tier: 'revolutionary', requires: ['Dense Plating', 'Layered Mesh', 'Tensile Absorption'], note: 'Resistance to all physical damage, including bleed.' },
-  { name: 'Rune Capacity', tier: 'revolutionary', note: 'One extra armor property rune, up to five with Orichalcum.' },
+  { name: 'Rune Capacity', tier: 'revolutionary' },
 ]
 
 export type ArmorModificationSlot = 'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic'

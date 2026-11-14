@@ -1,10 +1,10 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait, warmaskAlternateSkills } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait, warmaskAlternateSkills } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
-import { isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
+import { isDwarfAncestralWeaponFamiliarity, isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
 
 export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
@@ -32,7 +32,8 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'Carry Their Memories' || isElfAncestralWeaponFamiliarity(c, feat.name)) return null
+  if (feat.name === 'Carry Their Memories' || isElfAncestralWeaponFamiliarity(c, feat.name)
+    || isDwarfAncestralWeaponFamiliarity(c, feat.name)) return null
   if (feat.name === 'Orc Warmask') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const alternatives = warmaskAlternateSkills(c, entries, index)
@@ -61,6 +62,43 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </label>}
     </span>
   }
+  if (feat.name === 'Clan Lore' || feat.name === 'Dwarven Lore') {
+    const clans = feat.name === 'Clan Lore' ? featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? [] : []
+    const replacements = loreReplacementChoices(c, entries, index)
+    if (feat.name === 'Dwarven Lore' && !replacements.length) return null
+    const updateReplacement = (replacementIndex: number, value: string) => {
+      const next = [...(feat.replacements ?? [])]
+      next[replacementIndex] = value
+      while (next.length && !next[next.length - 1]) next.pop()
+      save({ feats: c.feats.map((existing, i) => i === index ? {
+        ...existing, replacements: next.length ? next : undefined,
+      } : existing) })
+    }
+    return <span className="feat-choice feat-choice-with-note">
+      {feat.name === 'Clan Lore' && <SearchableSelect label="Clan" aria-label="Clan Lore clan" value={feat.choice ?? ''}
+        onChange={event => {
+          if (event.target.value && !clans.includes(event.target.value)) return
+          save({ feats: c.feats.map((existing, i) => i === index ? {
+            ...existing, choice: event.target.value || undefined, replacements: undefined,
+          } : existing) })
+        }}>
+        <option value="">Choose clan</option>
+        {feat.choice && !clans.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+        {clans.map(clan => <option key={clan}>{clan}</option>)}
+      </SearchableSelect>}
+      {replacements.map((replacement, replacementIndex) => <SearchableSelect key={replacement.skill}
+        label={`Replace trained ${replacement.skill}`} aria-label={`${feat.name} replacement for ${replacement.skill}`}
+        value={replacement.value ?? ''} onChange={event => {
+          const value = event.target.value
+          if (value && !replacement.options.includes(value)) return
+          updateReplacement(replacementIndex, value)
+        }}>
+        <option value="">Choose replacement skill</option>
+        {replacement.value && !replacement.options.includes(replacement.value) && <option disabled>{replacement.value}</option>}
+        {replacement.options.map(skill => <option key={skill}>{skill}</option>)}
+      </SearchableSelect>)}
+    </span>
+  }
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
@@ -74,25 +112,28 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       && (!featRarity(weapon) || ![weapon, ...combinationForms(entries, weapon.name)].some(form => weaponHasAncestryTrait(form, entries)))
     const rareException = feat.name === 'Unconventional Weaponry' && !!weapon
       && /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(weapon.name) && featRarity(weapon) === 'Rare'
-    return <span className="feat-choice feat-choice-with-note">
-      <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={choice} onChange={event => {
-        const choice = event.target.value || undefined
-        if (choice && !options.includes(choice)) return
-        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice, culturalWeapon: undefined, rareWeaponOverride: undefined } : existing) })
-      }}>
-        <option value="">Choose weapon</option>
-        {choice && !options.includes(choice) && <option disabled>{choice}</option>}
-        {options.map(name => <option key={name}>{name}</option>)}
-      </SearchableSelect>
-      {cultural && <label><input type="checkbox" checked={!!feat.culturalWeapon}
-        onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, culturalWeapon: event.target.checked } : existing) })} />
-        {' '}GM confirmed weapon is common in another culture</label>}
-      {cultural && !feat.culturalWeapon && <small>Access and familiarity require confirmation of cultural eligibility.</small>}
-      {rareException && <label><input type="checkbox" checked={!!feat.rareWeaponOverride}
-        onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, rareWeaponOverride: event.target.checked } : existing) })} />
-        {' '}GM allows rare Shobhad Longrifle for this feat (house rule)</label>}
-      {rareException && !feat.rareWeaponOverride && <small>Official rules exclude this rare weapon without a house rule.</small>}
-    </span>
+    return <details className="feat-choice-details">
+      <summary>{choice ? `Weapon: ${choice}` : 'Choose weapon'}</summary>
+      <span className="feat-choice feat-choice-with-note">
+        <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={choice} onChange={event => {
+          const choice = event.target.value || undefined
+          if (choice && !options.includes(choice)) return
+          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice, culturalWeapon: undefined, rareWeaponOverride: undefined } : existing) })
+        }}>
+          <option value="">Choose weapon</option>
+          {choice && !options.includes(choice) && <option disabled>{choice}</option>}
+          {options.map(name => <option key={name}>{name}</option>)}
+        </SearchableSelect>
+        {cultural && <label><input type="checkbox" checked={!!feat.culturalWeapon}
+          onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, culturalWeapon: event.target.checked } : existing) })} />
+          {' '}GM confirmed weapon is common in another culture</label>}
+        {cultural && !feat.culturalWeapon && <small>Access and familiarity require confirmation of cultural eligibility.</small>}
+        {rareException && <label><input type="checkbox" checked={!!feat.rareWeaponOverride}
+          onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, rareWeaponOverride: event.target.checked } : existing) })} />
+          {' '}GM allows rare Shobhad Longrifle for this feat (house rule)</label>}
+        {rareException && !feat.rareWeaponOverride && <small>Official rules exclude this rare weapon without a house rule.</small>}
+      </span>
+    </details>
   }
   if (feat.name === 'Favored Terrain') return null
   if (feat.name === 'Mercy') {
@@ -186,14 +227,15 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
-  if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper',
+  if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper', 'Eye for Treasure',
     'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
     const label = feat.name === 'Adopted Ancestry' ? 'ancestry'
+      : feat.name === 'Eye for Treasure' ? 'replacement skill'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
-    return <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
+    const choiceControl = <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
       <SearchableSelect aria-label={`${feat.name} ${label}`} aria-describedby={noteId} value={feat.choice ?? ''} onChange={(e) => {
         const choice = e.target.value || undefined
         if (choice && !options.includes(choice)) return
@@ -207,6 +249,12 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
         && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}
     </span>
+    return feat.name === 'Adopted Ancestry'
+      ? <details className="feat-choice-details">
+        <summary>{feat.choice ? `Ancestry: ${feat.choice}` : 'Choose ancestry'}</summary>
+        {choiceControl}
+      </details>
+      : choiceControl
   }
   if (feat.name === 'Additional Lore') {
     return <label className="feat-choice">

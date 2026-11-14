@@ -22,7 +22,9 @@ const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
 const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
 const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
 const OLD_CHELIAX = 'From Old Cheliax'
-const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKONG_EXTENSION_ACCESS, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER, OLD_CHELIAX]
+const DONGUN_HOLD_OR_ALKENSTAR = 'From Dongun Hold or Alkenstar'
+const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKONG_EXTENSION_ACCESS, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER,
+  OLD_CHELIAX, DONGUN_HOLD_OR_ALKENSTAR]
   .map(label => [label.toLowerCase(), label]))
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
@@ -37,6 +39,7 @@ export function achievementKey(access: string) {
   if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
   if (/^rivethun adherent background or (?:you are )?(?:a )?member of the rivethun$/.test(key)) return RIVETHUN_MEMBERSHIP.toLowerCase()
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
+  if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return key
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
 }
 
@@ -60,7 +63,8 @@ function narrativeRequirement(entry: ContentEntry, access: string) {
 }
 
 function isAchievementRequirement(requirement: string) {
-  return narrativeAccess.test(requirement) || achievementKey(requirement) === OLD_CHELIAX.toLowerCase()
+  const key = achievementKey(requirement)
+  return narrativeAccess.test(requirement) || key === OLD_CHELIAX.toLowerCase() || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
 }
 
 export function achievementOptions(entries: ContentEntry[]) {

@@ -6,7 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, SimplePoisons, WeaponList } from './GearSection'
@@ -16,7 +16,7 @@ import { SkillsSection } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
-import { faithfulSteedChange } from './companions'
+import { constructCompanionChange, faithfulSteedChange } from './companions'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -185,6 +185,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       const next = { ...current, ...patch, updatedAt: Math.max(Date.now(), current.updatedAt + 1) }
       Object.assign(next, syncOrderExplorerFeats(next, entries))
       Object.assign(next, faithfulSteedChange(next, entries))
+      Object.assign(next, constructCompanionChange(next))
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })
@@ -196,6 +197,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const unslotted = unslottedFeats(c)
   const orphaned = [...unslotted, ...orphanedArchetypeFeats({ ...c, feats: c.feats.filter((f) => !unslotted.includes(f)) }, entries)]
   const missingSteed = faithfulSteedChange(c, entries)
+  const missingConstruct = constructCompanionChange(c)
   useEffect(() => {
     if (orphaned.length) {
       const feats = c.feats.filter((f) => !orphaned.includes(f))
@@ -208,7 +210,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
     if (!missing.length && !stale.length) {
       const migration = migrateAncestralLinguistics(c)
       const orderFeats = syncOrderExplorerFeats(c, entries)
-      if (missingSteed || migration || orderFeats) void save({ ...missingSteed, ...migration, ...orderFeats })
+      if (missingSteed || missingConstruct || migration || orderFeats)
+        void save({ ...missingSteed, ...missingConstruct, ...migration, ...orderFeats })
       return
     }
     const added = missing.map((d) => ({ d, entry: entries.find((e) => e.kind === 'feat' && e.name === d.name)! }))
@@ -268,6 +271,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
   const parry = parryValue(c, entries)
+  const parryWeapon = hasParryWeapon(c, entries)
   const shield = equippedShield(c)
   const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
@@ -306,8 +310,6 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
 
       <div className="row">
         <label>Name <input value={c.name} onChange={(e) => save({ name: e.target.value })} /></label>
-        <label>Level <input type="number" min={1} max={20} value={c.level}
-          onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
       </div>
       <DeferredDetails>
         <summary className="character-section-summary"><strong>Ability Scores</strong></summary>
@@ -365,7 +367,11 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
         </summary>
         <div className="character-section-content">
-          <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
+          <div className="row">
+            <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
+            <label>Level <input aria-label="Character level" type="number" min={1} max={20} value={c.level}
+              onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
+          </div>
           {c.className !== 'Druid' && subclasses.length > 0 && <>
             <Pick label={c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : 'Subclass'}
               kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
@@ -405,7 +411,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
                 onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
-            {parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
+            {parryWeapon && parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
               onChange={(event) => save({ parrying: event.target.checked })} /> Parry (+{parry} AC)</label>}
           </span>}
         </summary>

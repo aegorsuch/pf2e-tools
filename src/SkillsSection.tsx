@@ -146,8 +146,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
       && armorModifications(c).some(mod => mod.name === modification)
       ? { source: modification, value: (ranks.Crafting ?? 0) >= 3 ? 2 : 1 } : undefined
+    const craftingRecall = s.name === 'Crafting' && isFeatEffectActive(c, 'Eye for Treasure')
+      ? { source: 'Eye for Treasure', value: 1 } : undefined
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
-      : s.kind === 'save' ? saveCircumstance : armorSkill
+      : s.kind === 'save' ? saveCircumstance : craftingRecall ?? armorSkill
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} {editingSkills && c.lores.some(lore => lore.name === s.name)
@@ -228,6 +230,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
         {rageToggle}
         {hazardToggle}
+        <FeatEffectToggle c={c} save={save} name='Eye for Treasure' label="Crafting Recall Knowledge active"
+          title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
         <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
           title="Apply favored terrain benefits only while you are in that terrain." />
         {isFeatEffectActive(c, 'Favored Terrain') && !terrain
@@ -282,6 +286,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {rageToggle}
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
         {hazardToggle}
+        <FeatEffectToggle c={c} save={save} name="Stonemason's Eye" label="Stonework Perception active"
+          title="Apply the +2 circumstance bonus only to notice unusual stonework and stonework traps." />
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
           && <small>Pioneer Human: {c.pioneerEnvironment.toLowerCase()} environmental effects are one step less extreme. This is not damage resistance.</small>}
         {researched && <>

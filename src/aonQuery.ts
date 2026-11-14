@@ -9,7 +9,8 @@ export const AON_ENDPOINTS: Record<GameSystem, string> = {
 // Scalar/array fields copied into entry.data (arrays are joined with ", ")
 export const DATA_FIELDS = [
   'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite', 'access',
-  'actions', 'trigger', 'duration', 'bulk', 'price', 'damage', 'hands', 'weapon_type', 'usage', 'ac', 'dex_cap', 'strength',
+  'actions', 'trigger', 'duration', 'range', 'area', 'target', 'targets', 'save', 'saving_throw', 'saving_throw_dc', 'saving_throw_basic',
+  'bulk', 'price', 'damage', 'hands', 'weapon_type', 'usage', 'ac', 'dex_cap', 'strength',
   'check_penalty', 'range', 'thrown_range', 'tradition', 'school', 'item_category', 'perception_proficiency',
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
@@ -101,8 +102,8 @@ export function parseFeatLanguages(md: string) {
 export function parseFeatFocus(md: string) {
   md = md.replace(/[_*]/g, '')
   const name = (s: string) => s.replace(/^_+|_+$/g, '').trim()
-  const spells = [...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell/gi)].map((m) => name(m[1]))
-  const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
+  const spells = [...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell/gi)].map((m) => name(m[1]))
+  const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/?Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
   return { spells: spells.join(', '), byOrder: byOrder.join(', '), point: /Increase the number of Focus Points in your focus pool by 1/i.test(md) }
 }
 
@@ -114,7 +115,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   if (/\bClaim a defined territory\b/i.test(body)) {
     const territory = /Within its borders, you can cast ([^\n]+?) as innate divine cantrips\b/i.exec(body)
     if (territory) {
-      const spells = [...territory[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+      const spells = [...territory[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
         .map(match => match[1])
       if (spells.length) grants.push({ kind: 'innate', spells, tradition: 'divine', frequency: 'at will',
         heightened: true, condition: 'Only within your claimed territory' })
@@ -122,7 +123,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   }
   const territorialDaily = /While in your territory, you can cast ([^\n]+?) as innate divine spells, each once per day\./i.exec(body)
   if (territorialDaily) {
-    const spells = [...territorialDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+    const spells = [...territorialDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
       .map(match => match[1])
     if (spells.length) grants.push({ kind: 'innate', spells, tradition: 'divine', frequency: 'once per day',
       condition: 'Only within your claimed territory' })
@@ -137,7 +138,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   }
   const separateDaily = /You gain ([^\n]+?) as (\d+)(?:st|nd|rd|th)-rank (arcane|divine|occult|primal) innate spells\.\s*You can cast each of these (?:arcane|divine|occult|primal) innate spells once per day\./i.exec(body)
   if (separateDaily) {
-    const spells = [...separateDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+    const spells = [...separateDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
       .map(match => match[1])
     if (spells.length) grants.push({ kind: 'innate', spells, rank: Number(separateDaily[2]),
       tradition: separateDaily[3], frequency: 'once per day', heightened: false, ...(ability ? { ability } : {}) })
@@ -147,7 +148,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   const sentences = body.split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
     if (!/^(?:(?:once|twice|\d+ times) per day,? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
-    const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map(match => match[1])
+    const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map(match => match[1])
     if (!names.length) continue
     if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
       if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
@@ -174,7 +175,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
         grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))
       } else grants.push(rule)
     } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition) spells?\b/i.test(sentence)
-      || /\byou gain the \[[^\]]+\]\(\/Spells\.aspx[^)]*\) order\.$/i.test(sentence.trim())) {
+      || /\byou gain the \[[^\]]+\]\(\/?Spells\.aspx[^)]*\) order\.$/i.test(sentence.trim())) {
       if (/\b(?:if|choose|depending|based on)\b/i.test(sentence) || /\bor\b/i.test(sentence) && names.length <= 1) continue
       grants.push({ kind: 'focus', spells: names, heightened: true, ...(ability ? { ability } : {}),
         ...(/\bor\b/i.test(sentence) ? { choice: 'listed' as const } : {}),

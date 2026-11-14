@@ -267,11 +267,14 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
   expect(markup).not.toContain('Other Feat Slots')
   expect(markup).not.toContain('Skills &amp; proficiencies')
+  const classSection = markup.slice(markup.indexOf('<strong>Class</strong>'), markup.indexOf('<strong>Dedications</strong>'))
+  expect(classSection).toContain('aria-label="Character level"')
+  expect(markup.slice(0, markup.indexOf('<strong>Class</strong>'))).not.toContain('aria-label="Character level"')
   const background = markup.slice(markup.indexOf('<strong>Background</strong>'), markup.indexOf('<strong>Class</strong>'))
   expect(background).toContain('<h4>Achievements</h4>')
 })
 
-it('shows defense summary context toggles only for equipped shields or parry-capable builds', () => {
+it('shows defense summary context toggles only for equipped shields or parry weapons', () => {
   content.entries = [{ id: 'feat:parry', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Parry Expert',
     level: 1, traits: ['Ranger'], description: 'The circumstance bonus to AC from your parry trait increases to +2.', data: {}, effects: [], updatedAt: 0 }]
   const baseCharacter: Character = {
@@ -293,8 +296,18 @@ it('shows defense summary context toggles only for equipped shields or parry-cap
       shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)
     expect(locked).toMatch(/aria-label="Raise Shield \(summary\)" disabled="" checked=""/)
     expect(locked).toContain('Always raised by Shield Paragon')
-    const parry = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, feats: [{ name: 'Parry Expert', type: 'Class Feat', level: 1 }] }} onClose={() => {}} />)
-    expect(parry).toContain('Parry active (summary)')
+    const parryFeat = { ...baseCharacter, feats: [{ name: 'Parry Expert', type: 'Class Feat', level: 1 }] }
+    expect(renderToStaticMarkup(<CharacterBuilder character={parryFeat} onClose={() => {}} />)).not.toContain('Parry active (summary)')
+    const parryWeapon: ContentEntry = { id: 'weapon:parry', systems: ['pf2e'], kind: 'weapon', source: 'official',
+      name: 'Parrying Rapier', level: 1, traits: ['Parry'], description: '', data: { weapon_category: 'Martial', hands: 1 },
+      effects: [], updatedAt: 0 }
+    content.entries = [...content.entries, parryWeapon]
+    const equipped = renderToStaticMarkup(<CharacterBuilder character={{ ...parryFeat,
+      weapons: [{ id: 'parry', name: parryWeapon.name, potency: 0, striking: 0, runes: [] }] }} onClose={() => {}} />)
+    expect(equipped).toContain('Parry active (summary)')
+    const stowed = renderToStaticMarkup(<CharacterBuilder character={{ ...parryFeat,
+      weapons: [{ id: 'parry', name: parryWeapon.name, potency: 0, striking: 0, runes: [], stowed: true }] }} onClose={() => {}} />)
+    expect(stowed).not.toContain('Parry active (summary)')
   } finally { content.entries = [] }
 })
 

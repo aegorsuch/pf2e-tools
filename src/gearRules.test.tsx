@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, parryValue, savingThrowBreakdown,
-  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, combinationName, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack, weaponEntry,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
@@ -10,7 +10,7 @@ import { ClassFeatures } from './ClassFeatures'
 import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
-import { homebrewCharacterOptions, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { homebrewCharacterOptions, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { fetchAonHits } from './aonQuery'
 import { mapAonHit } from './aon'
@@ -108,21 +108,43 @@ it('marks one eligible weapon innovation with scaled fundamentals and locked mat
     .toContain('aria-label="Weapon Innovation: Prototype"')
 })
 
-it('treats a combination weapon as one choice with shared runes and form-specific effects', () => {
-  const melee = content('weapon', 'Hammer Gun (Melee)', { url: 'same', weapon_category: 'Martial', damage: '1d10 slashing' }, 1, ['Combination', 'Uncommon'])
-  const ranged = content('weapon', 'Hammer Gun (Ranged)', { url: 'same', weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' }, 1, ['Combination', 'Uncommon'])
-  const entries = [melee, ranged]
-  const character: Character = { ...base, feats: [{ ...feat('Unconventional Weaponry'), choice: 'Hammer Gun', culturalWeapon: true }] }
-  const weapon: OwnedWeapon = { id: 'combo', name: ranged.name, potency: 2, striking: 1, runes: ['Vorpal'] }
+it('shows both combination forms with shared runes, modifications, and innovation state', () => {
+  const melee = content('weapon', 'Hammer Gun (Melee)', { url: 'same', weapon_category: 'Martial', damage: '1d10 slashing' }, 0, ['Combination', 'Uncommon'])
+  const ranged = content('weapon', 'Hammer Gun (Ranged)', { url: 'same', weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' }, 0, ['Combination', 'Uncommon'])
+  const impossibleRune = content('item', 'Impossible', { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a ranged weapon' })
+  const vorpalRune = content('item', 'Vorpal', { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a slashing melee weapon' })
+  const entries = [melee, ranged, impossibleRune, vorpalRune]
+  const character: Character = { ...base, className: 'Inventor', subclass: 'Weapon', level: 15,
+    feats: [{ ...feat('Unconventional Weaponry'), choice: 'Hammer Gun', culturalWeapon: true }] }
+  const weapon: OwnedWeapon = { id: 'combo', name: ranged.name, potency: 2, striking: 1, runes: ['Vorpal', 'Impossible'], inventorInnovation: true }
   expect(combinationForms(entries, weapon.name)).toHaveLength(2)
   expect(featChoiceOptions('Unconventional Weaponry', character, entries, '')).toEqual(['Hammer Gun'])
-  expect(weaponAttack(character, entries, weapon)).toMatchObject({ damage: '2d6 piercing', range: 60, item: 2 })
-  expect(weaponAttack(character, entries, { ...weapon, combinationForm: 'Melee' })).toMatchObject({ damage: '2d10+1 slashing', range: 0, item: 2 })
+  expect(weaponAttack(character, entries, weapon)).toMatchObject({ damage: '3d6 piercing', range: 120, item: 2 })
+  expect(weaponAttack(character, entries, { ...weapon, combinationForm: 'Melee' })).toMatchObject({ damage: '3d10+1 slashing', range: 0, item: 2 })
   expect(effectiveWeapon(character, entries, { ...weapon, combinationForm: 'Melee' }).runes).toEqual(['Vorpal'])
   expect(eligibleWeaponRunes(entries, { ...weapon, runes: [] }).map(rune => rune.name)).toContain('Vorpal')
   const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} />)
-  expect(html).toContain('aria-label="Hammer Gun weapon form"')
+  expect(html).toContain('Melee form')
+  expect(html).toContain('Ranged form')
+  expect(html).toContain('Extensible Weapon')
+  expect(html).toContain('Omnirange Stabilizers')
+  expect(html).not.toContain('aria-label="Hammer Gun weapon form"')
+  const summary = html.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
+  expect(summary).not.toContain('Impossible')
   expect(combinationForms([melee, { ...ranged, data: { ...ranged.data, url: 'different' } }], melee.name)).toEqual([])
+})
+
+it('adds Hammer Multipistol as a custom copy of both Mace Multipistol forms', () => {
+  const melee = content('weapon', 'Mace Multipistol (Melee)', { url: 'mace-multipistol', weapon_category: 'Martial', damage: '1d6 bludgeoning' }, 0, ['Combination'])
+  const ranged = content('weapon', 'Mace Multipistol (Ranged)', { url: 'mace-multipistol', weapon_category: 'Martial',
+    weapon_type: 'Ranged', range: 20, damage: '1d6 bludgeoning' }, 0, ['Combination'])
+  const entries = [melee, ranged]
+  const copies = gearPickerEntries(entries, 'weapon').filter(entry => entry.name.startsWith('Hammer Multipistol'))
+  expect(copies).toHaveLength(2)
+  expect(copies.map(entry => combinationName(entries, entry.name))).toEqual(['Hammer Multipistol', 'Hammer Multipistol'])
+  expect(copies[0]).toMatchObject({ source: 'homebrew', description: '' })
+  expect(weaponEntry(entries, copies[0].name)?.data).toEqual(melee.data)
+  expect(combinationForms(entries, copies[0].name)).toHaveLength(2)
 })
 
 it('shows alloyed metal on melee unarmed attacks without overwriting existing materials', () => {
@@ -1021,6 +1043,55 @@ it('applies parry AC context without stacking with shield or hazard finder, and 
   const hazard = { ...c, feats: [...c.feats, feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
   expect(armorClass(hazard, [rapier, improved])).toBe(normal + 2)
   expect(armorClass({ ...hazard, parrying: false }, [rapier, improved])).toBe(normal + 1)
+  expect(parryValue({ ...c, weapons: [] }, [improved])).toBe(0)
+})
+
+it('grants Defensive Armaments parry to wielded two-handed firearms and crossbows only', () => {
+  const firearm = content('weapon', 'Arquebus', { weapon_category: 'Martial', weapon_group: 'Firearm',
+    weapon_type: 'Ranged', range: 150, hands: 2, damage: '1d8 piercing' })
+  const crossbow = content('weapon', 'Heavy Crossbow', { weapon_category: 'Martial', weapon_group: 'Crossbow',
+    weapon_type: 'Ranged', range: 120, hands: 2, damage: '1d10 piercing' })
+  const pistol = content('weapon', 'Clan Pistol', { weapon_category: 'Martial', weapon_group: 'Firearm',
+    weapon_type: 'Ranged', range: 80, hands: 1, damage: '1d6 piercing' })
+  const defensive = content('feat', 'Defensive Armaments', {}, 2)
+  const weapons = [firearm, crossbow, pistol].map((weapon, index) =>
+    ({ id: `weapon-${index}`, name: weapon.name, potency: 0, striking: 0, runes: [] }))
+  const c: Character = { ...base, level: 2, feats: [feat('Defensive Armaments', 2)], weapons }
+  const entries = [firearm, crossbow, pistol, defensive]
+  expect(hasParryWeapon(c, entries)).toBe(true)
+  expect(weaponAttack(c, entries, weapons[0]).traits).toContain('Parry')
+  expect(weaponAttack(c, entries, weapons[1]).traits).toContain('Parry')
+  expect(weaponAttack(c, entries, weapons[2]).traits).not.toContain('Parry')
+  expect(parryValue(c, entries)).toBe(1)
+  expect(hasParryWeapon({ ...c, weapons: [{ ...weapons[0], stowed: true }, weapons[1], weapons[2]] }, entries)).toBe(true)
+  expect(hasParryWeapon({ ...c, weapons: [{ ...weapons[0], stowed: true }, { ...weapons[1], stowed: true }, weapons[2]] }, entries)).toBe(false)
+  expect(hasParryWeapon({ ...c, feats: [] }, entries)).toBe(false)
+})
+
+it('doubles ranged and thrown increments for the Impossible rune', () => {
+  const bow = content('weapon', 'Longbow', { weapon_category: 'Martial', weapon_type: 'Ranged', range: 100, damage: '1d8 piercing' })
+  const dagger = content('weapon', 'Thrown Dagger', { weapon_category: 'Simple', weapon_type: 'Melee',
+    thrown_range: 10, hands: 1, damage: '1d4 piercing' }, 1, ['Thrown 10 feet'])
+  expect(weaponAttack(base, [bow], { id: 'bow', name: bow.name, potency: 0, striking: 0, runes: ['Impossible'] }).range).toBe(200)
+  expect(weaponAttack(base, [dagger], { id: 'dagger', name: dagger.name, potency: 0, striking: 0, runes: ['Impossible'] }).thrownRange).toBe(20)
+  expect(weaponAttack(base, [bow], { id: 'plain', name: bow.name, potency: 0, striking: 0, runes: [] }).range).toBe(100)
+})
+
+it('grants locked Dwarf clan weapons with Orichalcum and level-scaled fundamental runes', () => {
+  const ranger = content('class', 'Ranger', { attribute: 'Strength, Dexterity' })
+  const entries = [ranger, CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY]
+  const dwarf: Character = { ...base, ancestry: 'Dwarf', className: 'Ranger', level: 12, boosts: { class: 'dex' } }
+  const weapons = ownedWeapons(dwarf, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
+  expect(weapons.map(weapon => weapon.name)).toEqual(['Clan Pistol', CLAN_DAGGER_DEXTERITY.name])
+  for (const weapon of weapons) {
+    expect(isLockedWeapon(dwarf, weapon.name, entries, weapon.id)).toBe(true)
+    expect(hasAutomaticWeaponFundamentals(dwarf, entries, weapon)).toBe(true)
+    expect(effectiveWeapon(dwarf, entries, weapon)).toMatchObject({ potency: 2, striking: 2, material: 'Orichalcum' })
+  }
+  expect(weaponEntry(entries, CLAN_DAGGER_DEXTERITY.name)?.traits).toContain('Finesse')
+  const strengthDwarf = { ...dwarf, boosts: { class: 'str' as const } }
+  expect(ownedWeapons(strengthDwarf, entries).find(weapon => weapon.id.endsWith(':clan-dagger'))?.name).toBe(CLAN_DAGGER.name)
+  expect(ownedWeapons({ ...dwarf, ancestry: 'Elf' }, entries).some(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))).toBe(false)
 })
 
 it('uses +2 for Twin Parry only with two wielded melee weapons and a parry weapon', () => {

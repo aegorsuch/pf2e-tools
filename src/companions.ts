@@ -5,6 +5,30 @@ import type { Character, ContentEntry } from './types'
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
 export const MAX_SPECIALIZATIONS = 3
 
+export const CONSTRUCT_COMPANION_NAME = 'Construct Companion'
+export const CONSTRUCT_COMPANION_ENTRY: ContentEntry = {
+  id: 'construct-companion', name: CONSTRUCT_COMPANION_NAME, kind: 'companion', source: 'official',
+  systems: ['pf2e'], level: 1, traits: ['Construct', 'Minion'], description: 'Inventor construct companion prototype.',
+  data: {
+    hp: 10, size: 'Small, Medium', strength: 3, dexterity: 3, constitution: 2, intelligence: -4, wisdom: 1, charisma: 0,
+    skill: 'Athletics', speed_raw: '25 feet', sense: 'Low-Light Vision',
+    companion_attacks: 'fist|1d8 bludgeoning|agile, finesse;claw|1d6 slashing|agile, finesse',
+  },
+  effects: [], updatedAt: 0,
+}
+
+export function hasConstructInnovation(c: Character) {
+  const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  return c.className === 'Inventor' && /^construct(?: innovation)?$/i.test(c.subclass ?? '')
+    || active.some(feat => ['Inventor Dedication', 'Second Innovation', 'Third Innovation'].includes(feat.name)
+      && /^construct(?: innovation)?$/i.test(feat.choice ?? ''))
+}
+
+export function constructCompanionChange(c: Character): Partial<Character> | undefined {
+  if (!hasConstructInnovation(c) || c.companions?.length) return
+  return { companions: [{ id: `${c.id}:construct-companion`, type: CONSTRUCT_COMPANION_NAME, name: '' }] }
+}
+
 export function faithfulSteedChange(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
   if (c.faithfulSteedGranted || !c.feats.some((feat) => feat.name === 'Faithful Steed' && featTakenLevel(feat) <= c.level)) return
   if (c.companions?.length) return { faithfulSteedGranted: true }
@@ -54,6 +78,17 @@ export function companionAdvancement(c: Character) {
     .flatMap((f) => (f.choice && (f.choice !== 'Auspice' || f.name === 'Auspicious Mount') ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
   return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0
     || has('Loyal Warhorse').length > 0 || !!advanced, advanced, specializations }
+}
+
+export function constructCompanionAdvancement(c: Character) {
+  const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  const advanced = active.find(feat => feat.name === 'Advanced Construct Companion')?.choice
+  const validAdvanced = advanced === 'Nimble' || advanced === 'Savage' ? advanced : undefined
+  return {
+    mature: active.some(feat => feat.name === 'Mature Construct Companion') || !!validAdvanced,
+    advanced: validAdvanced,
+    specializations: [] as string[],
+  }
 }
 
 export function specializationOptions(c: Character, entries: ContentEntry[], exceptIndex: number) {

@@ -1,13 +1,15 @@
 import { Info, SourceNote } from './Info'
-import { ADVANCED_TYPES, companionAdvancement, companionStats, specializationOptions } from './companions'
+import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
+  CONSTRUCT_COMPANION_NAME, hasConstructInnovation, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
-import type { Character } from './types'
+import type { Character, CompanionEquipmentSlot } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
+const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Harness', 'Head', 'Saddle', 'Shoes']
 const PET_ABILITIES = ['Amphibious', 'Burrower', 'Climber', 'Darkvision', 'Echolocation', 'Fast Movement', 'Flier', 'Manual Dexterity', 'Scent', 'Tough']
 const PET_ABILITY_NOTES: Record<string, string> = {
   Amphibious: 'Breathes air and water; land and swim Speeds equal highest land or swim Speed.',
@@ -25,20 +27,85 @@ const PET_ABILITY_NOTES: Record<string, string> = {
 function minionSummaryData(c: Character) {
   const companions = c.companions ?? []
   const advancement = companionAdvancement(c)
+  const constructAdvancement = constructCompanionAdvancement(c)
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
   const leshy = activeFeatsNamed(c, 'Leshy Familiar').length > 0
   const familiar = leshy || c.className === 'Witch' || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
-  return { companions, advancement, stage, leshy, familiar, seaFriend, pet }
+  return { companions, advancement, constructAdvancement, stage, leshy, familiar, seaFriend, pet }
+}
+
+export function CompanionEquipmentSlots({ c, companion, entries, save }: {
+  c: Character
+  companion: NonNullable<Character['companions']>[number]
+  entries: SectionProps['entries']
+  save: SectionProps['save']
+}) {
+  const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system)))
+  const bySlot = (slot: CompanionEquipmentSlot) => options.filter(entry => {
+    const text = `${entry.name} ${entry.traits.join(' ')} ${String(entry.data.item_category ?? '')} ${String(entry.data.item_subcategory ?? '')}`
+    switch (slot) {
+      case 'Barding': return /\bbarding\b/i.test(text)
+      case 'Collar': return /\bcollar\b/i.test(text)
+      case 'Harness': return /\b(?:harness|bridle|reins)\b/i.test(text)
+      case 'Head': return /\b(?:goggles|eyewear|headband|helm|mask)\b/i.test(text)
+      case 'Saddle': return /\bsaddle\b/i.test(text)
+      case 'Shoes': return /\b(?:shoes|boots|horseshoes?)\b/i.test(text)
+    }
+  }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
+  const update = (slot: CompanionEquipmentSlot, item: NonNullable<typeof companion.equipment>[CompanionEquipmentSlot] | undefined) => {
+    const equipment = { ...companion.equipment }
+    if (item) equipment[slot] = item
+    else delete equipment[slot]
+    save({ companions: (c.companions ?? []).map(current => current.id === companion.id
+      ? { ...current, equipment: Object.keys(equipment).length ? equipment : undefined } : current) })
+  }
+  return <section className="col companion-equipment" aria-label={`${companion.name || companion.type} equipment`}>
+    <h5>Equipment</h5>
+    {COMPANION_EQUIPMENT_SLOTS.map(slot => {
+      const selected = companion.equipment?.[slot]
+      const slotOptions = bySlot(slot)
+      return <div key={slot} className="row companion-equipment-slot">
+        <strong>{slot}</strong>
+        <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
+          value={selected?.entryId ?? ''} optionCount={slotOptions.length}
+          onChange={event => {
+            const entry = slotOptions.find(option => option.id === event.target.value)
+            if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: selected?.qty ?? 1 })
+            else if (!event.target.value) update(slot, undefined)
+          }}>
+          <option value="">Choose {slot.toLowerCase()}...</option>
+          {selected && !slotOptions.some(entry => entry.id === selected.entryId)
+            && <option value={selected.entryId} disabled>{selected.name} (unavailable)</option>}
+          {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+        </SearchableSelect>
+        {selected && <>
+          <button type="button" aria-label={`Decrease ${slot} quantity`} disabled={selected.qty <= 1}
+            onClick={() => update(slot, { ...selected, qty: Math.max(1, selected.qty - 1) })}>−</button>
+          <span>Qty {selected.qty}</span>
+          <button type="button" aria-label={`Increase ${slot} quantity`}
+            onClick={() => update(slot, { ...selected, qty: selected.qty + 1 })}>+</button>
+          <button type="button" className="spell-remove" aria-label={`Remove ${slot} equipment`}
+            onClick={() => update(slot, undefined)}>×</button>
+        </>}
+      </div>
+    })}
+  </section>
 }
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
-  const { companions, stage, leshy, familiar, seaFriend, pet } = minionSummaryData(c)
+  const { companions, constructAdvancement, stage, leshy, familiar, seaFriend, pet } = minionSummaryData(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
-    <span>{[...companions.map((comp, index) => `${index === 0 ? stage : 'Young'} ${comp.type}${comp.name ? ` (${comp.name})` : ''}`),
+    <span>{[...companions.map((comp, index) => {
+      const compStage = comp.type === CONSTRUCT_COMPANION_NAME
+        ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
+        : index === 0 ? stage : 'Young'
+      return `${compStage} ${comp.type}${comp.name ? ` (${comp.name})` : ''}`
+    }),
       ...(familiar ? [leshy ? 'Leshy Familiar' : 'Familiar'] : []), ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
@@ -51,9 +118,19 @@ export function MinionsSection(props: SectionProps) {
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
-  const { companions, advancement, stage, leshy, familiar, seaFriend, pet } = minionSummaryData(c)
+  const { companions, advancement, stage, constructAdvancement, leshy, familiar, seaFriend, pet } = minionSummaryData(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
-  const types = entries.filter((e) => e.kind === 'companion').sort((a, b) => a.name.localeCompare(b.name))
+  const companionEntries = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
+    ? [...entries, ...entries.some(entry => entry.id === CONSTRUCT_COMPANION_ENTRY.id) ? [] : [CONSTRUCT_COMPANION_ENTRY]]
+    : entries
+  const types = companionEntries.filter((e) => e.kind === 'companion' && !e.deleted).sort((a, b) => a.name.localeCompare(b.name))
+  const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
+  const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
+    || activeFeatsNamed(c, 'Animal Companion').length > 0
+    || activeFeatsNamed(c, "Commander's Companion").length > 0
+  const companionGrant = faithfulSteed ? 'Faithful Steed'
+    : activeFeatsNamed(c, "Commander's Companion").length > 0 ? "Commander's Companion"
+      : animalCompanionGrant ? 'Animal Companion' : undefined
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + (c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0)
   const familiarAbilities = (c.familiar?.abilities ?? []).slice(0, familiarCapacity).filter(Boolean)
@@ -85,11 +162,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   return (
       <div className="character-section-content">
         <details className="character-subsection" open>
-          <summary><h4>Animal Companions ({companions.length})</h4></summary>
-          {companions.length === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && <span>Faithful Steed{' '}
+            <summary><h4>Companions ({companions.length})</h4></summary>
+            {companions.length === 0 && companionGrant && <span>{companionGrant}{' '}
             <SearchableSelect aria-label="Choose Faithful Steed" value="" onChange={(e) => {
               const type = types.find((type) => type.name === e.target.value)
-              if (type) save({ faithfulSteedGranted: true, companions: [{ id: newId(), type: type.name, name: '' }] })
+                if (type) save({ ...(faithfulSteed ? { faithfulSteedGranted: true } : {}),
+                  companions: [{ id: newId(), type: type.name, name: '' }] })
             }}>
               <option value="">Choose companion...</option>
               {types.map((type) => <option key={type.id}>{type.name}</option>)}
@@ -97,7 +175,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </span>}
           {companions.map((comp, index) => {
             // Feats advance the first companion; any others stay young
-            const stats = companionStats(c, entries, comp.type, index === 0 ? advancement : undefined, comp.id)
+              const isConstruct = comp.type === CONSTRUCT_COMPANION_NAME
+              const companionAdvances = isConstruct ? constructAdvancement : index === 0 ? advancement : undefined
+              const stats = companionStats(c, companionEntries, comp.type, companionAdvances, comp.id)
             const enlargeNote = stats?.enlarge ? `Enlarge Companion: ${stats.enlarge.size}; +${stats.enlarge.damage} status melee damage; +${stats.enlarge.reachIncrease} feet reach; clumsy 1.` : undefined
             const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined
             const acNote = [stats?.magicHide ? '+1 Status (Magic Hide)' : undefined, clumsyNote].filter(Boolean).join('; ') || undefined
@@ -124,7 +204,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   </label>}
                 {(['Canopy Crawler', 'Enlarge Companion'] as const).filter((name) => knowsSpell(c, entries, name)).map((name) =>
                   <CompanionSpellOptions key={name} c={c} entries={entries} save={save} name={name} companionId={comp.id} />)}
-                {index === 0 && choices.length > 0 && (
+                {!isConstruct && index === 0 && choices.length > 0 && (
                   <div className="row companion-choices">
                     {choices.map(({ feat, featIndex }) => {
                       const advanced = isCompanionAdvancement(feat.name)
@@ -157,8 +237,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     </label>
                   </div>}
                   <div className="gear-traits">
-                    <span>{index === 0 ? stage : 'Young'}</span><span>{stats.size}{enlargeNote && <SourceNote source="Enlarge Companion" note={enlargeNote} />}</span>
-                    {index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
+                    <span>{isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
+                      : index === 0 ? stage : 'Young'}</span><span>{stats.size}{enlargeNote && <SourceNote source="Enlarge Companion" note={enlargeNote} />}</span>
+                    {!isConstruct && index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
                     {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
@@ -197,6 +278,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   {stats.primalHowl && <div><small>Advanced maneuver</small> <b>Primal Howl</b> (2 actions, primal, sonic; once per hour): 30-foot cone, {stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.</div>}
                   {stats.entry.description && <Info label="About">{stats.entry.description}</Info>}
                 </> : <small>Companion data is still loading.</small>}
+                <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
               </article>
             )
           })}

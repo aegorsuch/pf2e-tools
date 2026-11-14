@@ -633,5 +633,36 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-title { display: inline-flex; align-items: center; gap: 0.35rem; }
 .spell-title label { white-space: nowrap; }
 .spell-remove { padding: 0.1rem 0.4rem; }
+.spell-slot-counts { flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.spell-slot-counts label { white-space: nowrap; }
+.class-spell-slots, .innate-spell-group { margin-top: 0.75rem; }
+.spell-slot-group, .innate-spell-group { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.spell-slot-group + .spell-slot-group, .innate-spell-group + .innate-spell-group { margin-top: 0.75rem; }
+.spell-slot-group h5, .innate-spell-group h5 { margin: 0; padding: 0.5rem; text-align: center; border-bottom: 1px solid var(--border); }
+.spellbook-columns, .spellbook-row, .innate-spell-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 2fr) repeat(4, minmax(5rem, 1fr));
+  align-items: center;
+  gap: 0.4rem;
+}
+.spellbook-columns { padding: 0.35rem 0.5rem; font-size: 0.8em; font-weight: 600; opacity: 0.75; }
+.spellbook-group ul, .spell-slot-group ul, .innate-spell-group ul { list-style: none; margin: 0; padding: 0; }
+.spellbook-row, .innate-spell-row { padding: 0.5rem; border-top: 1px solid var(--border); }
+.spellbook-slot, .innate-spell-name { min-width: 0; }
+.spellbook-slot { display: flex; align-items: center; gap: 0.4rem; }
+.spellbook-slot select { flex: 1; min-width: 0; }
+.spellbook-row > span, .innate-spell-row > span { min-width: 0; overflow-wrap: anywhere; }
+.spellbook-row > span small, .innate-spell-row > span small { display: block; opacity: 0.7; }
+.innate-spell-name { display: flex; flex-direction: column; gap: 0.15rem; }
+.innate-cast-label { font-size: 0.8em; font-weight: 600; opacity: 0.75; }
+.innate-spell-controls, .innate-spell-row > label { grid-column: 1 / -1; }
+.innate-spell-controls .row { flex-wrap: wrap; }
+.focus-spell-list { padding-left: 1.25rem; }
+.focus-spell-list .spell-item { flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .spellbook-columns { display: none; }
+  .spellbook-row, .innate-spell-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+  .spellbook-slot, .innate-spell-name { grid-column: 1 / -1; }
+}
 details.info > summary { list-style: none; font-weight: 600; font-size: 1em; }
 details.info > summary::-webkit-details-marker { display: none; }

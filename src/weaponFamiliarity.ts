@@ -49,6 +49,7 @@ const RULES: Record<string, FamiliarityRule> = {
 
 const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 const named = (names: string[] | undefined, weapon: ContentEntry) => names?.some(name => key(name) === key(weapon.name)) ?? false
+const DWARF_STARFINDER_WEAPONS = ['Artillery Laser', 'Breaching Gun', 'Hammer', 'Machine Gun', 'Roto Laser', 'Stellar Cannon']
 export const uncommonWeapon = (weapon: ContentEntry) => !/^(rare|unique)$/i.test(String(weapon.data.rarity))
   && !weapon.traits.some(trait => /^(rare|unique)$/i.test(trait))
   && (String(weapon.data.rarity).toLowerCase() === 'uncommon' || weapon.traits.some(trait => trait.toLowerCase() === 'uncommon'))
@@ -79,13 +80,16 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
       if (!source || /traditional weapons of another ancestry/i.test(source.description)) continue
       const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1] ?? ''
       const ancestralTrait = weapon.traits.some(trait => key(trait) === key(c.ancestry!))
+      const dwarfStarfinder = key(c.ancestry) === 'dwarf'
       const group = key(String(weapon.data.weapon_group ?? ''))
-      const matchesList = options.split(/\s*,\s*|\s+or\s+/i).some(option => key(option) === key(weapon.name))
+      const matchesList = dwarfStarfinder && DWARF_STARFINDER_WEAPONS.some(name => key(name) === key(weapon.name))
+        || options.split(/\s*,\s*|\s+or\s+/i).some(option => key(option) === key(weapon.name))
         || /\ball bows\b/i.test(options) && group === 'bow'
         || /\baxes\b/i.test(options) && group === 'axe'
         || /\bany doshko\b/i.test(options) && /\bdoshko\b/i.test(weapon.name)
         || /\bany pick\b/i.test(options) && group === 'pick'
-      if (ancestralTrait && uncommonWeapon(weapon)) access.push(feat.name)
+      if ((ancestralTrait || dwarfStarfinder && DWARF_STARFINDER_WEAPONS.some(name => key(name) === key(weapon.name)))
+        && uncommonWeapon(weapon)) access.push(feat.name)
       if (ancestralTrait || matchesList) {
         if (category === 'Martial') proficiency = 'Simple'
         else if (category === 'Advanced' && proficiency !== 'Simple') proficiency = 'Martial'
@@ -112,4 +116,8 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
 
 export function isElfAncestralWeaponFamiliarity(c: Character, name: string) {
   return name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry?.toLowerCase() === 'elf'
+}
+
+export function isDwarfAncestralWeaponFamiliarity(c: Character, name: string) {
+  return name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry?.toLowerCase() === 'dwarf'
 }

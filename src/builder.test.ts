@@ -1,7 +1,7 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { mapAonHit } from './aon'
 import { describe, expect, it } from 'vitest'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -69,6 +69,57 @@ it('limits advanced domains to eligible initial choices available at the feat le
 })
 
 describe('official passive feat mechanics', () => {
+  it('grants Dwarven Lore and Clan Lore skills, lore, and replacements for already-trained skills', () => {
+    const dwarvenLore = { name: 'Dwarven Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    const clanLore = { name: 'Clan Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Breakiron' }
+    const dwarf = { ...base, ancestry: 'Dwarf', background: undefined }
+    const dwarven = { ...dwarf, feats: [dwarvenLore] }
+    expect(ranksAt(dwarven, entries)).toMatchObject({ Crafting: 1, Religion: 1, 'Dwarven Lore': 1 })
+    expect(featLores(dwarven, entries)).toContain('Dwarven Lore')
+
+    const replacedDwarven = { ...dwarf, skillPicks: ['Crafting', 'Religion'], feats: [
+      { ...dwarvenLore, replacements: ['Society', 'Athletics'] },
+    ] }
+    const dwarfChoices = loreReplacementChoices(replacedDwarven, entries, 0)
+    expect(dwarfChoices.map(({ skill, value }) => [skill, value])).toEqual([
+      ['Crafting', 'Society'], ['Religion', 'Athletics'],
+    ])
+    expect(dwarfChoices[1].options).not.toContain('Society')
+    expect(ranksAt(replacedDwarven, entries)).toMatchObject({ Society: 1, Athletics: 1 })
+
+    const clan = { ...dwarf, skillPicks: ['Crafting'], feats: [clanLore] }
+    expect(featChoiceOptions('Clan Lore', clan, entries, clanLore.slot, 0)).toContain('Breakiron')
+    expect(featLores(clan, entries)).toContain('Alchemy Lore')
+    expect(ranksAt(clan, entries)).toMatchObject({ Crafting: 1, Survival: 1 })
+    const replacedClan = { ...clan, feats: [{ ...clanLore, replacements: ['Society'] }] }
+    expect(loreReplacementChoices(replacedClan, entries, 0).map(({ skill }) => skill)).toEqual(['Crafting'])
+    expect(ranksAt(replacedClan, entries).Society).toBe(1)
+  })
+
+  it('grants Stonemason’s Eye and Eye for Treasure mechanics only when their prerequisites apply', () => {
+    const stone = { name: "Stonemason's Eye", type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    const treasure = { name: 'Eye for Treasure', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    const untrained = { ...base, background: undefined }
+    const stonemason = { ...untrained, feats: [stone] }
+    expect(ranksAt(stonemason, entries).Crafting).toBe(1)
+    expect(automaticFeatGrants(stonemason, entries)).not.toContainEqual(expect.objectContaining({ name: 'Specialty Crafting' }))
+    expect(perceptionCircumstance({ ...stonemason, activeFeatEffects: ["Stonemason's Eye"] }))
+      .toEqual({ value: 2, source: "Stonemason's Eye" })
+    const trainedStonemason = { ...stonemason, skillPicks: ['Crafting'] }
+    expect(automaticFeatGrants(trainedStonemason, entries)).toContainEqual({
+      name: 'Specialty Crafting', choice: 'Stonemasonry', source: "Stonemason's Eye", level: 1,
+    })
+
+    const untrainedTreasure = { ...untrained, feats: [treasure] }
+    expect(ranksAt(untrainedTreasure, entries).Crafting).toBe(1)
+    expect(automaticFeatGrants(untrainedTreasure, entries)).toContainEqual({
+      name: "Crafter's Appraisal", source: 'Eye for Treasure', level: 1,
+    })
+    const trainedTreasure = { ...untrained, skillPicks: ['Crafting'], feats: [{ ...treasure, choice: 'Society' }] }
+    expect(featChoiceOptions('Eye for Treasure', trainedTreasure, entries, treasure.slot, 0)).toContain('Society')
+    expect(ranksAt(trainedTreasure, entries).Society).toBe(1)
+  })
+
   it('grants Pioneer Human Survival and Terrain Expertise without consuming a feat or training pick', () => {
     const c: Character = { ...base, ancestry: 'Human', heritage: 'Pioneer Human', level: 19, skillPicks: [] }
     expect(ranksAt(c, entries).Survival).toBe(1)

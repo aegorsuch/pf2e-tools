@@ -57,6 +57,24 @@ it('applies Starfinder ancestral weapon familiarity to elf bows, rapier, and elf
   expect(attack({ ...c, feats: [] }, bow, entries).rank).toBe(0)
 })
 
+it('gives Dwarves all tagged and listed Starfinder weapons with no weapon choice', () => {
+  const source: ContentEntry = { ...content('Ancestral Weapon Familiarity', 'feat', {}, ['Dwarf']), systems: ['sf2e'],
+    description: 'You gain access to all uncommon weapons with your ancestry trait.' }
+  const dwarfTagged = weapon('Dwarf Laser Axe', 'Advanced', ['Dwarf'], 'uncommon')
+  const requested = ['Artillery Laser', 'Breaching Gun', 'Hammer', 'Machine Gun', 'Roto Laser', 'Stellar Cannon']
+    .map(name => weapon(name, 'Advanced', [], 'uncommon'))
+  const unrelated = weapon('Human Plasma Rifle', 'Advanced', ['Human'], 'uncommon')
+  const entries = [wizard, source, dwarfTagged, ...requested, unrelated]
+  const c: Character = { ...character, systems: ['sf2e'], ancestry: 'Dwarf',
+    feats: [selected('Ancestral Weapon Familiarity', 'Unwanted choice')] }
+  for (const entry of [dwarfTagged, ...requested]) {
+    expect(attack(c, entry, entries)).toMatchObject({ rank: 1, criticalSpecialization: true })
+    expect(weaponAccessSources(c, entries, entry)).toContain(source.name)
+  }
+  expect(attack(c, unrelated, entries).rank).toBe(0)
+  expect(featChoiceOptions('Ancestral Weapon Familiarity', c, entries, '')).toBeUndefined()
+})
+
 it('grants only stated weapon Access, not all ancestry gear or rare versions, and persists GM approval separately', () => {
   const uncommon = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')
   const rare = { ...uncommon, id: 'rare-waraxe', data: { ...uncommon.data, rarity: 'rare' }, traits: ['Dwarf', 'Rare'] }

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, type SectionProps,
+  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -13,7 +13,7 @@ import { formulaKey, gadgetLimits, knownFormulas } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
-import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
+import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
@@ -22,6 +22,38 @@ import { armorModifications, armorModificationOptions, armorModificationSlots, t
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
 const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
+const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
+  const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
+  return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
+    && !['Animated', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
+    && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
+    .map(rune => {
+      const source = runeName(rune)
+      const note = source === 'Holy' ? 'Holy: 2d4 spirit instead against unholy targets.'
+        : source === 'Unholy' ? 'Unholy: 2d4 spirit instead against holy targets.'
+          : source === 'Astral (Greater)' ? 'Greater Astral: spirit damage ignores spirit resistance.'
+            : source === 'Flaming' ? '1d10 persistent fire damage on a critical hit.'
+              : source === 'Flaming (Greater)' ? '2d10 persistent fire damage on a critical hit; fire damage from this weapon ignores fire resistance.'
+                : source === 'Ashen' ? 'On hit, target must attempt a DC 25 Will save or be confused for 1 round.'
+                  : source === 'Ashen (Greater)' ? 'On hit, target must attempt a DC 35 Will save or be confused for 1 round; critical failure extends confusion to 1 minute.'
+                    : undefined
+      const value = /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force'
+        : /^Astral(?: \(Greater\))?$/.test(source) ? '1d6 spirit'
+          : source === 'Holy' || source === 'Unholy' ? '1d4 spirit'
+            : source === 'Flaming' || source === 'Flaming (Greater)' ? '1d6 fire'
+              : source === 'Ashen' ? '1d4 persistent fire'
+                : source === 'Ashen (Greater)' ? '1d8 persistent fire'
+                  : source === 'Shockwave' ? damageDice ? `${damageDice} bludgeoning splash` : 'bludgeoning splash equal to weapon damage dice'
+                    : rune
+      return { source, note, value: value.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase()) }
+    })
+}
+
+const weaponCapacity = (entry?: ContentEntry) => {
+  const capacity = entry?.traits.map(trait => /^capacity\s*(?:\(\s*(\d+)\s*\)|(\d+))?$/i.exec(trait.trim()))
+    .find(Boolean)
+  return Number(capacity?.[1] ?? capacity?.[2]) || 0
+}
 
 export function Augmentations({ c, entries, save }: SectionProps) {
   const [picked, setPicked] = useState('')
@@ -437,11 +469,17 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [] }])} />}
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
+        const capacity = weaponCapacity(a.entry)
+        const savedLoaded = w.capacityLoaded
+        const loaded = capacity > 0
+          ? Math.max(0, Math.min(capacity, typeof savedLoaded === 'number' && Number.isInteger(savedLoaded) ? savedLoaded : capacity))
+          : 0
         const enhanced = effectiveWeapon(c, entries, w)
         const runeCapacity = hasWeaponRuneCapacity(c, w, a.entry)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
         const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
-          : enhanced.name === UNTAMED_CLAWS.name ? 'Claws' : enhanced.name.replace(/ \(Animal Feature\)$/, '')
+          : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
+            : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const displayName = alloy ? `${alloy} ${plainName}` : plainName
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
@@ -464,53 +502,43 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const innovation = canUseInnovation && !!w.inventorInnovation
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
         const automatic = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
+        const grantedClanWeapon = isGrantedDwarfClanWeapon(c, entries, w)
         const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : w.runes })
         const freeRunes = [...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : [])]
-        const damageDice = /^(\d+)d/.exec(a.damage)?.[1]
-        const damageRunes = enhanced.runes.filter(rune => (!(forms.length || card) || weaponRuneApplies(entries, enhanced, rune))
-          && !['Animated', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))).sort((x, y) => x.localeCompare(y))
-          .map((rune) => {
-            const source = runeName(rune)
-            const note = source === 'Holy' ? 'Holy: 2d4 spirit instead against unholy targets.'
-              : source === 'Unholy' ? 'Unholy: 2d4 spirit instead against holy targets.'
-                : source === 'Astral (Greater)' ? 'Greater Astral: spirit damage ignores spirit resistance.'
-                  : source === 'Flaming' ? '1d10 persistent fire damage on a critical hit.'
-                    : source === 'Flaming (Greater)' ? '2d10 persistent fire damage on a critical hit; fire damage from this weapon ignores fire resistance.'
-                      : source === 'Ashen' ? 'On hit, target must attempt a DC 25 Will save or be confused for 1 round.'
-                        : source === 'Ashen (Greater)' ? 'On hit, target must attempt a DC 35 Will save or be confused for 1 round; critical failure extends confusion to 1 minute.'
-                          : undefined
-            const value = /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force'
-              : /^Astral(?: \(Greater\))?$/.test(source) ? '1d6 spirit'
-                : source === 'Holy' || source === 'Unholy' ? '1d4 spirit'
-                  : source === 'Flaming' || source === 'Flaming (Greater)' ? '1d6 fire'
-                    : source === 'Ashen' ? '1d4 persistent fire'
-                      : source === 'Ashen (Greater)' ? '1d8 persistent fire'
-                  : rune === 'Shockwave' ? damageDice ? `${damageDice} bludgeoning splash` : 'bludgeoning splash equal to weapon damage dice'
-                    : rune
-            return { source, note, value: value.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase()) }
-          })
         const pristineNote = a.pristineLivingWeapon
           ? 'Pristine Living Weapon: treated as cold iron and silver. Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.'
           : undefined
-        const compactDamage = a.damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, (type) => type[0].toUpperCase())
+        const compactDamage = (damage: string) => damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase())
         const untamedPersistent = c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
+        const attackSummaries = (forms.length
+          ? (['Melee', 'Ranged'] as const).map(form => {
+            const formWeapon = { ...w, combinationForm: form }
+            return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
+          })
+          : [{ form: undefined, weapon: enhanced, attack: a }])
+          .map(summary => ({ ...summary, damageRunes: damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card) }))
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         if (displayOnly) return <div key={w.id} className="gear-card">
-          <strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />
-            {a.damage && <>, Damage {compactDamage}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
-              <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
+          <strong>{displayName}</strong> <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+            {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
+            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+              <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
+          </Fragment>)}
             {w.stowed && ' (stowed)'}
           </small>
-          {a.traits.length > 0 && <small> {a.traits.join(', ')}</small>}
-          {a.thrownRange > 0 && <small>Thrown range {a.thrownRange} feet</small>}
+          {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
+          {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
+          {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
+            {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
+          {innovation && <small>Weapon Innovation is shared across both forms.</small>}
           {avengerNote && <small> {avengerNote}</small>}
         </div>
         return (
@@ -520,21 +548,21 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong>{displayName}</strong> <small>Attack <TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal />{a.damage && <>, Damage {compactDamage}{damageRunes.length > 0 && ' + '}{damageRunes.map((rune, index) =>
-              <Fragment key={`${rune.source}:${index}`}>{index > 0 && ', '}{rune.value}{rune.note
-                && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}</small></summary>
+            <summary><strong>{displayName}</strong> <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+              {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
+              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+                <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
+                  && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
+            </Fragment>)}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
+            {capacity > 0 && <div className="row" role="group" aria-label={`${displayName} ammunition`}>
+              <button type="button" aria-label={`Decrease ${displayName} loaded ammunition`} disabled={loaded === 0}
+                onClick={() => update(w.id, { capacityLoaded: loaded - 1 })}>−</button>
+              <span>Loaded {loaded} / {capacity}</span>
+              <button type="button" aria-label={`Increase ${displayName} loaded ammunition`} disabled={loaded === capacity}
+                onClick={() => update(w.id, { capacityLoaded: loaded + 1 })}>+</button>
+            </div>}
             {avengerNote && <small>{avengerNote}</small>}
-            {forms.length > 0 && <label>Weapon form{' '}
-              <select aria-label={`${combinationName(entries, w.name)} weapon form`}
-                value={w.combinationForm ?? (w.name.endsWith('(Melee)') ? 'Melee' : 'Ranged')}
-                onChange={event => {
-                  const form = event.target.value
-                  if (form === 'Melee' || form === 'Ranged') update(w.id, { combinationForm: form })
-                }}>
-                <option>Melee</option><option>Ranged</option>
-              </select>
-            </label>}
-            {forms.length > 0 && <small>Switching forms takes an Interact action. Runes are shared, but apply only to eligible forms.</small>}
+            {forms.length > 0 && <small>Both forms share runes, modifications, and Weapon Innovation.</small>}
             {card && <small>One deck shares runes between both usages. Choose dagger or dart when entering the stance.</small>}
             {gauntlet && w.id === GAUNTLET.id && <label>Armor gauntlet{' '}
               <select aria-label="Armor gauntlet" value={gauntlet.name} onChange={(e) => {
@@ -544,18 +572,25 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 {[...ARMOR_GAUNTLETS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
               </select>
             </label>}
-            {a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
-            {a.entry && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
-            {a.traits.length > 0 && <GearTraits traits={a.traits} entries={entries} system={a.entry?.systems[0]} />}
-            <div className="gear-stats">
-              <span><small>Attack</small><b><TotalBreakdown label={`${displayName} attack`} breakdown={a.breakdown} signedTotal /></b></span>
-              {a.range > 0 && <span><small>Range</small><b>{a.range} feet</b></span>}
-              {a.thrownRange > 0 && <span><small>Thrown range</small><b>{a.thrownRange} feet</b></span>}
-              {a.thrownRangeBonus > 0 && !a.range && !a.thrownRange && <span><small>Thrown range</small>+{a.thrownRangeBonus} feet (Strong Arm)</span>}
-              <span><small>{a.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(a.mod)}</span>
-              <span><small>Proficiency</small>{signed(a.prof)}</span>
-              <span><small>Item</small>{signed(a.item)}</span>
-            </div>
+            {forms.length > 0
+              ? attackSummaries.map(summary => summary.attack.entry?.description
+                && <Info key={summary.form} label={`${summary.form} summary`}>{summary.attack.entry.description}</Info>)
+              : a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
+            {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
+            {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
+              {summary.form && <strong>{summary.form} form</strong>}
+              <div className="gear-stats">
+                <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
+                {summary.attack.range > 0 && <span><small>Range</small><b>{summary.attack.range} feet</b></span>}
+                {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet</b></span>}
+                {summary.attack.thrownRangeBonus > 0 && !summary.attack.range && !summary.attack.thrownRange
+                  && <span><small>Thrown range</small>+{summary.attack.thrownRangeBonus} feet (Strong Arm)</span>}
+                <span><small>{summary.attack.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(summary.attack.mod)}</span>
+                <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
+                <span><small>Item</small>{signed(summary.attack.item)}</span>
+              </div>
+              {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
+            </div>)}
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
               <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>
@@ -586,6 +621,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </span>}
             </>}
             {favored?.id === w.id && <small>Favored weapon of {c.deity}; fundamental runes scale with character level.</small>}
+            {grantedClanWeapon && <small>Granted to Dwarves; Orichalcum material and fundamental runes scale with character level.</small>}
             {unarmed && enhanced.material && <div className="gear-runes">
               <span>Material</span><Material name={enhanced.material} entries={entries} equipment="Weapon" source="Granted by Cold Iron Tusks" />
             </div>}
@@ -594,7 +630,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               : haft ? null
               : unarmed ? null : <div className="row">
               {card ? <small>Material: playing cards</small> : <>
-              {enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
+              {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
+                <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
+              </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
                 && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}</span>
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
                   source={plate ? `Inherited from ${plate.name}` : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
@@ -619,7 +657,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 onChange={(striking) => update(w.id, { striking })} />
             </div>}
             {!fixed && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
-              : enhanced.runes.filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting'))}
+              : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting'))}
               entries={entries} options={unarmed || haft ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity)} freeRunes={freeRunes}
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : haft ? `Inherited from ${haft.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
@@ -632,7 +670,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {!isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove"
                 onClick={() => confirmRemoval(`weapon "${w.name}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id)))}>×</button>}
             </div>
-            {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} save={patch => update(w.id, patch)} />}
+            {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
         )
       })}
@@ -640,13 +678,19 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   )
 }
 
-function WeaponModifications({ c, weapon, entry, save }: {
+function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
   c: Character
   weapon: OwnedWeapon
   entry?: ContentEntry
+  weaponForms?: ContentEntry[]
   save: (patch: Partial<OwnedWeapon>) => void
 }) {
-  const slots = weaponModificationSlots(c, weapon, entry)
+  const slots = weaponModificationSlots(c, weapon, weaponForms[0] ?? entry)
+  const optionsForSlot = (slot: WeaponModificationSlot) => {
+    const forms = weaponForms.length ? weaponForms : entry ? [entry] : []
+    return [...new Map(forms.flatMap(form => weaponModificationOptions(c, weapon, form, slot))
+      .map(option => [option.name, option])).values()]
+  }
   const settings = weapon.inventorModifications ?? {}
   const set = (patch: Partial<NonNullable<OwnedWeapon['inventorModifications']>>) =>
     save({ inventorModifications: { ...settings, ...patch } })
@@ -655,11 +699,11 @@ function WeaponModifications({ c, weapon, entry, save }: {
   }
   const chosen = slots.flatMap(slot => {
     const name = settings[slot]
-    return name ? weaponModificationOptions(c, weapon, entry, slot).filter(option => option.name === name) : []
+    return name ? optionsForSlot(slot).filter(option => option.name === name) : []
   })
   return <div className="col">
     {slots.map(slot => {
-      const options = weaponModificationOptions(c, weapon, entry, slot)
+      const options = optionsForSlot(slot)
       const choice = settings[slot] ?? ''
       return <label key={slot}>{labels[slot]} modification{' '}
         <select aria-label={`${labels[slot]} weapon modification`} value={choice} onChange={event => {
@@ -724,6 +768,22 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const starfinder = granted && entry?.systems.includes('sf2e') ? entry : undefined
         const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
         const automatic = granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 }
+        const strengthRequirement = Number(entry?.data.strength)
+        const hasStrengthRequirement = entry?.data.strength !== undefined && entry.data.strength !== null
+          && entry.data.strength !== '' && Number.isFinite(strengthRequirement) && strengthRequirement > 0
+        const strengthMet = hasStrengthRequirement && abilityMod(c.abilities.str) >= strengthRequirement
+        const checkPenalty = Number(entry?.data.check_penalty ?? 0)
+        const effectiveCheckPenalty = strengthMet ? 0 : checkPenalty
+        const speedPenalty = Number(entry?.data.speed_penalty ?? 0)
+        const heavyConstruction = modifications.some(mod => mod.name === 'Heavy Construction')
+        const effectiveSpeedPenalty = strengthMet
+          ? heavyConstruction ? 0 : Math.min(0, speedPenalty + 5)
+          : speedPenalty
+        const penalty = (value: number) => value === 0 ? '0' : String(value)
+        const acRank = entry ? armorProficiencyRank(c, entries, entry) : 0
+        const booster = a.id === INVENTOR_ARMOR_ID && a.worn
+          ? speedBonuses(c, entries).find(bonus => /Boosters/.test(bonus.source))
+          : undefined
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
@@ -753,11 +813,18 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               <div className="gear-stats">
                 <span><small>Armor Class</small><b>{String(entry.data.ac ?? '—')}</b></span>
                 <span><small>Dexterity cap</small>{String(entry.data.dex_cap ?? '—')}</span>
-                <span><small>Check</small>{String(entry.data.check_penalty ?? '—')}</span>
-                <span><small>Strength</small>{String(entry.data.strength ?? '—')}</span>
-                {granted && <span><small>Category</small>{String(entry.data.armor_category ?? '—')}</span>}
-                {granted && <span><small>Group</small>{String(entry.data.armor_group || '—')}</span>}
-                {granted && <span><small>Speed</small>{String(entry.data.speed_penalty ?? 0)}</span>}
+                <span><small>AC proficiency</small>{RANKS[acRank]} ({signed(proficiencyBonus(acRank, c.level))})</span>
+                <span><small>Check</small>{hasStrengthRequirement
+                  ? `${penalty(checkPenalty)} (${penalty(effectiveCheckPenalty)})`
+                  : penalty(checkPenalty)}</span>
+                <span><small>Strength</small>{hasStrengthRequirement
+                  ? `${signed(strengthRequirement)} (${strengthMet ? 'met' : 'not met'})` : '—'}</span>
+                <span><small>Category</small>{String(entry.data.armor_category ?? armorCategory(entry))}</span>
+                <span><small>Group</small>{String(entry.data.armor_group || '—')}</span>
+                <span><small>Speed</small>{hasStrengthRequirement
+                  ? `${penalty(speedPenalty)} ft (${penalty(effectiveSpeedPenalty)} ft)`
+                  : `${penalty(speedPenalty)} ft`}</span>
+                {booster && <span><small>{booster.source.replace(' (status)', '')}</small>{signed(booster.feet)} ft status</span>}
                 {starfinder && <span><small>Grade AC increase</small>+{Number(entry.data.grade_ac_bonus)}</span>}
                 {starfinder && <span><small>Saving throws</small>+{Number(entry.data.grade_save_bonus)}</span>}
               </div>
@@ -898,6 +965,6 @@ function ArmorModifications({ c, save }: SectionProps) {
       onChange={event => set({ voidHealing: event.target.checked })} /> Void healing</label>}
     {c.className === 'Inventor' && <label><input type="checkbox" checked={!!settings.overdrive}
       onChange={event => set({ overdrive: event.target.checked })} /> Overdrive active</label>}
-    {selected.map(mod => <small key={mod.name}><b>{mod.name}:</b> {mod.note}</small>)}
+    {selected.filter(mod => mod.note).map(mod => <small key={mod.name}><b>{mod.name}:</b> {mod.note}</small>)}
   </div>
 }

@@ -69,6 +69,33 @@ it('displays locked Living Weapon fundamentals as rune text while retaining genu
   expect(ordinary).toContain('<label>Striking <select')
 })
 
+it('tracks loaded ammunition for capacity weapons and clamps controls to capacity', () => {
+  const capacityWeapon: ContentEntry = { ...weapon, id: 'repeating-hand-crossbow', name: 'Repeating Hand Crossbow',
+    traits: ['Capacity 5'] }
+  let c: Character = { ...character([]), weapons: [{ id: 'repeater', name: capacityWeapon.name,
+    potency: 0, striking: 0, runes: [] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = (displayOnly = false) => WeaponList({ c, entries: [capacityWeapon], save, displayOnly })
+  expect(renderToStaticMarkup(tree())).toContain('5/5 loaded')
+  expect(findElement(tree(), element => element.props['aria-label'] === 'Decrease Repeating Hand Crossbow loaded ammunition')?.props.disabled)
+    .toBe(false)
+  expect(findElement(tree(), element => element.props['aria-label'] === 'Increase Repeating Hand Crossbow loaded ammunition')?.props.disabled)
+    .toBe(true)
+  ;(findElement(tree(), element => element.props['aria-label'] === 'Decrease Repeating Hand Crossbow loaded ammunition')!
+    .props.onClick as () => void)()
+  expect(c.weapons?.[0].capacityLoaded).toBe(4)
+  expect(renderToStaticMarkup(tree())).toContain('4/5 loaded')
+  ;(findElement(tree(), element => element.props['aria-label'] === 'Increase Repeating Hand Crossbow loaded ammunition')!
+    .props.onClick as () => void)()
+  expect(c.weapons?.[0].capacityLoaded).toBe(5)
+
+  c = { ...c, weapons: c.weapons?.map(item => ({ ...item, capacityLoaded: 0 })) }
+  expect(findElement(tree(), element => element.props['aria-label'] === 'Decrease Repeating Hand Crossbow loaded ammunition')?.props.disabled)
+    .toBe(true)
+  expect(renderToStaticMarkup(tree(true))).toContain('0/5 loaded')
+  expect(renderToStaticMarkup(tree(true))).not.toContain('aria-label="Increase Repeating Hand Crossbow loaded ammunition"')
+})
+
 it('shows precise Bulk thresholds and Hardy Traveler contribution without claiming to measure carried inventory', () => {
   const c: Character = { ...character([{ name: 'Hardy Traveler', level: 9, type: 'Ancestry Feat', slot: 'ancestry:9:0' }]),
     abilities: { ...character([]).abilities, str: 14 } }

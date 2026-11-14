@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionalSkillCount, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
+import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
 import { featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -47,6 +47,15 @@ it('grants Shield Block from matching class features or the Warpriest doctrine',
   const feature = features.find(item => item.data.class === 'Fighter')!
   expect(automaticFeatGrants(fighter, [{ ...feature, id: 'foreign', systems: ['sf2e'] }, feature]))
     .toContainEqual({ name: 'Shield Block', source: 'Fighter', level: 1 })
+})
+
+it("recognizes simple-weapon training for Clan's Edge's clan dagger prerequisite", () => {
+  const wizard = entry('class', 'Wizard', { attack_proficiency: 'Trained in simple weapons' })
+  const clanEdge = entry('feat', "Clan's Edge", { prerequisite: 'Trained in clan daggers' }, 1, ['Dwarf'])
+  const dwarf = { ...base, className: 'Wizard', ancestry: 'Dwarf', level: 1 }
+  expect(featPrerequisiteChecker(dwarf, [wizard, clanEdge])(clanEdge)).toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...dwarf, className: 'Witch' }, [clanEdge])(clanEdge))
+    .toEqual({ missing: ['Trained in clan daggers'], manual: [] })
 })
 
 it('checks champion sanctification and devotion spell prerequisites from actual choices', () => {
@@ -187,6 +196,22 @@ it.each(['Celestial Form', 'Fiendish Form'])('%s grants darkvision even when fli
   expect(senses({ ...c, level: 17 }, [])).toEqual([])
 })
 
+it('grants Greater Darkvision from Defy the Darkness', () => {
+  const c: Character = { ...base, ancestry: 'Dwarf', level: 5, feats: [selected('Defy the Darkness', 5)] }
+  const sensesForCharacter = senses(c, [])
+  expect(sensesForCharacter).toContainEqual({ value: 'Greater Darkvision', source: 'Defy the Darkness' })
+  expect(sensesForCharacter).not.toContainEqual(expect.objectContaining({ value: 'Darkvision' }))
+})
+
+it('grants Adopted Ancestry (Orc) from Orc Kinship and applies Orc ancestry feat access', () => {
+  const c: Character = { ...base, ancestry: 'Dwarf', level: 1, feats: [selected('Orc Kinship', 1)] }
+  expect(automaticFeatGrants(c, [])).toContainEqual({
+    name: 'Adopted Ancestry', choice: 'Orc', source: 'Orc Kinship', level: 1,
+  })
+  expect(ancestryFeatTraits(c)).toContain('orc')
+  expect(ancestryFeatTraits({ ...c, level: 0 })).not.toContain('orc')
+})
+
 it('suggests exact General and Skill feat prerequisites for this class and ancestry without confusing longer feat names', () => {
   const titan = entry('feat', 'Titan Wrestler', {}, 1, ['General', 'Skill'])
   const diehard = entry('feat', 'Diehard', {}, 1, ['General'])
@@ -248,6 +273,13 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats([feat], { ...orc, feats: [] }, slot)).toEqual([feat])
     expect(eligibleFeats([feat], { ...orc, feats: [selected('Tusks')] }, slot)).toEqual([])
     expect(eligibleFeats([feat], { ...orc, feats: [selected('Iron Fists')] }, slot)).toEqual([])
+  })
+  it('allows Dromaar to select Orc ancestry feats such as Iron Fists', () => {
+    const ironFists = entry('feat', 'Iron Fists', {}, 1, ['Orc'])
+    const slot = { category: 'ancestry' as const, key: 'ancestry:1:0', level: 1 }
+    const dromaarHuman: Character = { ...base, ancestry: 'Human', heritage: 'Dromaar', level: 1 }
+    expect(eligibleFeats([ironFists], dromaarHuman, slot)).toEqual([ironFists])
+    expect(eligibleFeats([ironFists], { ...dromaarHuman, heritage: undefined }, slot)).toEqual([])
   })
   it('grants Beast Trainer and Hold Mark choices only at their acquisition levels', () => {
     const orc: Character = { ...base, ancestry: 'Orc', feats: [

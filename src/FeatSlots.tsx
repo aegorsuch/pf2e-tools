@@ -4,8 +4,8 @@ import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
 import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
-import { isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
-import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
+import { isDwarfAncestralWeaponFamiliarity, isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
+import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
@@ -64,13 +64,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
       return compareFeatSelections(aFeat, bFeat)
     })
+  const knownFeats = [...c.feats.filter(feat => featTakenLevel(feat) <= c.level).map(feat => feat.name),
+    ...grants.map(feat => feat.name), ...String(background?.data.feat ?? '').split(',').map(name => name.trim())]
   const suggestions = slots.some(slot => ['general', 'skill'].includes(slot.category)
     && (!onSearch || search[`${slot.key}:open`] === '1'))
-    ? featPrerequisiteSuggestions(entries, {
-      className: c.className, ancestryTraits: ancestryFeatTraits(c),
-      knownFeats: [...c.feats.filter(feat => featTakenLevel(feat) <= c.level).map(feat => feat.name), ...grants.map(feat => feat.name),
-        ...String(background?.data.feat ?? '').split(',').map(name => name.trim())],
-    })
+    ? featPrerequisiteSuggestions(entries, { className: c.className, ancestryTraits: ancestryFeatTraits(c), knownFeats })
+    : new Map<string, string[]>()
+  const synergies = slots.some(slot => ['general', 'skill'].includes(slot.category)
+    && (!onSearch || search[`${slot.key}:open`] === '1'))
+    ? featSynergySuggestions(entries, { knownFeats, systems: c.systems })
     : new Map<string, string[]>()
   const matches = (o: ContentEntry, query: string, unlocks: string[] = []) => !query
     || [o.name, String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
@@ -113,7 +115,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const rarity = featRarity(entry)
     const accessMissing = access && !access.automatic && !access.approved
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
-    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
+    const pairs = ['general', 'skill'].includes(slot.category) ? synergies.get(entry.name) : undefined
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
     const choices = entry.name === 'Ancestral Magic'
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
@@ -253,7 +256,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
                 {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
-                <EntryDescription name={displayName(feat.name)} entry={entry} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
+                <EntryDescription name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
+                  entry={entry} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
               </li>
             </Fragment>
@@ -264,7 +268,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories'].includes(selection.name)
-            || isElfAncestralWeaponFamiliarity(c, selection.name)) ? undefined
+            || isElfAncestralWeaponFamiliarity(c, selection.name) || isDwarfAncestralWeaponFamiliarity(c, selection.name)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
             ? `Mastermind - ${c.rogueRacketSkills.Mastermind}` : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)
@@ -288,17 +292,29 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const slotQuery = (open ? search[`${s.key}:query`] ?? '' : '').trim().toLowerCase()
           const suggestible = ['general', 'skill'].includes(s.category)
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
-            (matches(o, slotQuery, suggestible ? suggestions.get(o.name) : undefined)
+            (matches(o, slotQuery, suggestible ? [...(suggestions.get(o.name) ?? []), ...(synergies.get(o.name) ?? [])] : undefined)
               || o.name === 'Versatile Rogue' && optionsFor(o, s).some(option => option.label.toLowerCase().includes(slotQuery)))
             && (!picksType || (type === 'dedication') === isDedication(o)))
-          if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name)) - Number(suggestions.has(a.name))
+          if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name) || synergies.has(b.name))
+            - Number(suggestions.has(a.name) || synergies.has(a.name))
             || featSelectionLevel(a, c, entries, s.category, s) - featSelectionLevel(b, c, entries, s.category, s)
             || a.name.localeCompare(b.name))
           const shown = popup ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const optionsByLevel = new Map<number, FeatOption[]>()
           const suggested: FeatOption[] = []
+          const paired: FeatOption[] = []
           const suggestedValues = new Set<string>()
+          const pairedValues = new Set<string>()
           for (const option of shown) {
+            if (suggestible && synergies.has(option.name)) {
+              for (const variant of optionsFor(option, s)) {
+                const key = JSON.stringify([variant.value, variant.label, variant.disabled])
+                if (pairedValues.has(key)) continue
+                pairedValues.add(key)
+                paired.push(variant)
+              }
+              continue
+            }
             if (suggestible && suggestions.has(option.name)) {
               for (const variant of optionsFor(option, s)) {
                 const key = JSON.stringify([variant.value, variant.label, variant.disabled])
@@ -366,6 +382,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {suggested.sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.label.localeCompare(b.label))
                     .map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
                 </optgroup>}
+                {paired.length > 0 && <optgroup label="Suggested combinations">
+                  {paired.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+                </optgroup>}
                 {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => (
                   <optgroup key={level} label={`L${String(level).padStart(2, '0')}`}>
                     {levelOptions.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
@@ -390,6 +409,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       {suggested.length > 0 && <>
                         <li className="feat-modal-level">Suggested prerequisites</li>
                         {suggested.map(popupOption)}
+                      </>}
+                      {paired.length > 0 && <>
+                        <li className="feat-modal-level">Suggested combinations</li>
+                        {paired.map(popupOption)}
                       </>}
                       {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => [
                         <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,

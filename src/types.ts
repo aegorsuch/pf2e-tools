@@ -37,6 +37,7 @@ export interface OwnedWeapon {
   }
   combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
+  capacityLoaded?: number
 }
 export interface OwnedArmor {
   id: string
@@ -48,6 +49,13 @@ export interface OwnedArmor {
   worn: boolean
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
+}
+
+export type CompanionEquipmentSlot = 'Barding' | 'Collar' | 'Harness' | 'Head' | 'Saddle' | 'Shoes'
+export interface CompanionEquipment {
+  entryId: string
+  name: string
+  qty: number
 }
 export interface OwnedShield {
   id: string
@@ -135,7 +143,7 @@ export interface Character {
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
-  feats: { name: string; type: string; level: number; choice?: string; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
+  feats: { name: string; type: string; level: number; choice?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number }[]
@@ -176,7 +184,11 @@ export interface Character {
   skillIncreases?: Record<string, string>
   // Legacy skill-rank overrides; saves and Perception are always derived from class/features
   rankOverrides?: Record<string, number>
-  spellcasting?: { ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number> }
+  spellcasting?: {
+    ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number>
+    prepared?: Record<string, string>
+    spentSlots?: string[]
+  }
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
@@ -193,8 +205,9 @@ export interface Character {
   canopyCrawlerCompanionId?: string
   enlargeCompanionSize?: 'Large' | 'Huge'
   enlargeCompanionId?: string
-  // Minions: animal companions by type; advancement comes from feats such as Mature Animal Companion
-  companions?: { id: string; name: string; type: string; auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]
+  // Companions and their equipped gear
+  companions?: { id: string; name: string; type: string; equipment?: Partial<Record<CompanionEquipmentSlot, CompanionEquipment>>;
+    auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   pet?: { name?: string; aquatic?: boolean; abilities?: string[] }
   faithfulSteedGranted?: boolean

@@ -41,6 +41,30 @@ export const ORC_TUSKS: ContentEntry = {
   data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonprd.com/Feats.aspx?ID=4519' },
 }
 
+export const CLAN_PISTOL: ContentEntry = {
+  ...HAFT_STRIKER_WEAPON, id: 'supplemental:clan-pistol', name: 'Clan Pistol',
+  traits: ['Concussive', 'Dwarf', 'Fatal d10', 'Uncommon'],
+  description: '',
+  data: { weapon_category: 'Martial', weapon_group: 'Firearm', weapon_type: 'Ranged', damage: '1d6 piercing',
+    range: 80, reload: 1, hands: 1, url: 'https://2e.aonprd.com/Weapons.aspx?ID=197' },
+}
+
+export const CLAN_DAGGER: ContentEntry = {
+  ...HAFT_STRIKER_WEAPON, id: 'supplemental:clan-dagger', name: 'Clan Dagger',
+  traits: ['Agile', 'Dwarf', 'Parry', 'Uncommon', 'Versatile B'],
+  description: '',
+  data: { weapon_category: 'Simple', weapon_group: 'Knife', weapon_type: 'Melee', damage: '1d4 piercing',
+    hands: 1, url: 'https://2e.aonprd.com/Weapons.aspx?ID=368' },
+}
+
+export const CLAN_DAGGER_DEXTERITY: ContentEntry = {
+  ...CLAN_DAGGER, id: 'supplemental:clan-dagger-dexterity', name: 'Clan Dagger (Dexterity)',
+  source: 'homebrew', traits: ['Agile', 'Disarm', 'Dwarf', 'Finesse', 'Parry', 'Uncommon', 'Versatile S'],
+  description: 'A Dexterity-key clan dagger using Main-gauche statistics, with automatically improving fundamental runes and Orichalcum material.',
+  data: { ...CLAN_DAGGER.data, weapon_category: 'Martial', damage: '1d4 piercing',
+    url: 'https://2e.aonprd.com/Weapons.aspx?ID=387' },
+}
+
 export const GAUNTLET: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
   traits: ['Agile', 'Free-Hand'],
@@ -233,7 +257,8 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
   Paragon: { potency: 3, striking: 3, upgrades: 4 },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, ORC_TUSKS, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, ORC_TUSKS,
+  CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [

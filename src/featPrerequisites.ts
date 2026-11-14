@@ -179,6 +179,21 @@ export function featPrerequisiteSuggestions(entries: ContentEntry[], context: {
   return suggestions
 }
 
+export function featSynergySuggestions(entries: ContentEntry[], context: { knownFeats?: string[]; systems?: string[] }) {
+  const suggestions = new Map<string, string[]>()
+  const known = new Set(context.knownFeats?.map(key))
+  const sourceName = 'Forgotten in the Crowd'
+  if (!known.has(key(sourceName))) return suggestions
+  const supportsSystem = (entry: ContentEntry) => !context.systems?.length
+    || entry.systems.some(system => context.systems?.includes(system))
+  const named = contentIndex(entries).named
+  const source = named.get(key(sourceName))?.find(entry => entry.kind === 'feat' && supportsSystem(entry))
+  const target = named.get(key('Face in the Crowd'))?.find(entry => entry.kind === 'feat'
+    && entry.traits.some(trait => /^(?:general|skill)$/i.test(trait)) && supportsSystem(entry))
+  if (source && target) suggestions.set(target.name, [source.name])
+  return suggestions
+}
+
 // Split only top-level operators; parentheses and punctuation inside known names stay atomic.
 function splitOutside(text: string, separator: RegExp) {
   let depth = 0
@@ -316,6 +331,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         const group = armor[1] ?? armor[2]
         return resultFor(rankSatisfied(facts.armor[group[0].toUpperCase() + group.slice(1)] ?? 0, rank), text)
       }
+      if (/^clan daggers?$/.test(subject)) return resultFor(rankSatisfied(facts.weapons.Simple ?? 0, rank), text)
       if (weapon) {
         const group = weapon[1] ?? weapon[2]
         return resultFor(rankSatisfied(facts.weapons[group[0].toUpperCase() + group.slice(1)] ?? 0, rank), text)

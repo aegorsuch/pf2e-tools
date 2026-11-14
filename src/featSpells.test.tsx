@@ -24,6 +24,36 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it("grants Heroism from Heroes' Call as a third-rank daily innate occult spell", () => {
+  const source = feat("Heroes' Call", 'The songs of ancient heroes echo through your mind. You gain [_heroism_](Spells.aspx?ID=149) as a 3rd-level innate occult spell that you can cast once per day.', 9)
+  const heroism = entry('Heroism', 'spell', { duration: '10 minutes' })
+  const c: Character = { ...base, level: 9, ancestry: 'Dwarf', feats: [taken("Heroes' Call", 9)] }
+  expect(source.spellGrants).toMatchObject([{ kind: 'innate', spells: ['heroism'], rank: 3, tradition: 'occult', frequency: 'once per day' }])
+  expect(grantedFeatSpells(c, [source, heroism])).toMatchObject([{
+    entry: heroism,
+    source: "Heroes' Call",
+    rank: 3,
+    rule: { kind: 'innate', tradition: 'occult', frequency: 'once per day' },
+  }])
+})
+
+it.each([
+  ["Stonegate", 'You gain [_magic passage_](Spells.aspx?ID=1591) as a 7th-rank divine innate spell that you can cast once per day.',
+    'Magic Passage', 7, 'divine', 'once per day', 'pf2e'],
+  ['Clan Crystal Form', 'You can cast [_cairn form_](/spells/26-cairn-form) twice per day as a 6th-rank primal innate spell.',
+    'Cairn Form', 6, 'primal', 'twice per day', 'sf2e'],
+])('%s adds its innate spell grant', (name, text, spellName, rank, tradition, frequency, system) => {
+  const source = mapAonHit({
+    _id: name, _source: { name, category: 'feat', level: 17, trait: ['Dwarf'], markdown: `Header\n\n---\n\n${text}` },
+  }, system as 'pf2e' | 'sf2e')!
+  const spell = { ...entry(spellName, 'spell'), systems: [system as 'pf2e' | 'sf2e'] }
+  const c: Character = { ...base, systems: [system as 'pf2e' | 'sf2e'], level: 17, ancestry: 'Dwarf', feats: [taken(name, 17)] }
+  expect(source.spellGrants).toMatchObject([{ kind: 'innate', spells: [spellName.toLowerCase()], rank, tradition, frequency }])
+  expect(grantedFeatSpells(c, [source, spell])).toMatchObject([{
+    entry: spell, source: name, rank, rule: { kind: 'innate', tradition, frequency },
+  }])
+})
+
 it('shows champion sanctification and devotion spell choices without a blessing', () => {
   const deity = entry('Patron', 'deity', { divine_font: 'Heal', sanctification: 'holy, unholy' })
   const c: Character = { ...base, level: 1, className: 'Champion', deity: deity.name, devotionSpell: 'Lay on Hands' }
@@ -58,7 +88,7 @@ it('gives champions a focus point before choosing their devotion spell and saves
   findSelect(tree)!({ target: { value: 'Lay on Hands' } })
   expect(c.devotionSpell).toBe('Lay on Hands')
   expect(focusSpells(c, entries)).toEqual({ spells: [{ name: 'Lay on Hands', source: 'Devotion Spells' }], points: 1 })
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Devotion Spells; rank 1')
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Focus 1')
   expect(JSON.parse(JSON.stringify(c)).devotionSpell).toBe('Lay on Hands')
 })
 
@@ -149,9 +179,48 @@ it('reads innate frequency from a feat header and resolves legacy Pass Without T
 it('alphabetizes innate spell names independently of feat selection order', () => {
   const sources = ['Zebra', 'Alpha'].map(name => feat(`${name} Magic`, `You can cast [${name}](/Spells.aspx?ID=1) as an innate primal spell once per day.`))
   const c = { ...base, feats: sources.map(source => taken(source.name)) }
-  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources, entry('Alpha', 'spell'), entry('Zebra', 'spell')]} save={() => {}} />)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources,
+    entry('Alpha', 'spell', { duration: '1 minute', range: '30 feet', saving_throw: 'Reflex', area: 'one creature' }),
+    entry('Zebra', 'spell')]} save={() => {}} />)
   const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'))
+  expect(innate).toContain('Primal Spell Rank 1')
+  expect(innate).toContain('Duration')
+  expect(innate).toContain('1 minute')
+  expect(innate).toContain('30 feet')
+  expect(innate).toContain('Reflex')
+  expect(innate).toContain('one creature')
+  expect(innate).toContain('>Cast</span>')
   expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
+})
+
+it('renders prepared class spell slots with slot selection, metadata, casting, and daily reset controls', () => {
+  const wizard = entry('Wizard', 'class', { tradition: 'Arcane' })
+  const electricArc = entry('Electric Arc', 'spell', { tradition: 'Arcane', duration: 'Instantaneous', range: '30 feet', saving_throw: 'basic Reflex', targets: '1 or 2 creatures' })
+  const haste = entry('Haste', 'spell', { tradition: 'Arcane', duration: '1 minute', range: '30 feet', saving_throw: '—', targets: '1 creature' })
+  const c: Character = {
+    ...base,
+    level: 5,
+    className: 'Wizard',
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: { 0: 1, 3: 1 },
+      prepared: { '0:0': 'electric-arc', '3:0': 'haste' }, spentSlots: ['3:0'] },
+    spells: [
+      { name: electricArc.name, rank: 1, cantrip: true, entryId: 'electric-arc' },
+      { name: haste.name, rank: 3, cantrip: false, entryId: 'haste' },
+    ],
+  }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[
+    { ...wizard, id: 'wizard' }, { ...electricArc, id: 'electric-arc' }, { ...haste, id: 'haste' },
+  ]} save={() => {}} />)
+  expect(html).toContain('Class Spell Slots')
+  expect(html).toContain('Cantrips (Heightened Level 3)')
+  expect(html).toContain('Spell Rank 3')
+  expect(html).toContain('aria-label="Cantrip slot 1"')
+  expect(html).toContain('aria-label="Spell Rank 3 slot 1"')
+  expect(html).toContain('disabled="" aria-label="Cast spell slot rank 3 slot 1"')
+  expect(html).toContain('aria-label="Reset class spell slots"')
+  expect(html).toContain('1 minute')
+  expect(html).toContain('basic Reflex')
+  expect(html).toContain('1 creature')
 })
 
 it('grants each First World Adept spell once daily at rank two', () => {
@@ -373,7 +442,7 @@ it('persists spent daily uses, blocks overspending, undoes use and resets withou
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
   const grant = () => grantedFeatSpells(c, entries)[0]
   const tree = () => InnateSpellUses({ c, save, grant: grant() })
-  const use = () => findUseButton(tree(), 'Use Invisibility (Daily Magic)')!
+  const use = () => findUseButton(tree(), 'Cast Invisibility (Daily Magic)')!
   const undo = () => findUseButton(tree(), 'Undo use of Invisibility (Daily Magic)')!
   expect(undo().disabled).toBe(true)
   undo().onClick()
