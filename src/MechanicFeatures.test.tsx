@@ -43,11 +43,37 @@ it('scales mine damage and area, including per-mine modifications', () => {
   const c: Character = { ...mechanic, mechanicMines: { carried: 9, deployed: 2 },
     mechanicDeployedMines: [{ bigBoom: true }, { baseDamage: 'piercing', targeting: true }] }
   const html = renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)
-  expect(html).toContain('6d6 fire; 20-foot burst')
-  expect(html).toContain('6d6+4 piercing; 15-foot burst')
+  expect(html).toContain('6d6 fire; basic Reflex DC 28; 20-foot burst')
+  expect(html).toContain('6d6+4 piercing; basic Reflex DC 28; 15-foot burst')
   expect(html).toContain('Detonate mine 2')
   expect(renderToStaticMarkup(<MechanicFeatures c={{ ...c, mechanicDeployedMines: undefined }} save={() => {}} />))
     .toContain('Mine 2')
+})
+
+it('applies healing mine progression only when the granting feats are active', () => {
+  const c: Character = { ...mechanic, level: 12, feats: [
+    { name: 'Healing Mines', type: 'Class Feat', level: 2 },
+    { name: 'Impressive Healing Mines', type: 'Class Feat', level: 12 },
+  ], mechanicMines: { carried: 0, deployed: 1 }, mechanicDeployedMines: [{ healing: true }] }
+  const html = (character: Character) => renderToStaticMarkup(<MechanicFeatures c={character} save={() => {}} />)
+  expect(html(c)).toContain('Heals 7d6+4 HP; no save')
+  expect(html({ ...c, level: 7 })).toContain('Heals 5 HP; no save')
+  expect(html({ ...c, feats: [] })).not.toContain('Heals')
+})
+
+it('scales debilitating exocortex condition choices and saving throws', () => {
+  const c: Character = { ...mechanic, level: 16, subclass: 'Turret', mechanicExocortexDebilitation: ['Clumsy', 'Suppressed'],
+    feats: [
+      { name: 'Debilitating Exocortex', type: 'Class Feat', level: 6 },
+      { name: 'Improved Debilitating Exocortex', type: 'Class Feat', level: 10 },
+      { name: 'Double Debilitating Exocortex', type: 'Class Feat', level: 14 },
+      { name: 'Foolproof Debilitations', type: 'Class Feat', level: 16 },
+    ] }
+  const html = (character: Character) => renderToStaticMarkup(<MechanicFeatures c={character} save={() => {}} />)
+  expect(html(c)).toContain('Clumsy 2 and Suppressed')
+  expect(html(c)).toContain('enemies must critically succeed')
+  expect(html({ ...c, level: 10 })).toContain('Clumsy 1')
+  expect(html({ ...c, level: 5 })).not.toContain('Debilitating Exocortex (Modify)')
 })
 
 it('calculates turret defenses and selected array', () => {
@@ -134,6 +160,17 @@ it('offers learned Transmutative Casing materials and suppresses unavailable sav
   expect(html(c)).not.toContain('Hot Siccatite')
   expect(html({ ...c, level: 10 })).not.toContain('Physical damage uses Noqual')
   expect(html({ ...c, level: 3 })).not.toContain('Transmutative Casing')
+})
+
+it('shows feat-gated resistance bypass and Glitch Pulse on weapons', () => {
+  const c: Character = { ...mechanic, level: 16, subclass: 'Turret', mechanicTurretArray: 'Laser Beam',
+    feats: [{ name: 'Glitch Pulse', type: 'Class Feat', level: 12 }, { name: 'Exploitive Assault', type: 'Class Feat', level: 16 }],
+    mechanicWeaponMods: { 'mechanic:turret': { exploitiveAssault: 'fire', glitchPulse: true } } }
+  const html = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[]} save={() => {}} displayOnly />)
+  expect(html(c)).toContain('Ignore 16 fire resistance')
+  expect(html(c)).toContain('On a hit, Fortitude DC 34')
+  expect(html({ ...c, level: 11 })).not.toContain('Glitch Pulse')
+  expect(html({ ...c, level: 11 })).not.toContain('Exploitive Assault')
 })
 
 it('grants customization slots once per drone grade plus repeatable customization feats', () => {

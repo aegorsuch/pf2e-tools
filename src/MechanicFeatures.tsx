@@ -1,8 +1,10 @@
-import { abilityMod, proficiencyBonus, signed, type SectionProps } from './builder'
+import { abilityMod, activeFeatsNamed, proficiencyBonus, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { TURRET_ARRAYS, TURRET_NAMES } from './mechanicTurret'
 import { mechanicClassDC } from './mechanicRules'
 import { TransmutativeCasing } from './TransmutativeCasing'
+import { DebilitatingExocortex } from './DebilitatingExocortex'
+import { ExploitiveAssault } from './ExploitiveAssault'
 import type { Character, MechanicMine } from './types'
 
 export function mechanicMineState(c: Character) {
@@ -60,6 +62,13 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         && <small role="status">Not enough carrying capacity to collect all deployed mines.</small>}
       {deployed.map((mine, index) => {
         const result = mechanicMineDamage(c, mine)
+        const healing = mine.healing && activeFeatsNamed(c, 'Healing Mines').length > 0
+        const dice = 2 + Math.floor((Math.max(1, c.level) - 1) / 2)
+        const healingIntelligence = c.level >= 8 ? intelligence : 0
+        const healingAmount = activeFeatsNamed(c, 'Impressive Healing Mines').length
+          ? `${dice}d6${healingIntelligence ? signed(healingIntelligence) : ''}`
+          : String(Math.max(0, dice + healingIntelligence))
+        const medicMods = ['Numbing Analgesic', 'Powerful Stimulant', 'Protective Excretions', 'Restorative Boost'] as const
         const update = (patch: Partial<MechanicMine>) => updateMines(mines.carried,
           deployed.map((item, i) => i === index ? { ...item, ...patch } : item))
         return <div className="gear-card col" key={index}>
@@ -84,7 +93,31 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
             </label>)}
           </div>}
           <label><input type="checkbox" checked={!!mine.targeting} onChange={event => update({ targeting: event.target.checked })} /> Targeting Mine</label>
+          {activeFeatsNamed(c, 'Healing Mines').length > 0 && <label>
+            <input type="checkbox" checked={!!mine.healing} onChange={event => update({ healing: event.target.checked })} /> Healing Mines
+          </label>}
+          {healing && activeFeatsNamed(c, 'High-tech Medic').length > 0 && medicMods.map(mod => <label key={mod}>
+            <input type="checkbox" checked={!!mine.medicMods?.includes(mod)} onChange={event => update({
+              medicMods: event.target.checked ? [...(mine.medicMods ?? []), mod] : (mine.medicMods ?? []).filter(item => item !== mod),
+            })} /> {mod}
+          </label>)}
+          {healing && mine.medicMods?.includes('Numbing Analgesic') && activeFeatsNamed(c, 'High-tech Medic').length > 0
+            && <small>Reduce sickened by 1.</small>}
+          {healing && mine.medicMods?.includes('Powerful Stimulant') && activeFeatsNamed(c, 'High-tech Medic').length > 0
+            && <small>Reduce enfeebled or frightened by 1.</small>}
+          {healing && mine.medicMods?.includes('Protective Excretions') && activeFeatsNamed(c, 'High-tech Medic').length > 0
+            && <small>Attempt a DC 10 flat check to end one persistent damage type.</small>}
+          {healing && mine.medicMods?.includes('Restorative Boost') && activeFeatsNamed(c, 'High-tech Medic').length > 0
+            && <small>Fast healing equal to half the item's level, rounded up, for 3 rounds; determine the mine's item level with your GM.</small>}
+          {activeFeatsNamed(c, 'Maneuvering Mines').length > 0 && <>
+            <label><input type="checkbox" checked={!!mine.bigBang} onChange={event => update({ bigBang: event.target.checked })} /> Big Bang</label>
+            <label><input type="checkbox" checked={!!mine.blackHole} onChange={event => update({ blackHole: event.target.checked })} /> Black Hole</label>
+            {!healing && mine.bigBang && <small>Failed save: push 5 feet; critical failure: push 10 feet and knock prone.</small>}
+            {!healing && mine.blackHole && <small>Failed save: pull 5 feet; critical failure: pull 10 feet and slowed 1.</small>}
+          </>}
           <TransmutativeCasing c={c} value={mine.transmutativeCasing} onChange={value => update({ transmutativeCasing: value })} />
+          <ExploitiveAssault c={c} value={mine.exploitiveAssault} onChange={value => update({ exploitiveAssault: value })} />
+          <DebilitatingExocortex c={c} choices={mine.debilitation} onChange={choices => update({ debilitation: choices })} />
           {c.level >= 5 && <label>Damage versatility{' '}<select aria-label={`Mine ${index + 1} damage versatility`}
             value={mine.damageType && result.types.includes(mine.damageType) ? mine.damageType : ''} onChange={event => {
               const choice = result.types.find(type => type === event.target.value)
@@ -93,8 +126,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
             <option value="">Normal damage</option>
             {result.types.map(type => <option key={type}>{type}</option>)}
           </select></label>}
-          <small>{result.damage}{mine.incapacitant ? ' nonlethal' : ''}; {result.radius}-foot burst; basic Reflex DC {classDc}.
-            Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
+          <small>{healing ? `Heals ${healingAmount} HP; no save` : `${result.damage}${mine.incapacitant ? ' nonlethal' : ''}; basic Reflex DC ${classDc}`};
+            {` ${result.radius}-foot burst.`} Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
           {mine.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
           <small>Turn mods off when they expire.</small>
           <button type="button" onClick={() => updateMines(mines.carried, deployed.filter((_, i) => i !== index))}>
@@ -118,6 +151,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
       {array && <span>Turret array: {array.damage}; range {array.range} feet; {array.trait}, {array.group}.</span>}
       <span>AC {classDc}; HP {maxHp}; broken {Math.floor(maxHp / 2)}; hardness {5 + 5 * Math.min(3, Math.floor(c.level / 5))};
         Fortitude and Reflex {signed(intelligence + proficiencyBonus(saveRank, c.level))}.</span>
+      <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
+        onChange={choices => save({ mechanicExocortexDebilitation: choices })} />
       <small>Manage turret grade, upgrades, and Strikes in Weapons.</small>
     </>}
     {c.subclass === 'Drone' && <small>Manage your drone and its customizations in Minions.</small>}

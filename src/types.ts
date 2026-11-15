@@ -24,7 +24,13 @@ export type MechanicMine = {
   smartMine?: boolean
   smartTargets?: string[]
   transmutativeCasing?: string
+  exploitiveAssault?: string
   targeting?: boolean
+  healing?: boolean
+  bigBang?: boolean
+  blackHole?: boolean
+  medicMods?: Array<'Numbing Analgesic' | 'Powerful Stimulant' | 'Protective Excretions' | 'Restorative Boost'>
+  debilitation?: string[]
 }
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
@@ -207,12 +213,14 @@ export interface Character {
     longRange?: boolean
     damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
     transmutativeCasing?: string
+    exploitiveAssault?: string
   }>
   mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
   mechanicDeployedMines?: MechanicMine[]
+  mechanicExocortexDebilitation?: string[]
   mechanicDroneChassis?: DroneChassis
   mechanicDroneBaseChassis?: DroneChassis
   mechanicDroneProfiles?: Partial<Record<DroneChassis, DroneProfile>>
@@ -238,6 +246,8 @@ export interface Character {
     pinpointShot?: boolean
     explosiveShot?: boolean
     transmutativeCasing?: string
+    exploitiveAssault?: string
+    glitchPulse?: boolean
     damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
   }>
   munitionsFormulaChoices?: string[]

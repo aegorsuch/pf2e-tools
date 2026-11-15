@@ -4,6 +4,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { DroneEquipment } from './DroneEquipment'
 import { DRONE_CHASSIS, switchDroneChassis } from './droneChassis'
 import { mechanicClassDC } from './mechanicRules'
+import { DebilitatingExocortex } from './DebilitatingExocortex'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
@@ -131,6 +132,8 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         onChange={event => save({ mechanicDroneAssistantActive: event.target.checked })} /> Drone assistant within reach
     </label>}
     {stats && <div className="col">
+      <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
+        onChange={choices => save({ mechanicExocortexDebilitation: choices })} />
       <label><input type="checkbox" checked={!!c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators}
         onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
           'mechanic:drone': { ...c.mechanicArmorMods?.['mechanic:drone'], magneticLevitators: event.target.checked } } })} />

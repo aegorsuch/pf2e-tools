@@ -17,6 +17,8 @@ import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STR
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import type { MechanicEnergy } from './types'
 import { TransmutativeCasing } from './TransmutativeCasing'
+import { ExploitiveAssault } from './ExploitiveAssault'
+import { mechanicClassDC } from './mechanicRules'
 import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
@@ -719,6 +721,7 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
           <label><input type="checkbox" checked={!!mods.incapacitant} onChange={event => setMods({ incapacitant: event.target.checked })} /> Incapacitant</label>
           <label><input type="checkbox" checked={!!mods.bunkerBuster} onChange={event => setMods({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
           <TransmutativeCasing c={c} value={mods.transmutativeCasing} onChange={value => setMods({ transmutativeCasing: value })} />
+          <ExploitiveAssault c={c} value={mods.exploitiveAssault} onChange={value => setMods({ exploitiveAssault: value })} />
           {c.level >= 5 && damageTypes.length > 0 && <label>{physical ? 'Physical' : 'Energy'} Versatility{' '}
             <select aria-label={`Prepared grenade ${index + 1} damage customization`} value={mods.damageType ?? ''} onChange={event => {
               const type = damageTypes.find(option => option === event.target.value)
@@ -778,6 +781,14 @@ export function MechanicWeaponMods({ c, weapon, attack, save }: {
       onChange={event => update({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
     {mods.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
     <TransmutativeCasing c={c} value={mods.transmutativeCasing} onChange={value => update({ transmutativeCasing: value })} />
+    <ExploitiveAssault c={c} value={mods.exploitiveAssault} onChange={value => update({ exploitiveAssault: value })} />
+    {activeFeatsNamed(c, 'Glitch Pulse').length > 0 && <>
+      <label><input type="checkbox" checked={!!mods.glitchPulse}
+        onChange={event => update({ glitchPulse: event.target.checked })} /> Glitch Pulse</label>
+      {mods.glitchPulse && <small>On a hit, Fortitude DC {mechanicClassDC(c)}: critical success grants 24-hour immunity;
+        failure causes glitching 3 for 1 round to a tech creature or one random tech item, starting with held or wielded items;
+        critical failure lasts 1 minute.</small>}
+    </>}
     {activeFeatsNamed(c, 'Explosive Shot').length > 0 && <label>
       <input type="checkbox" checked={!!mods.explosiveShot}
         onChange={event => update({ explosiveShot: event.target.checked })} /> Explosive Shot
