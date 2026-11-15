@@ -25,11 +25,7 @@ it("shows Battle Medicine granted by Officer's Medical Training", () => {
   expect(markup).toContain('Officer&#x27;s Medical Training')
   expect(markup).toContain(battleMedicine.description)
   const source = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['class']} save={() => {}} />)
-  expect(source).toContain('Grants <button')
-  expect(source).toContain('Battle Medicine</button>')
-  expect(source).toContain('(Skill Feat)')
-  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, level: 0 }} entries={entries} categories={['class']} save={() => {}} />))
-    .not.toContain('feat-grant-note')
+  expect(source).not.toContain('Battle Medicine')
   const selected: Character = { ...c, feats: [...c.feats, { name: 'Battle Medicine', type: 'Skill Feat', level: 1, slot: 'skill:1:0' }] }
   const selectedMarkup = renderToStaticMarkup(<FeatSlots c={selected} entries={entries} categories={['skill']} save={() => {}} />)
   expect(selectedMarkup).not.toContain('automatic-feat-row')

@@ -449,9 +449,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 ? <button type="button" aria-label={`Add ${label} feat slot`}
                   onClick={() => addSlot(s.category, s.level)}>+</button>
                 : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
-              {selection?.name === "Officer's Medical Training" && featTakenLevel(selection) <= c.level
-                && <div className="feat-grant-note">Grants <EntryDescription name="Battle Medicine"
-                  entry={featsByName.get('Battle Medicine')} entries={entries} /> (Skill Feat)</div>}
             </li>
             </Fragment>
           )
