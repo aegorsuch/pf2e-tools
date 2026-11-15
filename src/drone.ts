@@ -1,4 +1,5 @@
 import { activeFeatsNamed, proficiencyBonus } from './builder'
+import { energyNeutralizerResistances } from './mechanicEnergy'
 import type { Character, ContentEntry, DroneCustomizationGrade } from './types'
 
 type Customization = {
@@ -158,20 +159,46 @@ export function droneCustomizationSlots(c: Character) {
     }
     const hp = chassis.hp + (6 + mods.con + (has('Hardened Chassis') ? 2 : 0)) * c.level
     const ac = 10 + mods.dex + proficiencyBonus(unarmored, c.level) + (has('Armored Plates') ? superior ? 2 : 1 : 0)
-    const attacks = chassis.attacks.map(attack => {
+    const attacks = chassis.attacks.map((attack, index) => {
       const ranged = 'ranged' in attack && attack.ranged
       const mod = ranged || attack.finesse && mods.dex > mods.str ? mods.dex : mods.str
       const dice = superior ? 3 : tactical ? 2 : 1
       const flat = (ranged ? 0 : mods.str + (advanced ? advance === 'Burly' ? superior ? 6 : 3 : superior ? 4 : 2 : 0))
         + (c.mechanicDroneKillbotActive ? 2 * dice : 0)
-      return { name: c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.attack || attack.name,
+      const id = `mechanic:drone:${c.mechanicDroneChassis}:${index}`
+      const baseType = c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.damageType || attack.damage
+      const damageTypes = ['acid', 'cold', 'electricity', 'fire', 'sonic'].includes(baseType.toLowerCase())
+        ? ['acid', 'cold', 'electricity', 'fire', 'sonic'] : ['bludgeoning', 'piercing', 'slashing'].includes(baseType.toLowerCase())
+          ? ['bludgeoning', 'piercing', 'slashing'] : []
+      const selectedType = c.mechanicWeaponMods?.[id]?.damageType
+      const damageType = c.level >= 5 && selectedType && damageTypes.includes(selectedType) ? selectedType : baseType
+      return { id, ranged, baseType, die: attack.die, name: c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.attack || attack.name,
         attack: mod + proficiencyBonus(superior ? 2 : 1, c.level),
-        damage: `${dice}d${attack.die}${flat > 0 ? `+${flat}` : flat < 0 ? flat : ''} ${c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.damageType || attack.damage}` }
+        damage: `${dice}d${attack.die}${flat > 0 ? `+${flat}` : flat < 0 ? flat : ''} ${damageType}`,
+        range: ranged ? 30 + (c.mechanicWeaponMods?.[id]?.longRange ? 30 : 0) : 0,
+        incapacitant: !!c.mechanicWeaponMods?.[id]?.incapacitant,
+        splash: activeFeatsNamed(c, 'Explosive Shot').length && c.mechanicWeaponMods?.[id]?.explosiveShot ? `${dice} ${damageType} splash` : undefined }
     })
-    const armorUpgradeActive = has('Upgrade Slot') && entries.some(entry => entry.id === c.mechanicDroneArmorUpgrades?.[0]
+    const armorUpgrade = has('Upgrade Slot') ? entries.find(entry => entry.id === c.mechanicDroneArmorUpgrades?.[0]
       && !entry.deleted && entry.kind === 'item' && entry.systems.includes('sf2e')
-      && entry.data.item_subcategory === 'Armor Upgrades' && entry.name === 'Darkvision Visor')
-    return { chassis, mods, ranks, speed, hp, ac, attacks, specs, superior,
+      && entry.data.item_subcategory === 'Armor Upgrades') : undefined
+    const resistances = new Map<string, { damage: string; value: number; source: string }>()
+    const addResistance = (damage: string, value: number, source: string) => {
+      if (value > (resistances.get(damage)?.value ?? 0)) resistances.set(damage, { damage, value, source })
+    }
+    for (const item of selected) if (item.name === 'Resistant Panels' && item.choice
+      && ['acid', 'bludgeoning', 'cold', 'fire', 'piercing', 'slashing', 'sonic'].includes(item.choice))
+      addResistance(item.choice, Math.ceil(c.level / 2), 'Resistant Panels')
+    for (const resistance of energyNeutralizerResistances(c, 'mechanic:drone'))
+      addResistance(resistance.damage, resistance.value, resistance.source)
+    if (armorUpgrade && /^Energy Shielding(?: \((?:Commercial|Tactical|Advanced)\))?$/.test(armorUpgrade.name)) {
+      const type = c.mechanicDroneEnergyShielding?.[armorUpgrade.id]
+      if (type && ['acid', 'cold', 'electricity', 'fire'].includes(type)) {
+        const value = armorUpgrade.name.endsWith('(Advanced)') ? 15 : armorUpgrade.name.endsWith('(Tactical)') ? 10 : 5
+        addResistance(type, value, armorUpgrade.name)
+      }
+    }
+    return { chassis, mods, ranks, speed, hp, ac, attacks, specs, superior, resistances: [...resistances.values()],
       perception: mods.wis + proficiencyBonus(saveRank, c.level),
       fortitude: mods.con + proficiencyBonus(specs.includes('Racer') ? 4 : saveRank, c.level),
       reflex: mods.dex + proficiencyBonus(saveRank, c.level), will: mods.wis + proficiencyBonus(saveRank, c.level),
@@ -179,6 +206,6 @@ export function droneCustomizationSlots(c: Character) {
         .map(([name, rank]) => ({ name, rank, bonus: mods[SKILL_ABILITIES[name]] + proficiencyBonus(rank, c.level) }))
         .sort((a, b) => a.name.localeCompare(b.name)),
       electricityWeakness: has('Grounded') ? 0 : Math.ceil(c.level / 2),
-      senses: has('Nightvision Sensors') || armorUpgradeActive ? 'Darkvision' : chassis.senses,
+      senses: has('Nightvision Sensors') || armorUpgrade?.name === 'Darkvision Visor' ? 'Darkvision' : chassis.senses,
     }
 }

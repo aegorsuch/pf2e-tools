@@ -8,17 +8,21 @@ export function droneEquipmentCapacity(c: Character) {
   return {
     mounts: commercial.filter(item => item.name === 'Integrated Weapon Mount').length,
     armorUpgrades: Number(commercial.some(item => item.name === 'Upgrade Slot')),
+    hands: commercial.some(item => item.name === 'Manual Dexterity') ? 2 : 0,
   }
 }
 
 export function droneMountedWeapons(c: Character, entries: ContentEntry[]) {
   let remaining = droneEquipmentCapacity(c).mounts
+  let handsRemaining = droneEquipmentCapacity(c).hands
   return (c.mechanicDroneWeapons ?? []).map(weapon => {
     const entry = weaponEntry(entries, weapon.name)
     const hands = weaponHands(entries, weapon)
-    const active = !!entry && entry.systems.includes('sf2e') && !!hands && hands <= remaining
-    if (active) remaining -= hands
-    return { weapon, entry, hands, active }
+    const held = (c.mechanicDroneHeldWeaponIds ?? []).includes(weapon.id)
+    const active = !!entry && entry.systems.includes('sf2e') && !!hands && hands <= (held ? handsRemaining : remaining)
+    if (active && held) handsRemaining -= hands
+    else if (active) remaining -= hands
+    return { weapon, entry, hands, active, held }
   })
 }
 

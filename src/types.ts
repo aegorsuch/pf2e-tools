@@ -15,6 +15,7 @@ export type DroneProfile = {
   customizations?: Character['mechanicDroneCustomizations']
 }
 export type MechanicEnergy = 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'
+export type MedicMod = 'Numbing Analgesic' | 'Powerful Stimulant' | 'Protective Excretions' | 'Restorative Boost'
 export type MechanicMine = {
   baseDamage?: 'fire' | 'piercing'
   damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
@@ -29,7 +30,7 @@ export type MechanicMine = {
   healing?: boolean
   bigBang?: boolean
   blackHole?: boolean
-  medicMods?: Array<'Numbing Analgesic' | 'Powerful Stimulant' | 'Protective Excretions' | 'Restorative Boost'>
+  medicMods?: MedicMod[]
   debilitation?: string[]
 }
 
@@ -190,7 +191,7 @@ export interface Character {
   feats: { name: string; type: string; level: number; choice?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
-  equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number }[]
+  equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[] }[]
   simplePoisonsSpent?: number
   augmentations?: { id: string; entryId: string; name: string; slot: string }[]
   hardpointWeaponId?: string
@@ -219,6 +220,7 @@ export interface Character {
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
+  mechanicEnduringMod?: { item: string; mod: string }
   mechanicDeployedMines?: MechanicMine[]
   mechanicExocortexDebilitation?: string[]
   mechanicDroneChassis?: DroneChassis
@@ -235,11 +237,14 @@ export interface Character {
   mechanicDroneCustomizations?: Partial<Record<DroneCustomizationGrade, DroneCustomization[]>>
   mechanicDroneAssistantActive?: boolean
   mechanicDroneWeapons?: OwnedWeapon[]
+  mechanicDroneHeldWeaponIds?: string[]
   mechanicDroneArmorUpgrades?: string[]
+  mechanicDroneEnergyShielding?: Record<string, Exclude<MechanicEnergy, 'sonic'>>
   mechanicDroneKillbotActive?: boolean
   mechanicDroneDesperateRepairActive?: boolean
   mechanicArmorMods?: Record<string, { magneticLevitators?: boolean; energyNeutralizer?: Array<MechanicEnergy | null> }>
   mechanicWeaponMods?: Record<string, {
+    bigBoom?: boolean
     incapacitant?: boolean
     longRange?: boolean
     bunkerBuster?: boolean

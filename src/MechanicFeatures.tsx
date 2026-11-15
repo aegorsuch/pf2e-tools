@@ -156,6 +156,18 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
       <small>Manage turret grade, upgrades, and Strikes in Weapons.</small>
     </>}
     {c.subclass === 'Drone' && <small>Manage your drone and its customizations in Minions.</small>}
+    {c.level >= 9 && <small>Remote Mods: Modify your exocortex and its weapons within {c.level >= 15 ? 150 : 60} feet.</small>}
+    {c.level >= 13 && <div className="col"><strong>Enduring Mod</strong>
+      <small>During daily preparations, Modify one item; that mod lasts 24 hours. Apply its effect using the item's controls.</small>
+      <label>Item{' '}<input aria-label="Enduring mod item" value={c.mechanicEnduringMod?.item ?? ''} onChange={event => save({
+        mechanicEnduringMod: { item: event.target.value, mod: c.mechanicEnduringMod?.mod ?? '' },
+      })} /></label>
+      <label>Mod{' '}<input aria-label="Enduring mod name" value={c.mechanicEnduringMod?.mod ?? ''} onChange={event => save({
+        mechanicEnduringMod: { item: c.mechanicEnduringMod?.item ?? '', mod: event.target.value },
+      })} /></label>
+    </div>}
+    {c.level >= 15 && <small>Manifold Mods: apply two mods whenever you Modify an item.</small>}
+    {c.level >= 19 && <small>Instant Mods: once per round, Modify as a free action.</small>}
     <small><a href="https://2e.aonsrd.com/actions/546-modify" target="_blank" rel="noreferrer">Modify rules</a>:
       weapon mods are available on weapon cards; other mods require manual tracking.</small>
   </div>

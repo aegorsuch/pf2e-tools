@@ -1,10 +1,12 @@
 import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneStats } from './drone'
-import { activeFeatsNamed, ranksAt, signed, type SectionProps } from './builder'
+import { activeFeatsNamed, ranksAt, signed, weaponAttack, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneEquipment } from './DroneEquipment'
 import { DRONE_CHASSIS, switchDroneChassis } from './droneChassis'
 import { mechanicClassDC } from './mechanicRules'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
+import { EnergyNeutralizer } from './EnergyNeutralizer'
+import { MechanicWeaponMods } from './GearSection'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
@@ -96,12 +98,31 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         Senses: {stats.senses}{active.some(item => item.name === 'Olfactory Receptors') ? ', imprecise scent 30 feet' : ''}
         {active.some(item => item.name === 'Echolocation') ? ', precise hearing 30 feet' : ''}.</small>
       <small>Skills: {stats.skills.map(skill => `${skill.name} ${signed(skill.bonus)} (${['U', 'T', 'E', 'M', 'L'][skill.rank]})`).join(', ')}.</small>
-      <small>Attacks: {stats.attacks.map(attack => `${attack.name} ${signed(attack.attack)}, ${attack.damage}`).join('; ')}.</small>
+      {stats.attacks.map(attack => {
+        const weapon = { id: attack.id, name: `Drone ${attack.name} (${c.mechanicDroneChassis})`, potency: 0, striking: 0, runes: [] }
+        const entry = { id: attack.id, name: weapon.name, kind: 'weapon' as const, level: 1, source: 'official' as const,
+          systems: ['sf2e' as const], traits: [], description: '', effects: [], updatedAt: 0,
+          data: { weapon_category: 'Unarmed', weapon_type: attack.ranged ? 'Ranged' : 'Melee',
+            damage: `1d${attack.die} ${attack.baseType}`, range: attack.ranged ? 30 : 0 } }
+        const details = weaponAttack(c, [...entries, entry], weapon)
+        return <div key={attack.id} className="col">
+          <small>{attack.name} {signed(attack.attack)}, {attack.damage}{attack.splash ? ` + ${attack.splash}` : ''}
+            {attack.incapacitant ? ', nonlethal' : ''}{attack.range ? `; range ${attack.range} feet` : ''}.</small>
+          <MechanicWeaponMods c={c} weapon={weapon} attack={details} save={save} allowUnarmed />
+        </div>
+      })}
       <small>Electricity weakness {stats.electricityWeakness}; immune to bleed, death, disease, doomed, drained, fatigued,
         {active.some(item => item.name === 'Biotech Healing Circuit') ? '' : ' healing,'}
         {active.some(item => item.name === 'Sapient') ? '' : ' mental,'} nonlethal attacks, paralyzed, poison, sickened, spirit, unconscious, vitality, and void.</small>
-      {active.some(item => item.name === 'Resistant Panels' && item.choice) && <small>Resistance {Math.ceil(c.level / 2)}:{' '}
-        {active.filter(item => item.name === 'Resistant Panels' && item.choice).map(item => item.choice).join(', ')}.</small>}
+      {stats.resistances.map(resistance =>
+        <small key={resistance.damage}>{resistance.damage} resistance {resistance.value} ({resistance.source}).</small>)}
+      {active.filter(item => item.name === 'Maneuver Module').flatMap(item => [item.choice, item.choice2])
+        .filter((choice): choice is string => !!choice && ['Disarm', 'Grapple', 'Reposition', 'Shove', 'Trip'].includes(choice))
+        .map(choice => <small key={choice}>{choice} {signed((stats.skills.find(skill => skill.name === 'Athletics')?.bonus ?? 0)
+          + (stats.superior ? 2 : 1))} (Maneuver Module).</small>)}
+      {active.some(item => item.name === 'Emergency Repair') && <small>
+        Emergency Repair: restore {c.level * (stats.superior ? 2 : 1)} HP as one action, once per 10 minutes.
+      </small>}
       {!!stats.specs.length && <small>Specializations: {stats.specs.join(', ')}.</small>}
       {activeFeatsNamed(c, 'High Voltage').length > 0 && <small>
         Electrical Discharge (two actions): {Math.ceil(c.level / 2)}d6 electricity; 15-foot cone, 10-foot emanation,
@@ -132,6 +153,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         onChange={event => save({ mechanicDroneAssistantActive: event.target.checked })} /> Drone assistant within reach
     </label>}
     {stats && <div className="col">
+      <EnergyNeutralizer c={c} save={save} id="mechanic:drone" label="drone" />
       <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
         onChange={choices => save({ mechanicExocortexDebilitation: choices })} />
       <label><input type="checkbox" checked={!!c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators}

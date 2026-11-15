@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
-import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, SkillsSection } from './SkillsSection'
@@ -22,6 +22,8 @@ import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredDetails } from './DeferredDetails'
 import { CheekPouches } from './CheekPouches'
+import { HighTechMedic } from './HighTechMedic'
+import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 
 const NONE: ContentEntry[] = []
@@ -151,9 +153,21 @@ function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedCo
           if (i !== index) return existing
           const qty = Math.max(1, Math.floor(+event.target.value || 1))
           return { ...existing, qty, ...(existing.cheekQty !== undefined ? { cheekQty: Math.min(existing.cheekQty, qty) } : {}),
-            ...(existing.cheekPreparedQty !== undefined ? { cheekPreparedQty: Math.min(existing.cheekPreparedQty, qty) } : {}) }
+            ...(existing.cheekPreparedQty !== undefined ? { cheekPreparedQty: Math.min(existing.cheekPreparedQty, qty) } : {}),
+            ...(existing.mechanicRigQty !== undefined ? { mechanicRigQty: Math.min(existing.mechanicRigQty, qty) } : {}) }
         }) })} />{' '}
-      <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => save({ equipment: c.equipment.filter((_, i) => i !== index) }))}>Remove</button>
+      <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
+        const nextMods = { ...c.mechanicGrenadeMods }
+        delete nextMods[`equipment:${item.name}`]
+        save({ equipment: c.equipment.filter((_, i) => i !== index), mechanicGrenadeMods: nextMods })
+      })}>Remove</button>
+      <HighTechMedic c={c} save={save} index={index} entry={entry} />
+      {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>
+        <small>Mods apply to one grenade.</small>
+        <GrenadeMods c={c} grenade={entry} label={item.name} mods={c.mechanicGrenadeMods?.[`equipment:${item.name}`] ?? {}}
+          setMods={patch => save({ mechanicGrenadeMods: { ...c.mechanicGrenadeMods, [`equipment:${item.name}`]:
+            { ...c.mechanicGrenadeMods?.[`equipment:${item.name}`], ...patch } } })} />
+      </>}
     </li>)}
   </ul></div>
 }

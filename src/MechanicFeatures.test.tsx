@@ -14,6 +14,7 @@ import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from '
 import { DroneEquipment } from './DroneEquipment'
 import { switchDroneChassis } from './droneChassis'
 import { FeatChoice } from './FeatChoice'
+import { HighTechMedic } from './HighTechMedic'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
@@ -147,6 +148,15 @@ it('applies Energy Neutralizer only to worn armor, scaling its choices and resis
   expect(resistances({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).toEqual([])
   const html = renderToStaticMarkup(<ArmorList c={{ ...c, level: 4 }} entries={[]} save={() => {}} />)
   expect(html).toContain('<option>cold</option>')
+  const drone: Character = { ...c, subclass: 'Drone', mechanicDroneChassis: 'Powerful',
+    feats: [...c.feats, { name: 'Tactical Drone', type: 'Class Feat', level: 4 },
+      { name: 'Advanced Drone', type: 'Class Feat', level: 8, choice: 'Burly' }],
+    mechanicDroneCustomizations: { Advanced: [{ name: 'Resistant Panels', choice: 'fire' }] },
+    mechanicArmorMods: { 'mechanic:drone': { energyNeutralizer: ['fire', 'cold'] } } }
+  expect(droneStats(drone)?.resistances).toContainEqual({ damage: 'fire', value: 5, source: 'Resistant Panels' })
+  expect(droneStats(drone)?.resistances).toContainEqual({ damage: 'cold', value: 4, source: 'Energy Neutralizer' })
+  const enhanced = { ...drone, feats: [...drone.feats, { name: 'Enhanced Energy Neutralizer', type: 'Class Feat', level: 10 }] }
+  expect(droneStats(enhanced)?.resistances).toContainEqual({ damage: 'fire', value: 10, source: 'Energy Neutralizer' })
 })
 
 it('offers learned Transmutative Casing materials and suppresses unavailable saved choices', () => {
@@ -171,6 +181,18 @@ it('shows feat-gated resistance bypass and Glitch Pulse on weapons', () => {
   expect(html(c)).toContain('On a hit, Fortitude DC 34')
   expect(html({ ...c, level: 11 })).not.toContain('Glitch Pulse')
   expect(html({ ...c, level: 11 })).not.toContain('Exploitive Assault')
+})
+
+it('tracks High-tech Medic rig capacity and scales medical item mods', () => {
+  const c: Character = { ...mechanic, feats: [{ name: 'High-tech Medic', type: 'Class Feat', level: 1 }],
+    equipment: [{ name: 'Medpatch', qty: 4, mechanicRigQty: 1, mechanicMedicMods: ['Restorative Boost'] },
+      { name: 'Serum', qty: 2, mechanicRigQty: 2 }] }
+  const entry: ContentEntry = { id: 'medpatch', name: 'Medpatch', kind: 'item', level: 5, traits: ['Healing'],
+    source: 'official', systems: ['sf2e'], description: '', effects: [], updatedAt: 0, data: {} }
+  const html = renderToStaticMarkup(<HighTechMedic c={c} save={() => {}} index={0} entry={entry} />)
+  expect(html).toContain('max="1"')
+  expect(html).toContain('Fast healing 3 for 3 rounds')
+  expect(renderToStaticMarkup(<HighTechMedic c={{ ...c, feats: [] }} save={() => {}} index={0} entry={entry} />)).toBe('')
 })
 
 it('grants customization slots once per drone grade plus repeatable customization feats', () => {
@@ -257,7 +279,7 @@ it('tracks mounted weapons and armor slots without applying character proficienc
     mechanicDroneWeapons: [{ id: 'rifle', name: 'Rifle', potency: 0, striking: 0, runes: [] },
       { id: 'pistol', name: 'Pistol', potency: 0, striking: 0, runes: [] }],
     mechanicDroneArmorUpgrades: ['armor-upgrade'], mechanicDroneKillbotActive: true }
-  expect(droneEquipmentCapacity(c)).toEqual({ mounts: 2, armorUpgrades: 1 })
+  expect(droneEquipmentCapacity(c)).toEqual({ mounts: 2, armorUpgrades: 1, hands: 0 })
   expect(droneMountedWeapons(c, entries).map(item => item.active)).toEqual([true, false])
   expect(droneWeaponAttack(c, entries, c.mechanicDroneWeapons![0])).toMatchObject({ attack: 14, damage: '2d8+4 fire' })
   expect(droneStats(c)?.attacks[0].damage).toBe('2d8+8 bludgeoning')
@@ -265,10 +287,19 @@ it('tracks mounted weapons and armor slots without applying character proficienc
   expect(html).toContain('Insufficient weapon mounts')
   expect(html).toContain('Armor Upgrade')
   expect(droneMountedWeapons({ ...c, mechanicDroneCustomizations: { Commercial: [] } }, entries).every(item => !item.active)).toBe(true)
+  const handheld: Character = { ...c, mechanicDroneHeldWeaponIds: ['pistol'],
+    mechanicDroneCustomizations: { Commercial: [{ name: 'Manual Dexterity' }, { name: 'Integrated Weapon Mount' }] } }
+  expect(droneMountedWeapons(handheld, entries).map(item => item.active)).toEqual([false, true])
+  expect(renderToStaticMarkup(<DroneEquipment c={handheld} entries={entries} save={() => {}} />)).toContain('Drone hands used: 1/2')
   const visor = { ...entries[2], id: 'visor', name: 'Darkvision Visor' }
   expect(droneStats({ ...c, mechanicDroneArmorUpgrades: ['visor'] }, [...entries, visor])?.senses).toBe('Darkvision')
   expect(droneStats({ ...c, mechanicDroneArmorUpgrades: ['visor'], mechanicDroneCustomizations: { Commercial: [] } }, [...entries, visor])?.senses)
     .toBe('Low-light vision')
+  const shielding = { ...entries[2], id: 'shield', name: 'Energy Shielding (Tactical)' }
+  const shielded = { ...c, mechanicDroneArmorUpgrades: ['shield'], mechanicDroneEnergyShielding: { shield: 'fire' as const } }
+  expect(droneStats(shielded, [...entries, shielding])?.resistances)
+    .toContainEqual({ damage: 'fire', value: 10, source: 'Energy Shielding (Tactical)' })
+  expect(droneStats({ ...shielded, mechanicDroneCustomizations: { Commercial: [] } }, [...entries, shielding])?.resistances).toEqual([])
 })
 
 it('uses configured imitated species movement and unarmed attack', () => {
@@ -281,6 +312,20 @@ it('uses configured imitated species movement and unarmed attack', () => {
   const html = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Size: Small')
   expect(html).toContain('Wolf')
+})
+
+it('applies Modify to drone unarmed attacks without altering character weapons', () => {
+  const c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Surveillance',
+    feats: [{ name: 'Explosive Shot', type: 'Class Feat', level: 1 }],
+    mechanicWeaponMods: { 'mechanic:drone:Surveillance:0': {
+      longRange: true, incapacitant: true, damageType: 'cold', explosiveShot: true,
+    } } }
+  expect(droneStats(c)?.attacks[0]).toMatchObject({ damage: '1d4 cold', range: 60, splash: '1 cold splash', incapacitant: true })
+  const html = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('1 cold splash')
+  expect(html).toContain('range 60 feet')
+  expect(html).toContain('Damage customization: Drone Spark (Surveillance)')
+  expect(droneStats({ ...c, level: 4 })?.attacks[0].damage).toBe('1d4 electricity')
 })
 
 it('preserves independent Convertible Chassis customizations and gates inactive chassis', () => {
