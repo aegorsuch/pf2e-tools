@@ -16,7 +16,7 @@ export const DATA_FIELDS = [
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
-  'domain_primary', 'sanctification', 'sanctification_required', 'warden_spell_tier',
+  'domain_primary', 'sanctification', 'sanctification_required', 'warden_spell_tier', 'upgrade_slots', 'weapon_ammunition', 'weapon_tracking',
   'deity_category', 'epithet', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
   'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'sense', 'speed_raw', 'mount', 'companion_attacks', 'companion_support', 'companion_maneuver',
   'companion_maneuver_actions', 'companion_maneuver_traits', 'companion_maneuver_requirements', 'companion_maneuver_description',
@@ -24,7 +24,7 @@ export const DATA_FIELDS = [
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 export const usesFullItemRules = (source: Record<string, unknown>) =>
   /Property Runes|Precious Material/i.test(String(source.item_subcategory)) || source.item_category === 'Materials'
-  || source.item_category === 'Augmentations'
+  || source.item_category === 'Augmentations' || source.item_subcategory === 'Weapon Upgrades'
 
 // Retain these legacy oaths because their remaster replacements have different mechanics.
 export const RETAINED_LEGACY_FEAT_IDS = ['feat-219', 'feat-1669']
@@ -229,6 +229,34 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
       const s = hit._source
       if (s) {
         if (category === 'weapon' && typeof s.markdown === 'string') {
+          if (system === 'sf2e') {
+            const name = String(s.name ?? '').trim().toLowerCase()
+            const table = /<table>([\s\S]*?)<\/table>/gi
+            for (const match of s.markdown.matchAll(table)) {
+              const headers = [...match[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)].map(cell => plain(cell[1]).toLowerCase())
+              const slotColumn = headers.indexOf('upgrades')
+              if (slotColumn < 0) continue
+              for (const row of match[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
+                const cells = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(cell => plain(cell[1]))
+                if (cells[0]?.toLowerCase() === name && /^\d+$/.test(cells[slotColumn] ?? '')) {
+                  s.upgrade_slots = Number(cells[slotColumn])
+                  const tracking = /\btracking\s*\+(\d+)/i.exec(cells.join(' '))?.[1]
+                  if (tracking) s.weapon_tracking = Number(tracking)
+                  break
+                }
+              }
+            }
+            if (s.upgrade_slots === undefined) {
+              const slots = /\*\*Upgrades\*\*\s*(\d+)/i.exec(s.markdown)?.[1]
+              if (slots) s.upgrade_slots = Number(slots)
+            }
+            if (s.weapon_tracking === undefined) {
+              const tracking = /<trait\b[^>]*\blabel="Tracking\s*\+(\d+)"/i.exec(s.markdown)?.[1]
+              if (tracking) s.weapon_tracking = Number(tracking)
+            }
+            const ammo = /\*\*(?:Ammunition|Magazine)\*\*\s*([^\n]+)/i.exec(s.markdown)?.[1]
+            if (ammo) s.weapon_ammunition = plain(ammo)
+          }
           const form = /\((Melee|Ranged)\)$/i.exec(String(s.name ?? ''))?.[1]
           const traits = (form
             ? new RegExp(`<title\\b[^>]*>\\s*${form}\\s*<\\/title>\\s*<traits\\b[^>]*>([\\s\\S]*?)<\\/traits>`, 'i')

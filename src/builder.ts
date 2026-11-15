@@ -1156,6 +1156,19 @@ export function favoredTerrainBenefits(c: Character, entries: ContentEntry[]) {
     || classFeatures(entries, c).some(feature => feature.name === 'Unimpeded Journey') }
 }
 
+export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) {
+  const worn = wornArmor(c, entries)
+  const armor = worn && armorEntry(c, entries, worn.name)
+  if (!armor?.systems.includes('sf2e')) return { check: 0, speed: 0 }
+  const threshold = num(armor.data.strength)
+  const meets = threshold > 0 && abilityMod(c.abilities.str)
+    + 2 * Number(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length > 0) >= threshold
+  const check = meets ? 0 : Math.min(0, num(armor.data.check_penalty))
+  const penalty = Math.min(0, num(armor.data.speed_penalty))
+  const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
+  return { check, speed: meets ? heavyConstruction ? 0 : Math.min(0, penalty + 5) : penalty }
+}
+
 export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
   const terrain = favoredTerrainBenefits(c, entries)
   const mods = wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
@@ -1165,17 +1178,24 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
     ? (ranksAt(c, entries).Crafting ?? 0) >= 4 ? 30 : 20 : 10
     : names.has('Speed Boosters') ? overdrive ? 10 : 5 : 0
   const terrainSpeed = terrain?.enhanced && terrain.terrain === 'Plains' ? 10 : 0
+  const dashSpeed = isFeatEffectActive(c, 'Uncanny Dash') && activeFeatsNamed(c, 'Gg-os Frame').length ? 10 : 0
   const fleet = activeFeatsNamed(c, 'Fleet').length ? 'Fleet'
     : activeFeatsNamed(c, 'Gg-os Frame').length ? 'Gg-os Frame (Fleet)' : undefined
+  const status = [
+    { source: `${names.has('Hyper Boosters') ? 'Hyper Boosters' : 'Speed Boosters'} (status)`, feet: booster },
+    { source: 'Favored Terrain (Plains; status)', feet: terrainSpeed },
+    { source: 'Uncanny Dash (status)', feet: dashSpeed },
+  ].sort((a, b) => b.feet - a.feet)[0]
+  const armorPenalty = starfinderArmorPenalties(c, entries).speed
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
     ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
-    ...(booster >= terrainSpeed && booster > 0 ? [{ source: `${names.has('Hyper Boosters') ? 'Hyper Boosters' : 'Speed Boosters'} (status)`, feet: booster }]
-      : terrainSpeed ? [{ source: 'Favored Terrain (Plains; status)', feet: terrainSpeed }] : [])]
+    ...(status.feet > 0 ? [status] : []),
+    ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : [])]
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
 export const speed = (c: Character, entries: ContentEntry[]) =>
-  (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + speedBonuses(c, entries).reduce((sum, bonus) => sum + bonus.feet, 0)
+  Math.max(5, (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + speedBonuses(c, entries).reduce((sum, bonus) => sum + bonus.feet, 0))
 
 export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
   if (!c.raging || !activeFeatsNamed(c, 'Raging Athlete').length) return undefined
@@ -1186,38 +1206,53 @@ export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
 
 export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const land = speed(c, entries)
+  const dash = isFeatEffectActive(c, 'Uncanny Dash') && activeFeatsNamed(c, 'Gg-os Frame').length > 0
+  const armorPenalty = starfinderArmorPenalties(c, entries).speed
+  const landStatus = speedBonuses(c, entries).find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
+  const fixed = (name: string, feet: number, source: string) => ({
+    name, feet: Math.max(5, feet + (dash ? 10 : 0) + armorPenalty), status: dash ? 10 : 0,
+    source: `${source}${dash ? ', Uncanny Dash (+10 status)' : ''}${armorPenalty ? `, armor (${armorPenalty})` : ''}`,
+  })
+  const atLandSpeed = (name: string, source: string) => ({ name, feet: land, source, status: landStatus })
   const features = activeAnimalFeatures(c, entries)
-  const movement: { name: string; feet: number; source: string }[] = [
-    ...(features.includes('Fish Tail') ? [{ name: 'Swim', feet: land, source: 'Animal Feature' }] : []),
-    ...(features.includes('Wings') ? [{ name: 'Fly', feet: land, source: 'Animal Feature' }] : []),
-    ...(isSpellActive(c, entries, 'Stormwind Flight') ? [{ name: 'Fly', feet: land, source: 'Stormwind Flight' }] : []),
-    ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [{ name: 'Fly', feet: 30, source: 'Untamed Shift' }] : [])]
+  const movement: { name: string; feet: number; source: string; status: number }[] = [
+    ...(features.includes('Fish Tail') ? [atLandSpeed('Swim', 'Animal Feature')] : []),
+    ...(features.includes('Wings') ? [atLandSpeed('Fly', 'Animal Feature')] : []),
+    ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
+    ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
   if (activeFeatsNamed(c, 'Soaring Armor').length && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) {
-    movement.push({ name: 'Fly', feet: land, source: 'Soaring Armor' })
+    movement.push(atLandSpeed('Fly', 'Soaring Armor'))
   }
   if (!getSettings().championFormNoFlight) {
     for (const name of ['Celestial Form', 'Fiendish Form']) {
-      if (activeFeatsNamed(c, name).length) movement.push({ name: 'Fly', feet: land, source: name })
+      if (activeFeatsNamed(c, name).length) movement.push(atLandSpeed('Fly', name))
     }
   }
-  if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push({ name: 'Swim', feet: 15, source: 'Natural Swimmer' })
+  if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push(fixed('Swim', 15, 'Natural Swimmer'))
   if (activeFeatsNamed(c, 'Burrowing Specialist').length) {
     const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === 'Burrowing Specialist'
       && entry.systems.some(system => c.systems.includes(system))
       && entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase()))
     const feet = Number(/Option\(s\):\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])
-    if (feet > 0) movement.push({ name: 'Burrow', feet, source: 'Burrowing Specialist' })
+    if (feet > 0) movement.push(fixed('Burrow', feet, 'Burrowing Specialist'))
   }
-  if (activeFeatsNamed(c, 'Tree Climber').length && c.ancestry === 'Elf') movement.push({ name: 'Climb', feet: 10, source: 'Tree Climber' })
+  if (activeFeatsNamed(c, 'Tree Climber').length && c.ancestry === 'Elf') movement.push(fixed('Climb', 10, 'Tree Climber'))
   if (ragingAthleteBenefits(c, entries)) {
-    for (const name of ['Climb', 'Swim']) movement.push({ name, feet: land, source: 'Raging Athlete' })
+    for (const name of ['Climb', 'Swim']) movement.push(atLandSpeed(name, 'Raging Athlete'))
   }
-  if (canopyCrawlerAffects(c, entries)) movement.push({ name: 'Climb', feet: Math.max(land, ...movement.map((speed) => speed.feet)), source: 'Canopy Crawler' })
+  if (canopyCrawlerAffects(c, entries)) {
+    const fastest = [atLandSpeed('Land', ''), ...movement].reduce((best, candidate) => candidate.feet > best.feet
+      || candidate.feet === best.feet && candidate.status < best.status ? candidate : best)
+    movement.push({ ...fastest, name: 'Climb', source: 'Canopy Crawler' })
+  }
   const merged = new Map<string, typeof movement[number]>()
   for (const candidate of movement) {
     const previous = merged.get(candidate.name)
     if (!previous || candidate.feet > previous.feet) merged.set(candidate.name, { ...candidate })
-    else if (candidate.feet === previous.feet) previous.source += `, ${candidate.source}`
+    else if (candidate.feet === previous.feet) {
+      previous.source += `, ${candidate.source}`
+      previous.status = Math.min(previous.status, candidate.status)
+    }
   }
   const terrain = favoredTerrainBenefits(c, entries)
   if (terrain?.enhanced) {
@@ -1226,16 +1261,19 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     if (name) {
       const previous = merged.get(name)
       const source = `Favored Terrain (${terrain.terrain})`
-      if (previous) merged.set(name, { name, feet: previous.feet + 10, source: `${previous.source}, ${source} (+10 status)` })
-      else if (name !== 'Fly') merged.set(name, { name, feet: land, source })
+      if (previous) {
+        const extra = Math.max(0, 10 - previous.status)
+        if (extra) merged.set(name, { name, feet: previous.feet + extra, status: 10, source: `${previous.source}, ${source} (+10 status)` })
+      } else if (name !== 'Fly') merged.set(name, { ...atLandSpeed(name, source) })
     }
     if (canopyCrawlerAffects(c, entries)) {
       const climb = merged.get('Climb')
-      const fastest = Math.max(land, ...[...merged.values()].map(movement => movement.feet))
-      if (climb && climb.feet < fastest) merged.set('Climb', { name: 'Climb', feet: fastest, source: 'Canopy Crawler' })
+      const fastest = [atLandSpeed('Land', ''), ...merged.values()].reduce((best, candidate) => candidate.feet > best.feet ? candidate : best)
+      if (climb && climb.feet < fastest.feet) merged.set('Climb', { ...fastest, name: 'Climb', source: 'Canopy Crawler' })
     }
   }
-  return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()].sort((a, b) => a.name.localeCompare(b.name))]
+  return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()]
+    .sort((a, b) => a.name.localeCompare(b.name)).map(({ name, feet, source }) => ({ name, feet, source }))]
 }
 
 export const hazardFinderBonus = (c: Character) => isFeatEffectActive(c, 'Hazard Finder') ? 1 : 0
@@ -3288,6 +3326,10 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
     || PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id) && activeFeatsNamed(c, "Fane's Fourberie").length > 0
 }
 
+export function usesWeaponUpgrades(entry?: ContentEntry) {
+  return !!entry?.systems.includes('sf2e') && entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
+}
+
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
@@ -3305,6 +3347,8 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     const selectedForm = { ...weapon, name: form.name }
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
+  const entry = weaponEntry(entries, weapon.name)
+  if (usesWeaponUpgrades(entry)) return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
   const scaled = scaledMaterial(weapon.material, c.level, 'Weapon')
   if (scaled !== weapon.material) weapon = { ...weapon, material: scaled }
   const favored = deityWeapon(c, entries)?.id === weapon.id
@@ -3353,7 +3397,9 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     ? scaledMaterial('Cold Iron (Low-Grade)', c.level, 'Weapon') : undefined
   const enhanced: OwnedWeapon = { ...weapon, material,
     potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
-    striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0), runes: c.handwraps?.runes ?? [] }
+    striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0),
+    runes: c.handwraps?.kind === 'hardlight' ? [] : c.handwraps?.runes ?? [] }
+  if (c.handwraps?.kind === 'hardlight') return enhanced
   return withBlessedArmament(c, entries, { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })
 }
 

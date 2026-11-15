@@ -1250,7 +1250,7 @@ it('never offers direct unarmed rune, potency, or striking controls, including w
   expect(markup).toContain('Damage 1d4 B')
 })
 
-it('adds and configures hardlight handwraps in Gear with grade-based capacity and read-only inherited attack runes', () => {
+it('keeps saved hardlight runes inactive and provides grade-based upgrade slots', () => {
   let c: Character = { ...character([]), systems: ['pf2e', 'sf2e'], weapons: [] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const tree = () => HandwrapsGear({ c, entries: [], save })
@@ -1272,11 +1272,36 @@ it('adds and configures hardlight handwraps in Gear with grade-based capacity an
   expect(attack).toContain('Damage 2d4 B')
   expect(attack).not.toContain('aria-label="Remove Flaming rune"')
   expect(attack).not.toContain('aria-label="Add property rune"')
-  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('aria-label="Remove Flaming rune"')
+  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('Saved runes are inactive')
+  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('Upgrade slots: 0/2')
   selectGrade('Commercial')
   expect(c.handwraps).toMatchObject({ grade: 'Superior', runes: ['Flaming', 'Impactful'] })
   const remove = findElement(tree(), (element) => element.props['aria-label'] === 'Remove Hardlight Handwraps')
   if (!remove) throw new Error('Missing Hardlight removal')
   ;(remove.props.onClick as () => void)()
   expect(c.handwraps).toBeUndefined()
+})
+
+it('installs compatible weapon upgrades within capacity without changing saved runes', () => {
+  const laser: ContentEntry = { ...weapon, name: 'Laser', systems: ['sf2e'], traits: ['Tech'],
+    data: { hands: 1, weapon_type: 'Ranged', damage: '1d6 F', upgrade_slots: 1, weapon_ammunition: '10 charges' } }
+  const upgrade = (id: string, usage: string): ContentEntry => ({ ...shifting, id, name: id, systems: ['sf2e'],
+    data: { item_subcategory: 'Weapon Upgrades', usage, url: id } })
+  const sight = upgrade('Sight', 'installed in a weapon (sight)')
+  const bipod = upgrade('Bipod', 'installed in a weapon with the kickback trait')
+  let c: Character = { ...character([]), systems: ['sf2e'], weapons: [
+    { id: 'laser', name: laser.name, potency: 1, striking: 0, runes: ['Flaming'] },
+  ] }
+  const entries = [laser, sight, bipod]
+  const tree = () => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'WeaponUpgrades')!
+  const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  const select = findElement(content, element => element.props['aria-label'] === 'Add weapon upgrade')!
+  expect(renderToStaticMarkup(select)).toContain('Sight')
+  expect(renderToStaticMarkup(select)).not.toContain('Bipod')
+  ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Sight' } })
+  expect(c.weapons?.[0]).toMatchObject({ upgrades: ['Sight'], runes: ['Flaming'] })
+  const full = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(full).toContain('Upgrade slots: 1/1')
+  expect(full).not.toContain('aria-label="Add weapon upgrade"')
 })

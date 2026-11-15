@@ -108,6 +108,19 @@ it('tracks Cyborg daily uses and displays Machine Heart recovery at the current 
     .not.toContain('Sensor Mask used')
 })
 
+it('tracks hourly Ysoki and Cyborg actions without granting them below their feat level', () => {
+  const c: Character = { ...base, level: 13, hourlyFeatUses: { 'Uncanny Dash': true }, feats: [
+    { name: 'Uncanny Dash', type: 'Ancestry Feat', level: 9 },
+    { name: "Grandmother's Curse", type: 'Ancestry Feat', level: 9 },
+    { name: 'Wormhole Warren', type: 'Ancestry Feat', level: 17 },
+  ] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  expect(markup).toContain('Uncanny Dash used')
+  expect(markup).toContain('Grandmother&#x27;s Curse used')
+  expect(markup).toContain('Once per hour. Clear after an hour has passed.')
+  expect(markup).not.toContain('Wormhole Warren used')
+})
+
 it('allows permanent training in a downloaded skill without treating temporary rank as an increase', () => {
   let c: Character = { ...base, level: 9, skillPicks: [], feats: [
     { name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' },

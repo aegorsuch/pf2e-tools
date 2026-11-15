@@ -45,6 +45,50 @@ it('alphabetizes weapon traits including rune-granted traits without mutating ca
   expect(weapon.traits).toEqual(['Versatile P', 'Agile', 'Finesse'])
 })
 
+it('uses Starfinder weapon grades rather than saved Pathfinder runes', () => {
+  const laser = { ...content('weapon', 'Advanced Laser Pistol', {
+    damage: '2d6 F', hands: 1, weapon_type: 'Ranged', range: 40, upgrade_slots: 2, weapon_tracking: 1,
+  }, 4, ['Tech']), systems: ['sf2e' as const] }
+  const weapon: OwnedWeapon = { id: 'laser', name: laser.name, potency: 3, striking: 2, runes: ['Flaming'] }
+  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon] }
+  expect(weaponAttack(c, [laser], weapon)).toMatchObject({ item: 1, damage: '2d6 F', traits: ['Tech'] })
+  expect(effectiveWeapon(c, [laser], weapon).runes).toEqual([])
+  expect(weapon.runes).toEqual(['Flaming'])
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[laser]} save={() => {}} />)
+  expect(markup).toContain('Upgrade slots: 0/2')
+  expect(markup).toContain('Saved runes are inactive')
+  expect(markup).not.toContain('aria-label="Add property rune"')
+})
+
+it('applies Starfinder armor penalties and Thresher strength relief to skills and speeds', () => {
+  const armor = { ...content('armor', 'Heavy Armor', { armor_category: 'Heavy', strength: 3,
+    check_penalty: -2, speed_penalty: '-10 ft.' }, 0, ['Tech']), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 1, feats: [feat('Natural Swimmer')],
+    armors: [{ id: 'armor', name: armor.name, worn: true, potency: 0, resilient: 0, runes: [] }] }
+  expect(speed(c, [armor])).toBe(15)
+  expect(movementSpeeds(c, [armor]).find(move => move.name === 'Swim')?.feet).toBe(5)
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[armor]} save={() => {}} />))
+    .toContain('-2 to Strength and Dexterity skill checks and DCs, except actions with the attack trait.')
+  const frame = { ...c, feats: [...c.feats, feat('Thresher Ko-1 Frame')] }
+  expect(speed(frame, [armor])).toBe(20)
+  expect(movementSpeeds(frame, [armor]).find(move => move.name === 'Swim')?.feet).toBe(10)
+  expect(renderToStaticMarkup(<SkillsSection c={frame} entries={[armor]} save={() => {}} />))
+    .not.toContain('Armor check penalty')
+})
+
+it('applies Uncanny Dash once to fixed and land-derived speeds', () => {
+  const c: Character = { ...base, level: 11, className: 'Ranger', systems: ['sf2e'],
+    feats: [feat('Gg-os Frame'), feat('Uncanny Dash', 9), feat('Natural Swimmer'), { ...feat('Favored Terrain'), choice: 'Plains' }],
+    activeFeatEffects: ['Uncanny Dash', 'Favored Terrain'] }
+  expect(speed(c, [])).toBe(40)
+  expect(movementSpeeds(c, []).find(move => move.name === 'Swim')?.feet).toBe(25)
+  expect(speed({ ...c, activeFeatEffects: ['Favored Terrain'] }, [])).toBe(40)
+  expect(movementSpeeds({ ...c, activeFeatEffects: ['Favored Terrain'] }, []).find(move => move.name === 'Swim')?.feet).toBe(15)
+  const aquatic = { ...c, feats: c.feats.map(f => f.name === 'Favored Terrain' ? { ...f, choice: 'Aquatic' } : f) }
+  expect(movementSpeeds(aquatic, []).find(move => move.name === 'Swim')?.feet).toBe(25)
+  expect(movementSpeeds({ ...aquatic, activeFeatEffects: ['Favored Terrain'] }, []).find(move => move.name === 'Swim')?.feet).toBe(25)
+})
+
 it('applies Martial Experience to untrained weapons and grants training at level 11', () => {
   const c: Character = { ...base, level: 10, feats: [feat('Martial Experience', 5)] }
   const atTen = weaponAttack(c, [sword], main)

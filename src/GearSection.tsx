@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, availableHandPairs, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, handPairCapacity, hardpointWeaponEligible, totalHandCapacity, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, availableHandPairs, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, handPairCapacity, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -311,7 +311,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
 }
 
 function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', kind = 'rune' }: {
-  name: string; entry?: ContentEntry; onRemove?: () => void; source?: string; kind?: 'rune' | 'material'
+  name: string; entry?: ContentEntry; onRemove?: () => void; source?: string; kind?: 'rune' | 'material' | 'upgrade'
 }) {
   return (
     <div className="rune" title={onRemove ? undefined : source}>
@@ -319,6 +319,52 @@ function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', k
       {onRemove && <button type="button" aria-label={`Remove ${name} ${kind}`} onClick={() => confirmRemoval(`"${name}" ${kind}`, onRemove)}>×</button>}
     </div>
   )
+}
+
+function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
+  entries: ContentEntry[]; weapon: ContentEntry; upgrades: string[]; limit: number | undefined; onChange: (ids: string[]) => void
+}) {
+  const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
+    && entry.data.item_subcategory === 'Weapon Upgrades')
+  const installed = upgrades.map(id => catalog.find(entry => entry.id === id))
+  const usage = (entry: ContentEntry) => String(entry.data.usage ?? '').toLowerCase().replace(/\s+/g, ' ')
+  const traits = weapon.traits.map(trait => trait.toLowerCase())
+  const options = catalog.filter(entry => {
+    const text = usage(entry)
+    if (installed.some(item => item && (item.id === entry.id || item.data.url && item.data.url === entry.data.url))) return false
+    const part = /\((sight|grip)\)/.exec(text)?.[1]
+    if (part && installed.some(item => item && usage(item).includes(`(${part})`))) return false
+    if (/without a silencer/.test(text) && installed.some(item => item?.name.toLowerCase().startsWith('silencer'))) return false
+    if (/without a loudener/.test(text) && installed.some(item => item?.name.toLowerCase().startsWith('loudener'))) return false
+    if (/\branged\b/.test(text) && !isRanged(weapon)) return false
+    if (/\bthrown\b/.test(text) && !traits.some(trait => trait.startsWith('thrown'))) return false
+    if (/\barea weapon\b/.test(text) && !traits.some(trait => trait.startsWith('area'))) return false
+    if (/kickback trait/.test(text) && !traits.some(trait => trait.startsWith('kickback'))) return false
+    if (/one-handed/.test(text) && Number(weapon.data.hands) !== 1) return false
+    if (/two-handed/.test(text) && !/grenade launcher or/.test(text) && Number(weapon.data.hands) !== 2) return false
+    const damage = `${weapon.data.damage ?? ''} ${weapon.data.damage_type ?? ''}`.toLowerCase()
+    if (/deals cold damage/.test(text) && !/\b(cold|c)\b/.test(damage)) return false
+    if (/deals acid or fire damage/.test(text) && !/\b(acid|fire|a|f)\b/.test(damage)) return false
+    if (/deals acid, cold, fire, or void damage/.test(text) && !/\b(acid|cold|fire|void|a|c|f|v)\b/.test(damage)) return false
+    const ammo = String(weapon.data.weapon_ammunition ?? '').toLowerCase()
+    if (/uses a battery/.test(text) && !/batter|charge/.test(ammo)) return false
+    if (/uses projectiles/.test(text) && (!ammo || /batter|charge/.test(ammo))) return false
+    if (/grenade launcher or/.test(text) && !/grenade launcher/i.test(weapon.name)) return false
+    return true
+  }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
+  return <div className="gear-runes">
+    {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
+      kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
+    {limit === undefined ? <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>
+      : <small>Upgrade slots: {upgrades.length}/{limit}. Check item rules for upgrade effects.</small>}
+    {limit !== undefined && upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
+    {limit !== undefined && upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value="" onChange={event => {
+      if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
+    }}>
+      <option value="">Add weapon upgrade...</option>
+      {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
+    </SearchableSelect>}
+  </div>
 }
 
 function Material({ name, entries, equipment, onRemove, source }: {
@@ -427,8 +473,8 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
           <select aria-label="Hardlight handwraps grade" value={handwraps.grade ?? 'Commercial'} onChange={(e) => {
             const grade = grades.find((name) => name === e.target.value)
             if (grade && grades.indexOf(grade) >= grades.indexOf(minimumGrade)) {
-              const { potency, striking, upgrades } = HARDLIGHT_GRADES[grade]
-              save({ handwraps: { ...handwraps, grade, potency, striking, runes: handwraps.runes.slice(0, upgrades) } })
+              const { potency, striking } = HARDLIGHT_GRADES[grade]
+              save({ handwraps: { ...handwraps, grade, potency, striking } })
             }
           }}>
             {grades.map((grade) => <option key={grade} disabled={grades.indexOf(grade) < grades.indexOf(minimumGrade)}>{grade}</option>)}
@@ -439,8 +485,14 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
           <Level label="Striking" value={handwraps.striking} options={POTENCY} minimum={automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
             onChange={(striking) => save({ handwraps: { ...handwraps, striking } })} />
         </div>}
-        <Runes runes={handwraps.runes} entries={entries} options={handwrapRuneOptions(c, entries)} limit={limit}
-          onChange={(runes) => save({ handwraps: { ...handwraps, runes } })} />
+        {handwraps.kind === 'hardlight' ? <>
+          {!!handwraps.runes.length && <small role="status">Saved runes are inactive on hardlight handwraps.</small>}
+          <WeaponUpgrades entries={entries} weapon={{ ...HARDLIGHT_HANDWRAPS, kind: 'weapon',
+            data: { ...HARDLIGHT_HANDWRAPS.data, weapon_type: 'Melee', weapon_group: 'Brawling', bulk: 0.1 } }}
+            upgrades={handwraps.upgrades ?? []} limit={limit}
+            onChange={upgrades => save({ handwraps: { ...handwraps, upgrades } })} />
+        </> : <Runes runes={handwraps.runes} entries={entries} options={handwrapRuneOptions(c, entries)} limit={limit}
+          onChange={(runes) => save({ handwraps: { ...handwraps, runes } })} />}
         <button type="button" className="spell-remove" aria-label={`Remove ${item.name}`}
           onClick={() => confirmRemoval(`"${item.name}"`, () => save({ handwraps: undefined }))}>×</button>
       </details> : <div className="row">
@@ -647,6 +699,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
+        const upgradeWeapon = usesWeaponUpgrades(a.entry)
+        const gradeOptions = upgradeWeapon && a.entry?.data.url ? entries.filter(entry => entry.kind === 'weapon'
+          && !entry.deleted && entry.systems.includes('sf2e') && entry.data.url === a.entry?.data.url)
+          .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)) : []
         const strength = hasAnimalStrength(c, entries, w)
         const strengthSources = strength ? animalStrengthRuneSources(c, entries, w) : []
         const strengthOptions = [{ id: '', name: handwraps ? handwrapItem.name : 'No runes' },
@@ -818,6 +874,13 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 && <Info key={summary.form} label={`${summary.form} summary`}>{summary.attack.entry.description}</Info>)
               : a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
             {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
+            {upgradeWeapon && gradeOptions.length > 1 && <label>Weapon grade{' '}
+              <select aria-label={`Weapon grade: ${displayName}`} value={w.name} onChange={event => {
+                if (gradeOptions.some(entry => entry.name === event.target.value)) update(w.id, { name: event.target.value })
+              }}>
+                {gradeOptions.map(entry => <option key={entry.id} value={entry.name}>{entry.name} (Level {entry.level})</option>)}
+              </select>
+            </label>}
             {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
               {summary.form && <strong>{summary.form} form</strong>}
               <div className="gear-stats">
@@ -876,12 +939,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
                   source={plate ? `Inherited from ${plate.name}` : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
                   onRemove={livingWeapon || plate || innovation || w.verdantWeapon && canUseVerdantWeapon ? undefined : () =>
-                    update(w.id, { material: undefined, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) })} />
+                    update(w.id, { material: undefined, ...(upgradeWeapon ? {} : { runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) }) })} />
               </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
                 <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
                   const material = WEAPON_MATERIALS.find((name) => name === e.target.value)
                   if (!material) return
-                  update(w.id, { material, runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material, runeCapacity)) })
+                  update(w.id, { material, ...(upgradeWeapon ? {} : { runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, material, runeCapacity)) }) })
                 }}>
                   <option value="">Add material...</option>
                   {[...WEAPON_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
@@ -890,12 +953,19 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </>}
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
-              <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
+              {!upgradeWeapon && <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(w.id, { potency, runes: shared.runes.slice(0, maxPropertyRunes(potency, enhanced.material, runeCapacity)) })} />
-              <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
-                onChange={(striking) => update(w.id, { striking })} />
+              }
+              {!upgradeWeapon && <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
+                onChange={(striking) => update(w.id, { striking })} />}
             </div>}
-            {!fixed && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
+            {upgradeWeapon && a.entry && !linkedSource && <>
+              {(w.runes.length > 0 || w.potency > 0 || w.striking > 0) && <small role="status">Saved runes are inactive on this weapon.</small>}
+              <WeaponUpgrades entries={entries} weapon={a.entry} upgrades={w.upgrades ?? []}
+                limit={typeof a.entry.data.upgrade_slots === 'number' ? a.entry.data.upgrade_slots : undefined}
+                onChange={upgrades => update(w.id, { upgrades })} />
+            </>}
+            {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight') && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting'))}
               entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity)} freeRunes={freeRunes}
@@ -1012,9 +1082,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           && entry.data.strength !== '' && Number.isFinite(strengthRequirement) && strengthRequirement > 0
         const strengthMet = hasStrengthRequirement && abilityMod(c.abilities.str)
           + (activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? 2 : 0) >= strengthRequirement
-        const checkPenalty = Number(entry?.data.check_penalty ?? 0)
+        const checkPenalty = parseFloat(String(entry?.data.check_penalty ?? 0)) || 0
         const effectiveCheckPenalty = strengthMet ? 0 : checkPenalty
-        const speedPenalty = Number(entry?.data.speed_penalty ?? 0)
+        const speedPenalty = parseFloat(String(entry?.data.speed_penalty ?? 0)) || 0
         const heavyConstruction = modifications.some(mod => mod.name === 'Heavy Construction')
         const effectiveSpeedPenalty = strengthMet
           ? heavyConstruction ? 0 : Math.min(0, speedPenalty + 5)

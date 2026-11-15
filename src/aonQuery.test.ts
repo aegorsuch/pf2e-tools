@@ -1,6 +1,24 @@
 import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
 
+it('retains Starfinder weapon upgrade capacity, grade tracking, and ammunition', async () => {
+  const markdown = '**Upgrades** 1\n**Ammunition** 10 [charges](/equipment/ammunition/2-batteries)\n'
+    + '<table><tr><th>Grade</th><th>Upgrades</th><th>Traits</th></tr>'
+    + '<tr><td>Advanced Laser Pistol</td><td>2</td><td>[Tracking +1](/traits/183-tracking)</td></tr></table>'
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'weapon' ? [
+      { _id: 'base', _source: { category, name: 'Laser Pistol', trait: ['Tech'], markdown } },
+      { _id: 'advanced', _source: { category, name: 'Advanced Laser Pistol', trait: ['Tech'], markdown } },
+    ] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const hits = await fetchAonHits('sf2e', fetchFn)
+  expect(hits.find(hit => hit._id === 'base')?._source).toMatchObject({ upgrade_slots: 1, weapon_ammunition: '10 charges' })
+  expect(hits.find(hit => hit._id === 'advanced')?._source).toMatchObject({ upgrade_slots: 2, weapon_tracking: 1 })
+})
+
 const companionMarkdown = `**Melee** <actions value="Single Action" /> jaws
 **Damage** 1d8 piercing
 **Support Benefit** The companion distracts its target.

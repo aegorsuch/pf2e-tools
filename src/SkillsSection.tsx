@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, testSubjectAdaptation, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -95,6 +95,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     (baseRanks[name] ?? 0) <= (grant.without[name] ?? 0) || level > grant.level)
   const improvisation = untrainedSkillProficiency(c)
   const armorBonus = part === 'defense' ? armorSaveBonus(c, entries) : 0
+  const armorCheck = starfinderArmorPenalties(c, entries).check
   const saveCircumstance = part === 'defense' ? savingThrowCircumstance(c, entries) : undefined
   const assignRank = (name: string, target: number) => {
     let rank = baseRanks[name] ?? 0
@@ -163,6 +164,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const medicalTraining = s.name === 'Medicine' && activeFeatsNamed(c, "Officer's Medical Training").length > 0
     const ability = medicalTraining && c.abilities.int > c.abilities.wis ? 'int' : s.ability
     const abil = abilityMod(c.abilities[ability])
+    const armorPenalty = s.kind === 'skill' && (ability === 'str' || ability === 'dex') ? armorCheck : 0
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const warmaskBonus = warmaskSource(c)?.skill === s.name ? 1 : 0
@@ -194,7 +196,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides } : {}) })
           })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
-          : signed(abil + prof + item + status + (circumstance?.value ?? 0))}{!!status
+          : signed(abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0))}{!!armorPenalty
+          && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
@@ -287,6 +290,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
         <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
           title="Apply favored terrain benefits only while you are in that terrain." />
+        {!!activeFeatsNamed(c, 'Gg-os Frame').length && <FeatEffectToggle c={c} save={save} name="Uncanny Dash" label="Uncanny Dash active"
+          title="Apply the speed bonus only during Uncanny Dash." />}
         {isFeatEffectActive(c, 'Favored Terrain') && !terrain
           && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
         {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Favored Terrain{' '}
@@ -326,6 +331,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <input type="checkbox" checked={!!c.dailyFeatUses?.[name]}
             onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, [name]: event.target.checked } })} />
           {' '}{name} used
+        </label>)}
+        {["Grandmother's Curse", 'Slip From Sight', 'Wormhole Warren', 'Dense Weave Musculature',
+          'Flying Rocket Punch', 'Uncanny Dash'].filter(name => activeFeatsNamed(c, name).length > 0).map(name => <label key={name}>
+          <input type="checkbox" checked={!!c.hourlyFeatUses?.[name]}
+            onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, [name]: event.target.checked } })} />
+          {' '}{name} used <SourceNote inlineSource={false} source={name} note="Once per hour. Clear after an hour has passed." />
         </label>)}
         <WeaponList c={c} entries={entries} save={save} displayOnly />
       </>

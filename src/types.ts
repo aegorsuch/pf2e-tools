@@ -28,6 +28,7 @@ export interface OwnedWeapon {
   potency: number
   striking: number
   runes: string[]
+  upgrades?: string[]
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood' | 'Peachwood (Greater)' | 'Peachwood (Standard-Grade)' | 'Peachwood (High-Grade)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   livingWeapon?: boolean
   verdantWeapon?: boolean
@@ -134,6 +135,7 @@ export interface Character {
   activeHandPair?: number
   ysokiDailyUses?: { contaminate?: boolean; retinalHud?: boolean }
   dailyFeatUses?: Record<string, boolean>
+  hourlyFeatUses?: Record<string, boolean>
   monthlyFeatUses?: Record<string, boolean>
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string
@@ -184,7 +186,7 @@ export interface Character {
   collapsedWeaponIds?: string[]
   livingWeaponEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   playingCardEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
-  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'> & { kind?: 'hardlight'; grade?: HardlightGrade }
+  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes' | 'upgrades'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
   inventorArmorSuit?: 'Power Suit' | 'Subterfuge Suit'
   inventorArmorModifications?: Partial<Record<'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic', string>> & {

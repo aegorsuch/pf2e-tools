@@ -117,7 +117,7 @@ it('derives and locks one gauntlet while eligible armor is worn, preserving inde
   expect(isLockedWeapon(c, gauntlet.name)).toBe(true)
   expect(weaponCategory(GAUNTLET)).toBe('Simple')
   expect(weaponAttack(c, [], gauntlet)).toMatchObject({
-    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Free-Hand', 'Finesse'],
+    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Free-Hand'],
   })
   const configured = { ...gauntlet, potency: 2, striking: 1, runes: ['Flaming'] }
   const saved = { ...c, weapons: [configured] }
@@ -327,7 +327,7 @@ it('derives hardlight tracking and damage dice from its automatically upgraded g
   }
   const attack = ownedWeapons(c, []).find((weapon) => weapon.name === ANIMAL_FEATURE_CLAWS.name)!
   expect(weaponAttack(c, [], attack)).toMatchObject({ item: 2, damage: '2d6+1 slashing' })
-  expect(effectiveWeapon(c, [], attack).runes).toEqual(['Wounding'])
+  expect(effectiveWeapon(c, [], attack).runes).toEqual([])
   expect(weaponAttack({ ...c, handwraps: { ...c.handwraps!, grade: 'Paragon' } }, [], attack))
     .toMatchObject({ item: 3, damage: '4d6+1 slashing' })
 })
