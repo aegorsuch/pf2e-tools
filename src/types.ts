@@ -59,7 +59,7 @@ export interface OwnedWeapon {
   striking: number
   runes: string[]
   upgrades?: string[]
-  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Peachwood' | 'Peachwood (Greater)' | 'Peachwood (Standard-Grade)' | 'Peachwood (High-Grade)' | 'Cold Iron (Low-Grade)' | 'Cold Iron (Standard-Grade)' | 'Cold Iron (High-Grade)' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
+  material?: string
   livingWeapon?: boolean
   verdantWeapon?: boolean
   inventorInnovation?: boolean
@@ -104,6 +104,7 @@ export interface OwnedShield {
   hp: number
   damage: number
   raised: boolean
+  attachedWeapon?: OwnedWeapon
   material?: { name: string; hardness?: number; hp?: number }
   reinforcingRune?: 'Minor' | 'Lesser' | 'Moderate' | 'Greater' | 'Major' | 'Supreme'
 }
@@ -282,7 +283,7 @@ export interface Character {
   }
   warmask?: { worn?: boolean; attuned?: boolean; alternateSkill?: string }
   shield?: OwnedShield
-  hardwoodShield?: { equipped?: boolean; raised?: boolean; damage?: number; reinforcingRune?: OwnedShield['reinforcingRune'] }
+  hardwoodShield?: { equipped?: boolean; raised?: boolean; damage?: number; reinforcingRune?: OwnedShield['reinforcingRune']; attachedWeapon?: OwnedWeapon }
   lores: { name: string; rank: number }[]
   languages: string[]
   // Original Pathbuilder data kept so nothing is lost on import

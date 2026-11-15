@@ -4,6 +4,7 @@ import {
   activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
+import { SHIELD_ATTACHED_WEAPONS, shieldAttachmentSource, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
@@ -936,7 +937,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   })
   const update = (id: string, patch: Partial<OwnedWeapon>) => {
     const weapon = weapons.find((weapon) => weapon.id === id)
-    if (weapon && PLAYING_CARD_WEAPONS.some(card => card.id === id)
+    const shieldSource = weapon && shieldAttachmentSource(c, weapon)
+    if (weapon && shieldSource) {
+      const attachedWeapon = { ...shieldSource.attachedWeapon!, ...patch }
+      if (shieldSource.id === c.shield?.id) save({ shield: { ...c.shield, attachedWeapon } })
+      else save({ hardwoodShield: { ...c.hardwoodShield, attachedWeapon } })
+    } else if (weapon && PLAYING_CARD_WEAPONS.some(card => card.id === id)
       && (patch.potency !== undefined || patch.striking !== undefined || patch.runes !== undefined)) {
       const current = effectiveWeapon(c, entries, weapon)
       save({ playingCardEnhancements: { potency: patch.potency ?? current.potency,
@@ -981,7 +987,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
-        const attachmentSource = w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined
+        const shieldSource = shieldAttachmentSource(c, w)
+        const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
         const displayName = `${alloy ? `${alloy} ${plainName}` : plainName}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
@@ -1001,13 +1008,13 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
         const hands = weaponHands(entries, w)
         const equipped = weaponEquipped(c, entries, w)
-        const linkedSource = attachmentSource ?? haft
-        const fixedEquipped = hands === 0 || !!linkedSource
+        const linkedSource = shieldSource ? undefined : attachmentSource ?? haft
+        const fixedEquipped = hands === 0 || !!linkedSource || !!shieldSource
         const legacyPouchWeapon = w.id === `eq-${w.name}` && c.equipment.some(item =>
           item.name === w.name && (item.cheekQty ?? 0) >= item.qty)
         const cannotEquip = !equipped && (legacyPouchWeapon || hands === undefined || unknownHands || handsUsed + hands > handLimit)
         const inheritedLivingWeapon = !!haft && !!enhanced.livingWeapon
-        const canUseLivingWeapon = !fixed && !linkedSource && canBeLivingWeapon(c, entries, w)
+        const canUseLivingWeapon = !fixed && !attachmentSource && !linkedSource && canBeLivingWeapon(c, entries, w)
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
         const shared = livingWeapon ? livingWeaponEnhancements(c, entries, w) : card ? enhanced : w
         const canUseVerdantWeapon = !attachmentSource && canBeVerdantWeapon(c, entries, w)
@@ -1052,7 +1059,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <strong>{displayName}</strong>
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
-            <label title={linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : legacyPouchWeapon
+            <label title={attachmentSource ? `Follows ${attachmentSource.name}` : linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
               : undefined}>
@@ -1063,7 +1070,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                   update(w.id, { stowed: !event.target.checked, ...(event.target.checked ? { cheekStored: false, cheekHolstered: false } : {}) })
                 }} /> Equipped
             </label>
-            {!linkedSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
+            {!linkedSource && !shieldSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
               <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
                 onChange={event => {
                   const next = Number(event.target.value) as 1 | 2
@@ -1205,7 +1212,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? null : <div className="row">
-              {card ? <small>Material: playing cards</small> : <>
+              {shieldSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {shieldSource.name})</small>
+                : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
               </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
@@ -1352,6 +1360,29 @@ function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
         </label>
       })}
   </div>
+}
+
+export function ShieldAttachment({ c, entries, save, shield }: SectionProps & { shield: OwnedShield }) {
+  const current = shield.attachedWeapon
+  const options = SHIELD_ATTACHED_WEAPONS.filter(name => !!weaponEntry(entries, name))
+  return <label>Attached weapon{' '}
+    <select aria-label={`Attached weapon: ${shield.name}`} value={current?.name ?? ''} onChange={event => {
+      const name = options.find(name => name === event.target.value)
+      if (event.target.value && !name) return
+      if (name === current?.name) return
+      const apply = () => {
+        const attachedWeapon = name ? { id: newId(), name, potency: 0, striking: 0, runes: [] } : undefined
+        if (shield.id === c.shield?.id) save({ shield: { ...c.shield, attachedWeapon } })
+        else save({ hardwoodShield: { ...c.hardwoodShield, attachedWeapon } })
+      }
+      if (current) confirmRemoval(`attached weapon "${current.name}"`, apply)
+      else apply()
+    }}>
+      <option value="">None</option>
+      {current && !options.some(name => name === current.name) && <option value={current.name} disabled>{current.name} (unavailable)</option>}
+      {options.map(name => <option key={name}>{name}</option>)}
+    </select>
+  </label>
 }
 
 export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
@@ -1508,6 +1539,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked)) }} />
               {isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
+          <ShieldAttachment c={c} entries={entries} save={save} shield={shield} />
           <div className="row">
             {shield.material ? <div className="gear-runes"><span>Material</span>
               <GearTag name={shield.material.name} kind="material"
@@ -1552,6 +1584,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
             {isBucklerShield(woodShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
+        <ShieldAttachment c={c} entries={entries} save={save} shield={woodShield} />
         <small>Hardness {shieldStats(woodShield).hardness}; Hit Points {shieldStats(woodShield).hp}; Broken Threshold {Math.floor(shieldStats(woodShield).hp / 2)}. Material and base stats improve automatically.</small>
         <ShieldRune rune={woodShield.reinforcingRune} entries={entries}
           onChange={reinforcingRune => save({ hardwoodShield: { ...c.hardwoodShield, reinforcingRune } })} />

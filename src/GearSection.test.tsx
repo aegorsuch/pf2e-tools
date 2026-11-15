@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, ShieldAttachment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -360,6 +360,71 @@ it('uses the attached weapon two-hand die based on its base weapon grip', () => 
   expect(attack().damage).toBe('2d8 bludgeoning')
   c.weapons![0].attachedWeapon = 'Bayonet'
   expect(attack().damage).toBe('2d4 piercing')
+})
+
+it('attaches shield weapons with independent runes and inherited shield material', () => {
+  const entries = ['Shield Spikes', 'Shield Pistol', 'Shield Boss'].map(name => ({
+    ...weapon, id: name, name, traits: ['Attached'],
+    data: { hands: 1, damage: name === 'Shield Boss' ? '1d6 B' : '1d6 P', weapon_group: name === 'Shield Pistol' ? 'Firearm' : 'Shield' },
+  }))
+  let c: Character = { ...character([]), weapons: [],
+    shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false,
+      material: { name: 'Orichalcum' } },
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const select = (value: string) => {
+    const control = findElement(ShieldAttachment({ c, entries, save, shield: c.shield! }), e => e.type === 'select')!
+    ;(control.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } })
+  }
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={save} part="shield" />)
+  expect(markup).toContain('aria-label="Attached weapon: Steel Shield"')
+  expect(markup.indexOf('Shield Boss')).toBeLessThan(markup.indexOf('Shield Pistol'))
+  expect(markup.indexOf('Shield Pistol')).toBeLessThan(markup.indexOf('Shield Spikes'))
+  select('Shield Boss')
+  const attachment = () => ownedWeapons(c, entries).find(w => w.attachedTo === 'shield')!
+  expect(attachment().name).toBe('Shield Boss')
+  expect(equippedWeaponHands(c, entries)).toBe(0)
+  expect(weaponEquipped(c, entries, attachment())).toBe(true)
+  const card = findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === 'Shield Boss (Attached to Steel Shield)')!
+  const potency = findElement(card, e => e.props.label === 'Potency')!
+  ;(potency.props.onChange as (value: number) => void)(2)
+  expect(c.shield?.attachedWeapon?.potency).toBe(2)
+  expect(c.weapons?.some(w => w.attachedTo)).toBe(false)
+  expect(effectiveWeapon(c, entries, attachment())).toMatchObject({ potency: 2, material: 'Orichalcum' })
+  c = { ...c, shield: { ...c.shield!, material: { name: 'Cold Iron (Low-Grade)' } } }
+  expect(effectiveWeapon(c, entries, attachment()).material).toBe('Cold Iron (Low-Grade)')
+  const gear = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)
+  expect(gear).toContain('Material: Cold Iron (Low-Grade) (from Steel Shield)')
+  expect(gear).not.toContain('aria-label="Weapon material"')
+  vi.mocked(window.confirm).mockReturnValueOnce(false)
+  select('Shield Spikes')
+  expect(attachment().name).toBe('Shield Boss')
+  select('Shield Pistol')
+  c = JSON.parse(JSON.stringify(c))
+  expect(attachment().name).toBe('Shield Pistol')
+  expect(weaponAttack(c, entries, attachment()).entry?.name).toBe('Shield Pistol')
+  select('')
+  expect(ownedWeapons(c, entries).some(w => w.attachedTo === 'shield')).toBe(false)
+})
+
+it('keeps attachments on their own shields when switching to a generated hardwood shield', () => {
+  const attachedWeapon: OwnedWeapon = { id: 'boss', name: 'Shield Boss', potency: 1, striking: 1, runes: ['Flaming'] }
+  let c: Character = { ...character([{ name: 'Hardwood Armor', type: 'Class Feat', level: 1 }]), className: 'Druid',
+    shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, attachedWeapon },
+    hardwoodShield: { equipped: true, attachedWeapon: { ...attachedWeapon, id: 'spikes', name: 'Shield Spikes' } },
+  }
+  const weapons = () => ownedWeapons(c, [])
+  const boss = weapons().find(w => w.id === 'boss')!
+  const spikes = weapons().find(w => w.id === 'spikes')!
+  expect(weaponEquipped(c, [], boss)).toBe(false)
+  expect(weaponEquipped(c, [], spikes)).toBe(true)
+  expect(effectiveWeapon(c, [], spikes)).toMatchObject({ material: 'Duskwood (Standard-Grade)', runes: ['Flaming'] })
+  c = { ...c, level: 20, hardwoodShield: { ...c.hardwoodShield, equipped: false } }
+  expect(weaponEquipped(c, [], spikes)).toBe(false)
+  expect(weaponEquipped(c, [], boss)).toBe(true)
+  expect(effectiveWeapon(c, [], spikes).material).toBe('Duskwood (High-Grade)')
+  c = { ...c, shield: undefined }
+  expect(weapons().some(w => w.id === 'boss')).toBe(false)
 })
 
 it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(

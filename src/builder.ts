@@ -287,14 +287,15 @@ export function canInstallAugmentation(c: Character, entry: ContentEntry, slot: 
   return slot === 'adapted' && activeFeatsNamed(c, 'Adapted Augmentations').length > 0 && entry.level <= 1
     && !entry.traits.some(trait => /^(uncommon|rare|unique)$/i.test(trait)) && !/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity))
 }
-export function hardwoodShield(c: Character) {
+export function hardwoodShield(c: Character): OwnedShield | undefined {
   if (!hardwoodHasShield(c)) return undefined
   const increments = Math.floor((c.level - 1) / 3)
   const high = c.level >= 16
   return { id: 'granted-shield:hardwood', name: `Duskwood Shield (${high ? 'High' : 'Standard'}-Grade)`,
     hardness: Math.max(high ? 8 : 5, 3 + increments),
     hp: Math.max(high ? 32 : 20, 12 + 4 * increments),
-    damage: c.hardwoodShield?.damage ?? 0, raised: !!c.hardwoodShield?.raised, reinforcingRune: c.hardwoodShield?.reinforcingRune }
+    damage: c.hardwoodShield?.damage ?? 0, raised: !!c.hardwoodShield?.raised, reinforcingRune: c.hardwoodShield?.reinforcingRune,
+    attachedWeapon: c.hardwoodShield?.attachedWeapon }
 }
 export const SHIELD_RUNES = {
   Minor: { level: 4, hardness: 3, hp: 44, maxHardness: 8, maxHp: 64 },
@@ -2761,6 +2762,8 @@ export function hardpointWeaponEligible(c: Character, entries: ContentEntry[], w
 
 export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
+    const shield = shieldAttachmentSource(c, weapon)
+    if (shield) return equippedShield(c)?.id === shield.id
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
     return !!source && weaponHeld(c, entries, source)
   }
@@ -2782,6 +2785,8 @@ export function totalHandCapacity(c: Character) {
 
 export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
+    const shield = shieldAttachmentSource(c, weapon)
+    if (shield) return equippedShield(c)?.id === shield.id
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
     return !!source && weaponEquipped(c, entries, source)
   }
@@ -2873,6 +2878,9 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
         potency: 0, striking: 0, runes: [] })
     }
   }
+  for (const shield of [c.shield, hardwoodShield(c)]) {
+    if (shield?.attachedWeapon) available.push({ ...shield.attachedWeapon, attachedTo: shield.id })
+  }
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
   }
@@ -2961,6 +2969,11 @@ export const PLAYING_CARD_WEAPONS = [
 export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name)
   return !!entry && /^(firearm|crossbow)$/i.test(String(entry.data.weapon_group ?? ''))
+}
+export const SHIELD_ATTACHED_WEAPONS = ['Shield Boss', 'Shield Pistol', 'Shield Spikes'] as const
+export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
+  return [c.shield, hardwoodShield(c)].find(shield => shield && shield.id === weapon.attachedTo
+    && shield.attachedWeapon?.id === weapon.id)
 }
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
@@ -3388,6 +3401,12 @@ export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], w
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  const shield = shieldAttachmentSource(c, weapon)
+  if (shield) {
+    const generated = shield.id === 'granted-shield:hardwood'
+    const material = generated ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' : shield.material?.name
+    return { ...weapon, material }
+  }
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
     if (source) {
