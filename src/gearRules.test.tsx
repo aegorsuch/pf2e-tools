@@ -101,18 +101,53 @@ it('uses only an equipped upgraded weapon for Protection Grid parry', () => {
 })
 
 it('shows loudener damage and merciful restrictions on hardlight attacks', () => {
-  const upgrades = ['Loudener (Tactical)', 'Merciful'].map(name => ({
+  const upgrades = ['Loudener (Tactical)', 'Merciful', 'Flaming Module (Commercial)'].map(name => ({
     ...content('item', name, { item_subcategory: 'Weapon Upgrades' }, 8), systems: ['sf2e' as const],
     description: name === 'Merciful' ? 'Persistent damage is negated and attacks cannot be lethal.' : 'Deals 1d6 sonic damage.',
   }))
   const c: Character = { ...base, systems: ['sf2e'], handwraps: {
-    kind: 'hardlight', grade: 'Superior', potency: 0, striking: 0, runes: [], upgrades: upgrades.map(upgrade => upgrade.id),
+    kind: 'hardlight', grade: 'Elite', potency: 0, striking: 0, runes: [], upgrades: upgrades.map(upgrade => upgrade.id),
   } }
   const fist = ownedWeapons(c, upgrades).find(weapon => weapon.name === 'Fist')!
   expect(weaponAttack(c, upgrades, fist).traits.filter(trait => trait === 'Nonlethal')).toEqual(['Nonlethal'])
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={upgrades} save={() => {}} displayOnly />)
   expect(markup).toContain('1d6 sonic')
   expect(markup).toContain('Persistent damage is negated')
+  expect(markup).toContain('Critical hit: persistent fire negated by Merciful.')
+})
+
+it('shows grade-specific critical effects and conditional upgrade benefits on unarmed attacks', () => {
+  const upgrades = ['Fear Projector (Tactical)', 'Entropic Destabilizer (Tactical)', 'Quicklock'].map(name => ({
+    ...content('item', name, { item_subcategory: 'Weapon Upgrades' }, 8), systems: ['sf2e' as const],
+  }))
+  const c: Character = { ...base, systems: ['sf2e'], handwraps: {
+    kind: 'hardlight', grade: 'Paragon', potency: 0, striking: 0, runes: [], upgrades: upgrades.map(upgrade => upgrade.id),
+  } }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={upgrades} save={() => {}} displayOnly />)
+  expect(markup).toContain('1d4 void')
+  expect(markup).toContain('Critical hit: frightened 2.')
+  expect(markup).toContain('4d4 persistent void')
+  expect(markup).toContain('Void ignores resistance and immunity.')
+  expect(markup).toContain('the extra action can only Strike with this weapon')
+  const commercial = upgrades.map(upgrade => ({ ...upgrade, name: upgrade.name.replace('(Tactical)', '(Commercial)') }))
+  const commercialMarkup = renderToStaticMarkup(<WeaponList c={c} entries={commercial} save={() => {}} displayOnly />)
+  expect(commercialMarkup).toContain('Critical hit: frightened 1.')
+  expect(commercialMarkup).toContain('2d4 persistent void')
+  expect(commercialMarkup).not.toContain('Void ignores resistance and immunity.')
+})
+
+it('shows sight bonuses only as conditional Perception notes while wielded', () => {
+  const sight = { ...content('item', 'Truesight Sight (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 13),
+    systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], handwraps: {
+    kind: 'hardlight', grade: 'Superior', potency: 0, striking: 0, runes: [], upgrades: [sight.id],
+  } }
+  const without = { ...c, handwraps: undefined }
+  expect(defenseSummary(c, [sight]).perception).toBe(defenseSummary(without, [sight]).perception)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[sight]} save={() => {}} part="offense" />)
+  expect(markup).toContain('+2 item bonus to visual Seek checks through the sight')
+  expect(renderToStaticMarkup(<SkillsSection c={without} entries={[sight]} save={() => {}} part="offense" />))
+    .not.toContain('Truesight Sight (Tactical) note')
 })
 
 it('applies Starfinder armor penalties and Thresher strength relief to skills and speeds', () => {

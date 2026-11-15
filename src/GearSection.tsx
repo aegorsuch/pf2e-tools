@@ -18,6 +18,7 @@ import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, 
 import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
+import { weaponUpgradeSummary } from './weaponUpgrades'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
@@ -71,6 +72,17 @@ const upgradeDamageSummary = (attack: ReturnType<typeof weaponAttack>) => {
     const value = damage[base]
     return value ? [{ source: upgrade.name, value, note: upgrade.description || 'Sync official content for upgrade rules.' }] : []
   })
+}
+
+function AttackUpgrades({ attack }: { attack: ReturnType<typeof weaponAttack> }) {
+  if (!attack.upgrades.length) return null
+  const merciful = attack.upgrades.some(upgrade => upgrade.name === 'Merciful')
+  return <div className="col">{attack.upgrades.map(upgrade => {
+    const summary = weaponUpgradeSummary(upgrade, attack.item, merciful)
+    return <small key={upgrade.id}>
+      <EntryDescription name={upgrade.name} entry={upgrade} />{summary && `: ${summary}`}
+    </small>
+  })}</div>
 }
 
 const weaponCapacity = (entry?: ContentEntry) => {
@@ -373,6 +385,7 @@ function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
   return <div className="gear-runes">
     {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
       kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
+    {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined ? <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>
       : <small>Upgrade slots: {upgrades.length}/{limit}. Check item rules for upgrade effects.</small>}
     {limit !== undefined && upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
@@ -838,8 +851,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           </Fragment>)}</small>
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
-          {a.upgrades.length > 0 && <div className="gear-runes">Upgrades: {a.upgrades.map(upgrade =>
-            <EntryDescription key={upgrade.id} name={upgrade.name} entry={upgrade} />)}</div>}
+          <AttackUpgrades attack={a} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
           {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
@@ -919,8 +931,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </div>
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
-            {a.upgrades.length > 0 && <div className="gear-runes">Upgrades: {a.upgrades.map(upgrade =>
-              <EntryDescription key={upgrade.id} name={upgrade.name} entry={upgrade} />)}</div>}
+            <AttackUpgrades attack={a} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
               {!a.upgrades.some(upgrade => upgrade.name === 'Merciful') && <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>}

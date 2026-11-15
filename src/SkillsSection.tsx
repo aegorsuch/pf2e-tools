@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -157,6 +157,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     save({ skillIncreases: next, rankOverrides: overrides })
   }
   const filigree = clanDaggerFiligreeBonus(c, entries)
+  const sights = [...new Map(ownedWeapons(c, entries).filter(weapon => weaponEquipped(c, entries, weapon))
+    .flatMap(weapon => installedWeaponUpgrades(c, entries, weapon))
+    .filter(upgrade => /^(?:Truesight Sight|Sniper's Scope)(?:\s*\(|$)/i.test(upgrade.name))
+    .map(upgrade => [upgrade.id, upgrade])).values()]
   const renderRows = (rows: typeof stats) => rows.map((s) => {
     const rank = ranks[s.name] ?? 0
     const permanentRank = permanentRanks[s.name] ?? 0
@@ -202,6 +206,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
+          {s.name === 'Perception' && sights.map(sight => {
+            const grade = /\(([^)]+)\)$/.exec(sight.name)?.[1]?.toLowerCase()
+            const bonus = sight.name.startsWith('Truesight') ? grade === 'tactical' ? 2 : 1
+              : grade === 'superior' ? 3 : grade === 'advanced' ? 2 : grade === 'tactical' ? 1 : 0
+            return bonus > 0 && <SourceNote key={sight.id} inlineSource={false} source={sight.name}
+              note={`+${bonus} item bonus to visual Seek checks through the sight; item bonuses do not stack.`} />
+          })}
           {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`+${filigree} item bonus to Coerce.`} />}
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
           {downloaded?.skill === s.name && downloaded.rank > permanentRank && <SourceNote inlineSource={false}
