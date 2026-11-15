@@ -56,7 +56,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
   const extraBackgroundSkills = editingSkills ? backgroundSkills(freeHeartBackground(c, entries)) : []
   const ranks = ranksAt(c, entries)
-  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
+  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
@@ -140,7 +140,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const rank = ranks[s.name] ?? 0
     const permanentRank = ranks[s.name] ?? 0
     const baseRank = baseRanks[s.name] ?? 0
-    const abil = abilityMod(c.abilities[s.ability])
+    const medicalTraining = s.name === 'Medicine' && activeFeatsNamed(c, "Officer's Medical Training").length > 0
+    const ability = medicalTraining && c.abilities.int > c.abilities.wis ? 'int' : s.ability
+    const abil = abilityMod(c.abilities[ability])
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const warmaskBonus = warmaskSource(c)?.skill === s.name ? 1 : 0
@@ -160,10 +162,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} {editingSkills && c.lores.some(lore => lore.name === s.name)
           && <button type="button" className="lore-remove" aria-label={`Remove ${s.name}`} onClick={() => confirmRemoval(`"${s.name}"`, () => {
-            const stillGranted = [...featLores(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills].includes(s.name)
             const skillIncreases = Object.fromEntries(Object.entries(c.skillIncreases ?? {}).filter(([, skill]) => skill !== s.name))
             const rankOverrides = { ...c.rankOverrides }
             delete rankOverrides[s.name]
+            const withoutLore = { ...c, lores: c.lores.filter(lore => lore.name !== s.name),
+              skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides }
+            const stillGranted = [...featLores(c, entries), ...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills].includes(s.name)
+              || activeFeatsNamed(c, "Officer's Medical Training").some(feat => feat.choice === s.name)
+                && (ranksAt(withoutLore, entries)[s.name] ?? 0) > 0
             save({ lores: c.lores.filter(lore => lore.name !== s.name),
               ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides } : {}) })
           })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
@@ -174,6 +180,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`+${filigree} item bonus to Coerce.`} />}
+          {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
@@ -211,7 +218,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             )
           })}
         </span>
-        <span className="skill-part"><small>{ABILITY_LABEL[s.ability]}</small>{signed(abil)}</span>
+        <span className="skill-part"><small>{ABILITY_LABEL[ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}
           {improvised && <SourceNote inlineSource={false} source={improvised.source} note={improvised.trainedActions
             ? 'Untrained skill proficiency improved. You can also attempt trained-only skill actions; your proficiency rank remains untrained.'

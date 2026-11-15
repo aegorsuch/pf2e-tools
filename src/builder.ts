@@ -849,6 +849,14 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return statDefs(c).filter(stat => stat.kind === 'skill' && !(ranks[stat.name] ?? 0))
       .map(stat => stat.name).sort((a, b) => a.localeCompare(b))
   }
+  if (name === "Officer's Medical Training" && index >= 0) {
+    const ranks = ancestrySkillBefore(c, entries, index)
+    if (!(ranks.Medicine ?? 0)) return undefined
+    const savedLore = c.feats[index].choice
+    return [...new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name),
+      ...c.lores.map(lore => lore.name), ...(savedLore && /.+\s+lore$/i.test(savedLore) ? [savedLore] : [])])]
+      .filter(skill => !(ranks[skill] ?? 0)).sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Unconventional Weaponry') {
     const level = Number(slotKey.split(':')[1]) || (index >= 0 ? featTakenLevel(c.feats[index]) : c.level)
     const atLevel = { ...c, level, feats: c.feats.filter((feat, i) => i !== index && featTakenLevel(feat) <= level) }
@@ -1647,7 +1655,7 @@ export function ancestralSkills(c: Character, entries: ContentEntry[]) {
   return statDefs(c).filter(stat => stat.kind === 'skill' && skills.has(stat.name)).map(stat => stat.name)
 }
 
-const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye"])
+const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training"])
 
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -1680,6 +1688,9 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     } else if (feat.name === 'Eye for Treasure') {
       const skill = (ranks.Crafting ?? 0) > 0 ? feat.choice : 'Crafting'
       if (skill && skills.has(skill) && !(ranks[skill] ?? 0)) trained.push(skill)
+    } else if (feat.name === "Officer's Medical Training") {
+      if (!(ranks.Medicine ?? 0)) trained.push('Medicine')
+      else if (feat.choice && featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) trained.push(feat.choice)
     } else if (feat.name === "Stonemason's Eye" && !(ranks.Crafting ?? 0)) trained.push('Crafting')
   })
   if (activeFeatsNamed(c, 'Beast Trainer').length) trained.push('Nature')
@@ -1787,6 +1798,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     grants.push({ name: 'Forager', source: 'Rugged Survivalist', level: Math.min(...activeFeatsNamed(c, 'Rugged Survivalist').map(featTakenLevel)) })
   }
   const sourceLevel = (name: string) => Math.min(...activeFeatsNamed(c, name).map(featTakenLevel))
+  if (activeFeatsNamed(c, "Officer's Medical Training").length) {
+    grants.push({ name: 'Battle Medicine', source: "Officer's Medical Training", level: sourceLevel("Officer's Medical Training") })
+  }
   const eyeForTreasure = activeFeatsNamed(c, 'Eye for Treasure')
   if (eyeForTreasure.length) {
     grants.push({ name: "Crafter's Appraisal", source: 'Eye for Treasure', level: sourceLevel('Eye for Treasure') })
@@ -1883,6 +1897,8 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
   const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
+  if (loreUp) lores.push(...activeFeatsNamed({ ...c, level: Math.min(c.level, beforeLevel - 1) }, "Officer's Medical Training")
+    .flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) ? [feat.choice] : []))
   if (loreUp) lores.push(...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries))
     .filter(name => /lore$/i.test(name)))
   const additionalLores = featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)

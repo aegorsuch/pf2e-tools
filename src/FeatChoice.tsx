@@ -228,11 +228,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </SearchableSelect>
   }
   if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper', 'Eye for Treasure',
-    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan'].includes(feat.name)) {
+    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan', "Officer's Medical Training"].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
     const label = feat.name === 'Adopted Ancestry' ? 'ancestry'
-      : feat.name === 'Eye for Treasure' ? 'replacement skill'
+      : feat.name === 'Eye for Treasure' || feat.name === "Officer's Medical Training" ? 'replacement skill'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     const choiceControl = <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
@@ -248,6 +248,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {noteId && <small id={noteId}>Ancestry access and physiological requirements need GM approval.</small>}
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
         && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}
+      {feat.name === "Officer's Medical Training" && <small>Add a Lore specialty in Skills before choosing it here.</small>}
     </span>
     return feat.name === 'Adopted Ancestry'
       ? <details className="feat-choice-details">

@@ -13,6 +13,14 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it("shows Battle Medicine granted by Officer's Medical Training", () => {
+  const c: Character = { ...emptyRanger(), className: 'Commander', level: 1,
+    feats: [{ name: "Officer's Medical Training", type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['skill']} save={() => {}} />)
+  expect(markup).toContain('Battle Medicine')
+  expect(markup).toContain('Officer&#x27;s Medical Training')
+})
+
 it('hides removal for an automatic Order Explorer feat but preserves alternative choices', () => {
   const fire: ContentEntry = { id: 'fire-lung', name: 'Fire Lung', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['Druid'], description: '', data: { prerequisite: 'flame order' }, effects: [], updatedAt: 0 }

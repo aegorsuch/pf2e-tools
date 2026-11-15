@@ -26,6 +26,26 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it("shows Officer's Medical Training using the better Medicine ability and its replacement skill", () => {
+  const background: ContentEntry = { ...feyBound, name: 'Medic', data: { skill: 'Medicine' } }
+  const c: Character = { ...base, background: 'Medic', abilities: { ...base.abilities, int: 18, wis: 12 },
+    feats: [{ name: "Officer's Medical Training", type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Sailing Lore' }],
+    lores: [{ name: 'Sailing Lore', rank: 0 }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[background, ranger]} save={() => {}} />)
+  expect(markup).toContain('Sailing Lore')
+  expect(markup).toContain('You can use Intelligence instead of Wisdom for Medicine checks.')
+  expect(markup).toMatch(/skill-name">Medicine <b>\+7/)
+  expect(ranksAt(c, [background, ranger])['Sailing Lore']).toBe(1)
+  const choice = renderToStaticMarkup(<FeatChoice c={c} entries={[background, ranger]} save={() => {}} index={0} />)
+  expect(choice).toContain('replacement skill')
+  expect(choice).toContain('Sailing Lore')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, lores: [] }} entries={[background, ranger]} save={() => {}} />))
+    .toContain('Sailing Lore')
+  const betterWisdom = { ...c, abilities: { ...c.abilities, int: 10, wis: 18 } }
+  expect(renderToStaticMarkup(<SkillsSection c={betterWisdom} entries={[background, ranger]} save={() => {}} />))
+    .toMatch(/skill-name">Medicine <b>\+7/)
+})
+
 it('shows Pain Tolerance resistance and conditional save bonus without increasing ordinary saves', () => {
   const c: Character = { ...base, level: 7, feats: [{ name: 'Pain Tolerance', type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)

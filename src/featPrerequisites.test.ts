@@ -53,6 +53,34 @@ it('grants trained Crafting from Munitions Crafter without lowering existing pro
   expect(ranksAt({ ...c, level: 0 }, []).Crafting).toBeUndefined()
 })
 
+it("grants Officer's Medical Training skills and Battle Medicine at the feat's level", () => {
+  const name = "Officer's Medical Training"
+  const c: Character = { ...base, className: 'Commander', level: 1, feats: [selected(name)] }
+  expect(ranksAt(c, []).Medicine).toBe(1)
+  expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Battle Medicine', source: name, level: 1 })
+  expect(check('Battle Medicine', c)).toEqual({ missing: [], manual: [] })
+  expect(ranksAt({ ...c, level: 0 }, []).Medicine ?? 0).toBe(0)
+  expect(automaticFeatGrants({ ...c, level: 0 }, []).some(grant => grant.name === 'Battle Medicine')).toBe(false)
+
+  const healer = entry('background', 'Healer', { skill: 'Medicine' })
+  const already = { ...c, background: 'Healer', feats: [{ ...c.feats[0], choice: 'Society' }] }
+  expect(featChoiceOptions(name, already, [healer], 'class:1:0', 0)).toContain('Society')
+  expect(featChoiceOptions(name, already, [healer], 'class:1:0', 0)).not.toContain('Medicine')
+  expect(ranksAt(already, [healer])).toMatchObject({ Medicine: 1, Society: 1 })
+  expect(ranksAt({ ...already, feats: [{ ...already.feats[0], choice: 'Medicine' }] }, [healer]).Society ?? 0).toBe(0)
+  expect(ranksAt({ ...already, feats: [] }, [healer]).Society ?? 0).toBe(0)
+
+  const lore = { ...already, lores: [{ name: 'Sailing Lore', rank: 0 }], feats: [{ ...already.feats[0], choice: 'Sailing Lore' }] }
+  expect(featChoiceOptions(name, lore, [healer], 'class:1:0', 0)).toContain('Sailing Lore')
+  expect(ranksAt(lore, [healer])['Sailing Lore']).toBe(1)
+  expect(ranksAt({ ...lore, lores: [] }, [healer])['Sailing Lore']).toBe(1)
+  const previous = getSettings()
+  try {
+    updateSettings({ autoLores: true, autoClassSkills: false })
+    expect(ranksAt({ ...lore, level: 7, lores: [] }, [healer])['Sailing Lore']).toBe(3)
+  } finally { updateSettings(previous) }
+})
+
 it('grants Shield Block from matching class features or the Warpriest doctrine', () => {
   const classes = ['Champion', 'Fighter', 'Druid', 'Inventor', 'Exemplar', 'Commander', 'Guardian', 'Runesmith']
   const features = classes.map(name => ({ ...entry('classFeature', 'Shield Block', { class: name }), id: `shield:${name}` }))
