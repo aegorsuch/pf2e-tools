@@ -18,7 +18,12 @@ export function CheekPouches({ c, entries, save }: SectionProps) {
     ...weapons.filter(weapon => !weapon.attachedTo && (weaponHands(entries, weapon) ?? 0) > 0
       && !equipment.some(item => weapon.id === `eq-${item.name}`))
       .map(weapon => ({ key: `w:${weapon.id}`, name: weapon.name, available: weapon.cheekStored ? 0 : 1 })),
-  ].filter(item => item.available > 0)
+  ].filter(item => item.available > 0).sort((a, b) => a.name.localeCompare(b.name))
+  const stored = [
+    ...equipment.map((item, index) => ({ kind: 'equipment' as const, item, index }))
+      .filter(({ item }) => (item.cheekQty ?? 0) > 0),
+    ...weapons.filter(weapon => weapon.cheekStored).map(item => ({ kind: 'weapon' as const, item })),
+  ].sort((a, b) => a.item.name.localeCompare(b.item.name))
   const add = () => {
     if (!status.hasPouches || !fits) return
     const result = storeCheekItem(c, entries, picked, prepare)
@@ -39,18 +44,21 @@ export function CheekPouches({ c, entries, save }: SectionProps) {
       + (activeFeatsNamed(c, 'Cheek Holster').length ? ' A prepared firearm can be drawn and fired with one action.' : '')
       + (activeFeatsNamed(c, 'Explosive Surprise').length ? ' A prepared grenade can be drawn and thrown with one action without a free hand.' : '')} /></h4>
     <ul>
-      {equipment.map((item, index) => (item.cheekQty ?? 0) > 0 && <li key={`e:${index}`}>
-        {item.name} ×{item.cheekQty}{(item.cheekPreparedQty ?? 0) > 0 && ` (${item.cheekPreparedQty} prepared)`}{' '}
-        {(item.cheekQty ?? 0) > (item.cheekPreparedQty ?? 0) && <button type="button" onClick={() => save({ equipment: equipment.map((existing, i) => i === index
-          ? { ...existing, cheekQty: Math.max(0, (existing.cheekQty ?? 0) - 1) } : existing) })}>Retrieve</button>}
-        {(item.cheekPreparedQty ?? 0) > 0 && <button type="button" onClick={() => save({ equipment: equipment.map((existing, i) => i === index
-          ? { ...existing, cheekQty: Math.max(0, (existing.cheekQty ?? 0) - 1),
-            cheekPreparedQty: Math.max(0, (existing.cheekPreparedQty ?? 0) - 1) } : existing) })}>Retrieve prepared</button>}
-      </li>)}
-      {weapons.filter(weapon => weapon.cheekStored).map(weapon => <li key={weapon.id}>{weapon.name}{weapon.cheekHolstered && ' (prepared)'}{' '}
-        <button type="button" onClick={() => save({ weapons: weapons.map(existing => existing.id === weapon.id
-          ? { ...existing, cheekStored: false, cheekHolstered: false } : existing) })}>Retrieve</button>
-      </li>)}
+      {stored.map(row => {
+        if (row.kind === 'weapon') return <li key={row.item.id}>{row.item.name}{row.item.cheekHolstered && ' (prepared)'}{' '}
+          <button type="button" onClick={() => save({ weapons: weapons.map(existing => existing.id === row.item.id
+            ? { ...existing, cheekStored: false, cheekHolstered: false } : existing) })}>Retrieve</button>
+        </li>
+        const { item, index } = row
+        return <li key={`e:${index}`}>
+          {item.name} ×{item.cheekQty}{(item.cheekPreparedQty ?? 0) > 0 && ` (${item.cheekPreparedQty} prepared)`}{' '}
+          {(item.cheekQty ?? 0) > (item.cheekPreparedQty ?? 0) && <button type="button" onClick={() => save({ equipment: equipment.map((existing, i) => i === index
+            ? { ...existing, cheekQty: Math.max(0, (existing.cheekQty ?? 0) - 1) } : existing) })}>Retrieve</button>}
+          {(item.cheekPreparedQty ?? 0) > 0 && <button type="button" onClick={() => save({ equipment: equipment.map((existing, i) => i === index
+            ? { ...existing, cheekQty: Math.max(0, (existing.cheekQty ?? 0) - 1),
+              cheekPreparedQty: Math.max(0, (existing.cheekPreparedQty ?? 0) - 1) } : existing) })}>Retrieve prepared</button>}
+        </li>
+      })}
     </ul>
     {(status.missingBulk || status.invalid || status.overLimit || !status.hasPouches) && <small role="status">
       {!status.hasPouches ? 'Cheek Pouches unavailable; retrieve stored items.'

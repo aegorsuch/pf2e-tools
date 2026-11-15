@@ -64,6 +64,17 @@ it('stows weapons and prevents legacy pouch weapons from counting as held', () =
   expect(cheekPouchStatus({ ...legacy, feats: [] }, entries).hasPouches).toBe(false)
 })
 
+it('alphabetizes stored equipment and weapons together without changing their saved indexes', () => {
+  const c: Character = { ...base,
+    equipment: [{ name: 'Tool', qty: 1, cheekQty: 1 }, { name: 'Grenade', qty: 2 }],
+    weapons: [{ id: 'gun', name: 'Gun', potency: 0, striking: 0, runes: [], cheekStored: true }],
+  }
+  const markup = renderToStaticMarkup(<CheekPouches c={c} entries={entries} save={() => {}} />)
+  const list = markup.split('<ul>')[1].split('</ul>')[0]
+  expect(list.indexOf('Gun')).toBeLessThan(list.indexOf('Tool'))
+  expect(markup).toContain('value="e:1:Grenade"')
+})
+
 it('prepares eligible grenades and firearms and applies Cheek Holster size limits', () => {
   const c: Character = { ...base, feats: [...base.feats,
     { name: 'Explosive Surprise', type: 'Ancestry Feat', level: 13 },

@@ -163,11 +163,12 @@ it('shows the paired Bracelet of Empathy while a companion wears its collar', ()
     id: 'empathy-collar', name: 'Collar of Empathy', kind: 'item', systems: ['pf2e'], source: 'official',
     level: 9, traits: ['Companion'], description: '', data: { item_subcategory: 'Companion Items' }, effects: [], updatedAt: 0,
   }
-  content.entries = [collar]
+  const worn = (name: string): ContentEntry => ({ ...collar, id: name, name, traits: [], data: { item_category: 'Worn Items' } })
+  content.entries = [collar, worn('Azure Boots'), worn('Zephyr Cloak')]
   const c: Character = {
     id: 'empathy', systems: ['pf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    feats: [], equipment: [{ name: 'Zephyr Cloak', qty: 1 }, { name: 'Azure Boots', qty: 1 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     companions: [{ id: 'cat', type: 'Cat', name: 'Buddy', equipment: {
       Collar: { entryId: collar.id, name: collar.name, qty: 1 },
     } }],
@@ -175,8 +176,12 @@ it('shows the paired Bracelet of Empathy while a companion wears its collar', ()
   try {
     const equipment = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
       .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
-    expect(equipment).toContain('Bracelet of Empathy')
-    expect(equipment).toContain('paired with Buddy&#x27;s Collar of Empathy')
+    const wornItems = equipment.split('<h4>Worn Items</h4>')[1]
+    expect(wornItems).toContain('Bracelet of Empathy')
+    expect(wornItems.indexOf('Azure Boots')).toBeLessThan(wornItems.indexOf('Bracelet of Empathy'))
+    expect(wornItems.indexOf('Bracelet of Empathy')).toBeLessThan(wornItems.indexOf('Zephyr Cloak'))
+    expect(equipment).not.toContain('paired with')
+    expect(equipment).not.toContain('Paired companion equipment')
     const withoutCollar = { ...c, companions: [{ ...c.companions![0], equipment: undefined }] }
     expect(renderToStaticMarkup(<CharacterBuilder character={withoutCollar} onClose={() => {}} />))
       .not.toContain('Bracelet of Empathy')
@@ -284,20 +289,24 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     { ...item('Black Adder Venom', 'Alchemical Items'), traits: ['Poison', 'Injury'] }]
   const c: Character = { id: 'equipment-order', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [{ name: 'Poison Weapon', type: 'Class Feat', level: 1 }],
+    feats: ['Poison Weapon', 'Cheek Pouches', 'Gadget Specialist', 'Grenade Specialist', 'Munitions Crafter']
+      .map(name => ({ name, type: 'Class Feat', level: 1 })),
     equipment: ['Spider Lily', 'Rope', 'Caligni Eyes', 'Arrows', 'Bolts', 'Bullets', 'Black Adder Venom'].map(name => ({ name, qty: 1 })),
     lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
-    expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Bolts', 'Bullets', 'Grafts',
-      'Handwraps', 'Other equipment', 'Poisons', 'Shield', 'Tattoos', 'Weapons'])
+    expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Bolts', 'Bullets', 'Gadgets', 'Grafts',
+      'Grenade Specialist', 'Handwraps', 'Munitions', 'Other equipment', 'Poisons', 'Shield', 'Tattoos', 'Weapons'])
+    expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
+    expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
     expect(equipment.slice(equipment.indexOf('<h4>Tattoos</h4>'), equipment.indexOf('<h4>Weapons</h4>'))).toContain('Spider Lily')
     const poisons = equipment.slice(equipment.indexOf('<h4>Poisons</h4>'), equipment.indexOf('<h4>Shield</h4>'))
     expect(poisons).toContain('Black Adder Venom')
     expect(poisons).toContain('Simple injury poisons')
+    expect(poisons.indexOf('Black Adder Venom')).toBeLessThan(poisons.indexOf('Simple injury poisons'))
     expect(poisons).toContain('1d4')
     const withoutFeat = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [] }} onClose={() => {}} />)
     const poisonItems = withoutFeat.slice(withoutFeat.indexOf('<h4>Poisons</h4>'), withoutFeat.indexOf('<h4>Shield</h4>'))

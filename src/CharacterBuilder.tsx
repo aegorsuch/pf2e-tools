@@ -140,16 +140,26 @@ function EquipmentSearch({ c, entries, save }: SectionProps) {
   </>
 }
 
-type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Poisons' | 'Tattoos'
+type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Poisons' | 'Tattoos' | 'Worn Items'
 type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
 
-function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedComm }: Pick<SectionProps, 'c' | 'save'> & { group: EquipmentGroupName; rows: EquipmentRow[]; showHeading?: boolean; integratedComm?: ContentEntry | null }) {
-  if (!rows.length && integratedComm === undefined) return null
-  return <div>{showHeading && <h4>{group}</h4>}<ul>
-    {integratedComm !== undefined && <li><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
-      descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
-      {' '}<small>(Cyborg; integrated, thought-operated)</small></li>}
-    {rows.map(({ item, index, entry }) => <li key={`${item.name}-${index}`}>
+function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracelets = [], simplePoisons = false }: SectionProps & { group: EquipmentGroupName; rows: EquipmentRow[]; integratedComm?: ContentEntry | null; bracelets?: string[]; simplePoisons?: boolean }) {
+  const displayed = [
+    ...rows.map(row => ({ kind: 'item' as const, name: row.item.name, row })),
+    ...(integratedComm !== undefined ? [{ kind: 'comm' as const, name: 'Comm Unit' }] : []),
+    ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
+    ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
+  ].sort((a, b) => a.name.localeCompare(b.name))
+  if (!displayed.length) return null
+  return <div><h4>{group}</h4><ul>
+    {displayed.map(display => {
+      if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
+        descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
+        {' '}<small>(Cyborg; integrated, thought-operated)</small></li>
+      if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><b>Bracelet of Empathy</b></li>
+      if (display.kind === 'simple-poisons') return <li key="simple-poisons"><SimplePoisons c={c} entries={entries} save={save} /></li>
+      const { item, index, entry } = display.row
+      return <li key={`${item.name}-${index}`}>
       {item.name} <ActionIcon entry={entry} /> x<input type="number" min={1} style={{ width: '4em' }} value={item.qty}
         onChange={event => save({ equipment: c.equipment.map((existing, i) => {
           if (i !== index) return existing
@@ -174,7 +184,8 @@ function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedCo
         <small>Mods apply to one grenade.</small>
         <GrenadeMods c={c} grenade={entry} label={item.name} itemKey={`equipment:${item.name}`} save={save} />
       </>}
-    </li>)}
+      </li>
+    })}
   </ul></div>
 }
 
@@ -301,13 +312,14 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       if (entry.kind === 'item' && !items.has(entry.name)) items.set(entry.name, entry)
       else if ((entry.kind === 'weapon' || entry.kind === 'armor') && !fallback.has(entry.name)) fallback.set(entry.name, entry)
     }
-    const groups: Record<EquipmentGroupName, EquipmentRow[]> = { Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [] }
+    const groups: Record<EquipmentGroupName, EquipmentRow[]> = { Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [], 'Worn Items': [] }
     c.equipment.forEach((item, index) => {
       const entry = items.get(item.name) ?? fallback.get(item.name)
       const category = String(entry?.data.item_category ?? '').toLowerCase()
       const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(item.name)?.[0].toLowerCase()
       const group = category === 'grafts' ? 'Grafts' : category === 'tattoos' ? 'Tattoos'
         : entry?.kind === 'item' && entry.traits.some(trait => trait.toLowerCase() === 'poison') ? 'Poisons'
+        : category === 'worn items' ? 'Worn Items'
         : ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
       groups[group].push({ item, index, entry })
     })
@@ -326,7 +338,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const weaponCount = ownedWeapons(c, entries).length
   const pairedEmpathyBracelets = (c.companions ?? []).flatMap(companion =>
     companion.equipment?.Collar?.name === 'Collar of Empathy'
-      ? [{ companionId: companion.id, companionName: companion.name || companion.type }]
+      ? [companion.id]
       : [])
   const classSlots = plannedSlots(c).filter(slot => slot.category === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
@@ -545,13 +557,6 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
-          <CheekPouches {...section} />
-          {pairedEmpathyBracelets.length > 0 && <div>
-            <h4>Paired companion equipment</h4>
-            <ul>{pairedEmpathyBracelets.map(({ companionId, companionName }) => <li key={companionId}>
-              <b>Bracelet of Empathy</b> <small>(paired with {companionName}'s Collar of Empathy)</small>
-            </li>)}</ul>
-          </div>}
           <ArmorProficiency c={c} entries={entries} />
           <h4>Armor</h4>
           <ArmorList {...section} part="armor" />
@@ -559,25 +564,24 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <Augmentations {...section} />
           <EquipmentGroup {...section} group="Bolts" rows={equipmentGroups.Bolts} />
           <EquipmentGroup {...section} group="Bullets" rows={equipmentGroups.Bullets} />
+          <CheekPouches {...section} />
           <Gadgets {...section} />
-          <GrenadeSpecialist {...section} />
-          <MunitionsCrafter {...section} />
           <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
+          <GrenadeSpecialist {...section} />
           <h4>Handwraps</h4>
           <HandwrapsGear {...section} />
+          <MunitionsCrafter {...section} />
           <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']}
             integratedComm={hasCyborgHeritage(c) ? entries.find(entry => entry.kind === 'item'
               && entry.name === 'Comm Unit' && entry.systems.includes('sf2e')) ?? null : undefined} />
-          {(equipmentGroups.Poisons.length > 0 || activeFeatsNamed(c, 'Poison Weapon').length > 0) && <>
-            <h4>Poisons</h4>
-            <SimplePoisons {...section} />
-            <EquipmentGroup {...section} group="Poisons" rows={equipmentGroups.Poisons} showHeading={false} />
-          </>}
+          <EquipmentGroup {...section} group="Poisons" rows={equipmentGroups.Poisons}
+            simplePoisons={activeFeatsNamed(c, 'Poison Weapon').length > 0} />
           <h4>Shield</h4>
           <ArmorList {...section} part="shield" />
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
+          <EquipmentGroup {...section} group="Worn Items" rows={equipmentGroups['Worn Items']} bracelets={pairedEmpathyBracelets} />
           <EquipmentSearch {...section} />
         </div>
       </DeferredDetails>
