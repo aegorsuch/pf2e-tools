@@ -80,6 +80,30 @@ it('shows Ysoki conditional bonuses without applying them to ordinary totals', (
   expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
 })
 
+it('displays Skill Download temporarily without changing permanent proficiency', () => {
+  const c: Character = { ...base, level: 17, feats: [{ name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toContain('Skill Download skill')
+  expect(markup).toContain('Temporary proficiency until daily preparations')
+  expect(markup).toMatch(/skill-name">Acrobatics <b>\+23/)
+  expect(ranksAt(c, [ranger]).Acrobatics ?? 0).toBe(0)
+  expect(builder.skillDownload({ ...c, level: 9 }, [ranger])).toEqual({ skill: 'Acrobatics', rank: 2 })
+  expect(builder.skillDownload({ ...c, level: 1 }, [ranger])).toEqual({ skill: 'Acrobatics', rank: 1 })
+  expect(builder.skillDownload({ ...c, feats: [] }, [ranger])).toBeUndefined()
+})
+
+it('allows permanent training in a downloaded skill without treating temporary rank as an increase', () => {
+  let c: Character = { ...base, level: 9, skillPicks: [], feats: [
+    { name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' },
+  ] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(findButtons(tree()).get('Acrobatics Expert')!.disabled).toBe(true)
+  ;(findButtons(tree()).get('Acrobatics Trained')!.onClick as () => void)()
+  expect(c.skillPicks).toContain('Acrobatics')
+  expect(ranksAt(c, [ranger]).Acrobatics).toBe(1)
+  expect(findButtons(tree()).get('Acrobatics Expert')!.disabled).toBe(false)
+})
+
 it('shows subclass-granted Lore as a trained skill without an Additional Lore feat', () => {
   const c: Character = { ...base, className: 'Investigator', subclass: 'Empiricism',
     subclassSkillChoices: { 'Investigator:Empiricism': 'Lore', 'Investigator:Empiricism:lore': 'Sailing Lore' } }

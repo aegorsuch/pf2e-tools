@@ -374,9 +374,15 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
             && <Info label="Test-Subject Ysoki">
               <a href="https://2e.aonsrd.com/heritages/141-test-subject-ysoki" target="_blank" rel="noreferrer">Heritage rules</a>
             </Info>}
-          {testSubjectAdaptation(c) === 'Cybernetic Augmentation' && <Info label="Tech">
+          {testSubjectAdaptation(c) === 'Cybernetic Augmentation' && !activeFeatsNamed(c, 'Biotech Os Upgrade').length && <Info label="Tech">
               <a href="https://2e.aonsrd.com/traits/179-tech" target="_blank" rel="noreferrer">Tech trait</a>
             </Info>}
+          {!!activeFeatsNamed(c, 'Biotech Os Upgrade').length && <Info label="Biotech">
+            <a href="https://2e.aonsrd.com/traits/216-biotech" target="_blank" rel="noreferrer">Biotech trait</a>
+          </Info>}
+          {!!activeFeatsNamed(c, 'Eva Module').length && <Info label="Cosmic">
+            <a href="https://2e.aonsrd.com/traits/52-cosmic" target="_blank" rel="noreferrer">Cosmic trait</a>
+          </Info>}
           <PioneerHumanOptions {...section} />
           <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}

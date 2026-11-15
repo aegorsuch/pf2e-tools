@@ -26,6 +26,23 @@ it('shows Test-Subject adaptation options only for the matching heritage', () =>
     .not.toContain('aria-label="Test-Subject adaptation"')
 })
 
+it('shows cosmic and biotech traits from Cyborg upgrades instead of tech', () => {
+  content.entries = []
+  const c: Character = { id: 'cyborg', systems: ['sf2e'], name: 'Test', level: 13, ancestry: 'Ysoki',
+    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Eva Module', type: 'Ancestry Feat', level: 1 },
+      { name: 'Biotech Os Upgrade', type: 'Ancestry Feat', level: 9 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('>Biotech trait</a>')
+  expect(markup).toContain('>Cosmic trait</a>')
+  expect(markup).not.toContain('>Tech trait</a>')
+  const original = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [] }} onClose={() => {}} />)
+  expect(original).toContain('>Tech trait</a>')
+  expect(original).not.toContain('>Biotech trait</a>')
+})
+
 it("keeps Officer's Medical Training grant text out of the Skill Feats summary", () => {
   content.entries = []
   const c: Character = { id: 'officer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Commander',

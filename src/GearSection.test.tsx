@@ -128,6 +128,37 @@ it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
+it('supports additional arm pairs and switches which weapons are active', () => {
+  const sword = { ...weapon, name: 'Cyborg Sword', data: { ...weapon.data, hands: 1 } }
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 17, heritage: 'Cyborg',
+    feats: [{ name: 'Additional Arms', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
+      { name: 'Additional Arms', type: 'Ancestry Feat', level: 9, slot: 'ancestry:13:0' }],
+    weapons: [{ id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+      { id: 'three', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 3 }],
+    activeHandPair: 3 }
+  expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(false)
+  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />)
+  expect(markup).toContain('Pair 3')
+  expect(weaponEquipped({ ...c, activeHandPair: 1 }, [sword], c.weapons![0])).toBe(true)
+})
+
+it('keeps weapons in removed arm pairs inactive until reassigned', () => {
+  const sword = { ...weapon, data: { hands: 1 } }
+  let c: Character = { ...character([]), systems: ['sf2e'], activeHandPair: 3, weapons: [
+    { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+    { id: 'lost', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 3 },
+  ] }
+  expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
+  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(false)
+  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  expect(renderToStaticMarkup(tree())).toContain('Pair 3 (unavailable)')
+  const pair = findElement(tree(), e => e.props['aria-label'] === 'Hand pair: Longsword')!
+  ;(pair.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
+  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
+  expect(equippedWeaponHands(c, [sword])).toBe(2)
+})
+
 it('links attached weapons to their firearm and persists selection without extra hands', () => {
   const gun = { ...weapon, name: 'Arbalest', data: { hands: 2, weapon_group: 'Crossbow', weapon_type: 'Ranged' } }
   const sword = { ...weapon, data: { hands: 1 } }

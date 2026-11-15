@@ -38,7 +38,7 @@ export interface OwnedWeapon {
   combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
   handsHeld?: 1 | 2
-  handPair?: 1 | 2
+  handPair?: number
   attachedWeapon?: 'Bayonet' | 'Reinforced Stock'
   attachedTo?: string
   capacityLoaded?: number
@@ -129,7 +129,7 @@ export interface Character {
   subclass?: string
   heritage?: string
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'
-  activeHandPair?: 1 | 2
+  activeHandPair?: number
   ysokiDailyUses?: { contaminate?: boolean; retinalHud?: boolean }
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string

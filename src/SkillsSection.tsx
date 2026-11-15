@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, testSubjectAdaptation, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -56,7 +56,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const klass = editingSkills ? entries.find((e) => e.kind === 'class' && e.name === c.className) : undefined
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
   const extraBackgroundSkills = editingSkills ? backgroundSkills(freeHeartBackground(c, entries)) : []
-  const ranks = ranksAt(c, entries)
+  const permanentRanks = ranksAt(c, entries)
+  const downloaded = skillDownload(c, entries)
+  const ranks = downloaded ? { ...permanentRanks, [downloaded.skill]: Math.max(permanentRanks[downloaded.skill] ?? 0, downloaded.rank) } : permanentRanks
   const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
@@ -124,7 +126,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const canReachRank = (name: string, target: number) => !!assignRank(name, target)
   const setRank = (name: string, r: number) => {
     if (!skillNames.has(name)) return
-    const currentRank = ranks[name] ?? 0
+    const currentRank = permanentRanks[name] ?? 0
     const base = baseRanks[name] ?? 0
     if (r === 1 && currentRank === 0) {
       if (remaining > 0) save({ skillPicks: [...picks, name] })
@@ -146,7 +148,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const filigree = clanDaggerFiligreeBonus(c, entries)
   const renderRows = (rows: typeof stats) => rows.map((s) => {
     const rank = ranks[s.name] ?? 0
-    const permanentRank = ranks[s.name] ?? 0
+    const permanentRank = permanentRanks[s.name] ?? 0
     const baseRank = baseRanks[s.name] ?? 0
     const medicalTraining = s.name === 'Medicine' && activeFeatsNamed(c, "Officer's Medical Training").length > 0
     const ability = medicalTraining && c.abilities.int > c.abilities.wis ? 'int' : s.ability
@@ -189,6 +191,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`+${filigree} item bonus to Coerce.`} />}
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
+          {downloaded?.skill === s.name && downloaded.rank > permanentRank && <SourceNote inlineSource={false}
+            source="Skill Download" note="Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options." />}
           {s.name === 'Fortitude' && !!activeFeatsNamed(c, 'Radiation Resistant').length && <SourceNote inlineSource={false}
             source="Radiation Resistant" note="+1 circumstance bonus to Fortitude saves against radiation effects." />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
@@ -384,6 +388,17 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
+      {!!activeFeatsNamed(c, 'Skill Download').length && <label>Skill Download{' '}
+        <select aria-label="Skill Download skill" value={downloaded?.skill ?? ''} onChange={event => {
+          const choice = event.target.value
+          if (choice && !skillNames.has(choice)) return
+          const index = c.feats.indexOf(activeFeatsNamed(c, 'Skill Download')[0])
+          save({ feats: c.feats.map((feat, i) => i === index ? { ...feat, choice: choice || undefined } : feat) })
+        }}>
+          <option value="">Choose skill</option>
+          {skills.map(skill => <option key={skill.name} value={skill.name}>{skill.name}</option>)}
+        </select>
+      </label>}
       <details className="lore-add">
         <summary aria-label="Add Lore skill" title="Add Lore skill">+</summary>
         <form onSubmit={event => {

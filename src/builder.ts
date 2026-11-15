@@ -2121,6 +2121,16 @@ export function dailyLongevityRanks(c: Character, entries: ContentEntry[]) {
   return ranksAt(c, entries)
 }
 
+export function skillDownload(c: Character, entries: ContentEntry[]) {
+  const feat = activeFeatsNamed(c, 'Skill Download')[0]
+  const skill = feat?.choice
+  const valid = statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
+    || c.lores.some(lore => lore.name === skill) || featLores(c, entries).includes(skill ?? '')
+    || backgroundSkills(byName(entries, 'background', c.background)).includes(skill ?? '')
+    || backgroundSkills(freeHeartBackground(c, entries)).includes(skill ?? '') || autoClassSkills(c, entries).includes(skill ?? '')
+  return skill && valid ? { skill, rank: c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 } : undefined
+}
+
 export function untrainedSkillProficiency(c: Character) {
   const clever = !!activeFeatsNamed(c, 'Clever Improviser').length
   if (!clever && !activeFeatsNamed(c, 'Untrained Improvisation').length) return undefined
@@ -2635,6 +2645,10 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
   return weaponHands(entries, weapon) === 0 || !weapon.stowed
 }
 
+export function handPairCount(c: Character) {
+  return 1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length
+}
+
 export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
@@ -2644,11 +2658,13 @@ export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: Ow
     const source = haftStrikerSource(c, entries)
     return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source) === 2
   }
-  return weaponHeld(c, entries, weapon) && (weaponHands(entries, weapon) === 0
-    || testSubjectAdaptation(c) !== 'Extra Limbs' || (weapon.handPair ?? 1) === (c.activeHandPair ?? 1))
+  const count = handPairCount(c)
+  const savedPair = c.activeHandPair ?? 1
+  const active = Number.isInteger(savedPair) && savedPair >= 1 && savedPair <= count ? savedPair : 1
+  return weaponHeld(c, entries, weapon) && (weaponHands(entries, weapon) === 0 || (weapon.handPair ?? 1) === active)
 }
 
-export function equippedWeaponHands(c: Character, entries: ContentEntry[], pair?: 1 | 2): number {
+export function equippedWeaponHands(c: Character, entries: ContentEntry[], pair?: number): number {
   return ownedWeapons(c, entries).reduce((total, weapon) => {
     if (weapon.attachedTo || weapon.name === HAFT_STRIKER_WEAPON.name
       || (pair ? !weaponHeld(c, entries, weapon) || (weapon.handPair ?? 1) !== pair : !weaponEquipped(c, entries, weapon))) return total
