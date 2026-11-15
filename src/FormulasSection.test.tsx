@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { FormulasSection } from './FormulasSection'
 import { GrenadeSpecialist, MunitionsCrafter } from './GearSection'
@@ -139,6 +140,30 @@ it('shows active grenade modifications with the correct range, radius and damage
   const enduringHtml = renderToStaticMarkup(<GrenadeSpecialist c={enduring} entries={[grenade]} save={() => {}} />)
   expect(enduringHtml).toContain('Enduring mod: Prepared grenade 1')
   expect(enduringHtml).toContain('<option value="bigBoom" selected="">Big Boom</option>')
+})
+
+it('clears glitching from freshly prepared grenades even when no grenade was used', () => {
+  const grenade = { ...item('Frag Grenade', 1, ['Grenade']), systems: ['sf2e' as const] }
+  let character: Character = { ...c, systems: ['sf2e'], className: 'Mechanic', level: 5,
+    feats: [{ name: 'Grenade Specialist', type: 'Class Feat', level: 2 }],
+    grenadeFormulaChoices: [grenade.name], grenadePreparations: [grenade.name],
+    mechanicGlitching: { 'grenade:prepared:0': 2, 'weapon:other': 1 } }
+  const find = (node: ReactNode): { disabled?: boolean; onClick?: () => void } | undefined => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = find(child)
+        if (found) return found
+      }
+    } else if (isValidElement<{ children?: ReactNode; disabled?: boolean; onClick?: () => void }>(node)) {
+      if (node.type === 'button' && node.props.children === 'Daily preparations') return node.props
+      return find(node.props.children)
+    }
+    return undefined
+  }
+  const button = find(GrenadeSpecialist({ c: character, entries: [grenade], save: patch => { character = { ...character, ...patch } } }))
+  expect(button?.disabled).toBe(false)
+  button?.onClick?.()
+  expect(character.mechanicGlitching).toEqual({ 'weapon:other': 1 })
 })
 
 it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily batches', () => {

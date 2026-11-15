@@ -23,7 +23,8 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredDetails } from './DeferredDetails'
 import { CheekPouches } from './CheekPouches'
 import { HighTechMedic } from './HighTechMedic'
-import { setEnduringMod } from './mechanicEnduring'
+import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
+import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 
@@ -162,10 +163,13 @@ function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedCo
         delete nextMods[`equipment:${item.name}`]
         save({ ...(c.mechanicEnduringMod?.kind === 'medic' && c.mechanicEnduringMod.item === item.mechanicItemId
           ? setEnduringMod(c) : {}), equipment: c.equipment.filter((_, i) => i !== index), mechanicGrenadeMods: nextMods,
+          ...clearItemGlitching(c, 'equipment', item.mechanicItemId),
           ...(c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === `equipment:${item.name}`
             ? { mechanicEnduringMod: undefined } : {}) })
       })}>Remove</button>
       <HighTechMedic c={c} save={save} index={index} entry={entry} />
+      <ItemTroubleshoot c={c} save={save} kind="equipment" id={item.mechanicItemId} label={item.name}
+        attach={id => ({ equipment: c.equipment.map((gear, i) => i === index ? { ...gear, mechanicItemId: id } : gear) })} />
       {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>
         <small>Mods apply to one grenade.</small>
         <GrenadeMods c={c} grenade={entry} label={item.name} itemKey={`equipment:${item.name}`} save={save} />

@@ -6,6 +6,7 @@ import { TransmutativeCasing } from './TransmutativeCasing'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
 import { ExploitiveAssault } from './ExploitiveAssault'
 import { enduringMineMods, setEnduringMod } from './mechanicEnduring'
+import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { Character, MechanicMine } from './types'
 
 const MEDIC_MINE_MODS = ['Numbing Analgesic', 'Powerful Stimulant', 'Protective Excretions', 'Restorative Boost'] as const
@@ -40,6 +41,7 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
   const array = c.mechanicTurretArray && TURRET_ARRAYS[c.mechanicTurretArray]
   const mines = mechanicMineState(c)
   const deployed = Array.from({ length: mines.deployed }, (_, index) => c.mechanicDeployedMines?.[index] ?? {})
+  const carried = c.mechanicCarriedMines ?? []
   const reserved = c.mechanicEnduringMod?.kind === 'mine' && c.mechanicEnduringMine && mines.carried > 0
     ? c.mechanicEnduringMine : undefined
   const canEndureMineMod = (mod: string) => (['damageType', 'transmutativeCasing', 'exploitiveAssault', 'debilitation', 'medicMods'].includes(mod)
@@ -63,7 +65,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
       <span>Mine capacity: {mines.capacity}; disable DC {classDc}</span>
       <span>Carried {mines.carried}/{mines.capacity}; deployed {mines.deployed}.</span>
       <div className="row">
-        <button type="button" disabled={mines.carried <= Number(!!reserved)} onClick={() => updateMines(mines.carried - 1, [...deployed, {}])}>Deploy mine</button>
+        <button type="button" disabled={mines.carried <= Number(!!reserved)} onClick={() =>
+          updateMines(mines.carried - 1, [...deployed, carried[0] ?? {}], { mechanicCarriedMines: carried.slice(1) })}>Deploy mine</button>
         {reserved && <button type="button" disabled={c.level < 13 || !canEndureMineMod(c.mechanicEnduringMod?.mod ?? '')}
           onClick={() => updateMines(mines.carried - 1, [...deployed, reserved],
           { mechanicEnduringMine: undefined })}>Deploy enduring mine</button>}
@@ -71,13 +74,19 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         <button type="button" disabled={!mines.deployed || mines.carried + mines.deployed > mines.capacity}
           onClick={() => updateMines(mines.carried + mines.deployed, [], {
             mechanicEnduringMine: deployed.find(mine => mine.enduring) ?? c.mechanicEnduringMine,
+            mechanicCarriedMines: [...carried, ...deployed.filter(mine => !mine.enduring)],
           })}>Collect mines</button>
         <button type="button" disabled={mines.carried >= mines.capacity}
           onClick={() => updateMines(Math.min(mines.capacity, mines.carried + 2), deployed)}>Craft mines (10 minutes)</button>
         <button type="button" onClick={() => {
-          const reset = () => save({ ...(c.mechanicEnduringMod?.kind === 'mine' ? setEnduringMod(c) : {}),
-            mechanicEnduringMine: undefined, mechanicMines: { carried: mines.capacity, deployed: 0 },
-            mechanicDeployedMines: [] })
+          const reset = () => {
+            const glitching = { ...c.mechanicGlitching }
+            for (const mine of [...carried, ...deployed, ...(c.mechanicEnduringMine ? [c.mechanicEnduringMine] : [])])
+              if (mine.id) delete glitching[`mine:${mine.id}`]
+            save({ ...(c.mechanicEnduringMod?.kind === 'mine' ? setEnduringMod(c) : {}),
+              mechanicEnduringMine: undefined, mechanicCarriedMines: [], mechanicGlitching: glitching,
+              mechanicMines: { carried: mines.capacity, deployed: 0 }, mechanicDeployedMines: [] })
+          }
           if (mines.deployed) confirmRemoval('deployed mines at daily preparations', reset)
           else reset()
         }}>Daily preparations</button>
@@ -161,6 +170,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         }
         return <div className="gear-card col" key={index}>
           <strong>Mine {index + 1}{mine.enduring ? ' (enduring)' : ''}</strong>
+          <ItemTroubleshoot c={c} save={save} kind="mine" id={mine.id} label={`Mine ${index + 1}`}
+            attach={id => ({ mechanicDeployedMines: deployed.map((item, i) => i === index ? { ...item, id } : item) })} />
           <label>Damage{' '}<select aria-label={`Mine ${index + 1} base damage`} value={mine.baseDamage ?? 'fire'} onChange={event => {
             if (event.target.value === 'fire' || event.target.value === 'piercing')
               update({ baseDamage: event.target.value, damageType: undefined })
@@ -220,8 +231,12 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
             {` ${result.radius}-foot burst.`} Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
           {mine.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
           <small>Turn mods off when they expire.</small>
-          <button type="button" onClick={() => updateMines(mines.carried, deployed.filter((_, i) => i !== index),
-            mine.enduring && c.mechanicEnduringMod?.kind === 'mine' ? { mechanicEnduringMod: undefined } : undefined)}>
+          <button type="button" onClick={() => {
+            const glitching = { ...c.mechanicGlitching }
+            if (mine.id) delete glitching[`mine:${mine.id}`]
+            updateMines(mines.carried, deployed.filter((_, i) => i !== index), { mechanicGlitching: glitching,
+              ...(mine.enduring && c.mechanicEnduringMod?.kind === 'mine' ? { mechanicEnduringMod: undefined } : {}) })
+          }}>
             Detonate mine {index + 1}
           </button>
         </div>
@@ -230,6 +245,7 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
     </>}
     {c.subclass === 'Turret' && <>
       <strong>Turret exocortex</strong>
+      <ItemTroubleshoot c={c} save={save} kind="weapon" id="mechanic:turret" label="Turret" />
       <label>Turret array{' '}
         <select aria-label="Turret array" value={c.mechanicTurretArray ?? ''} onChange={event => {
           const choice = TURRET_NAMES.find(name => name === event.target.value)
@@ -270,6 +286,6 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
     {c.level >= 15 && <small>Manifold Mods: apply two mods whenever you Modify an item.</small>}
     {c.level >= 19 && <small>Instant Mods: once per round, Modify as a free action.</small>}
     <small><a href="https://2e.aonsrd.com/actions/546-modify" target="_blank" rel="noreferrer">Modify rules</a>:
-      use item and exocortex controls for mods; track expiration and Troubleshoot manually.</small>
+      use item and exocortex controls for mods; track expiration manually.</small>
   </div>
 }

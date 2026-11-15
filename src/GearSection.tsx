@@ -23,7 +23,8 @@ import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
-import { enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
+import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
+import { ItemTroubleshoot } from './ItemTroubleshoot'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
@@ -687,7 +688,7 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
             next[index] = value
             const nextMods = { ...c.mechanicGrenadeMods }
             delete nextMods[key]
-            save({ grenadePreparations: next, mechanicGrenadeMods: nextMods,
+            save({ grenadePreparations: next, mechanicGrenadeMods: nextMods, ...clearItemGlitching(c, 'grenade', key),
               ...(c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === key
                 ? { mechanicEnduringMod: undefined } : {}) })
           }
@@ -713,11 +714,14 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
     })}
     <button type="button" disabled={!used.slice(0, limits.prepared).some(Boolean)
       && !Array.from({ length: limits.prepared }, (_, index) => c.mechanicGrenadeMods?.[`prepared:${index}`])
-        .some(mod => mod && Object.values(mod).some(Boolean))} onClick={() => {
+        .some(mod => mod && Object.values(mod).some(Boolean))
+      && !Array.from({ length: limits.prepared }, (_, index) => c.mechanicGlitching?.[`grenade:prepared:${index}`]).some(Boolean)} onClick={() => {
       const nextMods = { ...c.mechanicGrenadeMods }
+      const nextGlitching = { ...c.mechanicGlitching }
       for (let index = 0; index < limits.prepared; index++) delete nextMods[`prepared:${index}`]
+      for (let index = 0; index < limits.prepared; index++) delete nextGlitching[`grenade:prepared:${index}`]
       const enduring = c.mechanicEnduringMod
-      save({ grenadeUsed: [], mechanicGrenadeMods: nextMods,
+      save({ grenadeUsed: [], mechanicGrenadeMods: nextMods, mechanicGlitching: nextGlitching,
         ...(enduring?.kind === 'grenade' && Array.from({ length: limits.prepared }, (_, index) => `prepared:${index}`).includes(enduring.item)
           ? { mechanicEnduringMod: undefined } : {}) })
     }}>Daily preparations</button>
@@ -776,6 +780,7 @@ export function GrenadeMods({ c, grenade, itemKey, save, label }: {
       {mods.bunkerBuster && ' +5 damage to objects, structures, vehicles, and creatures with Hardness.'}
       {c.level >= 5 && mods.damageType && damageTypes.some(type => type === mods.damageType) && ` Damage type: ${mods.damageType}.`}</small>
     <small>{mechanicModDuration(c)}</small>
+    {itemKey.startsWith('prepared:') && <ItemTroubleshoot c={c} save={save} kind="grenade" id={itemKey} label={label} />}
     {c.level >= 13 && <label>Enduring Mod{' '}
       <select aria-label={`Enduring mod: ${label}`}
         value={c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === itemKey ? c.mechanicEnduringMod.mod : ''}
@@ -891,6 +896,7 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
       </select>
     </label>}
     <small>{mechanicModDuration(c)}</small>
+    {!allowUnarmed && <ItemTroubleshoot c={c} save={save} kind="weapon" id={weapon.id} label={weapon.name} />}
     {c.level >= 13 && <label>Enduring Mod{' '}
       <select aria-label={`Enduring mod: ${weapon.name}`}
         value={currentEnduring}
@@ -1246,7 +1252,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 onChange={event => saveWeapons(weapons.map(weapon => ({ ...weapon, inventorInnovation: weapon.id === w.id && event.target.checked })))} /> Weapon Innovation</label>}
               {!attachmentSource && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove"
                 onClick={() => confirmRemoval(`weapon "${w.name}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id),
-                  c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === w.id ? setEnduringMod(c) : undefined))}>×</button>}
+                  { ...(c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === w.id ? setEnduringMod(c) : {}),
+                    ...clearItemGlitching(c, 'weapon', w.id) }))}>×</button>}
             </div>
             {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
@@ -1432,6 +1439,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {c.mechanicArmorMods?.[a.id]?.magneticLevitators && c.className === 'Mechanic'
               && c.systems.includes('sf2e') && <small>Land Speed gains hover; Fly Speed 10 feet while worn. Turn off when the mod expires.</small>}
             <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
+            <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
             {entry?.description && <Info label="Summary">{entry.description}</Info>}
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
@@ -1483,7 +1491,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               : <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
               onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),
-                c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id ? setEnduringMod(c) : undefined))}>×</button>}
+                { ...(c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id ? setEnduringMod(c) : {}),
+                  ...clearItemGlitching(c, 'armor', a.id) }))}>×</button>}
           </article>
         )
       })}</>}

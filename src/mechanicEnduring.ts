@@ -1,5 +1,12 @@
 import type { Character, MedicMod } from './types'
 
+export function clearItemGlitching(c: Character, kind: string, id?: string): Partial<Character> {
+  if (!id) return {}
+  const next = { ...c.mechanicGlitching }
+  delete next[`${kind}:${id}`]
+  return { mechanicGlitching: next }
+}
+
 export const enduringWeaponMods = ['bigBoom', 'incapacitant', 'longRange', 'bunkerBuster',
   'pinpointShot', 'explosiveShot', 'glitchPulse'] as const
 export const enduringGrenadeMods = ['bigBoom', 'incapacitant', 'longRange', 'bunkerBuster'] as const
@@ -31,6 +38,7 @@ export function setEnduringMod(c: Character, choice?: EnduringModChoice): Partia
   const grenades = { ...c.mechanicGrenadeMods }
   const armor = { ...c.mechanicArmorMods }
   let mine = c.mechanicEnduringMine
+  let carried = c.mechanicCarriedMines ?? []
   let deployed = c.mechanicDeployedMines
   let equipment = c.equipment
   let debilitation = c.mechanicExocortexDebilitation
@@ -59,6 +67,11 @@ export function setEnduringMod(c: Character, choice?: EnduringModChoice): Partia
     const mod = enduringMineMods.find(value => value === previous.mod)
     if (mod || previous.mod === 'damageType' || previous.mod === 'transmutativeCasing'
       || previous.mod === 'exploitiveAssault' || previous.mod === 'debilitation' || previous.mod === 'medicMods') {
+      if (mine) carried = [{
+        ...mine, enduring: false, ...(mod ? { [mod]: false }
+          : previous.mod === 'medicMods' ? { medicMods: (mine.medicMods ?? []).filter(value => value !== previous.value) }
+            : { [previous.mod]: undefined }),
+      }, ...carried]
       mine = undefined
       deployed = deployed?.map(item => item.enduring ? {
         ...item, enduring: false, ...(mod ? { [mod]: false }
@@ -82,14 +95,17 @@ export function setEnduringMod(c: Character, choice?: EnduringModChoice): Partia
     armor[choice.item] = { ...armor[choice.item], energyNeutralizer: choice.value }
   else if (choice?.kind === 'drone' && choice.mod === 'killbot') killbot = true
   else if (choice?.kind === 'drone' && choice.mod === 'desperateRepair') desperateRepair = true
-  else if (choice?.kind === 'mine' && choice.mod === 'damageType')
-    mine = { enduring: true, baseDamage: ['bludgeoning', 'piercing', 'slashing'].includes(choice.value) ? 'piercing' : 'fire',
-      damageType: choice.value }
-  else if (choice?.kind === 'mine' && choice.mod === 'medicMods')
-    mine = { enduring: true, medicMods: [choice.value] }
-  else if (choice?.kind === 'mine' && 'value' in choice)
-    mine = { enduring: true, [choice.mod]: choice.value }
-  else if (choice?.kind === 'mine') mine = { enduring: true, [choice.mod]: true }
+  else if (choice?.kind === 'mine') {
+    const base = carried[0] ?? {}
+    carried = carried.slice(1)
+    if (choice.mod === 'damageType')
+      mine = { ...base, enduring: true, baseDamage: ['bludgeoning', 'piercing', 'slashing'].includes(choice.value) ? 'piercing' : 'fire',
+        damageType: choice.value }
+    else if (choice.mod === 'medicMods')
+      mine = { ...base, enduring: true, medicMods: [...(base.medicMods ?? []).filter(value => value !== choice.value), choice.value] }
+    else if ('value' in choice) mine = { ...base, enduring: true, [choice.mod]: choice.value }
+    else mine = { ...base, enduring: true, [choice.mod]: true }
+  }
   else if (choice?.kind === 'medic') {
     if (!equipment[choice.index]) throw new Error('Enduring medic item is unavailable')
     equipment = equipment.map((item, index) => index === choice.index ? {
@@ -100,6 +116,6 @@ export function setEnduringMod(c: Character, choice?: EnduringModChoice): Partia
   else if (choice?.kind === 'exo') debilitation = choice.value
   return { mechanicWeaponMods: weapons, mechanicGrenadeMods: grenades, mechanicArmorMods: armor,
     mechanicDroneKillbotActive: killbot, mechanicDroneDesperateRepairActive: desperateRepair,
-    mechanicEnduringMine: mine, mechanicDeployedMines: deployed, equipment,
+    mechanicEnduringMine: mine, mechanicCarriedMines: carried, mechanicDeployedMines: deployed, equipment,
     mechanicExocortexDebilitation: debilitation, mechanicEnduringMod: choice }
 }

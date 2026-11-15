@@ -17,6 +17,7 @@ export type DroneProfile = {
 export type MechanicEnergy = 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'
 export type MedicMod = 'Numbing Analgesic' | 'Powerful Stimulant' | 'Protective Excretions' | 'Restorative Boost'
 export type MechanicMine = {
+  id?: string
   enduring?: boolean
   baseDamage?: 'fire' | 'piercing'
   damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
@@ -221,8 +222,10 @@ export interface Character {
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
+  mechanicGlitching?: Record<string, number>
   mechanicEnduringMod?: { item: string; mod: string; kind?: 'weapon' | 'grenade' | 'armor' | 'drone' | 'mine' | 'medic' | 'exo'; label?: string; value?: string | Array<string | null> }
   mechanicEnduringMine?: MechanicMine
+  mechanicCarriedMines?: MechanicMine[]
   mechanicDeployedMines?: MechanicMine[]
   mechanicExocortexDebilitation?: string[]
   mechanicDroneChassis?: DroneChassis

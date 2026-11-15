@@ -119,16 +119,20 @@ it('preserves an enduring mine when deploying and collecting it, and clears it w
   expect(c.mechanicMines).toEqual({ carried: 1, deployed: 1 })
   expect(c.mechanicDeployedMines?.[0]).toMatchObject({ enduring: true, bigBoom: true })
   expect(c.mechanicEnduringMine).toBeUndefined()
+  c = { ...c, mechanicDeployedMines: [{ ...c.mechanicDeployedMines?.[0], id: 'mine-1' }],
+    mechanicGlitching: { 'mine:mine-1': 2 } }
   click('Collect mines')
   expect(c.mechanicMines).toEqual({ carried: 2, deployed: 0 })
   expect(c.mechanicEnduringMine).toMatchObject({ enduring: true, bigBoom: true })
   click('Deploy enduring mine')
+  expect(c.mechanicDeployedMines?.[0].id).toBe('mine-1')
   const deployed = { ...c, ...setEnduringMod(c,
     { kind: 'weapon', item: 'sword', mod: 'incapacitant', label: 'Sword' }) }
   expect(deployed.mechanicDeployedMines?.[0]).toMatchObject({ enduring: false, bigBoom: false })
   click('Detonate mine 1')
   expect(c.mechanicMines).toEqual({ carried: 1, deployed: 0 })
   expect(c.mechanicEnduringMod).toBeUndefined()
+  expect(c.mechanicGlitching?.['mine:mine-1']).toBeUndefined()
   c = { ...c, ...setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine',
     mod: 'damageType', value: 'slashing', label: 'Mine' }) }
   expect(c.mechanicEnduringMine).toMatchObject({ baseDamage: 'piercing', damageType: 'slashing' })
@@ -144,6 +148,38 @@ it('preserves an enduring mine when deploying and collecting it, and clears it w
     mod: 'medicMods', value: 'Restorative Boost', label: 'Mine' }) }
   expect(medicMine.mechanicEnduringMine?.medicMods).toEqual(['Restorative Boost'])
   expect(medicMine.mechanicEnduringMine?.healing).toBeUndefined()
+})
+
+it('preserves a collected ordinary mine and its glitching state when redeployed', () => {
+  let c: Character = { ...mechanic, mechanicMines: { carried: 0, deployed: 1 },
+    mechanicDeployedMines: [{ id: 'mine-2', bigBoom: true }], mechanicGlitching: { 'mine:mine-2': 2 } }
+  const click = (text: string) => {
+    const root = MechanicFeatures({ c, save: patch => { c = { ...c, ...patch } } })
+    const find = (node: ReactNode): (() => void) | undefined => {
+      if (Array.isArray(node)) {
+        for (const child of node) {
+          const found = find(child)
+          if (found) return found
+        }
+      } else if (isValidElement<{ children?: ReactNode; onClick?: () => void }>(node)) {
+        if (node.type === 'button' && node.props.children === text) return node.props.onClick
+        return find(node.props.children)
+      }
+      return undefined
+    }
+    const action = find(root)
+    expect(action).toBeDefined()
+    action?.()
+  }
+  click('Collect mines')
+  click('Deploy mine')
+  expect(c.mechanicDeployedMines?.[0]).toMatchObject({ id: 'mine-2', bigBoom: true })
+  expect(c.mechanicGlitching?.['mine:mine-2']).toBe(2)
+  click('Collect mines')
+  c = { ...c, mechanicGlitching: { ...c.mechanicGlitching, 'weapon:other': 1 } }
+  click('Daily preparations')
+  expect(c.mechanicCarriedMines).toEqual([])
+  expect(c.mechanicGlitching).toEqual({ 'weapon:other': 1 })
 })
 
 it('scales mine damage and area, including per-mine modifications', () => {

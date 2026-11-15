@@ -8,6 +8,7 @@ import { DebilitatingExocortex } from './DebilitatingExocortex'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { MechanicWeaponMods } from './GearSection'
 import { setEnduringMod } from './mechanicEnduring'
+import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
@@ -154,6 +155,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         onChange={event => save({ mechanicDroneAssistantActive: event.target.checked })} /> Drone assistant within reach
     </label>}
     {stats && <div className="col">
+      <ItemTroubleshoot c={c} save={save} kind="drone" id="mechanic:drone" label="Drone" creature />
       <EnergyNeutralizer c={c} save={save} id="mechanic:drone" label="drone" />
       <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
         onChange={choices => save({ mechanicExocortexDebilitation: choices,
