@@ -1304,6 +1304,7 @@ function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weap
 function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name)
   return hasParryTrait(entry) || defensiveArmamentsParry(c, weapon, entry)
+    || installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name))
 }
 
 export function hasParryWeapon(c: Character, entries: ContentEntry[]) {
@@ -1326,7 +1327,9 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
   })
   const twinParry = activeFeatsNamed(c, 'Twin Parry').length > 0 && meleeWeapons.length >= 2
     && meleeWeapons.some(weapon => weaponHasParry(c, entries, weapon))
-  return Math.max(1, featBonus, twinParry ? 2 : 0)
+  const tacticalGrid = ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
+    && installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
+  return Math.max(1, featBonus, twinParry ? 2 : 0, tacticalGrid ? 2 : 0)
 }
 
 export const parryBonus = (c: Character, entries: ContentEntry[]) => c.parrying ? parryValue(c, entries) : 0
@@ -3330,6 +3333,19 @@ export function usesWeaponUpgrades(entry?: ContentEntry) {
   return !!entry?.systems.includes('sf2e') && entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
 }
 
+export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name)
+  const unarmed = weaponCategory(entry) === 'Unarmed'
+  const ids = unarmed
+    ? c.handwraps?.kind === 'hardlight' && !animalStrengthSource(c, entries, weapon) ? c.handwraps.upgrades : undefined
+    : usesWeaponUpgrades(entry) ? weapon.upgrades : undefined
+  return (ids ?? []).flatMap(id => {
+    const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
+      && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
+    return upgrade ? [upgrade] : []
+  })
+}
+
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
@@ -3348,7 +3364,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
   const entry = weaponEntry(entries, weapon.name)
-  if (usesWeaponUpgrades(entry)) return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
+  if (usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed') return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
   const scaled = scaledMaterial(weapon.material, c.level, 'Weapon')
   if (scaled !== weapon.material) weapon = { ...weapon, material: scaled }
   const favored = deityWeapon(c, entries)?.id === weapon.id
@@ -3434,6 +3450,7 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
 }
 
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
+  const upgrades = installedWeaponUpgrades(c, entries, w)
   w = effectiveWeapon(c, entries, w)
   if (combinationForms(entries, w.name).length || PLAYING_CARD_WEAPONS.some(card => card.id === w.id)) {
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
@@ -3457,8 +3474,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
   }
-  if (entry && defensiveArmamentsParry(c, w, entry) && !hasParryTrait(entry)) {
-    entry = { ...entry, traits: [...entry.traits, 'Parry'] }
+  if (entry) {
+    const existingTraits = entry.traits.map(trait => trait.toLowerCase())
+    const added = [
+      ...(defensiveArmamentsParry(c, w, entry) || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
+      ...(upgrades.some(upgrade => upgrade.name === 'Merciful') ? ['Nonlethal'] : []),
+      ...(upgrades.some(upgrade => /^Smuggler's Grip(?:\s*\(|$)/i.test(upgrade.name)) ? ['Concealed'] : []),
+    ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
+    if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
   }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)
@@ -3522,6 +3545,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource)
   return {
     entry,
+    upgrades,
     pristineLivingWeapon,
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),

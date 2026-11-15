@@ -55,6 +55,24 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
     })
 }
 
+const upgradeDamageSummary = (attack: ReturnType<typeof weaponAttack>) => {
+  const damage: Record<string, string> = {
+    'Acid Module': '1d6 acid',
+    'Entropic Destabilizer': '1d4 void',
+    'Flaming Module': '1d6 fire',
+    'Frost Module': '1d6 cold',
+    'Holy Module': '1d4 spirit',
+    'Loudener': '1d6 sonic',
+    'Radiation Module': '1d6 poison',
+    'Shock Module': '1d6 electricity',
+  }
+  return attack.upgrades.flatMap(upgrade => {
+    const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
+    const value = damage[base]
+    return value ? [{ source: upgrade.name, value, note: upgrade.description || 'Sync official content for upgrade rules.' }] : []
+  })
+}
+
 const weaponCapacity = (entry?: ContentEntry) => {
   const capacity = entry?.traits.map(trait => /^capacity\s*(?:\(\s*(\d+)\s*\)|(\d+))?$/i.exec(trait.trim()))
     .find(Boolean)
@@ -749,7 +767,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           ? 'Pristine Living Weapon: treated as cold iron and silver. Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.'
           : undefined
         const compactDamage = (damage: string) => damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase())
-        const untamedPersistent = c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
+        const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
+          && c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
         const attackSummaries = (forms.length
           ? (['Melee', 'Ranged'] as const).map(form => {
@@ -757,7 +776,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
           })
           : [{ form: undefined, weapon: enhanced, attack: a }])
-          .map(summary => ({ ...summary, damageRunes: damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card) }))
+          .map(summary => ({ ...summary, damageRunes: [
+            ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
+            ...upgradeDamageSummary(summary.attack),
+          ] }))
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
@@ -816,6 +838,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           </Fragment>)}</small>
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
+          {a.upgrades.length > 0 && <div className="gear-runes">Upgrades: {a.upgrades.map(upgrade =>
+            <EntryDescription key={upgrade.id} name={upgrade.name} entry={upgrade} />)}</div>}
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
           {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
@@ -895,9 +919,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </div>
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
+            {a.upgrades.length > 0 && <div className="gear-runes">Upgrades: {a.upgrades.map(upgrade =>
+              <EntryDescription key={upgrade.id} name={upgrade.name} entry={upgrade} />)}</div>}
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
-              <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>
+              {!a.upgrades.some(upgrade => upgrade.name === 'Merciful') && <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>}
                 <SearchableSelect aria-label={`Animal Strength runes: ${displayName}`} value={strengthSelection ?? c.animalStrengthWeapons?.[w.id] ?? ''} onChange={event => {
                   if (event.target.value && !strengthSources.some(source => source.weapon.id === event.target.value)) return
                   const sources = { ...c.animalStrengthWeapons }

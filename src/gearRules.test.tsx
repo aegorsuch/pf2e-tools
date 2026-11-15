@@ -60,6 +60,61 @@ it('uses Starfinder weapon grades rather than saved Pathfinder runes', () => {
   expect(markup).not.toContain('aria-label="Add property rune"')
 })
 
+it('applies hardlight upgrades to fists and other unarmed attacks, including tactical parry', () => {
+  const grid = { ...content('item', 'Protection Grid (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 17),
+    id: 'grid', systems: ['sf2e' as const], description: 'The weapon gains parry; the circumstance bonus increases to +2.' }
+  const fire = { ...content('item', 'Flaming Module (Commercial)', { item_subcategory: 'Weapon Upgrades' }, 8),
+    id: 'fire', systems: ['sf2e' as const], description: 'Deals 1d6 fire and 1d10 persistent fire on a critical hit.' }
+  const claws = content('weapon', 'Claws', { weapon_category: 'Unarmed', damage: '1d6 slashing', hands: 0 }, 1, ['Unarmed'])
+  const claw: OwnedWeapon = { id: 'claw', name: claws.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 17, parrying: true, weapons: [claw],
+    handwraps: { kind: 'hardlight', grade: 'Ultimate', potency: 0, striking: 0, runes: [], upgrades: ['grid', 'fire'] } }
+  const entries = [grid, fire, claws]
+  const fistCharacter = { ...c, weapons: [] }
+  const fist = ownedWeapons(fistCharacter, entries).find(weapon => weapon.name === 'Fist')!
+  for (const [character, weapon] of [[fistCharacter, fist], [c, claw]] as const) {
+    expect(weaponAttack(character, entries, weapon).traits).toContain('Parry')
+    expect(weaponAttack(character, entries, weapon).upgrades.map(upgrade => upgrade.name)).toEqual([grid.name, fire.name])
+    const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} displayOnly />)
+    expect(markup).toContain('1d6 fire')
+    expect(markup).toContain('Flaming Module (Commercial)')
+    expect(markup).toContain('1d10 persistent fire')
+  }
+  expect(hasParryWeapon(c, entries)).toBe(true)
+  expect(parryValue(c, entries)).toBe(2)
+  expect(armorClass(c, entries) - armorClass({ ...c, parrying: false }, entries)).toBe(2)
+  const normalWraps = { ...fistCharacter, handwraps: { ...c.handwraps!, kind: undefined } }
+  expect(weaponAttack(normalWraps, entries, fist).upgrades).toEqual([])
+  expect(hasParryWeapon(normalWraps, entries)).toBe(false)
+})
+
+it('uses only an equipped upgraded weapon for Protection Grid parry', () => {
+  const grid = { ...content('item', 'Protection Grid (Commercial)', { item_subcategory: 'Weapon Upgrades' }, 8),
+    id: 'grid', systems: ['sf2e' as const] }
+  const blade = { ...content('weapon', 'Tech Blade', { weapon_category: 'Martial', hands: 1, damage: '1d6 slashing' }, 1, ['Tech']),
+    systems: ['sf2e' as const] }
+  const weapon: OwnedWeapon = { id: 'blade', name: blade.name, potency: 0, striking: 0, runes: [], upgrades: ['grid'] }
+  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon] }
+  expect(weaponAttack(c, [blade, grid], weapon).traits).toContain('Parry')
+  expect(parryValue(c, [blade, grid])).toBe(1)
+  expect(hasParryWeapon({ ...c, weapons: [{ ...weapon, stowed: true }] }, [blade, grid])).toBe(false)
+})
+
+it('shows loudener damage and merciful restrictions on hardlight attacks', () => {
+  const upgrades = ['Loudener (Tactical)', 'Merciful'].map(name => ({
+    ...content('item', name, { item_subcategory: 'Weapon Upgrades' }, 8), systems: ['sf2e' as const],
+    description: name === 'Merciful' ? 'Persistent damage is negated and attacks cannot be lethal.' : 'Deals 1d6 sonic damage.',
+  }))
+  const c: Character = { ...base, systems: ['sf2e'], handwraps: {
+    kind: 'hardlight', grade: 'Superior', potency: 0, striking: 0, runes: [], upgrades: upgrades.map(upgrade => upgrade.id),
+  } }
+  const fist = ownedWeapons(c, upgrades).find(weapon => weapon.name === 'Fist')!
+  expect(weaponAttack(c, upgrades, fist).traits.filter(trait => trait === 'Nonlethal')).toEqual(['Nonlethal'])
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={upgrades} save={() => {}} displayOnly />)
+  expect(markup).toContain('1d6 sonic')
+  expect(markup).toContain('Persistent damage is negated')
+})
+
 it('applies Starfinder armor penalties and Thresher strength relief to skills and speeds', () => {
   const armor = { ...content('armor', 'Heavy Armor', { armor_category: 'Heavy', strength: 3,
     check_penalty: -2, speed_penalty: '-10 ft.' }, 0, ['Tech']), systems: ['sf2e' as const] }
