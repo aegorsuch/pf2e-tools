@@ -44,7 +44,18 @@ const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCa
   || spell.name.toLowerCase() === spellAlias(name)
 
 const featCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
-function featSource(c: Character, entries: ContentEntry[], name: string) {
+function ancestralOptions(c: Character, source?: ContentEntry) {
+  const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1]
+  if (!options) return undefined
+  const restriction = /^\[([^\]]+?) heritage only\]\s*/i.exec(options)
+  if (!restriction) return options
+  const heritage = c.heritage?.trim().toLowerCase() ?? ''
+  const required = restriction[1].trim().toLowerCase()
+  if (heritage !== required && !heritage.startsWith(`${required} `)) return undefined
+  return options.slice(restriction[0].length)
+}
+
+function featSource(c: Character, entries: ContentEntry[], name: string, sourceId?: string) {
   if (name === 'Ancestral Magic' || name === 'Ancestral Cantrip') {
     const ancestries = [c.ancestry, c.heritage, ...c.feats.filter(feat => feat.name === 'Adopted Ancestry'
       && featTakenLevel(feat) <= c.level).map(feat => feat.choice),
@@ -52,6 +63,8 @@ function featSource(c: Character, entries: ContentEntry[], name: string) {
       .filter((value): value is string => !!value)
     return entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
       && entry.systems.some(system => c.systems.includes(system))
+      && (!sourceId || entry.id === sourceId)
+      && !!ancestralOptions(c, entry)
       && entry.traits.some(trait => ancestries.some(ancestry => ancestry.toLowerCase() === trait.toLowerCase())))
   }
   let map = featCache.get(entries)
@@ -65,9 +78,9 @@ function featSource(c: Character, entries: ContentEntry[], name: string) {
   return c.systems.map(system => map.get(`${system}:${name}`)).find(Boolean)
 }
 
-function ancestralCantripRules(c: Character, entries: ContentEntry[]) {
-  const source = featSource(c, entries, 'Ancestral Cantrip')
-  const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1]
+function ancestralCantripRules(c: Character, entries: ContentEntry[], sourceId?: string) {
+  const source = featSource(c, entries, 'Ancestral Cantrip', sourceId)
+  const options = ancestralOptions(c, source)
   if (!options) return undefined
   const parts = options.split(';').map(part => part.trim())
   if (parts.some(part => /shiny heritage only/i.test(part)) && !/\bshiny\b/i.test(c.heritage ?? '')) return undefined
@@ -76,14 +89,14 @@ function ancestralCantripRules(c: Character, entries: ContentEntry[]) {
   return spells.length ? { tradition, spells, any: /^any (?:arcane|divine|occult|primal) cantrip$/i.test(spells[0]) } : undefined
 }
 
-export function fixedAncestralCantrip(c: Character, entries: ContentEntry[]) {
-  const rules = ancestralCantripRules(c, entries)
+export function fixedAncestralCantrip(c: Character, entries: ContentEntry[], sourceId?: string) {
+  const rules = ancestralCantripRules(c, entries, sourceId)
   return rules && !rules.any && rules.spells.length === 1 ? rules.spells[0] : undefined
 }
 
 function ancestralMagicRules(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
-  const source = featSource(c, entries, 'Ancestral Magic')
-  const options = /Option\(s\):\s*(arcane|divine|occult|primal)\s*;([^\n]*)/i.exec(source?.description ?? '')
+  const source = featSource(c, entries, 'Ancestral Magic', feat.sourceId)
+  const options = /^(arcane|divine|occult|primal)\s*;([^\n]*)/i.exec(ancestralOptions(c, source) ?? '')
   if (!options) return undefined
   const level = featTakenLevel(feat)
   const rank = level >= 17 ? 7 : level >= 13 ? 5 : level >= 9 ? 3 : 1
@@ -113,7 +126,7 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       && ['Gale Blast', 'Spout'].includes(spell.name)).sort((a, b) => a.name.localeCompare(b.name))
   }
   if (feat.name === 'Ancestral Cantrip') {
-    const rules = ancestralCantripRules(c, entries)
+    const rules = ancestralCantripRules(c, entries, feat.sourceId)
     return entries.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
       && spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
@@ -148,7 +161,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   for (const [index, feat] of c.feats.entries()) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
-    const source = featSource(c, entries, feat.name)
+    const source = featSource(c, entries, feat.name, feat.sourceId)
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) {
       const spell: ContentEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Divine Decree'
         && entry.systems.includes('sf2e')) ?? {
@@ -182,8 +195,8 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (feat.name === 'Ancestral Cantrip') {
-      const rule = ancestralCantripRules(c, entries)
-      const selected = fixedAncestralCantrip(c, entries) ?? feat.choice
+      const rule = ancestralCantripRules(c, entries, feat.sourceId)
+      const selected = fixedAncestralCantrip(c, entries, feat.sourceId) ?? feat.choice
       const spell = selected && featSpellOptions(c, entries, feat)?.find(entry => matchesSpell(entry, selected))
       if (rule && spell) out.push({ entry: spell, source: feat.name,
         rule: { kind: 'innate', spells: [spell.name], tradition: rule.tradition, frequency: 'at will', heightened: true,

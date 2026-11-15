@@ -389,6 +389,32 @@ it.each(['listed', 'any'])('offers separate Ancestral Cantrip spell variants for
   expect(renderToStaticMarkup(tree())).toContain('Ancestral Cantrip (Shield)')
 })
 
+it('keeps ordinary and heritage-only Ancestral Magic spell variants distinct', () => {
+  const ordinary = mapAonHit({ _id: 'dwarf-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Dwarf'],
+    markdown: 'Header\n\n---\n\nChoose a spell.<br/><br/>**[Option(s)](/feats/1)**: primal; 1st _[pummeling rubble](/spells/1)_' } }, 'sf2e')!
+  const questbound = mapAonHit({ _id: 'questbound-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Dwarf'],
+    markdown: 'Header\n\n---\n\nChoose a spell.<br/><br/>**[Option(s)](/feats/1)**: [[questbound dwarf](/heritages/1) heritage only] divine; 1st _[dream of home](/spells/2)_' } }, 'sf2e')!
+  const spells: ContentEntry[] = ['Pummeling Rubble', 'Dream of Home'].map(name => ({
+    id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level: 1, traits: [],
+    description: '', data: {}, effects: [], updatedAt: 0,
+  }))
+  const entries = [questbound, ordinary, ...spells]
+  let c: Character = { ...emptyRanger(), ancestry: 'Dwarf', systems: ['sf2e'], level: 5 }
+  const tree = () => FeatSlots({ c, entries, categories: ['ancestry'], save: patch => { c = { ...c, ...patch } } })
+  let markup = renderToStaticMarkup(tree())
+  expect(markup.match(/Ancestral Magic \(Pummeling Rubble\)/g)).toHaveLength(1)
+  expect(markup).not.toContain('Ancestral Magic (Dream of Home)')
+  c = { ...c, heritage: 'Questbound Dwarf' }
+  markup = renderToStaticMarkup(tree())
+  expect(markup.match(/Ancestral Magic \(Pummeling Rubble\)/g)).toHaveLength(1)
+  expect(markup.match(/Ancestral Magic \(Dream of Home\)/g)).toHaveLength(1)
+  findSelect(tree(), 'L05 Ancestry feat')!({ target: { value: JSON.stringify([ordinary.name, 'Dream of Home']) } })
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(c.feats[0]).toMatchObject({ name: ordinary.name, choice: 'Dream of Home', sourceId: questbound.id })
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Dream of Home' },
+    rule: { tradition: 'divine', frequency: 'once per day' } }])
+})
+
 it('offers Ancestral Magic variants at the slot rank and saves their spell grants', () => {
   const magic = mapAonHit({ _id: 'elf-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Elf'],
     markdown: 'Header\n\n---\n\nChoose a spell.<br/><br/>**[Option(s)](/feats/1)**: primal; 1st _[wisp ally](/spells/1)_; 2nd _[verdant code](/spells/2)_; 3rd _[discharge](/spells/3)_; 5th _[overload systems](/spells/4)_\n\n**Special** You can select this feat more than once.' } }, 'sf2e')!

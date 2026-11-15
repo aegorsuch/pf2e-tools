@@ -795,7 +795,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         : !!slot.grantedAncestry && e.level === 1 && traits.has(slot.grantedAncestry.toLowerCase()) && !featRarity(e)))
       && (!slot.grantedOrder || new RegExp(`\\b${slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder} order\\b`, 'i').test(String(e.data.prerequisite ?? '')))
       && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
-        { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level }))
+        { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level, sourceId: e.id }))
       && !(e.name === 'Ancestral Unarmed Attack' && c.ancestry === 'Orc'
         && c.feats.some(feat => /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(feat.name) && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))

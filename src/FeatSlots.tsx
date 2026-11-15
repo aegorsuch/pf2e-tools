@@ -94,9 +94,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
   const displayName = (name: string) => (name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
     .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
-  const fixedLabel = (name: string) => {
+  const fixedLabel = (name: string, sourceId?: string) => {
     if (name === 'Ancestral Cantrip') {
-      const spell = fixedAncestralCantrip(c, entries)
+      const spell = fixedAncestralCantrip(c, entries, sourceId)
       return spell && (entries.find(entry => entry.kind === 'spell' && entry.name.toLowerCase() === spell.toLowerCase())?.name
         ?? spell.replace(/\b\w/g, char => char.toUpperCase()))
     }
@@ -138,12 +138,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const accessMissing = access && !access.automatic && !access.approved
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
     const pairs = ['general', 'skill'].includes(slot.category) ? synergies.get(entry.name) : undefined
-    const fixed = fixedLabel(entry.name)
+    const fixed = fixedLabel(entry.name, entry.id)
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
     const choices = entry.name === 'Ancestral Magic' || entry.name === 'Ancestral Cantrip' && !fixed
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
-        slot: slot.key, takenLevel: slot.level }) ?? []).map(spell => spell.name))]
+        slot: slot.key, takenLevel: slot.level, sourceId: entry.id }) ?? []).map(spell => spell.name))]
       : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
       ? undefined : featChoiceOptions(entry.name, c, entries, slot.key)
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
@@ -187,6 +187,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (option) {
       const { entry, choice } = option
       feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key,
+        ...(['Ancestral Cantrip', 'Ancestral Magic'].includes(entry.name) ? { sourceId: entry.id } : {}),
         ...(slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}), ...(choice ? { choice } : {}) })
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
@@ -299,13 +300,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
             ? `Mastermind - ${c.rogueRacketSkills.Mastermind}` : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)
-          const fixedOrSelectedLabel = selection && (fixedLabel(selection.name) ?? selectedLabel)
+          const fixedOrSelectedLabel = selection && (fixedLabel(selection.name, selection.sourceId) ?? selectedLabel)
           const selectedName = selection
             ? `${displayName(selection.name)}${fixedOrSelectedLabel ? ` (${fixedOrSelectedLabel})` : ''}` : current
           const sources = featPrerequisiteSources(entries, {
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits({ ...c, level: Math.min(c.level, s.level) }),
           })
-          const currentEntry = sources[0] ?? featByName(entries).get(current)
+          const currentEntry = sources.find(source => source.id === selection?.sourceId) ?? sources[0] ?? featByName(entries).get(current)
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }

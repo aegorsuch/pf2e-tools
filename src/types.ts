@@ -191,7 +191,7 @@ export interface Character {
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
-  feats: { name: string; type: string; level: number; choice?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
+  feats: { name: string; type: string; level: number; choice?: string; sourceId?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
