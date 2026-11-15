@@ -427,6 +427,21 @@ it('keeps attachments on their own shields when switching to a generated hardwoo
   expect(weapons().some(w => w.id === 'boss')).toBe(false)
 })
 
+it.each([
+  [1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1],
+  [12, 2, 2], [16, 3, 2], [19, 3, 3],
+] as const)('automatically scales shield weapon fundamentals at level %i', (level, potency, striking) => {
+  const c: Character = { ...character([]), level, weapons: [], shield: {
+    id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false,
+    attachedWeapon: { id: 'spikes', name: 'Shield Spikes', potency: 0, striking: 0, runes: [] },
+  } }
+  const entry = { ...weapon, id: 'spikes', name: 'Shield Spikes', data: { ...weapon.data, damage: '1d6 piercing', hands: 1 } }
+  const attack = ownedWeapons(c, [entry]).find(w => w.id === 'spikes')!
+  expect(effectiveWeapon(c, [entry], attack)).toMatchObject({ potency, striking })
+  expect(weaponAttack(c, [entry], attack).damage).toBe(`${1 + striking}d6 piercing`)
+  expect(c.shield?.attachedWeapon).toMatchObject({ potency: 0, striking: 0 })
+})
+
 it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(
   'grants locked clan dagger filigrees at level %i', (level, expected) => {
     const c: Character = { ...character([]), level, weapons: [{ id: 'dagger', name: 'Clan Dagger', potency: 0, striking: 0, runes: [] }] }

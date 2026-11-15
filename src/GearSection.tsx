@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { SHIELD_ATTACHED_WEAPONS, shieldAttachmentSource, weaponEntry } from './builder'
+import { blessedShieldBenefit, SHIELD_ATTACHED_WEAPONS, shieldAttachmentSource, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
@@ -459,23 +459,28 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
   )
 }
 
-function ShieldRune({ rune, entries, onChange }: {
-  rune: OwnedShield['reinforcingRune']; entries: ContentEntry[]; onChange: (rune: OwnedShield['reinforcingRune']) => void
+function ShieldRune({ rune, granted, entries, onChange }: {
+  rune: OwnedShield['reinforcingRune']; granted?: OwnedShield['reinforcingRune']; entries: ContentEntry[]; onChange: (rune: OwnedShield['reinforcingRune']) => void
 }) {
+  const automatic = granted && (!rune || SHIELD_RUNES[granted].level > SHIELD_RUNES[rune].level)
+    ? <div className="gear-runes"><span>Blessed Shield</span>
+      <GearTag name={`Reinforcing Rune (${granted})`} source="Granted by Blessed Shield"
+        entry={entries.find(entry => entry.kind === 'item' && entry.name === `Reinforcing Rune (${granted})`)} />
+    </div> : null
   if (rune) {
     const name = `Reinforcing Rune (${rune})`
-    return <div className="gear-runes"><span>Shield rune</span>
+    return <>{automatic}<div className="gear-runes"><span>Shield rune</span>
       <GearTag name={name} entry={entries.find(entry => entry.kind === 'item' && entry.name === name)}
         onRemove={() => onChange(undefined)} />
-    </div>
+    </div></>
   }
-  return <label>Shield rune{' '}<select aria-label="Add shield rune" value="" onChange={event => {
+  return <>{automatic}<label>{granted ? 'Installed shield rune' : 'Shield rune'}{' '}<select aria-label="Add shield rune" value="" onChange={event => {
     const choice = (['Minor', 'Lesser', 'Moderate', 'Greater', 'Major', 'Supreme'] as const).find(name => name === event.target.value)
     if (choice) onChange(choice)
   }}>
     <option value="">Add reinforcing rune...</option>
-    {Object.entries(SHIELD_RUNES).map(([name, data]) => <option key={name} value={name}>{name} (Level {data.level})</option>)}
-  </select></label>
+    {Object.entries(SHIELD_RUNES).sort(([a], [b]) => a.localeCompare(b)).map(([name, data]) => <option key={name} value={name}>{name} (Level {data.level})</option>)}
+  </select></label></>
 }
 
 function Level({ label, value, options, format, onChange, disabled, minimum = 0 }: {
@@ -1385,6 +1390,16 @@ export function ShieldAttachment({ c, entries, save, shield }: SectionProps & { 
   </label>
 }
 
+function ShieldDurability({ c, entries, shield }: Pick<SectionProps, 'c' | 'entries'> & { shield: OwnedShield }) {
+  const stats = shieldStats(shield, c, entries)
+  const blessing = blessedShieldBenefit(c, shield, entries)
+  return <small>Hardness {stats.hardness}; Hit Points {stats.hp}; Broken Threshold {Math.floor(stats.hp / 2)}.
+    {blessing && <>{' '}<SourceNote source="Blessed Shield" note={blessing.rune
+      ? `Grants ${blessing.rune} reinforcing rune while this shield is wielded; stronger installed reinforcement remains effective.`
+      : 'Matching reinforcing rune or sturdy shield grants +1 Hardness instead.'} /></>}
+  </small>
+}
+
 export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
   const armors = ownedArmors(c, entries)
   const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
@@ -1553,6 +1568,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {materialOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (Level {entry.level})</option>)}
             </SearchableSelect>}
             <ShieldRune rune={shield.reinforcingRune} entries={entries}
+              granted={blessedShieldBenefit(c, shield, entries)?.rune}
               onChange={reinforcingRune => save({ shield: { ...shield, reinforcingRune } })} />
           </div>
           {!shield.material && !materialOptions.length && <small>No matching materials available. Sync Archives of Nethys content if needed.</small>}
@@ -1562,7 +1578,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           <div className="row">
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
           </div>
-          <small>Hardness {shieldStats(shield).hardness}; Hit Points {shieldStats(shield).hp}; Broken Threshold {Math.floor(shieldStats(shield).hp / 2)}.</small>
+          <ShieldDurability c={c} entries={entries} shield={shield} />
           <button type="button" className="spell-remove" aria-label={`Remove ${shield.name}`} title="Remove"
             onClick={() => confirmRemoval(`shield "${shield.name}"`, () => save({ shield: undefined }))}>×</button>
         </article>
@@ -1585,8 +1601,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {isBucklerShield(woodShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
         <ShieldAttachment c={c} entries={entries} save={save} shield={woodShield} />
-        <small>Hardness {shieldStats(woodShield).hardness}; Hit Points {shieldStats(woodShield).hp}; Broken Threshold {Math.floor(shieldStats(woodShield).hp / 2)}. Material and base stats improve automatically.</small>
+        <ShieldDurability c={c} entries={entries} shield={woodShield} />
+        <small>Material and base stats improve automatically.</small>
         <ShieldRune rune={woodShield.reinforcingRune} entries={entries}
+          granted={blessedShieldBenefit(c, woodShield, entries)?.rune}
           onChange={reinforcingRune => save({ hardwoodShield: { ...c.hardwoodShield, reinforcingRune } })} />
         <label>Damage <input type="number" min={0} value={woodShield.damage}
           onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, damage: Math.max(0, +event.target.value || 0) } })} /></label>

@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { armorClass, armorEntry, armorGauntlet, armorSpecialization, defenseSummary, equippedShield, hardwoodShield, ownedArmors, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
+import { armorClass, armorEntry, armorGauntlet, armorSpecialization, blessedShieldBenefit, defenseSummary, equippedShield, hardwoodShield, ownedArmors, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
 import { ArmorList } from './GearSection'
 import { SkillsSection } from './SkillsSection'
 import { grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -84,6 +84,46 @@ it('saves shield material and runes separately from base stats, including grante
   expect(c.hardwoodShield?.reinforcingRune).toBe('Greater')
   expect(shieldStats(hardwoodShield(c)!)).toEqual({ hardness: 11, hp: 104 })
   expect(JSON.parse(JSON.stringify(c)).shield).toEqual(c.shield)
+})
+
+it.each([
+  [3, 'Minor', 8, 64], [6, 'Minor', 8, 64], [7, 'Lesser', 8, 72],
+  [10, 'Moderate', 8, 84], [13, 'Greater', 10, 100],
+  [16, 'Major', 10, 104], [19, 'Supreme', 12, 128],
+] as const)('automatically applies Blessed Shield at level %i', (level, rune, hardness, hp) => {
+  const shield = { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 2, raised: false }
+  const c: Character = { ...base, level, className: 'Champion', blessing: 'Blessed Shield', shield }
+  expect(blessedShieldBenefit(c, shield)).toEqual({ rune, hardness: 0 })
+  expect(shieldStats(shield, c)).toEqual({ hardness, hp })
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} part="shield" />)
+  expect(markup).toContain(`Reinforcing Rune (${rune})`)
+  expect(markup).toContain(`Hardness ${hardness}; Hit Points ${hp}; Broken Threshold ${hp / 2}.`)
+  expect(markup).toContain('Granted by Blessed Shield')
+  expect(markup).not.toContain(`aria-label="Remove Reinforcing Rune (${rune}) rune"`)
+  expect(c.shield).toEqual(shield)
+  expect(c.shield?.reinforcingRune).toBeUndefined()
+})
+
+it('uses +1 Hardness for matching reinforcement or sturdy shields without stacking free runes', () => {
+  const shield = { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, reinforcingRune: 'Moderate' as const }
+  const c: Character = { ...base, level: 10, className: 'Champion', blessing: 'Blessed Shield', shield }
+  expect(shieldStats(shield, c)).toEqual({ hardness: 9, hp: 84 })
+  const sturdy = { ...shield, name: 'Sturdy Shield (Moderate)', hardness: 13, hp: 104, reinforcingRune: undefined }
+  expect(shieldStats(sturdy, { ...c, shield: sturdy })).toEqual({ hardness: 14, hp: 104 })
+  expect(shieldStats({ ...sturdy, name: 'Sturdy Shield (Lesser)', hardness: 10, hp: 80 }, c)).toEqual({ hardness: 13, hp: 104 })
+  expect(shieldStats({ ...shield, reinforcingRune: 'Supreme' }, c)).toEqual({ hardness: 12, hp: 128 })
+  expect(shieldStats({ ...shield, reinforcingRune: 'Minor' }, c)).toEqual({ hardness: 8, hp: 84 })
+})
+
+it('applies selected extra blessings only when available and to the wielded shield', () => {
+  const shield = { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false }
+  const c: Character = { ...base, level: 8, className: 'Champion', blessing: 'Blessed Armament', shield,
+    feats: [{ name: 'Second Blessing', level: 8, type: 'Class Feat', choice: 'Blessed Shield' }] }
+  expect(shieldStats(shield, c)).toEqual({ hardness: 8, hp: 72 })
+  expect(shieldStats(shield, { ...c, level: 7 })).toEqual({ hardness: 5, hp: 20 })
+  expect(shieldStats(shield, { ...c, className: 'Fighter' })).toEqual({ hardness: 5, hp: 20 })
+  expect(shieldStats(shield, { ...c, feats: [] })).toEqual({ hardness: 5, hp: 20 })
+  expect(shieldStats({ ...shield, id: 'unequipped' }, c)).toEqual({ hardness: 5, hp: 20 })
 })
 
 it('provides Ranger and Druid copies without the impulse trait', () => {

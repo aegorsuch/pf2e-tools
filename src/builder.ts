@@ -305,12 +305,28 @@ export const SHIELD_RUNES = {
   Major: { level: 16, hardness: 5, hp: 84, maxHardness: 17, maxHp: 136 },
   Supreme: { level: 19, hardness: 7, hp: 108, maxHardness: 20, maxHp: 160 },
 } as const
-export function shieldStats(shield: Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'>) {
+type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
+
+export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, entries: ContentEntry[] = []) {
+  if (!championBlessings(c).includes('Blessed Shield') || !shield.id || equippedShield(c)?.id !== shield.id) return undefined
+  const ranks = Object.keys(SHIELD_RUNES) as (keyof typeof SHIELD_RUNES)[]
+  const appropriate = [...ranks].reverse().find(rank => SHIELD_RUNES[rank].level <= c.level) ?? 'Minor'
+  const sturdy = /^Sturdy Shield(?: \((Minor|Lesser|Moderate|Greater|Major|Supreme)\))?$/i.exec(shield.name ?? '')
+  const sturdyRank = sturdy && ranks.find(rank => rank.toLowerCase() === (sturdy[1] ?? 'Minor').toLowerCase())
+  const sturdyLevel = sturdy ? byName(entries, 'item', shield.name)?.level ?? (sturdyRank && SHIELD_RUNES[sturdyRank].level) : undefined
+  const overlap = shield.reinforcingRune === appropriate || sturdyLevel === SHIELD_RUNES[appropriate].level
+  return { rune: overlap ? undefined : appropriate, hardness: overlap ? 1 : 0 }
+}
+
+export function shieldStats(shield: ShieldStatsInput, c?: Character, entries: ContentEntry[] = []) {
   const hardness = shield.material?.hardness ?? shield.hardness
   const hp = shield.material?.hp ?? shield.hp
-  const rune = shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
+  const blessing = c && blessedShieldBenefit(c, shield, entries)
+  const purchased = shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
+  const granted = blessing?.rune && SHIELD_RUNES[blessing.rune]
+  const rune = granted && (!purchased || granted.level > purchased.level) ? granted : purchased
   return {
-    hardness: rune ? Math.max(hardness, Math.min(hardness + rune.hardness, rune.maxHardness)) : hardness,
+    hardness: (rune ? Math.max(hardness, Math.min(hardness + rune.hardness, rune.maxHardness)) : hardness) + (blessing?.hardness ?? 0),
     hp: rune ? Math.max(hp, Math.min(hp + rune.hp, rune.maxHp)) : hp,
   }
 }
@@ -3374,7 +3390,8 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
 }
 
 export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  return deityWeapon(c, entries)?.id === weapon.id
+  return !!shieldAttachmentSource(c, weapon)
+    || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)
     || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
     || !!weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
@@ -3405,7 +3422,10 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   if (shield) {
     const generated = shield.id === 'granted-shield:hardwood'
     const material = generated ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' : shield.material?.name
-    return { ...weapon, material }
+    const automatic = automaticWeaponFundamentals(c.level)
+    return withBlessedArmament(c, entries, { ...weapon, material,
+      potency: Math.max(weapon.potency, automatic.potency),
+      striking: Math.max(weapon.striking, automatic.striking) })
   }
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
