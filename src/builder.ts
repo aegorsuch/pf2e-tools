@@ -2215,6 +2215,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value: v === 'half' ? half : +v, source: e.name })
     }
   }
+  if (activeFeatsNamed(c, 'Pain Tolerance').length
+    && !out.some(resistance => resistance.source === 'Pain Tolerance' && resistance.damage.toLowerCase() === 'mental')) {
+    out.push({ damage: 'mental', value: Math.floor(c.level / 2), source: 'Pain Tolerance' })
+  }
   const specialization = armorSpecialization(c, entries)
   if (specialization?.benefit?.kind === 'resistance' && specialization.benefit.damage) out.push({
     damage: specialization.benefit.damage, value: specialization.benefit.value,

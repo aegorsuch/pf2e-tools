@@ -386,6 +386,18 @@ describe('official passive feat mechanics', () => {
     expect(resistances({ ...c, feats: [] }, entries)).toEqual([])
   })
 
+  it('grants Pain Tolerance mental resistance only after taking the feat', () => {
+    const feat = { name: 'Pain Tolerance', type: 'Class Feat', level: 6, slot: 'class:6:0' }
+    const c = { ...base, level: 7, feats: [feat] }
+    expect(resistances(c, entries)).toContainEqual({ damage: 'Mental', value: 3, source: feat.name })
+    expect(resistances({ ...c, level: 20 }, entries)).toContainEqual({ damage: 'Mental', value: 10, source: feat.name })
+    expect(resistances({ ...c, level: 5 }, entries)).not.toContainEqual(expect.objectContaining({ source: feat.name }))
+    expect(resistances({ ...c, feats: [] }, entries)).not.toContainEqual(expect.objectContaining({ source: feat.name }))
+    const catalog = [...entries, entry('feat', feat.name, { resistances: 'mental=half' }, 6)]
+    expect(resistances(c, catalog).filter(resistance => resistance.source === feat.name))
+      .toEqual([{ damage: 'Mental', value: 3, source: feat.name }])
+  })
+
   const wizard = entry('class', 'Wizard', {
     attack_proficiency: 'Trained in simple weapons, Trained in unarmed attacks',
     defense_proficiency: 'Untrained in all armor, Trained in unarmored defense',

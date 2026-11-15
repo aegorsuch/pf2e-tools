@@ -26,6 +26,16 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows Pain Tolerance resistance and conditional save bonus without increasing ordinary saves', () => {
+  const c: Character = { ...base, level: 7, feats: [{ name: 'Pain Tolerance', type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(markup).toContain('Mental 3 (Pain Tolerance)')
+  expect(markup).toContain('+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled.')
+  expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
+  const before = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 5 }} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(before).not.toContain('Pain Tolerance')
+})
+
 it('shows subclass-granted Lore as a trained skill without an Additional Lore feat', () => {
   const c: Character = { ...base, className: 'Investigator', subclass: 'Empiricism',
     subclassSkillChoices: { 'Investigator:Empiricism': 'Lore', 'Investigator:Empiricism:lore': 'Sailing Lore' } }
