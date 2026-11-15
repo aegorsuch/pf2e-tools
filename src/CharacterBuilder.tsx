@@ -307,8 +307,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>{title}</strong>
-          <span>{filled}/{slots.length}{category === 'skill' && activeFeatsNamed(c, "Officer's Medical Training").length > 0
-            ? ' · Battle Medicine granted' : ''}</span>
+          <span>{filled}/{slots.length}</span>
         </summary>
         <div className="character-section-content">
           <SearchableFeatSlots {...section} categories={[category]} title={title} bare />

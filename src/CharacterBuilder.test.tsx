@@ -13,16 +13,15 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
-it("shows Officer's Medical Training grant in the collapsed Skill Feats summary", () => {
+it("keeps Officer's Medical Training grant text out of the Skill Feats summary", () => {
   content.entries = []
   const c: Character = { id: 'officer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Commander',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: "Officer's Medical Training", type: 'Class Feat', level: 1, slot: 'class:1:0' }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toMatch(/<strong>Skill Feats<\/strong><span>[^<]*Battle Medicine granted<\/span>/)
-  const inactive = renderToStaticMarkup(<CharacterBuilder character={{ ...c, level: 0 }} onClose={() => {}} />)
-  expect(inactive).not.toContain('Battle Medicine granted')
+  expect(markup).toMatch(/<strong>Skill Feats<\/strong><span>\d+\/\d+<\/span>/)
+  expect(markup).not.toContain('Battle Medicine granted')
 })
 
 it('shows persisted subclass choices and Starfinder subclass pickers', () => {
