@@ -420,9 +420,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </optgroup>
                 ))}
               </select>}
-              {s.grantedBy === 'Social Chameleon' && !current && <small>
-                {s.category === 'general' ? 'Social Chameleon: choose Adopted Ancestry.'
-                  : s.grantedAncestry ? `Social Chameleon: common level-1 ${s.grantedAncestry} feat.`
+              {s.grantedBy === 'Social Chameleon' && s.category === 'ancestry' && !current && <small>
+                {s.grantedAncestry ? `Social Chameleon: common level-1 ${s.grantedAncestry} feat.`
                     : 'Choose Adopted Ancestry in General Feats first.'}
               </small>}
               {popup && open && (

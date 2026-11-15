@@ -373,7 +373,7 @@ it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinfor
   expect(unblessed).toContain(`aria-label="Remove Reinforcing Rune (${rune}) rune"`)
 })
 
-it('attaches shield weapons with independent runes and inherited shield material', () => {
+it('attaches shield weapons with explicitly selected runes and material', () => {
   const entries = ['Shield Spikes', 'Shield Pistol', 'Shield Boss'].map(name => ({
     ...weapon, id: name, name, traits: ['Attached'],
     data: { hands: 1, damage: name === 'Shield Boss' ? '1d6 B' : '1d6 P', weapon_group: name === 'Shield Pistol' ? 'Firearm' : 'Shield' },
@@ -401,12 +401,16 @@ it('attaches shield weapons with independent runes and inherited shield material
   ;(potency.props.onChange as (value: number) => void)(2)
   expect(c.shield?.attachedWeapon?.potency).toBe(2)
   expect(c.weapons?.some(w => w.attachedTo)).toBe(false)
-  expect(effectiveWeapon(c, entries, attachment())).toMatchObject({ potency: 2, material: 'Orichalcum' })
+  expect(effectiveWeapon(c, entries, attachment())).toMatchObject({ potency: 2, striking: 0 })
+  expect(effectiveWeapon(c, entries, attachment()).material).toBeUndefined()
+  const material = findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === 'Weapon material')!
+  ;(material.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Orichalcum' } })
+  expect(c.shield?.attachedWeapon?.material).toBe('Orichalcum')
   c = { ...c, shield: { ...c.shield!, material: { name: 'Cold Iron (Low-Grade)' } } }
-  expect(effectiveWeapon(c, entries, attachment()).material).toBe('Cold Iron (Low-Grade)')
+  expect(effectiveWeapon(c, entries, attachment()).material).toBe('Orichalcum')
   const gear = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)
-  expect(gear).toContain('Material: Cold Iron (Low-Grade) (from Steel Shield)')
-  expect(gear).not.toContain('aria-label="Weapon material"')
+  expect(gear).not.toContain('(from Steel Shield)')
+  expect(gear).toContain('aria-label="Remove Orichalcum material"')
   vi.mocked(window.confirm).mockReturnValueOnce(false)
   select('Shield Spikes')
   expect(attachment().name).toBe('Shield Boss')
@@ -449,28 +453,30 @@ it('keeps attachments on their own shields when switching to a generated hardwoo
   const spikes = weapons().find(w => w.id === 'spikes')!
   expect(weaponEquipped(c, [], boss)).toBe(false)
   expect(weaponEquipped(c, [], spikes)).toBe(true)
-  expect(effectiveWeapon(c, [], spikes)).toMatchObject({ material: 'Duskwood (Standard-Grade)', runes: ['Flaming'] })
+  expect(effectiveWeapon(c, [], spikes)).toMatchObject({ potency: 1, striking: 1, runes: ['Flaming'] })
+  expect(effectiveWeapon(c, [], spikes).material).toBeUndefined()
   c = { ...c, level: 20, hardwoodShield: { ...c.hardwoodShield, equipped: false } }
   expect(weaponEquipped(c, [], spikes)).toBe(false)
   expect(weaponEquipped(c, [], boss)).toBe(true)
-  expect(effectiveWeapon(c, [], spikes).material).toBe('Duskwood (High-Grade)')
+  expect(effectiveWeapon(c, [], spikes).material).toBeUndefined()
   c = { ...c, shield: undefined }
   expect(weapons().some(w => w.id === 'boss')).toBe(false)
 })
 
 it.each([
-  [1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1],
-  [12, 2, 2], [16, 3, 2], [19, 3, 3],
-] as const)('automatically scales shield weapon fundamentals at level %i', (level, potency, striking) => {
+  [1, 0, 0], [20, 0, 0], [20, 1, 0], [20, 0, 1], [20, 2, 2],
+] as const)('uses only selected shield weapon fundamentals at level %i with potency %i and striking %i', (level, potency, striking) => {
   const c: Character = { ...character([]), level, weapons: [], shield: {
     id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false,
-    attachedWeapon: { id: 'spikes', name: 'Shield Spikes', potency: 0, striking: 0, runes: [] },
+    material: { name: 'Orichalcum Shield (High-Grade)' },
+    attachedWeapon: { id: 'spikes', name: 'Shield Spikes', potency, striking, runes: [] },
   } }
   const entry = { ...weapon, id: 'spikes', name: 'Shield Spikes', data: { ...weapon.data, damage: '1d6 piercing', hands: 1 } }
   const attack = ownedWeapons(c, [entry]).find(w => w.id === 'spikes')!
   expect(effectiveWeapon(c, [entry], attack)).toMatchObject({ potency, striking })
   expect(weaponAttack(c, [entry], attack).damage).toBe(`${1 + striking}d6 piercing`)
-  expect(c.shield?.attachedWeapon).toMatchObject({ potency: 0, striking: 0 })
+  expect(effectiveWeapon(c, [entry], attack).material).toBeUndefined()
+  expect(c.shield?.attachedWeapon).toMatchObject({ potency, striking })
 })
 
 it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(

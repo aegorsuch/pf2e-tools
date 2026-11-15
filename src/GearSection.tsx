@@ -1219,8 +1219,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? null : <div className="row">
-              {shieldSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {shieldSource.name})</small>
-                : card ? <small>Material: playing cards</small> : <>
+              {card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
               </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
