@@ -3200,6 +3200,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
   entry = weaponWithModifications(c, w, entry)
+  if (entry && !isRanged(entry)) {
+    const existingTraits = entry.traits.map(trait => trait.toLowerCase())
+    const added = [
+      ...(getSettings().gauntletFinesse && /^(?:spiked )?gauntlet$/i.test(entry.name.trim()) ? ['Finesse'] : []),
+      ...(/\bgauntlets?\b/i.test(entry.name) && c.feats.some(feat => /^Iron Fists?$/i.test(feat.name)
+        && featTakenLevel(feat) <= c.level) ? ['Shove'] : []),
+    ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
+    if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
+  }
   if (entry && defensiveArmamentsParry(c, w, entry) && !hasParryTrait(entry)) {
     entry = { ...entry, traits: [...entry.traits, 'Parry'] }
   }

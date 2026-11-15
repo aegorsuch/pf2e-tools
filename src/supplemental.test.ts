@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import { backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { getSettings, updateSettings } from './settings'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
@@ -116,7 +117,7 @@ it('derives and locks one gauntlet while eligible armor is worn, preserving inde
   expect(isLockedWeapon(c, gauntlet.name)).toBe(true)
   expect(weaponCategory(GAUNTLET)).toBe('Simple')
   expect(weaponAttack(c, [], gauntlet)).toMatchObject({
-    ability: 'str', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Free-Hand'],
+    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Free-Hand', 'Finesse'],
   })
   const configured = { ...gauntlet, potency: 2, striking: 1, runes: ['Flaming'] }
   const saved = { ...c, weapons: [configured] }
@@ -138,6 +139,42 @@ it('derives and locks one gauntlet while eligible armor is worn, preserving inde
   const entry: ContentEntry = { ...GAUNTLET, id: 'full-plate', kind: 'armor', name: 'Full Plate', data: { ac: 6, dex_cap: 0 } }
   expect(ownedWeapons(imported, [entry]).map((weapon) => weapon.name)).toContain('Gauntlet')
   expect(isLockedWeapon(imported, 'Gauntlet', [entry])).toBe(true)
+})
+
+it('applies Iron Fists shove and optional finesse to gauntlet attacks', () => {
+  const previous = getSettings().gauntletFinesse
+  const spiked: ContentEntry = { ...GAUNTLET, id: 'spiked', name: 'Spiked Gauntlet', data: { ...GAUNTLET.data, damage: '1d4 piercing' } }
+  const bladed: ContentEntry = { ...GAUNTLET, id: 'bladed', name: 'Bladed Gauntlet', traits: ['Agile', 'Finesse', 'Free-Hand'] }
+  const bow: ContentEntry = { ...GAUNTLET, id: 'bow', name: 'Gauntlet Bow', data: { ...GAUNTLET.data, weapon_type: 'Ranged' } }
+  const entries = [spiked, bladed, bow]
+  const iron = { name: 'Iron Fists', type: 'Ancestry Feat', level: 1 }
+  const owned = (name: string) => ({ id: name, name, potency: 0, striking: 0, runes: [] })
+  try {
+    updateSettings({ gauntletFinesse: true })
+    for (const name of ['Gauntlet', 'Spiked Gauntlet']) {
+      const attack = weaponAttack({ ...base, feats: [iron] }, entries, owned(name))
+      expect(attack.traits).toEqual(expect.arrayContaining(['Finesse', 'Shove']))
+      expect(attack.ability).toBe('dex')
+      expect(attack.damage).toMatch(/\+1 /)
+      expect(weaponAttack({ ...base, feats: [] }, entries, owned(name)).traits).not.toContain('Shove')
+      expect(weaponAttack({ ...base, level: 0, feats: [iron] }, entries, owned(name)).traits).not.toContain('Shove')
+      updateSettings({ gauntletFinesse: false })
+      const disabled = weaponAttack({ ...base, feats: [iron] }, entries, owned(name))
+      expect(disabled.traits).not.toContain('Finesse')
+      expect(disabled.traits).toContain('Shove')
+      expect(disabled.ability).toBe('str')
+      updateSettings({ gauntletFinesse: true })
+    }
+    expect(weaponAttack({ ...base, feats: [iron] }, entries, owned('Bladed Gauntlet')).traits)
+      .toEqual(['Agile', 'Finesse', 'Free-Hand', 'Shove'])
+    expect(weaponAttack({ ...base, feats: [iron] }, entries, owned('Gauntlet Bow')).traits).not.toContain('Shove')
+    const armor = { id: 'plate', name: 'Full Plate', potency: 0, resilient: 0, runes: [], worn: true }
+    const wearer = { ...base, feats: [iron], armors: [armor] }
+    const gauntlet = ownedWeapons(wearer, entries).find(weapon => weapon.name === 'Gauntlet')!
+    expect(weaponAttack(wearer, entries, gauntlet).traits).toEqual(expect.arrayContaining(['Finesse', 'Shove']))
+    expect(GAUNTLET.traits).toEqual(['Agile', 'Free-Hand'])
+    expect(spiked.traits).toEqual(['Agile', 'Free-Hand'])
+  } finally { updateSettings({ gauntletFinesse: previous }) }
 })
 
 it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor text', () => {

@@ -100,7 +100,8 @@ describe('settings sync', () => {
     expect(settings.getSettings().singleTrainingFeats).toBe(true)
     expect(settings.getSettings().championFormNoFlight).toBe(true)
     expect(settings.getSettings().orderExplorerSkills).toBe(true)
-    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false })
+    expect(settings.getSettings().gauntletFinesse).toBe(true)
+    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
     if (!saved) throw new Error('Settings were not persisted')
     vi.mocked(localStorage.getItem).mockReturnValue(saved)
@@ -109,10 +110,12 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().singleTrainingFeats).toBe(false)
     expect(reloaded.getSettings().championFormNoFlight).toBe(false)
     expect(reloaded.getSettings().orderExplorerSkills).toBe(false)
-    reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true, orderExplorerSkills: true }, reloaded.getSettingsUpdatedAt() + 1)
+    expect(reloaded.getSettings().gauntletFinesse).toBe(false)
+    reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true, orderExplorerSkills: true, gauntletFinesse: true }, reloaded.getSettingsUpdatedAt() + 1)
     expect(reloaded.getSettings().singleTrainingFeats).toBe(true)
     expect(reloaded.getSettings().championFormNoFlight).toBe(true)
     expect(reloaded.getSettings().orderExplorerSkills).toBe(true)
+    expect(reloaded.getSettings().gauntletFinesse).toBe(true)
   })
 
   it('pulls newer settings from the signed-in account', async () => {

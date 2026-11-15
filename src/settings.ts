@@ -22,10 +22,12 @@ export interface Settings {
   singleTrainingFeats: boolean
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
   inventorFirearmAccess: boolean
+  // House rule: Gauntlet and Spiked Gauntlet gain finesse
+  gauntletFinesse: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true }
+const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

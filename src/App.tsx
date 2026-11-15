@@ -264,6 +264,11 @@ export default function App() {
             Free Archetype
           </label>
           <label>
+            <input type="checkbox" checked={settings.gauntletFinesse}
+              onChange={(e) => updateSettings({ gauntletFinesse: e.target.checked })} />{' '}
+            Gauntlet and Spiked Gauntlet Gain Finesse
+          </label>
+          <label>
             <input type="checkbox" checked={settings.generalFeatsOnly}
               onChange={(e) => updateSettings({ generalFeatsOnly: e.target.checked })} />{' '}
             General Feats Only
