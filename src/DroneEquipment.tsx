@@ -2,6 +2,7 @@ import { weaponCategory, weaponHands, signed, type SectionProps } from './builde
 import { confirmRemoval } from './confirmRemoval'
 import { newId } from './db'
 import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
+import { droneForceField } from './drone'
 import { EntryDescription } from './EntryDescription'
 import { mechanicDamageSummary, MechanicWeaponMods, upgradeDamageSummary, WeaponUpgrades } from './GearSection'
 import { SearchableSelect } from './SearchableSelect'
@@ -74,9 +75,32 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
     <small>Armor upgrade slots: {armor.length}/{capacity.armorUpgrades}.</small>
     {armor.map((id, index) => {
       const entry = armorCatalog.find(item => item.id === id)
+      const field = entry && index < capacity.armorUpgrades ? droneForceField(entry) : undefined
+      const fieldState = field && (c.mechanicDroneForceFields?.[id] ?? { hp: field.hp, active: false, coolingDown: false })
+      const saveField = (state: NonNullable<typeof fieldState>) =>
+        save({ mechanicDroneForceFields: { ...c.mechanicDroneForceFields, [id]: state } })
       return <div className="row" key={`${id}:${index}`}>
         <EntryDescription name={entry?.name ?? id} entry={entry} />
         {index >= capacity.armorUpgrades && <small role="status">Inactive: no upgrade slot.</small>}
+        {field && fieldState && <div className="col">
+          <label><input type="checkbox" checked={fieldState.active} disabled={fieldState.coolingDown}
+            onChange={event => saveField({ ...fieldState, active: event.target.checked })} /> Force field active</label>
+          <label>Force field HP{' '}<input type="number" min={0} max={field.hp} step={1}
+            aria-label="Drone force field HP" value={fieldState.hp} onChange={event => {
+              const value = Number(event.target.value)
+              if (!event.target.value || !Number.isInteger(value) || value < 0 || value > field.hp) return
+              saveField({ hp: value, active: value === 0 ? false : fieldState.active,
+                coolingDown: value === 0 && fieldState.active || fieldState.coolingDown })
+            }} /> / {field.hp}</label>
+          <button type="button" disabled={!fieldState.active || fieldState.hp >= field.hp} onClick={() =>
+            saveField({ ...fieldState, hp: Math.min(field.hp, fieldState.hp + field.recharge) })}>Replenish at start of turn</button>
+          {fieldState.coolingDown && <button type="button" onClick={() => saveField({ ...fieldState, coolingDown: false })}>
+            10 minutes elapsed
+          </button>}
+          <small>While active, absorbs physical and energy damage first; track damage and turns manually.
+            {field.criticalDC && ` On a critical hit, attempt DC ${field.criticalDC} flat check to reduce it to a normal hit.`}
+            {' '}At 0 HP from damage, it cannot reactivate for 10 minutes.</small>
+        </div>}
         {entry && index < capacity.armorUpgrades && /^Energy Shielding(?: \((?:Commercial|Tactical|Advanced)\))?$/.test(entry.name)
           && <label>Shielded energy{' '}<select aria-label="Drone Energy Shielding type"
             value={c.mechanicDroneEnergyShielding?.[id] ?? ''} onChange={event => {
@@ -91,7 +115,11 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
             {['acid', 'cold', 'electricity', 'fire'].map(type => <option key={type}>{type}</option>)}
           </select></label>}
         <button type="button" onClick={() => confirmRemoval(`drone armor upgrade "${entry?.name ?? id}"`,
-          () => save({ mechanicDroneArmorUpgrades: armor.filter((_, i) => i !== index) }))}>Remove upgrade</button>
+          () => {
+            const fields = { ...c.mechanicDroneForceFields }
+            delete fields[id]
+            save({ mechanicDroneArmorUpgrades: armor.filter((_, i) => i !== index), mechanicDroneForceFields: fields })
+          })}>Remove upgrade</button>
       </div>
     })}
     {capacity.armorUpgrades > armor.length && armorOptions.length > 0 && <SearchableSelect
@@ -101,6 +129,6 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
       <option value="">Add armor upgrade...</option>
       {armorOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (Level {entry.level})</option>)}
     </SearchableSelect>}
-    <small>Check installed upgrade descriptions for effects not reflected in drone statistics.</small>
+    <small>Drone companions benefit from item bonuses only to Speed and AC. Check upgrade descriptions for other effects not reflected in statistics.</small>
   </div>
 }

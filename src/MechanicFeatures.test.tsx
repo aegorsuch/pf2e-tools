@@ -6,7 +6,7 @@ import { DroneFeatures } from './DroneFeatures'
 import { MinionsSection } from './MinionsSection'
 import { SkillsSection } from './SkillsSection'
 import { magneticLevitatorsActive, movementSpeeds, resistances, subclassOptions } from './builder'
-import { droneCustomizationSlots, droneStats } from './drone'
+import { droneCustomizationSlots, droneForceField, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
 import { turretWeapon } from './mechanicTurret'
@@ -463,6 +463,60 @@ it('tracks mounted weapons and armor slots without applying character proficienc
     .toContain('imprecise scent 30 feet, precise hearing 30 feet')
   expect(droneStats({ ...sensingDrone, mechanicDroneCustomizations: { Commercial: [] } }, [...entries, sensor]))
     .toMatchObject({ scent: false, preciseHearing: false })
+})
+
+it('tracks an installed drone force field through damage, cooldown, and turn replenishment', () => {
+  const field: ContentEntry = { id: 'field', name: 'Force Field (Tactical)', kind: 'item', level: 4,
+    source: 'official', systems: ['sf2e'], traits: ['Tech'], description: '', effects: [], updatedAt: 0,
+    data: { item_subcategory: 'Armor Upgrades' } }
+  expect(droneForceField(field)).toEqual({ hp: 14, recharge: 3, criticalDC: 20 })
+  expect(droneForceField({ ...field, name: 'Force Field (Paragon)' })).toEqual({ hp: 42, recharge: 8, criticalDC: 15 })
+  let c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Agile',
+    mechanicDroneCustomizations: { Commercial: [{ name: 'Upgrade Slot' }] }, mechanicDroneArmorUpgrades: ['field'] }
+  type Props = { children?: ReactNode; type?: string; disabled?: boolean; 'aria-label'?: string
+    onChange?: (event: { target: { value: string; checked: boolean } }) => void; onClick?: () => void }
+  const find = (node: ReactNode, predicate: (type: unknown, props: Props) => boolean): Props | undefined => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = find(child, predicate)
+        if (found) return found
+      }
+    } else if (isValidElement<Props>(node)) {
+      if (predicate(node.type, node.props)) return node.props
+      return find(node.props.children, predicate)
+    }
+    return undefined
+  }
+  const render = () => DroneEquipment({ c, entries: [field], save: patch => { c = { ...c, ...patch } } })
+  const checkbox = () => find(render(), (type, props) => type === 'input' && props.type === 'checkbox')
+  const hp = () => find(render(), (_, props) => props['aria-label'] === 'Drone force field HP')
+  const button = (text: string) => find(render(), (type, props) => type === 'button' && props.children === text)
+  checkbox()?.onChange?.({ target: { value: '', checked: true } })
+  hp()?.onChange?.({ target: { value: '5', checked: false } })
+  button('Replenish at start of turn')?.onClick?.()
+  expect(c.mechanicDroneForceFields?.field).toEqual({ hp: 8, active: true, coolingDown: false })
+  hp()?.onChange?.({ target: { value: '0', checked: false } })
+  expect(c.mechanicDroneForceFields?.field).toEqual({ hp: 0, active: false, coolingDown: true })
+  expect(checkbox()?.disabled).toBe(true)
+  button('10 minutes elapsed')?.onClick?.()
+  expect(checkbox()?.disabled).toBe(false)
+  const restored = JSON.parse(JSON.stringify(c)) as Character
+  expect(restored.mechanicDroneForceFields?.field).toEqual({ hp: 0, active: false, coolingDown: false })
+  expect(renderToStaticMarkup(<DroneEquipment c={{ ...c, mechanicDroneCustomizations: { Commercial: [] } }}
+    entries={[field]} save={() => {}} />)).not.toContain('Drone force field HP')
+})
+
+it('shows glitch compensator protection only while the drone upgrade is active', () => {
+  const entry: ContentEntry = { id: 'compensator', name: 'Glitch Compensator', kind: 'item', level: 5,
+    source: 'official', systems: ['sf2e'], traits: ['Tech'], description: '', effects: [], updatedAt: 0,
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Agile',
+    mechanicDroneCustomizations: { Commercial: [{ name: 'Upgrade Slot' }] }, mechanicDroneArmorUpgrades: [entry.id],
+    mechanicGlitching: { 'drone:mechanic:drone': 2 } }
+  expect(renderToStaticMarkup(<DroneFeatures c={c} entries={[entry]} save={() => {}} />))
+    .toContain('Glitch Compensator: critical failures become failures.')
+  expect(renderToStaticMarkup(<DroneFeatures c={{ ...c, mechanicDroneCustomizations: { Commercial: [] } }}
+    entries={[entry]} save={() => {}} />)).not.toContain('Glitch Compensator: critical failures become failures.')
 })
 
 it('uses configured imitated species movement and unarmed attack', () => {

@@ -155,7 +155,10 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         onChange={event => save({ mechanicDroneAssistantActive: event.target.checked })} /> Drone assistant within reach
     </label>}
     {stats && <div className="col">
-      <ItemTroubleshoot c={c} save={save} kind="drone" id="mechanic:drone" label="Drone" creature />
+      <ItemTroubleshoot c={c} save={save} kind="drone" id="mechanic:drone" label="Drone" creature
+        compensator={active.some(item => item.name === 'Upgrade Slot') && entries.some(entry =>
+          entry.id === c.mechanicDroneArmorUpgrades?.[0] && !entry.deleted && entry.kind === 'item'
+          && entry.systems.includes('sf2e') && entry.data.item_subcategory === 'Armor Upgrades' && entry.name === 'Glitch Compensator')} />
       <EnergyNeutralizer c={c} save={save} id="mechanic:drone" label="drone" />
       <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
         onChange={choices => save({ mechanicExocortexDebilitation: choices,

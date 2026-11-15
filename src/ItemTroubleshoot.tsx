@@ -2,12 +2,13 @@ import { newId } from './db'
 import type { SectionProps } from './builder'
 import type { Character } from './types'
 
-export function ItemTroubleshoot({ c, save, id, kind, label, attach, creature = false }: Pick<SectionProps, 'c' | 'save'> & {
+export function ItemTroubleshoot({ c, save, id, kind, label, attach, creature = false, compensator = false }: Pick<SectionProps, 'c' | 'save'> & {
   id?: string
   kind: string
   label: string
   attach?: (id: string) => Partial<Character>
   creature?: boolean
+  compensator?: boolean
 }) {
   if (c.className !== 'Mechanic' || !c.systems.includes('sf2e')) return null
   const key = id ? `${kind}:${id}` : undefined
@@ -31,6 +32,7 @@ export function ItemTroubleshoot({ c, save, id, kind, label, attach, creature = 
       }} /></label>
     <button type="button" disabled={!glitching} onClick={() => update(glitching - 1)}>Troubleshoot</button>
     {glitching > 0 && <small>Flat check DC {5 + glitching} {creature ? 'at the start of each turn' : 'when using this item'}; apply the result manually.</small>}
+    {glitching > 0 && compensator && <small>Glitch Compensator: critical failures become failures.</small>}
     </div>
   </details>
 }

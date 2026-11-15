@@ -9,6 +9,21 @@ type Customization = {
   choices?: readonly string[]
 }
 
+const FORCE_FIELDS: Record<string, { hp: number; recharge: number; criticalDC?: number }> = {
+  Commercial: { hp: 6, recharge: 2 },
+  Tactical: { hp: 14, recharge: 3, criticalDC: 20 },
+  Advanced: { hp: 20, recharge: 4, criticalDC: 19 },
+  Superior: { hp: 26, recharge: 5, criticalDC: 18 },
+  Elite: { hp: 32, recharge: 6, criticalDC: 17 },
+  Ultimate: { hp: 37, recharge: 7, criticalDC: 16 },
+  Paragon: { hp: 42, recharge: 8, criticalDC: 15 },
+}
+
+export function droneForceField(entry: ContentEntry) {
+  const grade = /^Force Field(?: \((Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\))?$/.exec(entry.name)
+  return grade ? FORCE_FIELDS[grade[1] ?? 'Commercial'] : undefined
+}
+
 const SKILLS = ['Acrobatics', 'Arcana', 'Athletics', 'Computers', 'Crafting', 'Deception', 'Diplomacy',
   'Intimidation', 'Medicine', 'Nature', 'Occultism', 'Performance', 'Piloting', 'Religion', 'Society',
   'Stealth', 'Survival', 'Thievery'] as const
