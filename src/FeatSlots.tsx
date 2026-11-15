@@ -420,10 +420,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </optgroup>
                 ))}
               </select>}
-              {s.grantedBy === 'Social Chameleon' && s.category === 'ancestry' && !current && <small>
-                {s.grantedAncestry ? `Social Chameleon: common level-1 ${s.grantedAncestry} feat.`
-                    : 'Choose Adopted Ancestry in General Feats first.'}
-              </small>}
               {popup && open && (
                 <PickerDialog label={`${label} feat picker`} searchLabel={`Search ${label} feats`} query={search[`${s.key}:query`] ?? ''}
                   onClose={() => onSearch?.(`${s.key}:open`, '')} onQuery={query => {

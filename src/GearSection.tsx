@@ -1215,8 +1215,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <span>Material</span><Material name={enhanced.material} entries={entries} equipment="Weapon" source="Granted by Cold Iron Tusks" />
             </div>}
             {alloy && <small>Alloyed Attacks: melee unarmed attacks have {alloy} properties.</small>}
-            {shieldBash ? <small>Material: {enhanced.material ?? 'Standard'} (from {shieldSource.name}). Shield Bash cannot have weapon runes.</small>
-              : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
+            {shieldSource ? null : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? null : <div className="row">
               {card ? <small>Material: playing cards</small> : <>

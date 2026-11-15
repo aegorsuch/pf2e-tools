@@ -3415,7 +3415,8 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
 }
 
 export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  return deityWeapon(c, entries)?.id === weapon.id
+  return !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
+    || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)
     || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
     || !!weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
@@ -3447,7 +3448,10 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     const generated = shield.id === 'granted-shield:hardwood'
     const material = generated ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' : shield.material?.name
     if (weapon.name === SHIELD_BASH.name) return { ...weapon, material, potency: 0, striking: 0, runes: [] }
-    return withBlessedArmament(c, entries, weapon)
+    const automatic = automaticWeaponFundamentals(c.level)
+    return withBlessedArmament(c, entries, { ...weapon, material,
+      potency: Math.max(weapon.potency, automatic.potency),
+      striking: Math.max(weapon.striking, automatic.striking) })
   }
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)

@@ -80,12 +80,13 @@ it('persists Social Chameleon choices in normal feat sections and clears depende
   const tree = (categories: ('ancestry' | 'general' | 'skill')[]) => FeatSlots({ c, entries, categories,
     save: patch => { c = { ...c, ...patch } } })
   expect(renderToStaticMarkup(tree(['general']))).not.toContain('Social Chameleon: choose Adopted Ancestry.')
-  expect(renderToStaticMarkup(tree(['ancestry']))).toContain('Choose Adopted Ancestry in General Feats first.')
+  expect(renderToStaticMarkup(tree(['ancestry']))).not.toContain('Choose Adopted Ancestry in General Feats first.')
   expect(renderToStaticMarkup(tree(['skill']))).not.toContain('Social Chameleon')
   findSelect(tree(['general']), 'L05 General feat')!({ target: { value: JSON.stringify(['Adopted Ancestry', 'Elf']) } })
   expect(c.feats.find(feat => feat.name === adopted.name)).toMatchObject({
     type: 'General Feat', choice: 'Elf', takenLevel: 5, slot: 'general:1:social-chameleon:ancestry:5:0',
   })
+  expect(renderToStaticMarkup(tree(['ancestry']))).not.toContain('Social Chameleon: common level-1 Elf feat.')
   findSelect(tree(['ancestry']), 'L05 Ancestry feat')!({ target: { value: elfFeat.name } })
   expect(c.feats.find(feat => feat.name === elfFeat.name)).toMatchObject({
     type: 'Ancestry Feat', takenLevel: 5, slot: 'ancestry:1:social-chameleon:ancestry:5:0',
