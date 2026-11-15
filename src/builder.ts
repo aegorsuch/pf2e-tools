@@ -84,7 +84,7 @@ const HERITAGE_PARENTS = new Map(Object.entries({
 const VERSATILE_HERITAGES = new Set([
   'Aasimar', 'Aphorite', 'Ganzi', 'Tiefling', 'Ifrit', 'Oread', 'Suli', 'Sylph', 'Undine', 'Ardande', 'Talos',
   'Changeling', 'Nephilim', 'Aiuvarin', 'Dromaar', 'Dhampir', 'Dragonblood', 'Duskwalker', 'Hungerseed',
-  'Reflection', 'Fadrim', 'Beastkin',
+  'Reflection', 'Fadrim', 'Beastkin', 'Cyborg',
 ].map(slug))
 
 export const isVersatileHeritage = (entry: ContentEntry) => VERSATILE_HERITAGES.has(slug(entry.name))
@@ -96,10 +96,10 @@ export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
   const target = slug(ancestry)
   const names = new Set([target, ...entries.filter((e) => e.kind === 'ancestry' && !e.deleted).map((e) => slug(e.name))])
   return all.filter((e) => {
+    if (isVersatileHeritage(e)) return true
     const linked = e.data.ancestry ? slug(String(e.data.ancestry)) : ''
     if (linked) return linked === target
     const name = slug(e.name)
-    if (isVersatileHeritage(e)) return true
     const tagged = e.traits.map(slug).filter((t) => names.has(t))
     if (tagged.length) return tagged.includes(target)
     const parent = HERITAGE_PARENTS.get(name)
@@ -764,6 +764,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     && entry.systems.some(system => c.systems.includes(system))
     && entry.traits.some(trait => trait.toLowerCase() === primaryAncestry)
     && featSelectionLevel(entry, c, entries, slot.category, slot) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
+  const overcrowd = candidates.filter(({ entry }) => entry.name === 'Overcrowd' && entry.source === 'official')
+    .sort((a, b) => Number(prerequisites(a.entry).missing.length > 0) - Number(prerequisites(b.entry).missing.length > 0)
+      || Number(!!a.entry.data.prerequisite) - Number(!!b.entry.data.prerequisite))[0]?.entry
   const duplicateLore = slot.category === 'ancestry' && candidates.some(candidate => candidate.entry.name === 'Ancestral Skills') && (() => {
     const genericSkills = ancestralSkills({ ...c, feats: [{ name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1 }] }, entries)
     if (!genericSkills.length) return false
@@ -776,6 +779,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     })
   })()
   return candidates.filter(({ entry, equivalence }) => {
+      if (entry.name === 'Overcrowd' && entry.source === 'official' && entry !== overcrowd) return false
       if (entry.name === 'Prehensile Limbs' && specificTail
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Ancestral Skills' && duplicateLore

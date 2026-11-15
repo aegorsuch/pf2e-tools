@@ -1,7 +1,7 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { mapAonHit } from './aon'
 import { describe, expect, it } from 'vitest'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -23,6 +23,24 @@ it('merges equivalent cross-system ancestry feats after eligibility filtering bu
   const options = eligibleFeats([entry('ancestry', 'Human'), entry('ancestry', 'Shirren'), original, duplicate, different, restricted],
     c, { key: 'ancestry:1:0', category: 'ancestry', level: 1 }, { includeUnmetPrerequisites: true })
   expect(options.map(option => option.id)).toEqual([original.id, different.id, restricted.id])
+})
+
+it('offers one eligible official Overcrowd while preserving homebrew options', () => {
+  const core = { ...entry('feat', 'Overcrowd', {}, 9, ['Ysoki']), systems: ['sf2e' as const],
+    description: 'As long as you are Small, you can share a square with a Small ally.' }
+  const galactic = { ...entry('feat', 'Overcrowd', { prerequisite: 'Small size or smaller' }, 9, ['Ysoki']),
+    id: 'galactic-overcrowd', systems: ['sf2e' as const], description: 'Small or smaller creatures can share a square.' }
+  const pathfinder = { ...entry('feat', 'Overcrowd', {}, 9, ['Ratfolk']), id: 'pf-overcrowd',
+    description: 'As long as you are Small, you can share a square with a Small ally.' }
+  const homebrew = { ...core, id: 'custom-overcrowd', source: 'homebrew' as const }
+  const c: Character = { id: 'ysoki', name: 'Test', systems: ['pf2e', 'sf2e'], ancestry: 'Ysoki', level: 9,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const slot = { key: 'ancestry:9:0', category: 'ancestry' as const, level: 9 }
+  expect(eligibleFeats([galactic, core, homebrew], c, slot, { includeUnmetPrerequisites: true })).toEqual([core, homebrew])
+  expect(eligibleFeats([galactic], c, slot, { includeUnmetPrerequisites: true })).toEqual([galactic])
+  const adopted = { ...c, feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Ratfolk' }] }
+  expect(eligibleFeats([pathfinder, galactic, core], adopted, slot).map(feat => feat.id)).toEqual([core.id])
 })
 
 const entries = [
@@ -1165,6 +1183,21 @@ describe('heritagesFor', () => {
       entry('heritage', 'Changeling', {}, 1, ['Heritage']),
     ]
     expect(heritagesFor(list, 'Gnome').map((h) => h.name).sort()).toEqual(['Aquazoan Gnome', 'Chameleon Gnome', 'Changeling'])
+  })
+
+  it('offers the linked Starfinder Cyborg heritage as versatile, with its ancestry feats', () => {
+    const cyborg = mapAonHit({ _id: 'ancestries--66-cyborg--heritages--355-cyborg',
+      _source: { category: 'heritage', name: 'Cyborg', url: '/ancestries/66-cyborg/heritages/355-cyborg' } }, 'sf2e')!
+    const frame = { ...entry('feat', 'Gg-os Frame', {}, 1, ['Cyborg']), systems: ['sf2e' as const] }
+    const list = [cyborg, frame, entry('heritage', 'Test-Subject Ysoki', { ancestry: 'ysoki' })]
+    expect(cyborg.data.ancestry).toBe('cyborg')
+    expect(isVersatileHeritage(cyborg)).toBe(true)
+    for (const ancestry of ['Ysoki', 'Human', 'Elf']) {
+      expect(heritagesFor(list, ancestry)).toContain(cyborg)
+      const character: Character = { ...base, systems: ['sf2e'], ancestry, heritage: 'Cyborg' }
+      expect(eligibleFeats(list, character, { key: 'ancestry:1:0', category: 'ancestry', level: 1 })).toContain(frame)
+    }
+    expect(heritagesFor(list, 'Human').map(heritage => heritage.name)).not.toContain('Test-Subject Ysoki')
   })
 })
 
