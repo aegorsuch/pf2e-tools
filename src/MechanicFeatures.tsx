@@ -1,7 +1,9 @@
 import { abilityMod, proficiencyBonus, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { TURRET_ARRAYS, TURRET_NAMES } from './mechanicTurret'
-import type { Character } from './types'
+import { mechanicClassDC } from './mechanicRules'
+import { TransmutativeCasing } from './TransmutativeCasing'
+import type { Character, MechanicMine } from './types'
 
 export function mechanicMineState(c: Character) {
   const capacity = Math.max(0, 4 + abilityMod(c.abilities.int) + 2 * Math.floor(c.level / 5))
@@ -11,40 +13,95 @@ export function mechanicMineState(c: Character) {
   return { capacity, carried, deployed }
 }
 
+export function mechanicMineDamage(c: Character, mine: MechanicMine) {
+  const base = mine.baseDamage ?? 'fire'
+  const types: NonNullable<MechanicMine['damageType']>[] = base === 'fire' ? ['acid', 'cold', 'electricity', 'fire', 'sonic']
+    : ['bludgeoning', 'piercing', 'slashing']
+  const damageType = c.level >= 5 && mine.damageType && types.includes(mine.damageType) ? mine.damageType : base
+  const bonus = mine.targeting ? Math.max(0, abilityMod(c.abilities.int)) : 0
+  return {
+    damage: `${2 + Math.floor((Math.max(1, c.level) - 1) / 2)}d6${bonus ? `+${bonus}` : ''} ${damageType}`,
+    radius: (c.level >= 15 ? 20 : c.level >= 10 ? 15 : 10) + (mine.bigBoom ? 5 : 0),
+    types,
+  }
+}
+
 export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   if (c.className !== 'Mechanic' || !c.systems.includes('sf2e')) return null
   const intelligence = abilityMod(c.abilities.int)
-  const classRank = c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1
-  const classDc = 10 + intelligence + proficiencyBonus(classRank, c.level)
+  const classDc = mechanicClassDC(c)
   const saveRank = c.level >= 15 ? 3 : c.level >= 10 ? 2 : 1
   const maxHp = 10 + (2 + intelligence) * c.level
   const array = c.mechanicTurretArray && TURRET_ARRAYS[c.mechanicTurretArray]
   const mines = mechanicMineState(c)
+  const deployed = Array.from({ length: mines.deployed }, (_, index) => c.mechanicDeployedMines?.[index] ?? {})
+  const updateMines = (carried: number, next: MechanicMine[]) => save({
+    mechanicMines: { carried, deployed: next.length }, mechanicDeployedMines: next,
+  })
   return <div className="col">
     {c.subclass === 'Mine' && <>
       <strong>Mine exocortex</strong>
       <span>Mine capacity: {mines.capacity}; disable DC {classDc}</span>
       <span>Carried {mines.carried}/{mines.capacity}; deployed {mines.deployed}.</span>
       <div className="row">
-        <button type="button" disabled={!mines.carried} onClick={() => save({
-          mechanicMines: { carried: mines.carried - 1, deployed: mines.deployed + 1 },
-        })}>Deploy mine</button>
-        <button type="button" disabled={!mines.deployed} onClick={() => save({
-          mechanicMines: { carried: mines.carried, deployed: mines.deployed - 1 },
-        })}>Detonate mine</button>
+        <button type="button" disabled={!mines.carried} onClick={() => updateMines(mines.carried - 1, [...deployed, {}])}>Deploy mine</button>
         <button type="button" disabled={!mines.deployed || mines.carried + mines.deployed > mines.capacity}
-          onClick={() => save({ mechanicMines: { carried: mines.carried + mines.deployed, deployed: 0 } })}>Collect mines</button>
-        <button type="button" disabled={mines.carried >= mines.capacity} onClick={() => save({
-          mechanicMines: { carried: Math.min(mines.capacity, mines.carried + 2), deployed: mines.deployed },
-        })}>Craft mines (10 minutes)</button>
+          onClick={() => updateMines(mines.carried + mines.deployed, [])}>Collect mines</button>
+        <button type="button" disabled={mines.carried >= mines.capacity}
+          onClick={() => updateMines(Math.min(mines.capacity, mines.carried + 2), deployed)}>Craft mines (10 minutes)</button>
         <button type="button" onClick={() => {
-          const reset = () => save({ mechanicMines: { carried: mines.capacity, deployed: 0 } })
+          const reset = () => save({ mechanicMines: { carried: mines.capacity, deployed: 0 },
+            mechanicDeployedMines: [] })
           if (mines.deployed) confirmRemoval('deployed mines at daily preparations', reset)
           else reset()
         }}>Daily preparations</button>
       </div>
       {mines.deployed > 0 && mines.carried + mines.deployed > mines.capacity
         && <small role="status">Not enough carrying capacity to collect all deployed mines.</small>}
+      {deployed.map((mine, index) => {
+        const result = mechanicMineDamage(c, mine)
+        const update = (patch: Partial<MechanicMine>) => updateMines(mines.carried,
+          deployed.map((item, i) => i === index ? { ...item, ...patch } : item))
+        return <div className="gear-card col" key={index}>
+          <strong>Mine {index + 1}</strong>
+          <label>Damage{' '}<select aria-label={`Mine ${index + 1} base damage`} value={mine.baseDamage ?? 'fire'} onChange={event => {
+            if (event.target.value === 'fire' || event.target.value === 'piercing')
+              update({ baseDamage: event.target.value, damageType: undefined })
+          }}><option value="fire">Fire</option><option value="piercing">Piercing</option></select></label>
+          <label><input type="checkbox" checked={!!mine.bigBoom} onChange={event => update({ bigBoom: event.target.checked })} /> Big Boom</label>
+          <label><input type="checkbox" checked={!!mine.bunkerBuster} onChange={event => update({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
+          <label><input type="checkbox" checked={!!mine.incapacitant} onChange={event => update({ incapacitant: event.target.checked })} /> Incapacitant</label>
+          <label><input type="checkbox" checked={!!mine.smartMine} onChange={event => update({ smartMine: event.target.checked })} /> Smart Mine</label>
+          {mine.smartMine && <div className="col"><small>Targets within 60 feet are excluded from all mines you detonate while this mod lasts.</small>
+            {Array.from({ length: c.level >= 10 ? 6 : c.level >= 5 ? 3 : 1 }, (_, targetIndex) => <label key={targetIndex}>
+              Protected target {targetIndex + 1}{' '}<input aria-label={`Mine ${index + 1} protected target ${targetIndex + 1}`}
+                value={mine.smartTargets?.[targetIndex] ?? ''} onChange={event => {
+                  const next = [...(mine.smartTargets ?? [])]
+                  while (next.length <= targetIndex) next.push('')
+                  next[targetIndex] = event.target.value
+                  update({ smartTargets: next })
+                }} />
+            </label>)}
+          </div>}
+          <label><input type="checkbox" checked={!!mine.targeting} onChange={event => update({ targeting: event.target.checked })} /> Targeting Mine</label>
+          <TransmutativeCasing c={c} value={mine.transmutativeCasing} onChange={value => update({ transmutativeCasing: value })} />
+          {c.level >= 5 && <label>Damage versatility{' '}<select aria-label={`Mine ${index + 1} damage versatility`}
+            value={mine.damageType && result.types.includes(mine.damageType) ? mine.damageType : ''} onChange={event => {
+              const choice = result.types.find(type => type === event.target.value)
+              if (!event.target.value || choice) update({ damageType: choice })
+            }}>
+            <option value="">Normal damage</option>
+            {result.types.map(type => <option key={type}>{type}</option>)}
+          </select></label>}
+          <small>{result.damage}{mine.incapacitant ? ' nonlethal' : ''}; {result.radius}-foot burst; basic Reflex DC {classDc}.
+            Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
+          {mine.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+          <small>Turn mods off when they expire.</small>
+          <button type="button" onClick={() => updateMines(mines.carried, deployed.filter((_, i) => i !== index))}>
+            Detonate mine {index + 1}
+          </button>
+        </div>
+      })}
       <small>Deploy to an unoccupied square within 60 feet. Create two mines per 10 minutes; unused mines expire at daily preparations.</small>
     </>}
     {c.subclass === 'Turret' && <>

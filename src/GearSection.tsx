@@ -16,6 +16,7 @@ import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import type { MechanicEnergy } from './types'
+import { TransmutativeCasing } from './TransmutativeCasing'
 import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
@@ -86,24 +87,6 @@ export const mechanicDamageSummary = (c: Character, weapon: OwnedWeapon, attack:
 const mechanicModDuration = (c: Character) => activeFeatsNamed(c, 'Steady Modifications').length
   ? 'Mods normally last 1 minute; turn them off when they expire.'
   : 'Mods normally end after your next turn; turn them off when they expire.'
-
-function TransmutativeCasing({ c, value, onChange }: { c: Character; value?: string; onChange: (value: string | undefined) => void }) {
-  if (!activeFeatsNamed(c, 'Transmutative Casing').length) return null
-  const choices = ['Cold Iron', 'Silver',
-    ...(activeFeatsNamed(c, 'Advanced Transmutative Casing').length ? ['Adamantine (standard-grade)', 'Aucturnite', 'Noqual'] : []),
-    ...(activeFeatsNamed(c, 'Superior Transmutative Casing').length
-      ? ['Abysium (standard-grade)', 'Djezet (standard-grade)', 'Cold Siccatite (standard-grade)', 'Hot Siccatite (standard-grade)'] : [])]
-  return <label>Transmutative Casing{' '}
-    <select aria-label="Transmutative Casing" value={value ?? ''} onChange={event => {
-      if (!event.target.value || choices.includes(event.target.value)) onChange(event.target.value || undefined)
-    }}>
-      <option value="">None</option>
-      {value && !choices.includes(value) && <option value={value} disabled>{value} (unavailable)</option>}
-      {choices.map(choice => <option key={choice}>{choice}</option>)}
-    </select>
-    {value && choices.includes(value) && <small> Physical damage uses {value}; turn off when the mod expires.</small>}
-  </label>
-}
 
 function AttackUpgrades({ attack }: { attack: ReturnType<typeof weaponAttack> }) {
   if (!attack.upgrades.length) return null

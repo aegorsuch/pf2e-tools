@@ -2,16 +2,21 @@ import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneStats } from './dro
 import { activeFeatsNamed, ranksAt, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneEquipment } from './DroneEquipment'
+import { DRONE_CHASSIS, switchDroneChassis } from './droneChassis'
+import { mechanicClassDC } from './mechanicRules'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
-const CHASSIS = ['Agile', 'Imitator', 'Powerful', 'Surveillance', 'Tank'] as const
 
 export function DroneFeatures({ c, entries, save }: SectionProps) {
   const slots = droneCustomizationSlots(c)
   if (!slots) return null
   const saved = c.mechanicDroneCustomizations ?? {}
   const stats = droneStats(c, entries)
+  const convertible = activeFeatsNamed(c, 'Convertible Chassis')
+  const base = c.mechanicDroneBaseChassis ?? c.mechanicDroneChassis
+  const alternates = DRONE_CHASSIS.filter(chassis => chassis !== base && convertible.some(feat => feat.choice === chassis))
+  const configured = !!c.mechanicDroneBaseChassis || convertible.length > 0
   const active = GRADES.flatMap(grade => (saved[grade] ?? []).slice(0, slots[grade]))
   const update = (grade: DroneCustomizationGrade, index: number, customization: DroneCustomization) => {
     const values = [...(saved[grade] ?? [])]
@@ -27,13 +32,28 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
   const droneSize = c.mechanicDroneSize && sizes.includes(c.mechanicDroneSize) ? c.mechanicDroneSize : undefined
   return <div className="col">
     <strong>Drone exocortex</strong>
-    <label>Chassis{' '}<select aria-label="Drone chassis" value={c.mechanicDroneChassis ?? ''} onChange={event => {
-      const chassis = CHASSIS.find(option => option === event.target.value)
-      if (!event.target.value || chassis) save({ mechanicDroneChassis: chassis })
+    <label>{configured ? 'Base chassis' : 'Chassis'}{' '}<select aria-label="Drone chassis" value={base ?? ''} onChange={event => {
+      const chassis = DRONE_CHASSIS.find(option => option === event.target.value && !alternates.includes(option))
+      if (chassis) {
+        if (configured && c.mechanicDroneChassis) save({ ...switchDroneChassis(c, chassis), mechanicDroneBaseChassis: chassis })
+        else save({ mechanicDroneChassis: chassis, ...(configured ? { mechanicDroneBaseChassis: chassis } : {}) })
+      } else if (!event.target.value && !configured) save({ mechanicDroneChassis: undefined })
     }}>
       <option value="">Choose chassis</option>
-      {CHASSIS.map(name => <option key={name}>{name}</option>)}
+      {DRONE_CHASSIS.map(name => <option key={name} disabled={alternates.includes(name)}>{name}</option>)}
     </select></label>
+    {configured && base && <label>Active chassis{' '}
+      <select aria-label="Active drone chassis" value={c.mechanicDroneChassis ?? base} onChange={event => {
+        const chassis = [base, ...alternates].find(option => option === event.target.value)
+        if (chassis && chassis !== c.mechanicDroneChassis) save(switchDroneChassis(c, chassis))
+      }}>
+        {c.mechanicDroneChassis && ![base, ...alternates].includes(c.mechanicDroneChassis)
+          && <option value={c.mechanicDroneChassis} disabled>{c.mechanicDroneChassis} (unavailable)</option>}
+        {[base, ...alternates].map(chassis => <option key={chassis}>{chassis}</option>)}
+      </select>
+    </label>}
+    {alternates.length > 0 && <small>Mobile Reconfiguration: your drone spends two actions to switch chassis.</small>}
+    {configured && base && !stats && <small role="status">Select an available chassis to restore drone statistics.</small>}
     {stats && <label>Drone size{' '}
       <select aria-label="Drone size" value={droneSize ?? ''} onChange={event => {
         const choice = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan'] as const
@@ -82,6 +102,19 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
       {active.some(item => item.name === 'Resistant Panels' && item.choice) && <small>Resistance {Math.ceil(c.level / 2)}:{' '}
         {active.filter(item => item.name === 'Resistant Panels' && item.choice).map(item => item.choice).join(', ')}.</small>}
       {!!stats.specs.length && <small>Specializations: {stats.specs.join(', ')}.</small>}
+      {activeFeatsNamed(c, 'High Voltage').length > 0 && <small>
+        Electrical Discharge (two actions): {Math.ceil(c.level / 2)}d6 electricity; 15-foot cone, 10-foot emanation,
+        or 30-foot line; basic Reflex DC {mechanicClassDC(c)}. Recharges after 1d4 rounds.
+      </small>}
+      {activeFeatsNamed(c, 'Rocket Boosters').length > 0 && <small>
+        Activate Thrusters (two actions, once per 10 minutes): Stride twice through creatures without triggering reactions;
+        {` ${5 + Math.max(0, Math.floor((c.level - 10) / 2))}d6`} bludgeoning, basic Reflex DC {mechanicClassDC(c)};
+        critical failure also knocks prone.
+      </small>}
+      {activeFeatsNamed(c, 'Spinning Blades').length > 0 && <small>
+        Spin to Win (two actions): melee Strike each enemy within a 15-foot emanation.
+        Each attack counts toward multiple attack penalty, which increases after all attacks.
+      </small>}
       {stats.specs.includes('Racer') && <label>Racer speed{' '}
         <select aria-label="Drone Racer speed" value={c.mechanicDroneRacerSpeed ?? ''} onChange={event => {
           const value = ['Land', 'Swim', 'Fly'] as const
@@ -202,7 +235,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
       })}
     </div>)}
     <small>Customizations can be changed during daily preparations.</small>
-    <DroneEquipment c={c} entries={entries} save={save} />
+    {stats && <DroneEquipment c={c} entries={entries} save={save} />}
     <small>Situational customization effects require manual tracking.</small>
   </div>
 }

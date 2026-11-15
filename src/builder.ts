@@ -13,6 +13,7 @@ import { armorModifications, armorOverdriveActive, inventorArmorResistances } fr
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
+import { DRONE_CHASSIS } from './droneChassis'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -913,6 +914,11 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Convertible Chassis' && c.systems.includes('sf2e')) {
+    const base = c.mechanicDroneBaseChassis ?? c.mechanicDroneChassis
+    const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))
+    return DRONE_CHASSIS.filter(option => option !== base && !used.has(option))
+  }
   if (name === 'Advanced Drone' && c.systems.includes('sf2e')) return ['Burly', 'Deft']
   if (name === 'Superior Drone' && c.systems.includes('sf2e')) {
     const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))

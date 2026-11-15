@@ -98,6 +98,8 @@ export function droneCustomizationSlots(c: Character) {
     const slots = droneCustomizationSlots(c)
     const chassis = c.mechanicDroneChassis && CHASSIS[c.mechanicDroneChassis]
     if (!slots || !chassis) return undefined
+    if (c.mechanicDroneBaseChassis && c.mechanicDroneChassis !== c.mechanicDroneBaseChassis
+      && !activeFeatsNamed(c, 'Convertible Chassis').some(feat => feat.choice === c.mechanicDroneChassis)) return undefined
     const tactical = slots.Tactical > 0
     const advance = tactical && activeFeatsNamed(c, 'Advanced Drone')[0]?.choice
     const advanced = advance === 'Burly' || advance === 'Deft'

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { MechanicFeatures, mechanicMineState } from './MechanicFeatures'
+import { MechanicFeatures, mechanicMineDamage, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
 import { MinionsSection } from './MinionsSection'
 import { SkillsSection } from './SkillsSection'
@@ -12,6 +12,8 @@ import { turretWeapon } from './mechanicTurret'
 import { ArmorList, WeaponList } from './GearSection'
 import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
 import { DroneEquipment } from './DroneEquipment'
+import { switchDroneChassis } from './droneChassis'
+import { FeatChoice } from './FeatChoice'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
@@ -29,6 +31,23 @@ it('offers the three official exocortexes and scales mine capacity and DC', () =
     .toEqual({ capacity: 12, carried: 12, deployed: 5 })
   expect(renderToStaticMarkup(<MechanicFeatures c={{ ...mechanic, mechanicMines: { carried: 12, deployed: 1 } }} save={() => {}} />))
     .toContain('Not enough carrying capacity to collect all deployed mines.')
+})
+
+it('scales mine damage and area, including per-mine modifications', () => {
+  expect(mechanicMineDamage({ ...mechanic, level: 1 }, {})).toMatchObject({ damage: '2d6 fire', radius: 10 })
+  expect(mechanicMineDamage({ ...mechanic, level: 10 },
+    { baseDamage: 'piercing', damageType: 'slashing', bigBoom: true, targeting: true }))
+    .toMatchObject({ damage: '6d6+4 slashing', radius: 20 })
+  expect(mechanicMineDamage({ ...mechanic, level: 15 }, {})).toMatchObject({ damage: '9d6 fire', radius: 20 })
+  expect(mechanicMineDamage({ ...mechanic, level: 4 }, { damageType: 'cold' }).damage).toBe('3d6 fire')
+  const c: Character = { ...mechanic, mechanicMines: { carried: 9, deployed: 2 },
+    mechanicDeployedMines: [{ bigBoom: true }, { baseDamage: 'piercing', targeting: true }] }
+  const html = renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)
+  expect(html).toContain('6d6 fire; 20-foot burst')
+  expect(html).toContain('6d6+4 piercing; 15-foot burst')
+  expect(html).toContain('Detonate mine 2')
+  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...c, mechanicDeployedMines: undefined }} save={() => {}} />))
+    .toContain('Mine 2')
 })
 
 it('calculates turret defenses and selected array', () => {
@@ -225,6 +244,41 @@ it('uses configured imitated species movement and unarmed attack', () => {
   const html = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Size: Small')
   expect(html).toContain('Wolf')
+})
+
+it('preserves independent Convertible Chassis customizations and gates inactive chassis', () => {
+  const c: Character = { ...mechanic, level: 20, subclass: 'Drone', mechanicDroneChassis: 'Agile',
+    mechanicDroneSize: 'Small', mechanicDroneCustomizations: { Commercial: [{ name: 'Grounded' }] },
+    feats: [{ name: 'Convertible Chassis', type: 'Class Feat', level: 18, choice: 'Tank', slot: 'class:18:0' }] }
+  expect(featChoiceOptions('Convertible Chassis', c, [], 'class:18:0')).toEqual(['Imitator', 'Powerful', 'Surveillance', 'Tank'])
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} index={0} save={() => {}} />)).toContain('Additional chassis')
+  const tank = { ...c, ...switchDroneChassis(c, 'Tank'), mechanicDroneCustomizations: { Commercial: [{ name: 'Flier' }] } }
+  expect(droneStats(tank)?.speed.Fly).toBe(20)
+  expect(droneStats(tank)?.electricityWeakness).toBe(10)
+  const agile = { ...tank, ...switchDroneChassis(tank, 'Agile') }
+  expect(droneStats(agile)?.electricityWeakness).toBe(0)
+  expect(agile.mechanicDroneSize).toBe('Small')
+  expect(droneStats({ ...agile, ...switchDroneChassis(agile, 'Tank') })?.speed.Fly).toBe(20)
+  expect(droneStats({ ...tank, feats: [] })).toBeUndefined()
+  expect(renderToStaticMarkup(<DroneFeatures c={{ ...tank, feats: [] }} entries={[]} save={() => {}} />))
+    .toContain('Select an available chassis')
+  const repeated = { ...c, feats: [...c.feats, { name: 'Convertible Chassis', type: 'Class Feat', level: 20, choice: 'Powerful', slot: 'class:20:0' }] }
+  expect(featChoiceOptions('Convertible Chassis', repeated, [], 'class:20:0')).not.toContain('Tank')
+})
+
+it('scales drone feat actions and removes them when their feats are inactive', () => {
+  const c: Character = { ...mechanic, level: 14, subclass: 'Drone', mechanicDroneChassis: 'Powerful', feats: [
+    { name: 'High Voltage', type: 'Class Feat', level: 1 },
+    { name: 'Rocket Boosters', type: 'Class Feat', level: 10 },
+    { name: 'Spinning Blades', type: 'Class Feat', level: 12 },
+  ] }
+  const html = (character: Character) => renderToStaticMarkup(<DroneFeatures c={character} entries={[]} save={() => {}} />)
+  expect(html(c)).toContain('7d6 electricity')
+  expect(html(c)).toContain('7d6 bludgeoning')
+  expect(html(c)).toContain('Reflex DC 32')
+  expect(html(c)).toContain('Spin to Win')
+  expect(html({ ...c, level: 9 })).not.toContain('Activate Thrusters')
+  expect(html({ ...c, level: 9 })).toContain('5d6 electricity')
 })
 
 it('enforces drone prerequisites, feat repetition limits and advancement choices', () => {

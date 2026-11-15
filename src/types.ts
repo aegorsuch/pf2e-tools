@@ -7,7 +7,25 @@ export type Source = 'official' | 'homebrew'
 export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
 export type DroneCustomizationGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior'
 export type DroneCustomization = { name: string; choice?: string; choice2?: string }
+export type DroneChassis = 'Agile' | 'Imitator' | 'Powerful' | 'Surveillance' | 'Tank'
+export type DroneProfile = {
+  size?: Character['mechanicDroneSize']
+  imitator?: Character['mechanicDroneImitator']
+  racerSpeed?: Character['mechanicDroneRacerSpeed']
+  customizations?: Character['mechanicDroneCustomizations']
+}
 export type MechanicEnergy = 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'
+export type MechanicMine = {
+  baseDamage?: 'fire' | 'piercing'
+  damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
+  bigBoom?: boolean
+  bunkerBuster?: boolean
+  incapacitant?: boolean
+  smartMine?: boolean
+  smartTargets?: string[]
+  transmutativeCasing?: string
+  targeting?: boolean
+}
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
 export type FeatSlotCategory = 'class' | 'ancestry' | 'skill' | 'general' | 'archetype' | 'bonus'
@@ -194,7 +212,10 @@ export interface Character {
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
-  mechanicDroneChassis?: 'Agile' | 'Imitator' | 'Powerful' | 'Surveillance' | 'Tank'
+  mechanicDeployedMines?: MechanicMine[]
+  mechanicDroneChassis?: DroneChassis
+  mechanicDroneBaseChassis?: DroneChassis
+  mechanicDroneProfiles?: Partial<Record<DroneChassis, DroneProfile>>
   mechanicDroneSize?: 'Tiny' | 'Small' | 'Medium' | 'Large' | 'Huge' | 'Gargantuan'
   mechanicDroneImitator?: {
     species?: string
