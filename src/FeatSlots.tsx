@@ -303,7 +303,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selectedName = selection
             ? `${displayName(selection.name)}${fixedOrSelectedLabel ? ` (${fixedOrSelectedLabel})` : ''}` : current
           const sources = featPrerequisiteSources(entries, {
-            ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits(c),
+            ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits({ ...c, level: Math.min(c.level, s.level) }),
           })
           const currentEntry = sources[0] ?? featByName(entries).get(current)
           const access = currentEntry ? featAccess(c, currentEntry) : undefined

@@ -757,7 +757,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
   }
   const trait = wanted[slot.category]?.toLowerCase()
-  const ancestryTraits = slot.category === 'ancestry' ? ancestryFeatTraits(c) : []
+  const ancestryTraits = slot.category === 'ancestry' ? ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level) }) : []
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),

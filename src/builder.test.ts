@@ -848,6 +848,7 @@ describe('official passive feat mechanics', () => {
     const c = { ...base, level: 5, feats: [selected('Adopted Ancestry', 3, 'Human')] }
     const slot = { key: 'ancestry:5:0', category: 'ancestry' as const, level: 5 }
     expect(eligibleFeats(data, c, slot).map((feat) => feat.name)).toEqual(['Elven Lore', 'Natural Ambition'])
+    expect(eligibleFeats(data, { ...c, level: 20 }, { ...slot, level: 1 }).map((feat) => feat.name)).toEqual(['Elven Lore'])
     expect(eligibleFeats(data, { ...c, level: 2 }, { ...slot, level: 1 }).map((feat) => feat.name)).toEqual(['Elven Lore'])
     expect(eligibleFeats(data, { ...c, feats: [] }, slot).map((feat) => feat.name)).toEqual(['Elven Lore'])
     expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf', 'Human'])
@@ -878,6 +879,8 @@ describe('official passive feat mechanics', () => {
         slot: 'general:1:social-chameleon:ancestry:5:0', choice: 'Elf' }] }
     const ancestry = plannedSlots(adopted).find(slot => slot.grantedBy === 'Social Chameleon' && slot.category === 'ancestry')!
     expect(eligibleFeats(data, adopted, ancestry).map(feat => feat.name)).toEqual(['Elf Feat'])
+    expect(eligibleFeats(data, { ...adopted, level: 20 }, { key: 'ancestry:1:0', category: 'ancestry', level: 1 })
+      .map(feat => feat.name)).toEqual(['Human Feat'])
     expect(eligibleFeats(data, adopted, { key: 'ancestry:5:1', category: 'ancestry', level: 5 }).map(feat => feat.name))
       .toContain('Higher Elf Feat')
     expect(plannedSlots({ ...adopted, level: 4 }).some(slot => slot.grantedBy === 'Social Chameleon')).toBe(false)
