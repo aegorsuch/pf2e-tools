@@ -189,6 +189,7 @@ export interface Character {
   mechanicDroneRacerSpeed?: 'Land' | 'Swim' | 'Fly'
   mechanicDroneCustomizations?: Partial<Record<DroneCustomizationGrade, DroneCustomization[]>>
   mechanicDroneAssistantActive?: boolean
+  mechanicArmorMods?: Record<string, { magneticLevitators?: boolean }>
   mechanicWeaponMods?: Record<string, {
     incapacitant?: boolean
     longRange?: boolean

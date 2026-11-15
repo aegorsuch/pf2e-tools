@@ -1224,6 +1224,14 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {[...INVENTOR_SUITS].sort((a, b) => a.localeCompare(b)).map(name => <option key={name}>{name}</option>)}
             </SearchableSelect>}
             {a.id === INVENTOR_ARMOR_ID && <ArmorModifications c={c} entries={entries} save={save} />}
+            {c.className === 'Mechanic' && c.systems.includes('sf2e') && <label>
+              <input type="checkbox" checked={!!c.mechanicArmorMods?.[a.id]?.magneticLevitators}
+                onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
+                  [a.id]: { ...c.mechanicArmorMods?.[a.id], magneticLevitators: event.target.checked } } })} />
+              {' '}Magnetic Levitators (Modify)
+            </label>}
+            {c.mechanicArmorMods?.[a.id]?.magneticLevitators && c.className === 'Mechanic'
+              && c.systems.includes('sf2e') && <small>Land Speed gains hover; Fly Speed 10 feet while worn. Turn off when the mod expires.</small>}
             {entry?.description && <Info label="Summary">{entry.description}</Info>}
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}

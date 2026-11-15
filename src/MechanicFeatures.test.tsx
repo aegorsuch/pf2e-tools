@@ -4,7 +4,7 @@ import { MechanicFeatures, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
 import { MinionsSection } from './MinionsSection'
 import { SkillsSection } from './SkillsSection'
-import { subclassOptions } from './builder'
+import { magneticLevitatorsActive, movementSpeeds, subclassOptions } from './builder'
 import { droneCustomizationSlots, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
@@ -64,6 +64,17 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
   expect(turretWeapon({ ...c, mechanicTurretGrade: 'Commercial', mechanicTurretUpgrades: ['a', 'b', 'c'] }, entries)?.weapon.upgrades)
     .toEqual(['a', 'b'])
   expect(turretWeapon({ ...c, mechanicTurretGrade: 'Paragon' }, entries)?.entry.data.upgrade_slots).toBe(5)
+})
+
+it('applies Magnetic Levitators only while its armor is worn', () => {
+  const c: Character = { ...mechanic, armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], worn: true }],
+    mechanicArmorMods: { armor: { magneticLevitators: true } } }
+  expect(magneticLevitatorsActive(c, [])).toBe(true)
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 10, source: 'Magnetic Levitators' })
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />))
+    .toContain('hover; Magnetic Levitators')
+  expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).not.toContainEqual(
+    expect.objectContaining({ source: 'Magnetic Levitators' }))
 })
 
 it('grants customization slots once per drone grade plus repeatable customization feats', () => {

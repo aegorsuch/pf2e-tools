@@ -1235,6 +1235,12 @@ export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
     horizontalLeap: land >= 30 ? 20 : land >= 15 ? 15 : undefined }
 }
 
+export function magneticLevitatorsActive(c: Character, entries: ContentEntry[]) {
+  const armor = wornArmor(c, entries)
+  return c.className === 'Mechanic' && c.systems.includes('sf2e')
+    && !!armor && !!c.mechanicArmorMods?.[armor.id]?.magneticLevitators
+}
+
 export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const land = speed(c, entries)
   const dash = isFeatEffectActive(c, 'Uncanny Dash') && activeFeatsNamed(c, 'Gg-os Frame').length > 0
@@ -1251,6 +1257,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     ...(features.includes('Wings') ? [atLandSpeed('Fly', 'Animal Feature')] : []),
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
+  if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', 10, 'Magnetic Levitators'))
   if (activeFeatsNamed(c, 'Soaring Armor').length && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) {
     movement.push(atLandSpeed('Fly', 'Soaring Armor'))
   }
