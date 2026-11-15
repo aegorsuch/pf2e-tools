@@ -95,8 +95,8 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
       <small>Attributes: Str {signed(stats.mods.str)}, Dex {signed(stats.mods.dex)}, Con {signed(stats.mods.con)},
         Int {signed(stats.mods.int)}, Wis {signed(stats.mods.wis)}, Cha {signed(stats.mods.cha)}.</small>
       <small>Speeds: {Object.entries(stats.speed).map(([name, feet]) => `${name} ${feet} feet`).join(', ') || 'determined by imitated creature'}.
-        Senses: {stats.senses}{active.some(item => item.name === 'Olfactory Receptors') ? ', imprecise scent 30 feet' : ''}
-        {active.some(item => item.name === 'Echolocation') ? ', precise hearing 30 feet' : ''}.</small>
+        Senses: {stats.senses}{stats.scent ? ', imprecise scent 30 feet' : ''}
+        {stats.preciseHearing ? ', precise hearing 30 feet' : ''}.</small>
       <small>Skills: {stats.skills.map(skill => `${skill.name} ${signed(skill.bonus)} (${['U', 'T', 'E', 'M', 'L'][skill.rank]})`).join(', ')}.</small>
       {stats.attacks.map(attack => {
         const weapon = { id: attack.id, name: `Drone ${attack.name} (${c.mechanicDroneChassis})`, potency: 0, striking: 0, runes: [] }

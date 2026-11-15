@@ -198,6 +198,14 @@ export function droneCustomizationSlots(c: Character) {
         addResistance(type, value, armorUpgrade.name)
       }
     }
+    if (armorUpgrade && /^Psychic Shielding(?: \((?:Commercial|Tactical|Advanced)\))?$/.test(armorUpgrade.name)) {
+      const value = armorUpgrade.name.endsWith('(Advanced)') ? 15 : armorUpgrade.name.endsWith('(Tactical)') ? 10 : 5
+      addResistance('mental', value, armorUpgrade.name)
+    }
+    if (armorUpgrade?.name === 'Explosive Defense Unit')
+      addResistance('acid, cold, electricity, and fire area damage', 2, armorUpgrade.name)
+    const sensorSuite = armorUpgrade?.name === 'Full-spectrum Sensor Suite (Advanced)' ? 2
+      : armorUpgrade?.name === 'Full-spectrum Sensor Suite (Tactical)' ? 1 : 0
     return { chassis, mods, ranks, speed, hp, ac, attacks, specs, superior, resistances: [...resistances.values()],
       perception: mods.wis + proficiencyBonus(saveRank, c.level),
       fortitude: mods.con + proficiencyBonus(specs.includes('Racer') ? 4 : saveRank, c.level),
@@ -207,5 +215,7 @@ export function droneCustomizationSlots(c: Character) {
         .sort((a, b) => a.name.localeCompare(b.name)),
       electricityWeakness: has('Grounded') ? 0 : Math.ceil(c.level / 2),
       senses: has('Nightvision Sensors') || armorUpgrade?.name === 'Darkvision Visor' ? 'Darkvision' : chassis.senses,
+      scent: has('Olfactory Receptors') || sensorSuite >= 1,
+      preciseHearing: has('Echolocation') || sensorSuite >= 2,
     }
 }

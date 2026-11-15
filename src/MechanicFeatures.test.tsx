@@ -310,6 +310,21 @@ it('tracks mounted weapons and armor slots without applying character proficienc
   expect(droneStats(shielded, [...entries, shielding])?.resistances)
     .toContainEqual({ damage: 'fire', value: 10, source: 'Energy Shielding (Tactical)' })
   expect(droneStats({ ...shielded, mechanicDroneCustomizations: { Commercial: [] } }, [...entries, shielding])?.resistances).toEqual([])
+  const psychic = { ...entries[2], id: 'psychic', name: 'Psychic Shielding (Advanced)' }
+  const protectedDrone = { ...c, mechanicDroneArmorUpgrades: ['psychic'] }
+  expect(droneStats(protectedDrone, [...entries, psychic])?.resistances)
+    .toContainEqual({ damage: 'mental', value: 15, source: 'Psychic Shielding (Advanced)' })
+  expect(droneStats({ ...protectedDrone, mechanicDroneCustomizations: { Commercial: [] } }, [...entries, psychic])?.resistances).toEqual([])
+  const defense = { ...entries[2], id: 'defense', name: 'Explosive Defense Unit' }
+  expect(droneStats({ ...c, mechanicDroneArmorUpgrades: ['defense'] }, [...entries, defense])?.resistances)
+    .toContainEqual({ damage: 'acid, cold, electricity, and fire area damage', value: 2, source: 'Explosive Defense Unit' })
+  const sensor = { ...entries[2], id: 'sensor', name: 'Full-spectrum Sensor Suite (Advanced)' }
+  const sensingDrone = { ...c, mechanicDroneArmorUpgrades: ['sensor'] }
+  expect(droneStats(sensingDrone, [...entries, sensor])).toMatchObject({ scent: true, preciseHearing: true })
+  expect(renderToStaticMarkup(<DroneFeatures c={sensingDrone} entries={[...entries, sensor]} save={() => {}} />))
+    .toContain('imprecise scent 30 feet, precise hearing 30 feet')
+  expect(droneStats({ ...sensingDrone, mechanicDroneCustomizations: { Commercial: [] } }, [...entries, sensor]))
+    .toMatchObject({ scent: false, preciseHearing: false })
 })
 
 it('uses configured imitated species movement and unarmed attack', () => {
