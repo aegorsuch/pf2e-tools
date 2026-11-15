@@ -53,7 +53,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
-      && (grant.name === 'Augmented Body' || grant.name === 'Assurance' && grant.source.startsWith('Exceptional Artisan (')
+      && (grant.name === 'Augmented Body' || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki')
         || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))

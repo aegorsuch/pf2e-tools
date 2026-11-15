@@ -38,6 +38,7 @@ export interface OwnedWeapon {
   combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
   handsHeld?: 1 | 2
+  handPair?: 1 | 2
   attachedWeapon?: 'Bayonet' | 'Reinforced Stock'
   attachedTo?: string
   capacityLoaded?: number
@@ -127,6 +128,9 @@ export interface Character {
   className?: string
   subclass?: string
   heritage?: string
+  testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'
+  activeHandPair?: 1 | 2
+  ysokiDailyUses?: { contaminate?: boolean; retinalHud?: boolean }
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string
   // Druidic order, which grants a skill

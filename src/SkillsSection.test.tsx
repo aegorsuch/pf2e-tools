@@ -26,6 +26,19 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows radioactive protection and tracks the two separate daily abilities', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
+    testSubjectAdaptation: 'Radioactive', ysokiDailyUses: { contaminate: true, retinalHud: false },
+    feats: [{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  const offense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  expect(offense).toContain('actions/232-contaminate')
+  expect(offense).toContain('feats/1217-rat-retinal-hud')
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(defense).toContain('sickened from radiation sickness')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, testSubjectAdaptation: undefined, feats: [] }} entries={[]} save={() => {}} part="offense" />))
+    .not.toContain('actions/232-contaminate')
+})
+
 it("shows Officer's Medical Training using the better Medicine ability and its replacement skill", () => {
   const background: ContentEntry = { ...feyBound, name: 'Medic', data: { skill: 'Medicine' } }
   const c: Character = { ...base, background: 'Medic', abilities: { ...base.abilities, int: 18, wis: 12 },

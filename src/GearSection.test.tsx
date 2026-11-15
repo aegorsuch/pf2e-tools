@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, equippedWeaponHands, movementSpeeds, ownedWeapons, senses, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -70,6 +70,47 @@ it('limits equipped weapons by hands while preserving legacy and always-equipped
   c.weapons!.push({ id: 'free', name: free.name, potency: 0, striking: 0, runes: [], stowed: true })
   expect(weaponEquipped(c, [...entries, free], c.weapons![3])).toBe(true)
   expect(equippedWeaponHands(c, [...entries, free])).toBe(2)
+})
+
+it('holds weapons in separate hand pairs and switches which pair is active', () => {
+  const sword = { ...weapon, data: { hands: 2 } }
+  let c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
+    testSubjectAdaptation: 'Extra Limbs', weapons: [
+      { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+      { id: 'two', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 2 },
+    ] }
+  expect(equippedWeaponHands(c, [sword], 1)).toBe(2)
+  expect(equippedWeaponHands(c, [sword], 2)).toBe(2)
+  expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
+  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(false)
+  const switched = { ...c, activeHandPair: 2 as const }
+  expect(weaponEquipped(switched, [sword], c.weapons![0])).toBe(false)
+  expect(weaponEquipped(switched, [sword], c.weapons![1])).toBe(true)
+  expect(weaponEquipped({ ...switched, testSubjectAdaptation: undefined }, [sword], c.weapons![0])).toBe(true)
+  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Active hands"')
+  const switchHands = findElement(tree(), e => e.props['aria-label'] === 'Active hands')!
+  ;(switchHands.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.activeHandPair).toBe(2)
+  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
+  const pair = findElement(tree(), e => e.props['aria-label'] === 'Hand pair: Longsword')!
+  ;(pair.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  expect(c.weapons![0].handPair).toBe(1)
+})
+
+it('lists non-removable granted augmentations without using implant slots', () => {
+  const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
+    testSubjectAdaptation: 'Cybernetic Augmentation',
+    feats: [{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Datajack')
+  expect(markup).toContain('Autorecognition Lens')
+  expect(markup).toContain('Implant limit: 0/')
+  expect(markup).not.toContain('Remove</button>')
+  const removed = renderToStaticMarkup(<Augmentations c={{ ...c, testSubjectAdaptation: undefined, feats: [] }} entries={[]} save={() => {}} />)
+  expect(removed).not.toContain('Datajack')
+  expect(removed).not.toContain('Autorecognition Lens')
 })
 
 it('links attached weapons to their firearm and persists selection without extra hands', () => {

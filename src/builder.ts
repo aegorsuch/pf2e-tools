@@ -244,6 +244,9 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export const testSubjectAdaptation = (c: Character) =>
+  c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
+    ? c.testSubjectAdaptation : undefined
 export function officerEducationSlots(c: Character) {
   let unslotted = 0
   return activeFeatsNamed(c, "Officer's Education").slice(0, 2).map(feat => ({
@@ -631,7 +634,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name)),
         primalInnateSpell: innateGrants.some(grant => grant.rule.tradition?.toLowerCase() === 'primal'),
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
-          || character.heritage === 'Asanan Elf')
+          || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
           || features.some(feature => /\blimited telepathy\b/i.test(`${feature.name} ${feature.description}`))
           || character.feats.some(feat => /\byou (?:gain|have) limited telepathy\b/i.test(byName(entries, 'feat', feat.name)?.description ?? '')),
         constructCompanion: character.className === 'Inventor' && /^construct(?: innovation)?$/i.test(subclass ?? '')
@@ -1707,7 +1710,7 @@ export function ancestralSkills(c: Character, entries: ContentEntry[]) {
   return statDefs(c).filter(stat => stat.kind === 'skill' && skills.has(stat.name)).map(stat => stat.name)
 }
 
-const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training"])
+const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD'])
 
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -1744,6 +1747,8 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     } else if (feat.name === "Officer's Medical Training") {
       if (!(ranks.Medicine ?? 0) || !feat.choice) trained.push('Medicine')
       else if (featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) trained.push(feat.choice)
+    } else if (feat.name === 'Rat Retinal HUD' && !(ranks.Computers ?? 0)) {
+      trained.push('Computers')
     } else if (feat.name === "Stonemason's Eye" && !(ranks.Crafting ?? 0)) trained.push('Crafting')
   })
   if (activeFeatsNamed(c, 'Beast Trainer').length) trained.push('Nature')
@@ -1777,6 +1782,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const addVision = (value: string, source: string) => {
     if (!out.some((sense) => sense.value.toLowerCase() === value.toLowerCase())) out.push({ value, source })
   }
+  if (testSubjectAdaptation(c) === 'Psychic Augmentation') addVision('Limited Telepathy 30 feet', 'Test-Subject Ysoki')
   const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
   const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight']
   const passive = { ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level && !explicitVision.includes(feat.name)) }
@@ -1836,6 +1842,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   }
   if (isPioneerHuman(c)) grants.push({ name: 'Terrain Expertise', source: 'Pioneer Human', level: 1,
     ...(c.pioneerTerrain ? { choice: c.pioneerTerrain } : {}) })
+  if (testSubjectAdaptation(c) === 'Cybernetic Augmentation') {
+    grants.push({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
+  }
   if (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Kinship').length) {
     grants.push({ name: 'Adopted Ancestry', choice: 'Orc', source: 'Orc Kinship',
       level: Math.min(...activeFeatsNamed(c, 'Orc Kinship').map(featTakenLevel)) })
@@ -1924,6 +1933,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   const klass = byName(entries, 'class', c.className)
   const ranks: Record<string, number> = {}
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
+  if (testSubjectAdaptation(c) === 'Cybernetic Augmentation' && beforeLevel > 1) bump('Computers')
   autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
   backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)).forEach(bump)
@@ -2519,6 +2529,18 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon): numbe
   return match ? Number(match[1]) : undefined
 }
 
+export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
+  if (weapon.attachedTo) {
+    const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
+    return !!source && weaponHeld(c, entries, source)
+  }
+  if (weapon.name === HAFT_STRIKER_WEAPON.name) {
+    const source = haftStrikerSource(c, entries)
+    return !!source && weaponHeld(c, entries, source) && weaponHands(entries, source) === 2
+  }
+  return weaponHands(entries, weapon) === 0 || !weapon.stowed
+}
+
 export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
@@ -2528,12 +2550,14 @@ export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: Ow
     const source = haftStrikerSource(c, entries)
     return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source) === 2
   }
-  return weaponHands(entries, weapon) === 0 || !weapon.stowed
+  return weaponHeld(c, entries, weapon) && (weaponHands(entries, weapon) === 0
+    || testSubjectAdaptation(c) !== 'Extra Limbs' || (weapon.handPair ?? 1) === (c.activeHandPair ?? 1))
 }
 
-export function equippedWeaponHands(c: Character, entries: ContentEntry[]): number {
+export function equippedWeaponHands(c: Character, entries: ContentEntry[], pair?: 1 | 2): number {
   return ownedWeapons(c, entries).reduce((total, weapon) => {
-    if (weapon.attachedTo || weapon.name === HAFT_STRIKER_WEAPON.name || !weaponEquipped(c, entries, weapon)) return total
+    if (weapon.attachedTo || weapon.name === HAFT_STRIKER_WEAPON.name
+      || (pair ? !weaponHeld(c, entries, weapon) || (weapon.handPair ?? 1) !== pair : !weaponEquipped(c, entries, weapon))) return total
     return total + (weaponHands(entries, weapon) ?? 0)
   }, 0)
 }
@@ -3339,6 +3363,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         : feat.name === 'Clan Lore' ? CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
         : feat.name === 'Eye for Treasure' ? ['Crafting']
         : feat.name === "Officer's Medical Training" ? ['Medicine']
+        : feat.name === 'Rat Retinal HUD' ? ['Computers']
         : feat.name === 'Shiny' ? ['Performance']
         : warmask ? [warmask.skill] : []
       if (!named.length) return total
@@ -3356,6 +3381,8 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         return count + Number(!saved)
       }, 0)
     }, 0)
+    + Number(testSubjectAdaptation(c) === 'Cybernetic Augmentation'
+      && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Computers'))
     + (rogueRackets(c, entries).includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill)
       .filter(skill => [...classSkills(byName(entries, 'class', c.className)).fixed,
         ...backgroundSkills(byName(entries, 'background', c.background))].includes(skill)).length : 0)

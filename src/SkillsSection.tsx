@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -284,6 +284,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         })}</small>
         {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
+        {testSubjectAdaptation(c) === 'Radioactive' && <label>
+          <input type="checkbox" checked={!!c.ysokiDailyUses?.contaminate}
+            onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, contaminate: event.target.checked } })} />
+          {' '}<a href="https://2e.aonsrd.com/actions/232-contaminate" target="_blank" rel="noreferrer">Contaminate</a> used
+        </label>}
+        {activeFeatsNamed(c, 'Rat Retinal HUD').length > 0 && <label>
+          <input type="checkbox" checked={!!c.ysokiDailyUses?.retinalHud}
+            onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, retinalHud: event.target.checked } })} />
+          {' '}<a href="https://2e.aonsrd.com/feats/1217-rat-retinal-hud" target="_blank" rel="noreferrer">Rat Retinal HUD</a> daily use
+        </label>}
         <WeaponList c={c} entries={entries} save={save} displayOnly />
       </>
     )
@@ -337,6 +347,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}</small>
+        {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness (Test-Subject Ysoki)</small>}
         {oaken && <small>Weakness: Fire {oaken.fireWeakness} (Oaken Resilience)</small>}
       </>
     )

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, weaponCanUseTwoHands, weaponEquipped, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
+  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -60,6 +60,10 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const [slot, setSlot] = useState('standard')
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
+  const granted = [
+    ...(testSubjectAdaptation(c) === 'Cybernetic Augmentation' ? [{ name: 'Datajack', source: 'Test-Subject Ysoki' }] : []),
+    ...(activeFeatsNamed(c, 'Rat Retinal HUD').length ? [{ name: 'Autorecognition Lens', source: 'Rat Retinal HUD' }] : []),
+  ]
   const limit = augmentationLimit(c)
   const standardUsed = installed.filter(item => item.slot === 'standard').length
   const bodySlots = augmentationBodySlots(c)
@@ -75,7 +79,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     <small>Implant limit: {standardUsed}/{limit}. Apex augmentations do not count toward this limit.</small>
     <small>Augmentation effects are not applied automatically; review each item's rules.</small>
     {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
-    <ul>{installed.map(item => {
+    <ul>{granted.map(item => <li key={item.name}><EntryDescription name={item.name}
+      entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
+      entries={entries} /> <small>({item.source})</small></li>)}{installed.map(item => {
       const entry = entries.find(candidate => candidate.id === item.entryId)
       const invalid = item.slot.startsWith('body:') && !bodySlots.includes(item.slot) || item.slot === 'adapted' && !adapted
       return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
@@ -506,6 +512,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
     } else saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   }
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
+  const extraLimbs = testSubjectAdaptation(c) === 'Extra Limbs'
   const handsUsed = equippedWeaponHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
@@ -513,6 +520,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   return (
     <div className="col gear-list">
+      {displayOnly && extraLimbs && <label>Active hands{' '}
+        <select aria-label="Active hands" value={c.activeHandPair ?? 1}
+          onChange={event => save({ activeHandPair: Number(event.target.value) === 2 ? 2 : 1 })}>
+          <option value={1}>Pair 1</option><option value={2}>Pair 2</option>
+        </select>
+      </label>}
       {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
       {activeFeatsNamed(c, "Fane's Fourberie").length > 0 && PLAYING_CARD_WEAPONS.some(card => !weapons.some(weapon => weapon.id === card.id))
         && <small role="status">Playing-card weapon statistics unavailable. Sync dagger and dart content.</small>}
@@ -550,10 +563,14 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const fixed = w.id === OVERSIZED_THROW.id
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
         const hands = weaponHands(entries, w)
-        const equipped = weaponEquipped(c, entries, w)
+        const equipped = extraLimbs ? weaponHeld(c, entries, w) : weaponEquipped(c, entries, w)
+        const pair = w.handPair ?? 1
+        const pairUsed = extraLimbs ? equippedWeaponHands(c, entries, pair) : handsUsed
+        const pairUnknown = extraLimbs ? weapons.some(weapon => !weapon.attachedTo && (weapon.handPair ?? 1) === pair
+          && weaponHeld(c, entries, weapon) && weaponHands(entries, weapon) === undefined) : unknownHands
         const linkedSource = attachmentSource ?? haft
         const fixedEquipped = hands === 0 || !!linkedSource
-        const cannotEquip = !equipped && (hands === undefined || unknownHands || handsUsed + hands > 2)
+        const cannotEquip = !equipped && (hands === undefined || pairUnknown || pairUsed + hands > 2)
         const inheritedLivingWeapon = !!haft && !!enhanced.livingWeapon
         const canUseLivingWeapon = !fixed && !linkedSource && canBeLivingWeapon(c, entries, w)
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
@@ -596,23 +613,33 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <label title={linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
               : undefined}>
-              <input type="checkbox" aria-label={`Equipped ${displayName}`} checked={equipped}
+              <input type="checkbox" aria-label={`${extraLimbs && !fixedEquipped ? 'Held' : 'Equipped'} ${displayName}`} checked={equipped}
                 disabled={fixedEquipped || cannotEquip}
                 onChange={event => {
-                  if (fixedEquipped || event.target.checked && (hands === undefined || unknownHands || handsUsed + hands > 2)) return
+                  if (fixedEquipped || event.target.checked && (hands === undefined || pairUnknown || pairUsed + hands > 2)) return
                   update(w.id, { stowed: !event.target.checked })
-                }} /> Equipped
+                }} /> {extraLimbs && !fixedEquipped ? 'Held' : 'Equipped'}
             </label>
+            {extraLimbs && !linkedSource && hands !== 0 && <label>Hand pair{' '}
+              <select aria-label={`Hand pair: ${displayName}`} value={pair} onChange={event => {
+                const next = Number(event.target.value) === 2 ? 2 : 1
+                const occupied = equippedWeaponHands(c, entries, next)
+                const unknown = weapons.some(weapon => weapon.id !== w.id && !weapon.attachedTo
+                  && (weapon.handPair ?? 1) === next && weaponHeld(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
+                if (equipped && next !== pair && (unknown || hands === undefined || occupied + hands > 2)) return
+                update(w.id, { handPair: next })
+              }}><option value={1}>Pair 1</option><option value={2}>Pair 2</option></select>
+            </label>}
             {!linkedSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
               <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
                 onChange={event => {
                   const next = Number(event.target.value) as 1 | 2
                   if (next !== 1 && next !== 2
-                    || equipped && next > (hands ?? 0) && (unknownHands || handsUsed - (hands ?? 0) + next > 2)) return
+                    || equipped && next > (hands ?? 0) && (pairUnknown || pairUsed - (hands ?? 0) + next > 2)) return
                   update(w.id, { handsHeld: next })
                 }}>
                 <option value={1}>1</option>
-                <option value={2} disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > 2)}>2</option>
+                <option value={2} disabled={equipped && (pairUnknown || pairUsed - (hands ?? 0) + 2 > 2)}>2</option>
               </select>
             </label>}
           </div>

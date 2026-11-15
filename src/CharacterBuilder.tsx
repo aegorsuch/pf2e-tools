@@ -353,6 +353,31 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
               </SearchableSelect>
           </div>
+          {c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki' && <label>
+            Test-Subject adaptation{' '}
+            <select aria-label="Test-Subject adaptation" value={c.testSubjectAdaptation ?? ''}
+              onChange={event => {
+                const value = event.target.value
+                if (value === '' || value === 'Cybernetic Augmentation' || value === 'Extra Limbs'
+                  || value === 'Psychic Augmentation' || value === 'Radioactive') {
+                  save({ testSubjectAdaptation: value || undefined })
+                }
+              }}>
+              <option value="">Choose adaptation</option>
+              <option>Cybernetic Augmentation</option>
+              <option>Extra Limbs</option>
+              <option>Psychic Augmentation</option>
+              <option>Radioactive</option>
+            </select>
+          </label>}
+          {c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
+            && <Info label="Test-Subject Ysoki">
+              <a href="https://2e.aonsrd.com/heritages/141-test-subject-ysoki" target="_blank" rel="noreferrer">Heritage rules</a>
+            </Info>}
+          {c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
+            && c.testSubjectAdaptation === 'Cybernetic Augmentation' && <Info label="Tech">
+              <a href="https://2e.aonsrd.com/traits/179-tech" target="_blank" rel="noreferrer">Tech trait</a>
+            </Info>}
           <PioneerHumanOptions {...section} />
           <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}

@@ -51,6 +51,29 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('applies Test-Subject Ysoki and Rat Retinal HUD training without duplicating Computers', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
+    className: 'Operative', background: undefined, testSubjectAdaptation: 'Cybernetic Augmentation',
+    feats: [{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  const operative = { ...entry('class', 'Operative', { skill_proficiency: 'Trained in Computers, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' }), systems: ['sf2e'] as const }
+  const catalog: ContentEntry[] = [{ ...operative, systems: ['sf2e'] }]
+  expect(ranksAt(c, catalog).Computers).toBe(1)
+  expect(additionalSkillCount(c, catalog)).toBe(4)
+  expect(automaticFeatGrants(c, catalog)).toContainEqual({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
+  expect(additionalSkillCount({ ...c, feats: [] }, catalog)).toBe(3)
+  expect(additionalSkillCount({ ...c, testSubjectAdaptation: undefined }, catalog)).toBe(3)
+  const noComputerClass = { ...c, className: undefined }
+  expect(ranksAt(noComputerClass, []).Computers).toBe(1)
+  expect(additionalSkillCount(noComputerClass, [])).toBe(1)
+  expect(ranksAt({ ...noComputerClass, feats: [], testSubjectAdaptation: undefined }, []).Computers ?? 0).toBe(0)
+  expect(senses({ ...c, testSubjectAdaptation: 'Psychic Augmentation' }, [])).toContainEqual({
+    value: 'Limited Telepathy 30 feet', source: 'Test-Subject Ysoki',
+  })
+  const telepathicFeat = entry('feat', 'Telepathic Feat', { prerequisite: 'limited telepathy' })
+  expect(featPrerequisiteChecker({ ...c, testSubjectAdaptation: 'Psychic Augmentation' }, [telepathicFeat])(telepathicFeat).missing).toEqual([])
+  expect(featPrerequisiteChecker({ ...c, testSubjectAdaptation: 'Radioactive' }, [telepathicFeat])(telepathicFeat).missing).not.toEqual([])
+})
+
 it("grants Officer's Education benefits twice at their selected levels", () => {
   const education = entry('feat', "Officer's Education", { repeatable: true }, 8, ['Commander'])
   const ordinary = entry('feat', 'Advanced General', {}, 7, ['General'])

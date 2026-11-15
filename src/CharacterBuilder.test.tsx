@@ -13,6 +13,19 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
+it('shows Test-Subject adaptation options only for the matching heritage', () => {
+  content.entries = []
+  const c: Character = { id: 'ysoki', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',
+    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Extra Limbs',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Test-Subject adaptation"')
+  expect(markup).toContain('<option selected="">Extra Limbs</option>')
+  expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: undefined }} onClose={() => {}} />))
+    .not.toContain('aria-label="Test-Subject adaptation"')
+})
+
 it("keeps Officer's Medical Training grant text out of the Skill Feats summary", () => {
   content.entries = []
   const c: Character = { id: 'officer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Commander',
