@@ -404,7 +404,27 @@ it('attaches shield weapons with independent runes and inherited shield material
   expect(attachment().name).toBe('Shield Pistol')
   expect(weaponAttack(c, entries, attachment()).entry?.name).toBe('Shield Pistol')
   select('')
-  expect(ownedWeapons(c, entries).some(w => w.attachedTo === 'shield')).toBe(false)
+  expect(attachment().name).toBe('Shield Bash')
+  expect(c.shield?.attachedWeapon).toBeUndefined()
+})
+
+it('defaults to Shield Bash without extra hands or weapon enhancements', () => {
+  const c: Character = { ...character([]), level: 20, weapons: [],
+    shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false,
+      material: { name: 'Cold Iron Shield (High-Grade)' } },
+  }
+  const bash = ownedWeapons(c, []).find(w => w.name === 'Shield Bash')!
+  expect(weaponEquipped(c, [], bash)).toBe(true)
+  expect(equippedWeaponHands(c, [])).toBe(0)
+  expect(weaponAttack(c, [], bash).damage).toBe('1d4 bludgeoning')
+  expect(effectiveWeapon(c, [], bash)).toMatchObject({ potency: 0, striking: 0, runes: [], material: c.shield?.material?.name })
+  const gear = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(gear).toContain('Shield Bash (Attached to Steel Shield)')
+  expect(gear).not.toContain('<label>Potency')
+  expect(gear).not.toContain('Add rune')
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} part="shield" />))
+    .toContain('Shield Bash (default)')
+  expect(ownedWeapons({ ...c, shield: undefined }, []).some(w => w.name === 'Shield Bash')).toBe(false)
 })
 
 it('keeps attachments on their own shields when switching to a generated hardwood shield', () => {

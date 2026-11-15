@@ -1009,7 +1009,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const strengthSource = animalStrengthSource(c, entries, w)
         const strengthSelection = strengthSource && strengthSources.find(source => source.ids.includes(strengthSource.id))?.weapon.id
         const inherited = !!handwraps && unarmed && !strengthSource
-        const fixed = w.id === OVERSIZED_THROW.id
+        const shieldBash = !!shieldSource && !shieldSource.attachedWeapon
+        const fixed = w.id === OVERSIZED_THROW.id || shieldBash
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
         const hands = weaponHands(entries, w)
         const equipped = weaponEquipped(c, entries, w)
@@ -1214,7 +1215,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <span>Material</span><Material name={enhanced.material} entries={entries} equipment="Weapon" source="Granted by Cold Iron Tusks" />
             </div>}
             {alloy && <small>Alloyed Attacks: melee unarmed attacks have {alloy} properties.</small>}
-            {fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
+            {shieldBash ? <small>Material: {enhanced.material ?? 'Standard'} (from {shieldSource.name}). Shield Bash cannot have weapon runes.</small>
+              : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? null : <div className="row">
               {shieldSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {shieldSource.name})</small>
@@ -1383,7 +1385,7 @@ export function ShieldAttachment({ c, entries, save, shield }: SectionProps & { 
       if (current) confirmRemoval(`attached weapon "${current.name}"`, apply)
       else apply()
     }}>
-      <option value="">None</option>
+      <option value="">Shield Bash (default)</option>
       {current && !options.some(name => name === current.name) && <option value={current.name} disabled>{current.name} (unavailable)</option>}
       {options.map(name => <option key={name}>{name}</option>)}
     </select>

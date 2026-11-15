@@ -7,7 +7,7 @@ export { featTakenLevel } from './featChoices'
 import { getSettings } from './settings'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
@@ -2895,7 +2895,9 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     }
   }
   for (const shield of [c.shield, hardwoodShield(c)]) {
-    if (shield?.attachedWeapon) available.push({ ...shield.attachedWeapon, attachedTo: shield.id })
+    if (shield) available.push({ ...(shield.attachedWeapon ?? {
+      id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
+    }), attachedTo: shield.id })
   }
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
@@ -2989,7 +2991,8 @@ export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
 export const SHIELD_ATTACHED_WEAPONS = ['Shield Boss', 'Shield Pistol', 'Shield Spikes'] as const
 export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
   return [c.shield, hardwoodShield(c)].find(shield => shield && shield.id === weapon.attachedTo
-    && shield.attachedWeapon?.id === weapon.id)
+    && (shield.attachedWeapon?.id === weapon.id
+      || !shield.attachedWeapon && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name))
 }
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
@@ -3029,7 +3032,7 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string) {
   if (card && base) return { ...base, id: card.id, name: card.name }
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
     ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
-    ?? ATTACHED_WEAPONS.find(entry => entry.name === name)
+    ?? [...ATTACHED_WEAPONS, SHIELD_BASH].find(entry => entry.name === name)
 }
 
 function hammerMultipistolEntries(entries: ContentEntry[]) {
@@ -3390,7 +3393,7 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
 }
 
 export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  return !!shieldAttachmentSource(c, weapon)
+  return !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
     || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)
     || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
@@ -3422,6 +3425,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   if (shield) {
     const generated = shield.id === 'granted-shield:hardwood'
     const material = generated ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' : shield.material?.name
+    if (weapon.name === SHIELD_BASH.name) return { ...weapon, material, potency: 0, striking: 0, runes: [] }
     const automatic = automaticWeaponFundamentals(c.level)
     return withBlessedArmament(c, entries, { ...weapon, material,
       potency: Math.max(weapon.potency, automatic.potency),

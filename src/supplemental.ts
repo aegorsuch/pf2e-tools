@@ -28,6 +28,13 @@ export const ATTACHED_WEAPONS: ContentEntry[] = [
     data: { weapon_category: 'Martial', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning', hands: '1 or 2' } },
 ]
 
+export const SHIELD_BASH: ContentEntry = {
+  ...HAFT_STRIKER_WEAPON, id: 'supplemental:shield-bash', name: 'Shield Bash', traits: [],
+  description: 'Strike with your shield for 1d4 bludgeoning damage. Shield Bash cannot have weapon runes.',
+  data: { weapon_category: 'Martial', weapon_group: 'Shield', weapon_type: 'Melee',
+    damage: '1d4 bludgeoning', hands: 1, url: 'https://2e.aonprd.com/Weapons.aspx?ID=395' },
+}
+
 export const FIST: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:fist', name: 'Fist',
   traits: ['Agile', 'Finesse', 'Nonlethal', 'Unarmed'],
