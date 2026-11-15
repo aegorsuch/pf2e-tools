@@ -600,6 +600,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const allHands = allHeld.reduce((total, weapon) => total + (weaponHands(entries, weapon) ?? 0), 0)
   const anyUnknownHands = allHeld.some(weapon => weaponHands(entries, weapon) === undefined)
   const handLimit = totalHandCapacity(c)
+  const sharedHand = pairs.includes(-2) || c.ancestry === 'Ord' && pairs.includes(-1)
   const handwraps = c.handwraps
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   return (
@@ -663,7 +664,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const legacyPouchWeapon = w.id === `eq-${w.name}` && c.equipment.some(item =>
           item.name === w.name && (item.cheekQty ?? 0) >= item.qty)
         const cannotEquip = !equipped && (legacyPouchWeapon || !validPair || hands === undefined || pairUnknown
-          || pairUsed + hands > pairCapacity || pairs.includes(-2) && (anyUnknownHands || allHands + hands > handLimit))
+          || pairUsed + hands > pairCapacity || sharedHand && (anyUnknownHands || allHands + hands > handLimit))
         const inheritedLivingWeapon = !!haft && !!enhanced.livingWeapon
         const canUseLivingWeapon = !fixed && !linkedSource && canBeLivingWeapon(c, entries, w)
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
@@ -724,7 +725,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 const unknown = weapons.some(weapon => weapon.id !== w.id && !weapon.attachedTo
                   && (weapon.handPair ?? 1) === next && weaponHeld(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
                 if (equipped && next !== pair && (unknown || hands === undefined || occupied + hands > handPairCapacity(c, next)
-                  || !validPair && pairs.includes(-2) && (anyUnknownHands || allHands + hands > handLimit))) return
+                  || !validPair && sharedHand && (anyUnknownHands || allHands + hands > handLimit))) return
                 update(w.id, { handPair: next })
               }}>{!pairs.includes(pair) && <option value={pair} disabled>{pairLabel(pair)} (unavailable)</option>}
                 {pairs.map(value => <option key={value} value={value}>{pairLabel(value)}</option>)}</select>
@@ -735,12 +736,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                   const next = Number(event.target.value) as 1 | 2
                   if (next !== 1 && next !== 2
                     || equipped && next > (hands ?? 0) && (pairUnknown || pairUsed - (hands ?? 0) + next > pairCapacity
-                      || pairs.includes(-2) && (anyUnknownHands || allHands - (hands ?? 0) + next > handLimit))) return
+                      || sharedHand && (anyUnknownHands || allHands - (hands ?? 0) + next > handLimit))) return
                   update(w.id, { handsHeld: next })
                 }}>
                 <option value={1}>1</option>
                 <option value={2} disabled={equipped && (pairUnknown || pairUsed - (hands ?? 0) + 2 > pairCapacity
-                  || pairs.includes(-2) && (anyUnknownHands || allHands - (hands ?? 0) + 2 > handLimit))}>2</option>
+                  || sharedHand && (anyUnknownHands || allHands - (hands ?? 0) + 2 > handLimit))}>2</option>
               </select>
             </label>}
           </div>

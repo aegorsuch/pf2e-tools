@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, availableHandPairs, effectiveWeapon, equippedWeaponHands, handPairCapacity, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
@@ -174,6 +174,39 @@ it('treats a prehensile tail as one hand, not a full pair', () => {
   expect(weaponEquipped(extraArms, [sword, rifle], extraArms.weapons![0])).toBe(true)
   ;(findElement(tree(), e => e.props['aria-label'] === 'Held Tail sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
   expect(findElement(tree(), e => e.props['aria-label'] === 'Held Rifle')!.props.disabled).toBe(true)
+})
+
+it('counts one tail hand even if both Ysoki versions were previously selected', () => {
+  const tail = { name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 }
+  const limb = { name: 'Prehensile Limbs', type: 'Ancestry Feat', level: 5 }
+  const c: Character = { ...character([tail, limb]), systems: ['sf2e'], ancestry: 'Ysoki' }
+  expect(availableHandPairs(c)).toEqual([1, -1])
+  expect(handPairCapacity(c, -1)).toBe(1)
+  expect(totalHandCapacity(c)).toBe(3)
+  expect(totalHandCapacity({ ...c, feats: [] })).toBe(2)
+  expect(availableHandPairs({ ...c, feats: [limb] })).toEqual([1, -2])
+})
+
+it('allows an Ord tail to pair with a hand without adding a fourth hand', () => {
+  const sword = { ...weapon, name: 'Ord sword', data: { hands: 1 } }
+  const rifle = { ...weapon, name: 'Ord rifle', data: { hands: 2 } }
+  const c: Character = { ...character([{ name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 }]),
+    systems: ['sf2e'], ancestry: 'Ord', activeHandPair: -1, weapons: [
+      { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+      { id: 'two', name: rifle.name, potency: 0, striking: 0, runes: [], handPair: -1 },
+      { id: 'three', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1, stowed: true },
+    ] }
+  expect(handPairCapacity(c, -1)).toBe(2)
+  expect(totalHandCapacity(c)).toBe(3)
+  expect(weaponEquipped(c, [sword, rifle], c.weapons![1])).toBe(true)
+  const tree = WeaponList({ c, entries: [sword, rifle], save: () => {}, displayOnly: true })
+  const held = (node: ReactNode): ReactElement[] => {
+    if (!isValidElement(node)) return []
+    const element = node as ReactElement<{ children?: ReactNode; 'aria-label'?: string }>
+    return [...(element.props['aria-label'] === 'Held Ord sword' ? [element] : []),
+      ...Children.toArray(element.props.children).flatMap(held)]
+  }
+  expect(held(tree).at(-1)?.props).toMatchObject({ checked: false, disabled: true })
 })
 
 it('pairs a prehensile limb with an existing hand without creating a fourth hand', () => {

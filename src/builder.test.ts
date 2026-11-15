@@ -180,6 +180,20 @@ it('hides generic Ancestral Skills only when the matching ancestry lore feat tea
   expect(ranksAt(selected, [elfSkills, elfLore])).toMatchObject({ Arcana: 1, Nature: 1, 'Elf Lore': 1 })
 })
 
+it('prefers an ancestry-specific Prehensile Tail while preserving existing limb selections', () => {
+  const slot = { key: 'ancestry:5:0', category: 'ancestry' as const, level: 5 }
+  const tail = { ...entry('feat', 'Prehensile Tail', {}, 5, ['Ysoki']), systems: ['sf2e' as const] }
+  const limb = { ...entry('feat', 'Prehensile Limbs', {}, 5, ['Ysoki']), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 9, feats: [] }
+  expect(eligibleFeats([tail, limb], c, slot).map(feat => feat.name)).toEqual(['Prehensile Tail'])
+  expect(eligibleFeats([limb], c, slot).map(feat => feat.name)).toEqual(['Prehensile Limbs'])
+  expect(eligibleFeats([{ ...tail, traits: ['Ord'] }, limb], c, slot).map(feat => feat.name)).toEqual(['Prehensile Limbs'])
+  const chosen = { ...c, feats: [{ name: 'Prehensile Limbs', type: 'Ancestry Feat', level: 5, slot: slot.key }] }
+  expect(eligibleFeats([tail, limb], chosen, slot).map(feat => feat.name)).toContain('Prehensile Limbs')
+  const tailTaken = { ...c, feats: [{ name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5, slot: slot.key }] }
+  expect(eligibleFeats([tail, limb], tailTaken, { ...slot, key: 'ancestry:9:0', level: 9 })).toEqual([])
+})
+
 it("grants Officer's Education benefits twice at their selected levels", () => {
   const education = entry('feat', "Officer's Education", { repeatable: true }, 8, ['Commander'])
   const ordinary = entry('feat', 'Advanced General', {}, 7, ['General'])

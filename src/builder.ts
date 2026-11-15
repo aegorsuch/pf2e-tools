@@ -759,6 +759,11 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     candidates.sort((a, b) => Number(!a.traits.has(primaryAncestry)) - Number(!b.traits.has(primaryAncestry)))
   }
   const seen = new Set<string>()
+  const specificTail = slot.category === 'ancestry' && !!primaryAncestry && entries.some(entry =>
+    entry.kind === 'feat' && !entry.deleted && entry.name === 'Prehensile Tail'
+    && entry.systems.some(system => c.systems.includes(system))
+    && entry.traits.some(trait => trait.toLowerCase() === primaryAncestry)
+    && featSelectionLevel(entry, c, entries, slot.category, slot) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
   const duplicateLore = slot.category === 'ancestry' && candidates.some(candidate => candidate.entry.name === 'Ancestral Skills') && (() => {
     const genericSkills = ancestralSkills({ ...c, feats: [{ name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1 }] }, entries)
     if (!genericSkills.length) return false
@@ -771,6 +776,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     })
   })()
   return candidates.filter(({ entry, equivalence }) => {
+      if (entry.name === 'Prehensile Limbs' && specificTail
+        && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Ancestral Skills' && duplicateLore
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (seen.has(equivalence)) return false
@@ -2660,13 +2667,15 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
 
 export function availableHandPairs(c: Character) {
   const count = 1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length
+  const tail = activeFeatsNamed(c, 'Prehensile Tail').length > 0
+  const limb = activeFeatsNamed(c, 'Prehensile Limbs').length > 0
   return [...Array.from({ length: count }, (_, index) => index + 1),
-    ...(activeFeatsNamed(c, 'Prehensile Tail').length ? [-1] : []),
-    ...(activeFeatsNamed(c, 'Prehensile Limbs').length ? [-2] : [])]
+    ...(tail ? [-1] : []),
+    ...(limb && !(tail && c.ancestry === 'Ysoki') ? [-2] : [])]
 }
 
 export function handPairCapacity(c: Character, pair: number) {
-  return pair === -1 && activeFeatsNamed(c, 'Prehensile Tail').length ? 1 : 2
+  return pair === -1 && c.ancestry !== 'Ord' && activeFeatsNamed(c, 'Prehensile Tail').length ? 1 : 2
 }
 
 export function totalHandCapacity(c: Character) {
