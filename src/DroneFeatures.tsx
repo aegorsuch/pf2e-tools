@@ -1,12 +1,12 @@
 import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneStats } from './drone'
-import { activeFeatsNamed, signed, type SectionProps } from './builder'
+import { activeFeatsNamed, ranksAt, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
 const CHASSIS = ['Agile', 'Imitator', 'Powerful', 'Surveillance', 'Tank'] as const
 
-export function DroneFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+export function DroneFeatures({ c, entries, save }: SectionProps) {
   const slots = droneCustomizationSlots(c)
   if (!slots) return null
   const saved = c.mechanicDroneCustomizations ?? {}
@@ -75,6 +75,20 @@ export function DroneFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
         const used = active.filter(item => item.name === selected?.name)
         const valid = !customization || customization.repeatable || used.length <= 1
         const needsPersonality = selected?.name === 'Linguistic Upload' || selected?.name === 'Glow Up'
+        const other = GRADES.flatMap(otherGrade => (saved[otherGrade] ?? []).slice(0, slots[otherGrade])
+          .filter((_, otherIndex) => otherGrade !== grade || otherIndex !== index))
+        const withoutCurrent = { ...saved, [grade]: (saved[grade] ?? []).map((item, i) => i === index ? { name: '' } : item) }
+        const otherStats = droneStats({ ...c, mechanicDroneCustomizations: withoutCurrent })
+        const otherChoices = other.filter(item => item.name === selected?.name).flatMap(item => [item.choice, item.choice2])
+        const characterRanks = selected?.name === 'Assistant' ? ranksAt(c, entries) : undefined
+        const choiceAllowed = (choice: string) => {
+          if (selected?.name === 'Skill Module' && otherChoices.includes(choice)) return false
+          if (selected?.name === 'Expertise Module' && (otherChoices.includes(choice) || !otherStats?.ranks[choice])) return false
+          if (selected?.name === 'Assistant' && (!otherStats?.ranks[choice] || !characterRanks?.[choice])) return false
+          if (selected?.name === 'High Speed' && !otherStats?.speed[choice]) return false
+          if (selected?.name === 'Maneuver Module' && otherChoices.includes(choice)) return false
+          return true
+        }
         return <div className="col" key={index}>
           <label>{grade} customization {index + 1}{' '}
             <select aria-label={`${grade} drone customization ${index + 1}`} value={selected?.name ?? ''} onChange={event => {
@@ -89,7 +103,10 @@ export function DroneFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
               <option value="">Choose customization</option>
               {selected?.name && !customization && <option value={selected.name} disabled>{selected.name} (unavailable)</option>}
               {options.map(option => <option key={option.name} value={option.name}
-                disabled={!option.repeatable && option.name !== selected?.name && active.some(item => item.name === option.name)}>
+                disabled={option.name !== selected?.name && (
+                  !option.repeatable && active.some(item => item.name === option.name)
+                  || (option.name === 'Linguistic Upload' || option.name === 'Glow Up')
+                    && !other.some(item => item.name === 'Artificial Personality' || item.name === 'Sapient'))}>
                 {option.name}
               </option>)}
             </select>
@@ -100,16 +117,26 @@ export function DroneFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
             {needsPersonality && !hasPersonality && <small role="status">Requires Artificial Personality or Sapient.</small>}
             {customization.choices && <label>Choice{' '}
               <select aria-label={`${grade} customization ${index + 1} choice`} value={selected?.choice ?? ''}
-                onChange={event => update(grade, index, { ...selected!, choice: event.target.value || undefined })}>
+                onChange={event => {
+                  const choice = event.target.value
+                  if (!choice || choiceAllowed(choice)) update(grade, index, { ...selected!, choice: choice || undefined,
+                    ...(selected?.name === 'Maneuver Module' && selected.choice2 === choice ? { choice2: undefined } : {}) })
+                }}>
                 <option value="">Choose</option>
-                {customization.choices.map(choice => <option key={choice}>{choice}</option>)}
+                {customization.choices.map(choice => <option key={choice} disabled={!choiceAllowed(choice)}>{choice}</option>)}
               </select>
             </label>}
+            {customization.choices && selected?.choice && !choiceAllowed(selected.choice)
+              && <small role="status">Saved choice does not currently meet this customization's requirements.</small>}
             {selected?.name === 'Maneuver Module' && <label>Second maneuver{' '}
               <select aria-label={`${grade} customization ${index + 1} second choice`} value={selected.choice2 ?? ''}
-                onChange={event => update(grade, index, { ...selected, choice2: event.target.value || undefined })}>
+                onChange={event => {
+                  const choice = event.target.value
+                  if (!choice || choice !== selected.choice && choiceAllowed(choice))
+                    update(grade, index, { ...selected, choice2: choice || undefined })
+                }}>
                 <option value="">Choose</option>
-                {customization.choices?.filter(choice => choice !== selected.choice).map(choice => <option key={choice}>{choice}</option>)}
+                {customization.choices?.map(choice => <option key={choice} disabled={choice === selected.choice || !choiceAllowed(choice)}>{choice}</option>)}
               </select>
             </label>}
             {selected?.name === 'Linguistic Upload' && <>

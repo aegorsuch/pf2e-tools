@@ -182,6 +182,9 @@ export interface Character {
   grenadePreparations?: string[]
   grenadeUsed?: boolean[]
   mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
+  mechanicTurretGrade?: HardlightGrade
+  mechanicTurretUpgrades?: string[]
+  mechanicMines?: { carried: number; deployed: number }
   mechanicDroneChassis?: 'Agile' | 'Imitator' | 'Powerful' | 'Surveillance' | 'Tank'
   mechanicDroneRacerSpeed?: 'Land' | 'Swim' | 'Fly'
   mechanicDroneCustomizations?: Partial<Record<DroneCustomizationGrade, DroneCustomization[]>>
@@ -190,6 +193,7 @@ export interface Character {
     incapacitant?: boolean
     longRange?: boolean
     bunkerBuster?: boolean
+    pinpointShot?: boolean
     damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
   }>
   munitionsFormulaChoices?: string[]

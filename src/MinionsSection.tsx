@@ -201,7 +201,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       <div className="character-section-content minions-section-content">
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
-          <DroneFeatures c={c} save={save} />
+          <DroneFeatures c={c} entries={entries} save={save} />
         </details>}
         <details className="character-subsection" open>
           <summary><h4>{companions.length === 1

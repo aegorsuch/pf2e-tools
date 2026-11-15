@@ -3570,6 +3570,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     : baseDie
   const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
     : traits.includes('propulsive') ? Math.floor(str / 2) : 0
+  const mechanicSpecialization = c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 7 && rank >= 2
+    ? (c.level >= 15 ? 2 : 1) * rank : 0
+  const damageBonus = flat + mechanicSpecialization
+    + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
@@ -3606,7 +3610,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     thrownRange: !ranged && thrown && thrownRange > 0
       ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,
-    damage: m ? `${dice}d${die}${flat ? signed(flat) : ''}${modifiedDamageType ? ` ${modifiedDamageType}` : ''}` : '',
+    damage: m ? `${dice}d${die}${damageBonus ? signed(damageBonus) : ''}${modifiedDamageType ? ` ${modifiedDamageType}` : ''}` : '',
   }
 }
 

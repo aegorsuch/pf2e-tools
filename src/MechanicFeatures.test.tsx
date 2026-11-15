@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { MechanicFeatures } from './MechanicFeatures'
+import { MechanicFeatures, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
 import { MinionsSection } from './MinionsSection'
 import { SkillsSection } from './SkillsSection'
@@ -8,6 +8,8 @@ import { subclassOptions } from './builder'
 import { droneCustomizationSlots, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
+import { turretWeapon } from './mechanicTurret'
+import { WeaponList } from './GearSection'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
@@ -21,16 +23,47 @@ it('offers the three official exocortexes and scales mine capacity and DC', () =
   expect(markup).toContain('Mine capacity: 12; disable DC 28')
   expect(renderToStaticMarkup(<MechanicFeatures c={{ ...mechanic, level: 1 }} save={() => {}} />))
     .toContain('Mine capacity: 8; disable DC 17')
+  expect(mechanicMineState({ ...mechanic, mechanicMines: { carried: 14, deployed: 5 } }))
+    .toEqual({ capacity: 12, carried: 12, deployed: 5 })
+  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...mechanic, mechanicMines: { carried: 12, deployed: 1 } }} save={() => {}} />))
+    .toContain('Not enough carrying capacity to collect all deployed mines.')
 })
 
-it('calculates turret defenses and selected commercial array without granting unsupported upgrades', () => {
+it('calculates turret defenses and selected array', () => {
   const turret: Character = { ...mechanic, subclass: 'Turret', mechanicTurretArray: 'Laser Beam' }
   const markup = renderToStaticMarkup(<MechanicFeatures c={turret} save={() => {}} />)
-  expect(markup).toContain('1d8 fire; range 60 feet')
+  expect(markup).toContain('fire; range 60 feet')
   expect(markup).toContain('AC 28; HP 70; broken 35; hardness 15')
   expect(markup).toContain('Fortitude and Reflex +18')
-  expect(markup).toContain('not yet automated')
+  expect(markup).toContain('Manage turret grade, upgrades, and Strikes in Weapons')
   expect(renderToStaticMarkup(<MechanicFeatures c={{ ...turret, className: 'Ranger' }} save={() => {}} />)).toBe('')
+})
+
+it('calculates turret grade, weapon proficiency, specialization and active mods without using hands', () => {
+  const entry = (name: string, kind: ContentEntry['kind'], level: number, description: string, data: ContentEntry['data']): ContentEntry =>
+    ({ id: name, name, kind, level, description, data, source: 'official', systems: ['sf2e'], traits: [], effects: [], updatedAt: 0 })
+  const entries = [
+    entry('Mechanic', 'class', 1, '', { attack_proficiency: 'Trained in simple weapons, trained in martial weapons, trained in unarmed attacks' }),
+    entry('Mechanic Weapon Expertise', 'classFeature', 5,
+      'Your proficiency ranks for simple weapons, martial weapons, and unarmed attacks increase to expert.', { class: 'Mechanic' }),
+    entry('Mechanic Weapon Mastery', 'classFeature', 13,
+      'Your proficiency ranks for simple weapons, martial weapons, and unarmed attacks increase to master.', { class: 'Mechanic' }),
+  ]
+  const c: Character = { ...mechanic, level: 15, subclass: 'Turret', mechanicTurretArray: 'Laser Beam',
+    mechanicTurretGrade: 'Elite', mechanicWeaponMods: { 'mechanic:turret': { pinpointShot: true, longRange: true, damageType: 'cold' } } }
+  const turret = turretWeapon(c, entries)!
+  expect(turret.attack.attack).toBe(23)
+  expect(turret.attack.damage).toBe('3d8+10 cold')
+  expect(turret.attack.range).toBe(90)
+  expect(turret.entry.data.upgrade_slots).toBe(4)
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)
+  expect(html).toContain('Hands used: 0/2')
+  expect(html).toContain('Mechanic Turret')
+  expect(html).toContain('3d8+10 cold')
+  expect(turretWeapon({ ...c, subclass: 'Mine' }, entries)).toBeUndefined()
+  expect(turretWeapon({ ...c, mechanicTurretGrade: 'Commercial', mechanicTurretUpgrades: ['a', 'b', 'c'] }, entries)?.weapon.upgrades)
+    .toEqual(['a', 'b'])
+  expect(turretWeapon({ ...c, mechanicTurretGrade: 'Paragon' }, entries)?.entry.data.upgrade_slots).toBe(5)
 })
 
 it('grants customization slots once per drone grade plus repeatable customization feats', () => {
@@ -47,7 +80,7 @@ it('grants customization slots once per drone grade plus repeatable customizatio
   expect(droneCustomizationSlots(c)).toEqual({ Commercial: 4, Tactical: 3, Advanced: 3, Superior: 3 })
   expect(droneCustomizationSlots({ ...c, level: 3 })).toEqual({ Commercial: 4, Tactical: 0, Advanced: 0, Superior: 0 })
   expect(droneCustomizationSlots({ ...c, subclass: 'Turret' })).toBeUndefined()
-  const markup = renderToStaticMarkup(<DroneFeatures c={c} save={() => {}} />)
+  const markup = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Commercial customizations (4)')
   expect(markup).toContain('Superior customizations (3)')
   expect(markup).toContain('Integrated Weapon Mount')
@@ -69,6 +102,22 @@ it('applies the drone Assistant circumstance bonus only while in reach and both 
   expect(html({ ...c, mechanicDroneAssistantActive: false })).not.toContain('Drone Assistant')
   expect(html({ ...c, mechanicDroneCustomizations: { Tactical: [{ name: 'Assistant', choice: 'Computers' }] } }))
     .not.toContain('Drone Assistant')
+})
+
+it('restricts drone customization choices to valid distinct skills, maneuvers and existing speeds', () => {
+  const c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Powerful', rankOverrides: { Computers: 1 },
+    feats: [{ name: 'Tactical Drone', type: 'Class Feat', level: 4 },
+      { name: 'Advanced Drone', type: 'Class Feat', level: 8, choice: 'Burly' }],
+    mechanicDroneCustomizations: {
+      Commercial: [{ name: 'Skill Module', choice: 'Computers' }, { name: 'Skill Module' }],
+      Tactical: [{ name: 'Assistant' }, { name: 'High Speed' }],
+      Advanced: [{ name: 'Maneuver Module', choice: 'Trip', choice2: 'Shove' }, { name: 'Maneuver Module' }],
+    } }
+  const html = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('<option disabled="">Computers</option>')
+  expect(html).toContain('<option disabled="">Fly</option>')
+  expect(html).toContain('<option disabled="">Trip</option>')
+  expect(html).toContain('<option value="Linguistic Upload" disabled="">Linguistic Upload</option>')
 })
 
 it('calculates drone advancement and selected customization effects', () => {

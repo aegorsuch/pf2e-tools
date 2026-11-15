@@ -18,6 +18,7 @@ import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, 
 import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
+import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
@@ -712,6 +713,10 @@ function MechanicWeaponMods({ c, weapon, attack, save }: {
     <label><input type="checkbox" checked={!!mods.bunkerBuster}
       onChange={event => update({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
     {mods.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+    {weapon.id === 'mechanic:turret' && c.subclass === 'Turret' && <label>
+      <input type="checkbox" checked={!!mods.pinpointShot}
+        onChange={event => update({ pinpointShot: event.target.checked })} /> Pinpoint Shot
+    </label>}
     {c.level >= 5 && damageTypes.length > 0 && <label>{physical ? 'Physical' : 'Energy'} Versatility{' '}
       <select aria-label={`Damage customization: ${weapon.name}`} value={mods.damageType ?? ''} onChange={event => {
         const type = damageTypes.find(option => option === event.target.value)
@@ -1059,8 +1064,38 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           </details>
         )
       })}
+      <TurretWeapon c={c} entries={entries} save={save} displayOnly={displayOnly} />
     </div>
   )
+}
+
+function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displayOnly: boolean }) {
+  const turret = turretWeapon(c, entries)
+  if (!turret) return null
+  const { entry, weapon, attack, grade } = turret
+  const damageUpgrades = upgradeDamageSummary(attack)
+  return <div className="gear-card col" aria-label="Mechanic Turret">
+    <strong>Mechanic Turret</strong>
+    <small>Attack <TotalBreakdown label="Mechanic Turret attack" breakdown={attack.breakdown} signedTotal />;
+      Damage {attack.damage}{damageUpgrades.map(upgrade => <Fragment key={upgrade.source}> + {upgrade.value}
+        <SourceNote source={upgrade.source} note={upgrade.note} inlineSource={false} /></Fragment>)}; range {attack.range} feet.</small>
+    <small>{attack.traits.join(', ')}; {entry.data.weapon_group as string}.</small>
+    <AttackUpgrades attack={attack} />
+    <MechanicWeaponMods c={c} weapon={weapon} attack={attack} save={save} />
+    {!displayOnly && <>
+      <label>Turret grade{' '}
+        <select aria-label="Turret grade" value={grade} onChange={event => {
+          const next = TURRET_GRADES.find(option => option === event.target.value)
+          if (next) save({ mechanicTurretGrade: next })
+        }}>
+          {TURRET_GRADES.map(option => <option key={option}>{option}</option>)}
+        </select>
+      </label>
+      <WeaponUpgrades entries={entries} weapon={entry} upgrades={c.mechanicTurretUpgrades ?? []}
+        limit={Number(entry.data.upgrade_slots)} onChange={upgrades => save({ mechanicTurretUpgrades: upgrades })} />
+    </>}
+    <small>Strike from the deployed turret within 150 feet; shares your multiple attack penalty. Cannot Strike while broken.</small>
+  </div>
 }
 
 function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
