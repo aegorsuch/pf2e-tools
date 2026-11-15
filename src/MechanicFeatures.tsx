@@ -5,8 +5,10 @@ import { mechanicClassDC } from './mechanicRules'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
 import { ExploitiveAssault } from './ExploitiveAssault'
-import { setEnduringMod } from './mechanicEnduring'
+import { enduringMineMods, setEnduringMod } from './mechanicEnduring'
 import type { Character, MechanicMine } from './types'
+
+const MEDIC_MINE_MODS = ['Numbing Analgesic', 'Powerful Stimulant', 'Protective Excretions', 'Restorative Boost'] as const
 
 export function mechanicMineState(c: Character) {
   const capacity = Math.max(0, 4 + abilityMod(c.abilities.int) + 2 * Math.floor(c.level / 5))
@@ -38,8 +40,22 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
   const array = c.mechanicTurretArray && TURRET_ARRAYS[c.mechanicTurretArray]
   const mines = mechanicMineState(c)
   const deployed = Array.from({ length: mines.deployed }, (_, index) => c.mechanicDeployedMines?.[index] ?? {})
-  const updateMines = (carried: number, next: MechanicMine[]) => save({
-    mechanicMines: { carried, deployed: next.length }, mechanicDeployedMines: next,
+  const reserved = c.mechanicEnduringMod?.kind === 'mine' && c.mechanicEnduringMine && mines.carried > 0
+    ? c.mechanicEnduringMine : undefined
+  const canEndureMineMod = (mod: string) => (['damageType', 'transmutativeCasing', 'exploitiveAssault', 'debilitation', 'medicMods'].includes(mod)
+    || enduringMineMods.some(value => value === mod))
+    && (mod !== 'healing' || activeFeatsNamed(c, 'Healing Mines').length > 0)
+    && (!['bigBang', 'blackHole'].includes(mod) || activeFeatsNamed(c, 'Maneuvering Mines').length > 0)
+    && (mod !== 'transmutativeCasing' || activeFeatsNamed(c, 'Transmutative Casing').length > 0)
+    && (mod !== 'exploitiveAssault' || activeFeatsNamed(c, 'Exploitive Assault').length > 0)
+    && (mod !== 'debilitation' || activeFeatsNamed(c, 'Debilitating Exocortex').length > 0)
+    && (mod !== 'medicMods' || activeFeatsNamed(c, 'Healing Mines').length > 0 && activeFeatsNamed(c, 'High-tech Medic').length > 0)
+  const reservedValue = reserved ? c.mechanicEnduringMod?.mod === 'damageType' && reserved.damageType
+    ? `damageType:${reserved.damageType}` : c.mechanicEnduringMod?.mod === 'medicMods'
+      && typeof c.mechanicEnduringMod.value === 'string' ? `medic:${c.mechanicEnduringMod.value}`
+      : c.mechanicEnduringMod?.mod ?? '' : ''
+  const updateMines = (carried: number, next: MechanicMine[], extra?: Partial<Character>) => save({
+    mechanicMines: { carried, deployed: next.length }, mechanicDeployedMines: next, ...extra,
   })
   return <div className="col">
     {c.subclass === 'Mine' && <>
@@ -47,13 +63,20 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
       <span>Mine capacity: {mines.capacity}; disable DC {classDc}</span>
       <span>Carried {mines.carried}/{mines.capacity}; deployed {mines.deployed}.</span>
       <div className="row">
-        <button type="button" disabled={!mines.carried} onClick={() => updateMines(mines.carried - 1, [...deployed, {}])}>Deploy mine</button>
+        <button type="button" disabled={mines.carried <= Number(!!reserved)} onClick={() => updateMines(mines.carried - 1, [...deployed, {}])}>Deploy mine</button>
+        {reserved && <button type="button" disabled={c.level < 13 || !canEndureMineMod(c.mechanicEnduringMod?.mod ?? '')}
+          onClick={() => updateMines(mines.carried - 1, [...deployed, reserved],
+          { mechanicEnduringMine: undefined })}>Deploy enduring mine</button>}
+        {reserved && c.level < 13 && <button type="button" onClick={() => save(setEnduringMod(c))}>End unavailable enduring mod</button>}
         <button type="button" disabled={!mines.deployed || mines.carried + mines.deployed > mines.capacity}
-          onClick={() => updateMines(mines.carried + mines.deployed, [])}>Collect mines</button>
+          onClick={() => updateMines(mines.carried + mines.deployed, [], {
+            mechanicEnduringMine: deployed.find(mine => mine.enduring) ?? c.mechanicEnduringMine,
+          })}>Collect mines</button>
         <button type="button" disabled={mines.carried >= mines.capacity}
           onClick={() => updateMines(Math.min(mines.capacity, mines.carried + 2), deployed)}>Craft mines (10 minutes)</button>
         <button type="button" onClick={() => {
-          const reset = () => save({ mechanicMines: { carried: mines.capacity, deployed: 0 },
+          const reset = () => save({ ...(c.mechanicEnduringMod?.kind === 'mine' ? setEnduringMod(c) : {}),
+            mechanicEnduringMine: undefined, mechanicMines: { carried: mines.capacity, deployed: 0 },
             mechanicDeployedMines: [] })
           if (mines.deployed) confirmRemoval('deployed mines at daily preparations', reset)
           else reset()
@@ -61,6 +84,59 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
       </div>
       {mines.deployed > 0 && mines.carried + mines.deployed > mines.capacity
         && <small role="status">Not enough carrying capacity to collect all deployed mines.</small>}
+      {c.level >= 13 && <label>Enduring mine mod{' '}<select aria-label="Enduring mine mod"
+        disabled={!mines.carried || deployed.some(mine => mine.enduring)}
+        value={reservedValue}
+        onChange={event => {
+          const mod = enduringMineMods.find(value => value === event.target.value)
+          const type = (['acid', 'cold', 'electricity', 'fire', 'sonic', 'bludgeoning', 'piercing', 'slashing'] as const)
+            .find(value => `damageType:${value}` === event.target.value)
+          const medic = MEDIC_MINE_MODS.find(value => `medic:${value}` === event.target.value)
+          if (mod && canEndureMineMod(mod) && mines.carried > 0 && !deployed.some(mine => mine.enduring))
+            save(setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod, label: 'Mine' }))
+          else if (type && mines.carried > 0 && !deployed.some(mine => mine.enduring))
+            save(setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod: 'damageType', value: type, label: 'Mine' }))
+          else if (medic && canEndureMineMod('medicMods') && mines.carried > 0 && !deployed.some(mine => mine.enduring))
+            save(setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod: 'medicMods', value: medic, label: 'Mine' }))
+          else if (!event.target.value && reserved) save(setEnduringMod(c))
+        }}>
+        <option value="">Not enduring</option>
+        {reserved && !canEndureMineMod(c.mechanicEnduringMod?.mod ?? '')
+          && <option value={reservedValue} disabled>Unavailable mod</option>}
+        {reserved && ['transmutativeCasing', 'exploitiveAssault', 'debilitation'].includes(c.mechanicEnduringMod?.mod ?? '')
+          && canEndureMineMod(c.mechanicEnduringMod?.mod ?? '')
+          && <option value={c.mechanicEnduringMod?.mod} disabled>Configured below</option>}
+        <option value="bigBoom">Big Boom</option>
+        <option value="bunkerBuster">Bunker Buster</option>
+        <option value="incapacitant">Incapacitant</option>
+        <option value="smartMine">Smart Mine</option>
+        <option value="targeting">Targeting Mine</option>
+        {(['acid', 'cold', 'electricity', 'fire', 'sonic', 'bludgeoning', 'piercing', 'slashing'] as const)
+          .map(type => <option value={`damageType:${type}`} key={type}>Damage Versatility ({type})</option>)}
+        {activeFeatsNamed(c, 'Healing Mines').length > 0 && <option value="healing">Healing Mines</option>}
+        {activeFeatsNamed(c, 'Maneuvering Mines').length > 0 && <>
+          <option value="bigBang">Big Bang</option><option value="blackHole">Black Hole</option>
+        </>}
+        {canEndureMineMod('medicMods') && MEDIC_MINE_MODS.map(mod =>
+          <option value={`medic:${mod}`} key={mod}>{mod} (healing mine)</option>)}
+      </select></label>}
+      {c.level >= 13 && mines.carried > 0 && !deployed.some(mine => mine.enduring)
+        && ['Transmutative Casing', 'Exploitive Assault', 'Debilitating Exocortex'].some(name => activeFeatsNamed(c, name).length > 0)
+        && <div className="col"><strong>Enduring mine feat mods</strong>
+        <small>Choosing one replaces your previous enduring mod.</small>
+        <TransmutativeCasing c={c} value={reserved?.transmutativeCasing} onChange={value => {
+          if (value) save(setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod: 'transmutativeCasing', value, label: 'Mine' }))
+          else if (c.mechanicEnduringMod?.kind === 'mine' && c.mechanicEnduringMod.mod === 'transmutativeCasing') save(setEnduringMod(c))
+        }} />
+        <ExploitiveAssault c={c} value={reserved?.exploitiveAssault} onChange={value => {
+          if (value) save(setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod: 'exploitiveAssault', value, label: 'Mine' }))
+          else if (c.mechanicEnduringMod?.kind === 'mine' && c.mechanicEnduringMod.mod === 'exploitiveAssault') save(setEnduringMod(c))
+        }} />
+        <DebilitatingExocortex c={c} choices={reserved?.debilitation} onChange={value => {
+          if (value.some(Boolean)) save(setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod: 'debilitation', value, label: 'Mine' }))
+          else if (c.mechanicEnduringMod?.kind === 'mine' && c.mechanicEnduringMod.mod === 'debilitation') save(setEnduringMod(c))
+        }} />
+      </div>}
       {deployed.map((mine, index) => {
         const result = mechanicMineDamage(c, mine)
         const healing = mine.healing && activeFeatsNamed(c, 'Healing Mines').length > 0
@@ -69,11 +145,22 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         const healingAmount = activeFeatsNamed(c, 'Impressive Healing Mines').length
           ? `${dice}d6${healingIntelligence ? signed(healingIntelligence) : ''}`
           : String(Math.max(0, dice + healingIntelligence))
-        const medicMods = ['Numbing Analgesic', 'Powerful Stimulant', 'Protective Excretions', 'Restorative Boost'] as const
-        const update = (patch: Partial<MechanicMine>) => updateMines(mines.carried,
-          deployed.map((item, i) => i === index ? { ...item, ...patch } : item))
+        const update = (patch: Partial<MechanicMine>) => {
+          const selected = enduringMineMods.find(mod => mod === c.mechanicEnduringMod?.mod)
+          const ending = mine.enduring && c.mechanicEnduringMod?.kind === 'mine'
+            && (selected && patch[selected] === false
+              || c.mechanicEnduringMod.mod === 'damageType' && 'damageType' in patch && patch.damageType === undefined
+              || c.mechanicEnduringMod.mod === 'transmutativeCasing' && 'transmutativeCasing' in patch && patch.transmutativeCasing === undefined
+              || c.mechanicEnduringMod.mod === 'exploitiveAssault' && 'exploitiveAssault' in patch && patch.exploitiveAssault === undefined
+              || c.mechanicEnduringMod.mod === 'debilitation' && 'debilitation' in patch && !patch.debilitation?.some(Boolean)
+              || c.mechanicEnduringMod.mod === 'medicMods' && 'medicMods' in patch
+                && !patch.medicMods?.some(value => value === c.mechanicEnduringMod?.value))
+          updateMines(mines.carried, deployed.map((item, i) => i === index
+            ? { ...item, ...patch, ...(ending ? { enduring: false } : {}) } : item),
+          ending ? { mechanicEnduringMod: undefined } : undefined)
+        }
         return <div className="gear-card col" key={index}>
-          <strong>Mine {index + 1}</strong>
+          <strong>Mine {index + 1}{mine.enduring ? ' (enduring)' : ''}</strong>
           <label>Damage{' '}<select aria-label={`Mine ${index + 1} base damage`} value={mine.baseDamage ?? 'fire'} onChange={event => {
             if (event.target.value === 'fire' || event.target.value === 'piercing')
               update({ baseDamage: event.target.value, damageType: undefined })
@@ -97,7 +184,9 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
           {activeFeatsNamed(c, 'Healing Mines').length > 0 && <label>
             <input type="checkbox" checked={!!mine.healing} onChange={event => update({ healing: event.target.checked })} /> Healing Mines
           </label>}
-          {healing && activeFeatsNamed(c, 'High-tech Medic').length > 0 && medicMods.map(mod => <label key={mod}>
+          {mine.enduring && c.mechanicEnduringMod?.kind === 'mine' && c.mechanicEnduringMod.mod === 'medicMods' && !healing
+            && <small>Apply Healing Mines separately before using the enduring medical mod.</small>}
+          {healing && activeFeatsNamed(c, 'High-tech Medic').length > 0 && MEDIC_MINE_MODS.map(mod => <label key={mod}>
             <input type="checkbox" checked={!!mine.medicMods?.includes(mod)} onChange={event => update({
               medicMods: event.target.checked ? [...(mine.medicMods ?? []), mod] : (mine.medicMods ?? []).filter(item => item !== mod),
             })} /> {mod}
@@ -131,7 +220,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
             {` ${result.radius}-foot burst.`} Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
           {mine.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
           <small>Turn mods off when they expire.</small>
-          <button type="button" onClick={() => updateMines(mines.carried, deployed.filter((_, i) => i !== index))}>
+          <button type="button" onClick={() => updateMines(mines.carried, deployed.filter((_, i) => i !== index),
+            mine.enduring && c.mechanicEnduringMod?.kind === 'mine' ? { mechanicEnduringMod: undefined } : undefined)}>
             Detonate mine {index + 1}
           </button>
         </div>
@@ -153,7 +243,11 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
       <span>AC {classDc}; HP {maxHp}; broken {Math.floor(maxHp / 2)}; hardness {5 + 5 * Math.min(3, Math.floor(c.level / 5))};
         Fortitude and Reflex {signed(intelligence + proficiencyBonus(saveRank, c.level))}.</span>
       <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
-        onChange={choices => save({ mechanicExocortexDebilitation: choices })} />
+        onChange={choices => save({ mechanicExocortexDebilitation: choices,
+          ...(!choices.some(Boolean) && c.mechanicEnduringMod?.kind === 'exo' ? { mechanicEnduringMod: undefined } : {}) })}
+        enduring={{ active: c.mechanicEnduringMod?.kind === 'exo', onChange: active => save(setEnduringMod(c, active
+          ? { kind: 'exo', item: 'mechanic:exo', mod: 'debilitation', value: c.mechanicExocortexDebilitation ?? [], label: 'Turret' }
+          : undefined)) }} />
       <small>Manage turret grade, upgrades, and Strikes in Weapons.</small>
     </>}
     {c.subclass === 'Drone' && <small>Manage your drone and its customizations in Minions.</small>}

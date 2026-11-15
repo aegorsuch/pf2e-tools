@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { MechanicFeatures, mechanicMineDamage, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
@@ -77,6 +78,72 @@ it('activates and replaces an enduring mod without removing unrelated mods', () 
   expect(configured.mechanicArmorMods?.['mechanic:drone']?.energyNeutralizer).toEqual([])
   expect(configured.mechanicWeaponMods?.sword?.damageType).toBe('piercing')
   expect({ ...configured, ...setEnduringMod(configured) }.mechanicWeaponMods?.sword?.damageType).toBeUndefined()
+  const withItems: Character = { ...configured, equipment: [{ name: 'Rope', qty: 1 }, { name: 'Medpatch', qty: 2 }] }
+  const medic = { ...withItems, ...setEnduringMod(withItems, {
+    kind: 'medic', item: 'medic-1', mod: 'Restorative Boost', label: 'Medpatch', index: 1,
+  }) }
+  expect(medic.equipment[1]).toMatchObject({ mechanicItemId: 'medic-1', mechanicMedicMods: ['Restorative Boost'] })
+  const reordered = { ...medic, equipment: [...medic.equipment].reverse() }
+  expect({ ...reordered, ...setEnduringMod(reordered) }.equipment[0].mechanicMedicMods).toEqual([])
+  const exo = { ...reordered, ...setEnduringMod(reordered, {
+    kind: 'exo', item: 'mechanic:exo', mod: 'debilitation', value: ['Dazzled'], label: 'Drone',
+  }) }
+  expect(exo.equipment[0].mechanicMedicMods).toEqual([])
+  expect(exo.mechanicExocortexDebilitation).toEqual(['Dazzled'])
+  expect({ ...exo, ...setEnduringMod(exo) }.mechanicExocortexDebilitation).toEqual([])
+})
+
+it('preserves an enduring mine when deploying and collecting it, and clears it when detonated', () => {
+  let c: Character = { ...mechanic, level: 13, mechanicMines: { carried: 2, deployed: 0 } }
+  c = { ...c, ...setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine', mod: 'bigBoom', label: 'Mine' }) }
+  const findButton = (node: ReactNode, text: string): (() => void) | undefined => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = findButton(child, text)
+        if (found) return found
+      }
+    } else if (isValidElement<{ children?: ReactNode; onClick?: () => void }>(node)) {
+      const label = Array.isArray(node.props.children) ? node.props.children.join('') : node.props.children
+      if (node.type === 'button' && label === text) return node.props.onClick
+      return findButton(node.props.children, text)
+    }
+    return undefined
+  }
+  const click = (text: string) => {
+    const root = MechanicFeatures({ c, save: patch => { c = { ...c, ...patch } } })
+    const action = findButton(root, text)
+    expect(action).toBeDefined()
+    action?.()
+  }
+  click('Deploy enduring mine')
+  expect(c.mechanicMines).toEqual({ carried: 1, deployed: 1 })
+  expect(c.mechanicDeployedMines?.[0]).toMatchObject({ enduring: true, bigBoom: true })
+  expect(c.mechanicEnduringMine).toBeUndefined()
+  click('Collect mines')
+  expect(c.mechanicMines).toEqual({ carried: 2, deployed: 0 })
+  expect(c.mechanicEnduringMine).toMatchObject({ enduring: true, bigBoom: true })
+  click('Deploy enduring mine')
+  const deployed = { ...c, ...setEnduringMod(c,
+    { kind: 'weapon', item: 'sword', mod: 'incapacitant', label: 'Sword' }) }
+  expect(deployed.mechanicDeployedMines?.[0]).toMatchObject({ enduring: false, bigBoom: false })
+  click('Detonate mine 1')
+  expect(c.mechanicMines).toEqual({ carried: 1, deployed: 0 })
+  expect(c.mechanicEnduringMod).toBeUndefined()
+  c = { ...c, ...setEnduringMod(c, { kind: 'mine', item: 'mechanic:mine',
+    mod: 'damageType', value: 'slashing', label: 'Mine' }) }
+  expect(c.mechanicEnduringMine).toMatchObject({ baseDamage: 'piercing', damageType: 'slashing' })
+  expect(mechanicMineDamage(c, c.mechanicEnduringMine ?? {})).toMatchObject({ damage: '8d6 slashing' })
+  click('Deploy enduring mine')
+  const normal = { ...c, ...setEnduringMod(c) }
+  expect(normal.mechanicDeployedMines?.[0]).toMatchObject({ enduring: false, baseDamage: 'piercing', damageType: undefined })
+  const special = { ...normal, ...setEnduringMod(normal, { kind: 'mine', item: 'mechanic:mine',
+    mod: 'debilitation', value: ['Dazzled', 'Clumsy'], label: 'Mine' }) }
+  expect(special.mechanicEnduringMine?.debilitation).toEqual(['Dazzled', 'Clumsy'])
+  expect({ ...special, ...setEnduringMod(special) }.mechanicEnduringMine).toBeUndefined()
+  const medicMine = { ...normal, ...setEnduringMod(normal, { kind: 'mine', item: 'mechanic:mine',
+    mod: 'medicMods', value: 'Restorative Boost', label: 'Mine' }) }
+  expect(medicMine.mechanicEnduringMine?.medicMods).toEqual(['Restorative Boost'])
+  expect(medicMine.mechanicEnduringMine?.healing).toBeUndefined()
 })
 
 it('scales mine damage and area, including per-mine modifications', () => {

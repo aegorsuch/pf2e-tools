@@ -156,7 +156,11 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
     {stats && <div className="col">
       <EnergyNeutralizer c={c} save={save} id="mechanic:drone" label="drone" />
       <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
-        onChange={choices => save({ mechanicExocortexDebilitation: choices })} />
+        onChange={choices => save({ mechanicExocortexDebilitation: choices,
+          ...(!choices.some(Boolean) && c.mechanicEnduringMod?.kind === 'exo' ? { mechanicEnduringMod: undefined } : {}) })}
+        enduring={{ active: c.mechanicEnduringMod?.kind === 'exo', onChange: active => save(setEnduringMod(c, active
+          ? { kind: 'exo', item: 'mechanic:exo', mod: 'debilitation', value: c.mechanicExocortexDebilitation ?? [], label: 'Drone' }
+          : undefined)) }} />
       <label><input type="checkbox" checked={!!c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators}
         onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
           'mechanic:drone': { ...c.mechanicArmorMods?.['mechanic:drone'], magneticLevitators: event.target.checked } },

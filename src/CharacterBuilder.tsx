@@ -23,6 +23,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredDetails } from './DeferredDetails'
 import { CheekPouches } from './CheekPouches'
 import { HighTechMedic } from './HighTechMedic'
+import { setEnduringMod } from './mechanicEnduring'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 
@@ -159,7 +160,8 @@ function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedCo
       <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }
         delete nextMods[`equipment:${item.name}`]
-        save({ equipment: c.equipment.filter((_, i) => i !== index), mechanicGrenadeMods: nextMods,
+        save({ ...(c.mechanicEnduringMod?.kind === 'medic' && c.mechanicEnduringMod.item === item.mechanicItemId
+          ? setEnduringMod(c) : {}), equipment: c.equipment.filter((_, i) => i !== index), mechanicGrenadeMods: nextMods,
           ...(c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === `equipment:${item.name}`
             ? { mechanicEnduringMod: undefined } : {}) })
       })}>Remove</button>

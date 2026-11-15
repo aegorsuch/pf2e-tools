@@ -2,10 +2,11 @@ import { activeFeatsNamed } from './builder'
 import { mechanicClassDC } from './mechanicRules'
 import type { Character } from './types'
 
-export function DebilitatingExocortex({ c, choices, onChange }: {
+export function DebilitatingExocortex({ c, choices, onChange, enduring }: {
   c: Character
   choices?: string[]
   onChange: (choices: string[]) => void
+  enduring?: { active: boolean; onChange: (active: boolean) => void }
 }) {
   if (!activeFeatsNamed(c, 'Debilitating Exocortex').length) return null
   const count = activeFeatsNamed(c, 'Double Debilitating Exocortex').length ? 2 : 1
@@ -28,6 +29,9 @@ export function DebilitatingExocortex({ c, choices, onChange }: {
         {options.map(option => <option key={option} disabled={active.some((item, i) => i !== index && item === option)}>{option}</option>)}
       </select>
     </label>)}
+    {c.level >= 13 && enduring && <label><input type="checkbox" aria-label="Enduring Debilitating Exocortex"
+      checked={enduring.active} disabled={!active.some(option => options.includes(option))}
+      onChange={event => enduring.onChange(event.target.checked)} /> Enduring Debilitating Exocortex</label>}
     {active.some(option => options.includes(option)) && <small>Creatures damaged by the exocortex must succeed at Fortitude DC {mechanicClassDC(c)}
       {activeFeatsNamed(c, 'Foolproof Debilitations').length ? ' (enemies must critically succeed)' : ''} or gain{' '}
       {active.filter(option => options.includes(option)).map(option =>

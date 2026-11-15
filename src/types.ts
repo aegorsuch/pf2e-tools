@@ -17,6 +17,7 @@ export type DroneProfile = {
 export type MechanicEnergy = 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'
 export type MedicMod = 'Numbing Analgesic' | 'Powerful Stimulant' | 'Protective Excretions' | 'Restorative Boost'
 export type MechanicMine = {
+  enduring?: boolean
   baseDamage?: 'fire' | 'piercing'
   damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
   bigBoom?: boolean
@@ -191,7 +192,7 @@ export interface Character {
   feats: { name: string; type: string; level: number; choice?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
-  equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[] }[]
+  equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
   simplePoisonsSpent?: number
   augmentations?: { id: string; entryId: string; name: string; slot: string }[]
   hardpointWeaponId?: string
@@ -220,7 +221,8 @@ export interface Character {
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
-  mechanicEnduringMod?: { item: string; mod: string; kind?: 'weapon' | 'grenade' | 'armor' | 'drone'; label?: string }
+  mechanicEnduringMod?: { item: string; mod: string; kind?: 'weapon' | 'grenade' | 'armor' | 'drone' | 'mine' | 'medic' | 'exo'; label?: string; value?: string | Array<string | null> }
+  mechanicEnduringMine?: MechanicMine
   mechanicDeployedMines?: MechanicMine[]
   mechanicExocortexDebilitation?: string[]
   mechanicDroneChassis?: DroneChassis
