@@ -188,6 +188,7 @@ export interface Character {
     incapacitant?: boolean
     longRange?: boolean
     damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
+    transmutativeCasing?: string
   }>
   mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
   mechanicTurretGrade?: HardlightGrade
@@ -215,6 +216,7 @@ export interface Character {
     bunkerBuster?: boolean
     pinpointShot?: boolean
     explosiveShot?: boolean
+    transmutativeCasing?: string
     damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
   }>
   munitionsFormulaChoices?: string[]

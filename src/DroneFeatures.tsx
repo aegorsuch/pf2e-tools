@@ -98,6 +98,11 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         onChange={event => save({ mechanicDroneAssistantActive: event.target.checked })} /> Drone assistant within reach
     </label>}
     {stats && <div className="col">
+      <label><input type="checkbox" checked={!!c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators}
+        onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
+          'mechanic:drone': { ...c.mechanicArmorMods?.['mechanic:drone'], magneticLevitators: event.target.checked } } })} />
+        {' '}Magnetic Levitators (Modify)</label>
+      {c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators && <small>Land Speed gains hover.</small>}
       <label><input type="checkbox" checked={!!c.mechanicDroneKillbotActive}
         onChange={event => save({ mechanicDroneKillbotActive: event.target.checked })} /> Killbot (Modify)</label>
       <label><input type="checkbox" checked={!!c.mechanicDroneDesperateRepairActive}

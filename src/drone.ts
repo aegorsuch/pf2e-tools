@@ -147,6 +147,7 @@ export function droneCustomizationSlots(c: Character) {
     if (has('Aquatic Adaptation')) speed.Swim = Math.max(speed.Swim ?? 0, 20)
     if (has('Climber')) speed.Climb = Math.max(speed.Climb ?? 0, 20)
     if (has('Flier')) speed.Fly = Math.max(speed.Fly ?? 0, 20)
+    if (c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators) speed.Fly = Math.max(speed.Fly ?? 0, 10)
     if (has('Burrower')) speed.Burrow = Math.max(speed.Burrow ?? 0, 20)
     if (activeFeatsNamed(c, 'Rocket Boosters').length) speed.Fly = (speed.Fly ?? 0) >= 20 ? speed.Fly + 5 : 20
     for (const item of selected) if (item.name === 'High Speed' && item.choice && speed[item.choice]) speed[item.choice] = Math.max(speed[item.choice], 40)

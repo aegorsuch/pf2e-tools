@@ -87,6 +87,24 @@ const mechanicModDuration = (c: Character) => activeFeatsNamed(c, 'Steady Modifi
   ? 'Mods normally last 1 minute; turn them off when they expire.'
   : 'Mods normally end after your next turn; turn them off when they expire.'
 
+function TransmutativeCasing({ c, value, onChange }: { c: Character; value?: string; onChange: (value: string | undefined) => void }) {
+  if (!activeFeatsNamed(c, 'Transmutative Casing').length) return null
+  const choices = ['Cold Iron', 'Silver',
+    ...(activeFeatsNamed(c, 'Advanced Transmutative Casing').length ? ['Adamantine (standard-grade)', 'Aucturnite', 'Noqual'] : []),
+    ...(activeFeatsNamed(c, 'Superior Transmutative Casing').length
+      ? ['Abysium (standard-grade)', 'Djezet (standard-grade)', 'Cold Siccatite (standard-grade)', 'Hot Siccatite (standard-grade)'] : [])]
+  return <label>Transmutative Casing{' '}
+    <select aria-label="Transmutative Casing" value={value ?? ''} onChange={event => {
+      if (!event.target.value || choices.includes(event.target.value)) onChange(event.target.value || undefined)
+    }}>
+      <option value="">None</option>
+      {value && !choices.includes(value) && <option value={value} disabled>{value} (unavailable)</option>}
+      {choices.map(choice => <option key={choice}>{choice}</option>)}
+    </select>
+    {value && choices.includes(value) && <small> Physical damage uses {value}; turn off when the mod expires.</small>}
+  </label>
+}
+
 function AttackUpgrades({ attack }: { attack: ReturnType<typeof weaponAttack> }) {
   if (!attack.upgrades.length) return null
   return <div className="gear-runes">{attack.upgrades.map(upgrade =>
@@ -717,6 +735,7 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
           <label><input type="checkbox" checked={!!mods.longRange} onChange={event => setMods({ longRange: event.target.checked })} /> Long-range Propulsors</label>
           <label><input type="checkbox" checked={!!mods.incapacitant} onChange={event => setMods({ incapacitant: event.target.checked })} /> Incapacitant</label>
           <label><input type="checkbox" checked={!!mods.bunkerBuster} onChange={event => setMods({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
+          <TransmutativeCasing c={c} value={mods.transmutativeCasing} onChange={value => setMods({ transmutativeCasing: value })} />
           {c.level >= 5 && damageTypes.length > 0 && <label>{physical ? 'Physical' : 'Energy'} Versatility{' '}
             <select aria-label={`Prepared grenade ${index + 1} damage customization`} value={mods.damageType ?? ''} onChange={event => {
               const type = damageTypes.find(option => option === event.target.value)
@@ -775,6 +794,7 @@ export function MechanicWeaponMods({ c, weapon, attack, save }: {
     <label><input type="checkbox" checked={!!mods.bunkerBuster}
       onChange={event => update({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
     {mods.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+    <TransmutativeCasing c={c} value={mods.transmutativeCasing} onChange={value => update({ transmutativeCasing: value })} />
     {activeFeatsNamed(c, 'Explosive Shot').length > 0 && <label>
       <input type="checkbox" checked={!!mods.explosiveShot}
         onChange={event => update({ explosiveShot: event.target.checked })} /> Explosive Shot

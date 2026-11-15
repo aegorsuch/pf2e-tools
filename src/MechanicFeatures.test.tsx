@@ -81,6 +81,11 @@ it('applies Magnetic Levitators only while its armor is worn', () => {
     .toContain('hover; Magnetic Levitators')
   expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).not.toContainEqual(
     expect.objectContaining({ source: 'Magnetic Levitators' }))
+  const drone: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Powerful',
+    mechanicArmorMods: { 'mechanic:drone': { magneticLevitators: true } } }
+  expect(droneStats(drone)?.speed.Fly).toBe(10)
+  expect(renderToStaticMarkup(<DroneFeatures c={drone} entries={[]} save={() => {}} />)).toContain('Land Speed gains hover')
+  expect(droneStats({ ...drone, mechanicDroneCustomizations: { Commercial: [{ name: 'Flier' }] } })?.speed.Fly).toBe(20)
 })
 
 it('applies Energy Neutralizer only to worn armor, scaling its choices and resistance', () => {
@@ -97,6 +102,19 @@ it('applies Energy Neutralizer only to worn armor, scaling its choices and resis
   expect(resistances({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).toEqual([])
   const html = renderToStaticMarkup(<ArmorList c={{ ...c, level: 4 }} entries={[]} save={() => {}} />)
   expect(html).toContain('<option>cold</option>')
+})
+
+it('offers learned Transmutative Casing materials and suppresses unavailable saved choices', () => {
+  const c: Character = { ...mechanic, level: 16, subclass: 'Turret', mechanicTurretArray: 'Laser Beam',
+    feats: [{ name: 'Transmutative Casing', type: 'Class Feat', level: 4 },
+      { name: 'Advanced Transmutative Casing', type: 'Class Feat', level: 12 }],
+    mechanicWeaponMods: { 'mechanic:turret': { transmutativeCasing: 'Noqual' } } }
+  const html = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[]} save={() => {}} displayOnly />)
+  expect(html(c)).toContain('Physical damage uses Noqual')
+  expect(html(c)).toContain('Adamantine (standard-grade)')
+  expect(html(c)).not.toContain('Hot Siccatite')
+  expect(html({ ...c, level: 10 })).not.toContain('Physical damage uses Noqual')
+  expect(html({ ...c, level: 3 })).not.toContain('Transmutative Casing')
 })
 
 it('grants customization slots once per drone grade plus repeatable customization feats', () => {
