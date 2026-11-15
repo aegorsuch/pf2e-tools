@@ -43,6 +43,37 @@ it('offers Dongun Hold or Alkenstar as a reusable achievement', () => {
   expect(featAccess(character, source)?.automatic).toBe(false)
 })
 
+it('offers Alkenstar, Mana Wastes, and Nixbrix achievements as alternative Black Powder access', () => {
+  const entries: ContentEntry[] = ['Inured to Alchemy', 'Pain Tolerance', 'Powder Punch Stance'].map(name => ({
+    ...feat, id: name, name, traits: ['Fighter', 'Uncommon'],
+    data: { access: "You're from Alkenstar or the Mana Wastes.", prerequisite: 'expert in Fortitude saves' },
+  }))
+  const labels = ['Agree to Nixbrix\'s challenge to defeat Bitey', 'From Alkenstar', 'From Mana Wastes']
+  const options = achievementOptions(entries)
+  expect(options.map(option => option.requirement)).toEqual(labels)
+  for (const option of options) {
+    expect(option.feats).toEqual(['Inured to Alchemy', 'Pain Tolerance', 'Powder Punch Stance'])
+    const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [option.key] }))
+    for (const entry of entries) {
+      expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement' })
+      expect(featAccess(character, entry)?.automatic).toBe(false)
+    }
+    const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+    expect(featSelectionPrerequisiteChecker({ ...saved, className: 'Fighter', level: 6 }, entries, slot)(entries[1]).missing)
+      .toContain('expert in Fortitude saves')
+    const fighter: ContentEntry = { ...feat, id: 'fighter', name: 'Fighter', kind: 'class',
+      data: { fortitude_proficiency: 'Expert' } }
+    expect(featSelectionPrerequisiteChecker({ ...saved, className: 'Fighter', level: 6 }, [...entries, fighter], slot)(entries[1]).missing)
+      .toEqual([])
+  }
+  const fromAlkenstar = { ...character, achievements: ['From Alkenstar'] }
+  expect(featAccess(fromAlkenstar, { ...feat, data: { access: 'You are from Dongun Hold or Alkenstar.' } })?.automatic).toBe(true)
+  expect(featAccess({ ...character, achievements: ['From the Mana Wastes'] }, entries[0])?.automatic).toBe(true)
+  expect(featAccess({ ...character, achievements: ['From Dongun Hold or Alkenstar'] }, entries[0])?.automatic).toBe(false)
+  expect(featAccess({ ...character, achievements: [labels[0]] }, { ...entries[0], name: 'Unrelated Feat' })?.automatic).toBe(false)
+  expect(featAccess({ ...character, achievements: [labels[0]] }, { ...entries[0], source: 'homebrew' })?.automatic).toBe(false)
+})
+
 it('shows Rivethun membership while automatically accepting its background and retaining old checked wording', () => {
   const access = 'Rivethun Adherent background or you are a member of the Rivethun'
   const source = { ...feat, data: { access } }
@@ -168,9 +199,9 @@ it('groups Lastwall membership access wordings into one named achievement and pr
   ]
   const [option] = achievementOptions(entries)
   expect(achievementOptions(entries)).toHaveLength(1)
-  expect(option.requirement).toBe('Member of the Knights of Lastwall')
+  expect(option.requirement).toBe('Member of or trained by Knights of Lastwall')
   expect(option.feats).toEqual(['Devoted Guardian', 'Everstand Stance', 'Member Feat'])
-  for (const value of [option.key, option.requirement, 'knights of lastwall have access to this feat']) {
+  for (const value of [option.key, option.requirement, 'Member of the Knights of Lastwall', 'knights of lastwall have access to this feat']) {
     const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [value] }))
     for (const entry of entries) expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement' })
     expect(featAccess(saved, { ...feat, data: { access: 'Member of the Knights of Lastwall of knight rank.' } })?.automatic).toBe(false)
