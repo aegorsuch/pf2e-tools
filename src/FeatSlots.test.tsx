@@ -14,11 +14,25 @@ beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
 it("shows Battle Medicine granted by Officer's Medical Training", () => {
+  const battleMedicine: ContentEntry = { id: 'feat-5125', name: 'Battle Medicine', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['General', 'Healing', 'Manipulate', 'Skill'],
+    description: 'Patch up wounds in combat.', data: {}, effects: [], updatedAt: 0 }
   const c: Character = { ...emptyRanger(), className: 'Commander', level: 1,
     feats: [{ name: "Officer's Medical Training", type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
-  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['skill']} save={() => {}} />)
+  const entries = [battleMedicine]
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['skill']} save={() => {}} />)
   expect(markup).toContain('Battle Medicine')
   expect(markup).toContain('Officer&#x27;s Medical Training')
+  expect(markup).toContain(battleMedicine.description)
+  const source = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['class']} save={() => {}} />)
+  expect(source).toContain('Grants <button')
+  expect(source).toContain('Battle Medicine</button>')
+  expect(source).toContain('(Skill Feat)')
+  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, level: 0 }} entries={entries} categories={['class']} save={() => {}} />))
+    .not.toContain('feat-grant-note')
+  const selected: Character = { ...c, feats: [...c.feats, { name: 'Battle Medicine', type: 'Skill Feat', level: 1, slot: 'skill:1:0' }] }
+  const selectedMarkup = renderToStaticMarkup(<FeatSlots c={selected} entries={entries} categories={['skill']} save={() => {}} />)
+  expect(selectedMarkup).not.toContain('automatic-feat-row')
 })
 
 it('hides removal for an automatic Order Explorer feat but preserves alternative choices', () => {
