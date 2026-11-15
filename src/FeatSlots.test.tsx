@@ -13,6 +13,25 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('shows one Additional Lore per skill and prefers the specific ancestry source', () => {
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 7,
+    feats: [
+      { name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Ysoki Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+      { name: "Grandmother's Lore", type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:1' },
+    ] }
+  for (const feats of [c.feats, [...c.feats].reverse()]) {
+    const markup = renderToStaticMarkup(<FeatSlots c={{ ...c, feats }} entries={[]} categories={['skill']} save={() => {}} />)
+    expect(markup.match(/>Additional Lore \(Ysoki\) <small>/g)).toHaveLength(1)
+    expect(markup).toContain('Additional Lore (Lao Shu Po)')
+    expect(markup).toContain('Ysoki Lore')
+    expect(markup).not.toContain('Ancestral Skills')
+  }
+  const earlier = renderToStaticMarkup(<FeatSlots c={{ ...c, level: 1 }} entries={[]} categories={['skill']} save={() => {}} />)
+  expect(earlier).toContain('Additional Lore (Ysoki)')
+  expect(earlier).toContain('Ancestral Skills')
+})
+
 it('labels fixed ancestral cantrips and creature speech without extra choices', () => {
   const cantrip = mapAonHit({ _id: 'ysoki-cantrip', _source: { name: 'Ancestral Cantrip', category: 'feat', level: 1,
     trait: ['Ysoki'], markdown: 'Header\n\n---\n\n**[Option(s)](/feats/1)**: occult; _[seek the stars](/spells/1)_' } }, 'sf2e')!

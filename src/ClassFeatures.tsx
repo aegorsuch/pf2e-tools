@@ -4,6 +4,7 @@ import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
+import { MechanicFeatures } from './MechanicFeatures'
 
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
@@ -20,6 +21,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
     <details className="character-subsection">
       <summary><h4>Class Features ({features.length})</h4></summary>
       {!imported && <p>Class feature data is still loading.</p>}
+      <MechanicFeatures c={c} save={save} />
       {c.className === 'Champion' && activeFeatsNamed(c, 'Dragonslayer Oath').length > 0 && <div className="col">
         <b>Dragonslayer Oath (legacy)</b>
         <small>Against dragons, Retributive Strike deals +4 circumstance damage (+6 with master weapon proficiency).

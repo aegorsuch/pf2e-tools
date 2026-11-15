@@ -360,7 +360,13 @@ export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
+  || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
+
+export const mechanicIngenuitySlots = (c: Character) =>
+  c.className === 'Mechanic' && c.systems.includes('sf2e')
+    ? [3, 7, 15].filter(level => level <= c.level).map(level => ({ key: `mechanic-ingenuity:${level}`, level }))
+    : []
 
 export function plannedSlots(c: Character): PlannedSlot[] {
   const base: FeatSlot[] = [
@@ -410,6 +416,11 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
     slots.push({ key: `general:1:${grant.key}`, category: 'general', level: grant.level, grantedBy: "Officer's Education" })
   }
+  for (const grant of mechanicIngenuitySlots(c)) {
+    const group = `skill:${grant.level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `skill:1:${grant.key}`, category: 'skill', level: grant.level, grantedBy: "Mechanic's Ingenuity" })
+  }
   for (const feat of c.feats) {
     if (feat.name !== 'Exceptional Artisan' || !feat.choice || featTakenLevel(feat) > c.level) continue
     const level = featTakenLevel(feat)
@@ -447,7 +458,7 @@ export function plannedSlots(c: Character): PlannedSlot[] {
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key)
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
-    || slot.grantedBy === "Officer's Education")
+    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity")
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -737,6 +748,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && artisanSkillEligible
       && (slot.grantedBy !== 'Exceptional Artisan' || !!slot.grantedSkill
         && tokens(e.data.skill).some(skill => skill.toLowerCase() === slot.grantedSkill?.toLowerCase()))
+      && (slot.grantedBy !== "Mechanic's Ingenuity"
+        || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
       && (!slot.grantedOrder || new RegExp(`\\b${slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder} order\\b`, 'i').test(String(e.data.prerequisite ?? '')))
       && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
         { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level }))
@@ -2126,11 +2139,13 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
   const longevityLevel = longevityExpertLevel({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const educationSlots = officerEducationSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
+  const ingenuitySlots = mechanicIngenuitySlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
     ...(greenwatchLevel === undefined ? [] : [greenwatchLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
-    ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level)])].sort((a, b) => a - b)
+    ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
+    ...ingenuitySlots.map(slot => slot.level)])].sort((a, b) => a - b)
   for (const l of levels) {
     if (l === longevityLevel) {
       const skill = c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]
@@ -2148,6 +2163,11 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
       for (const name of lores) if ((ranks[name] ?? 0) > 0) ranks[name] = Math.max(ranks[name], rankCap(l))
       if (l === 3 || l === 7 || l === 15) {
         for (const name of additionalLores) ranks[name] = Math.max(ranks[name] ?? 0, rankCap(l))
+      }
+      for (const slot of ingenuitySlots.filter(slot => slot.level === l)) {
+        const skill = c.skillIncreases?.[slot.key]
+        if ((skill === 'Computers' || skill === 'Crafting') && (ranks[skill] ?? 0) > 0
+          && canIncreaseTo(l, ranks[skill])) ranks[skill]++
       }
     }
     if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
@@ -3644,6 +3664,13 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
   const remaining = { trained: Math.max(0, additionalSkillCount(c, entries) - effectivePicks.length), expert: 0, master: 0, legendary: 0 }
   if (longevityExpertLevel(c) !== undefined && !c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]) remaining.expert++
   for (const slot of officerEducationSlots(c)) if (!c.skillIncreases?.[slot.key]) remaining.expert++
+  for (const slot of mechanicIngenuitySlots(c)) {
+    if (c.skillIncreases?.[slot.key]) continue
+    const rank = rankCap(slot.level)
+    if (rank === 2) remaining.expert++
+    else if (rank === 3) remaining.master++
+    else remaining.legendary++
+  }
   for (const level of skillIncreaseLevels(c)) {
     if (c.skillIncreases?.[level]) continue
     const rank = rankCap(level)

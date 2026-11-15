@@ -322,6 +322,22 @@ it("uses regular skill controls for both Officer's Education selections", () => 
   expect(skillRankBudget(c, [ranger]).expert).toBe(3)
 })
 
+it("spends Mechanic's Ingenuity increases through the ordinary skill array", () => {
+  const mechanic: ContentEntry = { ...ranger, name: 'Mechanic', systems: ['sf2e'],
+    data: { skill_proficiency: 'Trained in Computers, Trained in Crafting, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' } }
+  let c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 7, skillPicks: ['Athletics'] }
+  const tree = () => SkillsSection({ c, entries: [mechanic], save: patch => { c = { ...c, ...patch } } })
+  ;(findButtons(tree()).get('Computers Expert')!.onClick as () => void)()
+  ;(findButtons(tree()).get('Computers Master')!.onClick as () => void)()
+  ;(findButtons(tree()).get('Athletics Expert')!.onClick as () => void)()
+  expect(c.skillIncreases).toMatchObject({ 'mechanic-ingenuity:3': 'Computers', 'mechanic-ingenuity:7': 'Computers', 3: 'Athletics' })
+  expect(ranksAt(c, [mechanic])).toMatchObject({ Computers: 3, Crafting: 1, Athletics: 2 })
+  expect(ranksAt({ ...c, level: 2 }, [mechanic])).toMatchObject({ Computers: 1, Crafting: 1 })
+  expect(ranksAt({ ...c, className: 'Ranger' }, [mechanic]).Computers ?? 0).toBe(0)
+  ;(findButtons(tree()).get('Computers Master')!.onClick as () => void)()
+  expect(c.skillIncreases?.['mechanic-ingenuity:7']).toBeUndefined()
+})
+
 it('adds regular trained and expert selections for longevity feats', () => {
   let c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'],
     feats: [

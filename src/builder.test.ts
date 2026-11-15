@@ -79,6 +79,30 @@ it('reads concatenated Starfinder Mechanic class skill proficiencies', () => {
   expect(additionalSkillCount(c, [mechanic])).toBe(2)
 })
 
+it("restricts Mechanic's Ingenuity bonus feats to Computers or Crafting", () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 15 }
+  const slots = plannedSlots(c).filter(slot => slot.grantedBy === "Mechanic's Ingenuity")
+  expect(slots.map(slot => slot.level)).toEqual([3, 7, 15])
+  const feats = ['Computers', 'Crafting', 'Medicine'].map(skill => ({
+    ...entry('feat', `${skill} Feat`, { skill }, 1, ['General', 'Skill']), systems: ['sf2e' as const],
+  }))
+  expect(eligibleFeats(feats, c, slots[0]).map(feat => feat.name)).toEqual(['Computers Feat', 'Crafting Feat'])
+  expect(plannedSlots({ ...c, level: 2 }).some(slot => slot.grantedBy === "Mechanic's Ingenuity")).toBe(false)
+})
+
+it("applies only legal Mechanic's Ingenuity skill increases at their levels", () => {
+  const mechanic = { ...entry('class', 'Mechanic', {
+    skill_proficiency: 'Trained in Computers, Trained in Crafting, Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
+  }), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 15, background: undefined,
+    skillPicks: ['Athletics'], skillIncreases: { 'mechanic-ingenuity:3': 'Computers',
+      'mechanic-ingenuity:7': 'Computers', 'mechanic-ingenuity:15': 'Computers' } }
+  expect(ranksAt(c, [mechanic])).toMatchObject({ Computers: 4, Crafting: 1, Athletics: 1 })
+  expect(ranksAt({ ...c, level: 6 }, [mechanic])).toMatchObject({ Computers: 2, Crafting: 1 })
+  expect(ranksAt({ ...c, skillIncreases: { 'mechanic-ingenuity:3': 'Athletics' } }, [mechanic]).Athletics).toBe(1)
+  expect(ranksAt({ ...c, level: 3, skillIncreases: { 3: 'Computers', 'mechanic-ingenuity:3': 'Computers' } }, [mechanic]).Computers).toBe(2)
+})
+
 it('applies Test-Subject Ysoki and Rat Retinal HUD training without duplicating Computers', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
     className: 'Operative', background: undefined, testSubjectAdaptation: 'Cybernetic Augmentation',

@@ -176,6 +176,7 @@ export interface Character {
   gadgetFormulaChoices?: string[]
   gadgetPreparations?: string[]
   gadgetUsed?: boolean[]
+  mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
   munitionsFormulaChoices?: string[]
   munitionsPreparations?: string[]
   munitionsUsed?: boolean[]
