@@ -66,6 +66,26 @@ export function familiarityChoiceOptions(name: string, c: Character, entries: Co
     .map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
 }
 
+function ancestralFamiliaritySource(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (feat.name !== 'Ancestral Weapon Familiarity' || !c.systems.includes('sf2e')) return undefined
+  const level = Math.min(c.level, featTakenLevel(feat))
+  const ancestries = [c.ancestry, c.heritage, ...c.feats.filter(feat => feat.name === 'Adopted Ancestry'
+    && featTakenLevel(feat) <= level).map(feat => feat.choice)]
+    .filter((name): name is string => !!name)
+  const sources = entries.filter(entry => entry.kind === 'feat' && !entry.deleted && entry.name === feat.name
+    && entry.systems.includes('sf2e') && (!feat.sourceId || entry.id === feat.sourceId))
+  for (const ancestry of ancestries) {
+    const entry = sources.find(source => source.traits.some(trait => key(trait) === key(ancestry)))
+    if (entry) return { entry, ancestry }
+  }
+}
+
+export function isFixedAncestralWeaponFamiliarity(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  const source = ancestralFamiliaritySource(c, entries, feat)
+  return !!source && key(source.ancestry) !== 'astrazoan'
+    && !/traditional weapons of another ancestry/i.test(source.entry.description)
+}
+
 export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 'Simple' | 'Martial' | 'Advanced' | 'Unarmed', entries: ContentEntry[] = []) {
   const access: string[] = []
   let proficiency: 'Simple' | 'Martial' | undefined
@@ -74,13 +94,12 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
   let criticalSpecialization = false
   for (const feat of c.feats) {
     if (featTakenLevel(feat) > c.level) continue
-    if (feat.name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry) {
-      const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === feat.name
-        && entry.systems.includes('sf2e') && entry.traits.some(trait => key(trait) === key(c.ancestry!)))
-      if (!source || /traditional weapons of another ancestry/i.test(source.description)) continue
-      const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1] ?? ''
-      const ancestralTrait = weapon.traits.some(trait => key(trait) === key(c.ancestry!))
-      const dwarfStarfinder = key(c.ancestry) === 'dwarf'
+    if (feat.name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e')) {
+      const source = ancestralFamiliaritySource(c, entries, feat)
+      if (!source || !isFixedAncestralWeaponFamiliarity(c, entries, feat)) continue
+      const options = /Option\(s\):\s*([^\n]*)/i.exec(source.entry.description)?.[1] ?? ''
+      const ancestralTrait = weapon.traits.some(trait => key(trait) === key(source.ancestry))
+      const dwarfStarfinder = key(source.ancestry) === 'dwarf'
       const group = key(String(weapon.data.weapon_group ?? ''))
       const matchesList = dwarfStarfinder && DWARF_STARFINDER_WEAPONS.some(name => key(name) === key(weapon.name))
         || options.split(/\s*,\s*|\s+or\s+/i).some(option => key(option) === key(weapon.name))
@@ -112,12 +131,4 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
     criticalSpecialization ||= !rule.trained && c.level >= 5 && feat.name !== 'Jotunborn Weapon Familiarity'
   }
   return { access, proficiency, trained, expertise, criticalSpecialization }
-}
-
-export function isElfAncestralWeaponFamiliarity(c: Character, name: string) {
-  return name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry?.toLowerCase() === 'elf'
-}
-
-export function isDwarfAncestralWeaponFamiliarity(c: Character, name: string) {
-  return name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e') && c.ancestry?.toLowerCase() === 'dwarf'
 }

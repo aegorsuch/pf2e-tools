@@ -1244,12 +1244,12 @@ it('doubles ranged and thrown increments for the Impossible rune', () => {
   expect(weaponAttack(base, [bow], { id: 'plain', name: bow.name, potency: 0, striking: 0, runes: [] }).range).toBe(100)
 })
 
-it('grants locked Dwarf clan weapons with Orichalcum and level-scaled fundamental runes', () => {
+it('grants a locked Dwarf clan dagger and adds a pistol only with the Clan Pistol feat', () => {
   const ranger = content('class', 'Ranger', { attribute: 'Strength, Dexterity' })
   const entries = [ranger, CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY]
   const dwarf: Character = { ...base, ancestry: 'Dwarf', className: 'Ranger', level: 12, boosts: { class: 'dex' } }
   const weapons = ownedWeapons(dwarf, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
-  expect(weapons.map(weapon => weapon.name)).toEqual(['Clan Pistol', CLAN_DAGGER_DEXTERITY.name])
+  expect(weapons.map(weapon => weapon.name)).toEqual([CLAN_DAGGER_DEXTERITY.name])
   for (const weapon of weapons) {
     expect(isLockedWeapon(dwarf, weapon.name, entries, weapon.id)).toBe(true)
     expect(hasAutomaticWeaponFundamentals(dwarf, entries, weapon)).toBe(true)
@@ -1259,6 +1259,38 @@ it('grants locked Dwarf clan weapons with Orichalcum and level-scaled fundamenta
   const strengthDwarf = { ...dwarf, boosts: { class: 'str' as const } }
   expect(ownedWeapons(strengthDwarf, entries).find(weapon => weapon.id.endsWith(':clan-dagger'))?.name).toBe(CLAN_DAGGER.name)
   expect(ownedWeapons({ ...dwarf, ancestry: 'Elf' }, entries).some(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))).toBe(false)
+  const pistolDwarf = { ...dwarf, feats: [feat('Clan Pistol', 1)] }
+  const pistolWeapons = ownedWeapons(pistolDwarf, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
+  expect(pistolWeapons.map(weapon => weapon.name)).toEqual([CLAN_PISTOL.name, CLAN_DAGGER_DEXTERITY.name])
+  expect(isLockedWeapon(pistolDwarf, CLAN_PISTOL.name, entries, pistolWeapons[0].id)).toBe(true)
+  expect(effectiveWeapon(pistolDwarf, entries, pistolWeapons[0])).toMatchObject({ potency: 2, striking: 2, material: 'Orichalcum' })
+})
+
+it('grants adopted Dwarves a clan dagger only while the house rule and adoption are active', () => {
+  const old = getSettings()
+  try {
+    updateSettings({ adoptedDwarfClanDagger: true })
+    const ranger = content('class', 'Ranger', { attribute: 'Strength, Dexterity' })
+    const entries = [ranger, CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY]
+    const c: Character = { ...base, ancestry: 'Human', className: 'Ranger', level: 5, boosts: { class: 'dex' },
+      feats: [{ ...feat('Adopted Ancestry', 1), type: 'General Feat', choice: 'Dwarf', takenLevel: 5 }] }
+    const grants = (character: Character) => ownedWeapons(character, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
+    expect(grants(c).map(weapon => weapon.name)).toEqual([CLAN_DAGGER_DEXTERITY.name])
+    expect(effectiveWeapon(c, entries, grants(c)[0])).toMatchObject({ potency: 1, striking: 1, material: 'Orichalcum' })
+    expect(grants({ ...c, level: 4 })).toEqual([])
+    expect(grants({ ...c, feats: [] })).toEqual([])
+    const withPistol = { ...c, feats: [...c.feats, { ...feat('Clan Pistol', 1), takenLevel: 7 }] }
+    expect(grants(withPistol).map(weapon => weapon.name)).toEqual([CLAN_DAGGER_DEXTERITY.name])
+    expect(grants({ ...withPistol, level: 7 }).map(weapon => weapon.name)).toEqual([CLAN_PISTOL.name, CLAN_DAGGER_DEXTERITY.name])
+    updateSettings({ adoptedDwarfClanDagger: false })
+    expect(grants(c)).toEqual([])
+    expect(grants({ ...c, ancestry: 'Dwarf' }).map(weapon => weapon.name)).toEqual([CLAN_DAGGER_DEXTERITY.name])
+    expect(grants({ ...withPistol, level: 7 }).map(weapon => weapon.name)).toEqual([CLAN_PISTOL.name])
+    const manual = { ...c, weapons: [{ id: 'manual', name: CLAN_DAGGER.name, potency: 1, striking: 1, runes: [] }] }
+    expect(ownedWeapons(manual, entries).some(weapon => weapon.id === 'manual')).toBe(true)
+  } finally {
+    updateSettings(old)
+  }
 })
 
 it.each([[1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1], [12, 2, 2], [16, 3, 2], [19, 3, 3]])(

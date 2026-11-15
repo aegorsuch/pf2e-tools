@@ -4,7 +4,7 @@ import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
-import { isDwarfAncestralWeaponFamiliarity, isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
+import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 
 export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
@@ -32,8 +32,7 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'Carry Their Memories' || isElfAncestralWeaponFamiliarity(c, feat.name)
-    || isDwarfAncestralWeaponFamiliarity(c, feat.name)) return null
+  if (feat.name === 'Carry Their Memories' || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone', 'Convertible Chassis'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     return <label className="feat-choice">{feat.name === 'Advanced Drone' ? 'Advancement' : feat.name === 'Superior Drone' ? 'Specialization' : 'Additional chassis'}{' '}

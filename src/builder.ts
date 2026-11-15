@@ -2694,7 +2694,11 @@ const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
 function dwarfClanWeaponGrants(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
-  if (!c.systems.includes('pf2e') || c.ancestry?.trim().toLowerCase() !== 'dwarf') return []
+  const nativeDwarf = c.systems.includes('pf2e') && c.ancestry?.trim().toLowerCase() === 'dwarf'
+  const adoptedDwarf = getSettings().adoptedDwarfClanDagger
+    && activeFeatsNamed(c, 'Adopted Ancestry').some(feat => feat.choice?.trim().toLowerCase() === 'dwarf')
+  const clanPistol = activeFeatsNamed(c, 'Clan Pistol').length > 0
+  if (!nativeDwarf && !adoptedDwarf && !clanPistol) return []
   const attributes = tokens(byName(entries, 'class', c.className)?.data.attribute)
     .map(attribute => ABILITY_NAMES[attribute.toLowerCase()]).filter((ability): ability is Ability => !!ability)
   const selected = c.boosts?.class
@@ -2702,9 +2706,10 @@ function dwarfClanWeaponGrants(c: Character, entries: ContentEntry[]): OwnedWeap
     : selected && attributes.includes(selected) ? selected
       : attributes.includes('str') ? 'str' : attributes[0] ?? 'str'
   return [
-    { id: DWARF_CLAN_PISTOL_ID, name: CLAN_PISTOL.name, potency: 0, striking: 0, runes: [], material: 'Orichalcum' },
-    { id: DWARF_CLAN_DAGGER_ID, name: keyAbility === 'dex' ? CLAN_DAGGER_DEXTERITY.name : CLAN_DAGGER.name,
-      potency: 0, striking: 0, runes: [], material: 'Orichalcum' },
+    ...(clanPistol ? [{ id: DWARF_CLAN_PISTOL_ID, name: CLAN_PISTOL.name, potency: 0, striking: 0, runes: [], material: 'Orichalcum' }] : []),
+    ...(nativeDwarf || adoptedDwarf ? [{ id: DWARF_CLAN_DAGGER_ID,
+      name: keyAbility === 'dex' ? CLAN_DAGGER_DEXTERITY.name : CLAN_DAGGER.name,
+      potency: 0, striking: 0, runes: [], material: 'Orichalcum' }] : []),
   ]
 }
 

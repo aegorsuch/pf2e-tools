@@ -4,7 +4,7 @@ import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
 import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
-import { isDwarfAncestralWeaponFamiliarity, isElfAncestralWeaponFamiliarity } from './weaponFamiliarity'
+import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { compareFeatSelections } from './featChoices'
@@ -187,7 +187,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (option) {
       const { entry, choice } = option
       feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key,
-        ...(['Ancestral Cantrip', 'Ancestral Magic'].includes(entry.name) ? { sourceId: entry.id } : {}),
+        ...(['Ancestral Cantrip', 'Ancestral Magic', 'Ancestral Weapon Familiarity'].includes(entry.name) ? { sourceId: entry.id } : {}),
         ...(slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}), ...(choice ? { choice } : {}) })
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
@@ -296,7 +296,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories',
             'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms'].includes(selection.name)
-            || isElfAncestralWeaponFamiliarity(c, selection.name) || isDwarfAncestralWeaponFamiliarity(c, selection.name)) ? undefined
+            || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
             ? `Mastermind - ${c.rogueRacketSkills.Mastermind}` : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)

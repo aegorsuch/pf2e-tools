@@ -193,6 +193,21 @@ it('does not show an Elf ancestral weapon familiarity choice even with repeatabl
     .toContain('aria-label="Ancestral Weapon Familiarity choice"')
 })
 
+it('hides weapon choices for adopted Dwarf familiarity despite repeatable namesakes', () => {
+  const dwarf: ContentEntry = { id: 'dwarf-familiarity', name: 'Ancestral Weapon Familiarity', kind: 'feat', source: 'official',
+    systems: ['sf2e'], level: 1, traits: ['Dwarf'], description: 'Option(s): artillery laser, hammer', data: {}, effects: [], updatedAt: 0 }
+  const astrazoan: ContentEntry = { ...dwarf, id: 'astrazoan-familiarity', traits: ['Astrazoan'], data: { repeatable: true } }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Human', level: 5, feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, takenLevel: 5, choice: 'Dwarf' },
+    { name: dwarf.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0', sourceId: dwarf.id, choice: 'Artillery Laser' },
+  ] }
+  const entries = [astrazoan, dwarf]
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={() => {}} index={1} />)).toBe('')
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['ancestry']} save={() => {}} />)
+  expect(markup).not.toContain('Ancestral Weapon Familiarity (Artillery Laser)')
+  expect(markup).not.toContain('aria-label="Ancestral Weapon Familiarity choice"')
+})
+
 it('shows and searches distinct Versatile Rogue racket options', () => {
   const feat: ContentEntry = { id: 'versatile', name: 'Versatile Rogue', kind: 'feat', source: 'homebrew',
     systems: ['pf2e'], level: 10, traits: ['Rogue'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }

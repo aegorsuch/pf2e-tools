@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
 export interface Settings {
+  adoptedDwarfClanDagger: boolean
   // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
   // House rule: Order Explorer grants training in the explored order's skill
@@ -28,7 +29,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, cyborgTestSubject: true }
+const DEFAULTS: Settings = { adoptedDwarfClanDagger: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

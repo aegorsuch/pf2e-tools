@@ -234,6 +234,11 @@ export default function App() {
       {showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
           <label>
+            <input type="checkbox" checked={settings.adoptedDwarfClanDagger}
+              onChange={(e) => updateSettings({ adoptedDwarfClanDagger: e.target.checked })} />{' '}
+            Adopted Ancestry (Dwarf) Grants Clan Dagger
+          </label>
+          <label>
             <input type="checkbox" checked={settings.autoClassSkills}
               onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
             Auto-Advance Class-Specific Skills

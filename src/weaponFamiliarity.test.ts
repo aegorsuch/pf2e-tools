@@ -75,6 +75,30 @@ it('gives Dwarves all tagged and listed Starfinder weapons with no weapon choice
   expect(featChoiceOptions('Ancestral Weapon Familiarity', c, entries, '')).toBeUndefined()
 })
 
+it('applies the full adopted Dwarf weapon list without a choice and only after adoption', () => {
+  const source: ContentEntry = { ...content('Ancestral Weapon Familiarity', 'feat', {}, ['Dwarf']), systems: ['sf2e'],
+    description: 'Option(s): artillery laser, hammer' }
+  const artillery = weapon('Artillery Laser', 'Advanced', [], 'uncommon')
+  const hammer = weapon('Hammer', 'Martial')
+  const tagged = weapon('Dwarf Laser Axe', 'Advanced', ['Dwarf'], 'uncommon')
+  const unrelated = weapon('Human Plasma Rifle', 'Advanced', ['Human'])
+  const entries = [wizard, source, artillery, hammer, tagged, unrelated]
+  const familiarity = { ...selected(source.name, undefined, 1), slot: 'ancestry:5:0', takenLevel: 5, sourceId: source.id }
+  const c: Character = { ...character, ancestry: 'Human', systems: ['sf2e'], level: 9, feats: [
+    { ...selected('Adopted Ancestry', 'Dwarf'), type: 'General Feat', takenLevel: 5 }, familiarity,
+  ] }
+  for (const choice of [undefined, 'Artillery Laser']) {
+    const next = { ...c, feats: [c.feats[0], { ...familiarity, choice }] }
+    expect(attack(next, artillery, entries)).toMatchObject({ rank: 1, criticalSpecialization: true })
+    expect(attack(next, hammer, entries)).toMatchObject({ rank: 2, criticalSpecialization: true })
+    expect(attack(next, tagged, entries).rank).toBe(1)
+    expect(attack(next, unrelated, entries).rank).toBe(0)
+    expect(weaponAccessSources(next, entries, artillery)).toContain(source.name)
+  }
+  expect(attack({ ...c, level: 4 }, artillery, entries)).toMatchObject({ rank: 0, criticalSpecialization: false })
+  expect(attack({ ...c, feats: [c.feats[0], { ...familiarity, slot: 'ancestry:1:0', takenLevel: 1 }] }, artillery, entries).rank).toBe(0)
+})
+
 it('grants only stated weapon Access, not all ancestry gear or rare versions, and persists GM approval separately', () => {
   const uncommon = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')
   const rare = { ...uncommon, id: 'rare-waraxe', data: { ...uncommon.data, rarity: 'rare' }, traits: ['Dwarf', 'Rare'] }
