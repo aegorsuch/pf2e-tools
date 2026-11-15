@@ -15,6 +15,7 @@ import { DroneEquipment } from './DroneEquipment'
 import { switchDroneChassis } from './droneChassis'
 import { FeatChoice } from './FeatChoice'
 import { HighTechMedic } from './HighTechMedic'
+import { setEnduringMod } from './mechanicEnduring'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
@@ -42,6 +43,40 @@ it('shows mechanic mod progression at the appropriate levels', () => {
   expect(html(15)).toContain('within 150 feet')
   expect(html(15)).toContain('Manifold Mods')
   expect(html(19)).toContain('Instant Mods')
+})
+
+it('activates and replaces an enduring mod without removing unrelated mods', () => {
+  const c: Character = { ...mechanic, level: 13,
+    mechanicWeaponMods: { sword: { incapacitant: true, bunkerBuster: true } },
+    mechanicGrenadeMods: { 'prepared:0': { longRange: true } } }
+  const weapon = { ...c, ...setEnduringMod(c, { kind: 'weapon', item: 'sword', mod: 'incapacitant', label: 'Sword' }) }
+  expect(weapon.mechanicWeaponMods?.sword).toMatchObject({ incapacitant: true, bunkerBuster: true })
+  const grenade = { ...weapon, ...setEnduringMod(weapon,
+    { kind: 'grenade', item: 'prepared:0', mod: 'bigBoom', label: 'Prepared grenade 1' }) }
+  expect(grenade.mechanicWeaponMods?.sword).toMatchObject({ incapacitant: false, bunkerBuster: true })
+  expect(grenade.mechanicGrenadeMods?.['prepared:0']).toMatchObject({ bigBoom: true, longRange: true })
+  const cleared = { ...grenade, ...setEnduringMod(grenade) }
+  expect(cleared.mechanicGrenadeMods?.['prepared:0']).toMatchObject({ bigBoom: false, longRange: true })
+  expect(cleared.mechanicEnduringMod).toBeUndefined()
+  expect(renderToStaticMarkup(<MechanicFeatures c={grenade} save={() => {}} />)).toContain('Enduring item: Prepared grenade 1')
+  const levitating = { ...grenade, ...setEnduringMod(grenade,
+    { kind: 'armor', item: 'mechanic:drone', mod: 'magneticLevitators', label: 'Drone' }) }
+  expect(levitating.mechanicGrenadeMods?.['prepared:0']?.bigBoom).toBe(false)
+  expect(levitating.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators).toBe(true)
+  const drone = { ...levitating, ...setEnduringMod(levitating,
+    { kind: 'drone', item: 'mechanic:drone', mod: 'killbot', label: 'Drone' }) }
+  expect(drone.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators).toBe(false)
+  expect(drone.mechanicDroneKillbotActive).toBe(true)
+  expect({ ...drone, ...setEnduringMod(drone) }).toMatchObject({ mechanicDroneKillbotActive: false })
+  const energy = { ...drone, ...setEnduringMod(drone,
+    { kind: 'armor', item: 'mechanic:drone', mod: 'energyNeutralizer', value: ['fire', 'cold'], label: 'Drone' }) }
+  expect(energy.mechanicDroneKillbotActive).toBe(false)
+  expect(energy.mechanicArmorMods?.['mechanic:drone']?.energyNeutralizer).toEqual(['fire', 'cold'])
+  const configured = { ...energy, ...setEnduringMod(energy,
+    { kind: 'weapon', item: 'sword', mod: 'damageType', value: 'piercing', label: 'Sword' }) }
+  expect(configured.mechanicArmorMods?.['mechanic:drone']?.energyNeutralizer).toEqual([])
+  expect(configured.mechanicWeaponMods?.sword?.damageType).toBe('piercing')
+  expect({ ...configured, ...setEnduringMod(configured) }.mechanicWeaponMods?.sword?.damageType).toBeUndefined()
 })
 
 it('scales mine damage and area, including per-mine modifications', () => {

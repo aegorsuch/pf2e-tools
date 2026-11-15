@@ -7,6 +7,7 @@ import { mechanicClassDC } from './mechanicRules'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { MechanicWeaponMods } from './GearSection'
+import { setEnduringMod } from './mechanicEnduring'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
@@ -158,14 +159,39 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         onChange={choices => save({ mechanicExocortexDebilitation: choices })} />
       <label><input type="checkbox" checked={!!c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators}
         onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
-          'mechanic:drone': { ...c.mechanicArmorMods?.['mechanic:drone'], magneticLevitators: event.target.checked } } })} />
+          'mechanic:drone': { ...c.mechanicArmorMods?.['mechanic:drone'], magneticLevitators: event.target.checked } },
+          ...(!event.target.checked && c.mechanicEnduringMod?.kind === 'armor'
+            && c.mechanicEnduringMod.item === 'mechanic:drone' && c.mechanicEnduringMod.mod === 'magneticLevitators'
+            ? { mechanicEnduringMod: undefined } : {}) })} />
         {' '}Magnetic Levitators (Modify)</label>
       {c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators && <small>Land Speed gains hover.</small>}
       <label><input type="checkbox" checked={!!c.mechanicDroneKillbotActive}
-        onChange={event => save({ mechanicDroneKillbotActive: event.target.checked })} /> Killbot (Modify)</label>
+        onChange={event => save({ mechanicDroneKillbotActive: event.target.checked,
+          ...(!event.target.checked && c.mechanicEnduringMod?.kind === 'drone' && c.mechanicEnduringMod.mod === 'killbot'
+            ? { mechanicEnduringMod: undefined } : {}) })} /> Killbot (Modify)</label>
       <label><input type="checkbox" checked={!!c.mechanicDroneDesperateRepairActive}
-        onChange={event => save({ mechanicDroneDesperateRepairActive: event.target.checked })} /> Desperate Repair (Modify)</label>
+        onChange={event => save({ mechanicDroneDesperateRepairActive: event.target.checked,
+          ...(!event.target.checked && c.mechanicEnduringMod?.kind === 'drone' && c.mechanicEnduringMod.mod === 'desperateRepair'
+            ? { mechanicEnduringMod: undefined } : {}) })} /> Desperate Repair (Modify)</label>
       {c.mechanicDroneDesperateRepairActive && <small>Temporary HP: {Math.max(0, c.level + Math.floor((c.abilities.int - 10) / 2))}.</small>}
+      {c.level >= 13 && <label>Enduring Mod{' '}<select aria-label="Enduring mod: drone"
+        value={c.mechanicEnduringMod?.item === 'mechanic:drone'
+          && (c.mechanicEnduringMod.kind === 'drone'
+            || c.mechanicEnduringMod.kind === 'armor' && c.mechanicEnduringMod.mod === 'magneticLevitators')
+          ? c.mechanicEnduringMod.mod : ''} onChange={event => {
+          if (event.target.value === 'magneticLevitators')
+            save(setEnduringMod(c, { kind: 'armor', item: 'mechanic:drone', mod: 'magneticLevitators', label: 'Drone' }))
+          else if (event.target.value === 'killbot' || event.target.value === 'desperateRepair')
+            save(setEnduringMod(c, { kind: 'drone', item: 'mechanic:drone', mod: event.target.value, label: 'Drone' }))
+          else if (!event.target.value && c.mechanicEnduringMod?.item === 'mechanic:drone'
+            && (c.mechanicEnduringMod.kind === 'drone'
+              || c.mechanicEnduringMod.kind === 'armor' && c.mechanicEnduringMod.mod === 'magneticLevitators')) save(setEnduringMod(c))
+        }}>
+        <option value="">Not enduring</option>
+        <option value="desperateRepair">Desperate Repair</option>
+        <option value="killbot">Killbot</option>
+        <option value="magneticLevitators">Magnetic Levitators</option>
+      </select></label>}
       <small>Turn these mods off when they expire; temporary HP must be tracked separately.</small>
     </div>}
     {activeFeatsNamed(c, 'Advanced Drone').length > 0 && !['Burly', 'Deft'].includes(activeFeatsNamed(c, 'Advanced Drone')[0].choice ?? '')

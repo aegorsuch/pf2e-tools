@@ -134,6 +134,11 @@ it('shows active grenade modifications with the correct range, radius and damage
   expect(html).toContain('Nonlethal.')
   expect(renderToStaticMarkup(<GrenadeSpecialist c={{ ...character, level: 4 }} entries={[grenade]} save={() => {}} />))
     .not.toContain('Damage type: slashing')
+  const enduring = { ...character, level: 13,
+    mechanicEnduringMod: { kind: 'grenade' as const, item: 'prepared:0', mod: 'bigBoom', label: 'Prepared grenade 1' } }
+  const enduringHtml = renderToStaticMarkup(<GrenadeSpecialist c={enduring} entries={[grenade]} save={() => {}} />)
+  expect(enduringHtml).toContain('Enduring mod: Prepared grenade 1')
+  expect(enduringHtml).toContain('<option value="bigBoom" selected="">Big Boom</option>')
 })
 
 it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily batches', () => {

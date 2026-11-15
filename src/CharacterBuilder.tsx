@@ -159,14 +159,14 @@ function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedCo
       <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }
         delete nextMods[`equipment:${item.name}`]
-        save({ equipment: c.equipment.filter((_, i) => i !== index), mechanicGrenadeMods: nextMods })
+        save({ equipment: c.equipment.filter((_, i) => i !== index), mechanicGrenadeMods: nextMods,
+          ...(c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === `equipment:${item.name}`
+            ? { mechanicEnduringMod: undefined } : {}) })
       })}>Remove</button>
       <HighTechMedic c={c} save={save} index={index} entry={entry} />
       {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>
         <small>Mods apply to one grenade.</small>
-        <GrenadeMods c={c} grenade={entry} label={item.name} mods={c.mechanicGrenadeMods?.[`equipment:${item.name}`] ?? {}}
-          setMods={patch => save({ mechanicGrenadeMods: { ...c.mechanicGrenadeMods, [`equipment:${item.name}`]:
-            { ...c.mechanicGrenadeMods?.[`equipment:${item.name}`], ...patch } } })} />
+        <GrenadeMods c={c} grenade={entry} label={item.name} itemKey={`equipment:${item.name}`} save={save} />
       </>}
     </li>)}
   </ul></div>

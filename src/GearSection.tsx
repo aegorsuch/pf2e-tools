@@ -23,6 +23,7 @@ import { warmaskSource } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
+import { enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
@@ -677,10 +678,6 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
       const current = preparations[index] ?? ''
       const grenade = candidates.find(entry => entry.name === current)
       const key = `prepared:${index}`
-      const mods = c.mechanicGrenadeMods?.[key] ?? {}
-      const setMods = (patch: Partial<typeof mods>) => save({ mechanicGrenadeMods: {
-        ...c.mechanicGrenadeMods, [key]: { ...mods, ...patch },
-      } })
       return <div className="col" key={index}><div className="row">
         <SearchableSelect label={`Grenade ${index + 1}`} aria-label={`Prepared grenade ${index + 1}`} value={current} onChange={event => {
           const value = event.target.value
@@ -690,7 +687,9 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
             next[index] = value
             const nextMods = { ...c.mechanicGrenadeMods }
             delete nextMods[key]
-            save({ grenadePreparations: next, mechanicGrenadeMods: nextMods })
+            save({ grenadePreparations: next, mechanicGrenadeMods: nextMods,
+              ...(c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === key
+                ? { mechanicEnduringMod: undefined } : {}) })
           }
           if (current && current !== value) confirmRemoval(`prepared grenade "${current}"`, update)
           else update()
@@ -708,7 +707,7 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
       </div>
       {grenade && <>
         <EntryDescription name={grenade.name} entry={grenade} />
-        <GrenadeMods c={c} grenade={grenade} mods={mods} setMods={setMods} label={`Prepared grenade ${index + 1}`} />
+        <GrenadeMods c={c} grenade={grenade} itemKey={key} save={save} label={`Prepared grenade ${index + 1}`} />
       </>}
       </div>
     })}
@@ -717,19 +716,34 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
         .some(mod => mod && Object.values(mod).some(Boolean))} onClick={() => {
       const nextMods = { ...c.mechanicGrenadeMods }
       for (let index = 0; index < limits.prepared; index++) delete nextMods[`prepared:${index}`]
-      save({ grenadeUsed: [], mechanicGrenadeMods: nextMods })
+      const enduring = c.mechanicEnduringMod
+      save({ grenadeUsed: [], mechanicGrenadeMods: nextMods,
+        ...(enduring?.kind === 'grenade' && Array.from({ length: limits.prepared }, (_, index) => `prepared:${index}`).includes(enduring.item)
+          ? { mechanicEnduringMod: undefined } : {}) })
     }}>Daily preparations</button>
   </div>
 }
 
-export function GrenadeMods({ c, grenade, mods, setMods, label }: {
+export function GrenadeMods({ c, grenade, itemKey, save, label }: {
   c: Character
   grenade: ContentEntry
-  mods: NonNullable<Character['mechanicGrenadeMods']>[string]
-  setMods: (patch: Partial<NonNullable<Character['mechanicGrenadeMods']>[string]>) => void
+  itemKey: string
+  save: SectionProps['save']
   label: string
 }) {
   if (c.className !== 'Mechanic' || !c.systems.includes('sf2e')) return null
+  const mods = c.mechanicGrenadeMods?.[itemKey] ?? {}
+  const setMods = (patch: Partial<typeof mods>) => {
+    const previous = c.mechanicEnduringMod
+    const selected = enduringGrenadeMods.find(mod => mod === previous?.mod)
+    save({ mechanicGrenadeMods: { ...c.mechanicGrenadeMods, [itemKey]: { ...mods, ...patch } },
+      ...(previous?.kind === 'grenade' && previous.item === itemKey
+        && (selected && patch[selected] === false
+          || previous.mod === 'damageType' && 'damageType' in patch && patch.damageType === undefined
+          || previous.mod === 'transmutativeCasing' && 'transmutativeCasing' in patch && patch.transmutativeCasing === undefined
+          || previous.mod === 'exploitiveAssault' && 'exploitiveAssault' in patch && patch.exploitiveAssault === undefined)
+        ? { mechanicEnduringMod: undefined } : {}) })
+  }
   const description = grenade.description ?? ''
   const radius = Number(/(?:burst\s+)?radius\s*(?:is|of|:)?\s*(\d+)\s*(?:feet|foot|ft)/i.exec(description)?.[1]) || undefined
   const damage = /\b(acid|cold|electricity|fire|sonic|bludgeoning|piercing|slashing)\s+damage\b/i.exec(description)?.[1]?.toLowerCase()
@@ -762,6 +776,33 @@ export function GrenadeMods({ c, grenade, mods, setMods, label }: {
       {mods.bunkerBuster && ' +5 damage to objects, structures, vehicles, and creatures with Hardness.'}
       {c.level >= 5 && mods.damageType && damageTypes.some(type => type === mods.damageType) && ` Damage type: ${mods.damageType}.`}</small>
     <small>{mechanicModDuration(c)}</small>
+    {c.level >= 13 && <label>Enduring Mod{' '}
+      <select aria-label={`Enduring mod: ${label}`}
+        value={c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === itemKey ? c.mechanicEnduringMod.mod : ''}
+        onChange={event => {
+          const mod = enduringGrenadeMods.find(value => value === event.target.value)
+          if (mod) save(setEnduringMod(c, { kind: 'grenade', item: itemKey, mod, label }))
+          else if (event.target.value === 'damageType' && mods.damageType && damageTypes.some(type => type === mods.damageType))
+            save(setEnduringMod(c, { kind: 'grenade', item: itemKey, mod: 'damageType', value: mods.damageType, label }))
+          else if (event.target.value === 'transmutativeCasing' && mods.transmutativeCasing && activeFeatsNamed(c, 'Transmutative Casing').length)
+            save(setEnduringMod(c, { kind: 'grenade', item: itemKey, mod: 'transmutativeCasing', value: mods.transmutativeCasing, label }))
+          else if (event.target.value === 'exploitiveAssault' && mods.exploitiveAssault && activeFeatsNamed(c, 'Exploitive Assault').length)
+            save(setEnduringMod(c, { kind: 'grenade', item: itemKey, mod: 'exploitiveAssault', value: mods.exploitiveAssault, label }))
+          else if (!event.target.value && c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === itemKey)
+            save(setEnduringMod(c))
+        }}>
+        <option value="">Not enduring</option>
+        <option value="bigBoom">Big Boom</option>
+        <option value="bunkerBuster">Bunker Buster</option>
+        <option value="incapacitant">Incapacitant</option>
+        <option value="longRange">Long-range Propulsors</option>
+        {mods.damageType && damageTypes.some(type => type === mods.damageType) && <option value="damageType">Damage Versatility ({mods.damageType})</option>}
+        {mods.exploitiveAssault && activeFeatsNamed(c, 'Exploitive Assault').length > 0
+          && <option value="exploitiveAssault">Exploitive Assault ({mods.exploitiveAssault})</option>}
+        {mods.transmutativeCasing && activeFeatsNamed(c, 'Transmutative Casing').length > 0
+          && <option value="transmutativeCasing">Transmutative Casing ({mods.transmutativeCasing})</option>}
+      </select>
+    </label>}
   </div>
 }
 
@@ -775,14 +816,38 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
   if (c.className !== 'Mechanic' || !c.systems.includes('sf2e')
     || !attack.entry || !allowUnarmed && weaponCategory(attack.entry) === 'Unarmed') return null
   const mods = c.mechanicWeaponMods?.[weapon.id] ?? {}
-  const update = (patch: Partial<typeof mods>) => save({
-    mechanicWeaponMods: { ...c.mechanicWeaponMods, [weapon.id]: { ...mods, ...patch } },
-  })
+  const update = (patch: Partial<typeof mods>) => {
+    const previous = c.mechanicEnduringMod
+    const selected = enduringWeaponMods.find(mod => mod === previous?.mod)
+    save({ mechanicWeaponMods: { ...c.mechanicWeaponMods, [weapon.id]: { ...mods, ...patch } },
+      ...(previous?.kind === 'weapon' && previous.item === weapon.id
+        && (selected && patch[selected] === false
+          || previous.mod === 'damageType' && 'damageType' in patch && patch.damageType === undefined
+          || previous.mod === 'transmutativeCasing' && 'transmutativeCasing' in patch && patch.transmutativeCasing === undefined
+          || previous.mod === 'exploitiveAssault' && 'exploitiveAssault' in patch && patch.exploitiveAssault === undefined)
+        ? { mechanicEnduringMod: undefined } : {}) })
+  }
   const originalType = /(\d+)d(\d+)\s*([A-Za-z]+)/.exec(String(attack.entry.data.damage ?? ''))?.[3]?.toLowerCase()
   const physical = ['b', 'p', 's', 'bludgeoning', 'piercing', 'slashing'].includes(originalType ?? '')
   const energy = ['a', 'c', 'e', 'f', 'so', 'acid', 'cold', 'electricity', 'fire', 'sonic'].includes(originalType ?? '')
   const damageTypes = physical ? ['bludgeoning', 'piercing', 'slashing'] as const
     : energy ? ['acid', 'cold', 'electricity', 'fire', 'sonic'] as const : []
+  const enduringOptions = [
+    { mod: 'bigBoom', label: 'Big Boom', available: attack.entry.traits.some(trait => /^area(?:\s|$)/i.test(trait)) },
+    { mod: 'bunkerBuster', label: 'Bunker Buster', available: true },
+    { mod: 'explosiveShot', label: 'Explosive Shot', available: activeFeatsNamed(c, 'Explosive Shot').length > 0 },
+    { mod: 'glitchPulse', label: 'Glitch Pulse', available: activeFeatsNamed(c, 'Glitch Pulse').length > 0 },
+    { mod: 'incapacitant', label: 'Incapacitant', available: true },
+    { mod: 'longRange', label: 'Long-range Propulsors', available: attack.range > 0 || attack.thrownRange > 0 },
+    { mod: 'pinpointShot', label: 'Pinpoint Shot', available: weapon.id === 'mechanic:turret' && c.subclass === 'Turret' },
+    { mod: 'damageType', label: `Damage Versatility (${mods.damageType})`, available: !!mods.damageType && damageTypes.some(type => type === mods.damageType) },
+    { mod: 'exploitiveAssault', label: `Exploitive Assault (${mods.exploitiveAssault})`,
+      available: !!mods.exploitiveAssault && activeFeatsNamed(c, 'Exploitive Assault').length > 0 },
+    { mod: 'transmutativeCasing', label: `Transmutative Casing (${mods.transmutativeCasing})`,
+      available: !!mods.transmutativeCasing && activeFeatsNamed(c, 'Transmutative Casing').length > 0 },
+  ]
+  const currentEnduring = c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === weapon.id
+    ? c.mechanicEnduringMod.mod : ''
   return <div className="col" aria-label={`Mechanic mods: ${weapon.name}`}>
     <strong>Modify</strong>
     {attack.entry.traits.some(trait => /^area(?:\s|$)/i.test(trait)) && <label>
@@ -826,6 +891,29 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
       </select>
     </label>}
     <small>{mechanicModDuration(c)}</small>
+    {c.level >= 13 && <label>Enduring Mod{' '}
+      <select aria-label={`Enduring mod: ${weapon.name}`}
+        value={currentEnduring}
+        onChange={event => {
+          const mod = enduringWeaponMods.find(value => value === event.target.value
+            && enduringOptions.some(option => option.mod === value && option.available))
+          if (mod) save(setEnduringMod(c, { kind: 'weapon', item: weapon.id, mod, label: weapon.name }))
+          else if (event.target.value === 'damageType' && mods.damageType && damageTypes.some(type => type === mods.damageType))
+            save(setEnduringMod(c, { kind: 'weapon', item: weapon.id, mod: 'damageType', value: mods.damageType, label: weapon.name }))
+          else if (event.target.value === 'transmutativeCasing' && mods.transmutativeCasing && activeFeatsNamed(c, 'Transmutative Casing').length)
+            save(setEnduringMod(c, { kind: 'weapon', item: weapon.id, mod: 'transmutativeCasing', value: mods.transmutativeCasing, label: weapon.name }))
+          else if (event.target.value === 'exploitiveAssault' && mods.exploitiveAssault && activeFeatsNamed(c, 'Exploitive Assault').length)
+            save(setEnduringMod(c, { kind: 'weapon', item: weapon.id, mod: 'exploitiveAssault', value: mods.exploitiveAssault, label: weapon.name }))
+          else if (!event.target.value && c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === weapon.id)
+            save(setEnduringMod(c))
+        }}>
+        <option value="">Not enduring</option>
+        {currentEnduring && !enduringOptions.some(option => option.mod === currentEnduring && option.available)
+          && <option value={currentEnduring} disabled>Unavailable mod</option>}
+        {enduringOptions.filter(option => option.available).map(option =>
+          <option value={option.mod} key={option.mod}>{option.label}</option>)}
+      </select>
+    </label>}
   </div>
 }
 
@@ -834,10 +922,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const gauntlet = armorGauntlet(c, entries)
   const favored = deityWeapon(c, entries)
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
-  const saveWeapons = (next: OwnedWeapon[]) => save({
+  const saveWeapons = (next: OwnedWeapon[], extra?: Partial<Character>) => save({
     ...(livingSource ? { livingWeaponEnhancements: livingWeaponEnhancements(c, entries, livingSource) } : {}),
     weapons: [...next.filter(weapon => !weapon.attachedTo), ...(c.weapons ?? []).filter((weapon) =>
       (isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id || weapon.id.startsWith('deity-weapon:')) && !weapons.some((visible) => visible.id === weapon.id))],
+    ...extra,
   })
   const update = (id: string, patch: Partial<OwnedWeapon>) => {
     const weapon = weapons.find((weapon) => weapon.id === id)
@@ -1156,7 +1245,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {canUseInnovation && <label><input type="checkbox" aria-label={`Weapon Innovation: ${w.name}`} checked={!!w.inventorInnovation}
                 onChange={event => saveWeapons(weapons.map(weapon => ({ ...weapon, inventorInnovation: weapon.id === w.id && event.target.checked })))} /> Weapon Innovation</label>}
               {!attachmentSource && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove"
-                onClick={() => confirmRemoval(`weapon "${w.name}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id)))}>×</button>}
+                onClick={() => confirmRemoval(`weapon "${w.name}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id),
+                  c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === w.id ? setEnduringMod(c) : undefined))}>×</button>}
             </div>
             {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
@@ -1260,11 +1350,11 @@ function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
 export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
   const armors = ownedArmors(c, entries)
   const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
-  const saveArmors = (next: OwnedArmor[]) => save({ armors: [
+  const saveArmors = (next: OwnedArmor[], extra?: Partial<Character>) => save({ armors: [
     ...(c.armors ?? []).filter(armor => isGrantedArmor(armor.id) && !armors.some(current => current.id === armor.id)),
     ...next.map(armor => !canWearWithAttachedArmor(armor, attached)
       ? { ...armor, worn: c.armors?.find(saved => saved.id === armor.id)?.worn ?? armor.worn } : armor),
-  ] })
+  ], ...extra })
   const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   const shield = c.shield
   const woodShield = hardwoodShield(c)
@@ -1325,8 +1415,19 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {c.className === 'Mechanic' && c.systems.includes('sf2e') && <label>
               <input type="checkbox" checked={!!c.mechanicArmorMods?.[a.id]?.magneticLevitators}
                 onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
-                  [a.id]: { ...c.mechanicArmorMods?.[a.id], magneticLevitators: event.target.checked } } })} />
+                  [a.id]: { ...c.mechanicArmorMods?.[a.id], magneticLevitators: event.target.checked } },
+                  ...(!event.target.checked && c.mechanicEnduringMod?.kind === 'armor'
+                    && c.mechanicEnduringMod.item === a.id && c.mechanicEnduringMod.mod === 'magneticLevitators'
+                    ? { mechanicEnduringMod: undefined } : {}) })} />
               {' '}Magnetic Levitators (Modify)
+            </label>}
+            {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 13 && <label>
+              <input type="checkbox" aria-label={`Enduring Magnetic Levitators: ${a.name}`}
+                checked={c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id
+                  && c.mechanicEnduringMod.mod === 'magneticLevitators'}
+                onChange={event => save(setEnduringMod(c, event.target.checked
+                  ? { kind: 'armor', item: a.id, mod: 'magneticLevitators', label: a.name } : undefined))} />
+              {' '}Enduring Magnetic Levitators
             </label>}
             {c.mechanicArmorMods?.[a.id]?.magneticLevitators && c.className === 'Mechanic'
               && c.systems.includes('sf2e') && <small>Land Speed gains hover; Fly Speed 10 feet while worn. Turn off when the mod expires.</small>}
@@ -1381,7 +1482,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {runesAllowed ? <Runes runes={a.runes} entries={entries} options={propertyRunes(entries, 'Armor')} limit={runeLimit(runePotency, a.material)} onChange={(runes) => update(a.id, { runes })} />
               : <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
-              onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id)))}>×</button>}
+              onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),
+                c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id ? setEnduringMod(c) : undefined))}>×</button>}
           </article>
         )
       })}</>}

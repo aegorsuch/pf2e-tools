@@ -5,6 +5,7 @@ import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from '
 import { EntryDescription } from './EntryDescription'
 import { mechanicDamageSummary, MechanicWeaponMods, upgradeDamageSummary, WeaponUpgrades } from './GearSection'
 import { SearchableSelect } from './SearchableSelect'
+import { setEnduringMod } from './mechanicEnduring'
 import type { OwnedWeapon } from './types'
 
 export function DroneEquipment({ c, entries, save }: SectionProps) {
@@ -50,7 +51,8 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
           onChange={upgrades => update(weapon.id, { upgrades })} />}
         <button type="button" onClick={() => confirmRemoval(`mounted weapon "${weapon.name}"`,
           () => save({ mechanicDroneWeapons: weapons.filter(item => item.id !== weapon.id),
-            mechanicDroneHeldWeaponIds: (c.mechanicDroneHeldWeaponIds ?? []).filter(id => id !== weapon.id) }))}>Remove {held ? 'held' : 'mounted'} weapon</button>
+            mechanicDroneHeldWeaponIds: (c.mechanicDroneHeldWeaponIds ?? []).filter(id => id !== weapon.id),
+            ...(c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === weapon.id ? setEnduringMod(c) : {}) }))}>Remove {held ? 'held' : 'mounted'} weapon</button>
       </div>
     })}
     {([false, true] as const).map(held => {

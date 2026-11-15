@@ -220,7 +220,7 @@ export interface Character {
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
-  mechanicEnduringMod?: { item: string; mod: string }
+  mechanicEnduringMod?: { item: string; mod: string; kind?: 'weapon' | 'grenade' | 'armor' | 'drone'; label?: string }
   mechanicDeployedMines?: MechanicMine[]
   mechanicExocortexDebilitation?: string[]
   mechanicDroneChassis?: DroneChassis
