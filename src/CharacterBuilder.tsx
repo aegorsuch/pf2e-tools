@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
-import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, SkillsSection } from './SkillsSection'
@@ -540,6 +540,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <EquipmentGroup {...section} group="Bolts" rows={equipmentGroups.Bolts} />
           <EquipmentGroup {...section} group="Bullets" rows={equipmentGroups.Bullets} />
           <Gadgets {...section} />
+          <GrenadeSpecialist {...section} />
           <MunitionsCrafter {...section} />
           <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
           <h4>Handwraps</h4>

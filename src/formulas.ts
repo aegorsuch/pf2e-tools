@@ -71,6 +71,19 @@ export function gadgetLimits(c: Character, entries: ContentEntry[]) {
   return { formulas: 3 * (rank - 1), prepared: rank + 2 * extras }
 }
 
+export function grenadeLimits(c: Character, entries: ContentEntry[]) {
+  if (!c.feats.some(feat => feat.name === 'Grenade Specialist' && featTakenLevel(feat) <= c.level)) return undefined
+  const rank = ranksAt(c, entries).Crafting ?? 0
+  const plentiful = c.feats.filter(feat => feat.name === 'Plentiful Grenades' && featTakenLevel(feat) <= c.level)
+    .sort((a, b) => featTakenLevel(a) - featTakenLevel(b))
+  const extras = plentiful.length ? 1 + Number(plentiful.slice(1).some(feat => featTakenLevel(feat) >= 14)) : 0
+  return { formulas: 2, prepared: (rank >= 4 ? 6 : rank >= 3 ? 4 : rank >= 2 ? 3 : 2) + 2 * extras }
+}
+
+export function isGrenade(entry: ContentEntry) {
+  return !entry.deleted && entry.kind === 'item' && entry.traits.some(trait => formulaKey(trait) === 'grenade')
+}
+
 export function formulaSources(c: Character, entries: ContentEntry[]) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const background = entries.find(entry => entry.kind === 'background' && entry.name === c.background)
@@ -91,6 +104,7 @@ export function knownFormulas(c: Character, entries: ContentEntry[]) {
       source: 'Snarecrafter Dedication', names: (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3),
     })),
     { source: 'Gadget Specialist', names: (c.gadgetFormulaChoices ?? []).slice(0, gadgetLimits(c, entries)?.formulas ?? 0) },
+    { source: 'Grenade Specialist', names: (c.grenadeFormulaChoices ?? []).slice(0, grenadeLimits(c, entries)?.formulas ?? 0) },
     { source: 'Munitions Crafter', names: munitionsCrafter
       ? [entries.find(entry => !entry.deleted && isBlackPowderDose(entry)
         && entry.systems.some(system => c.systems.includes(system)))?.name ?? BLACK_POWDER_FORMULA,

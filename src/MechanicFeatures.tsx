@@ -40,8 +40,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         Fortitude and Reflex {signed(intelligence + proficiencyBonus(saveRank, c.level))}.</span>
       <small>Turret upgrades, weapon grade, and Strikes are not yet automated.</small>
     </>}
-    {c.subclass === 'Drone' && <small>Drone chassis, customizations, and statistics are not yet automated.</small>}
+    {c.subclass === 'Drone' && <small>Manage your drone and its customizations in Minions.</small>}
     <small><a href="https://2e.aonsrd.com/actions/546-modify" target="_blank" rel="noreferrer">Modify rules</a>:
-      modifications are not yet applied automatically to gear.</small>
+      weapon mods are available on weapon cards; other mods require manual tracking.</small>
   </div>
 }

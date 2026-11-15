@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { FormulasSection } from './FormulasSection'
-import { MunitionsCrafter } from './GearSection'
-import { BLACK_POWDER_FORMULA, gadgetLimits, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
+import { GrenadeSpecialist, MunitionsCrafter } from './GearSection'
+import { BLACK_POWDER_FORMULA, gadgetLimits, grenadeLimits, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
 import type { Character, ContentEntry } from './types'
 
 const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
@@ -94,6 +94,30 @@ it('tracks gadget formula and daily preparation limits without deleting dormant 
   expect(gadgetLimits({ ...character, rankOverrides: { Crafting: 4 } }, [gadget])).toEqual({ formulas: 9, prepared: 8 })
   expect(knownFormulas({ ...character, rankOverrides: { Crafting: 2 } }, [gadget]).map(formula => formula.name)).not.toContain('Stored')
   expect(character.gadgetFormulaChoices?.[5]).toBe('Stored')
+})
+
+it('grants common grenade formulas and scales daily grenades with Crafting and Plentiful Grenades', () => {
+  const grenade = { ...item('Frag Grenade', 1, ['Grenade']), systems: ['sf2e' as const] }
+  const high = { ...item('High Grenade', 15, ['Grenade']), systems: ['sf2e' as const] }
+  const uncommon = { ...item('Rare Grenade', 1, ['Grenade', 'Rare']), systems: ['sf2e' as const] }
+  const catalog = [grenade, high, uncommon]
+  const character: Character = { ...c, systems: ['sf2e'], className: 'Mechanic', level: 14, rankOverrides: { Crafting: 3 },
+    feats: [{ name: 'Grenade Specialist', type: 'Class Feat', level: 2 },
+      { name: 'Plentiful Grenades', type: 'Class Feat', level: 8, slot: 'class:8:0' },
+      { name: 'Plentiful Grenades', type: 'Class Feat', level: 8, slot: 'class:14:0' }],
+    grenadeFormulaChoices: [grenade.name, high.name], grenadePreparations: [grenade.name], grenadeUsed: [true] }
+  expect(grenadeLimits(character, catalog)).toEqual({ formulas: 2, prepared: 8 })
+  expect(grenadeLimits({ ...character, rankOverrides: { Crafting: 4 } }, catalog)?.prepared).toBe(10)
+  expect(grenadeLimits({ ...character, level: 7, rankOverrides: { Crafting: 2 } }, catalog)?.prepared).toBe(3)
+  expect(knownFormulas(character, catalog)).toContainEqual({ name: grenade.name, source: 'Grenade Specialist' })
+  expect(knownFormulas({ ...character, level: 1 }, catalog)).toEqual([])
+  const formulas = renderToStaticMarkup(<FormulasSection c={character} entries={catalog} save={() => {}} />)
+  expect(formulas).toContain('Grenade formula 2')
+  expect(formulas).not.toContain('Rare Grenade (Level 1)')
+  const prepared = renderToStaticMarkup(<GrenadeSpecialist c={character} entries={catalog} save={() => {}} />)
+  expect(prepared).toContain('Prepare 8 temporary grenades')
+  expect(prepared).toContain('Frag Grenade (Level 1)')
+  expect(prepared).not.toContain('High Grenade (Level 15)')
 })
 
 it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily batches', () => {

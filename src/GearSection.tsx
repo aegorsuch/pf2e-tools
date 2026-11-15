@@ -9,7 +9,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
-import { formulaKey, gadgetLimits, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
+import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
@@ -643,6 +643,90 @@ export function MunitionsCrafter({ c, entries, save }: SectionProps) {
   </div>
 }
 
+export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
+  const limits = grenadeLimits(c, entries)
+  if (!limits) return null
+  const known = new Set(knownFormulas(c, entries).map(formula => formulaKey(formula.name)))
+  const candidates = [...new Map(entries.filter(entry => isGrenade(entry)
+    && entry.systems.some(system => c.systems.includes(system)) && entry.level <= c.level
+    && known.has(formulaKey(entry.name))).map(entry => [formulaKey(entry.name), entry])).values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const preparations = c.grenadePreparations ?? []
+  const used = c.grenadeUsed ?? []
+  return <div className="col">
+    <h4>Grenade Specialist</h4>
+    <small>Prepare {limits.prepared} temporary grenades from known formulas. They expire at your next daily preparations.</small>
+    {Array.from({ length: limits.prepared }, (_, index) => {
+      const current = preparations[index] ?? ''
+      return <div className="row" key={index}>
+        <SearchableSelect label={`Grenade ${index + 1}`} aria-label={`Prepared grenade ${index + 1}`} value={current} onChange={event => {
+          const value = event.target.value
+          if (value && !candidates.some(entry => entry.name === value)) return
+          const update = () => {
+            const next = [...preparations]
+            next[index] = value
+            save({ grenadePreparations: next })
+          }
+          if (current && current !== value) confirmRemoval(`prepared grenade "${current}"`, update)
+          else update()
+        }}>
+          <option value="">Choose grenade</option>
+          {current && !candidates.some(entry => entry.name === current) && <option value={current} disabled>{current} (unavailable)</option>}
+          {candidates.map(entry => <option key={entry.id} value={entry.name}>{entry.name} (Level {entry.level})</option>)}
+        </SearchableSelect>
+        <label><input type="checkbox" aria-label={`Prepared grenade ${index + 1} used`} checked={!!used[index]} disabled={!current}
+          onChange={event => {
+            const next = [...used]
+            next[index] = event.target.checked
+            save({ grenadeUsed: next })
+          }} /> Used</label>
+      </div>
+    })}
+    <button type="button" disabled={!used.slice(0, limits.prepared).some(Boolean)} onClick={() => save({ grenadeUsed: [] })}>Daily preparations</button>
+  </div>
+}
+
+function MechanicWeaponMods({ c, weapon, attack, save }: {
+  c: Character
+  weapon: OwnedWeapon
+  attack: ReturnType<typeof weaponAttack>
+  save: SectionProps['save']
+}) {
+  if (c.className !== 'Mechanic' || !c.systems.includes('sf2e')
+    || !attack.entry || weaponCategory(attack.entry) === 'Unarmed') return null
+  const mods = c.mechanicWeaponMods?.[weapon.id] ?? {}
+  const update = (patch: Partial<typeof mods>) => save({
+    mechanicWeaponMods: { ...c.mechanicWeaponMods, [weapon.id]: { ...mods, ...patch } },
+  })
+  const originalType = /(\d+)d(\d+)\s*([A-Za-z]+)/.exec(String(attack.entry.data.damage ?? ''))?.[3]?.toLowerCase()
+  const physical = ['b', 'p', 's', 'bludgeoning', 'piercing', 'slashing'].includes(originalType ?? '')
+  const energy = ['a', 'c', 'e', 'f', 'so', 'acid', 'cold', 'electricity', 'fire', 'sonic'].includes(originalType ?? '')
+  const damageTypes = physical ? ['bludgeoning', 'piercing', 'slashing'] as const
+    : energy ? ['acid', 'cold', 'electricity', 'fire', 'sonic'] as const : []
+  return <div className="col" aria-label={`Mechanic mods: ${weapon.name}`}>
+    <strong>Modify</strong>
+    <label><input type="checkbox" checked={!!mods.incapacitant}
+      onChange={event => update({ incapacitant: event.target.checked })} /> Incapacitant</label>
+    {(attack.range > 0 || attack.thrownRange > 0) && <label><input type="checkbox" checked={!!mods.longRange}
+      onChange={event => update({ longRange: event.target.checked })} /> Long-range Propulsors</label>}
+    <label><input type="checkbox" checked={!!mods.bunkerBuster}
+      onChange={event => update({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
+    {mods.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+    {c.level >= 5 && damageTypes.length > 0 && <label>{physical ? 'Physical' : 'Energy'} Versatility{' '}
+      <select aria-label={`Damage customization: ${weapon.name}`} value={mods.damageType ?? ''} onChange={event => {
+        const type = damageTypes.find(option => option === event.target.value)
+        if (!event.target.value || type) update({ damageType: type })
+      }}>
+        <option value="">Normal damage</option>
+        {mods.damageType && !damageTypes.some(type => type === mods.damageType)
+          && <option value={mods.damageType} disabled>Unavailable damage type</option>}
+        {damageTypes.map(type => <option key={type} value={type}>{type}</option>)}
+      </select>
+    </label>}
+    <small>Mods normally end after your next turn; turn them off when they expire.</small>
+  </div>
+}
+
 export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
   const weapons = ownedWeapons(c, entries)
   const gauntlet = armorGauntlet(c, entries)
@@ -805,6 +889,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
           <AttackUpgrades attack={a} />
+          <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
           {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
@@ -885,6 +970,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
             <AttackUpgrades attack={a} />
+            <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
               {!a.upgrades.some(upgrade => upgrade.name === 'Merciful') && <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>}

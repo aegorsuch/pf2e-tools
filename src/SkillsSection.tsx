@@ -5,6 +5,7 @@ import { resistances,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
+import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
@@ -159,6 +160,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     save({ skillIncreases: next, rankOverrides: overrides })
   }
   const filigree = clanDaggerFiligreeBonus(c, entries)
+  const droneSlots = droneCustomizationSlots(c)
+  const assistantSkill = c.mechanicDroneAssistantActive && droneSlots
+    ? (c.mechanicDroneCustomizations?.Tactical ?? []).slice(0, droneSlots.Tactical)
+      .find(item => item.name === 'Assistant')?.choice : undefined
+  const droneSkillRanks = assistantSkill ? droneStats(c)?.ranks : undefined
   const sights = [...new Map(ownedWeapons(c, entries).filter(weapon => weaponEquipped(c, entries, weapon))
     .flatMap(weapon => installedWeaponUpgrades(c, entries, weapon))
     .filter(upgrade => /^(?:Truesight Sight|Sniper's Scope)(?:\s*\(|$)/i.test(upgrade.name))
@@ -184,8 +190,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       ? { source: modification, value: (ranks.Crafting ?? 0) >= 3 ? 2 : 1 } : undefined
     const craftingRecall = s.name === 'Crafting' && isFeatEffectActive(c, 'Eye for Treasure')
       ? { source: 'Eye for Treasure', value: 1 } : undefined
+    const assistant = assistantSkill === s.name && rank > 0 && (droneSkillRanks?.[s.name] ?? 0) > 0
+      ? { source: 'Drone Assistant', value: 1 } : undefined
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
-      : s.kind === 'save' ? saveCircumstance : craftingRecall ?? armorSkill
+      : s.kind === 'save' ? saveCircumstance
+        : [craftingRecall, armorSkill, assistant].filter((bonus): bonus is { source: string; value: number } => !!bonus)
+          .sort((a, b) => b.value - a.value)[0]
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
         <span className="skill-name">{s.name} {editingSkills && c.lores.some(lore => lore.name === s.name)

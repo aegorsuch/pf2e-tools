@@ -8,6 +8,7 @@ import { ActionIcon } from './ActionIcon'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
 import { isCompanionEquipmentItem } from './companions'
+import { DroneFeatures } from './DroneFeatures'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -142,7 +143,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
         ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
         : index === 0 ? stage : 'Young'
       return `${compStage} ${comp.type}${comp.name ? ` (${comp.name})` : ''}`
-    }),
+    }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : 'Familiar'] : []), ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
@@ -198,6 +199,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
   return (
       <div className="character-section-content minions-section-content">
+        {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
+          <summary><h4>Drone</h4></summary>
+          <DroneFeatures c={c} save={save} />
+        </details>}
         <details className="character-subsection" open>
           <summary><h4>{companions.length === 1
             ? companions[0].type === CONSTRUCT_COMPANION_NAME ? 'Construct Companion' : 'Animal Companion'

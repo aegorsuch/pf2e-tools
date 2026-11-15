@@ -707,6 +707,13 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
         && isDeadlySimplicityWeapon(character, entries, weapon))) missing.push('a deity with a qualifying simple or unarmed favored weapon')
       manual = manual.filter((requirement) => !/^(?:deity with a simple or unarmed attack favored weapon|trained with your deity's favored weapon)$/i.test(requirement))
     }
+    const exocortex = /^(drone|mine|turret) exocortex$/i.exec(String(entry.data.prerequisite ?? '').trim())
+    if (exocortex) {
+      if (character.className !== 'Mechanic' || character.subclass?.toLowerCase() !== exocortex[1].toLowerCase()) {
+        missing.push(`${exocortex[1].toLowerCase()} exocortex`)
+      }
+      manual = manual.filter(requirement => !/^(?:drone|mine|turret) exocortex$/i.test(requirement))
+    }
     return { missing: [...new Set(missing)], manual }
   }
 }
@@ -758,6 +765,10 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Adaptive Visual Receptors' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (!['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(e.name)
+        || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 3)
+      && (e.name !== 'Plentiful Grenades' || !taken.has(e.name) || slot.level >= 14
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
@@ -768,6 +779,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (!isCompanionSpecialization(e.name) || specializations < 3)
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
       && (!taken.has(e.name) || e.name === 'Ubiquitous Gadgets' && slot.level >= 14
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
+        || e.name === 'Plentiful Grenades' && slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
@@ -900,6 +913,11 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Advanced Drone' && c.systems.includes('sf2e')) return ['Burly', 'Deft']
+  if (name === 'Superior Drone' && c.systems.includes('sf2e')) {
+    const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))
+    return ['Ambusher', 'Bully', 'Daredevil', 'Racer', 'Tracker', 'Wrecker'].filter(option => !used.has(option))
+  }
   if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, name)
   if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
@@ -3471,6 +3489,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   entry = weaponWithModifications(c, w, entry)
   const hydraulicFist = !!entry && /^(?:iron )?fists?$/i.test(entry.name) && !!activeFeatsNamed(c, 'Hydraulic Pistons').length
+  const mechanicMods = c.className === 'Mechanic' && c.systems.includes('sf2e') && weaponCategory(entry) !== 'Unarmed'
+    ? c.mechanicWeaponMods?.[w.id] : undefined
   if (entry && !isRanged(entry)) {
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
     const added = [
@@ -3486,6 +3506,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     const added = [
       ...(defensiveArmamentsParry(c, w, entry) || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
       ...(upgrades.some(upgrade => upgrade.name === 'Merciful') ? ['Nonlethal'] : []),
+      ...(mechanicMods?.incapacitant ? ['Nonlethal'] : []),
       ...(upgrades.some(upgrade => /^Smuggler's Grip(?:\s*\(|$)/i.test(upgrade.name)) ? ['Concealed'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
@@ -3530,6 +3551,13 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
   ].filter(source => source.rank === rank).map(source => source.name)
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
+  const damageType = m?.[3]?.toLowerCase()
+  const physicalTypes = ['b', 'p', 's', 'bludgeoning', 'piercing', 'slashing']
+  const energyTypes = ['a', 'c', 'e', 'f', 'so', 'acid', 'cold', 'electricity', 'fire', 'sonic']
+  const chosenDamageType = mechanicMods?.damageType
+  const modifiedDamageType = c.level >= 5 && chosenDamageType
+    && (physicalTypes.includes(damageType ?? '') && physicalTypes.includes(chosenDamageType)
+      || energyTypes.includes(damageType ?? '') && energyTypes.includes(chosenDamageType)) ? chosenDamageType : m?.[3]
   const dice = m ? (+m[1]) * (1 + w.striking) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
@@ -3574,11 +3602,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
     } satisfies TotalBreakdown,
     range: ranged && num(entry?.data.range) > 0
-      ? (num(entry?.data.range) + (strongArm ? 10 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
+      ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRange: !ranged && thrown && thrownRange > 0
-      ? (thrownRange + (strongArm ? 10 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
+      ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,
-    damage: m ? `${dice}d${die}${flat ? signed(flat) : ''}${m[3] ? ` ${m[3]}` : ''}` : '',
+    damage: m ? `${dice}d${die}${flat ? signed(flat) : ''}${modifiedDamageType ? ` ${modifiedDamageType}` : ''}` : '',
   }
 }
 

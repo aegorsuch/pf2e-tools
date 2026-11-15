@@ -60,6 +60,22 @@ it('uses Starfinder weapon grades rather than saved Pathfinder runes', () => {
   expect(markup).not.toContain('aria-label="Add property rune"')
 })
 
+it('applies active mechanic weapon mods only to eligible weapons and damage types', () => {
+  const laser = { ...content('weapon', 'Laser', {
+    damage: '1d6 F', hands: 1, weapon_type: 'Ranged', range: 60, weapon_category: 'Simple', upgrade_slots: 1,
+  }, 1, ['Tech']), systems: ['sf2e' as const] }
+  const weapon: OwnedWeapon = { id: 'laser', name: laser.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, className: 'Mechanic', systems: ['sf2e'], level: 5, weapons: [weapon],
+    mechanicWeaponMods: { laser: { incapacitant: true, longRange: true, bunkerBuster: true, damageType: 'cold' } } }
+  expect(weaponAttack(c, [laser], weapon)).toMatchObject({ damage: '1d6 cold', range: 90, traits: ['Nonlethal', 'Tech'] })
+  expect(weaponAttack({ ...c, level: 4 }, [laser], weapon).damage).toBe('1d6 F')
+  expect(weaponAttack({ ...c, className: 'Soldier' }, [laser], weapon)).toMatchObject({ damage: '1d6 F', range: 60, traits: ['Tech'] })
+  expect(weaponAttack({ ...c, mechanicWeaponMods: { laser: { damageType: 'slashing' } } }, [laser], weapon).damage).toBe('1d6 F')
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[laser]} save={() => {}} displayOnly />)
+  expect(markup).toContain('Long-range Propulsors')
+  expect(markup).toContain('+5 damage to objects, structures, vehicles, and creatures with Hardness.')
+})
+
 it('applies hardlight upgrades to fists and other unarmed attacks, including tactical parry', () => {
   const grid = { ...content('item', 'Protection Grid (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 17),
     id: 'grid', systems: ['sf2e' as const], description: 'The weapon gains parry; the circumstance bonus increases to +2.' }

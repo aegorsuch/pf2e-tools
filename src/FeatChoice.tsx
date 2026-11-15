@@ -34,6 +34,20 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   if (!feat) return null
   if (feat.name === 'Carry Their Memories' || isElfAncestralWeaponFamiliarity(c, feat.name)
     || isDwarfAncestralWeaponFamiliarity(c, feat.name)) return null
+  if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone'].includes(feat.name)) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    return <label className="feat-choice">{feat.name === 'Advanced Drone' ? 'Advancement' : 'Specialization'}{' '}
+      <select aria-label={`${feat.name} choice`} value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+      }}>
+        <option value="">Choose</option>
+        {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </select>
+    </label>
+  }
   if (feat.name === 'Orc Warmask') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     return <span className="feat-choice feat-choice-with-note">
@@ -310,6 +324,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     )
   }
   const isWarden = hasWardenChoice(feat) && c.systems.includes('pf2e')
+  if (['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(feat.name)
+    && c.className === 'Mechanic' && c.systems.includes('sf2e')) return null
   const repeatable = entries.some((entry) => entry.kind === 'feat' && entry.name === feat.name && entry.data.repeatable === true)
   if (!isWarden && !repeatable) return null
   if (!isWarden) {

@@ -5,6 +5,8 @@ export type EntryKind =
   | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass' | 'familiar' | 'trait'
 export type Source = 'official' | 'homebrew'
 export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
+export type DroneCustomizationGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior'
+export type DroneCustomization = { name: string; choice?: string; choice2?: string }
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
 export type FeatSlotCategory = 'class' | 'ancestry' | 'skill' | 'general' | 'archetype' | 'bonus'
@@ -176,7 +178,20 @@ export interface Character {
   gadgetFormulaChoices?: string[]
   gadgetPreparations?: string[]
   gadgetUsed?: boolean[]
+  grenadeFormulaChoices?: string[]
+  grenadePreparations?: string[]
+  grenadeUsed?: boolean[]
   mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
+  mechanicDroneChassis?: 'Agile' | 'Imitator' | 'Powerful' | 'Surveillance' | 'Tank'
+  mechanicDroneRacerSpeed?: 'Land' | 'Swim' | 'Fly'
+  mechanicDroneCustomizations?: Partial<Record<DroneCustomizationGrade, DroneCustomization[]>>
+  mechanicDroneAssistantActive?: boolean
+  mechanicWeaponMods?: Record<string, {
+    incapacitant?: boolean
+    longRange?: boolean
+    bunkerBuster?: boolean
+    damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
+  }>
   munitionsFormulaChoices?: string[]
   munitionsPreparations?: string[]
   munitionsUsed?: boolean[]
