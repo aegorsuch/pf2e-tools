@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effectiveWeapon, equippedWeaponHands, movementSpeeds, ownedWeapons, senses, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
@@ -157,6 +157,92 @@ it('keeps weapons in removed arm pairs inactive until reassigned', () => {
   ;(pair.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
   expect(equippedWeaponHands(c, [sword])).toBe(2)
+})
+
+it('treats a prehensile tail as one hand, not a full pair', () => {
+  const sword = { ...weapon, name: 'Tail sword', data: { hands: 1 } }
+  const rifle = { ...weapon, name: 'Rifle', data: { hands: 2 } }
+  let c: Character = { ...character([{ name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 }]),
+    systems: ['sf2e'], activeHandPair: -1, weapons: [
+      { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [], handPair: -1 },
+      { id: 'rifle', name: rifle.name, potency: 0, striking: 0, runes: [], handPair: -1, stowed: true },
+    ] }
+  const tree = () => WeaponList({ c, entries: [sword, rifle], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  expect(weaponEquipped(c, [sword, rifle], c.weapons![0])).toBe(true)
+  expect(findElement(tree(), e => e.props['aria-label'] === 'Held Rifle')!.props.disabled).toBe(true)
+  const extraArms = { ...c, feats: [...c.feats, { name: 'Additional Arms', type: 'Ancestry Feat', level: 9 }], level: 10 }
+  expect(weaponEquipped(extraArms, [sword, rifle], extraArms.weapons![0])).toBe(true)
+  ;(findElement(tree(), e => e.props['aria-label'] === 'Held Tail sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(findElement(tree(), e => e.props['aria-label'] === 'Held Rifle')!.props.disabled).toBe(true)
+})
+
+it('pairs a prehensile limb with an existing hand without creating a fourth hand', () => {
+  const sword = { ...weapon, name: 'Limb sword', data: { hands: 1 } }
+  let c: Character = { ...character([{ name: 'Prehensile Limbs', type: 'Ancestry Feat', level: 5 }]),
+    systems: ['sf2e'], activeHandPair: -2, weapons: [
+      { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+      { id: 'two', name: sword.name, potency: 0, striking: 0, runes: [], handPair: -2 },
+      { id: 'three', name: sword.name, potency: 0, striking: 0, runes: [], handPair: -2 },
+      { id: 'four', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1, stowed: true },
+    ] }
+  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  expect(equippedWeaponHands(c, [sword])).toBe(2)
+  const inputs = (node: ReactNode): ReactElement[] => {
+    if (!isValidElement(node)) return []
+    const element = node as ReactElement<{ children?: ReactNode; 'aria-label'?: string }>
+    return [...(element.props['aria-label'] === 'Held Limb sword' ? [element] : []),
+      ...Children.toArray(element.props.children).flatMap(inputs)]
+  }
+  expect(inputs(tree()).at(-1)?.props).toMatchObject({ checked: false, disabled: true })
+  c = { ...c, weapons: c.weapons!.map(w => w.id === 'one' ? { ...w, stowed: true } : w) }
+  expect(inputs(tree()).at(-1)?.props).toMatchObject({ checked: false, disabled: false })
+})
+
+it('restricts Hardpoint to eligible owned weapons and marks the drawn weapon as integrated', () => {
+  const light = { ...weapon, name: 'Light gun', data: { hands: 1, bulk: 0.1 } }
+  const heavy = { ...weapon, name: 'Heavy gun', data: { hands: 1, bulk: 1 } }
+  const twoHanded = { ...weapon, name: 'Rifle', data: { hands: 2, bulk: 0.1 } }
+  const missing = { ...weapon, name: 'Unknown bulk', data: { hands: 1 } }
+  const weapons = [light, heavy, twoHanded, missing].map((entry, index) => ({
+    id: `${index}`, name: entry.name, potency: 0, striking: 0, runes: [], stowed: index > 0,
+  }))
+  const c: Character = { ...character([{ name: 'Hardpoint', type: 'Ancestry Feat', level: 5 }]),
+    systems: ['sf2e'], weapons, hardpointWeaponId: '0' }
+  const entries = [light, heavy, twoHanded, missing]
+  expect(weapons.map(w => hardpointWeaponEligible(c, entries, w))).toEqual([true, false, false, false])
+  const thresher = { ...c, feats: [...c.feats, { name: 'Thresher Ko-1 Frame', type: 'Ancestry Feat', level: 1 }] }
+  expect(hardpointWeaponEligible(thresher, entries, weapons[1])).toBe(true)
+  expect(hardpointWeaponEligible({ ...c, feats: [] }, entries, weapons[0])).toBe(false)
+  expect(renderToStaticMarkup(<Augmentations c={c} entries={entries} save={() => {}} />)).toContain('Hardpoint weapon')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)).toContain('Integrated weapon: cannot be disarmed')
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: weapons.map(w => ({ ...w, stowed: true })) }} entries={entries} save={() => {}} displayOnly />)).not.toContain('Integrated weapon: cannot be disarmed')
+})
+
+it('tracks at most two Secondary Power Source selections and their daily uses', () => {
+  const c: Character = { ...character([{ name: 'Secondary Power Source', type: 'Ancestry Feat', level: 13 }]),
+    systems: ['sf2e'], level: 17,
+    augmentations: ['First', 'Second', 'Third'].map(name => ({ id: name, name, entryId: name, slot: 'standard' })),
+    secondaryPowerSourceIds: ['First', 'Second', 'stale'], secondaryPowerUses: { First: 1 } }
+  const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('aria-label="First uses"')
+  expect(markup).toContain('<option value="1" selected="">1/2</option>')
+  expect(markup).toMatch(/aria-label="Secondary Power Source: Third" disabled=""/)
+  expect(markup).toContain('Verify the item&#x27;s frequency before selecting it.')
+  expect(renderToStaticMarkup(<Augmentations c={{ ...c, level: 12 }} entries={[]} save={() => {}} />))
+    .not.toContain('Secondary Power Source: First')
+})
+
+it('upgrades Thresher plating and applies its raised shield bonus only while usable', () => {
+  const c: Character = { ...character([{ name: 'Thresher Ko-1 Frame', type: 'Ancestry Feat', level: 1 }]),
+    systems: ['sf2e'], dermalPlating: { grade: 'Tactical', raised: true } }
+  const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Dermal Plating (Tactical)')
+  expect(markup).toContain('Tactical (Hardness 10)')
+  expect(armorClass(c, [])).toBe(armorClass({ ...c, dermalPlating: { ...c.dermalPlating, raised: false } }, []) + 1)
+  expect(armorClass({ ...c, dermalPlating: { ...c.dermalPlating, damaged: true } }, []))
+    .toBe(armorClass({ ...c, dermalPlating: undefined }, []))
+  const shield = { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true }
+  expect(armorClass({ ...c, shield }, [])).toBe(armorClass({ ...c, shield, dermalPlating: undefined }, []))
 })
 
 it('links attached weapons to their firearm and persists selection without extra hands', () => {

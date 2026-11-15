@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, handPairCount, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, availableHandPairs, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, equippedWeaponHands, handPairCapacity, hardpointWeaponEligible, totalHandCapacity, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { confirmRemoval } from './confirmRemoval'
@@ -22,6 +22,12 @@ import { armorModifications, armorModificationOptions, armorModificationSlots, t
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
 const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
+const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[] = [
+  { name: 'Commercial', level: 1, hardness: 5 }, { name: 'Tactical', level: 4, hardness: 10 },
+  { name: 'Advanced', level: 7, hardness: 15 }, { name: 'Superior', level: 10, hardness: 20 },
+  { name: 'Elite', level: 13, hardness: 25 }, { name: 'Ultimate', level: 16, hardness: 30 },
+  { name: 'Paragon', level: 19, hardness: 35 },
+]
 const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
@@ -60,10 +66,11 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const [slot, setSlot] = useState('standard')
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
+  const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
   const granted = [
     ...(testSubjectAdaptation(c) === 'Cybernetic Augmentation' ? [{ name: 'Datajack', source: 'Test-Subject Ysoki' }] : []),
     ...(activeFeatsNamed(c, 'Rat Retinal HUD').length ? [{ name: 'Autorecognition Lens', source: 'Rat Retinal HUD' }] : []),
-    ...(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? [{ name: 'Dermal Plating (Commercial)', source: 'Thresher Ko-1 Frame' }] : []),
+    ...(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? [{ name: `Dermal Plating (${dermalGrade.name})`, source: 'Thresher Ko-1 Frame' }] : []),
     ...(activeFeatsNamed(c, 'Hardpoint').length ? [{ name: 'Hideaway Limb (Tactical)', source: 'Hardpoint' }] : []),
   ]
   const limit = augmentationLimit(c)
@@ -71,12 +78,36 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const bodySlots = augmentationBodySlots(c)
   const adapted = activeFeatsNamed(c, 'Adapted Augmentations').length > 0
   const biotechUpgrade = activeFeatsNamed(c, 'Biotech Os Upgrade').length > 0
+  const secondaryPower = activeFeatsNamed(c, 'Secondary Power Source').length > 0
+  const powerIds = new Set([...installed.map(item => item.id),
+    ...granted.map(item => `granted:${item.source}:${item.name}`)])
+  const selectedPower = [...new Set(c.secondaryPowerSourceIds ?? [])].filter(id => powerIds.has(id))
   const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && String(entry.data.item_category).toLowerCase() === 'augmentations')
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   const selected = options.find(entry => entry.id === picked)
   const exemption = selected && augmentationExemption(selected)
   const available = !!selected && canInstallAugmentation(c, selected, slot)
+  const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
+  const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
+  const powerControl = (id: string, name: string) => {
+    if (!secondaryPower) return null
+    const checked = selectedPower.includes(id)
+    const uses = Math.max(0, Math.min(2, c.secondaryPowerUses?.[id] ?? 0))
+    return <span>{' '}<label><input type="checkbox" aria-label={`Secondary Power Source: ${name}`}
+      checked={checked} disabled={!checked && selectedPower.length >= 2}
+      onChange={event => {
+        if (event.target.checked && !checked && selectedPower.length >= 2) return
+        save({ secondaryPowerSourceIds: event.target.checked
+          ? [...new Set([...selectedPower, id])] : selectedPower.filter(existing => existing !== id) })
+      }} /> Once-per-day activation: extra use</label>
+      {checked && <label> Used{' '}<select aria-label={`${name} uses`} value={uses} onChange={event => {
+        const value = Number(event.target.value)
+        if (Number.isInteger(value) && value >= 0 && value <= 2)
+          save({ secondaryPowerUses: { ...c.secondaryPowerUses, [id]: value } })
+      }}><option value={0}>0/2</option><option value={1}>1/2</option><option value={2}>2/2</option></select></label>}
+    </span>
+  }
   return <section className="col" aria-label="Augmentations">
     <h4>Augmentations</h4>
     <small>Implant limit: {standardUsed}/{limit}. Apex augmentations do not count toward this limit.</small>
@@ -85,16 +116,54 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     <ul>{granted.map(item => <li key={item.name}><EntryDescription name={item.name}
       entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
       entries={entries} /> <small>({item.source})</small>{biotechUpgrade && <SourceNote inlineSource={false}
-        source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}</li>)}{installed.map(item => {
+        source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
+      {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>)}{installed.map(item => {
       const entry = entries.find(candidate => candidate.id === item.entryId)
       const invalid = item.slot.startsWith('body:') && !bodySlots.includes(item.slot) || item.slot === 'adapted' && !adapted
       return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {' '}<small>({item.slot === 'standard' ? 'implant limit' : item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : item.slot === 'adapted' ? 'Adapted Augmentations' : 'Augmented Body'}{invalid ? '; source unavailable' : ''})</small>
+        {powerControl(item.id, item.name)}
         {' '}<button type="button" onClick={() => confirmRemoval(`augmentation "${item.name}"`,
-          () => save({ augmentations: installed.filter(existing => existing.id !== item.id) }))}>Remove</button></li>
+          () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
+            secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>Remove</button></li>
     })}</ul>
+    {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <>
+      <label>Dermal plating grade{' '}<select aria-label="Dermal plating grade" value={dermalGrade.name} onChange={event => {
+        const grade = DERMAL_GRADES.find(option => option.name === event.target.value && option.level <= c.level)
+        if (grade) save({ dermalPlating: { ...c.dermalPlating, grade: grade.name } })
+      }}>
+        {DERMAL_GRADES.map(grade => <option key={grade.name} value={grade.name} disabled={grade.level > c.level}>
+          {grade.name} (Hardness {grade.hardness})
+        </option>)}
+      </select><SourceNote inlineSource={false} source="Thresher Ko-1 Frame"
+        note="Commercial plating is free. Upgrades require paying the difference in price." /></label>
+      <label><input type="checkbox" checked={!!c.dermalPlating?.damaged} onChange={event => save({
+        dermalPlating: { ...c.dermalPlating, damaged: event.target.checked, ...(event.target.checked ? { raised: false } : {}) },
+      })} /> Dermal plating damaged <SourceNote inlineSource={false} source="Dermal plating"
+        note="After Shield Block, plating cannot be used for 24 hours while it repairs." /></label>
+    </>}
+    {secondaryPower && <SourceNote source="Secondary Power Source"
+      note="During daily preparations, select up to two installed augmentations with once-per-day activation. Each selected activation can be used twice per day. Verify the item's frequency before selecting it." />}
+    {secondaryPower && <button type="button" disabled={!selectedPower.length && !Object.values(c.secondaryPowerUses ?? {}).some(Boolean)}
+      onClick={() => save({ secondaryPowerSourceIds: [], secondaryPowerUses: {} })}>Daily preparations</button>}
+    {hardpoint && <label>Hardpoint weapon{' '}
+      <select aria-label="Hardpoint weapon" value={c.hardpointWeaponId ?? ''} onChange={event => {
+        const id = event.target.value
+        if (!id || hardpointWeapons.some(weapon => weapon.id === id)) save({
+          hardpointWeaponId: id || undefined,
+          ...(id && c.weapons?.some(weapon => weapon.id === id && weapon.cheekStored)
+            ? { weapons: c.weapons.map(weapon => weapon.id === id ? { ...weapon, cheekStored: false, cheekHolstered: false, stowed: true } : weapon) } : {}),
+        })
+      }}>
+        <option value="">None</option>
+        {c.hardpointWeaponId && !hardpointWeapons.some(weapon => weapon.id === c.hardpointWeaponId)
+          && <option value={c.hardpointWeaponId} disabled>Unavailable weapon</option>}
+        {hardpointWeapons.map(weapon => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
+      </select>
+      <SourceNote inlineSource={false} source="Hardpoint" note="Only one-handed weapons of light Bulk or less fit (1 Bulk or less with Thresher Ko-1 Frame). While drawn, the weapon is integrated and cannot be disarmed, dropped, or stolen." />
+    </label>}
     <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value={picked} onChange={event => setPicked(event.target.value)}>
       <option value="">Choose augmentation</option>
       {options.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
@@ -518,13 +587,19 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
     } else saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   }
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
-  const pairCount = handPairCount(c)
-  const extraLimbs = pairCount > 1
-  const pairs = Array.from({ length: pairCount }, (_, index) => index + 1)
+  const pairs = availableHandPairs(c)
+  const extraLimbs = pairs.length > 1
+  const pairLabel = (pair: number) => pair === -1 ? 'Tail' : pair === -2 ? 'Prehensile limb and hand' : `Pair ${pair}`
   const activePair = c.activeHandPair && pairs.includes(c.activeHandPair) ? c.activeHandPair : 1
   const handsUsed = equippedWeaponHands(c, entries)
+  const activeCapacity = handPairCapacity(c, activePair)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
+  const allHeld = weapons.filter(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
+    && pairs.includes(weapon.handPair ?? 1) && weaponHeld(c, entries, weapon))
+  const allHands = allHeld.reduce((total, weapon) => total + (weaponHands(entries, weapon) ?? 0), 0)
+  const anyUnknownHands = allHeld.some(weapon => weaponHands(entries, weapon) === undefined)
+  const handLimit = totalHandCapacity(c)
   const handwraps = c.handwraps
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   return (
@@ -535,15 +610,16 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             const pair = Number(event.target.value)
             if (pairs.includes(pair)) save({ activeHandPair: pair })
           }}>
-          {pairs.map(pair => <option key={pair} value={pair}>Pair {pair}</option>)}
+          {pairs.map(pair => <option key={pair} value={pair}>{pairLabel(pair)}</option>)}
         </select>
       </label>}
       {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
       {activeFeatsNamed(c, "Fane's Fourberie").length > 0 && PLAYING_CARD_WEAPONS.some(card => !weapons.some(weapon => weapon.id === card.id))
         && <small role="status">Playing-card weapon statistics unavailable. Sync dagger and dart content.</small>}
-      {displayOnly && (unknownHands || handsUsed > 2) && <small role="status">
+      {displayOnly && (unknownHands || handsUsed > activeCapacity || allHands > handLimit) && <small role="status">
         {unknownHands ? 'Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'
-          : 'Unequip weapons to use at most two hands.'}
+          : allHands > handLimit ? `Unequip weapons to use at most ${handLimit} hands in total.`
+            : `Unequip weapons to use at most ${activeCapacity} ${activeCapacity === 1 ? 'hand' : 'hands'}.`}
       </small>}
       {!displayOnly && <Search c={c} save={save} entries={entries.filter((entry) => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
@@ -577,13 +653,17 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const hands = weaponHands(entries, w)
         const pair = w.handPair ?? 1
         const validPair = pairs.includes(pair)
+        const pairCapacity = handPairCapacity(c, pair)
         const equipped = extraLimbs || !validPair ? weaponHeld(c, entries, w) : weaponEquipped(c, entries, w)
         const pairUsed = equippedWeaponHands(c, entries, pair)
         const pairUnknown = weapons.some(weapon => !weapon.attachedTo && (weapon.handPair ?? 1) === pair
           && weaponHeld(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
         const linkedSource = attachmentSource ?? haft
         const fixedEquipped = hands === 0 || !!linkedSource
-        const cannotEquip = !equipped && (!validPair || hands === undefined || pairUnknown || pairUsed + hands > 2)
+        const legacyPouchWeapon = w.id === `eq-${w.name}` && c.equipment.some(item =>
+          item.name === w.name && (item.cheekQty ?? 0) >= item.qty)
+        const cannotEquip = !equipped && (legacyPouchWeapon || !validPair || hands === undefined || pairUnknown
+          || pairUsed + hands > pairCapacity || pairs.includes(-2) && (anyUnknownHands || allHands + hands > handLimit))
         const inheritedLivingWeapon = !!haft && !!enhanced.livingWeapon
         const canUseLivingWeapon = !fixed && !linkedSource && canBeLivingWeapon(c, entries, w)
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
@@ -623,14 +703,17 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
             <strong>{displayName}</strong>
-            <label title={linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : cannotEquip
+            {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
+              && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
+            <label title={linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : legacyPouchWeapon
+              ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
               : undefined}>
               <input type="checkbox" aria-label={`${extraLimbs && !fixedEquipped ? 'Held' : 'Equipped'} ${displayName}`} checked={equipped}
                 disabled={fixedEquipped || cannotEquip}
                 onChange={event => {
-                  if (fixedEquipped || event.target.checked && (hands === undefined || pairUnknown || pairUsed + hands > 2)) return
-                  update(w.id, { stowed: !event.target.checked })
+                  if (fixedEquipped || event.target.checked && cannotEquip) return
+                  update(w.id, { stowed: !event.target.checked, ...(event.target.checked ? { cheekStored: false, cheekHolstered: false } : {}) })
                 }} /> {extraLimbs && !fixedEquipped ? 'Held' : 'Equipped'}
             </label>
             {(extraLimbs || !validPair) && !linkedSource && hands !== 0 && <label>Hand pair{' '}
@@ -640,25 +723,29 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 const occupied = equippedWeaponHands(c, entries, next)
                 const unknown = weapons.some(weapon => weapon.id !== w.id && !weapon.attachedTo
                   && (weapon.handPair ?? 1) === next && weaponHeld(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
-                if (equipped && next !== pair && (unknown || hands === undefined || occupied + hands > 2)) return
+                if (equipped && next !== pair && (unknown || hands === undefined || occupied + hands > handPairCapacity(c, next)
+                  || !validPair && pairs.includes(-2) && (anyUnknownHands || allHands + hands > handLimit))) return
                 update(w.id, { handPair: next })
-              }}>{!pairs.includes(pair) && <option value={pair} disabled>Pair {pair} (unavailable)</option>}
-                {pairs.map(value => <option key={value} value={value}>Pair {value}</option>)}</select>
+              }}>{!pairs.includes(pair) && <option value={pair} disabled>{pairLabel(pair)} (unavailable)</option>}
+                {pairs.map(value => <option key={value} value={value}>{pairLabel(value)}</option>)}</select>
             </label>}
             {!linkedSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
               <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
                 onChange={event => {
                   const next = Number(event.target.value) as 1 | 2
                   if (next !== 1 && next !== 2
-                    || equipped && next > (hands ?? 0) && (pairUnknown || pairUsed - (hands ?? 0) + next > 2)) return
+                    || equipped && next > (hands ?? 0) && (pairUnknown || pairUsed - (hands ?? 0) + next > pairCapacity
+                      || pairs.includes(-2) && (anyUnknownHands || allHands - (hands ?? 0) + next > handLimit))) return
                   update(w.id, { handsHeld: next })
                 }}>
                 <option value={1}>1</option>
-                <option value={2} disabled={equipped && (pairUnknown || pairUsed - (hands ?? 0) + 2 > 2)}>2</option>
+                <option value={2} disabled={equipped && (pairUnknown || pairUsed - (hands ?? 0) + 2 > pairCapacity
+                  || pairs.includes(-2) && (anyUnknownHands || allHands - (hands ?? 0) + 2 > handLimit))}>2</option>
               </select>
             </label>}
           </div>
-          {cannotEquip && <small>{hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
+          {cannotEquip && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.'
+            : !validPair ? 'Choose an available hand pair.' : hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
             {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>

@@ -21,6 +21,7 @@ import { ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredDetails } from './DeferredDetails'
+import { CheekPouches } from './CheekPouches'
 import type { Character, ContentEntry, EntryKind } from './types'
 
 const NONE: ContentEntry[] = []
@@ -140,7 +141,12 @@ function EquipmentGroup({ c, save, group, rows, showHeading = true }: Pick<Secti
   return <div>{showHeading && <h4>{group}</h4>}<ul>
     {rows.map(({ item, index, entry }) => <li key={`${item.name}-${index}`}>
       {item.name} <ActionIcon entry={entry} /> x<input type="number" min={1} style={{ width: '4em' }} value={item.qty}
-        onChange={event => save({ equipment: c.equipment.map((existing, i) => i === index ? { ...existing, qty: Math.max(1, +event.target.value || 1) } : existing) })} />{' '}
+        onChange={event => save({ equipment: c.equipment.map((existing, i) => {
+          if (i !== index) return existing
+          const qty = Math.max(1, Math.floor(+event.target.value || 1))
+          return { ...existing, qty, ...(existing.cheekQty !== undefined ? { cheekQty: Math.min(existing.cheekQty, qty) } : {}),
+            ...(existing.cheekPreparedQty !== undefined ? { cheekPreparedQty: Math.min(existing.cheekPreparedQty, qty) } : {}) }
+        }) })} />{' '}
       <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => save({ equipment: c.equipment.filter((_, i) => i !== index) }))}>Remove</button>
     </li>)}
   </ul></div>
@@ -510,6 +516,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
+          <CheekPouches {...section} />
           {pairedEmpathyBracelets.length > 0 && <div>
             <h4>Paired companion equipment</h4>
             <ul>{pairedEmpathyBracelets.map(({ companionId, companionName }) => <li key={companionId}>

@@ -92,6 +92,21 @@ it('displays Skill Download temporarily without changing permanent proficiency',
   expect(builder.skillDownload({ ...c, feats: [] }, [ranger])).toBeUndefined()
 })
 
+it('tracks Cyborg daily uses and displays Machine Heart recovery at the current level', () => {
+  const c: Character = { ...base, level: 17, dailyFeatUses: { 'Machine Heart': true, 'Sensor Mask': true },
+    feats: [{ name: 'Machine Heart', type: 'Ancestry Feat', level: 17 },
+      { name: 'Sensor Mask', type: 'Ancestry Feat', level: 9 },
+      { name: 'Fire Crystal Beam', type: 'Ancestry Feat', level: 17 }] }
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(defense).toContain('Machine Heart used')
+  expect(defense).toContain('regain 17 Hit Points')
+  const offense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  expect(offense).toContain('Sensor Mask used')
+  expect(offense).toContain('Fire Crystal Beam used')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 8 }} entries={[]} save={() => {}} part="offense" />))
+    .not.toContain('Sensor Mask used')
+})
+
 it('allows permanent training in a downloaded skill without treating temporary rank as an increase', () => {
   let c: Character = { ...base, level: 9, skillPicks: [], feats: [
     { name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' },

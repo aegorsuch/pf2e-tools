@@ -309,6 +309,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, retinalHud: event.target.checked } })} />
           {' '}<a href="https://2e.aonsrd.com/feats/1217-rat-retinal-hud" target="_blank" rel="noreferrer">Rat Retinal HUD</a> daily use
         </label>}
+        {['Sensor Mask', 'Fire Crystal Beam'].filter(name => activeFeatsNamed(c, name).length > 0).map(name => <label key={name}>
+          <input type="checkbox" checked={!!c.dailyFeatUses?.[name]}
+            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, [name]: event.target.checked } })} />
+          {' '}{name} used
+        </label>)}
         <WeaponList c={c} entries={entries} save={save} displayOnly />
       </>
     )
@@ -333,6 +338,24 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
             && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}</b></span>
         </div>
+        {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <label>
+          <input type="checkbox" checked={!!c.dermalPlating?.raised && !c.dermalPlating.damaged}
+            disabled={!!c.dermalPlating?.damaged} onChange={event => save({
+              dermalPlating: { ...c.dermalPlating, raised: event.target.checked },
+            })} /> Dermal plating raised
+        </label>}
+        {!!activeFeatsNamed(c, 'Machine Heart').length && <label>
+          <input type="checkbox" checked={!!c.dailyFeatUses?.['Machine Heart']}
+            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Machine Heart': event.target.checked } })} />
+          {' '}Machine Heart used <SourceNote inlineSource={false} source="Machine Heart"
+            note={`The first time each day you would die, you instead regain ${c.level} Hit Points without increasing wounded from losing dying. You no longer age or need sleep, food, drink, or air.`} />
+        </label>}
+        {!!activeFeatsNamed(c, "Grandmother's Favorite").length && <label>
+          <input type="checkbox" checked={!!c.monthlyFeatUses?.["Grandmother's Favorite"]}
+            onChange={event => save({ monthlyFeatUses: { ...c.monthlyFeatUses, "Grandmother's Favorite": event.target.checked } })} />
+          {' '}Grandmother's Favorite used <SourceNote inlineSource={false} source="Grandmother's Favorite"
+            note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
+        </label>}
         {rageToggle}
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
         {hazardToggle}

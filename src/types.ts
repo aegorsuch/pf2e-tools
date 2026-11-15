@@ -37,6 +37,8 @@ export interface OwnedWeapon {
   }
   combinationForm?: 'Melee' | 'Ranged'
   stowed?: boolean
+  cheekStored?: boolean
+  cheekHolstered?: boolean
   handsHeld?: 1 | 2
   handPair?: number
   attachedWeapon?: 'Bayonet' | 'Reinforced Stock'
@@ -131,6 +133,8 @@ export interface Character {
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'
   activeHandPair?: number
   ysokiDailyUses?: { contaminate?: boolean; retinalHud?: boolean }
+  dailyFeatUses?: Record<string, boolean>
+  monthlyFeatUses?: Record<string, boolean>
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string
   // Druidic order, which grants a skill
@@ -157,9 +161,13 @@ export interface Character {
   feats: { name: string; type: string; level: number; choice?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
-  equipment: { name: string; qty: number }[]
+  equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number }[]
   simplePoisonsSpent?: number
   augmentations?: { id: string; entryId: string; name: string; slot: string }[]
+  hardpointWeaponId?: string
+  dermalPlating?: { grade?: HardlightGrade; raised?: boolean; damaged?: boolean }
+  secondaryPowerSourceIds?: string[]
+  secondaryPowerUses?: Record<string, number>
   formulas?: string[]
   snareFormulaChoices?: string[]
   snareAdvancementFormulaChoices?: string[]

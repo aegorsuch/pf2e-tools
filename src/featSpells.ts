@@ -149,6 +149,20 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name)
+    if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) {
+      const spell: ContentEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Divine Decree'
+        && entry.systems.includes('sf2e')) ?? {
+        id: 'reference:divine-decree', systems: ['sf2e'], kind: 'spell', source: 'official',
+        name: 'Divine Decree', level: 7, traits: [], description: 'Starfinder spell details are unavailable in the catalog. The linked Pathfinder reference may require GM confirmation.',
+        data: { url: 'https://2e.aonprd.com/Spells.aspx?ID=1495', sourceBook: 'Pathfinder Player Core reference' },
+        effects: [], updatedAt: 0,
+      }
+      out.push({ entry: spell, source: feat.name,
+        rule: { kind: 'innate', spells: [spell.name], tradition: 'divine', frequency: 'once per day',
+          ...(spell.id === 'reference:divine-decree' ? { condition: 'Starfinder spell details unavailable; Pathfinder reference requires GM confirmation' } : {}) },
+        rank: 7, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
     if (feat.name === 'Mortal Heart') {
       const spell = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Moment of Renewal'
         && entry.systems.some(system => c.systems.includes(system)))
@@ -261,6 +275,7 @@ export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFe
 export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
   return c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
     if (feat.name === 'Grown of Oak' && !entries.some(entry => entry.kind === 'spell' && !entry.deleted
       && entry.name === 'Oaken Resilience' && entry.systems.some(system => c.systems.includes(system)))) {
       return [{ name: 'Oaken Resilience', source }]

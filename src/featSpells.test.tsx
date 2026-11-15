@@ -34,6 +34,18 @@ it('grants Mortal Heart its modified eighth-rank innate spell once daily', () =>
   expect(grantedFeatSpells({ ...c, level: 16 }, [renewal])).toEqual([])
 })
 
+it("grants Grandmother's Favorite with an explicitly labeled Pathfinder reference when Starfinder data is missing", () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 17, feats: [taken("Grandmother's Favorite", 17)] }
+  const [grant] = grantedFeatSpells(c, [])
+  expect(grant).toMatchObject({ entry: { name: 'Divine Decree', data: { url: 'https://2e.aonprd.com/Spells.aspx?ID=1495' } },
+    rank: 7, rule: { tradition: 'divine', frequency: 'once per day', condition: expect.stringContaining('Pathfinder reference') } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  expect(unresolvedFeatSpells(c, [])).toEqual([])
+  const sfSpell = { ...entry('Divine Decree', 'spell'), systems: ['sf2e' as const] }
+  expect(grantedFeatSpells(c, [sfSpell])[0].entry).toBe(sfSpell)
+  expect(grantedFeatSpells({ ...c, level: 16 }, [])).toEqual([])
+})
+
 it("grants Heroism from Heroes' Call as a third-rank daily innate occult spell", () => {
   const source = feat("Heroes' Call", 'The songs of ancient heroes echo through your mind. You gain [_heroism_](Spells.aspx?ID=149) as a 3rd-level innate occult spell that you can cast once per day.', 9)
   const heroism = entry('Heroism', 'spell', { duration: '10 minutes' })

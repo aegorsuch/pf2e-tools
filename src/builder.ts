@@ -2510,6 +2510,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const parry = parryBonus(c, entries)
   const candidates = [
     { label: 'Raised shield', value: raised },
+    { label: 'Raised dermal plating', value: activeFeatsNamed(c, 'Thresher Ko-1 Frame').length
+      && c.dermalPlating?.raised && !c.dermalPlating.damaged ? 1 : 0 },
     { label: 'Raise Shield cantrip', value: raisedCantrip },
     { label: 'Parry', value: parry },
     { label: 'Hazard Finder', value: hazardFinderBonus(c) },
@@ -2633,6 +2635,15 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon): numbe
   return match ? Number(match[1]) : undefined
 }
 
+export function hardpointWeaponEligible(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
+  if (!activeFeatsNamed(c, 'Hardpoint').length || weapon.attachedTo) return false
+  const entry = weaponEntry(entries, weapon.name)
+  const bulk = entry?.data.bulk
+  const maxBulk = activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? 1 : 0.1
+  return !!entry && typeof bulk === 'number' && Number.isFinite(bulk) && bulk >= 0 && bulk <= maxBulk
+    && weaponHands(entries, { ...weapon, handsHeld: 1 }) === 1
+}
+
 export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
@@ -2642,11 +2653,25 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
     const source = haftStrikerSource(c, entries)
     return !!source && weaponHeld(c, entries, source) && weaponHands(entries, source) === 2
   }
-  return weaponHands(entries, weapon) === 0 || !weapon.stowed
+  const legacyPouch = weapon.id === `eq-${weapon.name}` && c.equipment.some(item =>
+    item.name === weapon.name && (item.cheekQty ?? 0) >= item.qty)
+  return weaponHands(entries, weapon) === 0 || !weapon.stowed && !weapon.cheekStored && !legacyPouch
 }
 
-export function handPairCount(c: Character) {
-  return 1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length
+export function availableHandPairs(c: Character) {
+  const count = 1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length
+  return [...Array.from({ length: count }, (_, index) => index + 1),
+    ...(activeFeatsNamed(c, 'Prehensile Tail').length ? [-1] : []),
+    ...(activeFeatsNamed(c, 'Prehensile Limbs').length ? [-2] : [])]
+}
+
+export function handPairCapacity(c: Character, pair: number) {
+  return pair === -1 && activeFeatsNamed(c, 'Prehensile Tail').length ? 1 : 2
+}
+
+export function totalHandCapacity(c: Character) {
+  const pairs = availableHandPairs(c)
+  return pairs.filter(pair => pair > 0).length * 2 + Number(pairs.includes(-1)) + Number(pairs.includes(-2))
 }
 
 export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
@@ -2658,9 +2683,8 @@ export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: Ow
     const source = haftStrikerSource(c, entries)
     return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source) === 2
   }
-  const count = handPairCount(c)
   const savedPair = c.activeHandPair ?? 1
-  const active = Number.isInteger(savedPair) && savedPair >= 1 && savedPair <= count ? savedPair : 1
+  const active = availableHandPairs(c).includes(savedPair) ? savedPair : 1
   return weaponHeld(c, entries, weapon) && (weaponHands(entries, weapon) === 0 || (weapon.handPair ?? 1) === active)
 }
 
