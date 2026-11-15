@@ -2477,13 +2477,22 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Energy Neutralizer', 'Enhanced Energy Neutralizer'].includes(feat.name))
       .map((feat) => byName(entries, 'feat', feat.name)),
     ...c.equipment.map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  const armor = wornArmor(c, entries)
+  if (armor && c.className === 'Mechanic' && c.systems.includes('sf2e') && activeFeatsNamed(c, 'Energy Neutralizer').length) {
+    const value = activeFeatsNamed(c, 'Enhanced Energy Neutralizer').length ? c.level : Math.max(0, abilityMod(c.abilities.int))
+    const count = c.level >= 15 ? 3 : c.level >= 10 ? 2 : 1
+    const types = (c.mechanicArmorMods?.[armor.id]?.energyNeutralizer ?? []).slice(0, count)
+    if (value) for (const damage of new Set(types.filter((type): type is NonNullable<typeof type> =>
+      type !== null && ['acid', 'cold', 'electricity', 'fire', 'sonic'].includes(type))))
+      out.push({ damage, value, source: 'Energy Neutralizer' })
+  }
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
   const oaken = oakenResilience(c, entries)
   if (oaken) for (const damage of ['bludgeoning', 'piercing']) out.push({ damage, value: oaken.resistance, source: 'Oaken Resilience' })

@@ -4,12 +4,14 @@ import { MechanicFeatures, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
 import { MinionsSection } from './MinionsSection'
 import { SkillsSection } from './SkillsSection'
-import { magneticLevitatorsActive, movementSpeeds, subclassOptions } from './builder'
+import { magneticLevitatorsActive, movementSpeeds, resistances, subclassOptions } from './builder'
 import { droneCustomizationSlots, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
 import { turretWeapon } from './mechanicTurret'
-import { WeaponList } from './GearSection'
+import { ArmorList, WeaponList } from './GearSection'
+import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
+import { DroneEquipment } from './DroneEquipment'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
@@ -64,6 +66,10 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
   expect(turretWeapon({ ...c, mechanicTurretGrade: 'Commercial', mechanicTurretUpgrades: ['a', 'b', 'c'] }, entries)?.weapon.upgrades)
     .toEqual(['a', 'b'])
   expect(turretWeapon({ ...c, mechanicTurretGrade: 'Paragon' }, entries)?.entry.data.upgrade_slots).toBe(5)
+  const explosive = { ...c, feats: [{ name: 'Explosive Shot', type: 'Class Feat', level: 1 }],
+    mechanicWeaponMods: { 'mechanic:turret': { explosiveShot: true, damageType: 'cold' as const } } }
+  expect(renderToStaticMarkup(<WeaponList c={explosive} entries={entries} save={() => {}} displayOnly />))
+    .toContain('3 cold splash')
 })
 
 it('applies Magnetic Levitators only while its armor is worn', () => {
@@ -75,6 +81,22 @@ it('applies Magnetic Levitators only while its armor is worn', () => {
     .toContain('hover; Magnetic Levitators')
   expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).not.toContainEqual(
     expect.objectContaining({ source: 'Magnetic Levitators' }))
+})
+
+it('applies Energy Neutralizer only to worn armor, scaling its choices and resistance', () => {
+  const c: Character = { ...mechanic, armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], worn: true }],
+    feats: [{ name: 'Energy Neutralizer', type: 'Class Feat', level: 4 }],
+    mechanicArmorMods: { armor: { energyNeutralizer: ['fire', 'cold', 'sonic'] } } }
+  expect(resistances(c, []).filter(item => item.source === 'Energy Neutralizer')).toEqual([
+    { damage: 'Fire', value: 4, source: 'Energy Neutralizer' },
+    { damage: 'Cold', value: 4, source: 'Energy Neutralizer' },
+  ])
+  expect(resistances({ ...c, level: 15, feats: [...c.feats,
+    { name: 'Enhanced Energy Neutralizer', type: 'Class Feat', level: 10 }] }, [])
+    .filter(item => item.source === 'Energy Neutralizer')).toHaveLength(3)
+  expect(resistances({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).toEqual([])
+  const html = renderToStaticMarkup(<ArmorList c={{ ...c, level: 4 }} entries={[]} save={() => {}} />)
+  expect(html).toContain('<option>cold</option>')
 })
 
 it('grants customization slots once per drone grade plus repeatable customization feats', () => {
@@ -146,6 +168,45 @@ it('calculates drone advancement and selected customization effects', () => {
   expect(stats?.attacks[0]).toMatchObject({ attack: 25, damage: '3d6+10 slashing' })
   expect(stats?.skills).toContainEqual({ name: 'Computers', rank: 2, bonus: 16 })
   expect(droneStats({ ...c, level: 3 })?.hp).toBe(30)
+})
+
+it('tracks mounted weapons and armor slots without applying character proficiency or tracking bonuses', () => {
+  const weapon = (name: string, hands: number): ContentEntry => ({ id: name, name, kind: 'weapon', level: 4,
+    source: 'official', systems: ['sf2e'], traits: ['Tech'], description: '', effects: [], updatedAt: 0,
+    data: { weapon_category: 'Martial', weapon_type: 'Ranged', damage: '2d8 fire', range: 60, hands, weapon_tracking: 3, upgrade_slots: 1 } })
+  const entries = [weapon('Rifle', 2), weapon('Pistol', 1), { id: 'armor-upgrade', name: 'Armor Upgrade', kind: 'item',
+    level: 1, source: 'official', systems: ['sf2e'], traits: [], description: '', effects: [], updatedAt: 0,
+    data: { item_subcategory: 'Armor Upgrades' } } satisfies ContentEntry]
+  const c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Powerful',
+    feats: [{ name: 'Tactical Drone', type: 'Class Feat', level: 4 }],
+    mechanicDroneCustomizations: { Commercial: [{ name: 'Integrated Weapon Mount' }, { name: 'Integrated Weapon Mount' }, { name: 'Upgrade Slot' }] },
+    mechanicDroneWeapons: [{ id: 'rifle', name: 'Rifle', potency: 0, striking: 0, runes: [] },
+      { id: 'pistol', name: 'Pistol', potency: 0, striking: 0, runes: [] }],
+    mechanicDroneArmorUpgrades: ['armor-upgrade'], mechanicDroneKillbotActive: true }
+  expect(droneEquipmentCapacity(c)).toEqual({ mounts: 2, armorUpgrades: 1 })
+  expect(droneMountedWeapons(c, entries).map(item => item.active)).toEqual([true, false])
+  expect(droneWeaponAttack(c, entries, c.mechanicDroneWeapons![0])).toMatchObject({ attack: 14, damage: '2d8+4 fire' })
+  expect(droneStats(c)?.attacks[0].damage).toBe('2d8+8 bludgeoning')
+  const html = renderToStaticMarkup(<DroneEquipment c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Insufficient weapon mounts')
+  expect(html).toContain('Armor Upgrade')
+  expect(droneMountedWeapons({ ...c, mechanicDroneCustomizations: { Commercial: [] } }, entries).every(item => !item.active)).toBe(true)
+  const visor = { ...entries[2], id: 'visor', name: 'Darkvision Visor' }
+  expect(droneStats({ ...c, mechanicDroneArmorUpgrades: ['visor'] }, [...entries, visor])?.senses).toBe('Darkvision')
+  expect(droneStats({ ...c, mechanicDroneArmorUpgrades: ['visor'], mechanicDroneCustomizations: { Commercial: [] } }, [...entries, visor])?.senses)
+    .toBe('Low-light vision')
+})
+
+it('uses configured imitated species movement and unarmed attack', () => {
+  const c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Imitator', mechanicDroneSize: 'Small',
+    mechanicDroneImitator: { species: 'Wolf', attack: 'Jaws', damageType: 'piercing',
+      speed: { Land: 35, Fly: undefined } } }
+  const stats = droneStats(c)
+  expect(stats?.speed).toEqual({ Land: 35 })
+  expect(stats?.attacks[0]).toMatchObject({ name: 'Jaws', damage: '1d4+2 piercing' })
+  const html = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Size: Small')
+  expect(html).toContain('Wolf')
 })
 
 it('enforces drone prerequisites, feat repetition limits and advancement choices', () => {

@@ -7,6 +7,7 @@ export type Source = 'official' | 'homebrew'
 export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
 export type DroneCustomizationGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior'
 export type DroneCustomization = { name: string; choice?: string; choice2?: string }
+export type MechanicEnergy = 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'
 
 export type BonusType = 'circumstance' | 'status' | 'item' | 'untyped'
 export type FeatSlotCategory = 'class' | 'ancestry' | 'skill' | 'general' | 'archetype' | 'bonus'
@@ -181,20 +182,39 @@ export interface Character {
   grenadeFormulaChoices?: string[]
   grenadePreparations?: string[]
   grenadeUsed?: boolean[]
+  mechanicGrenadeMods?: Record<string, {
+    bigBoom?: boolean
+    bunkerBuster?: boolean
+    incapacitant?: boolean
+    longRange?: boolean
+    damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
+  }>
   mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
   mechanicTurretGrade?: HardlightGrade
   mechanicTurretUpgrades?: string[]
   mechanicMines?: { carried: number; deployed: number }
   mechanicDroneChassis?: 'Agile' | 'Imitator' | 'Powerful' | 'Surveillance' | 'Tank'
+  mechanicDroneSize?: 'Tiny' | 'Small' | 'Medium' | 'Large' | 'Huge' | 'Gargantuan'
+  mechanicDroneImitator?: {
+    species?: string
+    attack?: string
+    damageType?: string
+    speed?: Partial<Record<'Land' | 'Climb' | 'Swim' | 'Fly' | 'Burrow', number>>
+  }
   mechanicDroneRacerSpeed?: 'Land' | 'Swim' | 'Fly'
   mechanicDroneCustomizations?: Partial<Record<DroneCustomizationGrade, DroneCustomization[]>>
   mechanicDroneAssistantActive?: boolean
-  mechanicArmorMods?: Record<string, { magneticLevitators?: boolean }>
+  mechanicDroneWeapons?: OwnedWeapon[]
+  mechanicDroneArmorUpgrades?: string[]
+  mechanicDroneKillbotActive?: boolean
+  mechanicDroneDesperateRepairActive?: boolean
+  mechanicArmorMods?: Record<string, { magneticLevitators?: boolean; energyNeutralizer?: Array<MechanicEnergy | null> }>
   mechanicWeaponMods?: Record<string, {
     incapacitant?: boolean
     longRange?: boolean
     bunkerBuster?: boolean
     pinpointShot?: boolean
+    explosiveShot?: boolean
     damageType?: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic' | 'bludgeoning' | 'piercing' | 'slashing'
   }>
   munitionsFormulaChoices?: string[]

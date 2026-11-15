@@ -1,5 +1,5 @@
 import { activeFeatsNamed, proficiencyBonus } from './builder'
-import type { Character, DroneCustomizationGrade } from './types'
+import type { Character, ContentEntry, DroneCustomizationGrade } from './types'
 
 type Customization = {
   name: string
@@ -94,7 +94,7 @@ export function droneCustomizationSlots(c: Character) {
     Piloting: 'dex', Religion: 'wis', Society: 'int', Stealth: 'dex', Survival: 'wis', Thievery: 'dex',
   }
 
-  export function droneStats(c: Character) {
+  export function droneStats(c: Character, entries: ContentEntry[] = []) {
     const slots = droneCustomizationSlots(c)
     const chassis = c.mechanicDroneChassis && CHASSIS[c.mechanicDroneChassis]
     if (!slots || !chassis) return undefined
@@ -140,7 +140,10 @@ export function droneCustomizationSlots(c: Character) {
     if (has('Glow Up') && (has('Artificial Personality') || has('Sapient'))) bump('Diplomacy')
     const unarmored = specs.some(spec => spec === 'Ambusher' || spec === 'Daredevil') ? 2 : 1
     const saveRank = superior ? 3 : tactical ? 2 : 1
-    const speed: Record<string, number> = { ...chassis.speed }
+    const speed: Record<string, number> = c.mechanicDroneChassis === 'Imitator'
+      ? Object.fromEntries(Object.entries(c.mechanicDroneImitator?.speed ?? {})
+        .filter(([, value]) => typeof value === 'number' && Number.isFinite(value) && value > 0))
+      : { ...chassis.speed }
     if (has('Aquatic Adaptation')) speed.Swim = Math.max(speed.Swim ?? 0, 20)
     if (has('Climber')) speed.Climb = Math.max(speed.Climb ?? 0, 20)
     if (has('Flier')) speed.Fly = Math.max(speed.Fly ?? 0, 20)
@@ -155,10 +158,16 @@ export function droneCustomizationSlots(c: Character) {
     const attacks = chassis.attacks.map(attack => {
       const ranged = 'ranged' in attack && attack.ranged
       const mod = ranged || attack.finesse && mods.dex > mods.str ? mods.dex : mods.str
-      const flat = ranged ? 0 : mods.str + (advanced ? advance === 'Burly' ? superior ? 6 : 3 : superior ? 4 : 2 : 0)
-      return { name: attack.name, attack: mod + proficiencyBonus(superior ? 2 : 1, c.level),
-        damage: `${superior ? 3 : tactical ? 2 : 1}d${attack.die}${flat > 0 ? `+${flat}` : flat < 0 ? flat : ''} ${attack.damage}` }
+      const dice = superior ? 3 : tactical ? 2 : 1
+      const flat = (ranged ? 0 : mods.str + (advanced ? advance === 'Burly' ? superior ? 6 : 3 : superior ? 4 : 2 : 0))
+        + (c.mechanicDroneKillbotActive ? 2 * dice : 0)
+      return { name: c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.attack || attack.name,
+        attack: mod + proficiencyBonus(superior ? 2 : 1, c.level),
+        damage: `${dice}d${attack.die}${flat > 0 ? `+${flat}` : flat < 0 ? flat : ''} ${c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.damageType || attack.damage}` }
     })
+    const armorUpgradeActive = has('Upgrade Slot') && entries.some(entry => entry.id === c.mechanicDroneArmorUpgrades?.[0]
+      && !entry.deleted && entry.kind === 'item' && entry.systems.includes('sf2e')
+      && entry.data.item_subcategory === 'Armor Upgrades' && entry.name === 'Darkvision Visor')
     return { chassis, mods, ranks, speed, hp, ac, attacks, specs, superior,
       perception: mods.wis + proficiencyBonus(saveRank, c.level),
       fortitude: mods.con + proficiencyBonus(specs.includes('Racer') ? 4 : saveRank, c.level),
@@ -167,6 +176,6 @@ export function droneCustomizationSlots(c: Character) {
         .map(([name, rank]) => ({ name, rank, bonus: mods[SKILL_ABILITIES[name]] + proficiencyBonus(rank, c.level) }))
         .sort((a, b) => a.name.localeCompare(b.name)),
       electricityWeakness: has('Grounded') ? 0 : Math.ceil(c.level / 2),
-      senses: has('Nightvision Sensors') ? 'Darkvision' : chassis.senses,
+      senses: has('Nightvision Sensors') || armorUpgradeActive ? 'Darkvision' : chassis.senses,
     }
 }

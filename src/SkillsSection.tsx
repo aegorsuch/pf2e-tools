@@ -164,7 +164,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const assistantSkill = c.mechanicDroneAssistantActive && droneSlots
     ? (c.mechanicDroneCustomizations?.Tactical ?? []).slice(0, droneSlots.Tactical)
       .find(item => item.name === 'Assistant')?.choice : undefined
-  const droneSkillRanks = assistantSkill ? droneStats(c)?.ranks : undefined
+  const droneSkillRanks = assistantSkill ? droneStats(c, entries)?.ranks : undefined
   const sights = [...new Map(ownedWeapons(c, entries).filter(weapon => weaponEquipped(c, entries, weapon))
     .flatMap(weapon => installedWeaponUpgrades(c, entries, weapon))
     .filter(upgrade => /^(?:Truesight Sight|Sniper's Scope)(?:\s*\(|$)/i.test(upgrade.name))

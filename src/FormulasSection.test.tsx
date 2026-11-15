@@ -120,6 +120,22 @@ it('grants common grenade formulas and scales daily grenades with Crafting and P
   expect(prepared).not.toContain('High Grenade (Level 15)')
 })
 
+it('shows active grenade modifications with the correct range, radius and damage type', () => {
+  const grenade: ContentEntry = { ...item('Frag Grenade', 1, ['Grenade']), systems: ['sf2e'],
+    description: 'The burst radius is 5 feet, and the piercing damage is 1d8.' }
+  const character: Character = { ...c, systems: ['sf2e'], className: 'Mechanic', level: 5,
+    feats: [{ name: 'Grenade Specialist', type: 'Class Feat', level: 2 }],
+    grenadeFormulaChoices: [grenade.name], grenadePreparations: [grenade.name],
+    mechanicGrenadeMods: { 'prepared:0': { bigBoom: true, longRange: true, damageType: 'slashing', incapacitant: true } } }
+  const html = renderToStaticMarkup(<GrenadeSpecialist c={character} entries={[grenade]} save={() => {}} />)
+  expect(html).toContain('Thrown range 100 feet')
+  expect(html).toContain('Burst radius 10 feet')
+  expect(html).toContain('Damage type: slashing')
+  expect(html).toContain('Nonlethal.')
+  expect(renderToStaticMarkup(<GrenadeSpecialist c={{ ...character, level: 4 }} entries={[grenade]} save={() => {}} />))
+    .not.toContain('Damage type: slashing')
+})
+
 it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily batches', () => {
   const powder = item(BLACK_POWDER_FORMULA, 0, ['Alchemical', 'Consumable'])
   const bomb = item('Bottled Lightning', 1, ['Alchemical', 'Bomb'])
