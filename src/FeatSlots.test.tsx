@@ -68,6 +68,43 @@ it("keeps Officer's Education general slots tied to their source feats", () => {
   expect(plannedSlots(c).filter(slot => slot.grantedBy === education.name).map(slot => slot.level)).toEqual([12])
 })
 
+it('persists Social Chameleon choices in normal feat sections and clears dependent grants', () => {
+  const chameleon: ContentEntry = { id: 'chameleon', name: 'Social Chameleon', kind: 'feat', source: 'official',
+    systems: ['sf2e'], level: 5, traits: ['Human'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const adopted: ContentEntry = { ...chameleon, id: 'adopted', name: 'Adopted Ancestry', level: 1, traits: ['General'] }
+  const elf: ContentEntry = { ...chameleon, id: 'elf', kind: 'ancestry', name: 'Elf', level: 1, traits: [] }
+  const elfFeat: ContentEntry = { ...chameleon, id: 'elf-feat', name: 'Elf Training', level: 1, traits: ['Elf'] }
+  const entries = [chameleon, adopted, elf, elfFeat]
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', systems: ['sf2e'], level: 5,
+    feats: [{ name: chameleon.name, type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }] }
+  const tree = (categories: ('ancestry' | 'general' | 'skill')[]) => FeatSlots({ c, entries, categories,
+    save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree(['general']))).toContain('Social Chameleon: choose Adopted Ancestry.')
+  expect(renderToStaticMarkup(tree(['ancestry']))).toContain('Choose Adopted Ancestry in General Feats first.')
+  expect(renderToStaticMarkup(tree(['skill']))).not.toContain('Social Chameleon')
+  findSelect(tree(['general']), 'L05 General feat')!({ target: { value: JSON.stringify(['Adopted Ancestry', 'Elf']) } })
+  expect(c.feats.find(feat => feat.name === adopted.name)).toMatchObject({
+    type: 'General Feat', choice: 'Elf', takenLevel: 5, slot: 'general:1:social-chameleon:ancestry:5:0',
+  })
+  findSelect(tree(['ancestry']), 'L05 Ancestry feat')!({ target: { value: elfFeat.name } })
+  expect(c.feats.find(feat => feat.name === elfFeat.name)).toMatchObject({
+    type: 'Ancestry Feat', takenLevel: 5, slot: 'ancestry:1:social-chameleon:ancestry:5:0',
+  })
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(renderToStaticMarkup(tree(['general']))).toContain('Adopted Ancestry (Elf)')
+  expect(renderToStaticMarkup(tree(['ancestry']))).toContain('Elf Training')
+  findButton(tree(['general']), 'Clear L05 General feat selection')!()
+  expect(c.feats.map(feat => feat.name)).toEqual([chameleon.name])
+  expect(c.entryIds).not.toContain(elfFeat.id)
+  findSelect(tree(['general']), 'L05 General feat')!({ target: { value: JSON.stringify(['Adopted Ancestry', 'Elf']) } })
+  findSelect(tree(['ancestry']), 'L05 Ancestry feat')!({ target: { value: elfFeat.name } })
+  findButton(tree(['ancestry']), 'Remove L05 Ancestry feat slot 0')!()
+  expect(c.feats).toEqual([])
+  expect(c.entryIds).not.toContain(adopted.id)
+  expect(c.entryIds).not.toContain(elfFeat.id)
+  expect(plannedSlots(c).some(slot => slot.grantedBy === chameleon.name)).toBe(false)
+})
+
 it("shows Battle Medicine granted by Officer's Medical Training", () => {
   const battleMedicine: ContentEntry = { id: 'feat-5125', name: 'Battle Medicine', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['General', 'Healing', 'Manipulate', 'Skill'],

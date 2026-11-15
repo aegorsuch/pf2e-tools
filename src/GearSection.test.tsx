@@ -362,6 +362,17 @@ it('uses the attached weapon two-hand die based on its base weapon grip', () => 
   expect(attack().damage).toBe('2d4 piercing')
 })
 
+it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinforcement while Blessed Shield is selected', rune => {
+  const c: Character = { ...character([]), className: 'Champion', level: 10, blessing: 'Blessed Shield',
+    shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, reinforcingRune: rune } }
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} part="shield" />)
+  expect(markup).toContain(`Reinforcing Rune (${rune})`)
+  expect(markup).toContain('Protected by Blessed Shield')
+  expect(markup).not.toContain('aria-label="Remove Reinforcing Rune')
+  const unblessed = renderToStaticMarkup(<ArmorList c={{ ...c, blessing: 'Blessed Swiftness' }} entries={[]} save={() => {}} part="shield" />)
+  expect(unblessed).toContain(`aria-label="Remove Reinforcing Rune (${rune}) rune"`)
+})
+
 it('attaches shield weapons with independent runes and inherited shield material', () => {
   const entries = ['Shield Spikes', 'Shield Pistol', 'Shield Boss'].map(name => ({
     ...weapon, id: name, name, traits: ['Attached'],

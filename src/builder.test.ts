@@ -25,6 +25,19 @@ it('merges equivalent cross-system ancestry feats after eligibility filtering bu
   expect(options.map(option => option.id)).toEqual([original.id, different.id, restricted.id])
 })
 
+it.each(['Cooperative Soul', 'Incredible Improvisation'])('offers one official %s across systems while preserving homebrew', name => {
+  const pf = { ...entry('feat', name, {}, 9, ['Human']), description: 'Pathfinder wording.' }
+  const sf: ContentEntry = { ...pf, id: `sf:${name}`, systems: ['sf2e'], description: 'Starfinder wording.',
+    data: name === 'Cooperative Soul' ? { prerequisite: 'Cooperative Nature' } : {} }
+  const homebrew: ContentEntry = { ...pf, id: `custom:${name}`, source: 'homebrew' }
+  const c: Character = { id: 'human', name: 'Test', systems: ['pf2e', 'sf2e'], ancestry: 'Human', level: 9,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const slot = { key: 'ancestry:9:0', category: 'ancestry' as const, level: 9 }
+  expect(eligibleFeats([sf, pf, homebrew], c, slot, { includeUnmetPrerequisites: true })).toEqual([pf, homebrew])
+  expect(eligibleFeats([sf], { ...c, systems: ['sf2e'] }, slot, { includeUnmetPrerequisites: true })).toEqual([sf])
+})
+
 it('offers one eligible official Overcrowd while preserving homebrew options', () => {
   const core = { ...entry('feat', 'Overcrowd', {}, 9, ['Ysoki']), systems: ['sf2e' as const],
     description: 'As long as you are Small, you can share a square with a Small ally.' }
@@ -839,6 +852,36 @@ describe('official passive feat mechanics', () => {
     expect(eligibleFeats(data, { ...c, feats: [] }, slot).map((feat) => feat.name)).toEqual(['Elven Lore'])
     expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf', 'Human'])
     expect(c.feats[0].choice).toBe('Human')
+  })
+
+  it('grants Social Chameleon only Adopted Ancestry and a common level-1 feat from that ancestry', () => {
+    const c: Character = { ...base, ancestry: 'Human', level: 5, systems: ['pf2e', 'sf2e'],
+      feats: [{ name: 'Social Chameleon', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }] }
+    const data = [
+      entry('ancestry', 'Human'), entry('ancestry', 'Elf'), entry('ancestry', 'Dwarf'),
+      entry('feat', 'Adopted Ancestry', {}, 1, ['General']),
+      entry('feat', 'Other General', {}, 1, ['General']),
+      entry('feat', 'Human Feat', {}, 1, ['Human']),
+      entry('feat', 'Elf Feat', {}, 1, ['Elf']),
+      entry('feat', 'Dwarf Feat', {}, 1, ['Dwarf']),
+      entry('feat', 'Higher Elf Feat', {}, 5, ['Elf']),
+      entry('feat', 'Uncommon Elf Feat', {}, 1, ['Elf', 'Uncommon']),
+      entry('feat', 'Rare Elf Feat', { rarity: 'Rare' }, 1, ['Elf']),
+    ]
+    const grants = plannedSlots(c).filter(slot => slot.grantedBy === 'Social Chameleon')
+    expect(grants).toHaveLength(2)
+    expect(grants.map(slot => slot.level)).toEqual([5, 5])
+    expect(eligibleFeats(data, c, grants.find(slot => slot.category === 'general')!).map(feat => feat.name)).toEqual(['Adopted Ancestry'])
+    expect(eligibleFeats(data, c, grants.find(slot => slot.category === 'ancestry')!)).toEqual([])
+    const adopted: Character = { ...c, feats: [...c.feats,
+      { name: 'Adopted Ancestry', type: 'General Feat', level: 1, takenLevel: 5,
+        slot: 'general:1:social-chameleon:ancestry:5:0', choice: 'Elf' }] }
+    const ancestry = plannedSlots(adopted).find(slot => slot.grantedBy === 'Social Chameleon' && slot.category === 'ancestry')!
+    expect(eligibleFeats(data, adopted, ancestry).map(feat => feat.name)).toEqual(['Elf Feat'])
+    expect(eligibleFeats(data, adopted, { key: 'ancestry:5:1', category: 'ancestry', level: 5 }).map(feat => feat.name))
+      .toContain('Higher Elf Feat')
+    expect(plannedSlots({ ...adopted, level: 4 }).some(slot => slot.grantedBy === 'Social Chameleon')).toBe(false)
+    expect(plannedSlots({ ...adopted, feats: adopted.feats.slice(1) }).some(slot => slot.grantedBy === 'Social Chameleon')).toBe(false)
   })
 
   it('scales each Multilingual selection at master and legendary Society, not just character level', () => {

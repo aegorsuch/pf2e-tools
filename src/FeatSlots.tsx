@@ -179,7 +179,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (slot.grantedBy === 'Eldritch Trickster' && name === 'N/A') return
     const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot)).find((option) => option.value === name && !option.disabled)
     if (name && name !== 'N/A' && !option) return
-    const feats = c.feats.filter((f) => f.slot !== key)
+    const changedAncestry = slot.grantedBy === 'Social Chameleon' && category === 'general'
+      && c.feats.find(feat => feat.slot === key)?.choice !== option?.choice
+    const ancestryKey = key.replace(/^general:/, 'ancestry:')
+    const feats = c.feats.filter((f) => f.slot !== key && !(changedAncestry && f.slot === ancestryKey))
     const entryIds = [...c.entryIds]
     if (option) {
       const { entry, choice } = option
@@ -220,7 +223,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity"
+      if (slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -362,7 +365,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
-          const requiredGrant = s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity"
+          const requiredGrant = s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)
@@ -391,6 +394,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
+                  grantSource={s.grantedBy === 'Social Chameleon' ? s.grantedBy : undefined}
                   descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                     : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -416,6 +420,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </optgroup>
                 ))}
               </select>}
+              {s.grantedBy === 'Social Chameleon' && !current && <small>
+                {s.category === 'general' ? 'Social Chameleon: choose Adopted Ancestry.'
+                  : s.grantedAncestry ? `Social Chameleon: common level-1 ${s.grantedAncestry} feat.`
+                    : 'Choose Adopted Ancestry in General Feats first.'}
+              </small>}
               {popup && open && (
                 <PickerDialog label={`${label} feat picker`} searchLabel={`Search ${label} feats`} query={search[`${s.key}:query`] ?? ''}
                   onClose={() => onSearch?.(`${s.key}:open`, '')} onQuery={query => {

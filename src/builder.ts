@@ -220,7 +220,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -381,6 +381,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
+  || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
 
 export const mechanicIngenuitySlots = (c: Character) =>
   c.className === 'Mechanic' && c.systems.includes('sf2e')
@@ -440,6 +441,19 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
     slots.push({ key: `skill:1:${grant.key}`, category: 'skill', level: grant.level, grantedBy: "Mechanic's Ingenuity" })
   }
+  let unslottedChameleon = 0
+  for (const feat of activeFeatsNamed(c, 'Social Chameleon')) {
+    const identity = feat.slot ?? `unslotted-${unslottedChameleon++}`
+    const level = featTakenLevel(feat)
+    const generalKey = `general:1:social-chameleon:${identity}`
+    const adopted = c.feats.find(feat => feat.slot === generalKey && feat.name === 'Adopted Ancestry')
+    for (const category of ['general', 'ancestry'] as const) {
+      const group = `${category}:${level}`
+      if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+      slots.push({ key: `${category}:1:social-chameleon:${identity}`, category, level, maxFeatLevel: 1,
+        grantedBy: 'Social Chameleon', ...(category === 'ancestry' ? { grantedAncestry: adopted?.choice } : {}) })
+    }
+  }
   for (const feat of c.feats) {
     if (feat.name !== 'Exceptional Artisan' || !feat.choice || featTakenLevel(feat) > c.level) continue
     const level = featTakenLevel(feat)
@@ -477,7 +491,7 @@ export function plannedSlots(c: Character): PlannedSlot[] {
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key)
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
-    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity")
+    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon')
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -776,6 +790,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && tokens(e.data.skill).some(skill => skill.toLowerCase() === slot.grantedSkill?.toLowerCase()))
       && (slot.grantedBy !== "Mechanic's Ingenuity"
         || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
+      && (slot.grantedBy !== 'Social Chameleon' || (slot.category === 'general'
+        ? e.name === 'Adopted Ancestry'
+        : !!slot.grantedAncestry && e.level === 1 && traits.has(slot.grantedAncestry.toLowerCase()) && !featRarity(e)))
       && (!slot.grantedOrder || new RegExp(`\\b${slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder} order\\b`, 'i').test(String(e.data.prerequisite ?? '')))
       && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
         { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level }))
@@ -818,6 +835,10 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const overcrowd = candidates.filter(({ entry }) => entry.name === 'Overcrowd' && entry.source === 'official')
     .sort((a, b) => Number(prerequisites(a.entry).missing.length > 0) - Number(prerequisites(b.entry).missing.length > 0)
       || Number(!!a.entry.data.prerequisite) - Number(!!b.entry.data.prerequisite))[0]?.entry
+  // These shared Human feats have wording changes, not separate selectable benefits.
+  const sharedHumanFeats = new Map(['Cooperative Soul', 'Incredible Improvisation'].map(name => [name,
+    candidates.filter(({ entry }) => entry.name === name && entry.source === 'official')
+      .sort((a, b) => Number(!a.entry.systems.includes('pf2e')) - Number(!b.entry.systems.includes('pf2e')))[0]?.entry]))
   const duplicateLore = slot.category === 'ancestry' && candidates.some(candidate => candidate.entry.name === 'Ancestral Skills') && (() => {
     const genericSkills = ancestralSkills({ ...c, feats: [{ name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1 }] }, entries)
     if (!genericSkills.length) return false
@@ -834,6 +855,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
          && (slot.level !== 1 || takenLineage)
          && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Overcrowd' && entry.source === 'official' && entry !== overcrowd) return false
+      if (sharedHumanFeats.has(entry.name) && entry.source === 'official' && entry !== sharedHumanFeats.get(entry.name)) return false
       if (entry.name === 'Prehensile Limbs' && specificTail
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Ancestral Skills' && duplicateLore
