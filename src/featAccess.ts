@@ -96,13 +96,17 @@ function accessEthnicities(access: string) {
 
 export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
   const target = ancestry?.trim().toLowerCase()
-  const additional = target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []
-  return [...new Set([...additional, ...entries.filter(entry => !entry.deleted && entry.kind === 'feat'
+  const additional = target === 'human' ? [
+    'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
+  ] : target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []
+  const names = [...additional, ...entries.filter(entry => !entry.deleted && entry.kind === 'feat'
     && (!target || entry.traits.some(trait => trait.toLowerCase() === target)))
     .flatMap(entry => [entry.data.access, entry.data.prerequisite]
       .flatMap(requirement => String(requirement ?? '').split(/[,;]|\s+and\s+/i).flatMap(accessEthnicities)))
-    .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase()))])]
-    .sort((a, b) => a.localeCompare(b))
+    .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase()))]
+  const unique = new Map<string, string>()
+  for (const name of names) if (!unique.has(name.toLowerCase())) unique.set(name.toLowerCase(), name)
+  return [...unique.values()].sort((a, b) => a.localeCompare(b))
 }
 
 export function featRarity(entry: ContentEntry) {
