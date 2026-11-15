@@ -169,6 +169,6 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
     {c.level >= 15 && <small>Manifold Mods: apply two mods whenever you Modify an item.</small>}
     {c.level >= 19 && <small>Instant Mods: once per round, Modify as a free action.</small>}
     <small><a href="https://2e.aonsrd.com/actions/546-modify" target="_blank" rel="noreferrer">Modify rules</a>:
-      weapon mods are available on weapon cards; other mods require manual tracking.</small>
+      use item and exocortex controls for mods; track expiration and Troubleshoot manually.</small>
   </div>
 }

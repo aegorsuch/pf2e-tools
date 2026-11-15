@@ -34,6 +34,16 @@ it('offers the three official exocortexes and scales mine capacity and DC', () =
     .toContain('Not enough carrying capacity to collect all deployed mines.')
 })
 
+it('shows mechanic mod progression at the appropriate levels', () => {
+  const html = (level: number) => renderToStaticMarkup(<MechanicFeatures c={{ ...mechanic, level }} save={() => {}} />)
+  expect(html(8)).not.toContain('Remote Mods:')
+  expect(html(9)).toContain('within 60 feet')
+  expect(html(13)).toContain('Enduring Mod')
+  expect(html(15)).toContain('within 150 feet')
+  expect(html(15)).toContain('Manifold Mods')
+  expect(html(19)).toContain('Instant Mods')
+})
+
 it('scales mine damage and area, including per-mine modifications', () => {
   expect(mechanicMineDamage({ ...mechanic, level: 1 }, {})).toMatchObject({ damage: '2d6 fire', radius: 10 })
   expect(mechanicMineDamage({ ...mechanic, level: 10 },
