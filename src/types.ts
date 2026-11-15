@@ -133,6 +133,7 @@ export interface Character {
   order?: string
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)
   classSkill?: string
+  subclassSkillChoices?: Record<string, string>
   rogueRacketSkills?: Record<string, string>
   background?: string
   deity?: string

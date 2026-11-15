@@ -26,6 +26,16 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows subclass-granted Lore as a trained skill without an Additional Lore feat', () => {
+  const c: Character = { ...base, className: 'Investigator', subclass: 'Empiricism',
+    subclassSkillChoices: { 'Investigator:Empiricism': 'Lore', 'Investigator:Empiricism:lore': 'Sailing Lore' } }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Sailing Lore')
+  expect(ranksAt(c, [])['Sailing Lore']).toBe(1)
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, subclass: 'Forensic Medicine' }} entries={[]} save={() => {}} />))
+    .not.toContain('Sailing Lore')
+})
+
 it('applies clan dagger filigree skill bonuses and marks conditional bonuses separately', () => {
   const c: Character = { ...base, level: 11,
     weapons: [{ id: 'dagger', name: 'Clan Dagger', potency: 0, striking: 0, runes: [], stowed: true }] }

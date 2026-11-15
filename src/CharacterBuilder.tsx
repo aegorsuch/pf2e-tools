@@ -6,7 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
@@ -259,6 +259,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const subclasses = subclassOptions(c, entries)
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
+  const subclassChoice = subclassSkillChoice(c, entries)
+  const choiceValue = subclassChoice ? c.subclassSkillChoices?.[subclassChoice.key] ?? '' : ''
   const background = named('background', c.background)
   const equipmentGroups = useMemo(() => {
     const items = new Map<string, ContentEntry>()
@@ -392,7 +394,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
               onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
           </div>
           {c.className !== 'Druid' && subclasses.length > 0 && <>
-            <Pick label={c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : 'Subclass'}
+            <Pick label={c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : 'Subclass'}
               kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />
@@ -408,10 +410,32 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
                 {[...classSkills(klass).choices].sort((a, b) => a.localeCompare(b)).map((s) => <option key={s}>{s}</option>)}
               </SearchableSelect>
           )}
+          {subclassChoice && <>
+            {subclassChoice.options.length > 0 && <SearchableSelect label={subclassChoice.label} aria-label={subclassChoice.label}
+              value={choiceValue} onChange={event => {
+                const value = event.target.value
+                if (value && !subclassChoice.options.includes(value)) return
+                save({ subclassSkillChoices: { ...c.subclassSkillChoices, [subclassChoice.key]: value } })
+              }}>
+              <option value="">Choose {subclassChoice.label.toLowerCase()}</option>
+              {choiceValue && !subclassChoice.options.includes(choiceValue) && <option disabled>{choiceValue}</option>}
+              {subclassChoice.options.map(value => <option key={value}>{value}</option>)}
+            </SearchableSelect>}
+            {(subclassChoice.options.length === 0 || choiceValue === 'Lore') && <label>Lore specialty{' '}
+              <input aria-label={`${subclassChoice.label} specialty`}
+                key={`${subclassChoice.key}:${choiceValue}`}
+                defaultValue={c.subclassSkillChoices?.[subclassChoice.options.length ? `${subclassChoice.key}:lore` : subclassChoice.key]?.replace(/ Lore$/i, '') ?? ''}
+                onBlur={event => {
+                  const name = event.target.value.trim().replace(/\s+Lore$/i, '')
+                  const key = subclassChoice.options.length ? `${subclassChoice.key}:lore` : subclassChoice.key
+                  save({ subclassSkillChoices: { ...c.subclassSkillChoices, [key]: name ? `${name} Lore` : '' } })
+                }} />
+            </label>}
+          </>}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
-                {Object.keys(DRUID_ORDERS).filter((o) => o === c.order || !c.feats.some((f) => f.name === 'Order Explorer' && f.choice === o)).sort((a, b) => a.localeCompare(b)).map((o) => <option key={o} value={o}>{o}</option>)}
+                {Object.keys(DRUID_ORDERS).filter((o) => o === subclassName || !c.feats.some((f) => f.name === 'Order Explorer' && (f.choice === o || o === 'Wild' && f.choice === 'Untamed'))).sort((a, b) => (a === 'Wild' ? 'Untamed' : a).localeCompare(b === 'Wild' ? 'Untamed' : b)).map((o) => <option key={o} value={o}>{o === 'Wild' ? 'Untamed' : o}</option>)}
               </SearchableSelect>
           )}
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}

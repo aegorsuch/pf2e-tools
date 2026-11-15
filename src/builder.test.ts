@@ -1,7 +1,7 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { mapAonHit } from './aon'
 import { describe, expect, it } from 'vitest'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -50,6 +50,89 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+describe('subclass skill grants', () => {
+  it('parses Starfinder class choice and excludes subclass placeholders', () => {
+    const envoy = entry('class', 'Envoy', { skill_proficiency: 'Trained in one of the following skills of your choice: Deception, Diplomacy, Intimidation, Trained in one skill based on your leadership style, Trained in a number of additional skills equal to 6 plus your Intelligence modifier' })
+    expect(classSkills(envoy)).toEqual({ fixed: [], choices: ['Deception', 'Diplomacy', 'Intimidation'], additional: 6 })
+    const oracle = entry('class', 'Oracle', { skill_proficiency: 'Trained in Religion, Trained in one skill determined by your mystery' })
+    expect(classSkills(oracle).fixed).toEqual(['Religion'])
+  })
+
+  it('grants methodology and style skills and preserves individual choices', () => {
+    const c = { ...base, background: undefined, className: 'Investigator', subclass: 'Empiricism',
+      subclassSkillChoices: { 'Investigator:Empiricism': 'Lore', 'Investigator:Empiricism:lore': 'Sailing Lore',
+        'Investigator:Esoterica': 'Religion' } }
+    expect(subclassSkillChoice(c, [])?.options).toContain('Lore')
+    expect(subclassSkillGrants(c, [])).toEqual(['Sailing Lore'])
+    expect(subclassSkillGrants({ ...c, subclass: 'Esoterica' }, [])).toEqual(['Religion'])
+    expect(subclassSkillGrants({ ...c, subclass: 'Forensic Medicine' }, [])).toEqual(['Medicine'])
+    expect(subclassSkillGrants({ ...c, subclassSkillChoices: { 'Investigator:Empiricism': 'Athletics' } }, [])).toEqual([])
+    expect(subclassSkillGrants({ ...c, className: 'Swashbuckler', subclass: 'Wit' }, [])).toEqual(['Diplomacy'])
+  })
+
+  it('uses catalog bloodline, patron and mystery skills and handles selected exemplar and Lore', () => {
+    const options = [
+      entry('subclass', 'Draconic', { class: 'Sorcerer', skill: 'Intimidation' }),
+      entry('subclass', 'Imperial', { class: 'Sorcerer', skill: 'Arcana, Society' }),
+      entry('subclass', 'Lore', { class: 'Oracle', skill: 'Occultism' }),
+      entry('subclass', 'The Inscribed One', { class: 'Witch', skill: 'Arcana' }),
+    ]
+    const c = { ...base, background: undefined, className: 'Sorcerer', subclass: 'Draconic',
+      subclassSkillChoices: { 'Sorcerer:Draconic': 'Primal', 'Oracle:Lore': 'Sailing Lore' } }
+    expect(subclassSkillGrants(c, options)).toEqual(['Intimidation', 'Nature'])
+    expect(subclassSkillGrants({ ...c, subclass: 'Imperial' }, options)).toEqual(['Arcana', 'Society'])
+    expect(subclassSkillGrants({ ...c, className: 'Witch', subclass: 'The Inscribed One' }, options)).toEqual(['Arcana'])
+    const oracle = { ...c, className: 'Oracle', subclass: 'Lore', level: 7 }
+    const previous = getSettings()
+    try {
+      updateSettings({ autoClassSkills: false, autoLores: false })
+      expect(ranksAt(oracle, options)).toMatchObject({ Occultism: 1, 'Sailing Lore': 1 })
+      updateSettings({ autoLores: true })
+      expect(ranksAt(oracle, options)['Sailing Lore']).toBe(3)
+      updateSettings({ autoLores: false, autoClassSkills: true })
+      expect(ranksAt(oracle, options)['Sailing Lore']).toBe(3)
+    } finally { updateSettings(previous) }
+  })
+
+  it('makes all Starfinder subclass skills available only to eligible systems', () => {
+    const expected: Record<string, string[]> = {
+      Envoy: ['Athletics', 'Stealth', 'Acrobatics', 'Performance', 'Computers', 'Medicine'],
+      Mystic: ['Occultism', 'Nature', 'Medicine', 'Performance', 'Stealth'],
+      Operative: ['Deception', 'Computers', 'Acrobatics', 'Stealth', 'Athletics'],
+      Witchwarper: ['Computers', 'Deception', 'Society', 'Piloting'],
+    }
+    for (const [className, skills] of Object.entries(expected)) {
+      const sf = { ...base, systems: ['sf2e'] as Character['systems'], className }
+      const options = subclassOptions(sf, [])
+      expect(options.map(option => option.data.skill).sort()).toEqual(skills.sort())
+      for (const option of options) {
+        expect(subclassSkillGrants({ ...sf, subclass: option.name }, [])).toEqual([option.data.skill])
+      }
+      expect(subclassOptions({ ...sf, systems: ['pf2e'] }, [])).toEqual([])
+    }
+  })
+
+  it('replaces overlapping subclass training without consuming regular choices', () => {
+    const klass = entry('class', 'Investigator', { skill_proficiency: 'Trained in Society, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' })
+    const background = entry('background', 'Doctor', { skill: 'Medicine' })
+    const c = { ...base, background: 'Doctor', className: 'Investigator', subclass: 'Forensic Medicine', skillPicks: ['Medicine'] }
+    expect(ranksAt(c, [klass, background]).Medicine).toBe(1)
+    expect(additionalSkillCount(c, [klass, background])).toBe(5)
+    expect(skillRankBudget(c, [klass, background]).trained).toBe(5)
+    expect(additionalSkillCount({ ...c, subclass: 'Interrogation' }, [klass, background])).toBe(4)
+  })
+
+  it('normalizes remastered Untamed order and corrects Flame and Leaf skills', () => {
+    const druid = { ...base, background: undefined, className: 'Druid', order: 'Untamed' }
+    expect(subclassSkillGrants(druid, [])).toEqual(['Intimidation'])
+    expect(classLabel(druid)).toBe('Druid of the Untamed Order')
+    expect(focusSpells(druid, []).spells.map(spell => spell.name)).toContain('Untamed Shift')
+    expect(availableOrders(druid)).not.toContain('Wild')
+    expect(subclassSkillGrants({ ...druid, order: 'Flame' }, [])).toEqual(['Acrobatics'])
+    expect(subclassSkillGrants({ ...druid, order: 'Leaf' }, [])).toEqual(['Diplomacy'])
+  })
+})
 
 it('limits advanced domains to eligible initial choices available at the feat level', () => {
   const deity = entry('deity', 'Gozreh', { domain_primary: 'Air, Nature, Travel, Water, water', domain_alternate: 'Fire' })

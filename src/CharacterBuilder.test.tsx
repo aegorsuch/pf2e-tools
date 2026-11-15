@@ -13,6 +13,21 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
+it('shows persisted subclass choices and Starfinder subclass pickers', () => {
+  const c: Character = { id: 'choices', systems: ['pf2e'], name: 'Test', level: 1, className: 'Investigator', subclass: 'Empiricism',
+    subclassSkillChoices: { 'Investigator:Empiricism': 'Lore', 'Investigator:Empiricism:lore': 'Sailing Lore' },
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  content.entries = []
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Methodology skill"')
+  expect(markup).toContain('aria-label="Methodology skill specialty"')
+  expect(markup).toContain('value="Sailing"')
+  const sf = renderToStaticMarkup(<CharacterBuilder character={{ ...c, systems: ['sf2e'], className: 'Envoy', subclass: 'Guns Blazing' }} onClose={() => {}} />)
+  expect(sf).toContain('aria-label="Leadership style"')
+  expect(sf).toContain('Guns Blazing')
+})
+
 it('shows Free Heart background selection in Background only while the feat is active', () => {
   const background: ContentEntry = { id: 'performer', kind: 'background', name: 'Performer', systems: ['pf2e'],
     source: 'official', level: 0, traits: [], description: 'Traveling performer.', data: { skill: 'Performance', feat: 'Fascinating Performance' }, effects: [], updatedAt: 0 }

@@ -12,6 +12,7 @@ import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { minorMagicSpells } from './minorMagic'
+import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -384,11 +385,12 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (feat.name !== 'Order Explorer') continue
     const identity = feat.slot ?? `unslotted-${unslottedExplorer++}`
     const level = featTakenLevel(feat)
-    if (c.className !== 'Druid' || level > c.level || !feat.choice || !Object.hasOwn(DRUID_ORDERS, feat.choice)) continue
+    const order = normalizeDruidOrder(feat.choice)
+    if (c.className !== 'Druid' || level > c.level || !order || !Object.hasOwn(DRUID_ORDERS, order)) continue
     const group = `class:${level}`
     if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
     slots.push({ key: `class:1:order-explorer:${identity}`, category: 'class', level, maxFeatLevel: 1,
-      grantedBy: 'Order Explorer', grantedOrder: feat.choice })
+      grantedBy: 'Order Explorer', grantedOrder: order })
   }
   for (const feat of c.feats) {
     if (feat.name !== 'Exceptional Artisan' || !feat.choice || featTakenLevel(feat) > c.level) continue
@@ -1303,11 +1305,11 @@ const rankFromText = (v: unknown) => {
 export function classSkills(klass?: ContentEntry) {
   const lines = tokensLoose(klass?.data.skill_proficiency)
   const fixed = lines.flatMap((l) => {
-    const m = /^trained in (?!a number|one (?:or more|of|skill determined)|your choice)(.+)$/i.exec(l)
+    const m = /^trained in (?!a number|(?:one|two|three) (?:or more|of|skills? determined|skills? based)|your choice)(.+)$/i.exec(l)
     return m ? m[1].split(/,| and /).map((s) => s.trim()).filter(Boolean) : []
   })
   const choices = lines.flatMap((l) => {
-    const m = /^trained in (?:your choice of|one of) (.+)$/i.exec(l)
+    const m = /^trained in (?:your choice of\s+|one of\s+(?:the following skills of your choice:\s*)?)(.+)$/i.exec(l)
     return m ? [m[1].split(/,| or /).map((x) => x.trim()).filter(Boolean)] : []
   })[0] ?? []
   const extra = lines.map((l) => /additional skills? equal to (\d+)/i.exec(l)).find(Boolean)
@@ -1319,7 +1321,72 @@ const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/,\s(?=Trai
 
 // The skill each druidic order grants
 export const DRUID_ORDERS: Record<string, string> = {
-  Animal: 'Athletics', Flame: 'Crafting', Leaf: 'Nature', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Medicine', Wild: 'Intimidation',
+  Animal: 'Athletics', Flame: 'Acrobatics', Leaf: 'Diplomacy', Stone: 'Crafting', Storm: 'Acrobatics', Wave: 'Medicine', Wild: 'Intimidation',
+}
+
+function normalizeDruidOrder(order?: string) {
+  return order === 'Untamed' ? 'Wild' : order
+}
+
+const INVESTIGATOR_SKILLS: Record<string, string> = {
+  'Alchemical Sciences': 'Crafting', 'Forensic Medicine': 'Medicine', Interrogation: 'Diplomacy',
+}
+const SWASHBUCKLER_SKILLS: Record<string, string> = {
+  Battledancer: 'Performance', Braggart: 'Intimidation', Fencer: 'Deception',
+  Gymnast: 'Athletics', Rascal: 'Thievery', Wit: 'Diplomacy',
+}
+const DRACONIC_SKILLS: Record<string, string> = {
+  Arcane: 'Arcana', Divine: 'Religion', Occult: 'Occultism', Primal: 'Nature',
+}
+
+export function subclassSkillChoice(c: Character, entries: ContentEntry[]) {
+  const subclass = selectedSubclass(c, entries)
+  const key = `${c.className}:${subclass}`
+  if (c.className === 'Investigator' && subclass === 'Empiricism') {
+    return { key, label: 'Methodology skill', options: [...statDefs(c).filter(stat => stat.kind === 'skill' && stat.ability === 'int').map(stat => stat.name), 'Lore'].sort() }
+  }
+  if (c.className === 'Investigator' && subclass === 'Esoterica') {
+    return { key, label: 'Methodology skill', options: ['Occultism', 'Religion'] }
+  }
+  if (c.className === 'Sorcerer' && subclass === 'Draconic') {
+    return { key, label: 'Draconic exemplar', options: Object.keys(DRACONIC_SKILLS).sort() }
+  }
+  if (c.className === 'Oracle' && subclass === 'Lore') {
+    return { key, label: 'Mystery Lore', options: [] }
+  }
+}
+
+export function subclassSkillGrants(c: Character, entries: ContentEntry[]): string[] {
+  if (c.level < 1 || !c.className) return []
+  const subclass = selectedSubclass(c, entries)
+  if (!subclass) return []
+  if (c.className === 'Druid') return DRUID_ORDERS[subclass] ? [DRUID_ORDERS[subclass]] : []
+  const option = subclassOptions(c, entries).find(entry => entry.name === subclass)
+  const selected = c.subclassSkillChoices?.[`${c.className}:${subclass}`]
+  if (c.className === 'Investigator') {
+    const skill = INVESTIGATOR_SKILLS[subclass]
+    if (skill) return [skill]
+    if (subclass === 'Esoterica' && selected && ['Occultism', 'Religion'].includes(selected)) return [selected]
+    if (subclass === 'Empiricism' && selected) {
+      if (selected === 'Lore') {
+        const lore = c.subclassSkillChoices?.[`${c.className}:${subclass}:lore`]?.trim()
+        return lore && / lore$/i.test(lore) ? [lore] : []
+      }
+      if (statDefs(c).some(stat => stat.kind === 'skill' && stat.ability === 'int' && stat.name === selected)) return [selected]
+    }
+    return []
+  }
+  if (c.className === 'Swashbuckler') return SWASHBUCKLER_SKILLS[subclass] ? [SWASHBUCKLER_SKILLS[subclass]] : []
+  if (['Witch', 'Oracle', 'Sorcerer', 'Envoy', 'Mystic', 'Operative', 'Witchwarper'].includes(c.className)) {
+    const skills = tokens(option?.data.skill)
+    if (c.className === 'Sorcerer' && subclass === 'Draconic' && selected && DRACONIC_SKILLS[selected]) skills.push(DRACONIC_SKILLS[selected])
+    if (c.className === 'Oracle' && subclass === 'Lore') {
+      const lore = selected?.trim()
+      if (lore && / lore$/i.test(lore)) skills.push(lore)
+    }
+    return skills
+  }
+  return []
 }
 
 // The initial order spell (a focus spell) each druidic order grants
@@ -1329,8 +1396,11 @@ export const ORDER_SPELLS: Record<string, string> = {
 
 // Orders picked with Order Explorer that an Order Magic feat can still take the spell of
 export const orderMagicOptions = (c: Character, exceptIndex = -1) => {
-  const used = new Set(c.feats.flatMap((f, i) => f.name === 'Order Magic' && i !== exceptIndex && f.choice ? [f.choice] : []))
-  return c.feats.flatMap((f) => f.name === 'Order Explorer' && f.choice && !used.has(f.choice) ? [f.choice] : [])
+  const used = new Set(c.feats.flatMap((f, i) => f.name === 'Order Magic' && i !== exceptIndex && f.choice ? [normalizeDruidOrder(f.choice)] : []))
+  return c.feats.flatMap((f) => {
+    const order = normalizeDruidOrder(f.choice)
+    return f.name === 'Order Explorer' && order && !used.has(order) ? [order] : []
+  })
 }
 
 const spellNameCache = new WeakMap<ContentEntry[], Map<string, string>>()
@@ -1355,10 +1425,13 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   if (champion && c.devotionSpell && devotionAvailable) {
     add(c.devotionSpell, 'Devotion Spells')
   }
-  const orders = c.className === 'Druid' ? [c.order, ...active.flatMap((f) => f.name === 'Order Explorer' ? [f.choice] : [])] : []
-  const addOrder = (order?: string) => { if (order && ORDER_SPELLS[order]) add(ORDER_SPELLS[order], `${order} Order`) }
+  const orders = c.className === 'Druid' ? [selectedSubclass(c, entries), ...active.flatMap((f) => f.name === 'Order Explorer' ? [normalizeDruidOrder(f.choice)] : [])] : []
+  const addOrder = (raw?: string) => {
+    const order = normalizeDruidOrder(raw)
+    if (order && ORDER_SPELLS[order]) add(ORDER_SPELLS[order], `${order} Order`)
+  }
   if (c.className === 'Druid') {
-    addOrder(c.order)
+    addOrder(selectedSubclass(c, entries))
     for (const f of active) if (f.name === 'Order Magic') addOrder(f.choice)
   }
   let points = 0
@@ -1396,7 +1469,7 @@ export function championDevotionOptions(c: Character, entries: ContentEntry[]): 
 
 // Orders not yet used by the main order or another Order Explorer feat
 export function availableOrders(c: Character, exceptIndex = -1) {
-  const used = new Set([c.order, ...c.feats.flatMap((f, i) => f.name === 'Order Explorer' && i !== exceptIndex ? [f.choice] : [])])
+  const used = new Set([selectedSubclass(c), ...c.feats.flatMap((f, i) => f.name === 'Order Explorer' && i !== exceptIndex ? [normalizeDruidOrder(f.choice)] : [])])
   return Object.keys(DRUID_ORDERS).filter((o) => !used.has(o))
 }
 
@@ -1404,9 +1477,11 @@ export function availableOrders(c: Character, exceptIndex = -1) {
 // (autoClassSkills) also ranks them up at every skill increase the level cap allows, without using the character's own increases.
 export function autoClassSkills(c: Character, entries: ContentEntry[]) {
   const { fixed, choices } = classSkills(byName(entries, 'class', c.className))
-  const order = c.className === 'Druid' && c.order ? DRUID_ORDERS[c.order] : undefined
   const explored = c.className === 'Druid' && getSettings().orderExplorerSkills
-    ? activeFeatsNamed(c, 'Order Explorer').flatMap(feat => feat.choice && DRUID_ORDERS[feat.choice] ? [DRUID_ORDERS[feat.choice]] : [])
+    ? activeFeatsNamed(c, 'Order Explorer').flatMap(feat => {
+      const order = normalizeDruidOrder(feat.choice)
+      return order && DRUID_ORDERS[order] ? [DRUID_ORDERS[order]] : []
+    })
     : []
   const picked = c.classSkill && choices.includes(c.classSkill) ? c.classSkill : undefined
   const rackets = rogueRackets(c, entries)
@@ -1418,12 +1493,12 @@ export function autoClassSkills(c: Character, entries: ContentEntry[]) {
     ...(rackets.includes('Scoundrel') ? ['Deception', 'Diplomacy'] : []),
     ...(rackets.includes('Mastermind') ? ['Society', ...(extra && SCRAPPER_SKILLS.includes(extra) ? [extra] : [])] : []),
   ]
-  return [...new Set([...fixed, ...(picked ? [picked] : []), ...(order ? [order] : []), ...explored, ...divine, ...racketSkills])]
+  return [...new Set([...fixed, ...(picked ? [picked] : []), ...subclassSkillGrants(c, entries), ...explored, ...divine, ...racketSkills])]
 }
 
 export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const saved = c.className === 'Druid' ? c.order : c.subclass
-  if (saved !== undefined) return saved
+  if (saved !== undefined) return c.className === 'Druid' ? normalizeDruidOrder(saved) : saved
   const raw = c.imported?.raw
   const build = raw && typeof raw === 'object' && 'build' in raw ? raw.build : raw
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
@@ -1432,8 +1507,9 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
     ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Multifarious Muse'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
-    const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []))
-    return [...names].find((order) => Object.hasOwn(DRUID_ORDERS, order) && !explored.has(order))
+    const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [normalizeDruidOrder(feat.choice)] : []))
+    return [...names].map(order => normalizeDruidOrder(order)!)
+      .find((order) => Object.hasOwn(DRUID_ORDERS, order) && !explored.has(order))
   }
   return subclassOptions(c, entries).find((entry) => names.has(entry.name))?.name
 }
@@ -1443,7 +1519,7 @@ export function classLabel(c: Character, entries: ContentEntry[] = []) {
   const subclass = selectedSubclass(c, entries)
   if (!subclass) return c.className
   if (c.className === 'Champion') return `Champion of ${subclass}`
-  if (c.className === 'Druid') return `Druid of the ${subclass} Order`
+  if (c.className === 'Druid') return `Druid of the ${subclass === 'Wild' ? 'Untamed' : subclass} Order`
   if (c.className === 'Barbarian') return `${subclass.replace(/ Instinct$/, '')} Instinct Barbarian`
   if (c.className === 'Ranger') return `${subclass.replace(/ Edge$/, '')} Edge Ranger`
   if (c.className === 'Rogue') return `${subclass.replace(/ Racket$/, '')} Racket Rogue`
@@ -1451,9 +1527,23 @@ export function classLabel(c: Character, entries: ContentEntry[] = []) {
   return `${subclass} ${c.className}`
 }
 
+const subclassOptionsCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 export function subclassOptions(c: Character, entries: ContentEntry[]) {
-  return entries.filter((entry) => entry.kind === 'subclass' && !entry.deleted && entry.data.class === c.className)
+  let cache = subclassOptionsCache.get(entries)
+  if (!cache) {
+    cache = new Map()
+    subclassOptionsCache.set(entries, cache)
+  }
+  const key = `${c.className ?? ''}\0${[...c.systems].sort().join(',')}`
+  const cached = cache.get(key)
+  if (cached) return cached
+  const options = entries.filter((entry) => entry.kind === 'subclass' && !entry.deleted && entry.data.class === c.className
+    && entry.systems.some(system => c.systems.includes(system)))
+  const result = [...options, ...(c.systems.includes('sf2e') ? STARFINDER_SUBCLASSES.filter(entry =>
+    entry.data.class === c.className && !options.some(existing => existing.name === entry.name && existing.systems.includes('sf2e'))) : [])]
     .sort((a, b) => a.name.localeCompare(b.name))
+  cache.set(key, result)
+  return result
 }
 
 export const backgroundSkills = (bg?: ContentEntry) => tokens(bg?.data.skill)
@@ -1792,7 +1882,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
-  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries)] : []
+  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
   if (loreUp) lores.push(...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries))
     .filter(name => /lore$/i.test(name)))
   const additionalLores = featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
@@ -3160,6 +3250,16 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
     + (rogueRackets(c, entries).includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill)
       .filter(skill => [...classSkills(byName(entries, 'class', c.className)).fixed,
         ...backgroundSkills(byName(entries, 'background', c.background))].includes(skill)).length : 0)
+    + (() => {
+      const klass = classSkills(byName(entries, 'class', c.className))
+      const prior = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : []),
+        ...backgroundSkills(byName(entries, 'background', c.background))])
+      return subclassSkillGrants(c, entries).reduce((count, skill) => {
+        const duplicate = prior.has(skill)
+        prior.add(skill)
+        return count + Number(duplicate)
+      }, 0)
+    })()
 
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {

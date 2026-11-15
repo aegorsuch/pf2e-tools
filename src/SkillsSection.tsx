@@ -56,7 +56,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
   const extraBackgroundSkills = editingSkills ? backgroundSkills(freeHeartBackground(c, entries)) : []
   const ranks = ranksAt(c, entries)
-  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
+  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
