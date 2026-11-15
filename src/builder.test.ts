@@ -95,6 +95,56 @@ it('grants Cyborg the cybernetic Test-Subject benefits only while the house rule
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
+it('applies Cyborg frame training, granted feats, and selected resistance', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg', className: 'Operative', background: undefined, level: 9,
+    feats: [{ name: 'X-hat Firewalker Frame', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Deflective Plating', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Fire' },
+      { name: 'Data Retrieval', type: 'Ancestry Feat', level: 5, slot: 'ancestry:9:0' }] }
+  const operative = { ...entry('class', 'Operative', { skill_proficiency: 'Trained in Computers, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' }), systems: ['sf2e' as const] }
+  expect(additionalSkillCount(c, [operative])).toBe(4)
+  expect(automaticFeatGrants(c, [operative])).toEqual(expect.arrayContaining([
+    { name: 'Phreaker', source: 'X-hat Firewalker Frame', level: 1 },
+    { name: 'Open-Source Research', source: 'Data Retrieval', level: 9 },
+  ]))
+  expect(resistances(c, [])).toContainEqual({ damage: 'Fire', value: 4, source: 'Deflective Plating' })
+  expect(resistances({ ...c, feats: c.feats.map(feat => feat.name === 'Deflective Plating' ? { ...feat, choice: 'Invalid' } : feat) }, []))
+    .not.toContainEqual(expect.objectContaining({ source: 'Deflective Plating' }))
+  const fleet: Character = { ...c, feats: [{ name: 'Gg-os Frame', type: 'Ancestry Feat', level: 1 }] }
+  expect(speed(fleet, [])).toBe(30)
+  expect(speed({ ...fleet, feats: [...fleet.feats, { name: 'Fleet', type: 'General Feat', level: 1 }] }, [])).toBe(30)
+  const fist = { id: 'fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
+  const pistons: Character = { ...c, feats: [{ name: 'Hydraulic Pistons', type: 'Ancestry Feat', level: 5 }] }
+  expect(weaponAttack(pistons, [], fist)).toMatchObject({ traits: expect.arrayContaining(['Boost d4', 'Tech']), criticalSpecialization: true })
+  expect(automaticFeatGrants(pistons, [])).toContainEqual({ name: 'Quick Jump', source: 'Hydraulic Pistons', level: 5 })
+})
+
+it('applies sensory upgrades and ancestry-specific burrowing', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 9, feats: [
+    { name: 'Adaptive Visual Receptors', type: 'Ancestry Feat', level: 1 },
+    { name: 'Enhanced Olfactory System', type: 'Ancestry Feat', level: 1 },
+    { name: 'Enhanced Senses', type: 'Ancestry Feat', level: 1 },
+    { name: 'Burrowing Specialist', type: 'Ancestry Feat', level: 9 },
+  ] }
+  const ancestry = { ...entry('ancestry', 'Ysoki', { vision: 'Low-Light Vision' }), systems: ['sf2e' as const] }
+  const burrow = { ...entry('feat', 'Burrowing Specialist', {}, 9, ['Ysoki']), systems: ['sf2e' as const], description: 'Option(s): 10 feet' }
+  expect(senses(c, [ancestry])).toEqual(expect.arrayContaining([
+    { value: 'Darkvision', source: 'Adaptive Visual Receptors' },
+    { value: 'Scent (imprecise) 60 feet', source: 'Enhanced Olfactory System, Enhanced Senses' },
+  ]))
+  expect(movementSpeeds(c, [ancestry, burrow])).toContainEqual({ name: 'Burrow', feet: 10, source: 'Burrowing Specialist' })
+  expect(movementSpeeds({ ...c, level: 8 }, [ancestry, burrow]).some(speed => speed.name === 'Burrow')).toBe(false)
+})
+
+it('grants Intimidating Glare instead of a replacement skill when already trained', () => {
+  const background = entry('background', 'Guard', { skill: 'Intimidation' })
+  const c: Character = { ...base, systems: ['sf2e'], background: 'Guard', className: undefined,
+    feats: [{ name: 'Pick On Someone My Size', type: 'Ancestry Feat', level: 1 }] }
+  expect(automaticFeatGrants(c, [background])).toContainEqual({ name: 'Intimidating Glare', source: 'Pick On Someone My Size', level: 1 })
+  expect(additionalSkillCount(c, [background])).toBe(0)
+  expect(ranksAt({ ...c, background: undefined }, []).Intimidation).toBe(1)
+  expect(automaticFeatGrants({ ...c, background: undefined }, [])).not.toContainEqual(expect.objectContaining({ name: 'Intimidating Glare' }))
+})
+
 it('grants Ysoki lore, skills and replacement training in normal skill selections', () => {
   const ancestral = { ...entry('feat', 'Ancestral Skills', {}, 1, ['Ysoki']), systems: ['sf2e' as const], description: 'Option(s): Society, Stealth' }
   const background = entry('background', 'Sneak', { skill: 'Stealth, Deception' })

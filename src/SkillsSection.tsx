@@ -195,6 +195,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Tinkering Fingers" note="Repair without a toolkit without the penalty; +1 circumstance to Repair checks with a repair toolkit." />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
+          {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}
+            source="Pick On Someone My Size" note="+1 circumstance to Demoralize a larger creature that attacked an ally since the start of your last turn." />}
+          {s.name === 'Perception' && !!activeFeatsNamed(c, 'Enhanced Olfactory System').length && <SourceNote inlineSource={false}
+            source="Enhanced Olfactory System" note="+2 circumstance to Seek a creature or object within scent range." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}

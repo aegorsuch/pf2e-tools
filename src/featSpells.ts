@@ -149,6 +149,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Mortal Heart') {
+      const spell = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Moment of Renewal'
+        && entry.systems.some(system => c.systems.includes(system)))
+      if (spell) out.push({ entry: spell, source: feat.name,
+        rule: { kind: 'innate', spells: [spell.name], tradition: 'primal', frequency: 'once per day',
+          condition: 'Up to six living creatures within 100 feet who can hear you, including yourself' },
+        rank: 8, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
     if (feat.name === 'Mask of Power') {
       const warmask = warmaskSource(c)
       const entry = featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)

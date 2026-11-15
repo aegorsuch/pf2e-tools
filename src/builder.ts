@@ -741,6 +741,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.some(feat => /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(feat.name) && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (e.name !== 'Adaptive Visual Receptors' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
@@ -866,6 +867,7 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, name)
   if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
   if (ancestryGrant && index >= 0) {
@@ -1143,7 +1145,10 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
     ? (ranksAt(c, entries).Crafting ?? 0) >= 4 ? 30 : 20 : 10
     : names.has('Speed Boosters') ? overdrive ? 10 : 5 : 0
   const terrainSpeed = terrain?.enhanced && terrain.terrain === 'Plains' ? 10 : 0
-  return [...['Fleet', 'Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
+  const fleet = activeFeatsNamed(c, 'Fleet').length ? 'Fleet'
+    : activeFeatsNamed(c, 'Gg-os Frame').length ? 'Gg-os Frame (Fleet)' : undefined
+  return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
+    ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
     ...(booster >= terrainSpeed && booster > 0 ? [{ source: `${names.has('Hyper Boosters') ? 'Hyper Boosters' : 'Speed Boosters'} (status)`, feet: booster }]
       : terrainSpeed ? [{ source: 'Favored Terrain (Plains; status)', feet: terrainSpeed }] : [])]
 }
@@ -1176,6 +1181,13 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     }
   }
   if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push({ name: 'Swim', feet: 15, source: 'Natural Swimmer' })
+  if (activeFeatsNamed(c, 'Burrowing Specialist').length) {
+    const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === 'Burrowing Specialist'
+      && entry.systems.some(system => c.systems.includes(system))
+      && entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase()))
+    const feet = Number(/Option\(s\):\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])
+    if (feet > 0) movement.push({ name: 'Burrow', feet, source: 'Burrowing Specialist' })
+  }
   if (activeFeatsNamed(c, 'Tree Climber').length && c.ancestry === 'Elf') movement.push({ name: 'Climb', feet: 10, source: 'Tree Climber' })
   if (ragingAthleteBenefits(c, entries)) {
     for (const name of ['Climb', 'Swim']) movement.push({ name, feet: land, source: 'Raging Athlete' })
@@ -1738,6 +1750,9 @@ const ANCESTRY_LORE_GRANTS: Record<string, { skills: string[]; lore: string }> =
 const ANCESTRY_SKILL_ONLY_GRANTS: Record<string, string[]> = {
   'Tinkering Fingers': ['Crafting'],
   'Extended Family': ['Diplomacy'],
+  'X-hat Firewalker Frame': ['Computers'],
+  'Subtle Cyborg': ['Deception'],
+  'Pick On Someone My Size': ['Intimidation'],
 }
 function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) {
   if (ANCESTRY_LORE_GRANTS[name]) return ANCESTRY_LORE_GRANTS[name]
@@ -1772,7 +1787,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     const simpleSkills = feat.name === 'Dwarven Lore' ? undefined
       : ancestryLoreGrant(c, entries, feat.name)?.skills ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
     if (simpleSkills) {
-      trained.push(...simpleSkills)
+      if (feat.name !== 'Pick On Someone My Size' || !ranks.Intimidation) trained.push(...simpleSkills)
     } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
       const baseSkills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
         : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
@@ -1832,7 +1847,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (testSubjectAdaptation(c) === 'Psychic Augmentation') addVision('Limited Telepathy 30 feet', 'Test-Subject Ysoki')
   const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
-  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight']
+  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors']
   const passive = { ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level && !explicitVision.includes(feat.name)) }
   for (const grant of featData(passive, entries, 'grants_vision')) addVision(grant.value, grant.source)
   if (activeFeatsNamed(c, 'Defy the Darkness').length) {
@@ -1853,6 +1868,9 @@ export function senses(c: Character, entries: ContentEntry[]) {
   if (activeFeatsNamed(c, 'Superior Sight').length && !hasVision('darkvision')) {
     addVision(hasVision('low-light vision') ? 'Darkvision' : 'Low-Light Vision', 'Superior Sight')
   }
+  for (const _feat of activeFeatsNamed(c, 'Adaptive Visual Receptors').slice(0, 2)) {
+    if (!hasVision('darkvision')) addVision(hasVision('low-light vision') ? 'Darkvision' : 'Low-Light Vision', 'Adaptive Visual Receptors')
+  }
   const addScent = (feet: number, source: string) => {
     const existing = out.find((sense) => /^Scent \(imprecise\) \d+ feet$/i.test(sense.value))
     if (existing && Number(/\d+/.exec(existing.value)?.[0]) >= feet) return
@@ -1861,6 +1879,14 @@ export function senses(c: Character, entries: ContentEntry[]) {
     else out.push(grant)
   }
   if (isSpellActive(c, entries, 'Keen Smell')) addScent(c.level >= 5 ? 60 : 30, 'Keen Smell')
+  if (activeFeatsNamed(c, 'Enhanced Olfactory System').length) addScent(30, 'Enhanced Olfactory System')
+  if (activeFeatsNamed(c, 'Enhanced Senses').length && c.ancestry === 'Ysoki') {
+    const scent = out.find(sense => /^Scent \(imprecise\) \d+ feet$/i.test(sense.value))
+    if (scent) {
+      const feet = Number(/\d+/.exec(scent.value)?.[0])
+      Object.assign(scent, { value: `Scent (imprecise) ${feet + 30} feet`, source: `${scent.source}, Enhanced Senses` })
+    }
+  }
   if (c.raging) {
     if (activeFeatsNamed(c, 'Acute Vision').length) addVision('Darkvision', 'Acute Vision')
     if (activeFeatsNamed(c, 'Acute Scent').length) addScent(30, 'Acute Scent')
@@ -1908,6 +1934,14 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     if (lore && featTakenLevel(feat) <= c.level) grants.push({
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
+  }
+  for (const [source, name] of [['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
+    ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump']]) {
+    for (const feat of activeFeatsNamed(c, source)) grants.push({ name, source, level: featTakenLevel(feat) })
+  }
+  for (const feat of activeFeatsNamed(c, 'Pick On Someone My Size')) {
+    if (ancestrySkillBefore(c, entries, c.feats.indexOf(feat)).Intimidation)
+      grants.push({ name: 'Intimidating Glare', source: feat.name, level: featTakenLevel(feat) })
   }
   if (c.systems.includes('sf2e') && c.ancestry === 'Orc' && activeFeatsNamed(c, 'Rugged Survivalist').length) {
     grants.push({ name: 'Forager', source: 'Rugged Survivalist', level: Math.min(...activeFeatsNamed(c, 'Rugged Survivalist').map(featTakenLevel)) })
@@ -2327,7 +2361,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating'].includes(feat.name))
       .map((feat) => byName(entries, 'feat', feat.name)),
     ...c.equipment.map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
@@ -2348,6 +2382,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Radiation Resistant').length) {
     out.push({ damage: 'poison (radiation only)', value: c.level, source: 'Radiation Resistant' })
+  }
+  const plating = activeFeatsNamed(c, 'Deflective Plating')[0]?.choice
+  if (plating && featChoiceOptions('Deflective Plating', c, entries, '')?.includes(plating)) {
+    out.push({ damage: plating, value: Math.floor(c.level / 2), source: 'Deflective Plating' })
   }
   for (const e of sources) {
     for (const f of e.effects) if (f.type === 'resistance') out.push({ damage: f.damage, value: f.value, source: e.name })
@@ -3300,12 +3338,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
   entry = weaponWithModifications(c, w, entry)
+  const hydraulicFist = !!entry && /^(?:iron )?fists?$/i.test(entry.name) && !!activeFeatsNamed(c, 'Hydraulic Pistons').length
   if (entry && !isRanged(entry)) {
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
     const added = [
       ...(getSettings().gauntletFinesse && /^(?:spiked )?gauntlet$/i.test(entry.name.trim()) ? ['Finesse'] : []),
       ...(/\bgauntlets?\b/i.test(entry.name) && c.feats.some(feat => /^Iron Fists?$/i.test(feat.name)
         && featTakenLevel(feat) <= c.level) ? ['Shove'] : []),
+      ...(hydraulicFist ? ['Boost d4', 'Tech'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
   }
@@ -3379,7 +3419,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])],
-    criticalSpecialization: isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
+    criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
     ability,
     mod,
     prof,
@@ -3413,6 +3453,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       const ancestry = ancestrySkillGrant(c, feat.name)
       const warmask = feat.name === 'Orc Warmask' ? warmaskSource(c) : undefined
       const named = ancestry ? [ancestry.skill]
+        : feat.name === 'Pick On Someone My Size' ? []
         : feat.name === 'Ancestral Skills' ? ancestralSkills({ ...c, feats: [feat] }, entries)
         : (feat.name === 'Dwarven Lore' ? undefined : ancestryLoreGrant(c, entries, feat.name)?.skills) ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
         ?? (feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']

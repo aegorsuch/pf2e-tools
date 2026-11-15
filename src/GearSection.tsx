@@ -63,6 +63,8 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const granted = [
     ...(testSubjectAdaptation(c) === 'Cybernetic Augmentation' ? [{ name: 'Datajack', source: 'Test-Subject Ysoki' }] : []),
     ...(activeFeatsNamed(c, 'Rat Retinal HUD').length ? [{ name: 'Autorecognition Lens', source: 'Rat Retinal HUD' }] : []),
+    ...(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? [{ name: 'Dermal Plating (Commercial)', source: 'Thresher Ko-1 Frame' }] : []),
+    ...(activeFeatsNamed(c, 'Hardpoint').length ? [{ name: 'Hideaway Limb (Tactical)', source: 'Hardpoint' }] : []),
   ]
   const limit = augmentationLimit(c)
   const standardUsed = installed.filter(item => item.slot === 'standard').length

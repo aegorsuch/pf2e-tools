@@ -24,6 +24,16 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('grants Mortal Heart its modified eighth-rank innate spell once daily', () => {
+  const renewal = entry('Moment of Renewal', 'spell')
+  const c: Character = { ...base, level: 17, feats: [taken('Mortal Heart', 17)] }
+  expect(grantedFeatSpells(c, [renewal])).toMatchObject([{
+    entry: renewal, rank: 8, rule: { tradition: 'primal', frequency: 'once per day',
+      condition: 'Up to six living creatures within 100 feet who can hear you, including yourself' },
+  }])
+  expect(grantedFeatSpells({ ...c, level: 16 }, [renewal])).toEqual([])
+})
+
 it("grants Heroism from Heroes' Call as a third-rank daily innate occult spell", () => {
   const source = feat("Heroes' Call", 'The songs of ancient heroes echo through your mind. You gain [_heroism_](Spells.aspx?ID=149) as a 3rd-level innate occult spell that you can cast once per day.', 9)
   const heroism = entry('Heroism', 'spell', { duration: '10 minutes' })
