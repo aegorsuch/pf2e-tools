@@ -793,7 +793,7 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat: string }> = {
   'Broken Hand Technique': { skill: 'Athletics', feat: 'Titan Wrestler' },
   Spelunker: { skill: 'Acrobatics', feat: 'Quick Squeeze' },
 }
-const SKILLS_TAB_ANCESTRY_GRANTS = ['Cite the Deep Lore', "Diplomat's Facade"]
+const SKILLS_TAB_ANCESTRY_GRANTS = ['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker']
 
 function ancestrySkillGrant(c: Character, name: string) {
   if (!c.systems.includes('sf2e')) return undefined
@@ -1640,6 +1640,44 @@ export function loreReplacementChoices(c: Character, entries: ContentEntry[], in
   }))
 }
 
+export function normalizeConditionalSkillChoices(c: Character, entries: ContentEntry[]): Character {
+  const picks = [...(c.skillPicks ?? [])]
+  const lores = [...c.lores]
+  let changed = false
+  const add = (skill: string) => {
+    if (!picks.includes(skill)) picks.push(skill)
+    if (/\s+lore$/i.test(skill) && !lores.some(lore => lore.name === skill)) lores.push({ name: skill, rank: 0 })
+    changed = true
+  }
+  const feats = c.feats.map((feat, index) => {
+    if (featTakenLevel(feat) > c.level) return feat
+    if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
+      const replacements = [...(feat.replacements ?? [])]
+      loreReplacementChoices(c, entries, index).forEach((row, i) => {
+        if (row.value && row.options.includes(row.value)) {
+          add(row.value)
+          replacements[i] = ''
+        }
+      })
+      while (replacements.length && !replacements[replacements.length - 1]) replacements.pop()
+      return replacements.length === (feat.replacements?.length ?? 0) && replacements.every((value, i) => value === feat.replacements?.[i])
+        ? feat : { ...feat, replacements: replacements.length ? replacements : undefined }
+    }
+    if (![...SKILLS_TAB_ANCESTRY_GRANTS, 'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(feat.name)
+      || !feat.choice || !featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) return feat
+    add(feat.choice)
+    return { ...feat, choice: undefined }
+  })
+  const warmaskIndex = c.feats.findIndex(feat => feat.name === 'Orc Warmask' && featTakenLevel(feat) <= c.level)
+  let warmask = c.warmask
+  const alternate = warmask?.alternateSkill
+  if (alternate && warmaskAlternateSkills(c, entries, warmaskIndex).includes(alternate)) {
+    add(alternate)
+    warmask = { ...warmask, alternateSkill: undefined }
+  }
+  return changed ? { ...c, feats, warmask, skillPicks: picks, lores } : c
+}
+
 const ancestralSkillCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function ancestralSkills(c: Character, entries: ContentEntry[]) {
   if (!c.ancestry || !activeFeatsNamed(c, 'Ancestral Skills').length) return []
@@ -1680,17 +1718,18 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
           const replacement = feat.replacements?.[replacementIndex]
           const allowed = loreReplacementChoices(c, entries, index)[replacementIndex]?.options ?? []
           if (replacement && allowed.includes(replacement)) trained.push(replacement)
+          else if (!replacement) trained.push(skill)
           replacementIndex++
         }
       }
     } else if (feat.name === 'Munitions Crafter' && !(ranks.Crafting ?? 0)) {
       trained.push('Crafting')
     } else if (feat.name === 'Eye for Treasure') {
-      const skill = (ranks.Crafting ?? 0) > 0 ? feat.choice : 'Crafting'
+      const skill = (ranks.Crafting ?? 0) > 0 && feat.choice ? feat.choice : 'Crafting'
       if (skill && skills.has(skill) && !(ranks[skill] ?? 0)) trained.push(skill)
     } else if (feat.name === "Officer's Medical Training") {
-      if (!(ranks.Medicine ?? 0)) trained.push('Medicine')
-      else if (feat.choice && featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) trained.push(feat.choice)
+      if (!(ranks.Medicine ?? 0) || !feat.choice) trained.push('Medicine')
+      else if (featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) trained.push(feat.choice)
     } else if (feat.name === "Stonemason's Eye" && !(ranks.Crafting ?? 0)) trained.push('Crafting')
   })
   if (activeFeatsNamed(c, 'Beast Trainer').length) trained.push('Nature')
@@ -1711,7 +1750,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   for (const feat of activeFeatsNamed(c, 'Shiny')) {
     const without = { ...c, level: Math.min(c.level, featTakenLevel(feat)), feats: c.feats.filter((other) => other !== feat && other.name !== 'Shiny') }
     const already = ranksAt(without, entries).Performance >= 1
-    if (!already) trained.push('Performance')
+    if (!already || !feat.choice) trained.push('Performance')
     else if (feat.choice && skills.has(feat.choice) && !(ranksAt(without, entries)[feat.choice] >= 1)) trained.push(feat.choice)
   }
   return trained
@@ -3263,9 +3302,30 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
     + backgroundSkills(freeHeartBackground(c, entries)).filter(skill => autoClassSkills(c, entries).includes(skill)).length
     + c.feats.reduce((total, feat, index) => {
-      const grant = ancestrySkillGrant(c, feat.name)
-      if (!grant || !SKILLS_TAB_ANCESTRY_GRANTS.includes(feat.name) || feat.choice || featTakenLevel(feat) > c.level) return total
-      return total + Number((ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)[grant.skill] ?? 0) > 0)
+      if (featTakenLevel(feat) > c.level) return total
+      const ancestry = ancestrySkillGrant(c, feat.name)
+      const warmask = feat.name === 'Orc Warmask' ? warmaskSource(c) : undefined
+      const named = ancestry ? [ancestry.skill]
+        : feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
+        : feat.name === 'Clan Lore' ? CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
+        : feat.name === 'Eye for Treasure' ? ['Crafting']
+        : feat.name === "Officer's Medical Training" ? ['Medicine']
+        : feat.name === 'Shiny' ? ['Performance']
+        : warmask ? [warmask.skill] : []
+      if (!named.length) return total
+      const ranks = ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)
+      const replacementChoices = feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore'
+        ? loreReplacementChoices(c, entries, index) : undefined
+      const choices = !replacementChoices && !warmask && feat.choice
+        ? featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) : undefined
+      return total + named.reduce((count, skill) => {
+        if (!(ranks[skill] ?? 0)) return count
+        const row = replacementChoices?.find(choice => choice.skill === skill)
+        const saved = row ? !!row.value && row.options.includes(row.value)
+          : warmask ? !!c.warmask?.alternateSkill && warmaskAlternateSkills(c, entries, index).includes(c.warmask.alternateSkill)
+          : !!feat.choice && !!choices?.includes(feat.choice)
+        return count + Number(!saved)
+      }, 0)
     }, 0)
     + (rogueRackets(c, entries).includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill)
       .filter(skill => [...classSkills(byName(entries, 'class', c.className)).fixed,

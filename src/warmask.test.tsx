@@ -26,7 +26,7 @@ it('grants warmask training and feat, with an alternate when already trained', (
   expect(warmaskAlternateSkills(c, [], 0)).toContain('Nature')
   expect(ranksAt(c, []).Nature).toBe(1)
   expect(ranksAt({ ...c, level: 0 }, []).Nature).toBeUndefined()
-  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} index={0} save={() => {}} />)).toContain('Alternate trained skill')
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} index={0} save={() => {}} />)).not.toContain('Alternate trained skill')
 })
 
 it('treats the warmask as always worn and attuned while the feat is active', () => {

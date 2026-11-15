@@ -267,7 +267,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
-          const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories'].includes(selection.name)
+          const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories',
+            'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(selection.name)
             || isElfAncestralWeaponFamiliarity(c, selection.name) || isDwarfAncestralWeaponFamiliarity(c, selection.name)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind

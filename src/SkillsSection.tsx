@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, armorSpecialization,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, type SectionProps,
 } from './builder'
 import { WeaponList } from './GearSection'
 import { SourceNote } from './Info'
@@ -47,9 +47,9 @@ export function ArmorProficiency({ c, entries }: Pick<SectionProps, 'c' | 'entri
 
 export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const editingSkills = part === 'skills'
-  const c = editingSkills ? normalizeLongevitySkills(original) : original
+  const c = editingSkills ? normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries) : original
   const save: SectionProps['save'] = patch => saveOriginal(c === original ? patch : {
-    feats: c.feats, skillPicks: c.skillPicks, skillIncreases: c.skillIncreases, ...patch,
+    feats: c.feats, skillPicks: c.skillPicks, skillIncreases: c.skillIncreases, warmask: c.warmask, lores: c.lores, ...patch,
   })
   const stats = statDefs(c)
   const klass = editingSkills ? entries.find((e) => e.kind === 'class' && e.name === c.className) : undefined

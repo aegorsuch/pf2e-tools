@@ -37,8 +37,7 @@ it("shows Officer's Medical Training using the better Medicine ability and its r
   expect(markup).toMatch(/skill-name">Medicine <b>\+7/)
   expect(ranksAt(c, [background, ranger])['Sailing Lore']).toBe(1)
   const choice = renderToStaticMarkup(<FeatChoice c={c} entries={[background, ranger]} save={() => {}} index={0} />)
-  expect(choice).toContain('replacement skill')
-  expect(choice).toContain('Sailing Lore')
+  expect(choice).not.toContain('replacement skill')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, lores: [] }} entries={[background, ranger]} save={() => {}} />))
     .toContain('Sailing Lore')
   const betterWisdom = { ...c, abilities: { ...c.abilities, int: 10, wis: 18 } }
@@ -137,6 +136,92 @@ it('grants elf feat skills or provides replacement training in Skills without do
   ;(findButtons(tree()).get('Medicine Trained')!.onClick as () => void)()
   expect(edited.skillPicks).toEqual(['Acrobatics', 'Medicine'])
   expect(renderToStaticMarkup(tree())).toContain('<b>T</b>4')
+})
+
+it.each([
+  ['Broken Hand Technique', 'Athletics', 'sf2e', 'Orc'],
+  ['Spelunker', 'Acrobatics', 'sf2e', 'Orc'],
+  ['Cite the Deep Lore', 'Society', 'sf2e', 'Elf'],
+  ["Diplomat's Facade", 'Deception', 'sf2e', 'Elf'],
+  ['Eye for Treasure', 'Crafting', 'pf2e', 'Dwarf'],
+  ["Officer's Medical Training", 'Medicine', 'pf2e', 'Human'],
+  ['Shiny', 'Performance', 'sf2e', 'Human'],
+] as const)('puts %s replacement training in Skills', (name, skill, system, ancestry) => {
+  const klass: ContentEntry = { ...ranger, systems: [system] }
+  const background: ContentEntry = { ...feyBound, systems: [system], name: 'Training', data: { skill } }
+  const feat = { name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+  const untrained: Character = { ...base, systems: [system], ancestry, feats: [feat] }
+  expect(ranksAt(untrained, [klass])[skill]).toBe(1)
+  expect(skillRankBudget(untrained, [klass]).trained).toBe(4)
+  expect(skillRankBudget({ ...untrained, skillPicks: [skill] }, [klass]).trained).toBe(4)
+  let c: Character = { ...untrained, background: 'Training' }
+  const entries = [klass, background]
+  expect(skillRankBudget(c, entries).trained).toBe(5)
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} index={0} save={() => {}} />)).toBe('')
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  ;(findButtons(tree()).get('Thievery Trained')!.onClick as () => void)()
+  expect(c.skillPicks).toEqual(['Thievery'])
+  expect(ranksAt(c, entries).Thievery).toBe(1)
+  expect(skillRankBudget(c, entries).trained).toBe(4)
+  expect(skillRankBudget({ ...c, level: 0 }, entries).trained).toBe(3)
+})
+
+it('migrates saved replacement skills into ordinary picks when editing Skills', () => {
+  const klass: ContentEntry = { ...ranger, systems: ['sf2e'] }
+  let c: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', skillPicks: ['Athletics'],
+    feats: [{ name: 'Broken Hand Technique', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Medicine' }] }
+  const tree = () => SkillsSection({ c, entries: [klass], save: patch => { c = { ...c, ...patch } } })
+  expect(findButtons(tree()).get('Medicine Trained')?.['aria-pressed']).toBe(true)
+  ;(findButtons(tree()).get('Medicine Trained')!.onClick as () => void)()
+  expect(c.feats[0].choice).toBeUndefined()
+  expect(c.skillPicks).toEqual(['Athletics'])
+  expect(ranksAt(c, [klass]).Medicine ?? 0).toBe(0)
+  expect(skillRankBudget(c, [klass]).trained).toBe(4)
+})
+
+it('consolidates multiple Dwarven Lore replacements without losing saved choices', () => {
+  const background: ContentEntry = { ...feyBound, name: 'Training', data: { skill: 'Crafting, Religion' } }
+  let c: Character = { ...base, ancestry: 'Dwarf', background: 'Training',
+    feats: [{ name: 'Dwarven Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', replacements: ['Society', 'Athletics'] }] }
+  const entries = [ranger, background]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  expect(findButtons(tree()).get('Society Trained')?.['aria-pressed']).toBe(true)
+  expect(findButtons(tree()).get('Athletics Trained')?.['aria-pressed']).toBe(true)
+  ;(findButtons(tree()).get('Thievery Trained')!.onClick as () => void)()
+  expect(c.feats[0].replacements).toBeUndefined()
+  expect(c.skillPicks).toEqual(['Society', 'Athletics', 'Thievery'])
+  expect(skillRankBudget(c, entries).trained).toBe(3)
+})
+
+it('preserves saved Lore and warmask replacement training when Skills are edited', () => {
+  const background: ContentEntry = { ...feyBound, name: 'Medic', data: { skill: 'Medicine' } }
+  let officer: Character = { ...base, background: 'Medic', feats: [
+    { name: "Officer's Medical Training", type: 'Class Feat', level: 1, choice: 'Sailing Lore' },
+  ] }
+  const officerTree = () => SkillsSection({ c: officer, entries: [ranger, background], save: patch => { officer = { ...officer, ...patch } } })
+  expect(findButtons(officerTree()).get('Sailing Lore Trained')?.['aria-pressed']).toBe(true)
+  ;(findButtons(officerTree()).get('Thievery Trained')!.onClick as () => void)()
+  expect(officer.feats[0].choice).toBeUndefined()
+  expect(officer.skillPicks).toEqual(['Sailing Lore', 'Thievery'])
+  expect(officer.lores).toContainEqual({ name: 'Sailing Lore', rank: 0 })
+  expect(ranksAt(officer, [ranger, background])['Sailing Lore']).toBe(1)
+
+  let orc: Character = { ...base, ancestry: 'Orc', skillPicks: ['Religion'], warmask: { alternateSkill: 'Medicine' },
+    feats: [{ name: 'Orc Warmask', type: 'Ancestry Feat', level: 1, choice: 'The Gods' }] }
+  const warmaskTree = () => SkillsSection({ c: orc, entries: [ranger], save: patch => { orc = { ...orc, ...patch } } })
+  ;(findButtons(warmaskTree()).get('Thievery Trained')!.onClick as () => void)()
+  expect(orc.feats[0].choice).toBe('The Gods')
+  expect(orc.warmask?.alternateSkill).toBeUndefined()
+  expect(orc.skillPicks).toEqual(['Religion', 'Medicine', 'Thievery'])
+  expect(ranksAt(orc, [ranger]).Medicine).toBe(1)
+})
+
+it('keeps replacement training available for stale saved choices', () => {
+  const background: ContentEntry = { ...feyBound, name: 'Medic', data: { skill: 'Medicine, Society' } }
+  const c: Character = { ...base, background: 'Medic', feats: [
+    { name: "Officer's Medical Training", type: 'Class Feat', level: 1, choice: 'Society' },
+  ] }
+  expect(skillRankBudget(c, [ranger, background]).trained).toBe(5)
 })
 
 it('adds regular trained and expert selections for longevity feats', () => {

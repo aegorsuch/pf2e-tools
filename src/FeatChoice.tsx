@@ -1,5 +1,5 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait, warmaskAlternateSkills } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -36,7 +36,6 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     || isDwarfAncestralWeaponFamiliarity(c, feat.name)) return null
   if (feat.name === 'Orc Warmask') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
-    const alternatives = warmaskAlternateSkills(c, entries, index)
     return <span className="feat-choice feat-choice-with-note">
       <label>Power source{' '}<select aria-label="Orc Warmask power source" value={feat.choice ?? ''} disabled={!!feat.choice}
         onChange={event => {
@@ -48,32 +47,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
       </select></label>
       <small>Source cannot be changed after selection.</small>
-      {alternatives.length > 0 && <label>Alternate trained skill{' '}
-        <select aria-label="Orc Warmask alternate skill" value={c.warmask?.alternateSkill ?? ''} onChange={event => {
-          const alternateSkill = event.target.value
-          if (alternateSkill && !alternatives.includes(alternateSkill)) return
-          save({ warmask: { ...c.warmask, alternateSkill: alternateSkill || undefined } })
-        }}>
-          <option value="">Choose skill</option>
-          {c.warmask?.alternateSkill && !alternatives.includes(c.warmask.alternateSkill)
-            && <option disabled>{c.warmask.alternateSkill}</option>}
-          {[...alternatives].sort((a, b) => a.localeCompare(b)).map(skill => <option key={skill}>{skill}</option>)}
-        </select>
-      </label>}
     </span>
   }
   if (feat.name === 'Clan Lore' || feat.name === 'Dwarven Lore') {
     const clans = feat.name === 'Clan Lore' ? featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? [] : []
-    const replacements = loreReplacementChoices(c, entries, index)
-    if (feat.name === 'Dwarven Lore' && !replacements.length) return null
-    const updateReplacement = (replacementIndex: number, value: string) => {
-      const next = [...(feat.replacements ?? [])]
-      next[replacementIndex] = value
-      while (next.length && !next[next.length - 1]) next.pop()
-      save({ feats: c.feats.map((existing, i) => i === index ? {
-        ...existing, replacements: next.length ? next : undefined,
-      } : existing) })
-    }
+    if (feat.name === 'Dwarven Lore') return null
     return <span className="feat-choice feat-choice-with-note">
       {feat.name === 'Clan Lore' && <SearchableSelect label="Clan" aria-label="Clan Lore clan" value={feat.choice ?? ''}
         onChange={event => {
@@ -86,19 +64,10 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !clans.includes(feat.choice) && <option disabled>{feat.choice}</option>}
         {clans.map(clan => <option key={clan}>{clan}</option>)}
       </SearchableSelect>}
-      {replacements.map((replacement, replacementIndex) => <SearchableSelect key={replacement.skill}
-        label={`Replace trained ${replacement.skill}`} aria-label={`${feat.name} replacement for ${replacement.skill}`}
-        value={replacement.value ?? ''} onChange={event => {
-          const value = event.target.value
-          if (value && !replacement.options.includes(value)) return
-          updateReplacement(replacementIndex, value)
-        }}>
-        <option value="">Choose replacement skill</option>
-        {replacement.value && !replacement.options.includes(replacement.value) && <option disabled>{replacement.value}</option>}
-        {replacement.options.map(skill => <option key={skill}>{skill}</option>)}
-      </SearchableSelect>)}
     </span>
   }
+  if (['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
+    'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(feat.name)) return null
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
@@ -227,12 +196,10 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
-  if (['Adopted Ancestry', 'Skill Training', 'Shiny', 'Weapon Proficiency', 'Technomagical Scrapper', 'Eye for Treasure',
-    'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Exceptional Artisan', "Officer's Medical Training"].includes(feat.name)) {
+  if (['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
     const label = feat.name === 'Adopted Ancestry' ? 'ancestry'
-      : feat.name === 'Eye for Treasure' || feat.name === "Officer's Medical Training" ? 'replacement skill'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     const choiceControl = <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
@@ -248,7 +215,6 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {noteId && <small id={noteId}>Ancestry access and physiological requirements need GM approval.</small>}
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
         && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}
-      {feat.name === "Officer's Medical Training" && <small>Add a Lore specialty in Skills before choosing it here.</small>}
     </span>
     return feat.name === 'Adopted Ancestry'
       ? <details className="feat-choice-details">
