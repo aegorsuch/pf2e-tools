@@ -2,6 +2,7 @@ import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneStats } from './dro
 import { activeFeatsNamed, ranksAt, signed, weaponAttack, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneEquipment } from './DroneEquipment'
+import { DroneHealth } from './DroneHealth'
 import { DRONE_CHASSIS, switchDroneChassis } from './droneChassis'
 import { mechanicClassDC } from './mechanicRules'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
@@ -150,6 +151,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         </select>
       </label>}
     </>}
+    {stats && <DroneHealth c={c} entries={entries} save={save} />}
     {active.some(item => item.name === 'Assistant' && item.choice) && <label>
       <input type="checkbox" checked={!!c.mechanicDroneAssistantActive}
         onChange={event => save({ mechanicDroneAssistantActive: event.target.checked })} /> Drone assistant within reach
@@ -201,7 +203,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         <option value="killbot">Killbot</option>
         <option value="magneticLevitators">Magnetic Levitators</option>
       </select></label>}
-      <small>Turn these mods off when they expire; temporary HP must be tracked separately.</small>
+      <small>Turn these mods off when they expire.</small>
     </div>}
     {activeFeatsNamed(c, 'Advanced Drone').length > 0 && !['Burly', 'Deft'].includes(activeFeatsNamed(c, 'Advanced Drone')[0].choice ?? '')
       && <small role="status">Choose Burly or Deft in the Advanced Drone feat.</small>}

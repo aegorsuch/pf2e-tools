@@ -245,6 +245,9 @@ export interface Character {
   mechanicDroneHeldWeaponIds?: string[]
   mechanicDroneArmorUpgrades?: string[]
   mechanicDroneForceFields?: Record<string, { hp: number; active: boolean; coolingDown: boolean }>
+  mechanicDroneHp?: number
+  mechanicDroneTemporaryHp?: number
+  mechanicDroneEmergencyRepairUsed?: boolean
   mechanicDroneEnergyShielding?: Record<string, Exclude<MechanicEnergy, 'sonic'>>
   mechanicDroneKillbotActive?: boolean
   mechanicDroneDesperateRepairActive?: boolean

@@ -228,7 +228,7 @@ export function droneCustomizationSlots(c: Character) {
       skills: Object.entries(ranks).filter(([name]) => SKILL_ABILITIES[name])
         .map(([name, rank]) => ({ name, rank, bonus: mods[SKILL_ABILITIES[name]] + proficiencyBonus(rank, c.level) }))
         .sort((a, b) => a.name.localeCompare(b.name)),
-      electricityWeakness: has('Grounded') ? 0 : Math.ceil(c.level / 2),
+      electricityWeakness: has('Grounded') ? 0 : Math.ceil(c.level / 2), mentalImmune: !has('Sapient'),
       senses: has('Nightvision Sensors') || armorUpgrade?.name === 'Darkvision Visor' ? 'Darkvision' : chassis.senses,
       scent: has('Olfactory Receptors') || sensorSuite >= 1,
       preciseHearing: has('Echolocation') || sensorSuite >= 2,
