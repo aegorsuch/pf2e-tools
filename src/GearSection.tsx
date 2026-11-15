@@ -73,6 +73,10 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     ...(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? [{ name: `Dermal Plating (${dermalGrade.name})`, source: 'Thresher Ko-1 Frame' }] : []),
     ...(activeFeatsNamed(c, 'Hardpoint').length ? [{ name: 'Hideaway Limb (Tactical)', source: 'Hardpoint' }] : []),
   ]
+  const displayed = [
+    ...granted.map(item => ({ kind: 'granted' as const, item })),
+    ...installed.map(item => ({ kind: 'installed' as const, item })),
+  ].sort((a, b) => a.item.name.localeCompare(b.item.name))
   const limit = augmentationLimit(c)
   const standardUsed = installed.filter(item => item.slot === 'standard').length
   const bodySlots = augmentationBodySlots(c)
@@ -113,11 +117,12 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     <small>Implant limit: {standardUsed}/{limit}. Apex augmentations do not count toward this limit.</small>
     <small>Augmentation effects are not applied automatically; review each item's rules.</small>
     {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
-    <ul>{granted.map(item => <li key={item.name}><EntryDescription name={item.name}
-      entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
-      entries={entries} /> <small>({item.source})</small>{biotechUpgrade && <SourceNote inlineSource={false}
-        source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
-      {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>)}{installed.map(item => {
+    <ul>{displayed.map(({ kind, item }) => {
+      if (kind === 'granted') return <li key={`granted:${item.source}:${item.name}`}><EntryDescription name={item.name}
+        entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
+        entries={entries} /> <small>({item.source})</small>{biotechUpgrade && <SourceNote inlineSource={false}
+          source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
+        {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
       const invalid = item.slot.startsWith('body:') && !bodySlots.includes(item.slot) || item.slot === 'adapted' && !adapted
       return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />

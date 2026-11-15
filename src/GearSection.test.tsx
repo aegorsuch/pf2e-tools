@@ -114,6 +114,25 @@ it('lists non-removable granted augmentations without using implant slots', () =
   expect(removed).not.toContain('Autorecognition Lens')
 })
 
+it('alphabetizes granted and installed augmentations together without changing saved order', () => {
+  const c: Character = { ...character([{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1 }]),
+    systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation',
+    augmentations: [
+      { id: 'z', entryId: 'z', name: 'Zeta Implant', slot: 'standard' },
+      { id: 'b', entryId: 'b', name: 'Beta Implant', slot: 'standard' },
+    ] }
+  const choices: ContentEntry[] = ['Zeta Implant', 'Beta Implant'].map(name => ({
+    ...weapon, id: name, name, kind: 'item', systems: ['sf2e'], data: { item_category: 'Augmentations' },
+  }))
+  const markup = renderToStaticMarkup(<Augmentations c={c} entries={choices} save={() => {}} />)
+  const list = markup.slice(markup.indexOf('<ul>'), markup.indexOf('</ul>'))
+  const names = ['Autorecognition Lens', 'Beta Implant', 'Datajack', 'Zeta Implant']
+  expect(names.map(name => list.indexOf(name))).toEqual([...names.map(name => list.indexOf(name))].sort((a, b) => a - b))
+  expect(names.every(name => list.includes(name))).toBe(true)
+  expect(markup.indexOf('Beta Implant (level')).toBeLessThan(markup.indexOf('Zeta Implant (level'))
+  expect(c.augmentations?.map(item => item.name)).toEqual(['Zeta Implant', 'Beta Implant'])
+})
+
 it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule is enabled', () => {
   const previous = getSettings().cyborgTestSubject
   const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg' }

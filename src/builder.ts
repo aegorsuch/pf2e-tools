@@ -549,6 +549,9 @@ function featIndex(entries: ContentEntry[]) {
 
 export function featSelectionLevel(entry: ContentEntry, c: Character, entries: ContentEntry[], category: FeatSlotCategory,
   slot?: { key: string; level: number }) {
+  if (entry.name === 'Ancestral Magic' && category === 'ancestry' && slot) {
+    return slot.level >= 17 ? 17 : slot.level >= 13 ? 13 : slot.level >= 9 ? 9 : entry.level
+  }
   if (entry.name === 'Ubiquitous Gadgets' && category === 'class' && slot && slot.level >= 14
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 14
   if (category !== 'archetype' || typeof entry.data.archetype_levels !== 'string') return entry.level

@@ -318,11 +318,28 @@ it('offers Ancestral Magic variants at the slot rank and saves their spell grant
   const atNine = renderToStaticMarkup(<FeatSlots c={{ ...c, level: 9 }} entries={entries} categories={['ancestry']} save={() => {}} />)
   expect(atNine).toContain('Ancestral Magic (Discharge)')
   expect(atNine).not.toContain('Ancestral Magic (Overload Systems)')
+  const ninthPicker = atNine.slice(atNine.indexOf('aria-label="L09 Ancestry feat"')).split('</select>')[0]
+  expect(ninthPicker).toMatch(/<optgroup label="L09">[^]*Ancestral Magic \(Discharge\)/)
+  const thirteenthPicker = markup.slice(markup.indexOf('aria-label="L13 Ancestry feat"')).split('</select>')[0]
+  expect(thirteenthPicker).toMatch(/<optgroup label="L13">[^]*Ancestral Magic \(Overload Systems\)/)
   findSelect(tree(), 'L09 Ancestry feat')!({ target: { value: JSON.stringify([magic.name, 'Verdant Code']) } })
   expect(c.feats.find(feat => feat.slot === 'ancestry:9:0')).toMatchObject({ name: magic.name, choice: 'Verdant Code' })
   expect(grantedFeatSpells(c, entries).map(grant => [grant.entry.name, grant.rank]))
     .toEqual([['Wisp Ally', 1], ['Verdant Code', 3]])
   expect(renderToStaticMarkup(tree())).toContain('Ancestral Magic (Verdant Code)')
+})
+
+it('lists Ysoki Ancestral Magic at level nine, when Irradiate becomes available', () => {
+  const magic = mapAonHit({ _id: 'ysoki-magic', _source: { name: 'Ancestral Magic', category: 'feat', level: 5, trait: ['Ysoki'],
+    markdown: 'Header\n\n---\n\nChoose a spell.<br/><br/>**[Option(s)](/feats/1)**: occult; **3rd** _[irradiate](/spells/166-irradiate)_\n\n**Special** You can select this feat more than once.' } }, 'sf2e')!
+  const irradiate: ContentEntry = { id: 'irradiate', name: 'Irradiate', kind: 'spell', systems: ['sf2e'], source: 'official',
+    level: 3, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 9 }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[magic, irradiate]} categories={['ancestry']} save={() => {}} />)
+  const fifthPicker = markup.slice(markup.indexOf('aria-label="L05 Ancestry feat"')).split('</select>')[0]
+  const ninthPicker = markup.slice(markup.indexOf('aria-label="L09 Ancestry feat"')).split('</select>')[0]
+  expect(fifthPicker).not.toContain('Ancestral Magic')
+  expect(ninthPicker).toMatch(/<optgroup label="L09">[^]*Ancestral Magic \(Irradiate\)/)
 })
 
 it('keeps Snare Crafting and its grant source inside one description button', () => {
