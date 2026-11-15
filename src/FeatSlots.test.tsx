@@ -342,16 +342,16 @@ it('lists Ysoki Ancestral Magic at level nine, when Irradiate becomes available'
   expect(ninthPicker).toMatch(/<optgroup label="L09">[^]*Ancestral Magic \(Irradiate\)/)
 })
 
-it('does not request or display a choice for repeatable Adaptive Visual Receptors', () => {
-  const receptors: ContentEntry = { id: 'receptors', name: 'Adaptive Visual Receptors', kind: 'feat',
-    systems: ['sf2e'], source: 'official', level: 1, traits: ['Cyborg'], description: '',
+it.each([['Adaptive Visual Receptors', 1], ['Additional Arms', 9]])('does not request or display a choice for repeatable %s', (name, level) => {
+  const receptors: ContentEntry = { id: 'receptors', name, kind: 'feat',
+    systems: ['sf2e'], source: 'official', level, traits: ['Cyborg'], description: '',
     data: { repeatable: true }, effects: [], updatedAt: 0 }
-  const c: Character = { ...emptyRanger(), systems: ['sf2e'], heritage: 'Cyborg', level: 5, feats: [
-    { name: receptors.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'old choice' },
-    { name: receptors.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], heritage: 'Cyborg', level: 13, feats: [
+    { name: receptors.name, type: 'Ancestry Feat', level, slot: `ancestry:${level}:0`, choice: 'old choice' },
+    { name: receptors.name, type: 'Ancestry Feat', level, slot: 'ancestry:13:0' },
   ] }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[receptors]} categories={['ancestry']} save={() => {}} />)
-  expect(markup).not.toContain('Adaptive Visual Receptors choice')
+  expect(markup).not.toContain(`${name} choice`)
   expect(markup).not.toContain('old choice')
 })
 
