@@ -757,6 +757,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (!taken.has(e.name) || e.name === 'Ubiquitous Gadgets' && slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
+  const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system))
+    && entry.traits.some(trait => trait.toLowerCase() === 'lineage') && taken.has(entry.name))
   const primaryAncestry = c.ancestry?.trim().toLowerCase()
   if (slot.category === 'ancestry' && primaryAncestry) {
     candidates.sort((a, b) => Number(!a.traits.has(primaryAncestry)) - Number(!b.traits.has(primaryAncestry)))
@@ -782,6 +785,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     })
   })()
   return candidates.filter(({ entry, equivalence }) => {
+       if (entry.traits.some(trait => trait.toLowerCase() === 'lineage')
+         && (slot.level !== 1 || takenLineage)
+         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Overcrowd' && entry.source === 'official' && entry !== overcrowd) return false
       if (entry.name === 'Prehensile Limbs' && specificTail
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
@@ -3474,7 +3480,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
-      ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])],
+      ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
     ability,
     mod,
@@ -3553,6 +3559,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {
     if (featTakenLevel(selected) > c.level) return total
+    if (selected.name === 'Skill Download') return total
     if (selected.name === 'Natural Skill') return total + 2
     if (selected.name === "Officer's Education") return total + (activeFeatsNamed(c, selected.name).slice(0, 2).includes(selected) ? 2 : 0)
     if (selected.name === 'Ancestral Longevity') return total + 1

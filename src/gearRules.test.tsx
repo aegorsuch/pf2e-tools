@@ -38,6 +38,13 @@ const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1,
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
 
+it('alphabetizes weapon traits including rune-granted traits without mutating catalog data', () => {
+  const weapon = { ...sword, traits: ['Versatile P', 'Agile', 'Finesse'] }
+  const traits = weaponAttack(base, [weapon], { ...main, runes: ['Holy'] }).traits
+  expect(traits).toEqual(['Agile', 'Finesse', 'Holy', 'Versatile P'])
+  expect(weapon.traits).toEqual(['Versatile P', 'Agile', 'Finesse'])
+})
+
 it('applies Martial Experience to untrained weapons and grants training at level 11', () => {
   const c: Character = { ...base, level: 10, feats: [feat('Martial Experience', 5)] }
   const atTen = weaponAttack(c, [sword], main)

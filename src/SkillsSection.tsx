@@ -63,6 +63,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
+  const downloadFeat = activeFeatsNamed(c, 'Skill Download')[0]
+  const downloadRank = c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1
   const ancestrySkills = editingSkills ? ancestralSkills(c, entries) : []
   const heritageSkills = editingSkills && isPioneerHuman(c) ? ['Survival'] : []
   const grantedTraining = [...ancestrySkills, ...heritageSkills]
@@ -128,6 +130,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     if (!skillNames.has(name)) return
     const currentRank = permanentRanks[name] ?? 0
     const base = baseRanks[name] ?? 0
+    const temporary = downloaded?.skill === name && downloaded.rank > currentRank
+    const permanentAvailable = r === 1 ? currentRank === 0 && remaining > 0
+      : r > currentRank && canReachRank(name, r)
+    if (downloadFeat && r === downloadRank && (temporary || currentRank < r && (!downloaded || !permanentAvailable))) {
+      save({ feats: c.feats.map(feat => feat === downloadFeat
+        ? { ...feat, choice: temporary ? undefined : name } : feat) })
+      return
+    }
     if (r === 1 && currentRank === 0) {
       if (remaining > 0) save({ skillPicks: [...picks, name] })
       return
@@ -215,23 +225,26 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = permanentRank === i + 1 ? i : i + 1
+            const temporary = downloaded?.skill === s.name && downloaded.rank > permanentRank
+            const downloadAvailable = !!downloadFeat && i + 1 === downloadRank
+              && (temporary || permanentRank < downloadRank)
             const trainedDisabled = i === 0 && (
               permanentRank === 0 ? remaining <= 0
                 : permanentRank === 1 ? !picks.includes(s.name)
                   : baseRank > 1
             )
-            const disabled = s.kind !== 'skill' || i + 1 > maxRank || (i === 0
+            const disabled = s.kind !== 'skill' || i + 1 > maxRank || (!downloadAvailable && (i === 0
               ? trainedDisabled
-              : target < baseRank || (target > permanentRank && !canReachRank(s.name, target)))
+              : target < baseRank || (target > permanentRank && !canReachRank(s.name, target))))
             return (
               <button
                 key={letter}
                 type="button"
-                className={permanentRank >= i + 1 ? 'on' : ''}
-                aria-pressed={permanentRank === i + 1}
+                className={rank >= i + 1 ? 'on' : ''}
+                aria-pressed={rank === i + 1}
                 aria-label={`${s.name} ${RANKS[i + 1]}`}
                 disabled={disabled}
-                title={s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
+                title={temporary && i + 1 === downloadRank ? 'Skill Download: temporary proficiency' : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
                   ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
                     : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
                   : i === 0 && fixed.has(s.name) ? picks.includes(s.name) ? 'Refund redundant training choice' : 'Trained granted by class or background' : RANKS[i + 1]}
@@ -407,21 +420,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       <div className="skill-rank-budget" aria-label="Remaining skill selections">
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>
-            <b>{RANK_LETTERS[index]}</b>{budget[rank]}
+            <b>{RANK_LETTERS[index]}</b>{budget[rank] + Number(!!downloadFeat && !downloaded && downloadRank === index + 1)}
           </span>
         ))}
       </div>
-      {!!activeFeatsNamed(c, 'Skill Download').length && <label>Skill Download{' '}
-        <select aria-label="Skill Download skill" value={downloaded?.skill ?? ''} onChange={event => {
-          const choice = event.target.value
-          if (choice && !skillNames.has(choice)) return
-          const index = c.feats.indexOf(activeFeatsNamed(c, 'Skill Download')[0])
-          save({ feats: c.feats.map((feat, i) => i === index ? { ...feat, choice: choice || undefined } : feat) })
-        }}>
-          <option value="">Choose skill</option>
-          {skills.map(skill => <option key={skill.name} value={skill.name}>{skill.name}</option>)}
-        </select>
-      </label>}
       <details className="lore-add">
         <summary aria-label="Add Lore skill" title="Add Lore skill">+</summary>
         <form onSubmit={event => {

@@ -1199,6 +1199,25 @@ describe('heritagesFor', () => {
     }
     expect(heritagesFor(list, 'Human').map(heritage => heritage.name)).not.toContain('Test-Subject Ysoki')
   })
+
+  it('allows only one first-level lineage across ancestry and heritage, retaining saved selections', () => {
+    const frame = { ...entry('feat', 'Gg-os Frame', {}, 1, ['Cyborg', 'Lineage']), systems: ['sf2e' as const] }
+    const thresher = { ...entry('feat', 'Thresher Ko-1 Frame', {}, 1, ['Cyborg', 'Lineage']), systems: ['sf2e' as const] }
+    const ancestry = { ...entry('feat', 'Ancestry Lineage', {}, 1, ['Ysoki', 'Lineage']), systems: ['sf2e' as const] }
+    const list = [frame, thresher, ancestry]
+    const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg', level: 5 }
+    const first = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+    const second = { key: 'ancestry:1:1', category: 'ancestry' as const, level: 1 }
+    const later = { key: 'ancestry:5:0', category: 'ancestry' as const, level: 5 }
+    expect(eligibleFeats(list, c, first)).toEqual(expect.arrayContaining(list))
+    expect(eligibleFeats(list, c, later)).not.toContain(frame)
+    const chosen = { ...c, feats: [{ name: frame.name, type: 'Ancestry Feat', level: 1, slot: first.key }] }
+    expect(eligibleFeats(list, chosen, second)).not.toContain(thresher)
+    expect(eligibleFeats(list, chosen, second)).not.toContain(ancestry)
+    expect(eligibleFeats(list, chosen, first)).toContain(frame)
+    const legacy = { ...c, feats: [{ name: frame.name, type: 'Ancestry Feat', level: 1, slot: later.key }] }
+    expect(eligibleFeats(list, legacy, later)).toContain(frame)
+  })
 })
 
 describe('baseItems', () => {

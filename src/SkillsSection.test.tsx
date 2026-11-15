@@ -83,7 +83,8 @@ it('shows Ysoki conditional bonuses without applying them to ordinary totals', (
 it('displays Skill Download temporarily without changing permanent proficiency', () => {
   const c: Character = { ...base, level: 17, feats: [{ name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
-  expect(markup).toContain('Skill Download skill')
+  expect(markup).not.toContain('Skill Download skill')
+  expect(markup).toContain('title="Skill Download: temporary proficiency"')
   expect(markup).toContain('Temporary proficiency until daily preparations')
   expect(markup).toMatch(/skill-name">Acrobatics <b>\+23/)
   expect(ranksAt(c, [ranger]).Acrobatics ?? 0).toBe(0)
@@ -112,7 +113,7 @@ it('allows permanent training in a downloaded skill without treating temporary r
     { name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' },
   ] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
-  expect(findButtons(tree()).get('Acrobatics Expert')!.disabled).toBe(true)
+  expect(findButtons(tree()).get('Acrobatics Expert')!.disabled).toBe(false)
   ;(findButtons(tree()).get('Acrobatics Trained')!.onClick as () => void)()
   expect(c.skillPicks).toContain('Acrobatics')
   expect(ranksAt(c, [ranger]).Acrobatics).toBe(1)
@@ -654,6 +655,60 @@ function findButtonsInto(node: ReactNode, buttons: Map<string, Record<string, un
     findButtonsInto(child.props.children as ReactNode, buttons)
   })
 }
+
+it.each([[1, 'Trained'], [9, 'Expert'], [17, 'Master']] as const)(
+  'assigns and changes Skill Download through the skill array at level %i',
+  (level, rank) => {
+    const feat: ContentEntry = { ...ranger, id: 'download', kind: 'feat', name: 'Skill Download',
+      description: 'During your daily preparations, you become trained in one skill of your choice.' }
+    let c: Character = { ...base, level, feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1 }],
+      skillPicks: ['Acrobatics', 'Arcana', 'Athletics', 'Crafting'],
+      skillIncreases: Object.fromEntries(builder.skillIncreaseLevels({ ...base, level }).map(n => [String(n), 'Nature'])) }
+    const entries = [ranger, feat]
+    const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+    const before = skillRankBudget(c, entries)
+    const click = (label: string) => {
+      const button = findButtons(tree()).get(label)!
+      expect(button.disabled).toBe(false)
+      ;(button.onClick as () => void)()
+    }
+    click(`Deception ${rank}`)
+    expect(builder.skillDownload(c, entries)?.skill).toBe('Deception')
+    expect(ranksAt(c, entries).Deception ?? 0).toBe(0)
+    expect(skillRankBudget(c, entries)).toEqual(before)
+    click(`Diplomacy ${rank}`)
+    expect(builder.skillDownload(c, entries)?.skill).toBe('Diplomacy')
+    click(`Diplomacy ${rank}`)
+    expect(builder.skillDownload(c, entries)).toBeUndefined()
+    expect(skillRankBudget(c, entries)).toEqual(before)
+  },
+)
+
+it('uses Skill Download before permanent selections without spending them', () => {
+  const feat: ContentEntry = { ...ranger, id: 'download', kind: 'feat', name: 'Skill Download',
+    description: 'During your daily preparations, you become trained in one skill of your choice.' }
+  let c: Character = { ...base, feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1 }] }
+  const entries = [ranger, feat]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  expect(skillRankBudget(c, entries).trained).toBe(4)
+  ;(findButtons(tree()).get('Acrobatics Trained')!.onClick as () => void)()
+  expect(builder.skillDownload(c, entries)?.skill).toBe('Acrobatics')
+  expect(skillRankBudget(c, entries).trained).toBe(4)
+  ;(findButtons(tree()).get('Athletics Trained')!.onClick as () => void)()
+  expect(c.skillPicks).toContain('Athletics')
+  expect(skillRankBudget(c, entries).trained).toBe(3)
+})
+
+it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
+  const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
+  const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }
+  expect(ranksAt(c, [ranger]).Deception).toBe(1)
+  expect(skillRankBudget(c, [ranger]).trained).toBe(4)
+  const duplicate = { ...c, background: background.name }
+  expect(skillRankBudget(duplicate, [ranger, background]).trained).toBe(5)
+  expect(ranksAt({ ...duplicate, skillPicks: ['Diplomacy'] }, [ranger, background]).Diplomacy).toBe(1)
+  expect(skillRankBudget({ ...duplicate, skillPicks: ['Diplomacy'] }, [ranger, background]).trained).toBe(4)
+})
 
 it('adds, trains, and removes custom Lore using regular skill selections', () => {
   let c: Character = { ...base, level: 5 }
