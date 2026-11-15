@@ -7,6 +7,7 @@ import { activeAnimalFeatures, animalStrengthRuneSources, armorDisplayName, effe
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
+import { getSettings, updateSettings } from './settings'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
@@ -111,6 +112,20 @@ it('lists non-removable granted augmentations without using implant slots', () =
   const removed = renderToStaticMarkup(<Augmentations c={{ ...c, testSubjectAdaptation: undefined, feats: [] }} entries={[]} save={() => {}} />)
   expect(removed).not.toContain('Datajack')
   expect(removed).not.toContain('Autorecognition Lens')
+})
+
+it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule is enabled', () => {
+  const previous = getSettings().cyborgTestSubject
+  const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg' }
+  try {
+    updateSettings({ cyborgTestSubject: true })
+    const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
+    expect(markup).toContain('Datajack')
+    expect(markup).toContain('Implant limit: 0/')
+    expect(markup).not.toContain('Remove</button>')
+    updateSettings({ cyborgTestSubject: false })
+    expect(renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)).not.toContain('Datajack')
+  } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
 it('links attached weapons to their firearm and persists selection without extra hands', () => {

@@ -342,8 +342,9 @@ it('grants the selected ancestry-specific cantrip at will and heightens it', () 
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Gnome', level: 7, feats: [taken(source.name, 1, 'Adhere')] }
   expect(featSpellOptions(c, [source, adhere, other], c.feats[0])).toEqual([adhere])
   expect(grantedFeatSpells(c, [source, adhere, other])).toMatchObject([{ entry: adhere, rank: 4, rule: { tradition: 'primal', frequency: 'at will' } }])
-  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 1, 'Light')] }, [source, adhere, other])).toEqual([])
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, adhere]} save={() => {}} />)).toContain('Ancestral Cantrip spell')
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 1, 'Light')] }, [source, adhere, other])).toMatchObject([{ entry: adhere }])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name)] }, [source, adhere])).toMatchObject([{ entry: adhere }])
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, adhere]} save={() => {}} />)).not.toContain('Ancestral Cantrip spell')
 })
 
 it('allows listed ancestral cantrips when the source omits a tradition without inventing one', () => {
@@ -352,6 +353,8 @@ it('allows listed ancestral cantrips when the source omits a tradition without i
   const guidance = { ...entry('Guidance', 'spell', {}, ['Cantrip']), systems: ['sf2e' as const] }
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Urog', feats: [taken(source.name, 1, 'Guidance')] }
   expect(featSpellOptions(c, [source, guidance], c.feats[0])).toEqual([guidance])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name)] }, [source, guidance])).toEqual([])
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, guidance]} save={() => {}} />)).toContain('Ancestral Cantrip spell')
   expect(grantedFeatSpells(c, [source, guidance])[0].rule).toMatchObject({
     tradition: undefined, condition: 'Tradition not specified in ancestry source; verify with GM',
   })

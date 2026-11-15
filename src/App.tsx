@@ -254,6 +254,11 @@ export default function App() {
             Champion Cavalier Dedication
           </label>
           <label>
+            <input type="checkbox" checked={settings.cyborgTestSubject}
+              onChange={(e) => updateSettings({ cyborgTestSubject: e.target.checked })} />{' '}
+            Cyborg Heritage adds Test-Subject Ysoki Heritage
+          </label>
+          <label>
             <input type="checkbox" checked={settings.druidCavalier}
               onChange={(e) => updateSettings({ druidCavalier: e.target.checked })} />{' '}
             Druid Cavalier Dedication

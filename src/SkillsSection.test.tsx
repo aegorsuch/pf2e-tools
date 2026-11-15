@@ -68,6 +68,18 @@ it('shows Pain Tolerance resistance and conditional save bonus without increasin
   expect(before).not.toContain('Pain Tolerance')
 })
 
+it('shows Ysoki conditional bonuses without applying them to ordinary totals', () => {
+  const c: Character = { ...base, level: 7, feats: ['Radiation Resistant', 'Tinkering Fingers', 'Extended Family']
+    .map(name => ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(skills).toContain('Repair without a toolkit without the penalty')
+  expect(skills).toContain('Make an Impression or Request against ysoki')
+  expect(defense).toContain('Poison (radiation only) 7')
+  expect(defense).toContain('+1 circumstance bonus to Fortitude saves against radiation effects.')
+  expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
+})
+
 it('shows subclass-granted Lore as a trained skill without an Additional Lore feat', () => {
   const c: Character = { ...base, className: 'Investigator', subclass: 'Empiricism',
     subclassSkillChoices: { 'Investigator:Empiricism': 'Lore', 'Investigator:Empiricism:lore': 'Sailing Lore' } }

@@ -244,9 +244,12 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export const cyborgTestSubject = (c: Character) => c.level >= 1 && c.systems.includes('sf2e')
+  && c.heritage === 'Cyborg' && getSettings().cyborgTestSubject
 export const testSubjectAdaptation = (c: Character) =>
-  c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
-    ? c.testSubjectAdaptation : undefined
+  cyborgTestSubject(c) ? 'Cybernetic Augmentation'
+    : c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
+      ? c.testSubjectAdaptation : undefined
 export function officerEducationSlots(c: Character) {
   let unslotted = 0
   return activeFeatsNamed(c, "Officer's Education").slice(0, 2).map(feat => ({
@@ -656,7 +659,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
 export function ancestryFeatTraits(c: Character) {
   const heritageTraits = c.heritage?.trim().toLowerCase() === 'dromaar' ? ['orc'] : []
   const orcKinship = c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Kinship').length > 0
-  return [c.ancestry, c.heritage, ...heritageTraits, ...activeFeatsNamed(c, 'Adopted Ancestry').map((feat) => feat.choice),
+  return [c.ancestry, c.heritage, ...heritageTraits, ...(cyborgTestSubject(c) ? ['Test-Subject Ysoki'] : []), ...activeFeatsNamed(c, 'Adopted Ancestry').map((feat) => feat.choice),
     ...(orcKinship ? ['Orc'] : [])]
     .filter((name): name is string => !!name).map((name) => name.trim().toLowerCase())
 }
@@ -755,7 +758,20 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     candidates.sort((a, b) => Number(!a.traits.has(primaryAncestry)) - Number(!b.traits.has(primaryAncestry)))
   }
   const seen = new Set<string>()
-  return candidates.filter(({ equivalence }) => {
+  const duplicateLore = slot.category === 'ancestry' && candidates.some(candidate => candidate.entry.name === 'Ancestral Skills') && (() => {
+    const genericSkills = ancestralSkills({ ...c, feats: [{ name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1 }] }, entries)
+    if (!genericSkills.length) return false
+    const names = new Set([...candidates.map(candidate => candidate.entry.name),
+      ...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).map(feat => feat.name)])
+    return [...names].some(name => {
+      const grant = ancestryLoreGrant(c, entries, name)
+      return grant && grant.lore.toLowerCase() === `${c.ancestry} lore`.toLowerCase()
+        && grant.skills.length === genericSkills.length && grant.skills.every(skill => genericSkills.includes(skill))
+    })
+  })()
+  return candidates.filter(({ entry, equivalence }) => {
+      if (entry.name === 'Ancestral Skills' && duplicateLore
+        && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (seen.has(equivalence)) return false
       seen.add(equivalence)
       return true
@@ -1616,6 +1632,10 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   ...featData({ ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level) }, entries, 'grants_lore').map((g) => g.value),
   ...(c.ancestry?.trim() && activeFeatsNamed(c, 'Ancestral Skills').length ? [`${c.ancestry.trim()} Lore`] : []),
   ...(c.feats.some(feat => feat.name === 'Dwarven Lore' && featTakenLevel(feat) <= c.level) ? ['Dwarven Lore'] : []),
+  ...Object.entries(ANCESTRY_LORE_GRANTS).flatMap(([name, grant]) =>
+    activeFeatsNamed(c, name).length ? [grant.lore] : []),
+  ...c.feats.flatMap(feat => feat.name !== 'Dwarven Lore' && featTakenLevel(feat) <= c.level
+    ? [ancestryLoreGrant(c, entries, feat.name)?.lore].filter((lore): lore is string => !!lore) : []),
   ...c.feats.flatMap(feat => {
     const lore = feat.name === 'Clan Lore' && feat.choice && featTakenLevel(feat) <= c.level
       ? CLAN_LORE_OPTIONS[feat.choice]?.lore : undefined
@@ -1710,7 +1730,31 @@ export function ancestralSkills(c: Character, entries: ContentEntry[]) {
   return statDefs(c).filter(stat => stat.kind === 'skill' && skills.has(stat.name)).map(stat => stat.name)
 }
 
-const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD'])
+const ANCESTRY_LORE_GRANTS: Record<string, { skills: string[]; lore: string }> = {
+  "Grandmother's Lore": { skills: ['Deception', 'Thievery'], lore: 'Lao Shu Po Lore' },
+  'Ysoki Lore': { skills: ['Acrobatics', 'Stealth'], lore: 'Ysoki Lore' },
+  'Orc Lore': { skills: ['Athletics', 'Survival'], lore: 'Orc Lore' },
+}
+const ANCESTRY_SKILL_ONLY_GRANTS: Record<string, string[]> = {
+  'Tinkering Fingers': ['Crafting'],
+  'Extended Family': ['Diplomacy'],
+}
+function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) {
+  if (ANCESTRY_LORE_GRANTS[name]) return ANCESTRY_LORE_GRANTS[name]
+  if (name === 'Dwarven Lore') return { skills: ['Crafting', 'Religion'], lore: 'Dwarf Lore' }
+  if (!name.endsWith(' Lore') || name === 'Clan Lore' || name === 'Additional Lore') return undefined
+  const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
+    && entry.systems.some(system => c.systems.includes(system))
+    && entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase()))
+  const text = source?.description ?? ''
+  const skillsText = /(?:trained proficiency rank in|become trained in|you're trained in)\s+([^.]+)/i.exec(text)?.[1]
+  const lore = /additional lore (?:general )?feat for\s+([a-z][\w' -]*? lore)\b/i.exec(text)?.[1]
+  if (!skillsText || !lore) return undefined
+  const skills = statDefs(c).filter(stat => stat.kind === 'skill'
+    && new RegExp(`\\b${stat.name}\\b`, 'i').test(skillsText)).map(stat => stat.name)
+  return skills.length ? { skills, lore } : undefined
+}
+const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD', ...Object.keys(ANCESTRY_LORE_GRANTS), ...Object.keys(ANCESTRY_SKILL_ONLY_GRANTS)])
 
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -1723,9 +1767,13 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     else if (feat.choice && skills.has(feat.choice) && !ranks[feat.choice]) trained.push(feat.choice)
   })
   c.feats.forEach((feat, index) => {
-    if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name)) return
+    if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name) && !ancestryLoreGrant(c, entries, feat.name)) return
     const ranks = ancestrySkillBefore(c, entries, index)
-    if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
+    const simpleSkills = feat.name === 'Dwarven Lore' ? undefined
+      : ancestryLoreGrant(c, entries, feat.name)?.skills ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
+    if (simpleSkills) {
+      trained.push(...simpleSkills)
+    } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
       const baseSkills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
         : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
       let replacementIndex = 0
@@ -1855,6 +1903,11 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   for (const feat of c.feats) {
     const grant = ancestrySkillGrant(c, feat.name)
     if (grant && featTakenLevel(feat) <= c.level) grants.push({ name: grant.feat, source: feat.name, level: featTakenLevel(feat) })
+    const lore = (feat.name === 'Dwarven Lore' ? undefined : ancestryLoreGrant(c, entries, feat.name)?.lore)
+      ?? (feat.name === 'Ancestral Skills' && c.ancestry ? `${c.ancestry} Lore` : undefined)
+    if (lore && featTakenLevel(feat) <= c.level) grants.push({
+      name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
+    })
   }
   if (c.systems.includes('sf2e') && c.ancestry === 'Orc' && activeFeatsNamed(c, 'Rugged Survivalist').length) {
     grants.push({ name: 'Forager', source: 'Rugged Survivalist', level: Math.min(...activeFeatsNamed(c, 'Rugged Survivalist').map(featTakenLevel)) })
@@ -2274,7 +2327,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant'].includes(feat.name))
       .map((feat) => byName(entries, 'feat', feat.name)),
     ...c.equipment.map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
@@ -2292,6 +2345,9 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Wasteland Warrior').length) {
     for (const damage of ['cold', 'fire']) out.push({ damage, value: half, source: 'Wasteland Warrior' })
+  }
+  if (activeFeatsNamed(c, 'Radiation Resistant').length) {
+    out.push({ damage: 'poison (radiation only)', value: c.level, source: 'Radiation Resistant' })
   }
   for (const e of sources) {
     for (const f of e.effects) if (f.type === 'resistance') out.push({ damage: f.damage, value: f.value, source: e.name })
@@ -3349,9 +3405,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
 
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
   Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
-    + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries) + ancestralSkills(c, entries).filter(name =>
-      autoClassSkills(c, entries).includes(name) || backgroundSkills(byName(entries, 'background', c.background)).includes(name)
-      || isPioneerHuman(c) && name === 'Survival').length
+    + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries)
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
     + backgroundSkills(freeHeartBackground(c, entries)).filter(skill => autoClassSkills(c, entries).includes(skill)).length
     + c.feats.reduce((total, feat, index) => {
@@ -3359,13 +3413,15 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       const ancestry = ancestrySkillGrant(c, feat.name)
       const warmask = feat.name === 'Orc Warmask' ? warmaskSource(c) : undefined
       const named = ancestry ? [ancestry.skill]
-        : feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
+        : feat.name === 'Ancestral Skills' ? ancestralSkills({ ...c, feats: [feat] }, entries)
+        : (feat.name === 'Dwarven Lore' ? undefined : ancestryLoreGrant(c, entries, feat.name)?.skills) ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
+        ?? (feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
         : feat.name === 'Clan Lore' ? CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
         : feat.name === 'Eye for Treasure' ? ['Crafting']
         : feat.name === "Officer's Medical Training" ? ['Medicine']
         : feat.name === 'Rat Retinal HUD' ? ['Computers']
         : feat.name === 'Shiny' ? ['Performance']
-        : warmask ? [warmask.skill] : []
+        : warmask ? [warmask.skill] : [])
       if (!named.length) return total
       const ranks = ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)
       const replacementChoices = feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore'

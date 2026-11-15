@@ -24,10 +24,11 @@ export interface Settings {
   inventorFirearmAccess: boolean
   // House rule: Gauntlet and Spiked Gauntlet gain finesse
   gauntletFinesse: boolean
+  cyborgTestSubject: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true }
+const DEFAULTS: Settings = { autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

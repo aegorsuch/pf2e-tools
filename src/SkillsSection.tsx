@@ -18,6 +18,7 @@ const RESISTANCE_NOTES: Record<string, string> = {
   'Harden Flesh': 'Physical resistance except against adamantine. Lasts until the beginning of your next turn; clear the active toggle when it ends.',
   'Heart of the Kaiju': "Physical resistance applies only while in kaiju form. This toggle does not apply the form's other statistics.",
   'Primal Aegis': 'Resistance equals your positive Wisdom modifier.',
+  'Radiation Resistant': 'Poison resistance applies only to damage from radiation effects.',
 }
 
 function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
@@ -188,6 +189,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`+${filigree} item bonus to Coerce.`} />}
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
+          {s.name === 'Fortitude' && !!activeFeatsNamed(c, 'Radiation Resistant').length && <SourceNote inlineSource={false}
+            source="Radiation Resistant" note="+1 circumstance bonus to Fortitude saves against radiation effects." />}
+          {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
+            source="Tinkering Fingers" note="Repair without a toolkit without the penalty; +1 circumstance to Repair checks with a repair toolkit." />}
+          {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
+            source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}

@@ -101,6 +101,7 @@ describe('settings sync', () => {
     expect(settings.getSettings().championFormNoFlight).toBe(true)
     expect(settings.getSettings().orderExplorerSkills).toBe(true)
     expect(settings.getSettings().gauntletFinesse).toBe(true)
+    expect(settings.getSettings().cyborgTestSubject).toBe(true)
     settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
     if (!saved) throw new Error('Settings were not persisted')

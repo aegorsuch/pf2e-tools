@@ -13,6 +13,22 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('labels fixed ancestral cantrips and creature speech without extra choices', () => {
+  const cantrip = mapAonHit({ _id: 'ysoki-cantrip', _source: { name: 'Ancestral Cantrip', category: 'feat', level: 1,
+    trait: ['Ysoki'], markdown: 'Header\n\n---\n\n**[Option(s)](/feats/1)**: occult; _[seek the stars](/spells/1)_' } }, 'sf2e')!
+  const speech = mapAonHit({ _id: 'ysoki-speech', _source: { name: 'Creature Speech', category: 'feat', level: 1,
+    trait: ['Ysoki'], markdown: 'Header\n\n---\n\n**[Option(s)](/feats/1)**: rodents' } }, 'sf2e')!
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 1,
+    feats: [{ name: 'Creature Speech', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[cantrip, speech]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).toContain('Creature Speech (Rats)')
+  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, feats: [] }} entries={[cantrip, speech]} categories={['ancestry']} save={() => {}} />))
+    .toContain('Ancestral Cantrip (Seek The Stars)')
+  const selected = { ...c, feats: [{ ...c.feats[0], name: 'Ancestral Cantrip' }] }
+  expect(renderToStaticMarkup(<FeatSlots c={selected} entries={[cantrip, speech]} categories={['ancestry']} save={() => {}} />))
+    .toContain('Ancestral Cantrip (Seek The Stars)')
+})
+
 it("keeps Officer's Education general slots tied to their source feats", () => {
   const education: ContentEntry = { id: 'education', name: "Officer's Education", kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 8, traits: ['Commander'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }

@@ -76,6 +76,11 @@ function ancestralCantripRules(c: Character, entries: ContentEntry[]) {
   return spells.length ? { tradition, spells, any: /^any (?:arcane|divine|occult|primal) cantrip$/i.test(spells[0]) } : undefined
 }
 
+export function fixedAncestralCantrip(c: Character, entries: ContentEntry[]) {
+  const rules = ancestralCantripRules(c, entries)
+  return rules && !rules.any && rules.spells.length === 1 ? rules.spells[0] : undefined
+}
+
 function ancestralMagicRules(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   const source = featSource(c, entries, 'Ancestral Magic')
   const options = /Option\(s\):\s*(arcane|divine|occult|primal)\s*;([^\n]*)/i.exec(source?.description ?? '')
@@ -155,7 +160,8 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     }
     if (feat.name === 'Ancestral Cantrip') {
       const rule = ancestralCantripRules(c, entries)
-      const spell = feat.choice && featSpellOptions(c, entries, feat)?.find(entry => entry.name === feat.choice)
+      const selected = fixedAncestralCantrip(c, entries) ?? feat.choice
+      const spell = selected && featSpellOptions(c, entries, feat)?.find(entry => matchesSpell(entry, selected))
       if (rule && spell) out.push({ entry: spell, source: feat.name,
         rule: { kind: 'innate', spells: [spell.name], tradition: rule.tradition, frequency: 'at will', heightened: true,
           ...(!rule.tradition ? { condition: 'Tradition not specified in ancestry source; verify with GM' } : {}) },

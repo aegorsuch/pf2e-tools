@@ -371,7 +371,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       : reference === 'reactive strike' ? [reference, 'attack of opportunity'] : [reference]
     if (facts.features.some((feature) => references.includes(key(feature)))) return met()
     const content = references.flatMap(knownEntries)
-    if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference, text)
+    if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference
+      || !!facts.ancestryTraits?.some(trait => key(trait) === reference), text)
     if (content.some((entry) => entry.kind === 'ancestry')) return resultFor(key(facts.ancestry ?? '') === reference, text)
     if (content.some((entry) => entry.kind === 'class')) return resultFor(key(facts.className ?? '') === reference, text)
     const selected = facts.feats.filter((feat) => references.includes(key(feat.name)))

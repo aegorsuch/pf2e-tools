@@ -74,6 +74,62 @@ it('applies Test-Subject Ysoki and Rat Retinal HUD training without duplicating 
   expect(featPrerequisiteChecker({ ...c, testSubjectAdaptation: 'Radioactive' }, [telepathicFeat])(telepathicFeat).missing).not.toEqual([])
 })
 
+it('grants Cyborg the cybernetic Test-Subject benefits only while the house rule is enabled', () => {
+  const previous = getSettings().cyborgTestSubject
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg', className: 'Operative', background: undefined }
+  const operative = { ...entry('class', 'Operative', { skill_proficiency: 'Trained in Computers, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' }), systems: ['sf2e' as const] }
+  const heritage = { ...entry('heritage', 'Test-Subject Ysoki'), systems: ['sf2e' as const] }
+  const gated = { ...entry('feat', 'Heritage Gate', { prerequisite: 'Test-Subject Ysoki heritage' }), systems: ['sf2e' as const] }
+  try {
+    updateSettings({ cyborgTestSubject: true })
+    expect(ranksAt(c, [operative]).Computers).toBe(1)
+    expect(additionalSkillCount(c, [operative])).toBe(3)
+    expect(automaticFeatGrants(c, [operative])).toContainEqual({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
+    expect(featPrerequisiteChecker(c, [heritage, gated])(gated).missing).toEqual([])
+    expect(ranksAt({ ...c, className: undefined }, []).Computers).toBe(1)
+    updateSettings({ cyborgTestSubject: false })
+    expect(additionalSkillCount(c, [operative])).toBe(2)
+    expect(automaticFeatGrants(c, [operative])).not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
+    expect(featPrerequisiteChecker(c, [heritage, gated])(gated).missing).not.toEqual([])
+    expect(ranksAt({ ...c, className: undefined }, []).Computers ?? 0).toBe(0)
+  } finally { updateSettings({ cyborgTestSubject: previous }) }
+})
+
+it('grants Ysoki lore, skills and replacement training in normal skill selections', () => {
+  const ancestral = { ...entry('feat', 'Ancestral Skills', {}, 1, ['Ysoki']), systems: ['sf2e' as const], description: 'Option(s): Society, Stealth' }
+  const background = entry('background', 'Sneak', { skill: 'Stealth, Deception' })
+  const names = ["Grandmother's Lore", 'Ysoki Lore', 'Tinkering Fingers', 'Extended Family', 'Ancestral Skills']
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', className: undefined, background: 'Sneak', level: 7,
+    feats: names.map((name, i) => ({ name, type: 'Ancestry Feat', level: 1, slot: `ancestry:${i ? 5 : 1}:${i}` })) }
+  const catalog = [ancestral, background]
+  expect(ranksAt(c, catalog)).toMatchObject({ Deception: 1, Thievery: 1, Acrobatics: 1, Stealth: 1,
+    Crafting: 1, Diplomacy: 1, Society: 1, 'Ysoki Lore': 3, 'Lao Shu Po Lore': 3 })
+  expect(additionalSkillCount(c, catalog)).toBe(3)
+  expect(automaticFeatGrants(c, catalog)).toEqual(expect.arrayContaining([
+    { name: 'Additional Lore', choice: 'Lao Shu Po', source: "Grandmother's Lore", level: 1 },
+    { name: 'Additional Lore', choice: 'Ysoki', source: 'Ysoki Lore', level: 5 },
+  ]))
+  expect(ranksAt({ ...c, level: 1 }, catalog).Crafting ?? 0).toBe(0)
+})
+
+it('hides generic Ancestral Skills only when the matching ancestry lore feat teaches identical skills', () => {
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  const ancestral = { ...entry('feat', 'Ancestral Skills', {}, 1, ['Orc']), systems: ['sf2e' as const], description: 'Option(s): Athletics, Survival' }
+  const lore = { ...entry('feat', 'Orc Lore', {}, 1, ['Orc']), systems: ['pf2e' as const] }
+  const c: Character = { ...base, ancestry: 'Orc', systems: ['pf2e', 'sf2e'], feats: [] }
+  expect(eligibleFeats([ancestral, lore], c, slot).map(feat => feat.name)).toEqual(['Orc Lore'])
+  const different = { ...ancestral, description: 'Option(s): Society, Survival' }
+  expect(eligibleFeats([different, lore], c, slot).map(feat => feat.name)).toContain('Ancestral Skills')
+  expect(eligibleFeats([ancestral], c, slot).map(feat => feat.name)).toContain('Ancestral Skills')
+  const elfSkills = { ...ancestral, traits: ['Elf'], description: 'Option(s): Arcana, Nature' }
+  const elfLore = { ...lore, name: 'Elven Lore', traits: ['Elf'],
+    description: 'You gain the trained proficiency rank in Arcana and Nature. You also gain the Additional Lore general feat for Elf Lore.' }
+  const elf = { ...c, ancestry: 'Elf' }
+  expect(eligibleFeats([elfSkills, elfLore], elf, slot).map(feat => feat.name)).toEqual(['Elven Lore'])
+  const selected = { ...elf, feats: [{ name: 'Elven Lore', type: 'Ancestry Feat', level: 1 }] }
+  expect(ranksAt(selected, [elfSkills, elfLore])).toMatchObject({ Arcana: 1, Nature: 1, 'Elf Lore': 1 })
+})
+
 it("grants Officer's Education benefits twice at their selected levels", () => {
   const education = entry('feat', "Officer's Education", { repeatable: true }, 8, ['Commander'])
   const ordinary = entry('feat', 'Advanced General', {}, 7, ['General'])
