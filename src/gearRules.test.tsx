@@ -219,6 +219,22 @@ it('tracks augmentation limits and extra slots from earned feats without rewriti
   expect(renderToStaticMarkup(<Augmentations c={{ ...c, systems: ['pf2e'] }} entries={[]} save={() => {}} />)).toBe('')
 })
 
+it('increases Cyborg implant limit independently of the Test-Subject house rule', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 9, heritage: 'Cyborg',
+    feats: [feat('Reconfigurable Frame', 5)] }
+  const previous = getSettings().cyborgTestSubject
+  try {
+    updateSettings({ cyborgTestSubject: false })
+    expect(augmentationLimit(c)).toBe(9)
+    const installed = Array.from({ length: 8 }, (_, index) => ({ id: String(index), entryId: String(index), name: `Implant ${index}`, slot: 'standard' }))
+    const implant: ContentEntry = { ...content('item', 'Implant', { item_category: 'Augmentations' }), systems: ['sf2e'] }
+    expect(canInstallAugmentation({ ...c, augmentations: installed }, implant, 'standard')).toBe(true)
+    expect(canInstallAugmentation({ ...c, augmentations: [...installed, { ...installed[0], id: '9' }] }, implant, 'standard')).toBe(false)
+    expect(augmentationLimit({ ...c, heritage: undefined })).toBe(5)
+    expect(augmentationLimit({ ...c, systems: ['pf2e'] })).toBe(5)
+  } finally { updateSettings({ cyborgTestSubject: previous }) }
+})
+
 it('enforces normal and feat-granted implant slots while permitting exempt augmentations', () => {
   const implant: ContentEntry = { ...content('item', 'Dermal Plating', { item_category: 'Augmentations', rarity: 'common' }),
     systems: ['sf2e'] }

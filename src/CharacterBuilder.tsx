@@ -6,7 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
@@ -136,9 +136,12 @@ function EquipmentSearch({ c, entries, save }: SectionProps) {
 type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Poisons' | 'Tattoos'
 type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
 
-function EquipmentGroup({ c, save, group, rows, showHeading = true }: Pick<SectionProps, 'c' | 'save'> & { group: EquipmentGroupName; rows: EquipmentRow[]; showHeading?: boolean }) {
-  if (!rows.length) return null
+function EquipmentGroup({ c, save, group, rows, showHeading = true, integratedComm }: Pick<SectionProps, 'c' | 'save'> & { group: EquipmentGroupName; rows: EquipmentRow[]; showHeading?: boolean; integratedComm?: ContentEntry | null }) {
+  if (!rows.length && integratedComm === undefined) return null
   return <div>{showHeading && <h4>{group}</h4>}<ul>
+    {integratedComm !== undefined && <li><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
+      descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
+      {' '}<small>(Cyborg; integrated, thought-operated)</small></li>}
     {rows.map(({ item, index, entry }) => <li key={`${item.name}-${index}`}>
       {item.name} <ActionIcon entry={entry} /> x<input type="number" min={1} style={{ width: '4em' }} value={item.qty}
         onChange={event => save({ equipment: c.equipment.map((existing, i) => {
@@ -380,7 +383,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
             && <Info label="Test-Subject Ysoki">
               <a href="https://2e.aonsrd.com/heritages/141-test-subject-ysoki" target="_blank" rel="noreferrer">Heritage rules</a>
             </Info>}
-          {testSubjectAdaptation(c) === 'Cybernetic Augmentation' && !activeFeatsNamed(c, 'Biotech Os Upgrade').length && <Info label="Tech">
+          {hasCyborgHeritage(c) && <Info label="Cyborg">
+            <a href="https://2e.aonsrd.com/traits/342-cyborg" target="_blank" rel="noreferrer">Cyborg trait</a>
+          </Info>}
+          {(hasCyborgHeritage(c) || testSubjectAdaptation(c) === 'Cybernetic Augmentation') && !activeFeatsNamed(c, 'Biotech Os Upgrade').length && <Info label="Tech">
               <a href="https://2e.aonsrd.com/traits/179-tech" target="_blank" rel="noreferrer">Tech trait</a>
             </Info>}
           {!!activeFeatsNamed(c, 'Biotech Os Upgrade').length && <Info label="Biotech">
@@ -535,7 +541,9 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
           <h4>Handwraps</h4>
           <HandwrapsGear {...section} />
-          <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']} />
+          <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']}
+            integratedComm={hasCyborgHeritage(c) ? entries.find(entry => entry.kind === 'item'
+              && entry.name === 'Comm Unit' && entry.systems.includes('sf2e')) ?? null : undefined} />
           {(equipmentGroups.Poisons.length > 0 || activeFeatsNamed(c, 'Poison Weapon').length > 0) && <>
             <h4>Poisons</h4>
             <SimplePoisons {...section} />

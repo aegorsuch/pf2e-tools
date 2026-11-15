@@ -244,8 +244,8 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
-export const cyborgTestSubject = (c: Character) => c.level >= 1 && c.systems.includes('sf2e')
-  && c.heritage === 'Cyborg' && getSettings().cyborgTestSubject
+export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg'
+export const cyborgTestSubject = (c: Character) => hasCyborgHeritage(c) && getSettings().cyborgTestSubject
 export const testSubjectAdaptation = (c: Character) =>
   cyborgTestSubject(c) ? 'Cybernetic Augmentation'
     : c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
@@ -259,7 +259,7 @@ export function officerEducationSlots(c: Character) {
 }
 export function augmentationLimit(c: Character) {
   const count = (name: string) => activeFeatsNamed(c, name).length
-  return 4 + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
+  return 4 + 4 * Number(hasCyborgHeritage(c)) + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
     + count('Easily Augmented') * (c.heritage?.toLowerCase() === 'synthflesh verthani' ? 2 : 1)
     + 2 * (count('Augmented Dedication') + count('Augmented Perfection'))
 }

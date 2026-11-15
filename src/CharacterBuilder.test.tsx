@@ -4,6 +4,7 @@ import { CharacterBuilder as Builder } from './CharacterBuilder'
 import type { ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
@@ -41,6 +42,25 @@ it('shows cosmic and biotech traits from Cyborg upgrades instead of tech', () =>
   const original = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [] }} onClose={() => {}} />)
   expect(original).toContain('>Tech trait</a>')
   expect(original).not.toContain('>Biotech trait</a>')
+})
+
+it('shows Cyborg traits and its integrated comm unit without the optional house rule', () => {
+  const previous = getSettings().cyborgTestSubject
+  const c: Character = { id: 'cyborg', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Human', heritage: 'Cyborg',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    content.entries = []
+    updateSettings({ cyborgTestSubject: false })
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('>Cyborg trait</a>')
+    expect(markup).toContain('>Tech trait</a>')
+    expect(markup).toContain('Comm Unit')
+    expect(markup).toContain('Cyborg; integrated, thought-operated')
+    expect(markup).toContain('Implant limit: 0/8')
+    expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: undefined }} onClose={() => {}} />))
+      .not.toContain('Cyborg; integrated, thought-operated')
+  } finally { updateSettings({ cyborgTestSubject: previous }); content.entries = [] }
 })
 
 it("keeps Officer's Medical Training grant text out of the Skill Feats summary", () => {
