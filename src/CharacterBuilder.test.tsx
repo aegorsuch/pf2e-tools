@@ -465,6 +465,28 @@ it('shows official deity epithets in the subtitle and picker while retaining can
     .toContain('<strong>Deity</strong><span>Iomedae</span>')
 })
 
+it('shows Grandmother Rat for Lao Shu Po regardless of the enabled official source', () => {
+  const pathfinder = mapAonHit({ _id: 'deity-pf', _source: { category: 'deity', name: 'Lao Shu Po', epithet: 'Old Rat Woman' } }, 'pf2e')
+  const starfinder = mapAonHit({ _id: 'deity-sf', _source: { category: 'deity', name: 'Lao Shu Po', epithet: 'Grandmother Rat' } }, 'sf2e')
+  if (!pathfinder || !starfinder) throw new Error('Missing deity mapping')
+  const c: Character = {
+    id: 'c', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1, deity: 'Lao Shu Po',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    for (const entries of [[pathfinder], [starfinder], [pathfinder, starfinder], [starfinder, pathfinder]]) {
+      content.entries = entries
+      const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+      expect(markup).toContain('<strong>Deity</strong><span>Lao Shu Po, Grandmother Rat</span>')
+      expect(markup).toContain('<h4>Lao Shu Po, Grandmother Rat</h4>')
+      expect(markup).toContain('<option value="Lao Shu Po" selected="">Lao Shu Po, Grandmother Rat</option>')
+      expect(markup).not.toContain('Old Rat Woman</span>')
+    }
+    expect(c.deity).toBe('Lao Shu Po')
+  } finally { content.entries = [] }
+})
+
 it('defers unused picker choices while retaining saved values and deity labels', () => {
   content.entries = ([
     ['ancestry', 'Human'], ['ancestry', 'Elf'], ['class', 'Ranger'], ['class', 'Wizard'],

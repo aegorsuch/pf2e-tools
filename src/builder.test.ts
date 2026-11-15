@@ -69,6 +69,16 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('reads concatenated Starfinder Mechanic class skill proficiencies', () => {
+  const mechanic = { ...entry('class', 'Mechanic', {
+    skill_proficiency: 'Trained in Computers Trained in Crafting Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
+  }), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', background: undefined }
+  expect(classSkills(mechanic)).toEqual({ fixed: ['Computers', 'Crafting'], choices: [], additional: 2 })
+  expect(ranksAt(c, [mechanic])).toMatchObject({ Computers: 1, Crafting: 1 })
+  expect(additionalSkillCount(c, [mechanic])).toBe(2)
+})
+
 it('applies Test-Subject Ysoki and Rat Retinal HUD training without duplicating Computers', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
     className: 'Operative', background: undefined, testSubjectAdaptation: 'Cybernetic Augmentation',

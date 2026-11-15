@@ -26,9 +26,12 @@ import type { Character, ContentEntry, EntryKind } from './types'
 
 const NONE: ContentEntry[] = []
 
-const deityLabel = (deity: ContentEntry) => typeof deity.data.epithet === 'string' && deity.data.epithet.trim()
-  ? `${deity.name}, ${deity.data.epithet.trim().replace(/^The /, 'the ')}`
-  : deity.name
+const deityLabel = (deity: ContentEntry) => {
+  const epithet = deity.name === 'Lao Shu Po' && deity.source === 'official' ? 'Grandmother Rat' : deity.data.epithet
+  return typeof epithet === 'string' && epithet.trim()
+    ? `${deity.name}, ${epithet.trim().replace(/^The /, 'the ')}`
+    : deity.name
+}
 
 function Pick({ label, kind, value, options, onChange, ancestry }: {
   label: string

@@ -113,10 +113,9 @@ it('shows loudener damage and merciful restrictions on hardlight attacks', () =>
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={upgrades} save={() => {}} displayOnly />)
   expect(markup).toContain('1d6 sonic')
   expect(markup).toContain('Persistent damage is negated')
-  expect(markup).toContain('Critical hit: persistent fire negated by Merciful.')
 })
 
-it('shows grade-specific critical effects and conditional upgrade benefits on unarmed attacks', () => {
+it('shows upgrade names without inline helper text on unarmed attacks', () => {
   const upgrades = ['Fear Projector (Tactical)', 'Entropic Destabilizer (Tactical)', 'Quicklock'].map(name => ({
     ...content('item', name, { item_subcategory: 'Weapon Upgrades' }, 8), systems: ['sf2e' as const],
   }))
@@ -125,15 +124,10 @@ it('shows grade-specific critical effects and conditional upgrade benefits on un
   } }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={upgrades} save={() => {}} displayOnly />)
   expect(markup).toContain('1d4 void')
-  expect(markup).toContain('Critical hit: frightened 2.')
-  expect(markup).toContain('4d4 persistent void')
-  expect(markup).toContain('Void ignores resistance and immunity.')
-  expect(markup).toContain('the extra action can only Strike with this weapon')
-  const commercial = upgrades.map(upgrade => ({ ...upgrade, name: upgrade.name.replace('(Tactical)', '(Commercial)') }))
-  const commercialMarkup = renderToStaticMarkup(<WeaponList c={c} entries={commercial} save={() => {}} displayOnly />)
-  expect(commercialMarkup).toContain('Critical hit: frightened 1.')
-  expect(commercialMarkup).toContain('2d4 persistent void')
-  expect(commercialMarkup).not.toContain('Void ignores resistance and immunity.')
+  expect(markup).toContain('Fear Projector (Tactical)')
+  expect(markup).toContain('Quicklock')
+  expect(markup).not.toContain('Critical hit: frightened 2.')
+  expect(markup).not.toContain('the extra action can only Strike with this weapon')
 })
 
 it('shows sight bonuses only as conditional Perception notes while wielded', () => {

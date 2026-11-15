@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, availableHandPairs, effectiveWeapon, equippedWeaponHands, handPairCapacity, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
@@ -73,30 +73,20 @@ it('limits equipped weapons by hands while preserving legacy and always-equipped
   expect(equippedWeaponHands(c, [...entries, free])).toBe(2)
 })
 
-it('holds weapons in separate hand pairs and switches which pair is active', () => {
+it('uses a shared pool for weapons saved in different hand pairs', () => {
   const sword = { ...weapon, data: { hands: 2 } }
   let c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
     testSubjectAdaptation: 'Extra Limbs', weapons: [
       { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
       { id: 'two', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 2 },
     ] }
-  expect(equippedWeaponHands(c, [sword], 1)).toBe(2)
-  expect(equippedWeaponHands(c, [sword], 2)).toBe(2)
+  expect(equippedWeaponHands(c, [sword])).toBe(4)
   expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
-  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(false)
-  const switched = { ...c, activeHandPair: 2 as const }
-  expect(weaponEquipped(switched, [sword], c.weapons![0])).toBe(false)
-  expect(weaponEquipped(switched, [sword], c.weapons![1])).toBe(true)
-  expect(weaponEquipped({ ...switched, testSubjectAdaptation: undefined }, [sword], c.weapons![0])).toBe(true)
-  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
-  expect(renderToStaticMarkup(tree())).toContain('aria-label="Active hands"')
-  const switchHands = findElement(tree(), e => e.props['aria-label'] === 'Active hands')!
-  ;(switchHands.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
-  c = JSON.parse(JSON.stringify(c))
-  expect(c.activeHandPair).toBe(2)
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
-  const pair = findElement(tree(), e => e.props['aria-label'] === 'Hand pair: Longsword')!
-  ;(pair.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  expect(renderToStaticMarkup(tree())).toContain('Hands used: 4/4')
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Active hands"')
+  expect(renderToStaticMarkup(tree())).not.toContain('Hand pair:')
   expect(c.weapons![0].handPair).toBe(1)
 })
 
@@ -147,7 +137,7 @@ it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
-it('supports additional arm pairs and switches which weapons are active', () => {
+it('adds two hands per Additional Arms selection', () => {
   const sword = { ...weapon, name: 'Cyborg Sword', data: { ...weapon.data, hands: 1 } }
   const c: Character = { ...character([]), systems: ['sf2e'], level: 17, heritage: 'Cyborg',
     feats: [{ name: 'Additional Arms', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
@@ -155,30 +145,29 @@ it('supports additional arm pairs and switches which weapons are active', () => 
     weapons: [{ id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
       { id: 'three', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 3 }],
     activeHandPair: 3 }
-  expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(false)
+  expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />)
-  expect(markup).toContain('Pair 3')
+  expect(markup).toContain('Hands used: 2/6')
+  expect(markup).not.toContain('Pair 3')
   expect(weaponEquipped({ ...c, activeHandPair: 1 }, [sword], c.weapons![0])).toBe(true)
 })
 
-it('keeps weapons in removed arm pairs inactive until reassigned', () => {
+it('keeps legacy pair assignments usable after arms are removed', () => {
   const sword = { ...weapon, data: { hands: 1 } }
   let c: Character = { ...character([]), systems: ['sf2e'], activeHandPair: 3, weapons: [
     { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
     { id: 'lost', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 3 },
   ] }
   expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
-  expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(false)
-  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
-  expect(renderToStaticMarkup(tree())).toContain('Pair 3 (unavailable)')
-  const pair = findElement(tree(), e => e.props['aria-label'] === 'Hand pair: Longsword')!
-  ;(pair.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
+  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  expect(renderToStaticMarkup(tree())).toContain('Hands used: 2/2')
+  expect(renderToStaticMarkup(tree())).not.toContain('Pair 3 (unavailable)')
   expect(equippedWeaponHands(c, [sword])).toBe(2)
 })
 
-it('treats a prehensile tail as one hand, not a full pair', () => {
+it('combines a tail with regular hands in the shared pool', () => {
   const sword = { ...weapon, name: 'Tail sword', data: { hands: 1 } }
   const rifle = { ...weapon, name: 'Rifle', data: { hands: 2 } }
   let c: Character = { ...character([{ name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 }]),
@@ -188,22 +177,44 @@ it('treats a prehensile tail as one hand, not a full pair', () => {
     ] }
   const tree = () => WeaponList({ c, entries: [sword, rifle], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
   expect(weaponEquipped(c, [sword, rifle], c.weapons![0])).toBe(true)
-  expect(findElement(tree(), e => e.props['aria-label'] === 'Held Rifle')!.props.disabled).toBe(true)
+  expect(findElement(tree(), e => e.props['aria-label'] === 'Equipped Rifle')!.props.disabled).toBe(false)
   const extraArms = { ...c, feats: [...c.feats, { name: 'Additional Arms', type: 'Ancestry Feat', level: 9 }], level: 10 }
   expect(weaponEquipped(extraArms, [sword, rifle], extraArms.weapons![0])).toBe(true)
-  ;(findElement(tree(), e => e.props['aria-label'] === 'Held Tail sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
-  expect(findElement(tree(), e => e.props['aria-label'] === 'Held Rifle')!.props.disabled).toBe(true)
+  ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Rifle')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(equippedWeaponHands(c, [sword, rifle])).toBe(3)
+  expect(renderToStaticMarkup(tree())).toContain('Hands used: 3/3')
+})
+
+it('enforces the shared pool when changing grip and preserves over-capacity saved weapons', () => {
+  const sword = { ...weapon, name: 'Sword', data: { hands: 1 } }
+  const spear = { ...weapon, name: 'Spear', data: { hands: '1 or 2' } }
+  const dagger = { ...weapon, name: 'Dagger', data: { hands: 1 } }
+  let c: Character = { ...character([{ name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 }]), weapons: [
+    { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+    { id: 'spear', name: spear.name, potency: 0, striking: 0, runes: [], handPair: -1 },
+    { id: 'dagger', name: dagger.name, potency: 0, striking: 0, runes: [], handPair: 3 },
+  ] }
+  const entries = [sword, spear, dagger]
+  const tree = () => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  const grip = () => findElement(tree(), e => e.props['aria-label'] === 'Hands: Spear')!
+  expect(findElement(grip(), e => e.type === 'option' && e.props.value === 2)!.props.disabled).toBe(true)
+  ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Dagger')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(findElement(grip(), e => e.type === 'option' && e.props.value === 2)!.props.disabled).toBe(false)
+  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  expect(equippedWeaponHands(c, entries)).toBe(3)
+  c = { ...c, feats: [] }
+  expect(renderToStaticMarkup(tree())).toContain('Unequip weapons to use at most 2 hands in total.')
+  expect(weaponEquipped(c, entries, c.weapons![1])).toBe(true)
+  expect(c.weapons![1].handPair).toBe(-1)
 })
 
 it('counts one tail hand even if both Ysoki versions were previously selected', () => {
   const tail = { name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 }
   const limb = { name: 'Prehensile Limbs', type: 'Ancestry Feat', level: 5 }
   const c: Character = { ...character([tail, limb]), systems: ['sf2e'], ancestry: 'Ysoki' }
-  expect(availableHandPairs(c)).toEqual([1, -1])
-  expect(handPairCapacity(c, -1)).toBe(1)
   expect(totalHandCapacity(c)).toBe(3)
   expect(totalHandCapacity({ ...c, feats: [] })).toBe(2)
-  expect(availableHandPairs({ ...c, feats: [limb] })).toEqual([1, -2])
+  expect(totalHandCapacity({ ...c, feats: [limb] })).toBe(3)
 })
 
 it('allows an Ord tail to pair with a hand without adding a fourth hand', () => {
@@ -215,14 +226,13 @@ it('allows an Ord tail to pair with a hand without adding a fourth hand', () => 
       { id: 'two', name: rifle.name, potency: 0, striking: 0, runes: [], handPair: -1 },
       { id: 'three', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1, stowed: true },
     ] }
-  expect(handPairCapacity(c, -1)).toBe(2)
   expect(totalHandCapacity(c)).toBe(3)
   expect(weaponEquipped(c, [sword, rifle], c.weapons![1])).toBe(true)
   const tree = WeaponList({ c, entries: [sword, rifle], save: () => {}, displayOnly: true })
   const held = (node: ReactNode): ReactElement[] => {
     if (!isValidElement(node)) return []
     const element = node as ReactElement<{ children?: ReactNode; 'aria-label'?: string }>
-    return [...(element.props['aria-label'] === 'Held Ord sword' ? [element] : []),
+    return [...(element.props['aria-label'] === 'Equipped Ord sword' ? [element] : []),
       ...Children.toArray(element.props.children).flatMap(held)]
   }
   expect(held(tree).at(-1)?.props).toMatchObject({ checked: false, disabled: true })
@@ -238,11 +248,11 @@ it('pairs a prehensile limb with an existing hand without creating a fourth hand
       { id: 'four', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1, stowed: true },
     ] }
   const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
-  expect(equippedWeaponHands(c, [sword])).toBe(2)
+  expect(equippedWeaponHands(c, [sword])).toBe(3)
   const inputs = (node: ReactNode): ReactElement[] => {
     if (!isValidElement(node)) return []
     const element = node as ReactElement<{ children?: ReactNode; 'aria-label'?: string }>
-    return [...(element.props['aria-label'] === 'Held Limb sword' ? [element] : []),
+    return [...(element.props['aria-label'] === 'Equipped Limb sword' ? [element] : []),
       ...Children.toArray(element.props.children).flatMap(inputs)]
   }
   expect(inputs(tree()).at(-1)?.props).toMatchObject({ checked: false, disabled: true })

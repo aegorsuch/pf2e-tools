@@ -1430,8 +1430,8 @@ export function classSkills(klass?: ContentEntry) {
   return { fixed, choices, additional: extra ? +extra[1] : 0 }
 }
 
-// skill_proficiency is stored joined with ", "; the sentences themselves contain no other commas we rely on
-const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/,\s(?=Trained)/i).map((t) => t.trim()) : [])
+// Some Starfinder class records concatenate proficiency sentences without commas.
+const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/(?:,\s*|\s+)(?=Trained in\b)/i).map((t) => t.trim()) : [])
 
 // The skill each druidic order grants
 export const DRUID_ORDERS: Record<string, string> = {
@@ -2719,22 +2719,11 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
   return weaponHands(entries, weapon) === 0 || !weapon.stowed && !weapon.cheekStored && !legacyPouch
 }
 
-export function availableHandPairs(c: Character) {
-  const count = 1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length
+export function totalHandCapacity(c: Character) {
+  const arms = 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length)
   const tail = activeFeatsNamed(c, 'Prehensile Tail').length > 0
   const limb = activeFeatsNamed(c, 'Prehensile Limbs').length > 0
-  return [...Array.from({ length: count }, (_, index) => index + 1),
-    ...(tail ? [-1] : []),
-    ...(limb && !(tail && c.ancestry === 'Ysoki') ? [-2] : [])]
-}
-
-export function handPairCapacity(c: Character, pair: number) {
-  return pair === -1 && c.ancestry !== 'Ord' && activeFeatsNamed(c, 'Prehensile Tail').length ? 1 : 2
-}
-
-export function totalHandCapacity(c: Character) {
-  const pairs = availableHandPairs(c)
-  return pairs.filter(pair => pair > 0).length * 2 + Number(pairs.includes(-1)) + Number(pairs.includes(-2))
+  return arms + Number(tail) + Number(limb && !(tail && c.ancestry === 'Ysoki'))
 }
 
 export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
@@ -2746,15 +2735,13 @@ export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: Ow
     const source = haftStrikerSource(c, entries)
     return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source) === 2
   }
-  const savedPair = c.activeHandPair ?? 1
-  const active = availableHandPairs(c).includes(savedPair) ? savedPair : 1
-  return weaponHeld(c, entries, weapon) && (weaponHands(entries, weapon) === 0 || (weapon.handPair ?? 1) === active)
+  return weaponHeld(c, entries, weapon)
 }
 
-export function equippedWeaponHands(c: Character, entries: ContentEntry[], pair?: number): number {
+export function equippedWeaponHands(c: Character, entries: ContentEntry[]): number {
   return ownedWeapons(c, entries).reduce((total, weapon) => {
     if (weapon.attachedTo || weapon.name === HAFT_STRIKER_WEAPON.name
-      || (pair ? !weaponHeld(c, entries, weapon) || (weapon.handPair ?? 1) !== pair : !weaponEquipped(c, entries, weapon))) return total
+      || !weaponEquipped(c, entries, weapon)) return total
     return total + (weaponHands(entries, weapon) ?? 0)
   }, 0)
 }
