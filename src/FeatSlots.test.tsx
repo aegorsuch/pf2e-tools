@@ -13,6 +13,26 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it("keeps Officer's Education general slots tied to their source feats", () => {
+  const education: ContentEntry = { id: 'education', name: "Officer's Education", kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 8, traits: ['Commander'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const general: ContentEntry = { ...education, id: 'general', name: 'Advanced General', level: 7, traits: ['General'], data: {} }
+  let c: Character = { ...emptyRanger(), className: 'Commander', level: 12, feats: [
+    { name: education.name, type: 'Class Feat', level: 8, slot: 'class:8:0' },
+    { name: education.name, type: 'Class Feat', level: 8, slot: 'class:12:0' },
+  ] }
+  const tree = (categories: ('class' | 'general')[]) => FeatSlots({ c, entries: [education, general], categories,
+    save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree(['class']))).not.toContain("Officer's Education choice")
+  findSelect(tree(['general']), 'L08 General feat')!({ target: { value: general.name } })
+  expect(c.feats.find(feat => feat.name === general.name)).toMatchObject({
+    slot: 'general:1:officer-education:class:8:0', takenLevel: 8,
+  })
+  findButton(tree(['class']), 'Clear L08 Class feat selection')!()
+  expect(c.feats.map(feat => feat.name)).toEqual([education.name])
+  expect(plannedSlots(c).filter(slot => slot.grantedBy === education.name).map(slot => slot.level)).toEqual([12])
+})
+
 it("shows Battle Medicine granted by Officer's Medical Training", () => {
   const battleMedicine: ContentEntry = { id: 'feat-5125', name: 'Battle Medicine', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['General', 'Healing', 'Manipulate', 'Skill'],

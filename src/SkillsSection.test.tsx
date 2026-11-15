@@ -224,6 +224,26 @@ it('keeps replacement training available for stale saved choices', () => {
   expect(skillRankBudget(c, [ranger, background]).trained).toBe(5)
 })
 
+it("uses regular skill controls for both Officer's Education selections", () => {
+  let c: Character = { ...base, level: 12, skillPicks: ['Athletics', 'Society'],
+    feats: [
+      { name: "Officer's Education", type: 'Class Feat', level: 8, slot: 'class:8:0' },
+      { name: "Officer's Education", type: 'Class Feat', level: 8, slot: 'class:12:0' },
+    ] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(skillRankBudget(c, [ranger])).toMatchObject({ trained: 6, expert: 4 })
+  ;(findButtons(tree()).get('Medicine Trained')!.onClick as () => void)()
+  ;(findButtons(tree()).get('Athletics Expert')!.onClick as () => void)()
+  ;(findButtons(tree()).get('Society Expert')!.onClick as () => void)()
+  expect(c.skillIncreases).toMatchObject({
+    'officer-education:class:8:0': 'Athletics', 'officer-education:class:12:0': 'Society',
+  })
+  expect(ranksAt(c, [ranger])).toMatchObject({ Athletics: 2, Society: 2, Medicine: 1 })
+  ;(findButtons(tree()).get('Athletics Expert')!.onClick as () => void)()
+  expect(ranksAt(c, [ranger]).Athletics).toBe(1)
+  expect(skillRankBudget(c, [ranger]).expert).toBe(3)
+})
+
 it('adds regular trained and expert selections for longevity feats', () => {
   let c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'],
     feats: [

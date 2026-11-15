@@ -68,7 +68,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   }
   if (['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
     'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(feat.name)) return null
-  if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(feat.name)) return null
+  if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
     const choice = feat.choice ? combinationName(entries, feat.choice) : ''

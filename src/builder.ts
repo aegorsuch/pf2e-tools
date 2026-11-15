@@ -244,6 +244,13 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
 }
 
 export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+export function officerEducationSlots(c: Character) {
+  let unslotted = 0
+  return activeFeatsNamed(c, "Officer's Education").slice(0, 2).map(feat => ({
+    key: `officer-education:${feat.slot ?? `unslotted-${unslotted++}`}`,
+    level: featTakenLevel(feat),
+  }))
+}
 export function augmentationLimit(c: Character) {
   const count = (name: string) => activeFeatsNamed(c, name).length
   return 4 + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
@@ -347,7 +354,7 @@ export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
-  || key.startsWith('archetype:1:eldritch-trickster:')
+  || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
 
 export function plannedSlots(c: Character): PlannedSlot[] {
   const base: FeatSlot[] = [
@@ -392,6 +399,11 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     slots.push({ key: `class:1:order-explorer:${identity}`, category: 'class', level, maxFeatLevel: 1,
       grantedBy: 'Order Explorer', grantedOrder: order })
   }
+  for (const grant of officerEducationSlots(c)) {
+    const group = `general:${grant.level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `general:1:${grant.key}`, category: 'general', level: grant.level, grantedBy: "Officer's Education" })
+  }
   for (const feat of c.feats) {
     if (feat.name !== 'Exceptional Artisan' || !feat.choice || featTakenLevel(feat) > c.level) continue
     const level = featTakenLevel(feat)
@@ -428,7 +440,8 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key)
-    || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer')
+    || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
+    || slot.grantedBy === "Officer's Education")
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -721,6 +734,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(e.name === 'Ancestral Unarmed Attack' && c.ancestry === 'Orc'
         && c.feats.some(feat => /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(feat.name) && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
+      && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
@@ -1953,15 +1967,21 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const ancestralLevel = ancestral && featTakenLevel(ancestral)
   const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
   const longevityLevel = longevityExpertLevel({ ...c, level: Math.min(c.level, beforeLevel - 1) })
+  const educationSlots = officerEducationSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
     ...(greenwatchLevel === undefined ? [] : [greenwatchLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
-    ...(longevityLevel === undefined ? [] : [longevityLevel])])].sort((a, b) => a - b)
+    ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level)])].sort((a, b) => a - b)
   for (const l of levels) {
     if (l === longevityLevel) {
       const skill = c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]
       if (skill && ranks[skill] === 1) ranks[skill] = 2
+    }
+    for (const slot of educationSlots.filter(slot => slot.level === l)) {
+      const skill = c.skillIncreases?.[slot.key]
+      if (skill && ranks[skill] === 1 && (statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
+        || /.+\s+lore$/i.test(skill))) ranks[skill] = 2
     }
     if (increases.has(l)) {
       const skill = c.skillIncreases?.[l]
@@ -3354,6 +3374,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {
     if (featTakenLevel(selected) > c.level) return total
     if (selected.name === 'Natural Skill') return total + 2
+    if (selected.name === "Officer's Education") return total + (activeFeatsNamed(c, selected.name).slice(0, 2).includes(selected) ? 2 : 0)
     if (selected.name === 'Ancestral Longevity') return total + 1
     const feat = byName(entries, 'feat', selected.name)
     const text = `${feat?.description ?? ''} ${String(feat?.data.skill ?? '')}`
@@ -3378,6 +3399,7 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
   }
   const remaining = { trained: Math.max(0, additionalSkillCount(c, entries) - effectivePicks.length), expert: 0, master: 0, legendary: 0 }
   if (longevityExpertLevel(c) !== undefined && !c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]) remaining.expert++
+  for (const slot of officerEducationSlots(c)) if (!c.skillIncreases?.[slot.key]) remaining.expert++
   for (const level of skillIncreaseLevels(c)) {
     if (c.skillIncreases?.[level]) continue
     const rank = rankCap(level)
@@ -3536,6 +3558,7 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
   const feats = (prodigy ? 2 : 0) + activeFeatsNamed(c, 'Multilingual').length
     * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0))
-  return { locked, sources, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats
-    + activeFeatsNamed(c, 'Ancestral Linguistics').length }
+  const commonOnlySlots = officerEducationSlots(c).length
+  return { locked, sources, commonOnlySlots, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats
+    + activeFeatsNamed(c, 'Ancestral Linguistics').length + commonOnlySlots }
 }

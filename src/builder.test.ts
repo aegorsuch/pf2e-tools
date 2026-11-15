@@ -51,6 +51,35 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it("grants Officer's Education benefits twice at their selected levels", () => {
+  const education = entry('feat', "Officer's Education", { repeatable: true }, 8, ['Commander'])
+  const ordinary = entry('feat', 'Advanced General', {}, 7, ['General'])
+  const restricted = entry('feat', 'Restricted General', { prerequisite: 'master in Medicine' }, 7, ['General'])
+  const first = { name: education.name, type: 'Class Feat', level: 8, slot: 'class:8:0' }
+  const second = { ...first, slot: 'class:12:0' }
+  const c: Character = { ...base, className: 'Commander', level: 12, feats: [first, second],
+    skillPicks: ['Medicine', 'Society'], skillIncreases: {
+      'officer-education:class:8:0': 'Medicine', 'officer-education:class:12:0': 'Society',
+    } }
+  const one = { ...c, feats: [first] }
+  expect(additionalSkillCount(c, entries) - additionalSkillCount({ ...c, feats: [] }, entries)).toBe(4)
+  expect(additionalSkillCount(one, entries) - additionalSkillCount({ ...c, feats: [] }, entries)).toBe(2)
+  expect(languageAllowance(c, entries)).toMatchObject({ slots: 3, commonOnlySlots: 2 })
+  expect(languageAllowance({ ...c, level: 7 }, entries)).toMatchObject({ slots: 1, commonOnlySlots: 0 })
+  expect(ranksAt(c, entries)).toMatchObject({ Medicine: 2, Society: 2 })
+  expect(ranksAt({ ...c, level: 9 }, entries)).toMatchObject({ Medicine: 2, Society: 1 })
+  expect(ranksAt({ ...c, feats: [] }, entries)).toMatchObject({ Medicine: 1, Society: 1 })
+  const slots = plannedSlots(c).filter(slot => slot.grantedBy === education.name)
+  expect(slots.map(slot => [slot.key, slot.level])).toEqual([
+    ['general:1:officer-education:class:8:0', 8], ['general:1:officer-education:class:12:0', 12],
+  ])
+  expect(eligibleFeats([ordinary, restricted], c, slots[0]).map(feat => feat.name)).toEqual(['Advanced General'])
+  const classSlot = { key: 'class:14:0', category: 'class' as const, level: 14 }
+  expect(eligibleFeats([education], { ...c, level: 14, feats: [first] }, classSlot)).toContainEqual(education)
+  expect(eligibleFeats([education], { ...c, level: 14 }, classSlot)).toEqual([])
+  expect(eligibleFeats([education], c, { ...classSlot, key: second.slot, level: 12 })).toContainEqual(education)
+})
+
 describe('subclass skill grants', () => {
   it('parses Starfinder class choice and excludes subclass placeholders', () => {
     const envoy = entry('class', 'Envoy', { skill_proficiency: 'Trained in one of the following skills of your choice: Deception, Diplomacy, Intimidation, Trained in one skill based on your leadership style, Trained in a number of additional skills equal to 6 plus your Intelligence modifier' })

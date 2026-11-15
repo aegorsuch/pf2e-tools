@@ -87,6 +87,18 @@ it('adds a regular language slot and migrates an existing Ancestral Linguistics 
   expect(FeatChoice({ c, entries: [], save: () => {}, index: 0 })).toBeNull()
 })
 
+it("restricts Officer's Education language slots to common languages without trapping existing picks", () => {
+  const c: Character = { ...base, level: 8, languages: ['Aklo'],
+    feats: [{ name: "Officer's Education", type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+  const markup = renderToStaticMarkup(<LanguagesSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toMatch(/<input type="checkbox" checked="".*?\/> Aklo/)
+  expect(markup).toMatch(/<input type="checkbox" disabled="".*?\/> Aquan/)
+  expect(markup).toMatch(/<input type="checkbox"\/> Draconic/)
+  const overfilled = renderToStaticMarkup(<LanguagesSection c={{ ...c, languages: ['Aklo', 'Aquan'] }} entries={[]} save={() => {}} />)
+  expect(overfilled).toMatch(/<input type="checkbox" checked="".*?\/> Aquan/)
+  expect(FeatChoice({ c, entries: [], save: () => {}, index: 0 })).toBeNull()
+})
+
 it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {
   let c: Character = { ...base, level: 13, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 },
     feats: [{ name: 'Researched Spell Resistance', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
@@ -187,6 +199,7 @@ it('imports repeatability from feat special rules without guessing from summarie
   } }
   expect(mapAonHit(hit, 'pf2e')?.data.repeatable).toBe(true)
   expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '**Special** You can take this ancestry feat multiple times.' } }, 'pf2e')?.data.repeatable).toBe(true)
+  expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '**Special** You can take this feat twice, gaining its benefits each time.' } }, 'pf2e')?.data.repeatable).toBe(true)
   expect(mapAonHit({ ...hit, _source: { ...hit._source, markdown: '', summary: 'You can take this feat multiple times.' } }, 'pf2e')?.data.repeatable).toBe(false)
   expect(mapAonHit({ _source: { category: 'spell', name: 'Gravity Weapon', warden_spell_tier: 'Initiate' } }, 'pf2e')?.data.warden_spell_tier).toBe('Initiate')
 })
