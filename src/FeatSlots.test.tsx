@@ -93,7 +93,9 @@ it('persists Social Chameleon choices in normal feat sections and clears depende
   })
   c = JSON.parse(JSON.stringify(c)) as Character
   expect(renderToStaticMarkup(tree(['general']))).toContain('Adopted Ancestry (Elf)')
+  expect(renderToStaticMarkup(tree(['general']))).not.toContain('(Social Chameleon)')
   expect(renderToStaticMarkup(tree(['ancestry']))).toContain('Elf Training')
+  expect(renderToStaticMarkup(tree(['ancestry']))).not.toContain('(Social Chameleon)')
   findButton(tree(['general']), 'Clear L05 General feat selection')!()
   expect(c.feats.map(feat => feat.name)).toEqual([chameleon.name])
   expect(c.entryIds).not.toContain(elfFeat.id)
@@ -356,6 +358,35 @@ it.each(['Gale Blast', 'Spout'])('offers Touch of the Sea (%s) as a distinct anc
   findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: JSON.stringify([source.name, spell]) } })
   expect(c.feats[0]).toMatchObject({ name: source.name, choice: spell })
   expect(renderToStaticMarkup(tree())).toContain(`Touch of the Sea (${spell})`)
+})
+
+it.each(['listed', 'any'])('offers separate Ancestral Cantrip spell variants for %s choices', mode => {
+  const cantrip = mapAonHit({ _id: 'dwarf-cantrip', _source: { name: 'Ancestral Cantrip', category: 'feat', level: 1, trait: ['Dwarf'],
+    markdown: `Header\n\n---\n\nChoose one cantrip.<br/><br/>**[Option(s)](/feats/1)**: primal; ${mode === 'listed'
+      ? '_[seek the stars](/spells/1)_, or _[shield](/spells/2)_' : 'any primal cantrip'}` } }, 'sf2e')!
+  const spells: ContentEntry[] = ['Shield', 'Seek The Stars', 'Uncommon Cantrip', 'Arcane Cantrip'].map(name => ({
+    id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level: 1,
+    traits: ['Cantrip', ...(name === 'Uncommon Cantrip' ? ['Uncommon'] : [])],
+    description: '', data: { tradition: name === 'Arcane Cantrip' ? 'Arcane' : 'Primal' }, effects: [], updatedAt: 0,
+  }))
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Human', level: 5, feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, takenLevel: 5, slot: 'general:5:0', choice: 'Dwarf' },
+  ] }
+  const entries = [cantrip, ...spells]
+  const tree = () => FeatSlots({ c, entries, categories: ['ancestry'], save: patch => { c = { ...c, ...patch } } })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Ancestral Cantrip (Seek The Stars)')
+  expect(markup).toContain('Ancestral Cantrip (Shield)')
+  expect(markup).not.toContain('Ancestral Cantrip (Uncommon Cantrip)')
+  expect(markup).not.toContain('Ancestral Cantrip (Arcane Cantrip)')
+  const early = markup.slice(markup.indexOf('aria-label="L01 Ancestry feat"')).split('</select>')[0]
+  expect(early).not.toContain('Ancestral Cantrip')
+  findSelect(tree(), 'L05 Ancestry feat')!({ target: { value: JSON.stringify([cantrip.name, 'Shield']) } })
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(c.feats.find(feat => feat.name === cantrip.name)).toMatchObject({ choice: 'Shield', slot: 'ancestry:5:0' })
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Shield' }, rank: 3,
+    rule: { tradition: 'primal', frequency: 'at will' } }])
+  expect(renderToStaticMarkup(tree())).toContain('Ancestral Cantrip (Shield)')
 })
 
 it('offers Ancestral Magic variants at the slot rank and saves their spell grants', () => {

@@ -141,7 +141,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const fixed = fixedLabel(entry.name)
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
-    const choices = entry.name === 'Ancestral Magic'
+    const choices = entry.name === 'Ancestral Magic' || entry.name === 'Ancestral Cantrip' && !fixed
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
         slot: slot.key, takenLevel: slot.level }) ?? []).map(spell => spell.name))]
       : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
@@ -394,7 +394,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
-                  grantSource={s.grantedBy === 'Social Chameleon' ? s.grantedBy : undefined}
                   descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                     : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)

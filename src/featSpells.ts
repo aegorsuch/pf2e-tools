@@ -72,7 +72,7 @@ function ancestralCantripRules(c: Character, entries: ContentEntry[]) {
   const parts = options.split(';').map(part => part.trim())
   if (parts.some(part => /shiny heritage only/i.test(part)) && !/\bshiny\b/i.test(c.heritage ?? '')) return undefined
   const tradition = parts.find(part => /^(arcane|divine|occult|primal)$/i.test(part))
-  const spells = parts.at(-1)?.split(/\s*,\s*|\s+or\s+/i).map(name => name.trim().replace(/[.)]+$/, '')).filter(Boolean) ?? []
+  const spells = parts.at(-1)?.split(/\s*,\s*(?:or\s+)?|\s+or\s+/i).map(name => name.trim().replace(/[.)]+$/, '')).filter(Boolean) ?? []
   return spells.length ? { tradition, spells, any: /^any (?:arcane|divine|occult|primal) cantrip$/i.test(spells[0]) } : undefined
 }
 
