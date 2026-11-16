@@ -16,6 +16,8 @@ import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
+import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
+import { equipmentGroupName } from './equipmentGroups'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -681,7 +683,7 @@ function featIndex(entries: ContentEntry[]) {
   let index = featIndexCache.get(entries)
   if (!index) {
     const ancestries = new Set(entries.filter(entry => ['ancestry', 'heritage'].includes(entry.kind)).map(entry => entry.name.toLowerCase()))
-    index = entries.filter((e) => e.kind === 'feat' && !e.deleted).sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)).map((entry) =>
+    index = entries.filter((e) => e.kind === 'feat' && !e.deleted).sort((a, b) => a.level - b.level || featDisplayName(a).localeCompare(featDisplayName(b))).map((entry) =>
       ({ entry, traits: new Set(entry.traits.map((t) => t.toLowerCase())), equivalence: featEquivalence(entry, ancestries) }))
     featIndexCache.set(entries, index)
   }
@@ -1558,6 +1560,22 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     || installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name))
 }
 
+export function availableStances(c: Character, entries: ContentEntry[]) {
+  const stances = new Map<string, ContentEntry>()
+  for (const feat of [...c.feats.filter(feat => featTakenLevel(feat) <= c.level), ...automaticFeatGrants(c, entries)]) {
+    const entry = selectedFeatEntry(c, entries, feat.name, 'sourceId' in feat ? feat.sourceId : undefined)
+    if (entry && entry.level <= c.level && isStanceFeat(entry)) {
+      const title = featDisplayName(entry)
+      if (!stances.has(title) || entry.name === c.activeStance) stances.set(title, entry)
+    }
+  }
+  return [...stances.values()].sort((a, b) =>
+    adoptedAncestryText(c, featDisplayName(a)).localeCompare(adoptedAncestryText(c, featDisplayName(b))))
+}
+
+export const activeStance = (c: Character, entries: ContentEntry[]) =>
+  c.activeStance ? availableStances(c, entries).find(entry => entry.name === c.activeStance) : undefined
+
 function twinParryValue(c: Character, entries: ContentEntry[]) {
   if (!activeFeatsNamed(c, 'Twin Parry').length) return 0
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
@@ -1597,7 +1615,11 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
   return Math.max(1, featBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0)
 }
 
-export const parryBonus = (c: Character, entries: ContentEntry[]) => c.parrying ? parryValue(c, entries) : 0
+export const twinnedDefenseActive = (c: Character, entries: ContentEntry[]) =>
+  featDisplayName(activeStance(c, entries)) === 'Twinned Defense Stance' && twinParryValue(c, entries) > 0
+
+export const parryBonus = (c: Character, entries: ContentEntry[]) =>
+  Math.max(c.parrying ? parryValue(c, entries) : 0, twinnedDefenseActive(c, entries) ? twinParryValue(c, entries) : 0)
 
 const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
 
@@ -3101,10 +3123,21 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
   return weaponHands(entries, weapon, c) === 0 || !weapon.stowed && !weapon.cheekStored && !legacyPouch
 }
 
-export function totalHandCapacity(c: Character) {
+export function totalArmHands(c: Character) {
   const additionalArms = activeFeatsNamed(c, 'Additional Arms').length
-  const arms = 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs')
+  return 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs')
     + (getSettings().singleAdditionalArms ? Math.min(1, additionalArms) : additionalArms))
+}
+
+export const ringCapacity = (c: Character) => Math.max(0, Math.trunc(c.ringCapacity ?? totalArmHands(c) * 5))
+
+export function ringCount(c: Character, entries: ContentEntry[]) {
+  return c.equipment.reduce((count, item) =>
+    count + (item.group === 'Rings' || equipmentGroupName(byName(entries, 'item', item.name), item.name) === 'Rings' ? item.qty : 0), 0)
+}
+
+export function totalHandCapacity(c: Character) {
+  const arms = totalArmHands(c)
   const tail = activeFeatsNamed(c, 'Prehensile Tail').length > 0
   const limb = activeFeatsNamed(c, 'Prehensile Limbs').length > 0
   return arms + Number(tail) + Number(limb && !(tail && ancestryFeatTraits(c).includes('ysoki')))

@@ -10,6 +10,18 @@ const WARDEN_TIERS: Record<string, string> = {
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
 
+export const isStanceFeat = (entry: ContentEntry) =>
+  entry.kind === 'feat' && entry.traits.some(trait => trait.toLowerCase() === 'stance')
+
+export function featDisplayName(entry: ContentEntry | undefined, name = entry?.name ?? '') {
+  if (!entry || !isStanceFeat(entry)) return name
+  const qualifier = / \(([^)]+)\)$/.exec(entry.name)
+  const base = qualifier && entry.traits.some(trait => trait.toLowerCase() === qualifier[1].toLowerCase())
+    ? entry.name.slice(0, qualifier.index) : entry.name
+  const title = /\bStance$/i.test(base) ? base : `${base} Stance`
+  return name === entry.name || name.startsWith(`${entry.name} (`) ? title + name.slice(entry.name.length) : name
+}
+
 export const INITIATE_TRAINING = {
   'Greenwatch Initiate': { skill: 'Survival', feats: ['Experienced Tracker', 'Survey Wildlife'] },
   'Greywatch Initiate': { skill: 'Deception', feats: ['Face in the Crowd', 'Lengthy Diversion'] },

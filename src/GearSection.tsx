@@ -8,7 +8,7 @@ import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands,
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { adoptedAncestryText } from './featChoices'
+import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
 import { ActionIcon } from './ActionIcon'
@@ -1441,6 +1441,17 @@ function ShieldDurability({ c, entries, shield }: Pick<SectionProps, 'c' | 'entr
   </small>
 }
 
+export function WarmaskGear({ c, entries }: SectionProps) {
+  if (!c.systems.includes('pf2e') || !activeFeatsNamed(c, 'Orc Warmask').length) return null
+  const source = warmaskSource(c)
+  const feat = activeFeatsNamed(c, 'Orc Warmask')[0]
+  const entry = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+  const chosen = source ? `Power source: ${feat.choice} (${source.tradition}). +1 item bonus to ${source.skill} checks.` : undefined
+  return <EntryDescription character={c} name="Orc Warmask"
+    entry={entry && chosen ? { ...entry, description: `${chosen}\n\n${entry.description}` } : entry}
+    descriptionNote={!entry ? chosen : undefined} entries={entries} className="equipment-name" />
+}
+
 export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
   const armors = ownedArmors(c, entries)
   const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
@@ -1653,11 +1664,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         <label>Damage <input type="number" min={0} value={woodShield.damage}
           onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, damage: Math.max(0, +event.target.value || 0) } })} /></label>
       </article>}</>}
-      {part !== 'shield' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
-        <header><strong><EntryDescription character={c} name="Orc Warmask" entry={entries.find(entry => entry.kind === 'feat' && entry.name === 'Orc Warmask')}
-          className="equipment-name" /></strong></header>
-        {warmaskSource(c) && <small>+1 item bonus to {warmaskSource(c)?.skill}.</small>}
-      </article>}
     </div>
   )
 }

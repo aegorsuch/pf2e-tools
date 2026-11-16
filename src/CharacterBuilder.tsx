@@ -9,11 +9,14 @@ import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
-import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
+import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, SkillsSection } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
+import { StancesContent, StancesSummary } from './StancesSection'
+import { ringCapacity, ringCount, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
@@ -28,7 +31,7 @@ import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
-import { WORN_EQUIPMENT_GROUPS, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
+import { WORN_EQUIPMENT_GROUPS, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 
 const NONE: ContentEntry[] = []
 
@@ -121,11 +124,12 @@ const detail = (e?: ContentEntry) =>
 
 export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
+  const ringsFull = ringCount(c, entries) >= ringCapacity(c)
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     return q || category
       ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && (!q || e.name.toLowerCase().includes(q))
-        && (!category || equipmentGroupName(e) === category))
+        && (!category || equipmentFitsGroup(e, category)))
         .sort((a, b) => a.name.localeCompare(b.name))
       : []
   }, [entries, query, category])
@@ -138,9 +142,12 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
     <ul className="gear-results">
       {matches.map(g => <li key={g.id}>
         <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
-        <button aria-label={`Add ${g.name}`} onClick={() => {
-          const have = c.equipment.find(item => item.name === g.name)
-          save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item) : [...c.equipment, { name: g.name, qty: 1 }] })
+        <button aria-label={`Add ${g.name}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull}
+          title={equipmentGroupName(g) === 'Rings' && ringsFull ? 'Ring capacity reached' : undefined} onClick={() => {
+          const have = c.equipment.find(item => item.name === g.name
+            && (!category || (item.group ?? equipmentGroupName(g)) === category))
+          save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item)
+            : [...c.equipment, { name: g.name, qty: 1, ...(category ? { group: category } : {}) }] })
           onClose?.()
         }}>Add</button>
       </li>)}
@@ -160,11 +167,14 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     ...(integratedComm !== undefined ? [{ kind: 'comm' as const, name: 'Comm Unit' }] : []),
     ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
+    ...(group === 'Mask' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length
+      ? [{ kind: 'warmask' as const, name: adoptedAncestryText(c, 'Orc Warmask') }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const alwaysAvailable = WORN_EQUIPMENT_GROUPS.some(name => name === group) || group === 'Grafts' || group === 'Tattoos'
   if (!displayed.length && !alwaysAvailable) return null
   const body = displayed.length > 0 && <ul>
     {displayed.map(display => {
+      if (display.kind === 'warmask') return <li key="warmask"><WarmaskGear c={c} entries={entries} save={save} /></li>
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
         descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
         {' '}<small>(Cyborg; integrated, thought-operated)</small></li>
@@ -196,9 +206,13 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
   return <div className="equipment-group">
     <div className="equipment-group-heading">
       <h4>{group}</h4>
+      {group === 'Rings' && <span aria-label="Rings used">{ringCount(c, entries)}/{ringCapacity(c)}</span>}
       <button ref={addButton} type="button" className="icon-button" aria-label={`Add ${group}`} title={`Add ${group}`}
         aria-expanded={adding} aria-controls={searchId} onClick={() => setAdding(!adding)}>+</button>
     </div>
+    {group === 'Rings' && <label>Capacity <input type="number" aria-label="Ring capacity" min={0} step={1} value={ringCapacity(c)}
+      onChange={event => save({ ringCapacity: event.target.value === '' ? undefined
+        : Math.max(0, Math.trunc(event.target.valueAsNumber || 0)) })} /></label>}
     <div id={searchId} hidden={!adding}>
       {adding && <EquipmentSearch c={c} entries={entries} save={save} category={group} onClose={() => {
         setAdding(false)
@@ -334,12 +348,13 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
     }
     const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
       Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [],
-      Backpacks: [], Belts: [], Boots: [], Bracelets: [], Cloaks: [], Clothing: [], Eyewear: [], Gloves: [],
-      Headwear: [], Necklaces: [], Rings: [], 'Other Worn Items': [],
+      Arms: [], Backpacks: [], Belt: [], Belts: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
+      Eyes: [], Eyewear: [], Face: [], Feet: [], Gloves: [], Hands: [], Head: [], Headband: [], Headwear: [],
+      Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Waist: [], Wrists: [], 'Other Worn Items': [],
     }
     c.equipment.forEach((item, index) => {
       const entry = items.get(item.name) ?? fallback.get(item.name)
-      const group = equipmentGroupName(entry, item.name)
+      const group = item.group ?? equipmentGroupName(entry, item.name)
       groups[group].push({ item, index, entry })
     })
     Object.values(groups).forEach(rows => rows.sort((a, b) => a.item.name.localeCompare(b.item.name)))
@@ -352,6 +367,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const defense = defenseSummary(c, entries)
   const parry = parryValue(c, entries)
   const parryWeapon = hasParryWeapon(c, entries)
+  const stanceParry = twinnedDefenseActive(c, entries)
   const shield = equippedShield(c)
   const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
@@ -553,8 +569,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
                 onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
-            {parryWeapon && parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying}
-              onChange={(event) => save({ parrying: event.target.checked })} /> Parry (+{parry} AC)</label>}
+            {parryWeapon && parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying || stanceParry}
+              disabled={stanceParry} onChange={(event) => { if (!stanceParry) save({ parrying: event.target.checked }) }} /> Parry (+{parry} AC)</label>}
           </span>}
         </summary>
         <div className="character-section-content">
@@ -580,29 +596,40 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <div className="character-section-content">
           <BulkLimits {...section} />
           <ArmorProficiency c={c} entries={entries} />
-          <small>Gear groups organize equipment; they do not impose body-slot limits.</small>
           <h4>Armor</h4>
           <ArmorList {...section} part="armor" />
+          <EquipmentGroup {...section} group="Arms" rows={equipmentGroups.Arms} />
           <EquipmentGroup {...section} group="Arrows" rows={equipmentGroups.Arrows} />
           <Augmentations {...section} />
           <EquipmentGroup {...section} group="Backpacks" rows={equipmentGroups.Backpacks} />
+          <EquipmentGroup {...section} group="Belt" rows={equipmentGroups.Belt} />
           <EquipmentGroup {...section} group="Belts" rows={equipmentGroups.Belts} />
+          <EquipmentGroup {...section} group="Body" rows={equipmentGroups.Body} />
           <EquipmentGroup {...section} group="Bolts" rows={equipmentGroups.Bolts} />
           <EquipmentGroup {...section} group="Boots" rows={equipmentGroups.Boots} />
           <EquipmentGroup {...section} group="Bracelets" rows={equipmentGroups.Bracelets} bracelets={pairedEmpathyBracelets} />
           <EquipmentGroup {...section} group="Bullets" rows={equipmentGroups.Bullets} />
           <CheekPouches {...section} />
+          <EquipmentGroup {...section} group="Chest" rows={equipmentGroups.Chest} />
           <EquipmentGroup {...section} group="Cloaks" rows={equipmentGroups.Cloaks} />
           <EquipmentGroup {...section} group="Clothing" rows={equipmentGroups.Clothing} />
+          <EquipmentGroup {...section} group="Eyes" rows={equipmentGroups.Eyes} />
           <EquipmentGroup {...section} group="Eyewear" rows={equipmentGroups.Eyewear} />
+          <EquipmentGroup {...section} group="Face" rows={equipmentGroups.Face} />
+          <EquipmentGroup {...section} group="Feet" rows={equipmentGroups.Feet} />
           <Gadgets {...section} />
           <EquipmentGroup {...section} group="Gloves" rows={equipmentGroups.Gloves} />
           <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
           <GrenadeSpecialist {...section} />
+          <EquipmentGroup {...section} group="Hands" rows={equipmentGroups.Hands} />
           <h4>Handwraps</h4>
           <HandwrapsGear {...section} />
+          <EquipmentGroup {...section} group="Head" rows={equipmentGroups.Head} />
+          <EquipmentGroup {...section} group="Headband" rows={equipmentGroups.Headband} />
           <EquipmentGroup {...section} group="Headwear" rows={equipmentGroups.Headwear} />
+          <EquipmentGroup {...section} group="Mask" rows={equipmentGroups.Mask} />
           <MunitionsCrafter {...section} />
+          <EquipmentGroup {...section} group="Neck" rows={equipmentGroups.Neck} />
           <EquipmentGroup {...section} group="Necklaces" rows={equipmentGroups.Necklaces} />
           <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']}
             integratedComm={hasCyborgHeritage(c) ? entries.find(entry => entry.kind === 'item'
@@ -613,9 +640,14 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <EquipmentGroup {...section} group="Rings" rows={equipmentGroups.Rings} />
           <h4>Shield</h4>
           <ArmorList {...section} part="shield" />
+          <EquipmentGroup {...section} group="Shoulders" rows={equipmentGroups.Shoulders} />
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
+          <EquipmentGroup {...section} group="Throat" rows={equipmentGroups.Throat} />
+          <EquipmentGroup {...section} group="Torso" rows={equipmentGroups.Torso} />
+          <EquipmentGroup {...section} group="Waist" rows={equipmentGroups.Waist} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
+          <EquipmentGroup {...section} group="Wrists" rows={equipmentGroups.Wrists} />
           <EquipmentSearch {...section} />
         </div>
       </DeferredDetails>
@@ -657,6 +689,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <SpellsSummary {...section} />
         <SpellsContent {...section} />
+      </DeferredDetails>
+      <DeferredDetails>
+        <StancesSummary {...section} />
+        <StancesContent {...section} />
       </DeferredDetails>
     </section>
   )

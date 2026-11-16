@@ -97,6 +97,26 @@ it('provides ranger copies of the druid feats without changing their rules', () 
     .toBe('homebrew:ranger-timeless-nature')
 })
 
+it('copies Twinned Defense for Ranger without changing Fighter rules or archetype access', () => {
+  const original: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'twinned-defense', kind: 'feat', name: 'Twinned Defense (Fighter)',
+    level: 16, traits: ['Fighter', 'Stance'], description: 'Gain the benefits of Twin Parry while in this stance.',
+    data: { class: 'Fighter', actions: 'Single Action', prerequisite: 'Twin Parry', requirements: 'Wielding two melee weapons',
+      archetype: 'Dual-Weapon Warrior', archetype_levels: 'Dual-Weapon Warrior=18' } }
+  const before = JSON.stringify(original)
+  const copy = homebrewCharacterOptions([original]).find(entry => entry.name === 'Twinned Defense Stance')!
+  expect(copy).toMatchObject({ level: 16, source: 'homebrew', traits: ['Stance', 'Ranger'], description: original.description,
+    data: { class: 'Ranger', prerequisite: 'Twin Parry', actions: 'Single Action', requirements: original.data.requirements } })
+  expect(copy.data.archetype).toBeUndefined()
+  expect(copy.data.archetype_levels).toBeUndefined()
+  const c: Character = { ...base, level: 16, feats: [{ name: 'Twin Parry', type: 'Class Feat', level: 4 }] }
+  const twin: ContentEntry = { ...original, id: 'twin-parry', name: 'Twin Parry', level: 4, traits: ['Fighter', 'Ranger'], data: {} }
+  const slot = { key: 'class:16:0', category: 'class' as const, level: 16 }
+  expect(eligibleFeats([original, copy], c, slot)).toContain(copy)
+  expect(eligibleFeats([copy, twin], { ...c, feats: [] }, slot)).not.toContain(copy)
+  expect(eligibleFeats([copy], { ...c, className: 'Fighter' }, slot)).not.toContain(copy)
+  expect(JSON.stringify(original)).toBe(before)
+})
+
 it('provides Strong Arm to Ranger and Barbarian and applies its range only to thrown attacks', () => {
   const original: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'strong-arm', kind: 'feat', name: 'Strong Arm',
     level: 2, traits: ['Rogue'], description: 'Increase thrown range increment by 10 feet.', data: { class: 'Rogue' } }

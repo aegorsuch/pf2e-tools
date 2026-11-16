@@ -6,7 +6,7 @@ import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
-import { equipmentGroupName } from './equipmentGroups'
+import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -320,9 +320,9 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
-    expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Backpacks', 'Belts', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
-      'Cloaks', 'Clothing', 'Eyewear', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Handwraps', 'Headwear',
-      'Munitions', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Tattoos', 'Weapons'])
+    expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Belts', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
+      'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear',
+      'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Torso', 'Waist', 'Weapons', 'Wrists'])
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
@@ -348,13 +348,13 @@ it('keeps empty Equipment categories available with accessible plus controls and
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  for (const category of ['Tattoos', 'Grafts', 'Backpacks', 'Belts', 'Boots', 'Bracelets', 'Cloaks', 'Clothing', 'Eyewear', 'Gloves', 'Headwear', 'Necklaces', 'Rings', 'Other Worn Items']) {
+  for (const category of ['Tattoos', 'Grafts', ...WORN_EQUIPMENT_GROUPS]) {
     expect(markup).toContain(`aria-label="Add ${category}" title="Add ${category}" aria-expanded="false"`)
     expect(markup).not.toContain(`aria-label="Search ${category.toLowerCase()}"`)
   }
   expect(markup).toContain('<h4>Tattoos</h4>')
   expect(markup).toContain('<h4>Grafts</h4>')
-  expect(markup).toContain('do not impose body-slot limits')
+  expect(markup).not.toContain('do not impose body-slot limits')
   expect(markup).not.toContain('<h4>Worn Items</h4>')
   expect(c.equipment).toEqual([])
 })
@@ -368,7 +368,7 @@ it('shows existing equipment stacks without quantity controls', () => {
   const before = JSON.stringify(c)
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   const equipment = markup.split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
-  expect(equipment).not.toContain('type="number"')
+  expect(equipment.replace(/<input[^>]*aria-label="Ring capacity"[^>]*>/g, '')).not.toContain('type="number"')
   expect(equipment).toContain('x20')
   expect(equipment).not.toContain('x1')
   expect(JSON.stringify(c)).toBe(before)
@@ -414,12 +414,12 @@ it.each([false, true])('closes equipment search after adding an item (existing s
     level: 1, traits: [], description: '', data: { item_category: 'Worn Items' }, effects: [], updatedAt: 0 }
   const c: Character = { id: 'equipment-add', systems: ['pf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [], equipment: existing ? [{ name: item.name, qty: 1 }] : [],
+    feats: [], equipment: existing ? [{ name: item.name, qty: 1, group: 'Feet' }] : [],
     lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const save = vi.fn()
   const close = vi.fn()
   function InspectSearch() {
-    const tree = EquipmentSearch({ c, entries: [item], save, category: 'Boots', onClose: close })
+    const tree = EquipmentSearch({ c, entries: [item], save, category: 'Feet', onClose: close })
     const clickAdd = (node: ReactNode): void => {
       Children.forEach(node, child => {
         if (!isValidElement<{ children?: ReactNode; 'aria-label'?: string; onClick?: () => void }>(child)) return
@@ -431,7 +431,7 @@ it.each([false, true])('closes equipment search after adding an item (existing s
     return tree
   }
   renderToStaticMarkup(<InspectSearch />)
-  expect(save).toHaveBeenCalledWith({ equipment: [{ name: item.name, qty: existing ? 2 : 1 }] })
+  expect(save).toHaveBeenCalledWith({ equipment: [{ name: item.name, qty: existing ? 2 : 1, group: 'Feet' }] })
   expect(close).toHaveBeenCalledOnce()
   expect(save.mock.invocationCallOrder[0]).toBeLessThan(close.mock.invocationCallOrder[0])
 })
@@ -447,11 +447,90 @@ it.each([
   ['Robe', 'worn robe', 'Clothing'],
   ['Pack', 'worn backpack', 'Backpacks'],
   ['Azure Boots', '', 'Boots'],
+  ['Cloak', 'worn cloak', 'Cloaks'],
+  ['Vestment', 'worn vestment', 'Torso'],
+  ['Headband of Fortune', 'worn headwear', 'Headband'],
+  ['Mask of Eyes', 'worn headwear', 'Mask'],
+  ['Goggles', 'worn face', 'Eyewear'],
+  ['Scarab', 'worn', 'Throat'],
+  ['Phylactery', 'worn', 'Headwear'],
   ['Mystery Charm', 'worn', 'Other Worn Items'],
 ])('uses worn placement to group %s without interpreting its name as a slot restriction', (name, usage, group) => {
   const entry: ContentEntry = { id: name, name, kind: 'item', systems: ['pf2e'], source: 'homebrew', level: 1,
     traits: [], description: '', data: { item_category: 'Worn Items', usage }, effects: [], updatedAt: 0 }
   expect(equipmentGroupName(entry)).toBe(group)
+})
+
+it('places the personalized Warmask only in Mask, with its bonus inside its details', () => {
+  const warmask: ContentEntry = { id: 'warmask', name: 'Orc Warmask', kind: 'feat', systems: ['pf2e'], source: 'official',
+    level: 1, traits: ['Orc'], description: 'Full warmask rules.', data: {}, effects: [], updatedAt: 0 }
+  content.entries = [warmask]
+  const c: Character = { id: 'mask-category', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Orc Warmask', type: 'Ancestry Feat', level: 1, choice: 'The Land' },
+      { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    const equipment = markup.split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+    expect(equipment.split('<h4>Armor</h4>')[1].split('<h4>Arms</h4>')[0]).not.toContain('Warmask')
+    const mask = equipment.split('<h4>Mask</h4>')[1].split('<h4>Neck</h4>')[0]
+    expect(mask).toContain('aria-haspopup="dialog">Warmask</button>')
+    expect(mask).toContain('Power source: The Land (Primal). +1 item bonus to Nature checks.')
+    expect(mask).toContain(warmask.description)
+    expect(mask.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).not.toContain('+1 item bonus')
+    expect(markup).toContain('aria-label="Ring capacity" min="0" step="1" value="10"')
+  } finally { content.entries = [] }
+})
+
+it('keeps existing equipment categories while retaining an explicitly chosen new slot', () => {
+  const boots: ContentEntry = { id: 'boots', name: 'Azure Boots', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: 'Boot rules.', data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'equipment-placement', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: boots.name, qty: 1 }, { name: boots.name, qty: 1, group: 'Feet' }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  content.entries = [boots]
+  try {
+    const equipment = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+      .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+    expect(equipment.split('<h4>Boots</h4>')[1].split('<h4>Bracelets</h4>')[0]).toContain('Azure Boots')
+    expect(equipment.split('<h4>Feet</h4>')[1].split('<h4>Gloves</h4>')[0]).toContain('Azure Boots')
+  } finally { content.entries = [] }
+})
+
+it('keeps stance-granted Parry checked and non-toggleable without changing saved manual Parry', () => {
+  const previous = getSettings()
+  updateSettings({ unarmedCountsAsWeapons: true })
+  const stance: ContentEntry = { id: 'defense', name: 'Twinned Defense (Fighter)', kind: 'feat',
+    systems: ['pf2e'], source: 'official', level: 16, traits: ['Fighter', 'Stance'], description: '', data: {}, effects: [], updatedAt: 0 }
+  content.entries = [stance]
+  const c: Character = { id: 'stance-parry', systems: ['pf2e'], name: 'Test', level: 16, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, parrying: false, activeStance: stance.name,
+    feats: [{ name: 'Twin Parry', type: 'Class Feat', level: 4 }, { name: stance.name, type: 'Class Feat', level: 16 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const input = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+      .match(/<input[^>]*aria-label="Parry active \(summary\)"[^>]*>/)?.[0]
+    expect(input(c)).toContain('checked=""')
+    expect(input(c)).toContain('disabled=""')
+    expect(input({ ...c, activeStance: undefined })).not.toContain('checked')
+    expect(input({ ...c, activeStance: undefined })).not.toContain('disabled')
+    expect(c.parrying).toBe(false)
+  } finally { updateSettings(previous); content.entries = [] }
+})
+
+it.each([9, 10])('allows a tenth ring but blocks additions beyond finger capacity with %i rings', qty => {
+  const ring: ContentEntry = { id: 'ring', name: 'Silver Ring', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: 'Ring rules.', data: { usage: 'worn', item_category: 'Worn Items' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'ring-limit', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: ring.name, qty }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<EquipmentSearch c={character} entries={[ring]} save={() => {}} category="Rings" />)
+  const button = render(c).match(/<button[^>]*aria-label="Add Silver Ring"[^>]*>/)?.[0]
+  expect(button).toBeDefined()
+  expect(button!.includes('disabled=""')).toBe(qty === 10)
+  expect(render({ ...c, ringCapacity: 12 }).match(/<button[^>]*aria-label="Add Silver Ring"[^>]*>/)?.[0]).not.toContain('disabled')
 })
 
 it('keeps large background and deity catalogs searchable before lazy choices are populated', () => {
@@ -540,7 +619,7 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
     .map((match) => match[1])
   expect(headings).toEqual([
     'Ability Scores', 'Ancestry', 'Background', 'Class', 'Dedications', 'Defense', 'Deity', 'Equipment', 'Formulas',
-    'General Feats', 'Languages', 'Minions', 'Offense', 'Skill Feats', 'Skills', 'Spells',
+    'General Feats', 'Languages', 'Minions', 'Offense', 'Skill Feats', 'Skills', 'Spells', 'Stances',
   ])
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
   expect(markup).not.toContain('Other Feat Slots')

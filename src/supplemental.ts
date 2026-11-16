@@ -108,8 +108,15 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
   })
   const strongArm = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Strong Arm' && entry.traits.includes('Rogue'))
+  const twinnedDefense = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
+    && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
   return [
     ...rangerCopies,
+    ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:ranger-twinned-defense-stance', name: 'Twinned Defense Stance',
+      source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Ranger'],
+      description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance'),
+      data: { ...Object.fromEntries(Object.entries(twinnedDefense.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger' },
+      updatedAt: 1 }] : []),
     homebrewFeat('rider', 'Rider', 1, ['Champion', 'Commander', 'Druid', 'Ranger'],
       "You are especially good at riding animal companions. You gain the Ride general feat. You gain a +1 circumstance bonus to Nature checks to Command an Animal when commanding your own animal companion, if a check is required.\n\nIf you gain an animal companion, it gains the mount special ability while it is at least one size larger than you. This is the full mount special ability: while carrying a rider, it can move and Support you on the same turn and can use its other Speeds, not just its land Speed. This feat does not grant any new Speeds or increase the companion's size.\n\nThis feat does not grant an animal companion and does not apply to construct companions, eidolons, or familiars.",
       { class: 'Champion, Commander, Druid, Ranger' }),

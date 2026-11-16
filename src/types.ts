@@ -1,4 +1,11 @@
 export type GameSystem = 'pf2e' | 'sf2e'
+export const WORN_EQUIPMENT_GROUPS = [
+  'Arms', 'Backpacks', 'Belt', 'Belts', 'Body', 'Boots', 'Bracelets', 'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear',
+  'Face', 'Feet', 'Gloves', 'Hands', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
+  'Throat', 'Torso', 'Waist', 'Wrists', 'Other Worn Items',
+] as const
+export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', ...WORN_EQUIPMENT_GROUPS] as const
+export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
@@ -191,6 +198,8 @@ export interface Character {
   haftStrikerWeaponId?: string
   raging?: boolean
   parrying?: boolean
+  activeStance?: string
+  ringCapacity?: number
   activeFeatEffects?: string[]
   focusPointsSpentSinceRefocus?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
@@ -199,7 +208,7 @@ export interface Character {
   feats: { name: string; type: string; level: number; choice?: string; sourceId?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
-  equipment: { name: string; qty: number; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
+  equipment: { name: string; qty: number; group?: EquipmentGroupName; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
   simplePoisonsSpent?: number
   augmentations?: { id: string; entryId: string; name: string; slot: string }[]
   hardpointWeaponId?: string

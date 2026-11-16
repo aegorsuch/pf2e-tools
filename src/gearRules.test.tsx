@@ -15,6 +15,7 @@ import { getSettings, updateSettings } from './settings'
 import { fetchAonHits } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
+import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -1400,6 +1401,43 @@ it.each([false, true])('uses free-hand weapons and available fists for Twin Parr
   } finally {
     updateSettings(previous)
   }
+})
+
+it.each(['Twinned Defense (Fighter)', 'Twinned Defense Stance'])('grants continuous Twin Parry only from active, learned %s', name => {
+  const previous = getSettings()
+  updateSettings({ unarmedCountsAsWeapons: true })
+  try {
+    const stance = content('feat', name, {}, 16, [name.includes('Fighter') ? 'Fighter' : 'Ranger', 'Stance'])
+    const claw = content('weapon', 'Clawed Gauntlet', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee' }, 1, ['Parry', 'Free-Hand'])
+    const entries = [stance, claw]
+    const c: Character = { ...base, level: 16, parrying: false, activeStance: name,
+      feats: [feat('Twin Parry', 4), feat(name, 16)],
+      weapons: [{ id: 'claw', name: claw.name, potency: 0, striking: 0, runes: [] }] }
+    const without = { ...c, activeStance: undefined }
+    expect(twinnedDefenseActive(c, entries)).toBe(true)
+    expect(parryBonus(c, entries)).toBe(2)
+    expect(armorClass(c, entries) - armorClass(without, entries)).toBe(2)
+    expect(parryBonus({ ...c, parrying: true }, entries)).toBe(2)
+    expect(parryBonus({ ...c, activeStance: 'Some Other Stance' }, entries)).toBe(0)
+    expect(parryBonus({ ...c, level: 15 }, entries)).toBe(0)
+    expect(parryBonus({ ...c, feats: c.feats.slice(0, 1) }, entries)).toBe(0)
+    expect(parryBonus(c, [{ ...stance, deleted: true }, claw])).toBe(0)
+    updateSettings({ unarmedCountsAsWeapons: false })
+    expect(parryBonus(c, entries)).toBe(0)
+    const sword = content('weapon', 'Sword', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee' })
+    expect(parryBonus({ ...c, weapons: [...c.weapons!, { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }] },
+      [...entries, sword])).toBe(2)
+  } finally { updateSettings(previous) }
+})
+
+it('scales ring capacity with fingered hands, not prehensile tails, and counts quantities', () => {
+  const ring = content('item', 'Ring of Climbing', { item_category: 'Worn Items', usage: 'worn' })
+  expect(ringCapacity(base)).toBe(10)
+  expect(ringCapacity({ ...base, feats: [feat('Additional Arms', 1)] })).toBe(20)
+  expect(ringCapacity({ ...base, feats: [feat('Prehensile Tail', 1)] })).toBe(10)
+  expect(ringCapacity({ ...base, ringCapacity: 7 })).toBe(7)
+  expect(ringCapacity({ ...base, ringCapacity: 0 })).toBe(0)
+  expect(ringCount({ ...base, equipment: [{ name: ring.name, qty: 9 }, { name: 'Rope', qty: 20 }] }, [ring])).toBe(9)
 })
 
 it('adds Nimble Elf speed and Tree Climber climb speed only when feats are active', () => {

@@ -7,7 +7,7 @@ import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
-import { adoptedAncestryText, compareFeatSelections } from './featChoices'
+import { adoptedAncestryText, compareFeatSelections, featDisplayName } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
 import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
@@ -127,7 +127,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ? featSynergySuggestions(entries, { knownFeats, systems: c.systems })
     : new Map<string, string[]>()
   const matches = (o: ContentEntry, query: string, unlocks: string[] = []) => !query
-    || [o.name, adoptedAncestryText(c, o.name), String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
+    || [o.name, adoptedAncestryText(c, featDisplayName(o)), String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
   const isDedication = (o?: ContentEntry) => !!o?.traits.some((t) => /^dedication$/i.test(t))
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
@@ -136,7 +136,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
   })
   const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
-  const displayName = (name: string) => adoptedAncestryText(c, name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
+  const displayName = (name: string) => adoptedAncestryText(c, featDisplayName(featsByName.get(name), name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name))
     .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const fixedLabel = (name: string, sourceId?: string) => {
     if (name === 'Ancestral Cantrip') {
@@ -301,7 +301,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.feat
     const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.feat
     if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
-    return compareFeatSelections(aFeat, bFeat)
+    return displayName(aFeat.name).localeCompare(displayName(bFeat.name)) || compareFeatSelections(aFeat, bFeat)
   })
   const Wrapper = bare ? 'div' : 'details'
   return (
@@ -375,7 +375,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name) || synergies.has(b.name))
             - Number(suggestions.has(a.name) || synergies.has(a.name))
             || featSelectionLevel(a, c, entries, s.category, s) - featSelectionLevel(b, c, entries, s.category, s)
-            || a.name.localeCompare(b.name))
+            || displayName(a.name).localeCompare(displayName(b.name)))
           const shown = popup ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
           const names = new Set<string>()
           const sourceVariants = new Set<string>()
@@ -466,7 +466,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">{emptyLabel}</option>
                 {suggested.length > 0 && <optgroup label="Suggested prerequisites">
-                  {suggested.sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.label.localeCompare(b.label))
+                  {suggested.sort((a, b) => displayName(a.entry.name).localeCompare(displayName(b.entry.name)) || a.label.localeCompare(b.label))
                     .map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
                 </optgroup>}
                 {paired.length > 0 && <optgroup label="Suggested combinations">

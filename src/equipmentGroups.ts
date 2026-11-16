@@ -1,25 +1,47 @@
-import type { ContentEntry } from './types'
-
-export const WORN_EQUIPMENT_GROUPS = [
-  'Backpacks', 'Belts', 'Boots', 'Bracelets', 'Cloaks', 'Clothing', 'Eyewear', 'Gloves', 'Headwear', 'Necklaces', 'Rings', 'Other Worn Items',
-] as const
-
-export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', ...WORN_EQUIPMENT_GROUPS] as const
-export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
+import type { ContentEntry, EquipmentGroupName, WORN_EQUIPMENT_GROUPS } from './types'
+export { WORN_EQUIPMENT_GROUPS, EQUIPMENT_GROUPS, type EquipmentGroupName } from './types'
 
 const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [
   ['Backpacks', /\b(?:backpacks?|rucksacks?)\b/],
-  ['Belts', /\b(?:belts?|girdles?|sashes?|waist)\b/],
-  ['Boots', /\b(?:boots?|shoes?|sandals?|slippers?|footwear|anklets?|feet)\b/],
-  ['Bracelets', /\b(?:bracelets?|bracers?|armbands?|wrists?)\b/],
-  ['Cloaks', /\b(?:cloaks?|capes?|mantles?|epaulets?|shoulders?)\b/],
-  ['Clothing', /\b(?:clothing|clothes|garments?|robes?|vests?|outfits?)\b/],
-  ['Eyewear', /\b(?:eyepieces?|goggles?|spectacles?|lenses|eyes)\b/],
-  ['Gloves', /\b(?:gloves?|gauntlets?|handwraps?|handwear|hands?)\b/],
-  ['Headwear', /\b(?:headwear|headgear|headbands?|head|helms?|helmets?|hats?|caps?|circlets?|crowns?|masks?)\b/],
-  ['Necklaces', /\b(?:necklaces?|amulets?|pendants?|collars?|neck)\b/],
+  ['Belts', /\b(?:belts?|girdles?|sashes?)\b/],
+  ['Boots', /\b(?:boots?|shoes?|sandals?|slippers?|footwear|anklets?)\b/],
+  ['Bracelets', /\b(?:bracelets?|bracers?|armbands?)\b/],
+  ['Cloaks', /\b(?:cloaks?|capes?|mantles?|shawls?|epaulets?)\b/],
+  ['Clothing', /\b(?:clothing|clothes|garments?|robes?|vests?|outfits?|dresses)\b/],
+  ['Mask', /\b(?:masks?|warmasks?)\b/],
+  ['Eyewear', /\b(?:eyepieces?|goggles?|spectacles?|lenses)\b/],
+  ['Gloves', /\b(?:gloves?|gauntlets?|handwraps?|handwear)\b/],
+  ['Headband', /\bheadbands?\b/],
+  ['Headwear', /\b(?:headwear|headgear|helms?|helmets?|hats?|caps?|circlets?|crowns?|phylacter(?:y|ies))\b/],
+  ['Necklaces', /\b(?:necklaces?|amulets?|pendants?|collars?)\b/],
   ['Rings', /\brings?\b/],
+  ['Arms', /\barms?\b/],
+  ['Body', /\bbody\b/],
+  ['Chest', /\bchest\b/],
+  ['Eyes', /\beyes\b/],
+  ['Face', /\bface\b/],
+  ['Feet', /\bfeet\b/],
+  ['Hands', /\bhands?\b/],
+  ['Head', /\bhead\b/],
+  ['Neck', /\bneck\b/],
+  ['Shoulders', /\bshoulders?\b/],
+  ['Throat', /\b(?:throat|badges?|brooches?|medals?|medallions?|periapts?|scarabs?|scarfs?|scarves|torcs?)\b/],
+  ['Torso', /\b(?:torso|shirts?|tunics?|vestments?)\b/],
+  ['Waist', /\bwaist\b/],
+  ['Wrists', /\bwrists?\b/],
 ]
+
+const SLOT_CONTENT: Partial<Record<EquipmentGroupName, readonly EquipmentGroupName[]>> = {
+  Arms: ['Bracelets'], Belt: ['Belts'], Body: ['Clothing'], Chest: ['Clothing', 'Torso'], Eyes: ['Eyewear'],
+  Face: ['Eyewear', 'Mask'], Feet: ['Boots'], Hands: ['Gloves'], Head: ['Headwear', 'Headband'],
+  Neck: ['Necklaces'], Shoulders: ['Cloaks'], Throat: ['Necklaces'], Torso: ['Clothing'],
+  Waist: ['Belts'], Wrists: ['Bracelets'],
+}
+
+export function equipmentFitsGroup(entry: ContentEntry, group: EquipmentGroupName) {
+  const actual = equipmentGroupName(entry)
+  return actual === group || !!SLOT_CONTENT[group]?.includes(actual)
+}
 
 export function equipmentGroupName(entry?: ContentEntry, name = entry?.name ?? ''): EquipmentGroupName {
   const category = String(entry?.data.item_category ?? '').trim().toLowerCase()
@@ -28,8 +50,9 @@ export function equipmentGroupName(entry?: ContentEntry, name = entry?.name ?? '
   if (entry?.kind === 'item' && entry.traits.some(trait => trait.toLowerCase() === 'poison')) return 'Poisons'
   const usage = String(entry?.data.usage ?? '').trim().toLowerCase()
   if (category === 'worn items' || /^worn\b/.test(usage)) {
-    const placement = usage && usage !== 'worn' ? usage : name.toLowerCase()
-    return wornPlacements.find(([, pattern]) => pattern.test(placement))?.[0] ?? 'Other Worn Items'
+    const generic = !usage || usage === 'worn' || /^worn (?:headwear|headgear|head|face)$/.test(usage)
+    const placement = generic ? `${name.toLowerCase()} ${usage}` : usage
+    return wornPlacements.find(([, pattern]) => pattern.test(placement))?.[0] ?? (usage === 'worn face' ? 'Mask' : 'Other Worn Items')
   }
   const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(name)?.[0].toLowerCase()
   return ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
