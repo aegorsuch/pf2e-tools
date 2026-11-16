@@ -1328,7 +1328,7 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
 
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
-  const traditions = tokens(klass?.data.tradition)
+  const traditions = c.className === 'Druid' ? ['Primal'] : tokens(klass?.data.tradition)
   const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
   if (!traditions.length && !focusOnlyCaster) return undefined
 
@@ -1349,8 +1349,32 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
       }
     }
     return Math.max(best, rank)
-  }, 1)
+  }, c.className === 'Druid' ? c.level >= 19 ? 4 : c.level >= 15 ? 3 : c.level >= 7 ? 2 : 1 : 1)
   return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
+}
+
+export function classSpellSlots(c: Character): Record<number, number> | undefined {
+  if (c.className !== 'Druid' || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+  const slots: Record<number, number> = {}
+  if (c.level < 1) return slots
+  slots[0] = 5
+  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
+    slots[rank] = c.level === rank * 2 - 1 ? 2 : 3
+  if (c.level >= 19) slots[10] = 1 + (c.level >= 20 && activeFeatsNamed(c, "Hierophant's Power").length ? 1 : 0)
+  return slots
+}
+
+export function druidSpellList(c: Character, entries: ContentEntry[]) {
+  if (c.className !== 'Druid') return []
+  const extra = new Set([
+    ...(c.level >= 8 && activeFeatsNamed(c, 'Fey Caller').length ? ['Illusory Disguise', 'Illusory Object', 'Illusory Scene'] : []),
+    ...(c.level >= 8 && activeFeatsNamed(c, 'Forgotten Presence').length ? ['Rewrite Memory'] : []),
+  ])
+  return entries.filter(entry => entry.kind === 'spell' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system))
+    && !entry.traits.some(trait => trait.toLowerCase() === 'focus')
+    && (extra.has(entry.name) || tokens(entry.data.tradition).some(tradition => tradition.toLowerCase() === 'primal')))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
 }
 
 // Spellcasting attribute is set by the class, not chosen

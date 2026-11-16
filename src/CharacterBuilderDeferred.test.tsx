@@ -10,6 +10,7 @@ it('keeps section summaries current without mounting closed section controls', (
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     formulas: ['Rope'], companions: [{ id: 'wolf', type: 'Wolf', name: 'Fang' }],
     spells: [{ name: 'Heal', rank: 1, cantrip: false }],
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': 'Heal' } },
   }
   const render = (character: Character) => renderToStaticMarkup(
     <CharacterBuilder character={character} catalog={[]} onClose={() => {}} />,
@@ -23,5 +24,5 @@ it('keeps section summaries current without mounting closed section controls', (
   expect(markup).not.toContain('Search spells')
   expect(render({ ...c, formulas: [], companions: [], spells: [] })).toContain('0 known')
   expect(render({ ...c, formulas: [], companions: [], spells: [] })).toContain('0 minions')
-  expect(render({ ...c, formulas: [], companions: [], spells: [] })).toContain('0 spells')
+  expect(render({ ...c, formulas: [], companions: [], spells: [], spellcasting: undefined })).toContain('0 spells')
 })

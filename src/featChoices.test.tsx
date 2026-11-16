@@ -574,13 +574,15 @@ it('retains spell slots for slotted casters such as Druids', () => {
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid]} save={() => {}} />)
   expect(markup).toContain('Spell slots:')
-  expect(markup).toContain('value="2"')
+  expect(markup).toContain('Rank 1: 2')
+  expect(markup).toContain('Cantrips: 5')
 })
 
-it('opens known spells and spell-picker results in description dialogs', () => {
+it('opens prepared Druid spells in description dialogs without duplicating common spellbook entries', () => {
   const c: Character = {
     ...base, className: 'Druid',
     spells: [{ name: 'Heal', rank: 1, cantrip: false, entryId: 'heal' }],
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': 'heal' } },
   }
   const heal: ContentEntry = {
     ...spell('Heal', ''), id: 'heal', traits: [], description: 'Healing spell description.',
@@ -590,9 +592,9 @@ it('opens known spells and spell-picker results in description dialogs', () => {
     ...heal, id: 'druid', kind: 'class', name: 'Druid', description: '', data: { tradition: 'Primal' },
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid, heal]} save={() => {}} />)
-  expect(markup.match(/aria-haspopup="dialog">Heal<\/button>/g)).toHaveLength(2)
-  expect(markup.match(/<p>Healing spell description.<\/p>/g)).toHaveLength(2)
-  expect(markup).toContain('aria-label="Remove Heal"')
+  expect(markup).toContain('aria-haspopup="dialog">Details</button>')
+  expect(markup.match(/<p>Healing spell description.<\/p>/g)).toHaveLength(1)
+  expect(markup).not.toContain('aria-label="Remove Heal"')
   expect(markup).toContain('href="https://2e.aonprd.com/"')
 })
 

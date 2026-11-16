@@ -14,11 +14,14 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, innateSpellAbility } from './builder'
+import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
+
+const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
+  && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
 
 export function UntamedFormOptions({ c, entries, save }: SectionProps) {
   const active = isSpellActive(c, entries, 'Untamed Form')
@@ -321,29 +324,59 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
   return { spells, granted, featSpells, innate, focus, focusPoints, manualSpells }
 }
 
-export function SpellsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
-  const { manualSpells, granted, focus, innate } = spellSummaryData(c, entries)
+export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'entries'> & { data?: ReturnType<typeof spellSummaryData> }) {
+  const { manualSpells, granted, focus, innate } = data ?? spellSummaryData(c, entries)
+  const slots = classSpellSlots(c)
+  const prepared = Object.entries(c.spellcasting?.prepared ?? {}).filter(([key, value]) => {
+    const [rank, index] = key.split(':').map(Number)
+    return value && Number.isInteger(index) && index >= 0 && index < (slots?.[rank] ?? 0)
+  })
+  const classSpells = slots ? new Set(prepared.map(([, value]) => value)).size : manualSpells.length
   return <summary className="character-section-summary">
     <strong>Spells</strong>
-    <span>{manualSpells.length + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells
+    <span>{classSpells + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length} spells
       {c.className === 'Champion' && c.level >= 1 && !focus.some(spell => spell.source === 'Devotion Spells') && ' · Choose devotion spell'}</span>
   </summary>
 }
 
 export function SpellsSection(props: SectionProps) {
+  const data = useMemo(() => spellSummaryData(props.c, props.entries), [props.c, props.entries])
   return <details className="character-section">
-    <SpellsSummary {...props} />
-    <SpellsContent {...props} />
+    <SpellsSummary {...props} data={data} />
+    <SpellsContent {...props} data={data} />
   </details>
 }
 
-export function SpellsContent({ c, entries, save }: SectionProps) {
+export function SpellsContent({ c, entries, save, data }: SectionProps & { data?: ReturnType<typeof spellSummaryData> }) {
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [query, setQuery] = useState('')
-  const sc = c.spellcasting
+  const [preparedSlot, setPreparedSlot] = useState<string>()
   const casting = classSpellcasting(c, entries)
+  const automaticSlots = classSpellSlots(c)
+  const druid = automaticSlots !== undefined
+  const sc: Character['spellcasting'] = c.className === 'Druid' ? { ...c.spellcasting,
+    ability: 'wis', tradition: 'Primal', rank: casting?.rank ?? 1,
+    slots: automaticSlots ?? c.spellcasting?.slots ?? {} } : c.spellcasting
   const traditions = casting?.traditions ?? []
-  const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells } = spellSummaryData(c, entries)
+  const spellIndex = useMemo(() => {
+    const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
+      && entry.systems.some(system => c.systems.includes(system)))
+    const byId = new Map<string, ContentEntry>()
+    const byName = new Map<string, ContentEntry>()
+    for (const spell of spells) {
+      if (!byId.has(spell.id)) byId.set(spell.id, spell)
+      if (!byName.has(spell.name)) byName.set(spell.name, spell)
+    }
+    return { spells, byId, byName }
+  }, [entries, c.systems])
+  const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
+  const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells) : undefined,
+    [druid, c.className, c.level, c.feats, c.systems, spellIndex])
+  const druidAvailable = useMemo(() => {
+    const learned = new Set((c.spells ?? []).map(spell => spell.entryId ?? spell.name))
+    return druidList?.filter(entry => isCommonSpell(entry) || learned.has(entry.id) || learned.has(entry.name))
+  }, [druidList, c.spells])
+  const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells } = data ?? spellSummaryData(c, entries)
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
   const unresolved = unresolvedFeatSpells(c, entries)
@@ -443,24 +476,26 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
   const matches = useMemo(() => {
     if (!selectedTradition) return []
     const q = query.trim().toLowerCase()
-    return entries
-      .filter((e) => e.kind === 'spell')
-      .filter((e) => !selectedTradition || String(e.data.tradition ?? '').toLowerCase().includes(selectedTradition.toLowerCase()))
+    if (druid && !q) return []
+    return (druidList ?? spellIndex.spells)
+      .filter((e) => druid || String(e.data.tradition ?? '').toLowerCase().includes(selectedTradition.toLowerCase()))
       .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some(trait => trait.toLowerCase().includes(q)))
       .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
       .slice(0, 40)
-  }, [entries, selectedTradition, query])
+  }, [spellIndex, selectedTradition, query, druid, druidList])
 
   const castAbility = casting?.ability ?? sc?.ability
   const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
   const classSpellDC = casting && castAbility ? 10 + mod : undefined
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
-    const entry = entries.find((e) => e.kind === 'spell' && (entryId ? e.id === entryId : e.name === name))
+    const entry = spellEntry(name, entryId)
     return spellWardenLabel(entry?.data.warden_spell_tier) ?? (cantrip ? 'Cantrips' : `Rank ${rank}`)
   }
   const listedSpells = [
     ...granted.map((s) => ({ name: s.name, entryId: s.id, group: spellWardenLabel(wardenTierOf(s)) ?? `Rank ${s.level}`, index: -1 })),
-    ...spells.flatMap((s, index) => manualSpells.includes(s) ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
+    ...spells.flatMap((s, index) => manualSpells.includes(s)
+      && (!druid || !isCommonSpell(spellEntry(s.name, s.entryId)))
+      ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const groupOrder = ['Cantrips', ...Array.from({ length: 10 }, (_, i) => `Rank ${i + 1}`),
     'Initiate Warden', 'Advanced Warden', 'Master Warden', 'Peerless Warden']
@@ -478,18 +513,18 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
     group.grants.push(grant)
   }
   innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.rank - b.rank)
-  const knownSpellEntry = (spell: NonNullable<Character['spells']>[number]) =>
-    entries.find(entry => entry.kind === 'spell' && !entry.deleted
-      && (spell.entryId ? entry.id === spell.entryId : entry.name === spell.name)
-      && entry.systems.some(system => c.systems.includes(system)))
-  const preparedOptions = (rank: number) => (c.spells ?? [])
-    .filter(spell => rank === 0 ? spell.cantrip : !spell.cantrip && spell.rank <= rank)
-    .filter(spell => {
-      const entry = knownSpellEntry(spell)
-      const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)
-      return !selectedTradition || !entry || traditions.includes(selectedTradition.toLowerCase())
-    })
-    .sort((a, b) => a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
+  const preparedOptions = useMemo(() => {
+    const available = druidAvailable?.map(entry => ({ name: entry.name, entryId: entry.id,
+      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') })) ?? c.spells ?? []
+    return Array.from({ length: 11 }, (_, rank) => available
+      .filter(spell => rank === 0 ? spell.cantrip : !spell.cantrip && spell.rank <= rank)
+      .filter(spell => {
+        const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
+        const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)
+        return druid || !selectedTradition || !entry || traditions.includes(selectedTradition.toLowerCase())
+      })
+      .sort((a, b) => a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? '')))
+  }, [druidAvailable, c.spells, druid, selectedTradition, spellIndex])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0))),
@@ -499,7 +534,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
     <h5>{group}</h5>
     <SpellColumns />
     <ul>{listedSpells.filter(spell => spell.group === group).map(spell => {
-      const entry = entries.find(entry => entry.kind === 'spell' && (spell.entryId ? entry.id === spell.entryId : entry.name === spell.name))
+      const entry = spellEntry(spell.name, spell.entryId)
       const rank = Math.ceil(c.level / 2)
       return <SpellItem key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
         inlineControls={inlineControls(spell.name)} {...buffProps(spell.name, entry)}
@@ -543,7 +578,9 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
       {sc && traditions.length > 0 && (
         <div className="row spell-slot-counts">
           <small>Spell slots:</small>
-          {Array.from({ length: 11 }, (_, rank) => (
+          {automaticSlots ? Object.entries(automaticSlots).map(([rank, count]) => <small key={rank}>
+            {rank === '0' ? 'Cantrips' : `Rank ${rank}`}: {count}
+          </small>) : Array.from({ length: 11 }, (_, rank) => (
             <label key={rank}>{rank === 0 ? 'Cantrips' : `Rank ${rank}`}{' '}
               <input type="number" min={0} max={20} style={{ width: '3.5em' }} value={sc.slots[rank] ?? 0}
                 onChange={(e) => setSc({ slots: { ...sc.slots, [rank]: Math.max(0, Math.min(20, +e.target.value || 0)) } })} />
@@ -551,6 +588,11 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
           ))}
         </div>
       )}
+      {druid && <small>Slots follow your Druid level and feats. Prepare common primal spells below;
+        learn other primal spells only after gaining access. Order spells use Focus Points.</small>}
+      {c.className === 'Druid' && !druid && <small role="status">
+        Flexible Spellcaster preparation is not automated; your manual spell-slot settings are retained.
+      </small>}
       {sc && traditions.length > 0 && classSlotRanks.length > 0 && <div className="class-spell-slots">
         <div className="row">
           <b>Class Spell Slots</b>
@@ -561,7 +603,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
         {classSlotRanks.map(({ rank, count }) => {
           const cantrip = rank === 0
           const title = cantrip ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})` : `Spell Rank ${rank}`
-          const options = preparedOptions(rank)
+          const options = preparedOptions[rank]
           return <section className="spell-slot-group" key={rank}>
             <h5>{title}</h5>
             <SpellColumns cast={!cantrip} />
@@ -569,38 +611,51 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
               const slotKey = `${rank}:${index}`
               const selectedValue = sc.prepared?.[slotKey] ?? ''
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
-              const selectedEntry = selectedSpell ? knownSpellEntry(selectedSpell)
-                : entries.find(entry => entry.kind === 'spell' && entry.id === selectedValue)
+              const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
+                : spellIndex.byId.get(selectedValue)
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank)
               const spent = sc.spentSlots?.includes(slotKey) ?? false
+              const selectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
+                || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
+              const valid = !!selectedOption
+              const showOptions = options.length <= 10 || preparedSlot === slotKey
               return <li className="spellbook-row" key={slotKey}>
                 <div className="spellbook-slot">
-                  {!cantrip && <button type="button" disabled={!selectedValue || spent} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
+                  {!cantrip && <button type="button" disabled={!valid || spent} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
                     onClick={() => {
-                      if (!selectedValue || spent) return
+                      if (!valid || spent) return
                       setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), slotKey])] })
                     }}>Cast</button>}
                   <SearchableSelect aria-label={`${cantrip ? 'Cantrip' : `Spell Rank ${rank}`} slot ${index + 1}`}
-                    value={selectedValue} optionCount={options.length} disabled={spent}
+                    value={selectedValue} optionCount={options.length} disabled={spent} onPrepare={() => setPreparedSlot(slotKey)}
                     onChange={event => {
                       const value = event.target.value
-                      if (value && !options.some(spell => (spell.entryId ?? spell.name) === value)) return
-                      const prepared = { ...sc.prepared }
-                      if (value) prepared[slotKey] = value
-                      else delete prepared[slotKey]
-                      setSc({ prepared })
+                      if (value && !(valid && value === selectedValue) && !options.some(spell => (spell.entryId ?? spell.name) === value)) return
+                      const prepare = () => {
+                        const prepared = { ...sc.prepared }
+                        if (value) prepared[slotKey] = value
+                        else delete prepared[slotKey]
+                        setSc({ prepared })
+                      }
+                      if (!value && selectedValue) confirmRemoval(`prepared spell "${selectedEntry?.name ?? selectedValue}"`, prepare)
+                      else prepare()
                     }}>
                     <option value="">Not Selected</option>
-                    {selectedValue && !options.some(spell => (spell.entryId ?? spell.name) === selectedValue)
-                      && <option value={selectedValue} disabled>{selectedSpell?.name ?? selectedEntry?.name ?? selectedValue} (unavailable)</option>}
-                    {options.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>{spell.name}</option>)}
+                    {selectedValue && (!valid || !showOptions || (selectedOption?.entryId ?? selectedOption?.name) !== selectedValue)
+                      && <option value={selectedValue} disabled={!valid}>{selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}{!valid && ' (unavailable)'}</option>}
+                    {showOptions && options.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>{spell.name}</option>)}
                   </SearchableSelect>
+                  {selectedEntry && <EntryDescription name={selectedEntry.name} entry={selectedEntry}
+                    buttonLabel="Details" className="picker-details" />}
                   {selectedEntry && <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />}
                 </div>
                 <span><small>Duration</small>{metadata.duration}</span>
                 <span><small>Range</small>{metadata.range}</span>
                 <span><small>Save</small>{spellSave(metadata.save, classSpellDC)}</span>
                 <span><small>Area/Targets</small>{metadata.targets}</span>
+                {selectedValue && !valid && <small className="innate-spell-controls" role="status">
+                  Selected spell unavailable for your current spell list or slot rank.
+                </small>}
               </li>
             })}</ul>
           </section>
@@ -663,7 +718,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
             <SpellColumns />
             <ul>
             {otherFocus.map((s) => {
-              const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
+              const entry = spellEntry(s.name)
               const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
               const details = grant ? grantDetails(grant) : undefined
               return <SpellItem key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
@@ -696,9 +751,10 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
         Spell data unavailable: {grant.name} (<EntryDescription name={grant.sourceName ?? grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).
         {' '}Review source rules; this spell is not automated.
       </p>)}
+      {druid && groups.some(group => !wardenGroups.includes(group)) && <b>Learned spell access</b>}
       {groups.filter(group => !wardenGroups.includes(group)).map(renderSpellGroup)}
       <div className="row">
-        {casting && traditions.length > 0 && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
+        {casting && traditions.length > 0 && !druid && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
           <option value="">Any tradition</option>
           {traditions.map((t) => <option key={t}>{t}</option>)}
         </select>}
@@ -710,13 +766,14 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
         {matches.map((m) => {
           const cantrip = m.traits.some((t) => t.toLowerCase() === 'cantrip')
           const have = spells.some((s) => s.entryId === m.id) || granted.some((s) => s.id === m.id)
+            || !!druidAvailable?.some(entry => entry.id === m.id)
           return (
             <li key={m.id}>
               <EntryDescription name={m.name} entry={m} /> <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
                 <small>({spellWardenLabel(m.data.warden_spell_tier)})</small>
-              )} {m.data.tradition ?? ''}{' '}
+              )} {druid ? 'Primal' : m.data.tradition ?? ''}{' '}
               <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>
-                {have ? 'Added' : 'Add'}
+                {have ? druid ? 'Available' : 'Added' : druid ? 'Learn' : 'Add'}
               </button>
             </li>
           )
