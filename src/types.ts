@@ -100,6 +100,7 @@ export type CompanionEquipmentSet = Partial<Record<Exclude<CompanionEquipmentSlo
 export interface OwnedShield {
   id: string
   name: string
+  equipped?: boolean
   hardness: number
   hp: number
   damage: number

@@ -282,6 +282,29 @@ it('keeps equipment editing separate from offensive attack summaries', () => {
   expect(offense).not.toContain('Add Weapon')
 })
 
+it('shows synced inventory counts and shared hand usage in Equipment and Offense headers', () => {
+  content.entries = [{ id: 'sword', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Sword',
+    level: 0, traits: [], description: '', data: { hands: 1, weapon_category: 'Martial', damage: '1d8 slashing' }, effects: [], updatedAt: 0 }]
+  const c: Character = {
+    id: 'headers', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: 'Rope', qty: 1 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    weapons: [{ id: 'sword', name: 'Sword', potency: 0, striking: 0, runes: [] }],
+    shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, raised: false, damage: 0 },
+  }
+  try {
+    const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+    const markup = render(c)
+    expect(markup).toContain('<strong>Equipment</strong><span>1 Items, 2/2 Hands</span>')
+    expect(markup).toContain('<strong>Offense</strong><span>3 Weapons, 2/2 Hands</span>')
+    const unequipped = render({ ...c, shield: { ...c.shield!, equipped: false } })
+    expect(unequipped).toContain('<strong>Equipment</strong><span>1 Items, 1/2 Hands</span>')
+    expect(unequipped).toContain('<strong>Offense</strong><span>3 Weapons, 1/2 Hands</span>')
+    const defense = markup.slice(markup.indexOf('<strong>Defense</strong>'), markup.indexOf('<strong>Deity</strong>'))
+    expect(defense).toContain('aria-label="Equipped Steel Shield" checked=""')
+  } finally { content.entries = [] }
+})
+
 it('orders equipment groups alphabetically and separates grafts and tattoos from other equipment', () => {
   const item = (name: string, category: string): ContentEntry => ({ id: name, name, kind: 'item',
     systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '', data: { item_category: category }, effects: [], updatedAt: 0 })

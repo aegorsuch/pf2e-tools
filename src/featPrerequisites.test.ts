@@ -17,6 +17,95 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it.each(['Cyborg', 'SRO'])('limits Additional Arms for %s while preserving its current slot and the opt-out', trait => {
+  const previous = getSettings().singleAdditionalArms
+  const arms = { ...entry('feat', 'Additional Arms', { repeatable: true }, 9, [trait]), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: trait === 'SRO' ? trait : 'Human',
+    heritage: trait === 'Cyborg' ? trait : undefined,
+    feats: [{ name: arms.name, type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' }] }
+  const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
+  try {
+    updateSettings({ singleAdditionalArms: true })
+    expect(eligibleFeats([arms], { ...c, feats: [] }, slot)).toContain(arms)
+    expect(eligibleFeats([arms], c, slot, { includeUnmetPrerequisites: true })).not.toContain(arms)
+    expect(eligibleFeats([arms], c, { ...slot, key: 'ancestry:9:0', level: 9 })).toContain(arms)
+    expect(featSelectionPrerequisiteChecker(c, [arms], slot)(arms).missing.join()).toContain('only be selected once')
+    updateSettings({ singleAdditionalArms: false })
+    expect(eligibleFeats([arms], c, slot)).toContain(arms)
+    expect(featSelectionPrerequisiteChecker(c, [arms], slot)(arms).missing).toEqual([])
+  } finally { updateSettings({ singleAdditionalArms: previous }) }
+})
+
+it.each(['Machine Heart', 'Mortal Heart'])('optionally excludes the other Cyborg heart after %s', name => {
+  const previous = getSettings().exclusiveCyborgHearts
+  const data = ['Machine Heart', 'Mortal Heart'].map(name =>
+    ({ ...entry('feat', name, {}, 17, ['Cyborg']), systems: ['sf2e' as const] }))
+  const other = data.find(feat => feat.name !== name)!
+  const selected = data.find(feat => feat.name === name)!
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Human', heritage: 'Cyborg',
+    feats: [{ name, type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }] }
+  const slot = { key: 'ancestry:19:0', category: 'ancestry' as const, level: 19 }
+  try {
+    updateSettings({ exclusiveCyborgHearts: true })
+    expect(eligibleFeats(data, c, slot, { includeUnmetPrerequisites: true })).not.toContain(other)
+    expect(eligibleFeats(data, c, { ...slot, key: 'ancestry:17:0', level: 17 })).toContain(selected)
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(other).missing.join()).toContain('cannot be combined')
+    updateSettings({ exclusiveCyborgHearts: false })
+    expect(eligibleFeats(data, c, slot)).toContain(other)
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(other).missing).toEqual([])
+  } finally { updateSettings({ exclusiveCyborgHearts: previous }) }
+})
+
+it('checks Enhanced Senses before its own effects and before later sense-granting feats', () => {
+  const feat = { ...entry('feat', 'Enhanced Senses', { prerequisite: 'a sense with a listed range' }, 1, ['Ysoki']),
+    systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki',
+    feats: [{ name: 'Enhanced Olfactory System', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }] }
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat))
+    .toEqual({ missing: ['a sense with a listed range'], manual: [] })
+  expect(eligibleFeats([feat], c, slot)).not.toContain(feat)
+  expect(featSelectionPrerequisiteChecker(c, [feat], { ...slot, level: 5 })(feat))
+    .toEqual({ missing: [], manual: [] })
+  const self = { ...feat, data: { ...feat.data, grants_vision: 'Scent (imprecise) 30 feet' } }
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: [
+    { name: feat.name, type: 'Ancestry Feat', level: 1, slot: slot.key },
+  ] }, [self], slot)(self)).toEqual({ missing: ['a sense with a listed range'], manual: [] })
+})
+
+it.each([
+  ['Low-Light Vision', false], ['Darkvision', false], ['Limited Telepathy 30 feet', false],
+  ['Scent (imprecise) 30 feet', true], ['Lifesense (precise) 60 feet', true],
+  ['Tremorsense (imprecise) 0 feet', false],
+])('recognizes a listed sense range for %s', (vision, qualifies) => {
+  const c = { ...base, ancestry: 'Test' }
+  expect(check('a sense with a listed range', c, [entry('ancestry', 'Test', { vision })]))
+    .toEqual({ missing: qualifies ? [] : ['a sense with a listed range'], manual: [] })
+})
+
+it.each([
+  ['Maraquoi', 'Dermal Hearing', 30], ['Moyishuu', 'Emotionsense', 20], ['Talphi', 'Scent', 30],
+] as const)('uses the native %s sense for Enhanced Senses without granting adopted physiology', (ancestry, sense, feet) => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry, level: 1, feats: [] }
+  expect(check('a sense with a listed range', c)).toEqual({ missing: [], manual: [] })
+  expect(senses({ ...c, feats: [{ name: 'Enhanced Senses', type: 'Ancestry Feat', level: 1 }] }, []))
+    .toContainEqual({ value: `${sense} (imprecise) ${feet + 30} feet`, source: `${ancestry}, Enhanced Senses` })
+  expect(check('a sense with a listed range', { ...c, ancestry: 'Human',
+    feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: ancestry }] }).missing)
+    .toEqual(['a sense with a listed range'])
+})
+
+it('requires the Acid Quake heritage for the restricted Fonqugon Enhanced Senses source', () => {
+  const feat = { ...entry('feat', 'Enhanced Senses', { prerequisite: 'a sense with a listed range' }, 1, ['Fonqugon']),
+    systems: ['sf2e' as const], description: 'Option(s): acid quake fonqugon heritage only' }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Fonqugon', heritage: 'Acid Quake Fonqugon', level: 1, feats: [] }
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
+  expect(featSelectionPrerequisiteChecker({ ...c, heritage: 'Cyborg',
+    feats: [{ name: 'Enhanced Olfactory System', type: 'Ancestry Feat', level: 1 }] }, [feat], slot)(feat).missing)
+    .toEqual(['acid quake fonqugon heritage'])
+})
+
 it('defers compound-name matching regex creation during feat source lookup', () => {
   const entries = [entry('feat', 'Alpha and Beta', {}, 1, ['General'])]
   const NativeRegExp = globalThis.RegExp

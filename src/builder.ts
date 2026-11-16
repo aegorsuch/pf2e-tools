@@ -343,7 +343,23 @@ export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['ma
 }
 export function equippedShield(c: Character) {
   const generated = hardwoodShield(c)
-  return generated && (c.hardwoodShield?.equipped ?? !c.shield) ? generated : c.shield
+  return generated && (c.hardwoodShield?.equipped ?? !c.shield) ? generated
+    : c.shield?.equipped !== false ? c.shield : undefined
+}
+export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: boolean): Partial<Character> {
+  if (shield.id === 'granted-shield:hardwood') {
+    const keepPhysical = !equipped && !!c.shield && equippedShield(c)?.id === c.shield.id
+    return {
+      hardwoodShield: { ...c.hardwoodShield, equipped, ...(!equipped ? { raised: false } : {}) },
+      ...(c.shield ? { shield: { ...c.shield, equipped: keepPhysical, raised: keepPhysical && c.shield.raised } } : {}),
+    }
+  }
+  const keepGenerated = !equipped && equippedShield(c)?.id === 'granted-shield:hardwood'
+  return {
+    shield: { ...shield, equipped, ...(!equipped ? { raised: false } : {}) },
+    ...(hardwoodShield(c) ? { hardwoodShield: { ...c.hardwoodShield, equipped: keepGenerated,
+      ...(!keepGenerated ? { raised: false } : {}) } } : {}),
+  }
 }
 export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   const shield = equippedShield(c)
@@ -612,6 +628,7 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
 }
 
 const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed']]
+const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
 
 export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
   options: { ignoreAttributePrerequisites?: boolean } = {}) {
@@ -728,6 +745,19 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    if (getSettings().singleAdditionalArms && entry.name === 'Additional Arms'
+      && character.feats.some(feat => feat.name === entry.name)) {
+      missing.push('Additional Arms can only be selected once (house rule)')
+    }
+    if (getSettings().exclusiveCyborgHearts && CYBORG_HEART_FEATS.includes(entry.name)) {
+      const other = CYBORG_HEART_FEATS.find(name => name !== entry.name && character.feats.some(feat => feat.name === name))
+      if (other) missing.push(`${entry.name} cannot be combined with ${other} (house rule)`)
+    }
+    if (entry.name === 'Enhanced Senses') {
+      const heritage = /\bOption\(s\):\s*([\w '-]+?) heritage only\b/i.exec(entry.description)?.[1]
+      if (heritage && ![heritage.toLowerCase(), `${heritage} ${character.ancestry}`.toLowerCase()]
+        .includes(character.heritage?.toLowerCase() ?? '')) missing.push(`${heritage} heritage`)
+    }
     if (multitalented && entry.name === `${character.className} Dedication`) missing.push("a multiclass dedication outside your current class")
     let manual = result.manual.filter((requirement) => !(requirements[entry.name] ?? [])
       .some((name) => name.toLowerCase() === requirement.toLowerCase()))
@@ -799,6 +829,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(e.name === 'Ancestral Unarmed Attack' && c.ancestry === 'Orc'
         && c.feats.some(feat => /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(feat.name) && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
+      && !(getSettings().singleAdditionalArms && e.name === 'Additional Arms' && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Adaptive Visual Receptors' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (!['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(e.name)
@@ -814,6 +845,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
           && !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (!isCompanionSpecialization(e.name) || specializations < 3)
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
+      && (!getSettings().exclusiveCyborgHearts || !CYBORG_HEART_FEATS.includes(e.name)
+        || !CYBORG_HEART_FEATS.some(name => name !== e.name && taken.has(name)))
       && (!taken.has(e.name) || e.name === 'Ubiquitous Gadgets' && slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Plentiful Grenades' && slot.level >= 14
@@ -1990,6 +2023,17 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const addVision = (value: string, source: string) => {
     if (!out.some((sense) => sense.value.toLowerCase() === value.toLowerCase())) out.push({ value, source })
   }
+  if (c.systems.includes('sf2e')) {
+    const native: Record<string, string> = {
+      Maraquoi: 'Dermal Hearing (imprecise) 30 feet',
+      Moyishuu: 'Emotionsense (imprecise) 20 feet',
+      Talphi: 'Scent (imprecise) 30 feet',
+    }
+    if (c.ancestry && native[c.ancestry]) addVision(native[c.ancestry], c.ancestry)
+    if (c.ancestry === 'Fonqugon' && c.heritage && /^Acid Quake(?: Fonqugon)?$/i.test(c.heritage)) {
+      addVision('Tremorsense (imprecise) 15 feet', c.heritage)
+    }
+  }
   if (testSubjectAdaptation(c) === 'Psychic Augmentation') addVision('Limited Telepathy 30 feet', 'Test-Subject Ysoki')
   const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
   const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors']
@@ -2025,11 +2069,16 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (isSpellActive(c, entries, 'Keen Smell')) addScent(c.level >= 5 ? 60 : 30, 'Keen Smell')
   if (activeFeatsNamed(c, 'Enhanced Olfactory System').length) addScent(30, 'Enhanced Olfactory System')
-  if (activeFeatsNamed(c, 'Enhanced Senses').length && c.ancestry === 'Ysoki') {
-    const scent = out.find(sense => /^Scent \(imprecise\) \d+ feet$/i.test(sense.value))
-    if (scent) {
-      const feet = Number(/\d+/.exec(scent.value)?.[0])
-      Object.assign(scent, { value: `Scent (imprecise) ${feet + 30} feet`, source: `${scent.source}, Enhanced Senses` })
+  if (activeFeatsNamed(c, 'Enhanced Senses').length) {
+    const names: Record<string, string> = {
+      Ysoki: 'Scent', Formian: 'Scent', Talphi: 'Scent', Maraquoi: 'Dermal Hearing',
+      Moyishuu: 'Emotionsense', Fonqugon: 'Tremorsense',
+    }
+    const name = names[c.ancestry ?? '']
+    const sense = name && out.find(sense => sense.value.startsWith(`${name} (imprecise) `) && /\d+ feet$/.test(sense.value))
+    if (sense) {
+      const feet = Number(/\d+/.exec(sense.value)?.[0])
+      Object.assign(sense, { value: `${name} (imprecise) ${feet + 30} feet`, source: `${sense.source}, Enhanced Senses` })
     }
   }
   if (c.raging) {
@@ -2820,7 +2869,9 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
 }
 
 export function totalHandCapacity(c: Character) {
-  const arms = 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + activeFeatsNamed(c, 'Additional Arms').length)
+  const additionalArms = activeFeatsNamed(c, 'Additional Arms').length
+  const arms = 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs')
+    + (getSettings().singleAdditionalArms ? Math.min(1, additionalArms) : additionalArms))
   const tail = activeFeatsNamed(c, 'Prehensile Tail').length > 0
   const limb = activeFeatsNamed(c, 'Prehensile Limbs').length > 0
   return arms + Number(tail) + Number(limb && !(tail && c.ancestry === 'Ysoki'))
@@ -2846,6 +2897,15 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
       || !weaponEquipped(c, entries, weapon)) return total
     return total + (weaponHands(entries, weapon) ?? 0)
   }, 0)
+}
+export function equippedHands(c: Character, entries: ContentEntry[]): number {
+  const shield = equippedShield(c)
+  return equippedWeaponHands(c, entries) + Number(!!shield && !isBucklerShield(shield.name))
+}
+export function canEquipShield(c: Character, entries: ContentEntry[], shield: OwnedShield): boolean {
+  return equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c)
+    && !ownedWeapons(c, entries).some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
+      && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
 }
 
 const canOversizedThrow = (c: Character) => c.level >= 4 && activeFeatsNamed(c, 'Oversized Throw').length > 0

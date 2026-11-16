@@ -103,7 +103,9 @@ describe('settings sync', () => {
     expect(settings.getSettings().gauntletFinesse).toBe(true)
     expect(settings.getSettings().cyborgTestSubject).toBe(true)
     expect(settings.getSettings().adoptedDwarfClanDagger).toBe(true)
-    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false, adoptedDwarfClanDagger: false })
+    expect(settings.getSettings().singleAdditionalArms).toBe(true)
+    expect(settings.getSettings().exclusiveCyborgHearts).toBe(true)
+    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false, adoptedDwarfClanDagger: false, singleAdditionalArms: false, exclusiveCyborgHearts: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
     if (!saved) throw new Error('Settings were not persisted')
     vi.mocked(localStorage.getItem).mockReturnValue(saved)
@@ -114,12 +116,16 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().orderExplorerSkills).toBe(false)
     expect(reloaded.getSettings().gauntletFinesse).toBe(false)
     expect(reloaded.getSettings().adoptedDwarfClanDagger).toBe(false)
+    expect(reloaded.getSettings().singleAdditionalArms).toBe(false)
+    expect(reloaded.getSettings().exclusiveCyborgHearts).toBe(false)
     reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true, orderExplorerSkills: true, gauntletFinesse: true }, reloaded.getSettingsUpdatedAt() + 1)
     expect(reloaded.getSettings().singleTrainingFeats).toBe(true)
     expect(reloaded.getSettings().championFormNoFlight).toBe(true)
     expect(reloaded.getSettings().orderExplorerSkills).toBe(true)
     expect(reloaded.getSettings().gauntletFinesse).toBe(true)
     expect(reloaded.getSettings().adoptedDwarfClanDagger).toBe(true)
+    expect(reloaded.getSettings().singleAdditionalArms).toBe(true)
+    expect(reloaded.getSettings().exclusiveCyborgHearts).toBe(true)
   })
 
   it('pulls newer settings from the signed-in account', async () => {

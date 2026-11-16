@@ -234,6 +234,11 @@ export default function App() {
       {showSettings && (
         <section className="col settings-panel" aria-label="Character settings">
           <label>
+            <input type="checkbox" checked={settings.singleAdditionalArms}
+              onChange={(e) => updateSettings({ singleAdditionalArms: e.target.checked })} />{' '}
+            Additional Arms: Once
+          </label>
+          <label>
             <input type="checkbox" checked={settings.adoptedDwarfClanDagger}
               onChange={(e) => updateSettings({ adoptedDwarfClanDagger: e.target.checked })} />{' '}
             Adopted Ancestry (Dwarf) Grants Clan Dagger
@@ -257,6 +262,11 @@ export default function App() {
             <input type="checkbox" checked={settings.championCavalier}
               onChange={(e) => updateSettings({ championCavalier: e.target.checked })} />{' '}
             Champion Cavalier Dedication
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.exclusiveCyborgHearts}
+              onChange={(e) => updateSettings({ exclusiveCyborgHearts: e.target.checked })} />{' '}
+            Cyborg Hearts: Machine Heart or Mortal Heart
           </label>
           <label>
             <input type="checkbox" checked={settings.cyborgTestSubject}

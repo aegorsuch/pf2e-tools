@@ -390,6 +390,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return checks.find(satisfied) ?? checks[0]
     }
     if (content.some((entry) => entry.kind === 'feat' || entry.kind === 'classFeature')) return missing(text)
+    if (name === 'a sense with a listed range') {
+      return resultFor(facts.senses.some(sense => {
+        const range = /\b(\d+)\s*(?:feet|foot|ft)\b/i.exec(sense)
+        return !!range && Number(range[1]) > 0 && !/telepath/i.test(sense)
+      }), text)
+    }
     if (/^(?:low-light vision|darkvision|scent|tremorsense)$/.test(name)) {
       return resultFor(facts.senses.some((sense) => key(sense).includes(name)), text)
     }

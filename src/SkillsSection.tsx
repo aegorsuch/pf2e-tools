@@ -3,7 +3,7 @@ import { resistances,
   ancestralSkills, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
-import { WeaponList } from './GearSection'
+import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -386,6 +386,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
             && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}</b></span>
         </div>
+        <ShieldEquipment c={c} entries={entries} save={save} />
         {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <label>
           <input type="checkbox" checked={!!c.dermalPlating?.raised && !c.dermalPlating.damaged}
             disabled={!!c.dermalPlating?.damaged} onChange={event => save({

@@ -1,13 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, ShieldAttachment, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
 import { getSettings, updateSettings } from './settings'
+import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
@@ -137,7 +138,87 @@ it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
-it('adds two hands per Additional Arms selection', () => {
+it('caps saved Additional Arms selections without removing them and restores repetition when disabled', () => {
+  const previous = getSettings().singleAdditionalArms
+  const feats: Character['feats'] = [
+    { name: 'Additional Arms', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
+    { name: 'Additional Arms', type: 'Ancestry Feat', level: 9, slot: 'ancestry:13:0' },
+  ]
+  const c = { ...character([]), level: 17, feats }
+  try {
+    updateSettings({ singleAdditionalArms: true })
+    expect(totalHandCapacity(c)).toBe(4)
+    expect(totalHandCapacity({ ...c, level: 8 })).toBe(2)
+    updateSettings({ singleAdditionalArms: false })
+    expect(totalHandCapacity(c)).toBe(6)
+    const sword = { ...weapon, name: 'Cyborg Sword', data: { ...weapon.data, hands: 1 } }
+    const equipped = { ...c, weapons: [
+      { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 1 },
+      { id: 'three', name: sword.name, potency: 0, striking: 0, runes: [], handPair: 3 },
+    ], activeHandPair: 3 }
+    expect(weaponEquipped(equipped, [sword], equipped.weapons[1])).toBe(true)
+    expect(renderToStaticMarkup(<WeaponList c={equipped} entries={[sword]} save={() => {}} displayOnly />))
+      .toContain('Hands used: 2/6')
+  } finally { updateSettings({ singleAdditionalArms: previous }) }
+})
+
+it('uses one shared shield equip state and counts its hand once', () => {
+  const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
+  let c: Character = { ...character([]), weapons: [{ id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }],
+    shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true, equipped: false,
+      attachedWeapon: { id: 'boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [], attachedTo: 'steel' } } }
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const control = () => findElement(WeaponList({ c, entries: [sword], save, displayOnly: true }),
+    element => element.props['aria-label'] === 'Equipped Shield Boss (Attached to Steel Shield)')!
+  const toggle = (checked: boolean) => (control().props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked } })
+  expect(control().props.disabled).toBe(false)
+  expect(control().props.checked).toBe(false)
+  toggle(true)
+  expect(equippedShield(c)?.id).toBe('steel')
+  expect(equippedHands(c, [sword])).toBe(2)
+  for (const Component of [ShieldEquipment, ArmorList]) {
+    expect(renderToStaticMarkup(<Component c={c} entries={[sword]} save={save} />))
+      .toContain('aria-label="Equipped Steel Shield" checked=""')
+  }
+  toggle(false)
+  expect(equippedShield(c)).toBeUndefined()
+  expect(c.shield?.raised).toBe(false)
+  expect(equippedHands(c, [sword])).toBe(1)
+  c = { ...c, shield: { ...c.shield!, attachedWeapon: undefined } }
+  const bash = findElement(WeaponList({ c, entries: [sword], save, displayOnly: true }),
+    element => element.props['aria-label'] === 'Equipped Shield Bash (Attached to Steel Shield)')!
+  ;(bash.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(equippedShield(c)?.id).toBe('steel')
+})
+
+it('reserves a free hand for shields, but not bucklers, and switches generated shields without raising the old shield', () => {
+  const sword = { ...weapon, data: { ...weapon.data, hands: 2 } }
+  const shield = { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true, equipped: false }
+  let c: Character = { ...character([]), className: 'Kineticist', weapons: [{ id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }],
+    shield, feats: [{ name: 'Hardwood Armor', type: 'Class Feat', level: 1 }] }
+  expect(canEquipShield(c, [sword], shield)).toBe(false)
+  expect(canEquipShield(c, [sword], { ...shield, name: 'Buckler' })).toBe(true)
+  c = { ...c, shield: { ...shield, name: 'Buckler', equipped: true } }
+  expect(equippedHands(c, [sword])).toBe(2)
+  c = { ...c, weapons: [], shield: { ...shield, equipped: true } }
+  const generated = hardwoodShield(c)
+  if (!generated) throw new Error('Expected Hardwood Armor shield')
+  c = { ...c, ...shieldEquipChange(c, generated, true) }
+  expect(equippedShield(c)?.id).toBe(generated.id)
+  expect(c.shield).toMatchObject({ equipped: false, raised: false })
+  c = { ...c, ...shieldEquipChange(c, shield, false) }
+  expect(equippedShield(c)?.id).toBe(generated.id)
+  c = { ...c, ...shieldEquipChange(c, generated, false) }
+  expect(equippedShield(c)).toBeUndefined()
+  c = { ...c, ...shieldEquipChange(c, shield, true) }
+  expect(equippedShield(c)?.id).toBe(shield.id)
+  expect(c.hardwoodShield?.equipped).toBe(false)
+  c = { ...c, shield: { ...shield, equipped: undefined }, hardwoodShield: { equipped: true, raised: true } }
+  c = { ...c, ...shieldEquipChange(c, generated, false) }
+  expect(equippedShield(c)).toBeUndefined()
+})
+
+it('keeps weapon pair assignments usable with shared hands', () => {
   const sword = { ...weapon, name: 'Cyborg Sword', data: { ...weapon.data, hands: 1 } }
   const c: Character = { ...character([]), systems: ['sf2e'], level: 17, heritage: 'Cyborg',
     feats: [{ name: 'Additional Arms', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
@@ -148,7 +229,7 @@ it('adds two hands per Additional Arms selection', () => {
   expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />)
-  expect(markup).toContain('Hands used: 2/6')
+  expect(markup).toContain('Hands used: 2/4')
   expect(markup).not.toContain('Pair 3')
   expect(weaponEquipped({ ...c, activeHandPair: 1 }, [sword], c.weapons![0])).toBe(true)
 })

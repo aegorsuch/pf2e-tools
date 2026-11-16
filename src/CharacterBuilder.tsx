@@ -6,7 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, signed, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WeaponList } from './GearSection'
@@ -17,6 +17,7 @@ import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
+import { equippedHands, totalHandCapacity } from './builder'
 import { ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -336,6 +337,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const shield = equippedShield(c)
   const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
+  const handsUsed = equippedHands(c, entries)
+  const handLimit = totalHandCapacity(c)
   const pairedEmpathyBracelets = (c.companions ?? []).flatMap(companion =>
     companion.equipment?.Collar?.name === 'Collar of Empathy'
       ? [companion.id]
@@ -553,7 +556,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Equipment</strong>
-          <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} items</span>
+          <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} Items, {handsUsed}/{handLimit} Hands</span>
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
@@ -607,7 +610,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Offense</strong>
-          <span>Perception {signed(defense.perception)}, {weaponCount} Weapon{weaponCount === 1 ? '' : 's'}</span>
+          <span>{weaponCount} Weapons, {handsUsed}/{handLimit} Hands</span>
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />
