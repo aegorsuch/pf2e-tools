@@ -8,7 +8,7 @@ it('keeps full equipment rules for clickable item descriptions instead of trunca
     const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
     const hits = category && ['equipment', 'weapon', 'armor', 'shield'].includes(category)
       ? [{ _id: category, _source: { category, name: `Example ${category}`, summary: 'Truncated summary...',
-        markdown: '**Source** Core\n\n---\n\nComplete rules, including the activation and its effects.' } }] : []
+        markdown: '**Source** Core\n\n<traits>\n\n</traits>\n\nComplete rules, including the activation and its effects.' } }] : []
     return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
   }
   const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
@@ -16,6 +16,7 @@ it('keeps full equipment rules for clickable item descriptions instead of trunca
   for (const entry of entries) {
     expect(entry.description).toContain('Complete rules, including the activation and its effects.')
     expect(entry.description).not.toContain('Truncated summary')
+    expect(entry.description).toBe('Source Core\n\nComplete rules, including the activation and its effects.')
   }
 })
 
