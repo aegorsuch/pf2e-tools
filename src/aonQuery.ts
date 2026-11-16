@@ -272,6 +272,12 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (twoHand && Array.isArray(s.trait)) {
             s.trait = s.trait.map(trait => typeof trait === 'string' && /^two-hand$/i.test(trait.trim()) ? twoHand : trait)
           }
+          for (const name of ['Deadly', 'Fatal', 'Fatal Aim']) {
+            const label = new RegExp(`<trait\\b[^>]*\\blabel="(${name}\\s+(?:1)?d(?:4|6|8|10|12))"\\s*[^>]*>`, 'i').exec(traits)?.[1]?.replace(/\b1d/i, 'd')
+            if (label && Array.isArray(s.trait)) {
+              s.trait = s.trait.map(trait => typeof trait === 'string' && trait.trim().toLowerCase() === name.toLowerCase() ? label : trait)
+            }
+          }
         }
         // Keep full rules text for description popups and class features.
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))

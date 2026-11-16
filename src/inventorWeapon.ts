@@ -163,6 +163,23 @@ export function weaponWithModifications(c: Character, weapon: OwnedWeapon, entry
   const nextDie: Record<string, string> = { '4': '6', '6': '8', '8': '10', '10': '12', '12': '12' }
   const modifiedDamage = damageMatch && increasesDamage
     ? `${damageMatch[1]}${nextDie[damageMatch[2]]}${damageMatch[3]}` : damage
+  if (increasesDamage) {
+    for (let index = 0; index < traits.length; index++) {
+      const twoHand = /^two-hand\s+(?:1)?d(4|6|8|10|12)$/i.exec(traits[index].trim())
+      if (twoHand) traits[index] = `Two-Hand d${nextDie[twoHand[1]]}`
+    }
+  }
+  if (selected.includes('Dynamic Weighting')) {
+    const modifiedDie = /^(\d+d)(4|6|8|10|12)/i.exec(modifiedDamage)?.[2]
+    if (modifiedDie) {
+      const existingDie = traits.map(trait => /^two-hand\s+(?:1)?d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean)
+      const die = Math.max(Number(nextDie[modifiedDie]), Number(existingDie ?? 0))
+      for (let index = traits.length - 1; index >= 0; index--) {
+        if (/^two-hand\b/i.test(traits[index])) traits.splice(index, 1)
+      }
+      traits.push(`Two-Hand d${die}`)
+    }
+  }
   for (const trait of complexSimplicityComplete ? selectedComplexTraits : []) {
     if (!traits.some(existing => existing.toLowerCase() === trait.toLowerCase())) traits.push(trait)
   }

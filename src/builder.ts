@@ -1438,7 +1438,7 @@ function hasParryTrait(entry?: ContentEntry) {
 
 function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weaponEntry([], weapon.name)) {
   const group = String(entry?.data.weapon_group ?? '').toLowerCase()
-  return activeFeatsNamed(c, 'Defensive Armaments').length > 0 && weaponHands(entry ? [entry] : [], weapon) === 2
+  return activeFeatsNamed(c, 'Defensive Armaments').length > 0 && weaponHands(entry ? [entry] : [], weapon, c) === 2
     && (group === 'crossbow' || group === 'firearm')
 }
 
@@ -1464,7 +1464,7 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
     const entry = weaponEntry(entries, weapon.name)
     const melee = /melee/i.test(String(entry?.data.weapon_type ?? '')) || !isRanged(entry)
-    return weaponEquipped(c, entries, weapon) && !!entry && weaponCategory(entry) !== 'Unarmed' && melee && weaponHands(entries, weapon) === 1
+    return weaponEquipped(c, entries, weapon) && !!entry && weaponCategory(entry) !== 'Unarmed' && melee && weaponHands(entries, weapon, c) === 1
   })
   const twinParry = activeFeatsNamed(c, 'Twin Parry').length > 0 && meleeWeapons.length >= 2
     && meleeWeapons.some(weapon => weaponHasParry(c, entries, weapon))
@@ -2839,7 +2839,7 @@ export function haftStrikerWeapons(c: Character, entries: ContentEntry[]) {
     const entry = weaponEntry(entries, weapon.name)
     return !!entry && !isRanged(entry)
       && (/^(hammer|spear|polearm)$/i.test(String(entry.data.weapon_group)) || /\bstaff\b/i.test(entry.name))
-      && (weaponHands(entries, weapon) === 2 || weaponCanUseTwoHands(entry))
+      && (weaponHands(entries, weapon, c) === 2 || weaponCanUseTwoHands(weaponWithModifications(c, weapon, entry) ?? entry))
   })
 }
 
@@ -2854,9 +2854,10 @@ export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
       && [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^two-hand\b/i.test(trait))
 }
 
-export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon): number | undefined {
+export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Character): number | undefined {
   if (weapon.id === OVERSIZED_THROW.id) return 0
-  const entry = weaponEntry(entries, weapon.name)
+  const original = weaponEntry(entries, weapon.name)
+  const entry = c ? weaponWithModifications(c, weapon, original) : original
   if (!entry) return undefined
   if (weaponCategory(entry) === 'Unarmed'
     || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
@@ -2872,7 +2873,7 @@ export function hardpointWeaponEligible(c: Character, entries: ContentEntry[], w
   const bulk = entry?.data.bulk
   const maxBulk = activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? 1 : 0.1
   return !!entry && typeof bulk === 'number' && Number.isFinite(bulk) && bulk >= 0 && bulk <= maxBulk
-    && weaponHands(entries, { ...weapon, handsHeld: 1 }) === 1
+    && weaponHands(entries, { ...weapon, handsHeld: 1 }, c) === 1
 }
 
 export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
@@ -2884,11 +2885,11 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
   }
   if (weapon.name === HAFT_STRIKER_WEAPON.name) {
     const source = haftStrikerSource(c, entries)
-    return !!source && weaponHeld(c, entries, source) && weaponHands(entries, source) === 2
+    return !!source && weaponHeld(c, entries, source) && weaponHands(entries, source, c) === 2
   }
   const legacyPouch = weapon.id === `eq-${weapon.name}` && c.equipment.some(item =>
     item.name === weapon.name && (item.cheekQty ?? 0) >= item.qty)
-  return weaponHands(entries, weapon) === 0 || !weapon.stowed && !weapon.cheekStored && !legacyPouch
+  return weaponHands(entries, weapon, c) === 0 || !weapon.stowed && !weapon.cheekStored && !legacyPouch
 }
 
 export function totalHandCapacity(c: Character) {
@@ -2909,7 +2910,7 @@ export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: Ow
   }
   if (weapon.name === HAFT_STRIKER_WEAPON.name) {
     const source = haftStrikerSource(c, entries)
-    return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source) === 2
+    return !!source && weaponEquipped(c, entries, source) && weaponHands(entries, source, c) === 2
   }
   return weaponHeld(c, entries, weapon)
 }
@@ -2918,7 +2919,7 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
   return ownedWeapons(c, entries).reduce((total, weapon) => {
     if (weapon.attachedTo || weapon.name === HAFT_STRIKER_WEAPON.name
       || !weaponEquipped(c, entries, weapon)) return total
-    return total + (weaponHands(entries, weapon) ?? 0)
+    return total + (weaponHands(entries, weapon, c) ?? 0)
   }, 0)
 }
 export function equippedHands(c: Character, entries: ContentEntry[]): number {
@@ -2928,7 +2929,7 @@ export function equippedHands(c: Character, entries: ContentEntry[]): number {
 export function canEquipShield(c: Character, entries: ContentEntry[], shield: OwnedShield): boolean {
   return equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c)
     && !ownedWeapons(c, entries).some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
-      && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
+      && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
 }
 
 const canOversizedThrow = (c: Character) => c.level >= 4 && activeFeatsNamed(c, 'Oversized Throw').length > 0
@@ -3149,11 +3150,13 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export function weaponEntry(entries: ContentEntry[], name: string) {
   let entry = resolveWeaponEntry(entries, name)
-  if (entry?.source === 'homebrew' && entry.data.url && entry.traits.some(trait => /^two-hand$/i.test(trait.trim()))) {
+  if (entry?.source === 'homebrew' && entry.data.url && entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))) {
     const source = entries.find(candidate => candidate.kind === 'weapon' && candidate.source === 'official'
       && !candidate.deleted && candidate.data.url === entry?.data.url)
-    const twoHand = source?.traits.find(trait => /^two-hand\s+(?:1)?d(?:4|6|8|10|12)$/i.test(trait.trim()))
-    if (twoHand) entry = { ...entry, traits: entry.traits.map(trait => /^two-hand$/i.test(trait.trim()) ? twoHand : trait) }
+    if (source) entry = { ...entry, traits: entry.traits.map(trait => {
+      const parameter = /^(two-hand|deadly|fatal(?: aim)?)$/i.exec(trait.trim())?.[1]
+      return parameter ? source.traits.find(value => new RegExp(`^${parameter}\\s+(?:1)?d(?:4|6|8|10|12)$`, 'i').test(value.trim())) ?? trait : trait
+    }) }
   }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
@@ -3772,7 +3775,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const dice = m ? (+m[1]) * (1 + w.striking) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
-  const twoHandDie = weaponHands(entries, attachedSource ?? w) === 2
+  const twoHandDie = weaponHands(entries, attachedSource ?? w, c) === 2
     ? traits.map(trait => /^two-hand\s+(?:1)?d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean) : undefined
   const baseDie = m ? Number(twoHandDie ?? m[2]) : 0
   const dieSteps = [4, 6, 8, 10, 12]
@@ -3780,7 +3783,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? category === 'Unarmed' ? Math.max(baseDie, 6) : dieSteps.find((step) => step > baseDie) ?? baseDie
     : baseDie
   const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
-    : traits.includes('propulsive') ? Math.floor(str / 2) : 0
+    : traits.includes('propulsive') ? str > 0 ? Math.floor(str / 2) : str : 0
   const mechanicSpecialization = c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 7 && rank >= 2
     ? (c.level >= 15 ? 2 : 1) * rank : 0
   const damageBonus = flat + mechanicSpecialization

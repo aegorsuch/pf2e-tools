@@ -39,7 +39,8 @@ export function droneWeaponAttack(c: Character, entries: ContentEntry[], weapon:
   const rank = ['Simple', 'Martial'].includes(weaponCategory(entry)) ? stats.superior ? 2 : 1 : 0
   const match = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry.data.damage ?? ''))
   const dice = Number(match?.[1] ?? 0)
-  const flat = (!ranged || thrown ? stats.mods.str : traits.includes('propulsive') ? Math.floor(stats.mods.str / 2) : 0)
+  const flat = (!ranged || thrown ? stats.mods.str : traits.includes('propulsive')
+    ? stats.mods.str > 0 ? Math.floor(stats.mods.str / 2) : stats.mods.str : 0)
     + (c.mechanicDroneKillbotActive ? 2 * Math.min(dice, 4) : 0)
   const type = attack.damage.match(/[A-Za-z]+$/)?.[0] ?? String(entry.data.damage_type ?? '')
   return { ...attack, attack: mod + proficiencyBonus(rank, c.level), rank,

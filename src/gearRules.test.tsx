@@ -38,6 +38,16 @@ const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1,
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
 
+it.each([[4, -3], [6, -2], [8, -1], [10, 0], [12, 0], [16, 1]] as const)(
+  'uses full negative Strength and half positive Strength for propulsive damage (Strength %s)', (strength, bonus) => {
+    const bow = content('weapon', 'Composite Bow', {
+      damage: '1d8 piercing', hands: 2, weapon_type: 'Ranged', range: 100,
+    }, 0, ['Propulsive'])
+    const c = { ...base, abilities: { ...base.abilities, str: strength } }
+    expect(weaponAttack(c, [bow], { ...main, name: bow.name }).damage)
+      .toBe(`2d8${bonus > 0 ? '+' : ''}${bonus || ''} piercing`)
+  })
+
 it('alphabetizes weapon traits including rune-granted traits without mutating catalog data', () => {
   const weapon = { ...sword, traits: ['Versatile P', 'Agile', 'Finesse'] }
   const traits = weaponAttack(base, [weapon], { ...main, runes: ['Holy'] }).traits

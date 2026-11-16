@@ -963,7 +963,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
-    && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon) === undefined)
+    && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
   const handLimit = totalHandCapacity(c)
   const handwraps = c.handwraps
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
@@ -1012,7 +1012,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const shieldBash = !!shieldSource && !shieldSource.attachedWeapon
         const fixed = w.id === OVERSIZED_THROW.id || shieldBash
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
-        const hands = weaponHands(entries, w)
+        const hands = weaponHands(entries, w, c)
         const equipped = weaponEquipped(c, entries, w)
         const linkedSource = shieldSource ? undefined : attachmentSource ?? haft
         const fixedEquipped = !shieldSource && (hands === 0 || !!linkedSource)

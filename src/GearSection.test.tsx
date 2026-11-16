@@ -426,13 +426,14 @@ it('links attached weapons to their firearm and persists selection without extra
 })
 
 it.each(['Katana', 'Claymore'])('changes %s damage with its saved grip in Equipment and Offense', name => {
-  const katana: ContentEntry = { ...weapon, id: 'katana', name: 'Katana', traits: ['Two-Hand d10'],
+  const katana: ContentEntry = { ...weapon, id: 'katana', name: 'Katana', traits: ['Two-Hand d10', 'Deadly d8'],
     data: { ...weapon.data, url: 'https://2e.aonprd.com/Weapons.aspx?ID=411', hands: 1, damage: '1d6 slashing' } }
-  const claymore: ContentEntry = { ...katana, id: 'claymore', name: 'Claymore', source: 'homebrew', traits: ['Two-Hand'] }
+  const claymore: ContentEntry = { ...katana, id: 'claymore', name: 'Claymore', source: 'homebrew', traits: ['Two-Hand', 'Deadly'] }
   const entries = [katana, claymore]
   let c: Character = { ...character([]), weapons: [{ id: 'blade', name, potency: 1, striking: 2, runes: [] }] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const damage = () => weaponAttack(c, entries, c.weapons![0]).damage
+  expect(weaponAttack(c, entries, c.weapons![0]).traits).toContain('Deadly d8')
   for (const displayOnly of [false, true]) {
     const change = (hands: string) => {
       const select = findElement(WeaponList({ c, entries, save, displayOnly }), element => element.props['aria-label'] === `Hands: ${name}`)!
@@ -448,7 +449,7 @@ it.each(['Katana', 'Claymore'])('changes %s damage with its saved grip in Equipm
     change('1')
     expect(damage()).toBe('3d6 slashing')
   }
-  expect(claymore.traits).toEqual(['Two-Hand'])
+  expect(claymore.traits).toEqual(['Two-Hand', 'Deadly'])
   const custom = { ...claymore, traits: ['Two-Hand 1d12'] }
   expect(weaponAttack(c, [katana, custom], { ...c.weapons![0], name: 'Claymore', handsHeld: 2 }).damage).toBe('3d12 slashing')
 })
@@ -472,6 +473,27 @@ it('uses the attached weapon two-hand die based on its base weapon grip', () => 
   expect(attack().damage).toBe('2d8 bludgeoning')
   c.weapons![0].attachedWeapon = 'Bayonet'
   expect(attack().damage).toBe('2d4 piercing')
+})
+
+it('syncs Dynamic Weighting grip controls, damage, and hand usage across both weapon views', () => {
+  const prototype = { ...weapon, name: 'Prototype', data: { weapon_category: 'Martial', hands: 1, damage: '1d6 slashing' } }
+  let c: Character = { ...character([]), className: 'Inventor', subclass: 'Weapon', level: 1, weapons: [
+    { id: 'prototype', name: prototype.name, potency: 0, striking: 1, runes: [], inventorInnovation: true,
+      inventorModifications: { initial: 'Dynamic Weighting' } },
+  ] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  for (const displayOnly of [false, true]) {
+    const select = findElement(WeaponList({ c, entries: [prototype], save, displayOnly }),
+      element => element.props['aria-label'] === 'Hands: Prototype')!
+    ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: '2' } })
+    expect(equippedWeaponHands(c, [prototype])).toBe(2)
+    for (const view of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={c} entries={[prototype]} save={save} displayOnly={view} />)
+      expect(markup).toContain('2d8 S')
+      expect(markup).toContain('<option value="2" selected="">2</option>')
+    }
+    c = { ...c, weapons: c.weapons!.map(w => ({ ...w, handsHeld: 1 })) }
+  }
 })
 
 it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinforcement while Blessed Shield is selected', rune => {
