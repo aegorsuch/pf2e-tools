@@ -83,6 +83,79 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+describe('replacement slots for redundant fixed feat grants', () => {
+  const data = [
+    entry('background', 'Direwolf Bonded', { feat: 'Canny Acumen, Titan Wrestler' }),
+    entry('feat', 'Titan Wrestler', {}, 1, ['General', 'Skill']),
+    entry('feat', 'Canny Acumen', {}, 1, ['General']),
+    { ...entry('feat', 'Broken Hand Technique', {}, 1, ['Human']), systems: ['sf2e' as const] },
+    entry('feat', 'Level Five Skill', {}, 5, ['General', 'Skill']),
+    entry('feat', 'Level Six Skill', {}, 6, ['General', 'Skill']),
+    entry('feat', 'Unqualified Skill', { prerequisite: 'Strength +4' }, 1, ['General', 'Skill']),
+    entry('feat', 'Fleet', {}, 1, ['General']),
+  ]
+  const c: Character = { ...base, level: 20, systems: ['pf2e', 'sf2e'], background: 'Direwolf Bonded',
+    feats: [{ name: 'Broken Hand Technique', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }] }
+  const replacements = (character: Character, catalog = data) => plannedSlots(character, catalog).filter(slot => slot.redundantFeat)
+
+  it('uses the duplicate acquisition level and normal category, level and prerequisite rules', () => {
+    const [slot] = replacements(c)
+    expect(replacements(c)).toHaveLength(1)
+    expect(slot).toMatchObject({ category: 'skill', level: 5, grantedBy: 'Broken Hand Technique', redundantFeat: 'Titan Wrestler' })
+    expect(eligibleFeats(data, c, slot).map(feat => feat.name)).toEqual(['Level Five Skill'])
+    expect(replacements({ ...c, level: 4 })).toEqual([])
+    expect(replacements({ ...c, background: undefined })).toEqual([])
+    expect(replacements({ ...c, feats: [] })).toEqual([])
+    expect(replacements(JSON.parse(JSON.stringify(c)))[0].key).toBe(slot.key)
+    expect(replacements({ ...c, dismissedFeatSlots: [slot.key] })).toEqual([slot])
+  })
+
+  it('also recognizes an earlier purchased feat without rewarding ordinary duplicate selections', () => {
+    const purchased: Character['feats'][number] = { name: 'Titan Wrestler', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }
+    const selected = { ...c, background: undefined, feats: [purchased, ...c.feats] }
+    expect(replacements(selected)[0]).toMatchObject({ category: 'skill', level: 5 })
+    expect(replacements({ ...selected, feats: [...selected.feats].reverse() })).toEqual(replacements(selected))
+    expect(replacements({ ...selected, feats: [purchased, { ...purchased, slot: 'skill:4:0' }] })).toEqual([])
+    expect(replacements({ ...selected, feats: [{ ...purchased, slot: 'skill:10:0' }, ...c.feats] })).toEqual([])
+  })
+
+  it('grants one same-type slot per additional fixed grant with stable source identities', () => {
+    const catalog = [...data, entry('background', 'Fast Background', { feat: 'Fleet' })]
+    const character: Character = { ...c, background: 'Fast Background', feats: [
+      { name: 'Fleet', type: 'General Feat', level: 1, slot: 'general:1:0' },
+      { name: 'Gg-os Frame', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+    ] }
+    const slots = replacements(character, catalog)
+    expect(slots.map(slot => [slot.category, slot.level])).toEqual([['general', 1], ['general', 5]])
+    expect(new Set(slots.map(slot => slot.key)).size).toBe(2)
+    expect(replacements({ ...character, feats: [...character.feats].reverse() }, catalog)).toEqual(slots)
+  })
+
+  it('does not compensate repeatable feats or double-count a background choice slot', () => {
+    const catalog = [...data, entry('background', 'Lore Background', { feat: 'Additional Lore' }),
+      entry('feat', 'Additional Lore', { repeatable: true }, 1, ['General', 'Skill'])]
+    const lores = { ...c, background: 'Lore Background', feats: [
+      { name: 'Additional Lore', type: 'Skill Feat', level: 1, slot: 'skill:2:0', choice: 'Art' },
+      { name: 'Additional Lore', type: 'Skill Feat', level: 1, slot: 'skill:4:0', choice: 'War' },
+    ] }
+    expect(replacements(lores, catalog)).toEqual([])
+    const canny = { ...c, feats: [
+      { name: 'Canny Acumen', type: 'General Feat', level: 1, slot: 'general:1:direwolf-bonded', choice: 'Will' },
+    ] }
+    expect(replacements(canny)).toEqual([])
+  })
+
+  it('does not let replacement selections or their grants generate replacement chains', () => {
+    const [slot] = replacements(c)
+    const character = { ...c, feats: [...c.feats,
+      { name: 'Gg-os Frame', type: 'Skill Feat', level: 1, slot: slot.key, takenLevel: 5 },
+      { name: 'Fleet', type: 'General Feat', level: 1, slot: 'general:3:0' },
+    ] }
+    expect(replacements(character)).toEqual([slot])
+    expect(unslottedFeats(character, data)).not.toContainEqual(character.feats[1])
+  })
+})
+
 it('reads concatenated Starfinder Mechanic class skill proficiencies', () => {
   const mechanic = { ...entry('class', 'Mechanic', {
     skill_proficiency: 'Trained in Computers Trained in Crafting Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
@@ -846,7 +919,9 @@ describe('official passive feat mechanics', () => {
     const accessed = entry('ancestry', 'Accessed Ancestry', { rarity: 'uncommon', access: 'Member of the Knights of Lastwall' })
     const sfOnly = { ...entry('ancestry', 'Shirren'), systems: ['sf2e' as const] }
     const deleted = { ...entry('ancestry', 'Deleted Ancestry'), deleted: true }
-    const data = [common, uncommon, rare, accessed, sfOnly, deleted, entry('ancestry', base.ancestry!)]
+    const heritages = ['Aiuvarin', 'Dromaar', 'Borai', 'Corpsefolk', 'Cyborg', 'Gap-touched', 'Prismeni', 'Xenometric Android']
+      .map(name => entry('ancestry', name))
+    const data = [common, uncommon, rare, accessed, sfOnly, deleted, ...heritages, entry('ancestry', base.ancestry!)]
     const c = { ...base, feats: [selected('Adopted Ancestry', 3, rare.name)] }
     expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf'])
     expect(featChoiceOptions('Adopted Ancestry', { ...c, featAccessOverrides: [rare.id] }, data, 'general:3:0'))

@@ -271,7 +271,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const wanted = activeHomebrewDedications(c)
   const missing = wanted.filter((d) => !c.feats.some((f) => f.slot === d.slot) && entries.some((e) => e.kind === 'feat' && e.name === d.name))
   const stale = c.feats.filter((f) => homebrewDedication(f.slot ?? '') && !wanted.some((d) => d.slot === f.slot))
-  const unslotted = unslottedFeats(c)
+  const unslotted = unslottedFeats(c, entries)
   const orphaned = [...unslotted, ...orphanedArchetypeFeats({ ...c, feats: c.feats.filter((f) => !unslotted.includes(f)) }, entries)]
   const missingSteed = faithfulSteedChange(c, entries)
   const missingConstruct = constructCompanionChange(c)
@@ -360,12 +360,13 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
     companion.equipment?.Collar?.name === 'Collar of Empathy'
       ? [companion.id]
       : [])
-  const classSlots = plannedSlots(c).filter(slot => slot.category === 'class')
+  const featSlots = plannedSlots(c, entries)
+  const classSlots = featSlots.filter(slot => slot.category === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
 
   const featSection = (category: 'general' | 'skill' | 'archetype') => {
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
-    const slots = plannedSlots(c).filter((slot) => slot.category === category)
+    const slots = featSlots.filter((slot) => slot.category === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
     return (
       <DeferredDetails>

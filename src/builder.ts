@@ -87,7 +87,7 @@ const HERITAGE_PARENTS = new Map(Object.entries({
 const VERSATILE_HERITAGES = new Set([
   'Aasimar', 'Aphorite', 'Ganzi', 'Tiefling', 'Ifrit', 'Oread', 'Suli', 'Sylph', 'Undine', 'Ardande', 'Talos',
   'Changeling', 'Nephilim', 'Aiuvarin', 'Dromaar', 'Dhampir', 'Dragonblood', 'Duskwalker', 'Hungerseed',
-  'Reflection', 'Fadrim', 'Beastkin', 'Cyborg',
+  'Reflection', 'Fadrim', 'Beastkin', 'Cyborg', 'Borai', 'Corpsefolk', 'Gap-touched', 'Prismeni', 'Xenometric Android',
 ].map(slug))
 
 export const isVersatileHeritage = (entry: ContentEntry) => VERSATILE_HERITAGES.has(slug(entry.name))
@@ -221,7 +221,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string; grantedFeat?: string }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string; grantedFeat?: string; redundantFeat?: string }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -399,14 +399,14 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
-  || key === 'general:1:direwolf-bonded'
+  || key === 'general:1:direwolf-bonded' || key.includes(':redundant:')
 
 export const mechanicIngenuitySlots = (c: Character) =>
   c.className === 'Mechanic' && c.systems.includes('sf2e')
     ? [3, 7, 15].filter(level => level <= c.level).map(level => ({ key: `mechanic-ingenuity:${level}`, level }))
     : []
 
-export function plannedSlots(c: Character): PlannedSlot[] {
+export function plannedSlots(c: Character, entries: ContentEntry[] = []): PlannedSlot[] {
   const base: FeatSlot[] = [
     ...SLOT_RULES.flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: 1 }))),
     ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).length ? 0 : 1 }))) : []),
@@ -512,7 +512,12 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
-  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat
+  for (const slot of redundantFeatSlots(c, entries, slots)) {
+    const group = `${slot.category}:${slot.level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push(slot)
+  }
+  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon')
   for (const slot of slots) {
@@ -520,6 +525,49 @@ export function plannedSlots(c: Character): PlannedSlot[] {
   }
   return visible.sort((a, b) => a.level - b.level
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
+}
+
+function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: PlannedSlot[]): PlannedSlot[] {
+  if (!entries.length) return []
+  // Replacement selections grant their normal benefits, but cannot create more replacement slots.
+  const character = { ...c, feats: c.feats.filter(feat => !feat.slot?.includes(':redundant:')) }
+  const background = entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
+    && entry.systems.some(system => c.systems.includes(system)))
+  const fixedSlots = new Set(slots.filter(slot => slot.grantedFeat).map(slot => slot.key))
+  const counts = new Map<string, number>()
+  const grants = automaticFeatGrants(character, entries).map(grant => {
+    const identity = `${grant.source}:${grant.level}:${grant.name}:${grant.choice ?? ''}`
+    const index = counts.get(identity) ?? 0
+    counts.set(identity, index + 1)
+    return { ...grant, identity: `grant:${identity}:${index}`, granted: true }
+  })
+  const occurrences = [
+    ...character.feats.filter(feat => !feat.slot || !fixedSlots.has(feat.slot)).map((feat, index) => ({
+      name: feat.name, source: feat.name, level: featTakenLevel(feat),
+      identity: `selection:${feat.slot ?? index}`, granted: false,
+    })),
+    ...[...new Set(tokens(background?.data.feat))].map(name => ({
+      name, source: background!.name, level: 1, identity: `background:${background!.id}:${name}`, granted: true,
+    })),
+    ...grants,
+  ].filter(feat => feat.level <= c.level)
+    .sort((a, b) => a.level - b.level || Number(a.granted) - Number(b.granted) || a.identity.localeCompare(b.identity))
+  const feats = featByName(entries)
+  const seen = new Set<string>()
+  const replacements: PlannedSlot[] = []
+  for (const occurrence of occurrences) {
+    const feat = feats.get(occurrence.name)
+    if (!feat || feat.deleted || !feat.systems.some(system => c.systems.includes(system)) || feat.data.repeatable === true) continue
+    const type = featType(feat, c)
+    const category = type === 'Skill Feat' ? 'skill' : type === 'General Feat' ? 'general' : undefined
+    if (!category) continue
+    if (seen.has(feat.name) && occurrence.granted) replacements.push({
+      key: `${category}:${occurrence.level}:redundant:${encodeURIComponent(occurrence.identity)}`,
+      category, level: occurrence.level, grantedBy: occurrence.source, redundantFeat: feat.name,
+    })
+    seen.add(feat.name)
+  }
+  return replacements
 }
 
 const archetypesOf = (e?: ContentEntry): string[] => {
@@ -561,8 +609,8 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
 
 // Feats sitting in a slot that no longer exists at the current level (e.g. a Free Archetype slot taken over by a
 // house rule). Slots above the character's level are kept so lowering the level is reversible.
-export function unslottedFeats(c: Character) {
-  const keys = new Set(plannedSlots(c).map((s) => s.key))
+export function unslottedFeats(c: Character, entries: ContentEntry[] = []) {
+  const keys = new Set(plannedSlots(c, entries).map((s) => s.key))
   return c.feats.filter((f) => f.slot && !keys.has(f.slot) && featTakenLevel(f) <= c.level)
 }
 
@@ -806,6 +854,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
+    ...tokens(entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
+      && entry.systems.some(system => c.systems.includes(system)))?.data.feat).filter(name => name !== slot.grantedFeat),
     ...automaticFeatGrants({ ...c, level: Math.min(c.level, slot.level),
       feats: c.feats.filter((feat) => feat.slot !== slot.key) }, entries).map((feat) => feat.name),
   ])
@@ -1082,7 +1132,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const variants = scrapperVariants(scrapperRanksBefore(c, entries, slotKey, index))
     return variants.length ? variants.map(variant => variant.label) : undefined
   }
-  if (name === 'Adopted Ancestry') return [...new Set(entries.filter((entry) => entry.kind === 'ancestry' && !entry.deleted
+  if (name === 'Adopted Ancestry') return [...new Set(entries.filter((entry) => entry.kind === 'ancestry' && !entry.deleted && !isVersatileHeritage(entry)
     && entry.name !== c.ancestry && entry.systems.some((system) => c.systems.includes(system))
     && (!featRarity(entry) || featAccess(c, entry)?.automatic || c.featAccessOverrides?.includes(entry.id))).map((entry) => entry.name))]
     .sort((a, b) => a.localeCompare(b))

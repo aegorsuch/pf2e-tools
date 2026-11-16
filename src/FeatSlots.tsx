@@ -60,7 +60,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     }
     return result
   }
-  const allSlots = plannedSlots(c)
+  const allSlots = plannedSlots(c, entries)
   const featsByName = featByName(entries)
   const grantedType = (name: string) => {
     const entry = featsByName.get(name)
@@ -185,12 +185,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const saveFeatChanges = (patch: Partial<Character>) => {
     const next = { ...c, ...patch }
     const savedLevel = Math.max(next.level, ...next.feats.map(featTakenLevel))
-    const keys = new Set(plannedSlots({ ...next, level: savedLevel, dismissedFeatSlots: [] }).map((slot) => slot.key))
+    const keys = new Set(plannedSlots({ ...next, level: savedLevel, dismissedFeatSlots: [] }, entries).map((slot) => slot.key))
     const feats = next.feats.filter((feat) => !feat.slot || !isGrantedSlot(feat.slot) || keys.has(feat.slot))
     const remaining = new Set(feats.map((feat) => feat.name))
     const removed = new Set(c.feats.filter((feat) => !remaining.has(feat.name)).map((feat) => feat.name))
     const removedIds = new Set(entries.filter((entry) => entry.kind === 'feat' && removed.has(entry.name)).map((entry) => entry.id))
-    const visibleKeys = new Set(plannedSlots({ ...next, feats }).map((slot) => slot.key))
+    const visibleKeys = new Set(plannedSlots({ ...next, feats }, entries).map((slot) => slot.key))
     save({
       ...patch, feats, entryIds: next.entryIds.filter((id) => !removedIds.has(id)),
       featAccessOverrides: next.featAccessOverrides?.filter(id => !removedIds.has(id)),
@@ -239,7 +239,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     saveFeatChanges({ extraSlots, feats, skippedFeatSlots })
   }
   const addSlot = (category: FeatSlotCategory, level: number) => {
-    const dismissed = plannedSlots({ ...c, dismissedFeatSlots: [] }).find((slot) =>
+    const dismissed = plannedSlots({ ...c, dismissedFeatSlots: [] }, entries).find((slot) =>
       slot.category === category && slot.level === level && c.dismissedFeatSlots?.includes(slot.key) && !allSlots.some((visible) => visible.key === slot.key))
     if (dismissed) save({ dismissedFeatSlots: c.dismissedFeatSlots?.filter((key) => key !== dismissed.key) })
     else save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
@@ -247,7 +247,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
+      if (slot.grantedFeat || slot.redundantFeat || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -389,7 +389,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
-          const requiredGrant = !!s.grantedFeat || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)
@@ -414,6 +414,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             {heading}
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
+              {s.redundantFeat && <small>Duplicate {s.redundantFeat} replacement ({s.grantedBy})</small>}
               {homebrewDedication(s.key) ? (
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (

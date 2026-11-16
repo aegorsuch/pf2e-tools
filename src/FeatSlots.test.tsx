@@ -42,6 +42,48 @@ it('grants Direwolf Bonded a separate Canny Acumen choice slot with normal profi
   expect(c.extraSlots).toEqual([])
 })
 
+it('saves and reloads a level-five duplicate Titan Wrestler replacement, and cleans it up with its source', () => {
+  const feat = (name: string, traits = ['General', 'Skill']): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits, description: '', data: {}, effects: [], updatedAt: 0,
+  })
+  const entries: ContentEntry[] = [
+    { ...feat('Direwolf Bonded'), kind: 'background', data: { feat: 'Canny Acumen, Titan Wrestler' } },
+    feat('Titan Wrestler'), feat('Replacement Skill'), feat('Canny Acumen', ['General']),
+    { ...feat('Broken Hand Technique', ['Human']), systems: ['sf2e'] },
+    feat('Keep Skill'),
+  ]
+  let c: Character = { ...emptyRanger(), systems: ['pf2e', 'sf2e'], level: 5, background: 'Direwolf Bonded', feats: [
+    { name: 'Broken Hand Technique', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+    { name: 'Keep Skill', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
+    { name: 'Canny Acumen', type: 'General Feat', level: 1, choice: 'Will', slot: 'general:1:direwolf-bonded' },
+  ], entryIds: ['Broken Hand Technique', 'Keep Skill', 'Canny Acumen'] }
+  const tree = (categories: Array<'skill' | 'ancestry'> = ['skill']) =>
+    FeatSlots({ c, entries, categories, save: patch => { c = { ...c, ...patch } } })
+  const [slot] = plannedSlots(c, entries).filter(slot => slot.redundantFeat)
+  expect(slot).toMatchObject({ level: 5, category: 'skill' })
+  expect(renderToStaticMarkup(tree())).toContain('Duplicate Titan Wrestler replacement (Broken Hand Technique)')
+  findSelect(tree(), 'L05 Skill feat')!({ target: { value: 'Titan Wrestler' } })
+  expect(c.feats.some(feat => feat.slot === slot.key)).toBe(false)
+  findSelect(tree(), 'L05 Skill feat')!({ target: { value: 'Replacement Skill' } })
+  c = JSON.parse(JSON.stringify(c))
+  const selected = c.feats.find(feat => feat.slot === slot.key)!
+  expect(selected).toMatchObject({ name: 'Replacement Skill', type: 'Skill Feat', slot: slot.key })
+  expect(builder.featTakenLevel(selected)).toBe(5)
+  expect(renderToStaticMarkup(tree())).toContain('Replacement Skill')
+  expect(unslottedFeats(c, entries)).not.toContainEqual(selected)
+  expect(unslottedFeats({ ...c, level: 4 }, entries)).not.toContainEqual(selected)
+  expect(unslottedFeats({ ...c, background: undefined }, entries)).toContainEqual(selected)
+  findButton(tree(), 'Clear L05 Skill feat selection')!()
+  expect(c.feats.some(feat => feat.slot === slot.key)).toBe(false)
+  expect(plannedSlots(c, entries).some(replacement => replacement.key === slot.key)).toBe(true)
+  findSelect(tree(), 'L05 Skill feat')!({ target: { value: 'Replacement Skill' } })
+  findButton(tree(['ancestry']), 'Clear L05 Ancestry feat selection')!()
+  expect(c.feats.map(feat => feat.name)).toEqual(['Keep Skill', 'Canny Acumen'])
+  expect(c.entryIds).toEqual(['Keep Skill', 'Canny Acumen'])
+  expect(plannedSlots(c, entries).some(replacement => replacement.redundantFeat)).toBe(false)
+})
+
 it('searches adopted Orc Tusks as Teeth while saving and reloading canonical feat identity', () => {
   const tusks: ContentEntry = { id: 'aon:pf2e:feat-4519', name: 'Tusks', kind: 'feat', source: 'official', systems: ['pf2e'],
     level: 1, traits: ['Orc'], description: 'Your tusks deal 1d6 piercing damage. Each tusk has finesse and unarmed traits.',
