@@ -320,9 +320,9 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
-    expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Belts', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
+    expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
       'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear',
-      'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Torso', 'Waist', 'Weapons', 'Wrists'])
+      'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Torso', 'Weapons', 'Wrists'])
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
@@ -443,7 +443,7 @@ it.each([
   ['Amulet', 'worn amulet', 'Necklaces'],
   ['Hat', 'worn headwear', 'Headwear'],
   ['Goggles', 'worn eyepiece', 'Eyewear'],
-  ['Belt', 'worn belt', 'Belts'],
+  ['Belt', 'worn belt', 'Belt'],
   ['Robe', 'worn robe', 'Clothing'],
   ['Pack', 'worn backpack', 'Backpacks'],
   ['Azure Boots', '', 'Boots'],
@@ -500,6 +500,36 @@ it('keeps existing equipment categories while retaining an explicitly chosen new
   } finally { content.entries = [] }
 })
 
+it.each([undefined, 'Belt', 'Belts', 'Waist'] as const)('merges automatic and saved %s belt placements into Belt without duplicating stacks', group => {
+  const belt: ContentEntry = { id: 'silk-belt', name: 'Silk Belt', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: 'Belt rules.', data: { usage: 'worn belt' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'belt-placement', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: belt.name, qty: 1, group }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = vi.fn()
+  function InspectSearch() {
+    const tree = EquipmentSearch({ c, entries: [belt], save, category: 'Belt' })
+    const clickAdd = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ children?: ReactNode; 'aria-label'?: string; onClick?: () => void }>(child)) return
+      if (child.props['aria-label'] === 'Add Silk Belt') child.props.onClick!()
+      else clickAdd(child.props.children)
+    })
+    clickAdd(tree)
+    return tree
+  }
+  content.entries = [belt]
+  try {
+    const equipment = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+      .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+    expect(equipment.match(/<h4>Belt<\/h4>/g)).toHaveLength(1)
+    expect(equipment).not.toContain('<h4>Belts</h4>')
+    expect(equipment).not.toContain('<h4>Waist</h4>')
+    expect(equipment.split('<h4>Belt</h4>')[1].split('<h4>Body</h4>')[0]).toContain('Silk Belt')
+    renderToStaticMarkup(<InspectSearch />)
+    expect(save).toHaveBeenCalledWith({ equipment: [{ ...c.equipment[0], qty: 2 }] })
+  } finally { content.entries = [] }
+})
+
 it('keeps stance-granted Parry checked and non-toggleable without changing saved manual Parry', () => {
   const previous = getSettings()
   updateSettings({ unarmedCountsAsWeapons: true })
@@ -551,13 +581,13 @@ it('formats graded equipment titles and sorts by base name while retaining canon
     feats: [], equipment: [{ name: greater.name, qty: 1 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   content.entries = [greater, ordinary, amber, priced]
   try {
-    const search = renderToStaticMarkup(<EquipmentSearch c={c} entries={content.entries} save={() => {}} category="Belts" />)
+    const search = renderToStaticMarkup(<EquipmentSearch c={c} entries={content.entries} save={() => {}} category="Belt" />)
     expect(search).toContain('aria-label="Add Killer&#x27;s Belt (Greater)"')
     expect(search.match(/aria-label="Add Killer&#x27;s Belt"/g)).toHaveLength(1)
     expect(search).toContain('Base priced rules.')
     expect(search).not.toContain('Base parent rules.')
     const ownedBase = renderToStaticMarkup(<EquipmentSearch c={{ ...c, equipment: [{ name: ordinary.name, qty: 1 }] }}
-      entries={content.entries} save={() => {}} category="Belts" />)
+      entries={content.entries} save={() => {}} category="Belt" />)
     expect(ownedBase).toContain('Base parent rules.')
     expect(ownedBase).not.toContain('Base priced rules.')
     expect(search.indexOf('>Amber Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt</button>'))

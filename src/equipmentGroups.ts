@@ -6,7 +6,7 @@ export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u201
 
 const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [
   ['Backpacks', /\b(?:backpacks?|rucksacks?)\b/],
-  ['Belts', /\b(?:belts?|girdles?|sashes?)\b/],
+  ['Belt', /\b(?:belts?|girdles?|sashes?|waist)\b/],
   ['Boots', /\b(?:boots?|shoes?|sandals?|slippers?|footwear|anklets?)\b/],
   ['Bracelets', /\b(?:bracelets?|bracers?|armbands?)\b/],
   ['Cloaks', /\b(?:cloaks?|capes?|mantles?|shawls?|epaulets?)\b/],
@@ -30,15 +30,14 @@ const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [
   ['Shoulders', /\bshoulders?\b/],
   ['Throat', /\b(?:throat|badges?|brooches?|medals?|medallions?|periapts?|scarabs?|scarfs?|scarves|torcs?)\b/],
   ['Torso', /\b(?:torso|shirts?|tunics?|vestments?)\b/],
-  ['Waist', /\bwaist\b/],
   ['Wrists', /\bwrists?\b/],
 ]
 
 const SLOT_CONTENT: Partial<Record<EquipmentGroupName, readonly EquipmentGroupName[]>> = {
-  Arms: ['Bracelets'], Belt: ['Belts'], Body: ['Clothing'], Chest: ['Clothing', 'Torso'], Eyes: ['Eyewear'],
+  Arms: ['Bracelets'], Body: ['Clothing'], Chest: ['Clothing', 'Torso'], Eyes: ['Eyewear'],
   Face: ['Eyewear', 'Mask'], Feet: ['Boots'], Hands: ['Gloves'], Head: ['Headwear', 'Headband'],
   Neck: ['Necklaces'], Shoulders: ['Cloaks'], Throat: ['Necklaces'], Torso: ['Clothing'],
-  Waist: ['Belts'], Wrists: ['Bracelets'],
+  Wrists: ['Bracelets'],
 }
 
 export function equipmentFitsGroup(entry: ContentEntry, group: EquipmentGroupName) {
@@ -46,7 +45,8 @@ export function equipmentFitsGroup(entry: ContentEntry, group: EquipmentGroupNam
   return actual === group || !!SLOT_CONTENT[group]?.includes(actual)
 }
 
-export function equipmentGroupName(entry?: ContentEntry, name = entry?.name ?? ''): EquipmentGroupName {
+export function equipmentGroupName(entry?: ContentEntry, name = entry?.name ?? '', savedGroup?: EquipmentGroupName | 'Belts' | 'Waist'): EquipmentGroupName {
+  if (savedGroup) return savedGroup === 'Belts' || savedGroup === 'Waist' ? 'Belt' : savedGroup
   const category = String(entry?.data.item_category ?? '').trim().toLowerCase()
   if (category === 'grafts') return 'Grafts'
   if (category === 'tattoos') return 'Tattoos'

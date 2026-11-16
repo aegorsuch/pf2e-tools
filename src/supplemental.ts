@@ -1,5 +1,14 @@
 import type { ContentEntry, HardlightGrade, OwnedArmor } from './types'
 
+export const GRAPPLING_RUNE: ContentEntry = {
+  id: 'homebrew:grappling-rune', systems: ['pf2e'], kind: 'item', source: 'homebrew',
+  name: 'Grappling', level: 5, traits: ['Magical', 'Rare'],
+  description: 'Homebrew weapon property rune modeled on Hooked. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the grapple trait. You can use it to Grapple without a free hand, using its reach and adding its item bonus to attack rolls as an item bonus to the Athletics check. On a critical failure, you can drop the weapon to take the effects of a failure instead.\n\nIf the weapon normally has the grapple trait, you can attempt to Grapple the target as a reaction when you critically hit it with this weapon.',
+  data: { item_category: 'Runes', item_subcategory: 'Weapon Property Runes', usage: 'etched onto a melee weapon',
+    price: 14000, bulk: 0, rarity: 'rare', sourceBook: 'Homebrew' },
+  effects: [], updatedAt: 1,
+}
+
 export const KILLERS_BELT_MAJOR: ContentEntry = {
   id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],
@@ -103,6 +112,7 @@ const homebrewFeat = (id: string, name: string, level: number, traits: string[],
 })
 
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
+  const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
   const poison = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
   const simplicity = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
@@ -122,6 +132,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
   return [
     ...rangerCopies,
+    { ...homebrewFeat('nimble-athlete', 'Nimble Athlete', 4, nimbleClasses,
+      'Homebrew class feat. You use the higher of your Strength or Dexterity modifiers for Athletics checks and Athletics DCs. This includes combat maneuvers such as Grapple, Trip, Shove, Disarm, and Reposition, as well as climbing, swimming, and jumping.\n\nThis does not change your damage, carrying capacity, or Strength prerequisites.',
+      { class: nimbleClasses.join(', '), prerequisite: 'expert in Athletics' }), systems: ['pf2e', 'sf2e'] },
     ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:ranger-twinned-defense-stance', name: 'Twinned Defense Stance',
       source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Ranger'],
       description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance')

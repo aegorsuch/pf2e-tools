@@ -1680,8 +1680,9 @@ export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 export interface StatDef { name: string; ability: Ability; kind: 'skill' | 'save' | 'perception' }
 
 export function statDefs(c: Character): StatDef[] {
+  const nimble = c.level >= 4 && activeFeatsNamed(c, 'Nimble Athlete').length > 0
   const skills: [string, Ability][] = [
-    ['Acrobatics', 'dex'], ['Arcana', 'int'], ['Athletics', 'str'], ['Crafting', 'int'], ['Deception', 'cha'],
+    ['Acrobatics', 'dex'], ['Arcana', 'int'], ['Athletics', nimble && c.abilities.dex > c.abilities.str ? 'dex' : 'str'], ['Crafting', 'int'], ['Deception', 'cha'],
     ['Diplomacy', 'cha'], ['Intimidation', 'cha'], ['Medicine', 'wis'], ['Nature', 'wis'], ['Occultism', 'int'],
     ['Performance', 'cha'], ['Religion', 'wis'], ['Society', 'int'], ['Stealth', 'dex'], ['Survival', 'wis'],
     ['Thievery', 'dex'],
@@ -3132,15 +3133,19 @@ export function totalArmHands(c: Character) {
 
 export const ringCapacity = (c: Character) => totalArmHands(c) * 5
 
-export function killerBeltBonus(c: Character, entries: ContentEntry[]) {
+function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: string) {
+  const names = [family, `${family} (Greater)`, `${family} (Major)`]
   return c.equipment.flatMap(item => {
     const entry = item.qty > 0 ? byName(entries, 'item', item.name) : undefined
     if (!entry || entry.deleted || !entry.systems.some(system => c.systems.includes(system))) return []
     const name = equipmentDisplayName(entry.name)
-    if (!/^Killer's Belt(?: \((?:Greater|Major)\))?$/.test(name)) return []
-    return [{ source: name, value: name.endsWith('(Major)') ? 3 : name.endsWith('(Greater)') ? 2 : 1 }]
+    const grade = names.indexOf(name)
+    return grade < 0 ? [] : [{ source: name, value: grade + 1 }]
   }).sort((a, b) => b.value - a.value)[0]
 }
+
+export const killerBeltBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Killer's Belt")
+export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
 
 export function ringCount(c: Character, entries: ContentEntry[]) {
   return c.equipment.reduce((count, item) =>
@@ -3537,7 +3542,7 @@ export function armorGauntlet(c: Character, entries: ContentEntry[]) {
 export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking']
 export const WEAPON_PROPERTY_RUNES = [
   'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
-  'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
+  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
   'Unholy', 'Vorpal', 'Wounding',
 ]
 export const ARMOR_PROPERTY_RUNES = [
@@ -3586,6 +3591,7 @@ export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon')
 }
 
 const FALLBACK_RUNE_USAGE: Record<string, string> = {
+  Grappling: 'etched onto a melee weapon',
   Wounding: 'etched onto a piercing or slashing melee weapon',
   Returning: 'etched onto a thrown weapon',
   Shifting: 'etched onto a melee weapon',
@@ -3648,7 +3654,7 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
     ...ownedWeapons(c, entries).filter((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed'),
   ]
   const available = new Set(unarmed.flatMap((weapon) =>
-    eligibleWeaponRunes(entries, { ...weapon, runes: c.handwraps?.runes ?? [] }).map((rune) => rune.name)))
+    eligibleWeaponRunes(entries, { ...weapon, runes: effectiveHandwraps(c, entries)?.runes ?? [] }).map((rune) => rune.name)))
   return propertyRunes(entries, 'Weapon').filter((rune) => available.has(rune.name))
 }
 
@@ -3693,7 +3699,7 @@ function isDeadlySimplicityWeapon(c: Character, entries: ContentEntry[], entry?:
 export function blessedArmamentTargets(c: Character, entries: ContentEntry[]) {
   const favored = ownedWeapons(c, entries).filter((weapon) => isFavoredWeapon(c, entries, weapon.name))
   const manufactured = favored.filter((weapon) => weapon.id !== OVERSIZED_THROW.id && weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed')
-  const handwraps = effectiveHandwraps(c)
+  const handwraps = effectiveHandwraps(c, entries)
   return [...manufactured, ...(handwraps && favored.some((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
     ? [{ id: HANDWRAPS.id, name: HANDWRAPS.name, ...handwraps }] : [])]
 }
@@ -3729,7 +3735,7 @@ export function isBlessedArmament(c: Character, entries: ContentEntry[], weapon:
   return weapon.id !== OVERSIZED_THROW.id && championBlessings(c).includes('Blessed Armament')
     && isFavoredWeapon(c, entries, weapon.name)
     && (targetId === weapon.id
-      || !!c.handwraps && targetId === HANDWRAPS.id && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+      || !!effectiveHandwraps(c, entries) && targetId === HANDWRAPS.id && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
 }
 
 export function blessedArmamentRune(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
@@ -3769,8 +3775,19 @@ export function automaticHardlightGrade(level: number): HardlightGrade {
   }, 'Commercial')
 }
 
-export function effectiveHandwraps(c: Character): Character['handwraps'] {
-  const handwraps = c.handwraps
+export function classHandwrapKind(c: Character, entries: ContentEntry[] = []): 'mighty' | 'hardlight' | undefined {
+  if (!c.className) return undefined
+  const klass = byName(entries, 'class', c.className)
+  if (klass?.deleted) return undefined
+  const systems = klass ? klass.systems.filter(system => c.systems.includes(system)) : c.systems
+  return systems.length === 1 ? systems[0] === 'sf2e' ? 'hardlight' : 'mighty' : undefined
+}
+
+export function effectiveHandwraps(c: Character, entries: ContentEntry[] = []): Character['handwraps'] {
+  const kind = classHandwrapKind(c, entries)
+  const handwraps: Character['handwraps'] = c.handwraps ?? (kind
+    ? { potency: 0, striking: 0, runes: [], kind: kind === 'hardlight' ? 'hardlight' : undefined }
+    : undefined)
   if (!handwraps) return undefined
   if (handwraps.kind === 'hardlight') {
     const grades = Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]
@@ -3821,8 +3838,9 @@ export function usesWeaponUpgrades(entry?: ContentEntry) {
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name)
   const unarmed = weaponCategory(entry) === 'Unarmed'
+  const handwraps = unarmed ? effectiveHandwraps(c, entries) : undefined
   const ids = unarmed
-    ? c.handwraps?.kind === 'hardlight' && !animalStrengthSource(c, entries, weapon) ? c.handwraps.upgrades : undefined
+    ? handwraps?.kind === 'hardlight' && !animalStrengthSource(c, entries, weapon) ? handwraps.upgrades : undefined
     : usesWeaponUpgrades(entry) ? weapon.upgrades : undefined
   return (ids ?? []).flatMap(id => {
     const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
@@ -3903,14 +3921,14 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   if (animalSource) {
     return animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource))
   }
-  const fundamentals = effectiveHandwraps(c)
+  const fundamentals = effectiveHandwraps(c, entries)
   const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
     ? scaledMaterial('Cold Iron (Low-Grade)', c.level, 'Weapon') : undefined
   const enhanced: OwnedWeapon = { ...weapon, material,
     potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
     striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0),
-    runes: c.handwraps?.kind === 'hardlight' ? [] : c.handwraps?.runes ?? [] }
-  if (c.handwraps?.kind === 'hardlight') return enhanced
+    runes: fundamentals?.kind === 'hardlight' ? [] : fundamentals?.runes ?? [] }
+  if (fundamentals?.kind === 'hardlight') return enhanced
   return withBlessedArmament(c, entries, { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })
 }
 
@@ -4063,6 +4081,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
+      ...(w.runes.some((rune) => runeName(rune) === 'Grappling') && weaponRuneApplies(entries, w, 'Grappling')
+        && !traits.includes('grapple') ? ['Grapple'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
     ability,

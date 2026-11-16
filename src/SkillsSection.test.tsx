@@ -56,6 +56,45 @@ it('shows Rider as a conditional Nature bonus without increasing ordinary Nature
   expect(render(base)).not.toContain('Command an Animal checks for your own animal companion')
 })
 
+it.each([[12, 18, 'Dexterity', 12], [20, 12, 'Strength', 13], [18, 18, 'Strength', 12]] as const)(
+  'uses the higher Athletics ability with Nimble Athlete (Str %i, Dex %i)', (str, dex, ability, total) => {
+    const c: Character = { ...base, level: 4, abilities: { ...base.abilities, str, dex },
+      rankOverrides: { Athletics: 2 }, feats: [{ name: 'Nimble Athlete', type: 'Class Feat', level: 4 }] }
+    const row = (character: Character) =>
+      renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
+        .split('class="skill-name">Athletics')[1].split('class="skill-name">')[0]
+    const markup = row(c)
+    expect(markup).toContain(`<b>+${total}`)
+    expect(markup).toContain(`<small>${ability}</small>`)
+    expect(markup).toContain(`Athletics DC ${10 + total}`)
+    expect(row({ ...c, feats: [] })).toContain('<small>Strength</small>')
+    expect(row({ ...c, feats: [{ ...c.feats[0], takenLevel: 6 }] })).toContain('<small>Strength</small>')
+    expect(row({ ...c, level: 3 })).not.toContain('Nimble Athlete note')
+    expect(c.abilities).toEqual({ ...base.abilities, str, dex })
+  })
+
+it.each([['Wildwood Ink', 1], ['Greater Wildwood Ink', 2], ['Wildwood Ink (Major)', 3]] as const)(
+  'applies %s Stealth and shows the full forest total in a clickable note', (name, value) => {
+    const ink: ContentEntry = { ...KILLERS_BELT_MAJOR, id: name, name, effects: [] }
+    const entries = [ranger, ink]
+    const c: Character = { ...base, abilities: { ...base.abilities, dex: 18 },
+      skillPicks: ['Stealth'], equipment: [{ name, qty: 1 }] }
+    const render = (character: Character, catalog = entries) =>
+      renderToStaticMarkup(<SkillsSection c={character} entries={catalog} save={() => {}} />)
+        .split('class="skill-name">Stealth')[1].split('class="skill-name">')[0]
+    const normal = 7 + value
+    const markup = render(c)
+    expect(markup).toContain(`<b>+${normal}`)
+    expect(markup).toContain(`aria-label="${builder.wildwoodInkBonus(c, entries)!.source} note"`)
+    expect(markup).toMatch(/popoverTarget|popovertarget/)
+    expect(markup).toContain(`+${value + 1} in forests (+1 more), for Stealth +${normal + 1}`)
+    expect(render({ ...c, equipment: [{ name, qty: 0 }] })).toContain('<b>+7')
+    expect(render(c, [ranger, { ...ink, deleted: true }])).toContain('<b>+7')
+    expect(render({ ...c, systems: ['sf2e'] })).not.toContain('in forests')
+    const duplicate = { ...c, equipment: [{ name, qty: 2 }, { name, qty: 1 }] }
+    expect(render(duplicate)).toContain(`<b>+${normal}`)
+  })
+
 it('grants Underworld Investigator free trained Lore without Additional Lore progression', () => {
   const previous = getSettings().autoLores
   updateSettings({ autoLores: false })

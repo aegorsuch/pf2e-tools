@@ -14,6 +14,23 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it.each([undefined, 'Dermal Plating'])('uses Augmented Body only as extra implant capacity, ignoring legacy choice %s', choice => {
+  const entry: ContentEntry = { id: 'augmented-body', name: 'Augmented Body', kind: 'feat', systems: ['sf2e'],
+    source: 'official', level: 1, traits: ['General'], data: { repeatable: true }, description: '', effects: [], updatedAt: 1 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 3,
+    feats: [{ name: entry.name, type: 'General Feat', level: 1, slot: 'general:3:0', choice }],
+    augmentations: [{ id: 'plating', entryId: 'plating', name: 'Dermal Plating', slot: 'standard' }] }
+  const before = JSON.stringify(c)
+  const save = vi.fn()
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[entry]} save={save} index={0} />)).toBe('')
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[entry]} save={save} categories={['general']} />)
+  expect(markup).not.toContain('Augmented Body (Dermal Plating)')
+  expect(builder.augmentationLimit(c)).toBe(5)
+  expect(builder.augmentationLimitUsed(c)).toBe(1)
+  expect(save).not.toHaveBeenCalled()
+  expect(JSON.stringify(c)).toBe(before)
+})
+
 it('grants Direwolf Bonded a separate Canny Acumen choice slot with normal proficiency scaling', () => {
   const feat = (name: string): ContentEntry => ({ id: name, systems: ['pf2e'], kind: 'feat', source: 'official',
     name, level: 1, traits: ['General'], description: '', data: {}, effects: [], updatedAt: 0 })

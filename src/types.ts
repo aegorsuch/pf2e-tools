@@ -1,8 +1,8 @@
 export type GameSystem = 'pf2e' | 'sf2e'
 export const WORN_EQUIPMENT_GROUPS = [
-  'Arms', 'Backpacks', 'Belt', 'Belts', 'Body', 'Boots', 'Bracelets', 'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear',
+  'Arms', 'Backpacks', 'Belt', 'Body', 'Boots', 'Bracelets', 'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear',
   'Face', 'Feet', 'Gloves', 'Hands', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
-  'Throat', 'Torso', 'Waist', 'Wrists', 'Other Worn Items',
+  'Throat', 'Torso', 'Wrists', 'Other Worn Items',
 ] as const
 export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', ...WORN_EQUIPMENT_GROUPS] as const
 export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
@@ -207,7 +207,7 @@ export interface Character {
   feats: { name: string; type: string; level: number; choice?: string; sourceId?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
-  equipment: { name: string; qty: number; group?: EquipmentGroupName; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
+  equipment: { name: string; qty: number; group?: EquipmentGroupName | 'Belts' | 'Waist'; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
   simplePoisonsSpent?: number
   augmentations?: { id: string; entryId: string; name: string; slot: string }[]
   hardpointWeaponId?: string

@@ -8,6 +8,7 @@ import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands,
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { classHandwrapKind } from './builder'
 import { equipmentDisplayName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
@@ -42,7 +43,7 @@ const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[]
 const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
-    && !['Animated', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
+    && !['Animated', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {
       const source = runeName(rune)
@@ -511,7 +512,9 @@ function Level({ label, value, options, format, onChange, disabled, minimum = 0 
 }
 
 export function HandwrapsGear({ c, entries, save }: SectionProps) {
-  const handwraps = effectiveHandwraps(c)
+  const handwraps = effectiveHandwraps(c, entries)
+  const automaticKind = classHandwrapKind(c, entries)
+  const granted = automaticKind && (handwraps?.kind === 'hardlight' ? 'hardlight' : 'mighty') === automaticKind
   const automatic = automaticWeaponFundamentals(c.level)
   const minimumGrade = automaticHardlightGrade(c.level)
   const item = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
@@ -547,8 +550,8 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
             onChange={upgrades => save({ handwraps: { ...handwraps, upgrades } })} />
         </> : <Runes runes={handwraps.runes} entries={entries} options={handwrapRuneOptions(c, entries)} limit={limit}
           onChange={(runes) => save({ handwraps: { ...handwraps, runes } })} />}
-        <button type="button" className="spell-remove" aria-label={`Remove ${item.name}`}
-          onClick={() => confirmRemoval(`"${item.name}"`, () => save({ handwraps: undefined }))}>×</button>
+        {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${item.name}`}
+          onClick={() => confirmRemoval(`"${item.name}"`, () => save({ handwraps: undefined }))}>×</button>}
       </details> : <div className="row">
         <button type="button" className="gear-add" onClick={() => save({ handwraps: { ...automatic, runes: [] } })}>
         Add {HANDWRAPS.name}
@@ -970,7 +973,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
   const handLimit = totalHandCapacity(c)
-  const handwraps = c.handwraps
+  const handwraps = effectiveHandwraps(c, entries)
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   return (
     <div className="col gear-list">

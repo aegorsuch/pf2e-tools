@@ -5,6 +5,7 @@ import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
 import * as featChoices from './featChoices'
 import type { Character, ContentEntry } from './types'
+import { homebrewCharacterOptions } from './supplemental'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
   ({ id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, data, level, traits, description: '', effects: [], updatedAt: 1 })
@@ -17,6 +18,19 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it.each(['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler'])(
+  'offers Nimble Athlete as a level-4 expert-Athletics class feat for %s', className => {
+    const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Nimble Athlete')!
+    const c: Character = { ...base, systems: [className === 'Operative' ? 'sf2e' : 'pf2e'],
+      className, level: 4, rankOverrides: { Athletics: 2 } }
+    const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+    expect(eligibleFeats([feat], c, slot)).toContain(feat)
+    expect(eligibleFeats([feat], { ...c, rankOverrides: { Athletics: 1 } }, slot)).not.toContain(feat)
+    expect(eligibleFeats([feat], c, { ...slot, level: 2 })).not.toContain(feat)
+    expect(eligibleFeats([feat], { ...c, className: 'Wizard' }, slot)).not.toContain(feat)
+    expect(eligibleFeats([feat], c, { ...slot, category: 'general' })).not.toContain(feat)
+  })
 
 it('does not evaluate skill ranks for feat references or armor and weapon prerequisites', () => {
   const ranks = vi.fn(() => ({ Crafting: 1 }))

@@ -16,7 +16,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, SkillsSection } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
-import { ringCapacity, ringCount, twinnedDefenseActive } from './builder'
+import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
@@ -154,7 +154,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
         <button aria-label={`Add ${equipmentDisplayName(g.name)}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull}
           title={equipmentGroupName(g) === 'Rings' && ringsFull ? 'Ring capacity reached' : undefined} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name
-            && (!category || (item.group ?? equipmentGroupName(g)) === category))
+            && (!category || equipmentGroupName(g, item.name, item.group) === category))
           save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item)
             : [...c.equipment, { name: g.name, qty: 1, ...(category ? { group: category } : {}) }] })
           onClose?.()
@@ -354,13 +354,13 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
     }
     const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
       Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [],
-      Arms: [], Backpacks: [], Belt: [], Belts: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
+      Arms: [], Backpacks: [], Belt: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
       Eyes: [], Eyewear: [], Face: [], Feet: [], Gloves: [], Hands: [], Head: [], Headband: [], Headwear: [],
-      Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Waist: [], Wrists: [], 'Other Worn Items': [],
+      Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Wrists: [], 'Other Worn Items': [],
     }
     c.equipment.forEach((item, index) => {
       const entry = items.get(item.name) ?? fallback.get(item.name)
-      const group = item.group ?? equipmentGroupName(entry, item.name)
+      const group = equipmentGroupName(entry, item.name, item.group)
       groups[group].push({ item, index, entry })
     })
     Object.values(groups).forEach(rows => rows.sort((a, b) => a.item.name.localeCompare(b.item.name)))
@@ -597,7 +597,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Equipment</strong>
-          <span>{c.equipment.length + (c.handwraps ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} Items, {handsUsed}/{handLimit} Hands</span>
+          <span>{c.equipment.length + (effectiveHandwraps(c, entries) ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} Items, {handsUsed}/{handLimit} Hands</span>
         </summary>
         <div className="character-section-content">
           <BulkLimits {...section} />
@@ -609,7 +609,6 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <Augmentations {...section} />
           <EquipmentGroup {...section} group="Backpacks" rows={equipmentGroups.Backpacks} />
           <EquipmentGroup {...section} group="Belt" rows={equipmentGroups.Belt} />
-          <EquipmentGroup {...section} group="Belts" rows={equipmentGroups.Belts} />
           <EquipmentGroup {...section} group="Body" rows={equipmentGroups.Body} />
           <EquipmentGroup {...section} group="Bolts" rows={equipmentGroups.Bolts} />
           <EquipmentGroup {...section} group="Boots" rows={equipmentGroups.Boots} />
@@ -650,7 +649,6 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <EquipmentGroup {...section} group="Throat" rows={equipmentGroups.Throat} />
           <EquipmentGroup {...section} group="Torso" rows={equipmentGroups.Torso} />
-          <EquipmentGroup {...section} group="Waist" rows={equipmentGroups.Waist} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
           <EquipmentGroup {...section} group="Wrists" rows={equipmentGroups.Wrists} />

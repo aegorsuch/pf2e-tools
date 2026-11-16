@@ -532,8 +532,31 @@ it.each<[number, number, number, HardlightGrade]>([
     const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
     expect(effectiveWeapon(c, [], fist)).toMatchObject({ potency, striking })
     expect(JSON.stringify(c)).toBe(before)
+    const granted: Character = { ...c, systems: kind ? ['sf2e'] : ['pf2e'], handwraps: undefined }
+    expect(effectiveHandwraps(granted)).toMatchObject({ potency, striking, ...(kind ? { kind, grade } : {}) })
+    expect(effectiveWeapon(granted, [], fist)).toMatchObject({ potency, striking })
+    expect(granted.handwraps).toBeUndefined()
   }
   expect(automaticHardlightGrade(level)).toBe(grade)
+})
+
+it('chooses automatic handwraps from class metadata with both systems enabled, including homebrew classes', () => {
+  const fighter = content('class', 'Fighter')
+  const mechanic: ContentEntry = { ...content('class', 'Mechanic'), systems: ['sf2e'] }
+  const custom: ContentEntry = { ...mechanic, id: 'custom-class', name: 'Custom Starfinder Class', source: 'homebrew' }
+  const entries = [fighter, mechanic, custom]
+  for (const klass of entries) {
+    const c: Character = { ...base, systems: ['pf2e', 'sf2e'], className: klass.name, level: 12 }
+    const before = JSON.stringify(c)
+    const wraps = effectiveHandwraps(c, entries)!
+    expect(wraps).toMatchObject({ potency: 2, striking: 2, runes: [] })
+    expect(wraps.kind).toBe(klass === fighter ? undefined : 'hardlight')
+    expect(wraps.grade).toBe(klass === fighter ? undefined : 'Elite')
+    const fist = ownedWeapons(c, entries).find(weapon => weapon.name === 'Fist')!
+    expect(effectiveWeapon(c, entries, fist)).toMatchObject({ potency: 2, striking: 2 })
+    expect(JSON.stringify(c)).toBe(before)
+  }
+  expect(effectiveHandwraps({ ...base, systems: ['pf2e', 'sf2e'], className: undefined }, entries)).toBeUndefined()
 })
 
 it('preserves stronger saved upgrades without stacking PF values onto hardlight grades', () => {
@@ -541,7 +564,8 @@ it('preserves stronger saved upgrades without stacking PF values onto hardlight 
   expect(effectiveHandwraps({ ...base, level: 2, handwraps })).toEqual(handwraps)
   expect(effectiveHandwraps({ ...base, level: 2, handwraps: { ...handwraps, kind: 'hardlight', grade: 'Elite' } }))
     .toMatchObject({ grade: 'Elite', potency: 2, striking: 2, runes: ['Impactful'] })
-  expect(effectiveHandwraps({ ...base, handwraps: undefined })).toBeUndefined()
+  expect(effectiveHandwraps({ ...base, handwraps: undefined })).toMatchObject({ potency: 2, striking: 1, runes: [] })
+  expect(effectiveHandwraps({ ...base, className: undefined, handwraps: undefined })).toBeUndefined()
 })
 
 it.each(['Grisantian Hide', 'Grisantian Hide (Standard-Grade)', 'Grisantian Hide (High-Grade)'] as const)(
@@ -1046,10 +1070,10 @@ it.each(['Verdant Weapon Jousting', 'Favored Weapon Jousting'])('uses the select
   expect(weaponAttack({ ...c, level: 3 }, entries, haft).traits).not.toContain('Jousting')
 })
 
-it.each([[5, 'Low-Grade'], [9, 'Low-Grade'], [10, 'Standard-Grade'], [15, 'Standard-Grade'], [16, 'High-Grade']] as const)('scales locked Cold Iron Tusks material at level %i without granting independent unarmed runes', (level, grade) => {
+it.each([[5, 'Low-Grade', 1, 1], [9, 'Low-Grade', 1, 1], [10, 'Standard-Grade', 2, 1], [15, 'Standard-Grade', 2, 2], [16, 'High-Grade', 3, 2]] as const)('scales locked Cold Iron Tusks material at level %i while inheriting class handwraps', (level, grade, potency, striking) => {
   const c = { ...base, level, feats: [feat('Cold Iron Tusks', 5)] }
   const tusks = ownedWeapons(c, []).find((weapon) => weapon.name === ORC_TUSKS.name)!
-  expect(effectiveWeapon(c, [], tusks)).toMatchObject({ material: `Cold Iron (${grade})`, potency: 0, striking: 0, runes: [] })
+  expect(effectiveWeapon(c, [], tusks)).toMatchObject({ material: `Cold Iron (${grade})`, potency, striking, runes: [] })
   expect(effectiveWeapon({ ...c, handwraps: { potency: 2, striking: 1, runes: ['Flaming'] } }, [], tusks))
     .toMatchObject({ potency: level >= 16 ? 3 : 2, striking: level >= 12 ? 2 : 1, runes: ['Flaming'] })
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)

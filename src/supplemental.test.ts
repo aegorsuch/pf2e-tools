@@ -323,7 +323,7 @@ it('provides a default fist until a different unarmed attack is available', () =
   const c = { ...base, feats: [{ name: 'Tusks', type: 'Ancestry Feat', level: 1 }] }
   const weapons = ownedWeapons(c, [])
   expect(weapons.map((weapon) => weapon.name)).toEqual(['Tusks'])
-  expect(weaponAttack(c, [], weapons[0])).toMatchObject({ attack: 16, damage: '1d6+1 piercing', traits: ['Finesse', 'Unarmed'] })
+  expect(weaponAttack(c, [], weapons[0])).toMatchObject({ attack: 18, damage: '2d6+1 piercing', traits: ['Finesse', 'Unarmed'] })
   expect(ownedWeapons({ ...c, weapons, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
 })
 
@@ -348,7 +348,7 @@ it('adds Iron Fist only with Iron Fists and retains other unarmed attacks', () =
   const weapons = ownedWeapons(c, [])
   expect(weapons.map((weapon) => weapon.name)).toEqual(['Iron Fist', 'Tusks'])
   expect(weaponAttack(c, [], weapons[0])).toMatchObject({
-    damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Shove', 'Unarmed'],
+    damage: '2d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Shove', 'Unarmed'],
   })
   const configured = weapons.map((weapon) => ({ ...weapon, striking: 1 }))
   expect(ownedWeapons({ ...c, weapons: configured }, [])).toEqual(configured)
@@ -371,12 +371,12 @@ it('derives Animal Feature attacks only while the known spell is active, includi
   const active = ownedWeapons(c, [])
   expect(active.map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_CLAWS.name])
   expect(weaponAttack(c, [], active[0])).toMatchObject({
-    attack: 16, ability: 'dex', damage: '1d6+1 slashing', traits: ['Agile', 'Finesse', 'Unarmed'],
+    attack: 18, ability: 'dex', damage: '2d6+1 slashing', traits: ['Agile', 'Finesse', 'Unarmed'],
   })
   const jaws = ownedWeapons({ ...c, animalFeature: 'Jaws' }, [])
   expect(jaws.map((weapon) => weapon.name)).toEqual([ANIMAL_FEATURE_JAWS.name])
   expect(weaponAttack(c, [], jaws[0])).toMatchObject({
-    attack: 13, ability: 'str', damage: '1d8+1 piercing', traits: ['Unarmed'],
+    attack: 15, ability: 'str', damage: '2d8+1 piercing', traits: ['Unarmed'],
   })
   const reloaded: Character = JSON.parse(JSON.stringify({ ...c, weapons: active }))
   expect(ownedWeapons(reloaded, [])).toEqual(active)
@@ -406,7 +406,7 @@ it('shares handwrap fundamentals and compatible property runes with current and 
   const haft = { id: 'haft', name: HAFT_STRIKER_WEAPON.name, potency: 1, striking: 0, runes: [] }
   expect(effectiveWeapon(c, [], haft)).toBe(haft)
   expect(weaponAttack(c, [], haft)).toMatchObject({ item: 1, damage: '1d4+1 bludgeoning' })
-  expect(weaponAttack({ ...c, handwraps: undefined }, [], fist)).toMatchObject({ item: 0, damage: '1d4+1 bludgeoning' })
+  expect(weaponAttack({ ...c, handwraps: undefined }, [], fist)).toMatchObject({ item: 2, damage: '2d4+1 bludgeoning' })
 })
 
 it('offers handwrap runes for compatible unarmed attacks without requiring the buff to be active', () => {
@@ -418,13 +418,13 @@ it('offers handwrap runes for compatible unarmed attacks without requiring the b
 
 it('ignores directly configured unarmed runes while leaving saved data and manufactured weapons unchanged', () => {
   const unarmed = { id: FIST.id, name: FIST.name, potency: 3, striking: 3, runes: ['Flaming'] }
-  expect(effectiveWeapon(base, [], unarmed)).toMatchObject({ potency: 0, striking: 0, runes: [] })
-  expect(weaponAttack(base, [], unarmed)).toMatchObject({ item: 0, damage: '1d4+1 bludgeoning' })
+  expect(effectiveWeapon(base, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: [] })
+  expect(weaponAttack(base, [], unarmed)).toMatchObject({ item: 2, damage: '2d4+1 bludgeoning' })
   expect(unarmed).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   const c: Character = { ...base, handwraps: { potency: 1, striking: 1, runes: ['Impactful'] } }
   expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Impactful'] })
   expect(effectiveWeapon(c, [], { ...unarmed, name: 'Gauntlet' })).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
-  expect(effectiveWeapon({ ...c, handwraps: undefined }, [], unarmed)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  expect(effectiveWeapon({ ...c, handwraps: undefined }, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: [] })
 })
 
 it('derives hardlight tracking and damage dice from its automatically upgraded grade, not attack runes', () => {

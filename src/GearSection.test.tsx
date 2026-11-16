@@ -6,7 +6,7 @@ import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, GAUNTLET, GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 
@@ -1313,18 +1313,47 @@ it('omits rune names from multiple damage notes in editable and display-only vie
   }
 })
 
-it('adds Hooked Trip trait without adding damage or duplicating a natural Trip trait', () => {
+it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple']])('adds %s %s trait without extra damage or duplicating a natural trait', (rune, trait) => {
   const c = character([])
-  c.weapons![0].runes = ['Hooked']
-  for (const traits of [[], ['Trip']]) {
+  c.weapons![0].runes = [rune]
+  for (const traits of [[], [trait]]) {
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[{ ...weapon, traits }]} save={() => {}} />)
     expect(markup).not.toContain('class="gear-damage"')
     expect(markup).toContain('Damage 2d8 S')
-    expect(markup).not.toContain('slashing + Hooked')
-    expect(markup.match(/class="gear-trait" aria-haspopup="dialog">Trip<\/button>/g)).toHaveLength(1)
-    expect(markup).toContain('aria-label="Remove Hooked rune"')
+    expect(markup).not.toContain(`slashing + ${rune}`)
+    expect(markup.match(new RegExp(`class="gear-trait" aria-haspopup="dialog">${trait}</button>`, 'g'))).toHaveLength(1)
+    expect(markup).toContain(`aria-label="Remove ${rune} rune"`)
   }
 })
+
+it('offers Grappling only for melee weapons and shows its homebrew rules', () => {
+  const c = character([])
+  c.weapons![0].runes = []
+  const entries = [weapon, GRAPPLING_RUNE]
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('>Grappling (Level 5)</option>')
+  c.weapons![0].runes = ['Grappling']
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />))
+    .toContain('you can attempt to Grapple the target as a reaction')
+  const ranged = { ...weapon, data: { ...weapon.data, weapon_type: 'Ranged', range: 60 } }
+  c.weapons![0].runes = []
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[ranged, GRAPPLING_RUNE]} save={() => {}} />))
+    .not.toContain('>Grappling (Level 5)</option>')
+})
+
+it.each([['Fighter', 'pf2e', HANDWRAPS.name], ['Mechanic', 'sf2e', HARDLIGHT_HANDWRAPS.name]] as const)(
+  'grants %s handwraps without Add or Remove controls', (className, system, name) => {
+    const c: Character = { ...character([]), systems: ['pf2e', 'sf2e'], className }
+    const klass: ContentEntry = { ...weapon, id: className, name: className, kind: 'class', systems: [system] }
+    const save = vi.fn()
+    const markup = renderToStaticMarkup(<HandwrapsGear c={c} entries={[klass]} save={save} />)
+    expect(markup).toContain(`aria-label="${name}"`)
+    expect(markup).not.toContain(`Add ${name}`)
+    expect(markup).not.toContain(`aria-label="Remove ${name}"`)
+    if (system === 'sf2e') expect(markup).toContain('selected="">Superior</option>')
+    expect(save).not.toHaveBeenCalled()
+    expect(c.handwraps).toBeUndefined()
+  })
 
 it('keeps Grievous visible as a rune but excludes it from both damage displays', () => {
   const c = character([])
@@ -1497,9 +1526,9 @@ it('configures shared handwraps without copying inherited runes into stored atta
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const tree = () => HandwrapsGear({ c, entries: [weapon], save })
   const weapons = () => WeaponList({ c, entries: [weapon], save })
-  const add = findElement(tree(), (element) => element.type === 'button' && Children.toArray(element.props.children as ReactNode).join('') === `Add ${HANDWRAPS.name}`)
-  if (!add) throw new Error('Missing Add Handwraps button')
-  ;(add.props.onClick as () => void)()
+  expect(c.handwraps).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).not.toContain(`Add ${HANDWRAPS.name}`)
+  expect(renderToStaticMarkup(tree())).not.toContain(`aria-label="Remove ${HANDWRAPS.name}"`)
   const card = findElement(tree(), (element) => element.type === 'details' && element.props['aria-label'] === HANDWRAPS.name)
   if (!card) throw new Error('Missing handwrap card')
   const potency = findElement(card, (element) => element.props.label === 'Potency')
@@ -1589,7 +1618,7 @@ it('groups identical transferable Animal Strength runes despite Living Weapon Sh
     element => element.props['aria-label'] === 'Animal Strength runes: Claws')!
   const markup = renderToStaticMarkup(control())
   expect([...markup.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match => match[1])).toEqual([
-    'Composite Longbow', 'Higher Potency', 'Higher Striking', 'No runes', 'Other Properties',
+    'Composite Longbow', HANDWRAPS.name, 'Higher Potency', 'Higher Striking', 'Other Properties',
   ])
   expect(markup).toContain('>Composite Longbow</option>')
   expect(markup).not.toContain('value="spear"')
@@ -1618,7 +1647,7 @@ it('groups Animal Strength rune sources separately for slashing Claws and pierci
 })
 
 const handwrapSourceCases: [Character['handwraps'], string][] = [
-  [undefined, 'No runes'],
+  [undefined, HANDWRAPS.name],
   [{ potency: 1, striking: 1, runes: [] }, HANDWRAPS.name],
   [{ kind: 'hardlight', grade: 'Commercial', potency: 0, striking: 0, runes: [] }, HARDLIGHT_HANDWRAPS.name],
 ]
@@ -1636,7 +1665,7 @@ it.each(handwrapSourceCases)('names the default Animal Strength source from equi
   expect(markup).not.toContain('<label>Animal Strength runes')
 })
 
-it('never offers direct unarmed rune, potency, or striking controls, including without handwraps', () => {
+it('uses automatic handwraps instead of directly configured unarmed runes, potency, or striking', () => {
   const c: Character = {
     ...character([]),
     weapons: [{ id: 'legacy-fist', name: 'Fist', potency: 3, striking: 3, runes: ['Flaming'] }],
@@ -1650,7 +1679,7 @@ it('never offers direct unarmed rune, potency, or striking controls, including w
   expect(markup).not.toContain('aria-label="Add property rune"')
   expect(markup).not.toContain('aria-label="Remove Flaming rune"')
   expect(markup).not.toContain('Flaming')
-  expect(markup).toContain('Damage 1d4 B')
+  expect(markup).toContain('Damage 2d4 B')
 })
 
 it('keeps saved hardlight runes inactive and provides grade-based upgrade slots', () => {
