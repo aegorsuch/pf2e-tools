@@ -7,7 +7,7 @@ import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
-import { ancestralAttackName, compareFeatSelections } from './featChoices'
+import { adoptedAncestryText, compareFeatSelections } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
 import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
@@ -107,7 +107,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ? featSynergySuggestions(entries, { knownFeats, systems: c.systems })
     : new Map<string, string[]>()
   const matches = (o: ContentEntry, query: string, unlocks: string[] = []) => !query
-    || [o.name, ancestralAttackName(c, o.name), String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
+    || [o.name, adoptedAncestryText(c, o.name), String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
   const isDedication = (o?: ContentEntry) => !!o?.traits.some((t) => /^dedication$/i.test(t))
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
@@ -116,7 +116,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
   })
   const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
-  const displayName = (name: string) => ancestralAttackName(c, name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
+  const displayName = (name: string) => adoptedAncestryText(c, name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
     .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const fixedLabel = (name: string, sourceId?: string) => {
     if (name === 'Ancestral Cantrip') {

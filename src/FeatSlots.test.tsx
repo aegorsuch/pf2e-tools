@@ -37,6 +37,22 @@ it('searches adopted Orc Tusks as Teeth while saving and reloading canonical fea
   expect(JSON.stringify(tusks)).toBe(source)
 })
 
+it.each(['Cold Iron', 'Silver', 'Adamantine'])('keeps %s material off base feat names and dialog titles', material => {
+  const feat = (name: string): ContentEntry => ({ id: name, name, kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Orc'], description: `${name} rules.`, data: {}, effects: [], updatedAt: 0 })
+  const c: Character = { ...emptyRanger(), ancestry: 'Human', level: 13, extraSlots: [{ category: 'ancestry', level: 1, count: 1 }], feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
+    { name: 'Tusks', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+    { name: 'Iron Fists', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1' },
+    { name: 'Alloyed Attacks', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: material },
+  ] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat('Tusks'), feat('Iron Fists')]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).toContain('>Teeth<')
+  expect(markup).toContain('>Iron Fists<')
+  expect(markup).not.toContain(`${material} Teeth`)
+  expect(markup).not.toContain(`${material} Iron Fists`)
+})
+
 it('reuses selected prerequisite checks for empty slots and invalidates changed rules, settings and content', () => {
   const source: ContentEntry = { id: 'target', name: 'Target', kind: 'feat', source: 'official', systems: ['pf2e'],
     level: 1, traits: ['Ranger'], description: '', data: { prerequisite: 'Strength +4' }, effects: [], updatedAt: 0 }
