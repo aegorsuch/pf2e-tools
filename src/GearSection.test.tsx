@@ -21,6 +21,7 @@ const shifting: ContentEntry = {
   id: 'shifting', systems: ['pf2e'], kind: 'item', source: 'official', name: 'Shifting',
   level: 6, traits: [], description: '', data: { item_subcategory: 'Weapon Property Runes' }, effects: [], updatedAt: 0,
 }
+const haftStance: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'haft-feat', kind: 'feat', level: 4, traits: ['Fighter', 'Stance'] }
 const character = (feats: Character['feats'], livingWeapon = false): Character => ({
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Fighter',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -234,11 +235,11 @@ it.each([false, true])('hides automatic unarmed, Free-Hand and source-dependent 
   const c: Character = { ...character([
     { name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
     { name: 'Oversized Throw', type: 'Class Feat', level: 4 },
-  ]), weapons: [
+  ]), activeStance: haftStance.name, weapons: [
     { id: 'spear', name: spear.name, potency: 0, striking: 0, runes: [] },
     { id: 'free', name: freeHand.name, potency: 0, striking: 0, runes: [], stowed: true },
   ] }
-  const entries = [spear, freeHand]
+  const entries = [spear, freeHand, haftStance]
   const before = JSON.stringify(c)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
   expect(markup).toContain('aria-label="Equipped Spear"')
@@ -248,10 +249,9 @@ it.each([false, true])('hides automatic unarmed, Free-Hand and source-dependent 
   }
   expect(equippedWeaponHands(c, entries)).toBe(2)
   const stowed = { ...c, weapons: c.weapons!.map(weapon => weapon.id === 'spear' ? { ...weapon, stowed: true } : weapon) }
-  const haft = ownedWeapons(stowed, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
-  expect(weaponEquipped(stowed, entries, haft)).toBe(false)
+  expect(ownedWeapons(stowed, entries).some(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)).toBe(false)
   expect(renderToStaticMarkup(<WeaponList c={stowed} entries={entries} save={() => {}} displayOnly={displayOnly} />))
-    .not.toContain(`aria-label="Equipped ${haft.name}"`)
+    .not.toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
   expect(JSON.stringify(c)).toBe(before)
 })
 
@@ -268,6 +268,7 @@ it.each([false, true])('hides attached weapon Equip checkboxes while following t
     const markup = renderToStaticMarkup(<WeaponList c={current} entries={entries} save={() => {}} displayOnly={displayOnly} />)
     expect(markup).toContain('aria-label="Equipped Rifle"')
     expect(markup).not.toContain('aria-label="Equipped Bayonet')
+    expect(markup.includes('Bayonet (Attached to Rifle)')).toBe(!stowed)
     expect(weaponEquipped(current, entries, attached)).toBe(!stowed)
     expect(equippedWeaponHands(current, entries)).toBe(stowed ? 0 : 2)
   }
@@ -499,6 +500,10 @@ it('links attached weapons to their firearm and persists selection without extra
   expect(weaponEquipped(c, entries, attached)).toBe(false)
   select('Reinforced Stock')
   expect(ownedWeapons(c, entries).find(w => w.attachedTo === 'gun')?.name).toBe('Reinforced Stock')
+  expect(renderToStaticMarkup(offense())).not.toContain('Reinforced Stock (Attached to Arbalest)')
+  expect(renderToStaticMarkup(tree())).not.toContain('Reinforced Stock (Attached to Arbalest)')
+  ;(findElement(offense(), e => e.props['aria-label'] === 'Equipped Arbalest')!.props.onChange as
+    (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
   expect(renderToStaticMarkup(offense())).toContain('Reinforced Stock (Attached to Arbalest)')
   expect(renderToStaticMarkup(tree())).toContain('Reinforced Stock (Attached to Arbalest)')
   select('')
@@ -753,8 +758,9 @@ it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(
 it('follows selected haft source including a staff wielded in two hands', () => {
   const staff = { ...weapon, name: 'Staff', traits: ['Two-Hand d8'], data: { hands: 1, weapon_group: 'Club' } }
   let c: Character = { ...character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 }]),
+    activeStance: haftStance.name,
     weapons: [{ id: 'staff', name: 'Staff', potency: 0, striking: 0, runes: [], handsHeld: 2 }] }
-  const entries = [staff]
+  const entries = [staff, haftStance]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const get = () => ownedWeapons(c, entries).find(w => w.name === HAFT_STRIKER_WEAPON.name)!
   expect(weaponEquipped(c, entries, get())).toBe(true)
@@ -763,7 +769,7 @@ it('follows selected haft source including a staff wielded in two hands', () => 
   expect(input).toBeUndefined()
   const grip = findElement(WeaponList({ c, entries, save, displayOnly: true }), e => e.props['aria-label'] === 'Hands: Staff')!
   ;(grip.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
-  expect(weaponEquipped(c, entries, get())).toBe(false)
+  expect(get()).toBeUndefined()
   expect(equippedWeaponHands(c, entries)).toBe(1)
 })
 
@@ -1080,11 +1086,11 @@ it('syncs Living Weapon fundamentals and property edits across weapons and inher
     weapon_category: 'Martial', hands: 2, weapon_group: 'Spear', weapon_type: 'Melee', damage: '1d6 piercing',
   } }
   const second: ContentEntry = { ...weapon, id: 'mace', name: 'Mace', data: { ...weapon.data, damage: '1d6 bludgeoning' } }
-  const entries = [spear, second]
+  const entries = [spear, second, haftStance]
   let c: Character = { ...character([
     { name: 'Living Weapon', type: 'Class Feat', level: 1 },
     { name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
-  ]), weapons: [
+  ]), activeStance: haftStance.name, weapons: [
     { id: 'spear', name: spear.name, livingWeapon: true, potency: 2, striking: 1, runes: ['Flaming'] },
     { id: 'mace', name: second.name, livingWeapon: true, potency: 0, striking: 0, runes: [] },
     { id: 'ordinary', name: second.name, potency: 1, striking: 0, runes: ['Shock'] },
@@ -1130,8 +1136,10 @@ it('syncs Living Weapon fundamentals and property edits across weapons and inher
 it('lets users select the Haft Striker source and keeps all inherited enhancements read-only', () => {
   let c = character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
     { name: 'Living Weapon', type: 'Class Feat', level: 1 }])
+  c.activeStance = haftStance.name
   c.weapons = [{ ...c.weapons![0], id: 'first', name: 'Spear', livingWeapon: true }, { ...c.weapons![0], id: 'second', name: 'Hammer', runes: ['Frost'] }]
   const entries = [
+    haftStance,
     { ...weapon, name: 'Spear', data: { hands: 2, weapon_group: 'Spear', damage: '1d8 piercing' } },
     { ...weapon, name: 'Hammer', data: { hands: 2, weapon_group: 'Hammer', damage: '1d12 bludgeoning' } },
   ]
@@ -1343,13 +1351,25 @@ it.each(['Crushing', 'Crushing (Greater)', 'Greater Crushing'])('shows %s critic
   }
 })
 
-it('locks the feat-granted Haft Striker weapon only with a qualifying carried weapon', () => {
+it('shows Haft Striker only in its learned active stance with a qualifying wielded weapon', () => {
   const c = character([{ name: 'Haft Striker Stance', type: 'Class Feat', level: 2 }])
+  c.activeStance = haftStance.name
   c.weapons![0].name = 'Maul'
   const maul = { ...weapon, name: 'Maul', data: { hands: 2, weapon_group: 'Hammer', damage: '1d12 bludgeoning' } }
-  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[maul, HAFT_STRIKER_WEAPON]} save={() => {}} />)
+  const entries = [maul, HAFT_STRIKER_WEAPON, haftStance]
+  const render = (character: Character, displayOnly: boolean) => renderToStaticMarkup(
+    <WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+  const markup = render(c, false)
   expect(markup).toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
   expect(markup).not.toContain('aria-label="Remove Haft Striker Stance"')
+  for (const displayOnly of [false, true]) {
+    for (const current of [
+      { ...c, activeStance: undefined }, { ...c, activeStance: 'Other Stance' }, { ...c, feats: [] },
+      { ...c, weapons: c.weapons!.map(weapon => ({ ...weapon, stowed: true })) },
+    ]) expect(render(current, displayOnly)).not.toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
+    expect(renderToStaticMarkup(<WeaponList c={c} entries={[maul, { ...haftStance, deleted: true }]}
+      save={() => {}} displayOnly={displayOnly} />)).not.toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
+  }
   const manual = { ...c, feats: [], weapons: [{ id: 'manual', name: HAFT_STRIKER_WEAPON.name, potency: 0, striking: 0, runes: [] }] }
   expect(renderToStaticMarkup(<WeaponList c={manual} entries={[HAFT_STRIKER_WEAPON]} save={() => {}} />))
     .not.toContain('aria-haspopup="dialog">Haft Striker Stance</button>')

@@ -3,6 +3,7 @@ import { resistances,
   ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, INITIATE_TRAINING, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
+import { killerBeltBonus } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { adoptedAncestryText } from './featChoices'
@@ -197,8 +198,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const warmaskBonus = warmaskSource(c)?.skill === s.name ? 1 : 0
     const filigreeItem = ['Athletics', 'Diplomacy', 'Society'].includes(s.name) ? filigree : 0
+    const belt = s.name === 'Intimidation' ? killerBeltBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem)
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0)
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
@@ -232,6 +234,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {!!warmaskBonus && <SourceNote inlineSource={false} source={adoptedAncestryText(c, 'Orc Warmask')} note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
+          {belt && <SourceNote inlineSource={false} source={belt.source} note={`+${belt.value} item bonus to Intimidation checks; item bonuses do not stack.`} />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {s.name === 'Perception' && sights.map(sight => {

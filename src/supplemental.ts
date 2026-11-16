@@ -1,5 +1,15 @@
 import type { ContentEntry, HardlightGrade, OwnedArmor } from './types'
 
+export const KILLERS_BELT_MAJOR: ContentEntry = {
+  id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
+  name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],
+  description: "Homebrew upgrade of Killer's Belt. Price 15,000 gp.\n\nWhile wearing and investing this belt, you gain a +3 item bonus to Intimidation checks.\n\nActivate: Bleeding Rubies (one action, manipulate). Frequency: once per day. Requirements: You have a free hand, and your last action dealt damage to an enemy with a Strike or spell attack roll. Crush one of the belt's rubies to cause that enemy to take 3d6 persistent bleed damage. The ruby returns after 24 hours.",
+  data: { item_category: 'Worn Items', item_subcategory: 'Other Worn Items', usage: 'worn belt',
+    bulk: 0.1, price: 1500000, rarity: 'common', skill: 'Intimidation', sourceBook: 'Homebrew',
+    url: 'https://2e.aonprd.com/Equipment.aspx?ID=3968' },
+  effects: [{ type: 'bonus', target: 'Intimidation', bonusType: 'item', value: 3 }], updatedAt: 1,
+}
+
 export const HAFT_STRIKER_WEAPON: ContentEntry = {
   id: 'supplemental:haft-striker-stance',
   systems: ['pf2e'],

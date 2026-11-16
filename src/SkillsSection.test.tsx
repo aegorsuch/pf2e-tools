@@ -7,6 +7,7 @@ import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, 
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
+import { KILLERS_BELT_MAJOR } from './supplemental'
 
 const ranger: ContentEntry = {
   id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
@@ -25,6 +26,25 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('applies only the highest owned Killer belt bonus and removes it when gear is removed', () => {
+  const ordinary: ContentEntry = { ...KILLERS_BELT_MAJOR, id: 'ordinary-belt', name: "Killer's Belt",
+    source: 'official', level: 4, effects: [] }
+  const greater: ContentEntry = { ...ordinary, id: 'greater-belt', name: 'Greater Killer\u2019s Belt', level: 9 }
+  const entries = [ranger, ordinary, greater, KILLERS_BELT_MAJOR]
+  for (const [belt, value] of [[ordinary, 1], [greater, 2], [KILLERS_BELT_MAJOR, 3]] as const) {
+    const c = { ...base, equipment: [{ name: ordinary.name, qty: 1 }, { name: belt.name, qty: 2 }] }
+    expect(builder.killerBeltBonus(c, entries)?.value).toBe(value)
+    const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
+    const intimidation = markup.split('class="skill-name">Intimidation')[1].split('class="skill-name">')[0]
+    expect(intimidation).toContain(`<b>+${value}`)
+    expect(intimidation).toContain(`+${value} item bonus to Intimidation checks`)
+  }
+  expect(builder.killerBeltBonus(base, entries)).toBeUndefined()
+  expect(builder.killerBeltBonus({ ...base, equipment: [{ name: greater.name, qty: 0 }] }, entries)).toBeUndefined()
+  expect(builder.killerBeltBonus({ ...base, equipment: [{ name: greater.name, qty: 1 }] },
+    [{ ...greater, deleted: true }])).toBeUndefined()
+})
 
 it('shows Rider as a conditional Nature bonus without increasing ordinary Nature checks', () => {
   const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }

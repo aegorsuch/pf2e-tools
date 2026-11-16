@@ -8,6 +8,7 @@ import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands,
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { equipmentDisplayName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
@@ -304,12 +305,13 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
   const pool = gearPickerEntries(entries, kind)
   const filters = FILTERS[kind].map((f) => ({ ...f, options: f.fixed ?? [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort((a, b) => a.localeCompare(b)) }))
-  const query = q.trim().toLowerCase()
+  const query = q.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
   const matches = [...new Map(
     pool
-      .filter((e) => inTab(e, tab) && (!query || e.name.toLowerCase().includes(query)))
+      .filter((e) => inTab(e, tab) && (!query || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(e.name)]
+        .some(name => name.toLowerCase().includes(query))))
       .filter((e) => filters.every((f) => !picked[f.label] || f.values(e).includes(picked[f.label])))
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => equipmentDisplayName(a.name).localeCompare(equipmentDisplayName(b.name)))
       .map((m) => [kind === 'weapon' ? combinationName(entries, m.name) : m.name, m]),
   ).values()]
   const close = () => { setOpen(false); setQ(''); setPicked({}) }
@@ -962,7 +964,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
       } })
     } else saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   }
-  const sorted = [...weapons].sort((x, y) => x.name.localeCompare(y.name))
+  const sorted = weapons.filter(weapon => !weapon.attachedTo || weaponEquipped(c, entries, weapon))
+    .sort((x, y) => equipmentDisplayName(x.name).localeCompare(equipmentDisplayName(y.name)))
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
@@ -997,7 +1000,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const shieldSource = shieldAttachmentSource(c, w)
         const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
-        const displayName = `${adoptedAncestryText(c, plainName)}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
+        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentSource.name)})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const upgradeWeapon = usesWeaponUpgrades(a.entry)

@@ -368,7 +368,7 @@ it('shows existing equipment stacks without quantity controls', () => {
   const before = JSON.stringify(c)
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   const equipment = markup.split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
-  expect(equipment.replace(/<input[^>]*aria-label="Ring capacity"[^>]*>/g, '')).not.toContain('type="number"')
+  expect(equipment).not.toContain('type="number"')
   expect(equipment).toContain('x20')
   expect(equipment).not.toContain('x1')
   expect(JSON.stringify(c)).toBe(before)
@@ -479,7 +479,8 @@ it('places the personalized Warmask only in Mask, with its bonus inside its deta
     expect(mask).toContain('Power source: The Land (Primal). +1 item bonus to Nature checks.')
     expect(mask).toContain(warmask.description)
     expect(mask.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).not.toContain('+1 item bonus')
-    expect(markup).toContain('aria-label="Ring capacity" min="0" step="1" value="10"')
+    expect(markup).not.toContain('aria-label="Ring capacity"')
+    expect(markup).toContain('aria-label="Rings used">0/10</span>')
   } finally { content.entries = [] }
 })
 
@@ -530,7 +531,29 @@ it.each([9, 10])('allows a tenth ring but blocks additions beyond finger capacit
   const button = render(c).match(/<button[^>]*aria-label="Add Silver Ring"[^>]*>/)?.[0]
   expect(button).toBeDefined()
   expect(button!.includes('disabled=""')).toBe(qty === 10)
-  expect(render({ ...c, ringCapacity: 12 }).match(/<button[^>]*aria-label="Add Silver Ring"[^>]*>/)?.[0]).not.toContain('disabled')
+  expect(render({ ...c, feats: [{ name: 'Additional Arms', type: 'Ancestry Feat', level: 1 }] })
+    .match(/<button[^>]*aria-label="Add Silver Ring"[^>]*>/)?.[0]).not.toContain('disabled')
+})
+
+it('formats graded equipment titles and sorts by base name while retaining canonical saved names', () => {
+  const greater: ContentEntry = { id: 'greater-belt', name: 'Greater Killer\u2019s Belt', kind: 'item',
+    systems: ['pf2e'], source: 'official', level: 9, traits: [], description: 'Greater belt rules.',
+    data: { usage: 'worn belt' }, effects: [], updatedAt: 1 }
+  const ordinary = { ...greater, id: 'belt', name: "Killer's Belt", level: 4 }
+  const amber = { ...greater, id: 'amber', name: 'Amber Belt', level: 1 }
+  const c: Character = { id: 'belt-names', systems: ['pf2e'], name: 'Test', level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: greater.name, qty: 1 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  content.entries = [greater, ordinary, amber]
+  try {
+    const search = renderToStaticMarkup(<EquipmentSearch c={c} entries={content.entries} save={() => {}} category="Belts" />)
+    expect(search).toContain('aria-label="Add Killer&#x27;s Belt (Greater)"')
+    expect(search.indexOf('>Amber Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt</button>'))
+    expect(search.indexOf('>Killer&#x27;s Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt (Greater)</button>'))
+    expect(renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />))
+      .toContain('aria-haspopup="dialog">Killer&#x27;s Belt (Greater)</button>')
+    expect(c.equipment[0].name).toBe(greater.name)
+  } finally { content.entries = [] }
 })
 
 it('keeps large background and deity catalogs searchable before lazy choices are populated', () => {

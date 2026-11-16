@@ -31,7 +31,7 @@ import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
-import { WORN_EQUIPMENT_GROUPS, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
+import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 
 const NONE: ContentEntry[] = []
 
@@ -126,11 +126,12 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
   const [query, setQuery] = useState('')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = query.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
     return q || category
-      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && (!q || e.name.toLowerCase().includes(q))
+      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e)
+        && (!q || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(e.name)].some(name => name.toLowerCase().includes(q)))
         && (!category || equipmentFitsGroup(e, category)))
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => equipmentDisplayName(a.name).localeCompare(equipmentDisplayName(b.name)))
       : []
   }, [entries, query, category])
   return <div className="equipment-search">
@@ -142,7 +143,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
     <ul className="gear-results">
       {matches.map(g => <li key={g.id}>
         <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
-        <button aria-label={`Add ${g.name}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull}
+        <button aria-label={`Add ${equipmentDisplayName(g.name)}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull}
           title={equipmentGroupName(g) === 'Rings' && ringsFull ? 'Ring capacity reached' : undefined} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name
             && (!category || (item.group ?? equipmentGroupName(g)) === category))
@@ -163,7 +164,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
   const searchId = useId()
   const addButton = useRef<HTMLButtonElement>(null)
   const displayed = [
-    ...rows.map(row => ({ kind: 'item' as const, name: row.item.name, row })),
+    ...rows.map(row => ({ kind: 'item' as const, name: equipmentDisplayName(row.item.name), row })),
     ...(integratedComm !== undefined ? [{ kind: 'comm' as const, name: 'Comm Unit' }] : []),
     ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
@@ -210,9 +211,6 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       <button ref={addButton} type="button" className="icon-button" aria-label={`Add ${group}`} title={`Add ${group}`}
         aria-expanded={adding} aria-controls={searchId} onClick={() => setAdding(!adding)}>+</button>
     </div>
-    {group === 'Rings' && <label>Capacity <input type="number" aria-label="Ring capacity" min={0} step={1} value={ringCapacity(c)}
-      onChange={event => save({ ringCapacity: event.target.value === '' ? undefined
-        : Math.max(0, Math.trunc(event.target.valueAsNumber || 0)) })} /></label>}
     <div id={searchId} hidden={!adding}>
       {adding && <EquipmentSearch c={c} entries={entries} save={save} category={group} onClose={() => {
         setAdding(false)

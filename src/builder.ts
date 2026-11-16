@@ -17,7 +17,7 @@ import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
-import { equipmentGroupName } from './equipmentGroups'
+import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 
 export type Ability = keyof Character['abilities']
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -3068,13 +3068,14 @@ export function haftStrikerWeapons(c: Character, entries: ContentEntry[]) {
   if (c.level < 4 || !hasFeat(c, HAFT_STRIKER_WEAPON.name)) return []
   return carriedWeapons(c, entries).filter((weapon) => {
     const entry = weaponEntry(entries, weapon.name)
-    return !!entry && !isRanged(entry)
+    return !weapon.attachedTo && !!entry && !isRanged(entry)
       && (/^(hammer|spear|polearm)$/i.test(String(entry.data.weapon_group)) || /\bstaff\b/i.test(entry.name))
-      && (weaponHands(entries, weapon, c) === 2 || weaponCanUseTwoHands(weaponWithModifications(c, weapon, entry) ?? entry))
+      && weaponHands(entries, weapon, c) === 2 && weaponHeld(c, entries, weapon)
   })
 }
 
 export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
+  if (c.activeStance !== HAFT_STRIKER_WEAPON.name || activeStance(c, entries)?.name !== HAFT_STRIKER_WEAPON.name) return undefined
   const weapons = haftStrikerWeapons(c, entries)
   return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
 }
@@ -3129,7 +3130,17 @@ export function totalArmHands(c: Character) {
     + (getSettings().singleAdditionalArms ? Math.min(1, additionalArms) : additionalArms))
 }
 
-export const ringCapacity = (c: Character) => Math.max(0, Math.trunc(c.ringCapacity ?? totalArmHands(c) * 5))
+export const ringCapacity = (c: Character) => totalArmHands(c) * 5
+
+export function killerBeltBonus(c: Character, entries: ContentEntry[]) {
+  return c.equipment.flatMap(item => {
+    const entry = item.qty > 0 ? byName(entries, 'item', item.name) : undefined
+    if (!entry || entry.deleted || !entry.systems.some(system => c.systems.includes(system))) return []
+    const name = equipmentDisplayName(entry.name)
+    if (!/^Killer's Belt(?: \((?:Greater|Major)\))?$/.test(name)) return []
+    return [{ source: name, value: name.endsWith('(Major)') ? 3 : name.endsWith('(Greater)') ? 2 : 1 }]
+  }).sort((a, b) => b.value - a.value)[0]
+}
 
 export function ringCount(c: Character, entries: ContentEntry[]) {
   return c.equipment.reduce((count, item) =>

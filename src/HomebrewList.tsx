@@ -1,7 +1,11 @@
 import { DeleteIcon, EditIcon } from './Icons'
 import { confirmRemoval } from './confirmRemoval'
 import { featDisplayName } from './featChoices'
+import { equipmentDisplayName } from './equipmentGroups'
 import type { ContentEntry, EntryKind } from './types'
+
+const displayName = (entry: ContentEntry) => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
+  ? equipmentDisplayName(entry.name) : featDisplayName(entry)
 
 const LABELS: Partial<Record<EntryKind, string>> = {
   ancestry: 'Ancestries', armor: 'Armor', armorGroup: 'Armor Groups', background: 'Backgrounds', class: 'Classes',
@@ -29,7 +33,7 @@ export function groupHomebrew(entries: ContentEntry[]) {
     }
   }
   return [...groups].sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, content]) => ({ name, entries: content.sort((a, b) => featDisplayName(a).localeCompare(featDisplayName(b)) || a.level - b.level) }))
+    .map(([name, content]) => ({ name, entries: content.sort((a, b) => displayName(a).localeCompare(displayName(b)) || a.level - b.level) }))
 }
 
 export function HomebrewList({ entries, search = '', onEdit, onDelete }: {
@@ -41,7 +45,7 @@ export function HomebrewList({ entries, search = '', onEdit, onDelete }: {
   const query = search.trim().toLowerCase()
   const groups = groupHomebrew(entries).map(group => ({
     ...group, entries: query && !group.name.toLowerCase().includes(query)
-      ? group.entries.filter(entry => [entry.name, featDisplayName(entry)].some(name => name.toLowerCase().includes(query))) : group.entries,
+      ? group.entries.filter(entry => [entry.name, displayName(entry)].some(name => name.toLowerCase().includes(query))) : group.entries,
   })).filter(group => group.entries.length)
   if (query && !groups.length) return <p>No homebrew matches your search.</p>
   return groups.map((group) => (
@@ -50,11 +54,11 @@ export function HomebrewList({ entries, search = '', onEdit, onDelete }: {
       <ul className="character-list">
         {group.entries.map((entry) => (
           <li key={entry.id} className="character-row">
-            <b>{featDisplayName(entry)}</b>
+            <b>{displayName(entry)}</b>
             <span className="character-actions">
-              <button type="button" className="icon-button" title="Edit content" aria-label={`Edit ${featDisplayName(entry)}`} onClick={() => onEdit(entry)}><EditIcon /></button>
-              <button type="button" className="icon-button" title="Delete content" aria-label={`Delete ${featDisplayName(entry)}`}
-                onClick={() => confirmRemoval(`homebrew "${featDisplayName(entry)}"`, () => onDelete(entry.id))}><DeleteIcon /></button>
+              <button type="button" className="icon-button" title="Edit content" aria-label={`Edit ${displayName(entry)}`} onClick={() => onEdit(entry)}><EditIcon /></button>
+              <button type="button" className="icon-button" title="Delete content" aria-label={`Delete ${displayName(entry)}`}
+                onClick={() => confirmRemoval(`homebrew "${displayName(entry)}"`, () => onDelete(entry.id))}><DeleteIcon /></button>
             </span>
           </li>
         ))}

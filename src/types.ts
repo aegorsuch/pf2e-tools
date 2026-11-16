@@ -199,7 +199,6 @@ export interface Character {
   raging?: boolean
   parrying?: boolean
   activeStance?: string
-  ringCapacity?: number
   activeFeatEffects?: string[]
   focusPointsSpentSinceRefocus?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>

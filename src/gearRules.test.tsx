@@ -35,6 +35,7 @@ it('shows Dragonslayer Oath reaction benefits only after acquisition', () => {
 const feat = (name: string, level = 1, choice?: string) => ({ name, level, choice, type: 'Class Feat' })
 const content = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
   ({ id: name, systems: ['pf2e'], kind, source: 'official', name, data, level, traits, description: '', effects: [], updatedAt: 1 })
+const haftStance = content('feat', 'Haft Striker Stance', {}, 4, ['Fighter', 'Stance'])
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
@@ -964,11 +965,11 @@ it('requires Living Weapon and Wild Hunter Dedication for Pristine Living Weapon
 it('treats Living Weapons and inherited haft strikes as cold iron and silver without adding unconditional bleed', () => {
   const polearm = content('weapon', 'Glaive', { hands: 2, weapon_group: 'Polearm', damage: '1d8 slashing' })
   const weapon = { ...main, name: polearm.name, livingWeapon: true }
-  const c: Character = { ...base, level: 14, weapons: [weapon], feats: [
+  const c: Character = { ...base, activeStance: haftStance.name, level: 14, weapons: [weapon], feats: [
     feat('Wild Hunter Dedication', 2), feat('Living Weapon', 8), feat('Pristine Living Weapon', 14), feat('Haft Striker Stance', 4),
   ] }
   const ordinary = { ...weapon, id: 'ordinary', livingWeapon: false }
-  const entries = [polearm]
+  const entries = [polearm, haftStance]
   const haft = ownedWeapons(c, entries).find((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)!
   for (const strike of [weapon, haft]) {
     const attack = weaponAttack(c, entries, strike)
@@ -1014,30 +1015,30 @@ it('applies Jousting only to qualifying selected verdant, living, or favored one
 it('grants Living Weapon Joust to the one-handed haft attack, not its two-handed source', () => {
   const spear = content('weapon', "Dancer's Spear", { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' })
   const source = { ...main, name: spear.name, livingWeapon: true }
-  const c: Character = { ...base, level: 14, weapons: [source], feats: [
+  const c: Character = { ...base, activeStance: haftStance.name, level: 14, weapons: [source], feats: [
     feat('Living Weapon', 8), feat('Living Weapon Joust', 14), feat('Haft Striker Stance', 4),
   ] }
   const legacyHaft = { ...HAFT_STRIKER_WEAPON, data: { weapon_category: 'Simple', weapon_group: 'Club', weapon_type: 'Melee', damage: '1d4 bludgeoning' } }
-  const entries = [spear, legacyHaft]
+  const entries = [spear, legacyHaft, haftStance]
   const haft = ownedWeapons(c, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
   expect(weaponAttack(c, entries, haft).entry?.data.hands).toBe(1)
   expect(weaponAttack(c, entries, haft).traits).toContain('Jousting')
   expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />))
     .toContain('class="gear-trait" aria-haspopup="dialog">Jousting</button>')
-  expect(weaponAttack(c, [spear], source).traits).not.toContain('Jousting')
-  expect(weaponAttack({ ...c, level: 13 }, [spear], haft).traits).not.toContain('Jousting')
-  expect(weaponAttack({ ...c, feats: c.feats.filter(feat => feat.name !== 'Living Weapon Joust') }, [spear], haft).traits).not.toContain('Jousting')
-  expect(weaponAttack({ ...c, weapons: [{ ...source, livingWeapon: false }] }, [spear], haft).traits).not.toContain('Jousting')
-  expect(weaponAttack({ ...c, weapons: [] }, [spear], haft).traits).not.toContain('Jousting')
+  expect(weaponAttack(c, entries, source).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, level: 13 }, entries, haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, feats: c.feats.filter(feat => feat.name !== 'Living Weapon Joust') }, entries, haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, weapons: [{ ...source, livingWeapon: false }] }, entries, haft).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, weapons: [] }, entries, haft).traits).not.toContain('Jousting')
 })
 
 it.each(['Verdant Weapon Jousting', 'Favored Weapon Jousting'])('uses the selected haft source for %s', name => {
   const spear = content('weapon', 'Spear', { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' })
   const source = { ...main, name: spear.name, verdantWeapon: name === 'Verdant Weapon Jousting' }
-  const c: Character = { ...base, level: 10, weapons: [source],
+  const c: Character = { ...base, activeStance: haftStance.name, level: 10, weapons: [source],
     feats: [feat(name, 4), feat('Haft Striker Stance', 4)] }
   const patron = { ...deity, data: { ...deity.data, favored_weapon: spear.name } }
-  const entries = [spear, patron]
+  const entries = [spear, patron, haftStance]
   const haft = ownedWeapons(c, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
   expect(weaponAttack(c, entries, haft).traits).toContain('Jousting')
   expect(weaponAttack(c, entries, source).traits).not.toContain('Jousting')
@@ -1435,8 +1436,8 @@ it('scales ring capacity with fingered hands, not prehensile tails, and counts q
   expect(ringCapacity(base)).toBe(10)
   expect(ringCapacity({ ...base, feats: [feat('Additional Arms', 1)] })).toBe(20)
   expect(ringCapacity({ ...base, feats: [feat('Prehensile Tail', 1)] })).toBe(10)
-  expect(ringCapacity({ ...base, ringCapacity: 7 })).toBe(7)
-  expect(ringCapacity({ ...base, ringCapacity: 0 })).toBe(0)
+  expect(ringCapacity(JSON.parse(JSON.stringify({ ...base, ringCapacity: 7 })))).toBe(10)
+  expect(ringCapacity(JSON.parse(JSON.stringify({ ...base, ringCapacity: 0 })))).toBe(10)
   expect(ringCount({ ...base, equipment: [{ name: ring.name, qty: 9 }, { name: 'Rope', qty: 20 }] }, [ring])).toBe(9)
 })
 
@@ -1690,17 +1691,18 @@ it('requires a two-handed hammer, spear, or polearm for Haft Striker and inherit
   const hammer = content('weapon', 'Hammer', { hands: 2, weapon_group: 'Hammer', damage: '1d12 bludgeoning' })
   const first: OwnedWeapon = { ...main, name: 'Spear', runes: ['Flaming', 'Wounding'] }
   const second: OwnedWeapon = { ...main, id: 'second', name: 'Hammer', potency: 2, striking: 2, runes: ['Frost'] }
-  const c = { ...base, weapons: [first, second], feats: [feat('Haft Striker Stance', 4)] }
-  const haft = ownedWeapons(c, [spear, hammer]).find((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)!
-  expect(effectiveWeapon(c, [spear, hammer], haft)).toMatchObject({ potency: 3, striking: 1, runes: ['Flaming'] })
-  expect(effectiveWeapon({ ...c, haftStrikerWeaponId: second.id }, [spear, hammer], haft)).toMatchObject({ potency: 2, striking: 2, runes: ['Frost'] })
-  expect(effectiveWeapon({ ...c, weapons: [{ ...first, runes: ['Holy'] }] }, [spear, hammer],
+  const c = { ...base, activeStance: haftStance.name, weapons: [first, second], feats: [feat('Haft Striker Stance', 4)] }
+  const entries = [spear, hammer, haftStance]
+  const haft = ownedWeapons(c, entries).find((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)!
+  expect(effectiveWeapon(c, entries, haft)).toMatchObject({ potency: 3, striking: 1, runes: ['Flaming'] })
+  expect(effectiveWeapon({ ...c, haftStrikerWeaponId: second.id }, entries, haft)).toMatchObject({ potency: 2, striking: 2, runes: ['Frost'] })
+  expect(effectiveWeapon({ ...c, weapons: [{ ...first, runes: ['Holy'] }] }, entries,
     { ...haft, runes: ['Unholy'] }).runes).toEqual(['Holy'])
   const incompatible: ContentEntry['data'][] = [{ hands: 1 }, { weapon_group: 'Club' }, { weapon_type: 'Ranged' }]
   for (const data of incompatible) {
-    expect(ownedWeapons({ ...c, weapons: [first] }, [{ ...spear, data: { ...spear.data, ...data } }]).map((weapon) => weapon.name)).not.toContain(HAFT_STRIKER_WEAPON.name)
+    expect(ownedWeapons({ ...c, weapons: [first] }, [haftStance, { ...spear, data: { ...spear.data, ...data } }]).map((weapon) => weapon.name)).not.toContain(HAFT_STRIKER_WEAPON.name)
   }
-  expect(ownedWeapons({ ...c, feats: [] }, [spear, hammer]).map((weapon) => weapon.name)).not.toContain(HAFT_STRIKER_WEAPON.name)
+  expect(ownedWeapons({ ...c, feats: [] }, entries).map((weapon) => weapon.name)).not.toContain(HAFT_STRIKER_WEAPON.name)
 })
 
 it('makes Primal Nimbleness available to both classes and scales heritage and Ranger poison resistance', () => {

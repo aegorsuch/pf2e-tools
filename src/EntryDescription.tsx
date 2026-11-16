@@ -5,6 +5,7 @@ import type { FeatAccessCheck } from './featAccess'
 import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
 import { adoptedAncestryText, alloyedAttackChoice, featDisplayName } from './featChoices'
+import { equipmentDisplayName } from './equipmentGroups'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 function featIndex(entries: ContentEntry[]) {
@@ -32,7 +33,8 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   const [history, setHistory] = useState<ContentEntry[]>([])
   const active = history.at(-1) ?? entry
   const text = (value: string) => character ? adoptedAncestryText(character, value) : value
-  const title = (value: string, source = active) => text(featDisplayName(source, value))
+  const title = (value: string, source = active) => text(source && ['item', 'weapon', 'armor', 'shield'].includes(source.kind)
+    ? equipmentDisplayName(value) : featDisplayName(source, value))
   const material = character && active?.kind === 'feat' && /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(active.name)
     ? alloyedAttackChoice(character) : undefined
   const featActions = active?.kind === 'feat' && typeof active.data.actions === 'string' && active.data.actions.trim() !== ''

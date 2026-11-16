@@ -1,6 +1,9 @@
 import type { ContentEntry, EquipmentGroupName, WORN_EQUIPMENT_GROUPS } from './types'
 export { WORN_EQUIPMENT_GROUPS, EQUIPMENT_GROUPS, type EquipmentGroupName } from './types'
 
+export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")
+  .replace(/^(Minor|Lesser|Moderate|Greater|Major|Supreme|True)\s+(.+)$/, '$2 ($1)')
+
 const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [
   ['Backpacks', /\b(?:backpacks?|rucksacks?)\b/],
   ['Belts', /\b(?:belts?|girdles?|sashes?)\b/],

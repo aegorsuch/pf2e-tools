@@ -208,13 +208,14 @@ it('uses simple proficiency and finesse for the haft while retaining Strength da
 it('grants Haft Striker Stance from its feat without duplicating configured weapons', () => {
   const polearm: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'glaive', name: 'Glaive', data: { hands: 2, weapon_group: 'Polearm', damage: '1d8 slashing' } }
   const main = { id: 'main', name: polearm.name, potency: 2, striking: 1, runes: ['Flaming'] }
-  const c = { ...base, weapons: [main], feats: [{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 }] }
-  const weapons = ownedWeapons(c, [polearm])
+  const c = { ...base, activeStance: HAFT_STRIKER_WEAPON.name, weapons: [main], feats: [{ name: 'Haft Striker Stance', type: 'Class Feat', level: 4 }] }
+  const entries: ContentEntry[] = [polearm, { ...HAFT_STRIKER_WEAPON, id: 'haft-feat', kind: 'feat', level: 4, traits: ['Stance'] }]
+  const weapons = ownedWeapons(c, entries)
   expect(weapons.filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
-  expect(ownedWeapons({ ...c, weapons }, [polearm]).filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
-  expect(ownedWeapons({ ...c, weapons, feats: [] }, [polearm]).map((weapon) => weapon.name)).toEqual(['Glaive', 'Fist'])
+  expect(ownedWeapons({ ...c, weapons }, entries).filter((weapon) => weapon.name === HAFT_STRIKER_WEAPON.name)).toHaveLength(1)
+  expect(ownedWeapons({ ...c, weapons, feats: [] }, entries).map((weapon) => weapon.name)).toEqual(['Glaive', 'Fist'])
   const configured = { id: 'manual-haft', name: HAFT_STRIKER_WEAPON.name, potency: 2, striking: 1, runes: ['Flaming'] }
-  expect(ownedWeapons({ ...c, weapons: [main, configured] }, [polearm]).find((weapon) => weapon.name === configured.name)).toBe(configured)
+  expect(ownedWeapons({ ...c, weapons: [main, configured] }, entries).find((weapon) => weapon.name === configured.name)).toBe(configured)
 })
 
 it('derives and locks one gauntlet while eligible armor is worn, preserving independent weapon runes', () => {
