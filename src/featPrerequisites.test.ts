@@ -537,6 +537,40 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats([feat], { ...orc, feats: [selected('Tusks')] }, slot)).toEqual([])
     expect(eligibleFeats([feat], { ...orc, feats: [selected('Iron Fists')] }, slot)).toEqual([])
   })
+  it('hides available redundant attack feats for native and adopted Orcs but preserves a saved broad choice', () => {
+    const broad = { ...entry('feat', 'Ancestral Unarmed Attack', {}, 1, ['Orc']), systems: ['sf2e' as const] }
+    const tusks = entry('feat', 'Tusks', {}, 1, ['Orc'])
+    const slot = { category: 'ancestry' as const, key: 'ancestry:1:0', level: 1 }
+    const orc: Character = { ...base, systems: ['pf2e', 'sf2e'], ancestry: 'Orc', level: 1 }
+    expect(eligibleFeats([broad, tusks], orc, slot)).toEqual([tusks])
+    const adopted = { ...orc, ancestry: 'Human', feats: [{ ...selected('Adopted Ancestry'), choice: 'Orc' }] }
+    expect(eligibleFeats([broad, tusks], adopted, slot)).toEqual([tusks])
+    expect(eligibleFeats([broad, tusks], { ...orc, systems: ['sf2e'] }, slot)).toContain(broad)
+    expect(eligibleFeats([broad, tusks], { ...orc, feats: [
+      { name: broad.name, type: 'Ancestry Feat', level: 1, slot: slot.key, sourceId: broad.id },
+    ] }, slot)).toContain(broad)
+  })
+  it.each([
+    ['Orc', 'Tusks'], ['Orc', 'Iron Fists'], ['Barathu', 'Tentacle Whip'], ['Pahtra', 'Predatory'], ['Vesk', 'Brutal Anatomy'],
+  ])('recognizes %s %s as an ancestral unarmed attack prerequisite', (ancestry, name) => {
+    const source = entry('feat', name, {}, 1, [ancestry])
+    const broad = entry('feat', 'Ancestral Unarmed Attack', {}, 1, [ancestry])
+    const c = { ...base, ancestry, feats: [selected(name)] }
+    expect(check('Ancestral Unarmed Attack', c, [source, broad]).missing).toEqual([])
+    expect(check('Ancestral Unarmed Attack', { ...c, level: 5, feats: [selected(name, 9)] }, [source, broad]).missing).not.toEqual([])
+  })
+  it('validates specific attack heritage requirements and excludes dependent upgrades from aliases', () => {
+    const broad = entry('feat', 'Ancestral Unarmed Attack')
+    const fang = entry('feat', 'Fang Sharpener', { prerequisite: 'Irongut Goblin or Razortooth Goblin' }, 1, ['Goblin'])
+    const irongut = entry('heritage', 'Irongut Goblin', {}, 1, ['Goblin'])
+    const razortooth = entry('heritage', 'Razortooth Goblin', {}, 1, ['Goblin'])
+    const goblin = { ...base, ancestry: 'Goblin', feats: [selected(fang.name)] }
+    expect(check('Ancestral Unarmed Attack', goblin, [broad, fang, irongut, razortooth]).missing).not.toEqual([])
+    expect(check('Ancestral Unarmed Attack', { ...goblin, heritage: irongut.name }, [broad, fang, irongut, razortooth]).missing).toEqual([])
+    const upgrade = entry('feat', 'Bug Bite', { prerequisite: 'Ancestral Unarmed Attack' }, 1, ['Shirren'])
+    expect(check('Ancestral Unarmed Attack', { ...base, ancestry: 'Shirren', feats: [selected(upgrade.name)] }, [broad, upgrade]).missing)
+      .not.toEqual([])
+  })
   it('allows Dromaar to select Orc ancestry feats such as Iron Fists', () => {
     const ironFists = entry('feat', 'Iron Fists', {}, 1, ['Orc'])
     const slot = { category: 'ancestry' as const, key: 'ancestry:1:0', level: 1 }

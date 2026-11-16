@@ -18,7 +18,7 @@ export const OVERSIZED_THROW: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:oversized-throw', name: 'Oversized Throw',
   traits: ['Thrown'],
   description: 'While raging with a hand free, hurl an object your size or one size smaller that you can lift. It takes the damage it would deal on a successful Strike, regardless of the result. The attack takes two actions and has a 20-foot range increment. Damage dice increase with weapon specialization.',
-  data: { weapon_category: 'Simple', weapon_type: 'Ranged', damage: '1d10 bludgeoning', range: 20, hands: '1', url: 'https://2e.aonprd.com/Feats.aspx?ID=5818' },
+  data: { weapon_category: 'Simple', weapon_type: 'Ranged', damage: '1d10 bludgeoning', range: 20, hands: '1', actions: 'Two Actions', url: 'https://2e.aonprd.com/Feats.aspx?ID=5818' },
 }
 
 export const ATTACHED_WEAPONS: ContentEntry[] = [

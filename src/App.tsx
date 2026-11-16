@@ -253,6 +253,11 @@ export default function App() {
               onChange={(e) => updateSettings({ autoLores: e.target.checked })} />{' '}
             Auto-Advance Lores
           </label>
+          <label title="Temporarily removes Agile from weapons while a Barbarian is raging. Agile returns when Rage ends.">
+            <input type="checkbox" checked={settings.barbarianIgnoreAgile}
+              onChange={(e) => updateSettings({ barbarianIgnoreAgile: e.target.checked })} />{' '}
+            Barbarians ignore Agile while Raging
+          </label>
           <label>
             <input type="checkbox" checked={settings.championFormNoFlight}
               onChange={(e) => updateSettings({ championFormNoFlight: e.target.checked })} />{' '}

@@ -8,6 +8,7 @@ import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands,
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { adoptedAncestryText, ancestralAttackName } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
 import { ActionIcon } from './ActionIcon'
@@ -990,15 +991,16 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const enhanced = effectiveWeapon(c, entries, w)
         const runeCapacity = hasWeaponRuneCapacity(c, w, a.entry)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
+        const unarmed = weaponCategory(a.entry) === 'Unarmed'
         const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const shieldSource = shieldAttachmentSource(c, w)
         const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
-        const displayName = `${alloy ? `${alloy} ${plainName}` : plainName}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
+        const material = unarmed ? /^(?:Cold Iron|Silver|Adamantine)\b/.exec(enhanced.material ?? '')?.[0] ?? alloy : undefined
+        const displayName = `${ancestralAttackName(c, plainName, material)}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
-        const unarmed = weaponCategory(a.entry) === 'Unarmed'
         const upgradeWeapon = usesWeaponUpgrades(a.entry)
         const gradeOptions = upgradeWeapon && a.entry?.data.url ? entries.filter(entry => entry.kind === 'weapon'
           && !entry.deleted && entry.systems.includes('sf2e') && entry.data.url === a.entry?.data.url)
@@ -1103,7 +1105,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         </>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
-            <strong>{displayName}</strong>
+            <strong>{displayName}</strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>}
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
@@ -1135,7 +1137,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong>{displayName}</strong> <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+            <summary><strong>{displayName}</strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
               {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
@@ -1232,7 +1234,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </span>}
             </>}
             {unarmed && enhanced.material && <div className="gear-runes">
-              <span>Material</span><Material name={enhanced.material} entries={entries} equipment="Weapon" source="Granted by Cold Iron Tusks" />
+              <span>Material</span><Material name={enhanced.material} entries={entries} equipment="Weapon" source={adoptedAncestryText(c, 'Granted by Cold Iron Tusks')} />
             </div>}
             {alloy && <small>Alloyed Attacks: melee unarmed attacks have {alloy} properties.</small>}
             {shieldSource ? null : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>

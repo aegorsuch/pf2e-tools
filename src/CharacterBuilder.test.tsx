@@ -6,6 +6,7 @@ import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
+import { equipmentGroupName } from './equipmentGroups'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -321,7 +322,7 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
     expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Bolts', 'Bullets', 'Gadgets', 'Grafts',
-      'Grenade Specialist', 'Handwraps', 'Munitions', 'Other equipment', 'Poisons', 'Shield', 'Tattoos', 'Weapons'])
+      'Grenade Specialist', 'Handwraps', 'Munitions', 'Other equipment', 'Poisons', 'Shield', 'Tattoos', 'Weapons', 'Worn Items'])
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
@@ -339,6 +340,39 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     expect(equipment).toContain('Add Shield')
     expect(equipment).toContain('Add Weapon')
   } finally { content.entries = [] }
+})
+
+it('keeps empty Tattoos, Grafts and worn gear groups available for adding items', () => {
+  content.entries = []
+  const c: Character = { id: 'empty-equipment', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  for (const category of ['tattoos', 'grafts', 'boots', 'bracelets', 'cloaks', 'necklaces', 'rings']) {
+    expect(markup).toContain(`aria-label="Search ${category}"`)
+  }
+  expect(markup).toContain('<h4>Tattoos</h4>')
+  expect(markup).toContain('<h4>Grafts</h4>')
+  expect(markup).toContain('do not impose body-slot limits')
+  expect(c.equipment).toEqual([])
+})
+
+it.each([
+  ['Boots of Rings', 'worn gloves', 'Gloves'],
+  ['Shoes of Speed', 'worn shoes', 'Boots'],
+  ['War Bracers', 'worn bracers', 'Bracelets'],
+  ['Amulet', 'worn amulet', 'Necklaces'],
+  ['Hat', 'worn headwear', 'Headwear'],
+  ['Goggles', 'worn eyepiece', 'Eyewear'],
+  ['Belt', 'worn belt', 'Belts'],
+  ['Robe', 'worn robe', 'Clothing'],
+  ['Pack', 'worn backpack', 'Backpacks'],
+  ['Azure Boots', '', 'Boots'],
+  ['Mystery Charm', 'worn', 'Other Worn Items'],
+])('uses worn placement to group %s without interpreting its name as a slot restriction', (name, usage, group) => {
+  const entry: ContentEntry = { id: name, name, kind: 'item', systems: ['pf2e'], source: 'homebrew', level: 1,
+    traits: [], description: '', data: { item_category: 'Worn Items', usage }, effects: [], updatedAt: 0 }
+  expect(equipmentGroupName(entry)).toBe(group)
 })
 
 it('keeps large background and deity catalogs searchable before lazy choices are populated', () => {

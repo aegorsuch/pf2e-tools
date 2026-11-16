@@ -1,9 +1,10 @@
 import { useId, useRef, useState } from 'react'
-import type { ContentEntry } from './types'
+import type { Character, ContentEntry } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import type { FeatAccessCheck } from './featAccess'
 import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
+import { adoptedAncestryText, ancestralAttackName, alloyedAttackChoice } from './featChoices'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 function featIndex(entries: ContentEntry[]) {
@@ -23,13 +24,17 @@ function featIndex(entries: ContentEntry[]) {
   return index
 }
 
-export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, grantSource, descriptionNote, entries }: {
-  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]
+export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, grantSource, descriptionNote, entries, character }: {
+  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const [history, setHistory] = useState<ContentEntry[]>([])
   const active = history.at(-1) ?? entry
+  const text = (value: string) => character ? adoptedAncestryText(character, value) : value
+  const label = (value: string) => character ? ancestralAttackName(character, value) : value
+  const material = character && active?.kind === 'feat' && /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(active.name)
+    ? alloyedAttackChoice(character) : undefined
   const featActions = active?.kind === 'feat' && typeof active.data.actions === 'string' && active.data.actions.trim() !== ''
   const rarity = active && featRarity(active)
   const index = entries && active?.featLinks?.length ? featIndex(entries) : undefined
@@ -40,25 +45,25 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   const description = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
   return (
     <>
-      <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${name}` : undefined}
+      <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${label(name)}` : undefined}
         aria-haspopup="dialog" onClick={() => {
           dialog.current?.showModal()
           dialog.current?.querySelector('h4')?.focus()
         }}>
-        {buttonLabel ?? name}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
+        {buttonLabel ?? label(name)}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
           aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
         {entry?.kind === 'feat' && typeof entry.data.actions === 'string' && entry.data.actions.trim() && !buttonLabel && <> <ActionIcon entry={entry} /></>}
-        {grantSource && <> <small>({grantSource})</small></>}
+        {grantSource && <> <small>({text(grantSource)})</small></>}
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
         onClose={() => setHistory([])}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-        <h4 id={titleId} tabIndex={-1}>{history.length ? active?.name : name}{featActions && <> <ActionIcon entry={active} /></>}{active && active.kind !== 'trait' && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
+        <h4 id={titleId} tabIndex={-1}>{label(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && active.kind !== 'trait' && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
         {!history.length && !!prerequisites?.missing.length && <p className="feat-prerequisite-note" role="status">
-          Prerequisites unmet: {prerequisites.missing.join('; ')}
+          Prerequisites unmet: {text(prerequisites.missing.join('; '))}
         </p>}
         {!history.length && !!prerequisites?.manual.length && <p className="feat-prerequisite-note">
-          Check prerequisites manually: {prerequisites.manual.join('; ')}
+          Check prerequisites manually: {text(prerequisites.manual.join('; '))}
         </p>}
         {!history.length && access && <p className="feat-prerequisite-note">
           Access: {access.requirement}{/[.!?]$/.test(access.requirement) ? '' : '.'} {access.automatic
@@ -66,12 +71,13 @@ export function EntryDescription({ name, entry, className, prerequisites, access
             : access.approved ? 'GM approved access.' : 'Access not established; GM permission required.'}
           {' '}Access does not replace prerequisites.
         </p>}
-        <p>{description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
-        {!history.length && descriptionNote && <p>{descriptionNote}</p>}
+        <p>{text(description || 'Description unavailable. Sync Archives of Nethys content to load it.')}</p>
+        {material && <p>Alloyed Attacks: melee unarmed attacks have {material} properties.</p>}
+        {!history.length && descriptionNote && <p>{text(descriptionNote)}</p>}
         {!!leads?.length && <p>Leads to: {leads.map((link, index) => <span key={`${link.url}:${index}`}>
           {index > 0 && ', '}{link.target
-            ? <button type="button" onClick={() => { const target = link.target; if (target) setHistory(previous => [...previous, target]); dialog.current?.querySelector('h4')?.focus() }}>{link.name}</button>
-            : <span>{link.name} (unavailable)</span>}
+            ? <button type="button" onClick={() => { const target = link.target; if (target) setHistory(previous => [...previous, target]); dialog.current?.querySelector('h4')?.focus() }}>{label(link.name)}</button>
+            : <span>{label(link.name)} (unavailable)</span>}
         </span>)}</p>}
         {typeof active?.data.url === 'string' && <p><a href={active.data.url} target="_blank" rel="noreferrer">Archives of Nethys</a></p>}
         {history.length > 0 && <button type="button" onClick={() => { setHistory(previous => previous.slice(0, -1)); dialog.current?.querySelector('h4')?.focus() }}>Back</button>}

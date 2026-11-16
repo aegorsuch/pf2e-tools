@@ -72,6 +72,31 @@ it('copies current Katana stats into Claymore without changing the source or usi
   expect(homebrewWeapons([{ ...katana, source: 'homebrew' }])).toEqual([])
 })
 
+it('removes Agile only while a Barbarian rages with the house rule enabled', () => {
+  const previous = getSettings().barbarianIgnoreAgile
+  const c = { ...base, className: 'Barbarian', raging: true }
+  const fist = { id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] }
+  try {
+    updateSettings({ barbarianIgnoreAgile: true })
+    expect(weaponAttack(c, [], fist).traits).not.toContain('Agile')
+    expect(weaponAttack(c, [], fist).entry?.traits).not.toContain('Agile')
+    expect(weaponAttack(c, [], fist).traits).toContain('Finesse')
+    expect(weaponAttack({ ...c, raging: false }, [], fist).traits).toContain('Agile')
+    expect(weaponAttack({ ...c, className: 'Ranger' }, [], fist).traits).toContain('Agile')
+    updateSettings({ barbarianIgnoreAgile: false })
+    expect(weaponAttack(c, [], fist).traits).toContain('Agile')
+    expect(FIST.traits).toContain('Agile')
+  } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
+})
+
+it('adds full Strength to Oversized Throw and scales its dice with specialization', () => {
+  const c = { ...base, className: 'Barbarian', abilities: { ...base.abilities, str: 20 } }
+  const thrown = { id: OVERSIZED_THROW.id, name: OVERSIZED_THROW.name, potency: 0, striking: 0, runes: [] }
+  expect(weaponAttack({ ...c, level: 4 }, [], thrown).damage).toBe('1d10+5 bludgeoning')
+  expect(weaponAttack({ ...c, level: 7 }, [], thrown).damage).toBe('2d10+5 bludgeoning')
+  expect(weaponAttack({ ...c, level: 15 }, [], thrown).damage).toBe('3d10+5 bludgeoning')
+})
+
 it('copies Flyssa mechanics into a separate homebrew Seax without changing the official weapon', () => {
   const flyssa: ContentEntry = {
     ...HAFT_STRIKER_WEAPON, id: 'aon:pf2e:weapon-285', name: 'Flyssa', level: 0,

@@ -10,6 +10,46 @@ const WARDEN_TIERS: Record<string, string> = {
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
 
+const ANCESTRAL_UNARMED_FEATS: Record<string, string[]> = {
+  orc: ['Tusks', 'Tusks (Orc)', 'Iron Fists', 'Iron Fist'],
+  barathu: ['Tentacle Whip'],
+  pahtra: ['Predatory'],
+  vesk: ['Brutal Anatomy'],
+  goblin: ['Fang Sharpener'],
+}
+
+export function ancestralUnarmedFeatNames(ancestries: string[]) {
+  return [...new Set(ancestries.flatMap(ancestry => {
+    const name = ancestry.trim().toLowerCase()
+    return ANCESTRAL_UNARMED_FEATS[['dromaar', 'half-orc'].includes(name) ? 'orc' : name] ?? []
+  }))]
+}
+
+export function alloyedAttackChoice(c: Character) {
+  const choice = c.feats.find(feat => feat.name === 'Alloyed Attacks' && featTakenLevel(feat) <= c.level)?.choice
+  return choice === 'Cold Iron' || choice === 'Silver' || choice === 'Adamantine' && c.level >= 13 ? choice : undefined
+}
+
+export function adoptedAncestryText(c: Character, text: string) {
+  if ([c.ancestry, c.heritage].some(name => /^(orc|dromaar|half-orc)$/i.test(name?.trim() ?? ''))
+    || !c.feats.some(feat => feat.name === 'Adopted Ancestry' && feat.choice?.trim().toLowerCase() === 'orc'
+      && featTakenLevel(feat) <= c.level)) return text
+  return text.replace(/\btusks?\b/gi, word => {
+    const replacement = word.toLowerCase() === 'tusk' ? 'tooth' : 'teeth'
+    return word === word.toUpperCase() ? replacement.toUpperCase()
+      : word[0] === word[0].toUpperCase() ? replacement[0].toUpperCase() + replacement.slice(1) : replacement
+  })
+}
+
+export function ancestralAttackName(c: Character, name: string, material?: string) {
+  const display = adoptedAncestryText(c, name)
+  const tusks = /^Tusks(?: \(Orc\))?$/i.test(name)
+  const fixed = tusks && c.feats.some(feat => feat.name === 'Cold Iron Tusks' && featTakenLevel(feat) <= c.level)
+    && c.level >= 5 ? 'Cold Iron' : undefined
+  const selected = material ?? (tusks || /^Iron Fists?$/i.test(name) ? fixed ?? alloyedAttackChoice(c) : undefined)
+  return selected && !display.startsWith(`${selected} `) ? `${selected} ${display}` : display
+}
+
 export function ancestryFeatTraits(c: Character) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const testSubject = c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg' && getSettings().cyborgTestSubject

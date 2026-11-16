@@ -1,4 +1,5 @@
 import type { Character, ContentEntry } from './types'
+import { ancestralUnarmedFeatNames } from './featChoices'
 
 export interface PrerequisiteCheck {
   missing: string[]
@@ -375,7 +376,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     }
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
     const references = reference === 'attack of opportunity' ? [reference, 'reactive strike']
-      : reference === 'reactive strike' ? [reference, 'attack of opportunity'] : [reference]
+      : reference === 'reactive strike' ? [reference, 'attack of opportunity']
+      : reference === 'ancestral unarmed attack' ? [reference, ...ancestralUnarmedFeatNames(
+        facts.ancestryTraits ?? [facts.ancestry ?? '', facts.heritage ?? '']).map(key)] : [reference]
     if (facts.features.some((feature) => references.includes(key(feature)))) return met()
     const content = references.flatMap(knownEntries)
     if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference

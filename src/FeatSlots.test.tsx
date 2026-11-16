@@ -14,6 +14,29 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('searches adopted Orc Tusks as Teeth while saving and reloading canonical feat identity', () => {
+  const tusks: ContentEntry = { id: 'aon:pf2e:feat-4519', name: 'Tusks', kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Orc'], description: 'Your tusks deal 1d6 piercing damage. Each tusk has finesse and unarmed traits.',
+    data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', level: 1, feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
+  ] }
+  const source = JSON.stringify(tusks)
+  const tree = () => FeatSlots({ c, entries: [tusks], categories: ['ancestry'],
+    search: { 'ancestry:1:0:open': '1', 'ancestry:1:0:query': 'teeth' }, onSearch: () => {},
+    save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('L01 Ancestry: Teeth')
+  findButton(tree(), 'L01 Ancestry: Teeth')!()
+  expect(c.feats.find(feat => feat.name === 'Tusks')).toMatchObject({
+    name: 'Tusks', sourceId: tusks.id, slot: 'ancestry:1:0',
+  })
+  c = JSON.parse(JSON.stringify(c))
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('>Teeth<')
+  expect(markup).toContain('Your teeth deal 1d6 piercing damage. Each tooth has finesse and unarmed traits.')
+  expect(JSON.stringify(tusks)).toBe(source)
+})
+
 it('reuses selected prerequisite checks for empty slots and invalidates changed rules, settings and content', () => {
   const source: ContentEntry = { id: 'target', name: 'Target', kind: 'feat', source: 'official', systems: ['pf2e'],
     level: 1, traits: ['Ranger'], description: '', data: { prerequisite: 'Strength +4' }, effects: [], updatedAt: 0 }

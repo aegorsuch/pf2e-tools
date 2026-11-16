@@ -6,7 +6,7 @@ import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS } from './supplemental'
+import { ARMOR_GAUNTLETS, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 
@@ -26,6 +26,15 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it.each([false, true])('shows the Oversized Throw two-action icon in both views (displayOnly=%s)', displayOnly => {
+  const c = { ...character([{ name: 'Oversized Throw', type: 'Class Feat', level: 4 }]), className: 'Barbarian', raging: true }
+  const tree = WeaponList({ c, entries: [], save: () => {}, displayOnly })
+  const markup = renderToStaticMarkup(tree)
+  expect(markup).toContain('<strong>Oversized Throw</strong> <span class="action-cost" aria-label="Two Actions"')
+  expect(weaponAttack(c, [], { id: OVERSIZED_THROW.id, name: OVERSIZED_THROW.name, potency: 0, striking: 0, runes: [] }).damage)
+    .toBe('2d10 bludgeoning')
 })
 
 it('displays the versatile damage type from cached weapon metadata', () => {

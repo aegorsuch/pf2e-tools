@@ -320,6 +320,31 @@ it('shows alloyed metal on melee unarmed attacks without overwriting existing ma
     entries={[]} save={() => {}} />)).not.toContain('Adamantine Fists')
 })
 
+it.each(['Cold Iron', 'Silver', 'Adamantine'])('labels adopted Orc unarmed attacks as %s Teeth without renaming stored weapons', material => {
+  const c: Character = { ...base, ancestry: 'Human', level: 13, feats: [
+    feat('Adopted Ancestry', 1, 'Orc'), feat('Tusks'), feat('Alloyed Attacks', 5, material),
+  ] }
+  const tusks = ownedWeapons(c, []).find(weapon => weapon.name === 'Tusks')!
+  const before = JSON.stringify(c)
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain(`<strong>${material} Teeth</strong>`)
+  expect(tusks.name).toBe('Tusks')
+  expect(weaponAttack(c, [], tusks).damage).toBe(weaponAttack({ ...c, ancestry: 'Orc' }, [], tusks).damage)
+  expect(JSON.stringify(c)).toBe(before)
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, level: 12 }} entries={[]} save={() => {}} />))
+    .toContain(`<strong>${material === 'Adamantine' ? '' : `${material} `}Teeth</strong>`)
+})
+
+it('keeps fixed Cold Iron Tusks material ahead of Alloyed Attacks properties in the displayed name', () => {
+  const c = { ...base, ancestry: 'Human', feats: [
+    feat('Adopted Ancestry', 1, 'Orc'), feat('Tusks'), feat('Cold Iron Tusks', 5), feat('Alloyed Attacks', 5, 'Silver'),
+  ] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('<strong>Cold Iron Teeth</strong>')
+  expect(markup).toContain('melee unarmed attacks have Silver properties')
+  expect(markup).toContain('Granted by Cold Iron Teeth')
+})
+
 it('provides both playing-card usages with one shared deck and automatic fundamentals', () => {
   const dagger = content('weapon', 'Dagger', { damage: '1d4 piercing', weapon_category: 'Simple' }, 0)
   const dart = content('weapon', 'Dart', { damage: '1d4 piercing', weapon_category: 'Simple', weapon_type: 'Ranged', range: 20 }, 0)

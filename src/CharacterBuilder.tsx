@@ -28,6 +28,7 @@ import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
+import { WORN_EQUIPMENT_GROUPS, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 
 const NONE: ContentEntry[] = []
 
@@ -118,21 +119,23 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
-function EquipmentSearch({ c, entries, save }: SectionProps) {
+function EquipmentSearch({ c, entries, save, category }: SectionProps & { category?: EquipmentGroupName }) {
   const [query, setQuery] = useState('')
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
     return q
-      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && e.name.toLowerCase().includes(q))
+      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && e.name.toLowerCase().includes(q)
+        && (!category || equipmentGroupName(e) === category))
         .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
       : []
-  }, [entries, query])
+  }, [entries, query, category])
   return <>
-    <input placeholder="Search equipment" value={query} onChange={event => setQuery(event.target.value)} />
+    <input aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
+      value={query} onChange={event => setQuery(event.target.value)} />
     <ul>
       {matches.map(g => <li key={g.id}>
         {detail(g) ? <Info label={g.name}>{detail(g)}</Info> : <b>{g.name}</b>} <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
-        <button onClick={() => {
+        <button aria-label={`Add ${g.name}`} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name)
           save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item) : [...c.equipment, { name: g.name, qty: 1 }] })
         }}>Add</button>
@@ -141,7 +144,6 @@ function EquipmentSearch({ c, entries, save }: SectionProps) {
   </>
 }
 
-type EquipmentGroupName = 'Arrows' | 'Bolts' | 'Bullets' | 'Grafts' | 'Other equipment' | 'Poisons' | 'Tattoos' | 'Worn Items'
 type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
 
 function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracelets = [], simplePoisons = false }: SectionProps & { group: EquipmentGroupName; rows: EquipmentRow[]; integratedComm?: ContentEntry | null; bracelets?: string[]; simplePoisons?: boolean }) {
@@ -151,8 +153,10 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
-  if (!displayed.length) return null
-  return <div><h4>{group}</h4><ul>
+  const worn = WORN_EQUIPMENT_GROUPS.some(name => name === group)
+  const addCategory = worn || group === 'Grafts' || group === 'Tattoos' ? group : undefined
+  if (!displayed.length && !addCategory) return null
+  const body = <><ul>
     {displayed.map(display => {
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
         descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
@@ -187,7 +191,12 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       </>}
       </li>
     })}
-  </ul></div>
+  </ul>
+    {addCategory && <EquipmentSearch c={c} entries={entries} save={save} category={addCategory} />}
+  </>
+  return worn ? <details open={displayed.length > 0 || undefined}>
+    <summary>{group} <small>({displayed.length})</small></summary>{body}
+  </details> : <div><h4>{group}</h4>{body}</div>
 }
 
 function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
@@ -313,15 +322,14 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       if (entry.kind === 'item' && !items.has(entry.name)) items.set(entry.name, entry)
       else if ((entry.kind === 'weapon' || entry.kind === 'armor') && !fallback.has(entry.name)) fallback.set(entry.name, entry)
     }
-    const groups: Record<EquipmentGroupName, EquipmentRow[]> = { Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [], 'Worn Items': [] }
+    const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
+      Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [],
+      Backpacks: [], Belts: [], Boots: [], Bracelets: [], Cloaks: [], Clothing: [], Eyewear: [], Gloves: [],
+      Headwear: [], Necklaces: [], Rings: [], 'Other Worn Items': [],
+    }
     c.equipment.forEach((item, index) => {
       const entry = items.get(item.name) ?? fallback.get(item.name)
-      const category = String(entry?.data.item_category ?? '').toLowerCase()
-      const ammo = /\b(?:arrows?|bolts?|bullets?)\b/i.exec(item.name)?.[0].toLowerCase()
-      const group = category === 'grafts' ? 'Grafts' : category === 'tattoos' ? 'Tattoos'
-        : entry?.kind === 'item' && entry.traits.some(trait => trait.toLowerCase() === 'poison') ? 'Poisons'
-        : category === 'worn items' ? 'Worn Items'
-        : ammo?.startsWith('arrow') ? 'Arrows' : ammo?.startsWith('bolt') ? 'Bolts' : ammo ? 'Bullets' : 'Other equipment'
+      const group = equipmentGroupName(entry, item.name)
       groups[group].push({ item, index, entry })
     })
     Object.values(groups).forEach(rows => rows.sort((a, b) => a.item.name.localeCompare(b.item.name)))
@@ -584,7 +592,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
-          <EquipmentGroup {...section} group="Worn Items" rows={equipmentGroups['Worn Items']} bracelets={pairedEmpathyBracelets} />
+          <h4>Worn Items</h4>
+          <small>Gear groups organize equipment; they do not impose body-slot limits.</small>
+          {WORN_EQUIPMENT_GROUPS.map(group => <EquipmentGroup key={group} {...section} group={group} rows={equipmentGroups[group]}
+            bracelets={group === 'Bracelets' ? pairedEmpathyBracelets : undefined} />)}
           <EquipmentSearch {...section} />
         </div>
       </DeferredDetails>

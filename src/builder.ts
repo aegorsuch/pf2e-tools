@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
@@ -795,7 +795,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
   }
   const trait = wanted[slot.category]?.toLowerCase()
-  const ancestryTraits = slot.category === 'ancestry' ? ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level) }) : []
+  const ancestryTraits = slot.category === 'ancestry' || slot.category === 'bonus'
+    ? ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level) }) : []
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
@@ -809,6 +810,14 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     && (ranksAt({ ...c, level: slot.level }, entries)[slot.grantedSkill] ?? 0) >= 3
   const spellcastingDedications = slot.grantedBy === 'Eldritch Trickster' ? eldritchTricksterDedications(entries) : undefined
   const prerequisites = featSelectionPrerequisiteChecker(c, entries, slot)
+  const redundantUnarmedTraits = new Set(ancestryTraits.filter(ancestry => {
+    const names = new Set(ancestralUnarmedFeatNames([ancestry]))
+    return names.size > 0 && (c.feats.some(feat => names.has(feat.name) && feat.slot !== slot.key
+      && featTakenLevel(feat) <= Math.min(c.level, slot.level))
+      || featIndex(entries).some(({ entry, traits }) => names.has(entry.name) && traits.has(ancestry)
+        && entry.systems.some(system => c.systems.includes(system))
+        && entry.level <= Math.min(c.level, slot.level) && !prerequisites(entry).missing.length))
+  }))
   const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites({
     ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= Math.min(c.level, slot.level)),
   }, entries, slot.key, true) : undefined
@@ -834,8 +843,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (!slot.grantedOrder || new RegExp(`\\b${slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder} order\\b`, 'i').test(String(e.data.prerequisite ?? '')))
       && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
         { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level, sourceId: e.id }))
-      && !(e.name === 'Ancestral Unarmed Attack' && c.ancestry === 'Orc'
-        && c.feats.some(feat => /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(feat.name) && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level))
+      && !(e.name === 'Ancestral Unarmed Attack' && (traits.has('ancestry') && redundantUnarmedTraits.size
+        || [...redundantUnarmedTraits].some(ancestry => traits.has(ancestry)))
+        && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && !(getSettings().singleAdditionalArms && e.name === 'Additional Arms' && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
@@ -3722,8 +3732,7 @@ export const weaponDamage = (entry?: ContentEntry) => {
 export function alloyedAttackMaterial(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name)
   if (weaponCategory(entry) !== 'Unarmed' || isRanged(entry)) return undefined
-  const choice = activeFeatsNamed(c, 'Alloyed Attacks')[0]?.choice
-  return choice === 'Cold Iron' || choice === 'Silver' || choice === 'Adamantine' && c.level >= 13 ? choice : undefined
+  return alloyedAttackChoice(c)
 }
 
 export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy' | 'Unarmored' {
@@ -3768,6 +3777,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(upgrades.some(upgrade => /^Smuggler's Grip(?:\s*\(|$)/i.test(upgrade.name)) ? ['Concealed'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
+  }
+  if (entry && c.className === 'Barbarian' && c.raging && getSettings().barbarianIgnoreAgile
+    && entry.traits.some(trait => /^agile$/i.test(trait.trim()))) {
+    entry = { ...entry, traits: entry.traits.filter(trait => !/^agile$/i.test(trait.trim())) }
   }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)

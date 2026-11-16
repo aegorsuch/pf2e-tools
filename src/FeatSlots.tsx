@@ -7,7 +7,7 @@ import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
-import { compareFeatSelections } from './featChoices'
+import { ancestralAttackName, compareFeatSelections } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
 import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
@@ -107,7 +107,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ? featSynergySuggestions(entries, { knownFeats, systems: c.systems })
     : new Map<string, string[]>()
   const matches = (o: ContentEntry, query: string, unlocks: string[] = []) => !query
-    || [o.name, String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
+    || [o.name, ancestralAttackName(c, o.name), String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
   const isDedication = (o?: ContentEntry) => !!o?.traits.some((t) => /^dedication$/i.test(t))
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
@@ -116,7 +116,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
   })
   const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
-  const displayName = (name: string) => (name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
+  const displayName = (name: string) => ancestralAttackName(c, name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name)
     .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const fixedLabel = (name: string, sourceId?: string) => {
     if (name === 'Ancestral Cantrip') {
@@ -292,7 +292,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           if (row.kind === 'memory') return <Fragment key={`memory:${row.index}`}>
             {heading}
             <li className={`feat-slot-row automatic-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
-              <EntryDescription name="Assurance" entry={featsByName.get('Assurance')} entries={entries}
+              <EntryDescription character={c} name="Assurance" entry={featsByName.get('Assurance')} entries={entries}
                 className="feat-name" grantSource="Carry Their Memories (temporary)" />
               <CarryTheirMemoriesChoice c={c} entries={entries} save={save} index={row.index} />
             </li>
@@ -305,7 +305,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
                 {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
-                <EntryDescription name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
+                <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
                   entry={entry} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
               </li>
@@ -400,7 +400,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               onClick={() => { choose(s.key, s.category, s.level, option.value); onSearch?.(`${s.key}:open`, '') }}>
               {option.label}
             </button>
-            <EntryDescription name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
+            <EntryDescription character={c} name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
               entry={option.entry} entries={entries} buttonLabel="Details" className="picker-details"
               prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)}
               descriptionNote={option.entry.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
@@ -414,9 +414,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
-                <EntryDescription name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
+                <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
                   descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                     : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -506,7 +506,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         })}
       </ul>
       {aboveLevel.length > 0 && (
-        <small>Some feats sit in slots above your current level: {aboveLevel.map((f) => f.name).join(', ')}</small>
+        <small>Some feats sit in slots above your current level: {aboveLevel.map((f) => displayName(f.name)).join(', ')}</small>
       )}
     </Wrapper>
   )
