@@ -336,7 +336,7 @@ export interface Character {
   }
   oakenResilienceRank?: number
   spentFocusPoints?: number[]
-  innateSpellUses?: Record<string, number>
+  innateSpellUses?: Record<string, number | number[]>
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   animalFeatures?: NonNullable<Character['animalFeature']>[]
   untamedShiftEffects?: ('Claws' | 'Jaws' | 'Elemental' | 'Plant' | 'Wings')[]

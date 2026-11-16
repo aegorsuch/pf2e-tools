@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { ActionIcon } from './ActionIcon'
+import type { ContentEntry } from './types'
 
 type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number }
 
@@ -32,18 +34,37 @@ export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
     .reduce((sum, roll) => sum + roll, bonus)
 }
 
-function DamageRoll({ name, damage }: { name: string; damage: Damage }) {
+export function spellActionRolls(name: string, rank: number, entry?: ContentEntry) {
+  const rolls = spellDamage(name, rank)
+  if (name === 'Heal Companion') return rolls.map((damage, index) => ({
+    damage, actions: index === 0 ? 'One Action' : 'Two Actions',
+  }))
+  const actions = entry?.data.actions
+  return typeof actions === 'string' && /^(?:(?:single|one|two|three|free) actions?|reaction)$/i.test(actions)
+    ? rolls.map(damage => ({ damage, actions })) : []
+}
+
+function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
   const [result, setResult] = useState<ReturnType<typeof rollSpellDamage>>()
   const formula = `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
   return <span>
-    <button type="button" aria-label={`Roll ${name}: ${damage.label}`} title={`${damage.label}: ${formula}`}
+    <button type="button" className={actions ? 'spell-action-button' : undefined}
+      aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}`}
       onClick={() => setResult(rollSpellDamage(damage))}>
-      {damage.label}: {formula}
+      {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${formula}`}
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
       {' '}{result} {damage.type}
     </output>}
   </span>
+}
+
+export function SpellActions({ name, rank, entry }: { name: string; rank: number; entry?: ContentEntry }) {
+  const rolls = spellActionRolls(name, rank, entry)
+  return rolls.length ? <>{rolls.map(({ damage, actions }) =>
+    <DamageRoll key={`${damage.label}:${damage.dice}`} name={name} damage={damage} actions={actions}
+      showLabel={rolls.length > 1 && name !== 'Heal Companion'} />)}</>
+    : <ActionIcon entry={entry} />
 }
 
 export function SpellDamageRolls({ name, rank }: { name: string; rank: number }) {

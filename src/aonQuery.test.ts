@@ -2,6 +2,17 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('preserves spell duration and range wording without changing their indexed numeric values', () => {
+  const entry = mapAonHit({ _id: 'invisibility', _source: {
+    name: 'Invisibility', category: 'spell', duration: 600, range: 0,
+    markdown: '**Range** touch\n\n**Duration** 10 minutes\n\n---\n\nRules.\n\n**Duration** 1 minute when heightened.',
+  } }, 'pf2e')
+  expect(entry?.data).toMatchObject({ duration: 600, range: 0, duration_text: '10 minutes', range_text: 'touch' })
+  expect(mapAonHit({ _id: 'sure-strike', _source: { name: 'Sure Strike', category: 'spell',
+    markdown: '**Duration** until the end of your turn\n\n---\n\nRules.' } }, 'pf2e')?.data.duration_text)
+    .toBe('until the end of your turn')
+})
+
 it('preserves artifact activation action costs even for unnamed abilities and variable spell costs', () => {
   const entry = mapAonHit({ _id: 'artifact-actions', _source: {
     name: 'Artifact actions', category: 'equipment', trait: ['Artifact'],

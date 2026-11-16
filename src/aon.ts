@@ -29,6 +29,14 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     else if (typeof v === 'string' && v) data[f] = v
     else if (Array.isArray(v) && v.length) data[f] = v.join(', ')
   }
+  if (kind === 'spell') {
+    const header = text(s.markdown).split(/\n\s*---\s*\n/, 1)[0]
+    for (const field of ['duration', 'range']) {
+      const match = new RegExp(`\\*\\*${field}\\*\\*[ \\t]*([^\\r\\n]*)`, 'i').exec(header)
+      const value = match ? plain(match[1]) : ''
+      if (value) data[`${field}_text`] = value
+    }
+  }
   if (kind === 'feat') {
     const special = /\*\*Special\*\*\s*([^\n]*)/i.exec(text(s.markdown))?.[1] ?? ''
     data.repeatable = /\b(?:take|select|choose) this (?:ancestry |class |skill |general )?feat (?:multiple times|more than once|twice|a second time|up to \w+ times)\b/i.test(special)

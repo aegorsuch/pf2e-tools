@@ -292,7 +292,11 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       for (const name of names) {
         const available = matchingSpells(entries, name).filter(spell => spell.systems.some(system => c.systems.includes(system)))
         const entry = available.find(spell => spell.name.toLowerCase() === name.toLowerCase()) ?? available[0]
-        if (entry) out.push({ entry, source: feat.name, rule, rank: rule.heightened || entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+        if (entry) out.push({ entry, source: feat.name,
+          rule: feat.name === 'Empathetic Connection'
+            ? { ...rule, condition: rule.condition ?? 'The target is temporarily immune for 24 hours' }
+            : feat.name === 'Imperious Nature' ? { ...rule, condition: rule.condition ?? 'This effect loses the linguistic trait' } : rule,
+          rank: rule.heightened || entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
           ? Math.ceil(c.level / 2) : rule.rank ?? entry.level,
           usageKey: JSON.stringify([selection, feat.name, baseRule.spells.map(spell => spell.toLowerCase()).sort(),
             rule.tradition?.toLowerCase() ?? '', rule.shared || rule.choice ? 'shared' : entry.name.toLowerCase()]) })
@@ -307,8 +311,15 @@ export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFe
   const frequency = /^(once|twice|(\d+) times) per day(?: each)?$/i.exec(grant.rule.frequency ?? '')
   if (!frequency) return undefined
   const limit = frequency[1].toLowerCase() === 'once' ? 1 : frequency[1].toLowerCase() === 'twice' ? 2 : Number(frequency[2])
-  const used = c.innateSpellUses?.[grant.usageKey] ?? 0
-  return { key: grant.usageKey, limit, used, remaining: Math.max(0, limit - used) }
+  const saved = c.innateSpellUses?.[grant.usageKey] ?? 0
+  const savedIndices = Array.isArray(saved) ? [...new Set(saved.filter(index => Number.isInteger(index) && index >= 0))] : undefined
+  const spent = savedIndices
+    ? savedIndices.filter(index => index < limit)
+    : Array.from({ length: Math.min(limit, Math.max(0, Math.floor(typeof saved === 'number' ? saved : 0))) }, (_, index) => index)
+  for (let index = 0; spent.length < Math.min(limit, savedIndices?.length ?? 0); index++) {
+    if (!spent.includes(index)) spent.push(index)
+  }
+  return { key: grant.usageKey, limit, spent, used: spent.length, remaining: limit - spent.length }
 }
 
 export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { name: string; source?: ContentEntry; sourceName?: string }[] {

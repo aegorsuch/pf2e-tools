@@ -1,10 +1,42 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, it, vi } from 'vitest'
-import { rollSpellDamage, spellDamage, SpellDamageRolls } from './SpellDamage'
+import { rollSpellDamage, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
-import type { Character } from './types'
+import type { Character, ContentEntry } from './types'
 
 afterEach(() => vi.restoreAllMocks())
+
+it('maps Heal Companion action icons to their own heightened healing formulas', () => {
+  const rolls = spellActionRolls('Heal Companion', 5)
+  expect(rolls.map(roll => roll.actions)).toEqual(['One Action', 'Two Actions'])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([5, 45])
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([50, 90])
+  const markup = renderToStaticMarkup(<SpellActions name="Heal Companion" rank={5} />)
+  expect(markup).toContain('aria-label="Roll Heal Companion: 1-action healing"')
+  expect(markup).toContain('aria-label="Roll Heal Companion: 2-action healing"')
+  expect(markup).toContain('title="One Action; 1-action healing: 5d10 HP"')
+  expect(markup).toContain('title="Two Actions; 2-action healing: 5d10+40 HP"')
+  expect(markup.match(/<button /g)).toHaveLength(2)
+})
+
+it('uses a spell action icon for a supported damage roll and keeps non-rolling spell actions passive', () => {
+  const entry: ContentEntry = { id: 'slime', name: 'Slime Spit', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellActionRolls(entry.name, 3, entry)).toMatchObject([{ actions: 'Two Actions', damage: { dice: 6, sides: 6 } }])
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={3} entry={entry} />)
+  expect(markup).toContain('aria-label="Roll Slime Spit: Damage"')
+  expect(markup).toContain('6d6 poison')
+  const passive = renderToStaticMarkup(<SpellActions name="Sure Strike" rank={1} entry={{ ...entry, name: 'Sure Strike' }} />)
+  expect(passive).toContain('aria-label="Two Actions"')
+  expect(passive).not.toContain('<button')
+  const multiple = renderToStaticMarkup(<SpellActions name="Pulverizing Wake" rank={7} entry={entry} />)
+  expect(multiple).toContain('<small>Strike bonus</small>')
+  expect(multiple).toContain('<small>Cone</small>')
+  expect(multiple).toContain('3d8 sonic')
+  expect(multiple).toContain('8d8 sonic')
+})
 
 it.each([
   ['Slime Spit', 1, 2, 6], ['Slime Spit', 10, 20, 6],

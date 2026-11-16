@@ -228,7 +228,7 @@ it('shows champion sanctification and devotion spell choices without a blessing'
   const spells = renderToStaticMarkup(<SpellsSection c={c} entries={[deity, entry('Lay on Hands', 'spell')]} save={() => {}} />)
   expect(spells).toContain('aria-label="Devotion spell"')
   expect(spells).toContain('Lay on Hands')
-  expect(spells).toContain('Devotion Spells')
+  expect(spells).not.toContain('Devotion Spells')
   expect(spells).not.toContain('Touch of the Void')
   const features = renderToStaticMarkup(<ClassFeatures c={c} entries={[deity]} save={() => {}} />)
   expect(features).toContain('aria-label="Sanctification"')
@@ -296,12 +296,12 @@ it('grants Sacral Monarch spells once each per day only within the claimed terri
   expect(grantedFeatSpells({ ...c, level: 13 }, [source, ...spells])).toEqual([])
 })
 
-it('refocuses one point per ten minutes across saves without resetting spells or daily uses', () => {
+it('restores focus dots individually across saves without a Refocus button or resetting spells or daily uses', () => {
   let c: Character = { ...base, activeSpells: ['Animal Feature'], innateSpellUses: { daily: 1 } }
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
   const tree = () => FocusPointTracker({ c, save, points: 3 })
   expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
-  expect(findUseButton(tree(), 'Refocus')!.disabled).toBe(true)
+  expect(findUseButton(tree(), 'Refocus')).toBeUndefined()
   findUseButton(tree(), 'Spend focus point 2')!.onClick()
   expect(c.spentFocusPoints).toEqual([1])
   expect(renderToStaticMarkup(tree())).toContain('2 of 3 focus points available')
@@ -311,11 +311,11 @@ it('refocuses one point per ten minutes across saves without resetting spells or
   expect(renderToStaticMarkup(tree())).not.toContain('aria-pressed="true"')
   findUseButton(tree(), 'Restore focus point 2')!.onClick()
   expect(c.spentFocusPoints).toEqual([0, 2])
-  findUseButton(tree(), 'Refocus')!.onClick()
+  findUseButton(tree(), 'Restore focus point 1')!.onClick()
   expect(c.spentFocusPoints).toEqual([2])
-  expect(c.focusPointsSpentSinceRefocus).toBe(0)
-  findUseButton(tree(), 'Refocus')!.onClick()
+  findUseButton(tree(), 'Restore focus point 3')!.onClick()
   expect(c.spentFocusPoints).toEqual([])
+  expect(c.focusPointsSpentSinceRefocus).toBe(0)
   expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
   expect(c.activeSpells).toEqual(['Animal Feature'])
   expect(c.innateSpellUses).toEqual({ daily: 1 })
@@ -358,7 +358,33 @@ it('alphabetizes innate spell names independently of feat selection order', () =
   expect(innate).toContain('Reflex')
   expect(innate).toContain('one creature')
   expect(innate).toContain('>Cast</span>')
+  expect(innate.match(/>Cast<\/span>/g)).toHaveLength(1)
+  const firstRow = innate.match(/<li class="innate-spell-row">([\s\S]*?)<\/li>/)?.[1] ?? ''
+  expect(firstRow.slice(0, firstRow.indexOf('<span><small>Duration')))
+    .toContain('aria-label="Spend Alpha (Alpha Magic) use 1"')
+  expect(firstRow).not.toContain('aria-haspopup="dialog">Alpha Magic</button>')
   expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
+})
+
+it('shows original duration units, touch range and Sure Strike self-targeting without an Invisibility toggle', () => {
+  const spells = [
+    entry('Invisibility', 'spell', { duration: 600, duration_text: '10 minutes', range: 0, range_text: 'touch', target: '1 creature' }),
+    entry('Sure Strike', 'spell', { duration_text: 'until the end of your turn' }),
+    entry('Mindlink', 'spell', { range: 0, target: '1 willing creature' }),
+    entry('Legacy Buff', 'spell', { duration: 60, range: 30 }),
+  ]
+  const source: ContentEntry = { ...entry('Innate Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: spells.map(spell => spell.name), rank: 2, tradition: 'arcane', frequency: 'once per day' }] }
+  const c: Character = { ...base, feats: [taken(source.name)], activeSpells: ['Invisibility'] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, ...spells]} save={() => {}} />)
+  for (const value of ['10 minutes', '1 minute', 'Touch', '30 feet', 'Self', 'until the end of your turn']) {
+    expect(markup).toContain(`>${value}</span>`)
+  }
+  expect(markup).not.toContain('>600</span>')
+  expect(markup).not.toContain('>0</span>')
+  expect(markup).not.toContain('aria-label="Invisibility active"')
+  expect(markup).toContain('aria-label="Spend Invisibility (Innate Magic) use 1"')
+  expect(c.activeSpells).toEqual(['Invisibility'])
 })
 
 it('sorts innate ranks numerically ascending within each tradition', () => {
@@ -621,7 +647,7 @@ it('shows only earned focus dots when capacity changes and no tracker without a 
   expect(FocusPointTracker({ c, save: () => {}, points: 0 })).toBeNull()
 })
 
-it('persists spent daily uses, blocks overspending, undoes use and resets without ending active spells', () => {
+it('persists individual daily-use dots and restores them without ending active spells', () => {
   const source = feat('Daily Magic', 'You can cast [invisibility](/Spells.aspx?ID=1) as a 2nd-rank arcane innate spell twice per day.')
   const entries = [source, entry('Invisibility', 'spell')]
   let c: Character = { ...base, feats: [taken(source.name)], activeSpells: ['Invisibility'],
@@ -629,21 +655,20 @@ it('persists spent daily uses, blocks overspending, undoes use and resets withou
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
   const grant = () => grantedFeatSpells(c, entries)[0]
   const tree = () => InnateSpellUses({ c, save, grant: grant() })
-  const use = () => findUseButton(tree(), 'Cast Invisibility (Daily Magic)')!
-  const undo = () => findUseButton(tree(), 'Undo use of Invisibility (Daily Magic)')!
-  expect(undo().disabled).toBe(true)
-  undo().onClick()
+  const use = (index: number) => findUseButton(tree(), `Spend Invisibility (Daily Magic) use ${index}`)!
+  const undo = (index: number) => findUseButton(tree(), `Restore Invisibility (Daily Magic) use ${index}`)!
+  expect(undo(1)).toBeUndefined()
   expect(dailyInnateUses(c, grant())?.used).toBe(0)
-  use().onClick()
-  expect(dailyInnateUses(c, grant())).toMatchObject({ used: 1, remaining: 1 })
+  use(2).onClick()
+  expect(dailyInnateUses(c, grant())).toMatchObject({ spent: [1], used: 1, remaining: 1 })
   expect(c.innateSpellUses?.['another pool']).toBe(1)
-  use().onClick()
-  expect(use().disabled).toBe(true)
-  use().onClick()
+  use(1).onClick()
+  expect(use(1)).toBeUndefined()
+  expect(use(2)).toBeUndefined()
   expect(dailyInnateUses(c, grant())).toMatchObject({ used: 2, remaining: 0 })
-  expect(renderToStaticMarkup(tree())).toContain('>0/2</small>')
-  undo().onClick()
-  expect(dailyInnateUses(c, grant())).toMatchObject({ used: 1, remaining: 1 })
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="0 of 2 uses remaining"')
+  undo(2).onClick()
+  expect(dailyInnateUses(c, grant())).toMatchObject({ spent: [0], used: 1, remaining: 1 })
   findUseButton(ResetDailyInnateUses({ c, save }), 'Reset daily innate uses')!.onClick()
   expect(dailyInnateUses(c, grant())).toMatchObject({ used: 0, remaining: 2 })
   expect(c.innateSpellUses).toEqual({})
@@ -665,7 +690,32 @@ it('shares alternative daily spells but keeps each-spell and different-source po
   expect(dailyInnateUses(c, independent)?.remaining).toBe(1)
   expect(dailyInnateUses(c, independent)?.key).not.toBe(dailyInnateUses(c, otherIndependent)?.key)
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
-    .toContain('aria-label="0 of 1 uses remaining (shared)">0/1</small>')
+    .toContain('aria-label="0 of 1 uses remaining (shared)"')
+})
+
+it('preserves legacy spent counts and does not refund uses when a daily allowance shrinks', () => {
+  const source = feat('Daily Magic', 'You can cast [invisibility](/Spells.aspx?ID=1) as an arcane innate spell twice per day.')
+  const entries = [source, entry('Invisibility', 'spell')]
+  const c: Character = { ...base, feats: [taken(source.name)] }
+  const grant = grantedFeatSpells(c, entries)[0]
+  expect(dailyInnateUses({ ...c, innateSpellUses: { [grant.usageKey]: 1 } }, grant))
+    .toMatchObject({ spent: [0], used: 1, remaining: 1 })
+  const spent = { ...c, innateSpellUses: { [grant.usageKey]: [1, 1, -1, 0.5] } }
+  expect(dailyInnateUses(spent, grant)).toMatchObject({ spent: [1], used: 1, remaining: 1 })
+  expect(dailyInnateUses(spent, { ...grant, rule: { ...grant.rule, frequency: 'once per day' } }))
+    .toMatchObject({ spent: [0], used: 1, remaining: 0 })
+})
+
+it('places Warden focus spells before innate spells without showing granting-source links', () => {
+  const source: ContentEntry = { ...entry('Daily Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: ['Invisibility'], tradition: 'arcane', frequency: 'once per day' }] }
+  const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, 'Gravity Weapon'), taken(source.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, entry('Invisibility', 'spell'),
+    entry('Gravity Weapon', 'spell', { warden_spell_tier: 'Initiate' })]} save={() => {}} />)
+  expect(markup).toContain('<b>Initiate Warden</b>')
+  expect(markup.indexOf('<b>Initiate Warden</b>')).toBeLessThan(markup.indexOf('<b>Innate Spells</b>'))
+  expect(markup).not.toContain('aria-haspopup="dialog">Daily Magic</button>')
+  expect(markup).not.toContain('>Refocus</button>')
 })
 
 it('does not track at-will or focus spells and retains uses across heightening and feat order changes', () => {
@@ -700,7 +750,7 @@ it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequenc
   expect(grantedFeatSpells(enhanced, data)).toMatchObject([{ rank: 2, rule: { frequency: 'twice per day' } }])
   const enhancedMarkup = renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />)
   expect(enhancedMarkup).not.toContain('rank 2 arcane; twice per day')
-  expect(enhancedMarkup).toContain('>2/2</small>')
+  expect(enhancedMarkup).toContain('aria-label="2 of 2 uses remaining"')
   expect(enhancedMarkup).not.toContain('; rank 2 arcane')
   expect(grantedFeatSpells({ ...enhanced, level: 20 }, data)[0].rank).toBe(2)
   const trained = { ...spent, feats: [...spent.feats, taken('Greywatch Initiate', 4)] }
@@ -743,11 +793,11 @@ it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
   expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Command' }, rank: 7,
     rule: { tradition: 'occult', frequency: 'once per day', dc: 'higher-class-or-spell' } }])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('; DC 39')
+  expect(markup).toContain('DC 39')
   expect(markup).not.toContain('rank 7 occult; once per day')
   expect(markup).not.toContain('use higher of class DC or spell DC')
   expect(markup).not.toContain('Attack +')
-  expect(markup).toContain('>1/1</small>')
+  expect(markup).toContain('aria-label="1 of 1 uses remaining"')
   expect(markup).toContain('loses the linguistic trait')
   expect(classDifficultyClass(c, entries)).toBe(39)
   expect(classDifficultyClass({ ...c, level: 10 }, entries)).toBe(30)
@@ -772,7 +822,7 @@ it('compares Imperious Nature against class spell DC as well as innate spell DC'
     updateSettings({ innateHighestMental: false })
     expect(classDifficultyClass(c, entries)).toBe(36)
     const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-    expect(markup).toContain('; DC 40')
+    expect(markup).toContain('DC 40')
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
@@ -798,7 +848,10 @@ it.each(['once per day', 'twice per day', 'at will', 'once per hour'])('deduplic
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Test Spell', 'spell')]} save={() => {}} />)
   expect(markup.includes(frequency)).toBe(!frequency.endsWith('per day'))
-  if (frequency.endsWith('per day')) expect(markup).toContain(`>${frequency.startsWith('twice') ? '2/2' : '1/1'}</small>`)
+  if (frequency.endsWith('per day')) {
+    const limit = frequency.startsWith('twice') ? 2 : 1
+    expect(markup).toContain(`aria-label="${limit} of ${limit} uses remaining"`)
+  }
 })
 
 it('uses higher class spell proficiency and highest mental attribute for innate spells', () => {
@@ -807,7 +860,7 @@ it('uses higher class spell proficiency and highest mental attribute for innate 
   const entries = [grant, entry('One with Stone', 'spell', { saving_throw: 'Fortitude' }), entry('Wizard', 'class', { tradition: 'Arcane' }), master]
   const c = { ...base, className: 'Wizard', level: 15, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('; Intelligence DC 35')
+  expect(markup).toContain('Intelligence DC 35')
   expect(grantedFeatSpells(c, entries)[0].rank).toBe(3)
 })
 

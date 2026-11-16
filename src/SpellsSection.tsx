@@ -6,9 +6,9 @@ import { ANIMAL_FEATURES } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel, wardenTierOf } from './featChoices'
 import { ActionIcon } from './ActionIcon'
-import { SpellDamageRolls } from './SpellDamage'
+import { SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
-import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
+import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import { featTakenLevel } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
@@ -79,11 +79,10 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
   </fieldset>
 }
 
-export function FocusPointTracker({ c, entries = [], save, points }: Pick<SectionProps, 'c' | 'save'> & { entries?: ContentEntry[]; points: number }) {
+export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 'save'> & { points: number }) {
   const capacity = Math.min(3, Math.max(0, points))
   if (!capacity) return null
   const spent = new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < capacity))
-  const recovery = refocusRecovery(c, entries, capacity, spent.size)
   return <span className="focus-tracker" role="group" aria-label={`${capacity - spent.size} of ${capacity} focus points available`}>
     {Array.from({ length: capacity }, (_, index) => {
       const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}`
@@ -96,9 +95,6 @@ export function FocusPointTracker({ c, entries = [], save, points }: Pick<Sectio
             focusPointsSpentSinceRefocus: Math.max(0, (c.focusPointsSpentSinceRefocus ?? spent.size) + (spent.has(index) ? -1 : 1)) })
         }} />
     })}
-    <button type="button" aria-label="Refocus" disabled={spent.size === 0}
-      title={`Refocus for 10 minutes to recover up to ${recovery} Focus Point${recovery === 1 ? '' : 's'}. Active spells are unchanged.`}
-      onClick={() => { if (spent.size) void save({ spentFocusPoints: [...spent].slice(recovery), focusPointsSpentSinceRefocus: 0 }) }}>Refocus</button>
   </span>
 }
 
@@ -108,19 +104,24 @@ export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'sa
   const uses = dailyInnateUses(c, grant)
   if (!uses) return null
   const label = `${grant.entry.name} (${grant.source})`
-  return <div className="row">
-    <small role="status" aria-label={`${uses.remaining} of ${uses.limit} uses remaining${grant.rule.shared ? ' (shared)' : ''}`}>{uses.remaining}/{uses.limit}</small>
-    <button type="button" aria-label={`Cast ${label}`} disabled={uses.remaining === 0} onClick={() => {
-      if (uses.remaining > 0) save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: uses.used + 1 } })
-    }}>Cast</button>
-    <button type="button" aria-label={`Undo use of ${label}`} disabled={uses.used === 0} onClick={() => {
-      if (uses.used > 0) save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: uses.used - 1 } })
-    }}>Undo</button>
-  </div>
+  return <span className="focus-tracker" role="group"
+    aria-label={`${uses.remaining} of ${uses.limit} uses remaining${grant.rule.shared ? ' (shared)' : ''}`}>
+    {Array.from({ length: uses.limit }, (_, index) => {
+      const spent = uses.spent.includes(index)
+      const action = `${spent ? 'Restore' : 'Spend'} ${label} use ${index + 1}`
+      return <button key={index} type="button" className="focus-point" aria-label={action}
+        title={action} aria-pressed={!spent} onClick={() => {
+          const next = new Set(uses.spent)
+          if (next.has(index)) next.delete(index)
+          else next.add(index)
+          save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: [...next] } })
+        }} />
+    })}
+  </span>
 }
 
 export function ResetDailyInnateUses({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
-  return <button type="button" disabled={!Object.values(c.innateSpellUses ?? {}).some(used => used > 0)}
+  return <button type="button" disabled={!Object.values(c.innateSpellUses ?? {}).some(used => Array.isArray(used) ? used.length > 0 : used > 0)}
     title="Restore daily innate spell uses during daily preparations. Active spells are unchanged."
     onClick={() => save({ innateSpellUses: {} })}>Reset daily innate uses</button>
 }
@@ -193,20 +194,21 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   </div>
 }
 
-function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rankLabel }: {
+function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rankLabel, rank }: {
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
   activeLabel?: string
   children?: ReactNode
   inlineControls?: ReactNode
   rankLabel?: string
+  rank: number
 }) {
   return (
     <li className="spell-item">
       <div className="spell-name">
         <div className="row">
           <div className="spell-title"><EntryDescription name={name} entry={entry} />{inlineControls}</div>
-          <ActionIcon entry={entry} />
+          <SpellActions name={name} entry={entry} rank={rank} />
         </div>
         {note && <small>({note})</small>}
         {children}
@@ -228,11 +230,18 @@ function spellMetadata(entry?: ContentEntry) {
     }
     return '—'
   }
+  const duration = value('duration_text', 'duration')
+  const seconds = /^\d+$/.test(duration) ? Number(duration) : undefined
+  const unit = seconds ? ([[86400, 'day'], [3600, 'hour'], [60, 'minute'], [6, 'round'], [1, 'second']] as const)
+    .find(([size]) => seconds % size === 0) : undefined
+  const range = value('range_text', 'range')
+  const targets = value('area', 'targets', 'target')
   return {
-    duration: value('duration'),
-    range: value('range'),
+    duration: unit && seconds !== undefined ? `${seconds / unit[0]} ${unit[1]}${seconds / unit[0] === 1 ? '' : 's'}`
+      : seconds === 0 ? '—' : duration,
+    range: /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: value('saving_throw', 'save', 'saving_throw_dc'),
-    targets: value('area', 'targets', 'target'),
+    targets: targets === '—' && ['Sure Strike', 'True Strike'].includes(entry?.name ?? '') ? 'Self' : targets,
   }
 }
 
@@ -259,8 +268,7 @@ function InnateSpellRow({ grant, note, active, onToggle, activeLabel, inlineCont
   const metadata = spellMetadata(grant.entry)
   return <li className="innate-spell-row">
     <div className="innate-spell-name">
-      <span className="innate-cast-label">Cast</span>
-      <div className="spell-title"><EntryDescription name={grant.entry.name} entry={grant.entry} />{inlineControls}<ActionIcon entry={grant.entry} /></div>
+      <div className="spell-title"><EntryDescription name={grant.entry.name} entry={grant.entry} /><SpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} />{inlineControls}</div>
       {note && <small>{note}</small>}
     </div>
     <span><small>Duration</small>{metadata.duration}</span>
@@ -330,13 +338,13 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
   const casting = classSpellcasting(c, entries)
   const traditions = casting?.traditions ?? []
   const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells } = spellSummaryData(c, entries)
+  const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
   const unresolved = unresolvedFeatSpells(c, entries)
   const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
   const grantNote = (grant: typeof featSpells[number]) => {
     const ability = grant.rule.kind === 'innate' ? innateSpellAbility(c, grant.rule.ability) : grant.rule.ability ?? casting?.ability
     const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, spellRank), c.level) : undefined
-    const source = entries.find(entry => entry.kind === 'feat' && (grant.source === entry.name || grant.source.startsWith(`${entry.name}:`)))
     const resolution = spellResolution(grant.entry)
     const frequency = dailyInnateUses(c, grant) ? undefined : grant.rule.frequency
     const higherDC = grant.rule.dc === 'higher-class-or-spell'
@@ -350,21 +358,21 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
       resolution.save && dc !== undefined ? `DC ${dc}` : undefined,
       resolution.attack && mod !== undefined ? `Attack ${signed(mod)}` : undefined,
     ].filter(Boolean).join(', ')
-    return <>
-      <EntryDescription name={grant.source} entry={source} entries={entries} />
-      {frequency && `; ${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`}
-      {grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask') && `; ${grant.rule.condition}`}
-      {stats && `; ${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`}
-      {higherDC && resolution.save && classDC === undefined
-        ? <span role="status">; Class DC unavailable: choose your class key attribute or sync class content.</span>
+    const notes = [
+      frequency && `${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`,
+      grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask') && grant.rule.condition,
+      stats && `${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`,
+      higherDC && resolution.save && classDC === undefined
+        ? <span role="status">Class DC unavailable: choose your class key attribute or sync class content.</span>
         : (resolution.save || resolution.attack) && mod === undefined
-          && <span role="status">; Check granting source for spellcasting attribute and DC.</span>}
-    </>
+          && <span role="status">Check granting source for spellcasting attribute and DC.</span>,
+    ].filter(Boolean)
+    return notes.length ? <>{notes.map((note, index) => <span key={index}>{index > 0 && '; '}{note}</span>)}</> : undefined
   }
   const buffProps = (name: string, entry?: ContentEntry) => {
     const duration = entry?.data.duration
     const timed = name === 'Untamed Form' || Number(duration) > 0 || typeof duration === 'string' && /\b(?:round|minute|hour|day|sustain|unlimited)/i.test(duration)
-    if (['Animal Feature', 'Untamed Shift', 'Canopy Crawler', 'Enlarge Companion', 'Shield', "Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision"].includes(name) || name !== 'Magic Hide' && !timed) return {}
+    if (['Animal Feature', 'Untamed Shift', 'Canopy Crawler', 'Enlarge Companion', 'Shield', 'Invisibility', "Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision"].includes(name) || name !== 'Magic Hide' && !timed) return {}
     return {
       active: name === 'Magic Hide' ? isMagicHideActive(c, entries) : c.activeSpells?.includes(name),
       activeLabel: name === 'Oaken Resilience' && grownOfOakSpell && activeFeatsNamed(c, 'Leshy Familiar').length
@@ -410,7 +418,8 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
       </select>
       {!c.oakenResilienceRank && <small> Choose cast rank to apply resistance and weakness.</small>}
     </label>)}
-    <SpellDamageRolls name={name} rank={rank} />
+    {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
+      && <SpellDamageRolls name={name} rank={rank} />}
   </>
   const inlineControls = (name: string) => name === 'Shield'
     ? <label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
@@ -480,6 +489,19 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0))),
   })).filter(item => item.count > 0)
+  const wardenGroups = groups.filter(group => / Warden$/.test(group))
+  const renderSpellGroup = (group: string) => <div className="spell-group" key={group}>
+    <b>{group}</b>
+    <ul>{listedSpells.filter(spell => spell.group === group).map(spell => {
+      const entry = entries.find(entry => entry.kind === 'spell' && (spell.entryId ? entry.id === spell.entryId : entry.name === spell.name))
+      return <SpellItem key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={Math.ceil(c.level / 2)}
+        inlineControls={inlineControls(spell.name)} {...buffProps(spell.name, entry)}
+        onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== spell.index),
+          activeSpells: c.activeSpells?.filter(name => name !== spell.name) }) : undefined}>
+        {controls(spell.name)}
+      </SpellItem>
+    })}</ul>
+  </div>
 
   return (
       <div className="character-section-content">
@@ -568,7 +590,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
                       && <option value={selectedValue} disabled>{selectedSpell?.name ?? selectedEntry?.name ?? selectedValue} (unavailable)</option>}
                     {options.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>{spell.name}</option>)}
                   </SearchableSelect>
-                  {selectedEntry && <ActionIcon entry={selectedEntry} />}
+                  {selectedEntry && <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />}
                 </div>
                 <span><small>Duration</small>{metadata.duration}</span>
                 <span><small>Range</small>{metadata.range}</span>
@@ -622,24 +644,25 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
         })}
         <small>{ABILITY_LABEL[innateSpellAbility(c)]} spell attack {signed(abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level))};
           DC {10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level)} (trained).</small>
-        <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem key={entry.name} name={entry.name} entry={entry}
+        <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem key={entry.name} name={entry.name} entry={entry} rank={Math.ceil(c.level / 2)}
           inlineControls={inlineControls(entry.name)} note={`Minor Magic; rank ${Math.ceil(c.level / 2)} ${c.minorMagic?.tradition}`} {...buffProps(entry.name, entry)}>
           {controls(entry.name)}
         </SpellItem>)}</ul>
       </div>}
-      {(focusPoints > 0 || granted.length > 0) && (
+      {(focusPoints > 0 || granted.length > 0 || wardenGroups.length > 0) && (
         <div>
-          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} entries={entries} save={save} points={focusPoints} /></div>
-          <ul className="focus-spell-list">
-            {focus.filter(spell => !granted.some(warden => warden.name === spell.name)).map((s) => {
+          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} /></div>
+          {otherFocus.length > 0 && <ul className="focus-spell-list">
+            {otherFocus.map((s) => {
               const entry = entries.find((e) => e.kind === 'spell' && e.name === s.name)
               const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
-              return <SpellItem key={s.name} entry={entry} name={s.name} inlineControls={inlineControls(s.name)}
-                note={grant ? grantNote(grant) : s.source} rankLabel={`Focus ${Math.ceil(c.level / 2)}`} {...buffProps(s.name, entry)}>
+              return <SpellItem key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
+                note={grant ? grantNote(grant) : undefined} rankLabel={`Focus ${Math.ceil(c.level / 2)}`} {...buffProps(s.name, entry)}>
                 {controls(s.name)}
               </SpellItem>
             })}
-          </ul>
+          </ul>}
+          {wardenGroups.map(renderSpellGroup)}
         </div>
       )}
       {innate.length > 0 && <div>
@@ -652,8 +675,8 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
             <span>Cast</span><span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>
           </div>
           <ul>{group.grants.map(grant => <InnateSpellRow key={grant.usageKey} grant={grant} note={grantNote(grant)}
-            inlineControls={inlineControls(grant.entry.name)} {...buffProps(grant.entry.name, grant.entry)}>
-            <InnateSpellUses c={c} save={save} grant={grant} />
+            inlineControls={<>{inlineControls(grant.entry.name)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+            {...buffProps(grant.entry.name, grant.entry)}>
             {controls(grant.entry.name, grant.rank)}
           </InnateSpellRow>)}</ul>
         </section>)}
@@ -662,21 +685,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
         Spell data unavailable: {grant.name} (<EntryDescription name={grant.sourceName ?? grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).
         {' '}Review source rules; this spell is not automated.
       </p>)}
-      {groups.map((g) => (
-        <div key={g}>
-          <b>{g}</b>
-          <ul>
-            {listedSpells.filter((s) => s.group === g).map((s) => {
-              const entry = entries.find((entry) => entry.kind === 'spell' && (s.entryId ? entry.id === s.entryId : entry.name === s.name))
-              return <SpellItem key={`${s.name}-${s.index}`} name={s.name} entry={entry} inlineControls={inlineControls(s.name)} {...buffProps(s.name, entry)}
-                onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, j) => j !== s.index),
-                  activeSpells: c.activeSpells?.filter((name) => name !== s.name) }) : undefined}>
-                {controls(s.name)}
-              </SpellItem>
-            })}
-          </ul>
-        </div>
-      ))}
+      {groups.filter(group => !wardenGroups.includes(group)).map(renderSpellGroup)}
       <div className="row">
         {casting && traditions.length > 0 && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
           <option value="">Any tradition</option>
