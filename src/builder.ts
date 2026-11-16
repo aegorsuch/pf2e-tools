@@ -1026,7 +1026,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       || Number(!!a.entry.data.prerequisite) - Number(!!b.entry.data.prerequisite))[0]?.entry
   // Prefer Pathfinder versions of these shared feats without hiding homebrew.
   const sharedOfficialFeats = new Map(['Advanced General Training', 'Cooperative Nature', 'Cooperative Soul',
-    'Incredible Improvisation', 'Multitalented', 'Prescient Planner'].map(name => [name,
+    'Incredible Improvisation', 'Multitalented', 'Prescient Planner', 'Unconventional Weaponry'].map(name => [name,
     candidates.filter(({ entry }) => entry.name === name && entry.source === 'official')
       .sort((a, b) => Number(!a.entry.systems.includes('pf2e')) - Number(!b.entry.systems.includes('pf2e')))[0]?.entry]))
   const duplicateLore = new Set<string>()
@@ -2730,6 +2730,9 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
 }
 
 export function weaponAccessSources(c: Character, entries: ContentEntry[], weapon: ContentEntry) {
+  const barbarianWarJavelinAccess = getSettings().barbarianWarJavelinAccess
+    && c.className === 'Barbarian' && c.systems.includes('pf2e')
+    && weapon.systems.includes('pf2e') && weapon.name === 'War Javelin' && featRarity(weapon) === 'Uncommon'
   const inventorFirearmAccess = getSettings().inventorFirearmAccess
     && c.className === 'Inventor' && c.systems.includes('pf2e')
     && weapon.systems.includes('pf2e') && featRarity(weapon) === 'Uncommon'
@@ -2738,6 +2741,7 @@ export function weaponAccessSources(c: Character, entries: ContentEntry[], weapo
       || weapon.name === 'Bladed Gauntlet')
   return [...weaponFamiliarity(c, weapon, weaponCategory(weapon), entries).access,
     ...(unconventionalWeapon(c, entries, weapon) ? ['Unconventional Weaponry'] : []),
+    ...(barbarianWarJavelinAccess ? ['Barbarian War Javelin Access'] : []),
     ...(inventorFirearmAccess ? ['Inventor Firearm Access'] : [])]
 }
 

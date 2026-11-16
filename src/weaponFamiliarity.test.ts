@@ -155,6 +155,31 @@ it('toggles Inventor Access for uncommon firearms, ammunition, and Bladed Gauntl
   }
 })
 
+it('toggles Barbarian War Javelin Access without changing proficiency or unrelated equipment access', () => {
+  const javelin = weapon('War Javelin', 'Martial', ['Thrown', 'Uncommon'], 'uncommon')
+  const other = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')
+  const rare = { ...javelin, id: 'rare-javelin', data: { ...javelin.data, rarity: 'rare' }, traits: ['Thrown', 'Rare'] }
+  const barbarianClass = content('Barbarian', 'class', { attack_proficiency: 'Trained in simple weapons, Trained in martial weapons' })
+  const entries = [barbarianClass, javelin, other, rare]
+  const barbarian = { ...character, className: 'Barbarian' }
+  const original = getSettings().barbarianWarJavelinAccess
+  try {
+    updateSettings({ barbarianWarJavelinAccess: true })
+    expect(gearAccess(barbarian, entries, javelin)).toMatchObject({
+      automatic: true, sources: ['Barbarian War Javelin Access'],
+    })
+    expect(attack(barbarian, javelin, entries).rank).toBe(1)
+    expect(weaponAccessSources(character, entries, javelin)).toEqual([])
+    expect(weaponAccessSources(barbarian, entries, other)).toEqual([])
+    expect(weaponAccessSources(barbarian, entries, rare)).toEqual([])
+    updateSettings({ barbarianWarJavelinAccess: false })
+    expect(gearAccess(barbarian, entries, javelin)).toMatchObject({ automatic: false, approved: false })
+    expect(attack(barbarian, javelin, entries).rank).toBe(1)
+    expect(gearAccess({ ...barbarian, gearAccessOverrides: [javelin.id] }, entries, javelin))
+      .toMatchObject({ automatic: false, approved: true })
+  } finally { updateSettings({ barbarianWarJavelinAccess: original }) }
+})
+
 it('uses membership achievements for armor Access without conflating permission with proficiency', () => {
   const armor = content('Hellknight Plate', 'armor', {
     rarity: 'uncommon', access: 'A character who is a member of the Hellknights has access to this option.',

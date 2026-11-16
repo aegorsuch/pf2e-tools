@@ -5,6 +5,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'adoptedDwarfClanDagger', label: 'Adopted Ancestry (Dwarf) Grants Clan Dagger' },
   { key: 'autoClassSkills', label: 'Auto-Advance Class-Specific Skills' },
   { key: 'autoLores', label: 'Auto-Advance Lores' },
+  { key: 'barbarianWarJavelinAccess', label: 'Barbarian Access: War Javelin',
+    description: 'Barbarians gain Access to the War Javelin. Weapon proficiency is unchanged.' },
   { key: 'barbarianIgnoreAgile', label: 'Barbarians ignore Agile while Raging',
     description: 'Temporarily removes Agile from weapons while a Barbarian is raging. Agile returns when Rage ends.' },
   { key: 'championFormNoFlight', label: 'Celestial and Fiendish Form: No Flight' },

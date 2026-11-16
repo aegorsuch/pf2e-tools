@@ -89,6 +89,7 @@ it.each([
   ['Incredible Improvisation', 9, 'ancestry'],
   ['Multitalented', 9, 'ancestry'],
   ['Prescient Planner', 3, 'general'],
+  ['Unconventional Weaponry', 1, 'ancestry'],
 ] as const)('offers one official %s across systems while preserving homebrew', (name, level, category) => {
   const pf = { ...entry('feat', name, {}, level, [category === 'general' ? 'General' : 'Human']), description: 'Pathfinder wording.' }
   const sf: ContentEntry = { ...pf, id: `sf:${name}`, systems: ['sf2e'], description: 'Starfinder wording.',
@@ -100,6 +101,25 @@ it.each([
   const slot = { key: `${category}:${level}:0`, category, level }
   expect(eligibleFeats([sf, pf, homebrew], c, slot, { includeUnmetPrerequisites: true })).toEqual([pf, homebrew])
   expect(eligibleFeats([sf], { ...c, systems: ['sf2e'] }, slot, { includeUnmetPrerequisites: true })).toEqual([sf])
+})
+
+it('merges core and Galactic Ancestries Unconventional Weaponry copies without altering saved weapon choices', () => {
+  const pf = entry('feat', 'Unconventional Weaponry', {}, 1, ['Human'])
+  const core: ContentEntry = { ...pf, id: 'sf-core', systems: ['sf2e'], traits: ['Human', 'Shirren'],
+    description: 'Core weapon familiarity.' }
+  const galactic: ContentEntry = { ...core, id: 'sf-galactic', traits: ['Human'],
+    description: 'Updated familiarity for martial weapons or guns.' }
+  const homebrew: ContentEntry = { ...pf, id: 'custom-weaponry', source: 'homebrew' }
+  const c: Character = { id: 'weaponry', name: 'Test', systems: ['pf2e', 'sf2e'], ancestry: 'Human', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: pf.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', sourceId: galactic.id, choice: 'Shobhad Longrifle' }],
+    equipment: [], lores: [], languages: [], entryIds: [galactic.id], extraSlots: [], updatedAt: 0 }
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  const saved = JSON.stringify(c)
+  expect(eligibleFeats([core, galactic, pf, homebrew], c, slot)).toEqual([pf, homebrew])
+  expect(eligibleFeats([galactic, pf, core, homebrew], c, slot)).toEqual([pf, homebrew])
+  expect(eligibleFeats([core, galactic, homebrew], { ...c, systems: ['sf2e'] }, slot)).toEqual([core, homebrew])
+  expect(JSON.stringify(c)).toBe(saved)
 })
 
 it('offers one eligible official Overcrowd while preserving homebrew options', () => {
