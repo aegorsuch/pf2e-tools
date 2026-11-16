@@ -3,16 +3,13 @@ import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { featRarity } from './featAccess'
-import { formulaKey as key, formulaSources, gadgetLimits, grenadeLimits, isGrenade, knownFormulas, munitionsFormulaOptions, munitionsLimits, snareAdvancements, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
+import { formulaGrants, formulaKey as key, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { ContentEntry } from './types'
 
 export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
-  const sources = formulaSources(c, entries)
-  const known = knownFormulas(c, entries)
-  const gadgets = gadgetLimits(c, entries)
-  const snareRanks = snareAdvancements(c, entries)
-  const munitions = munitionsLimits(c)
-  const grenades = grenadeLimits(c, entries)
+  const grants = formulaGrants(c, entries)
+  const { sources, gadgets, snares: snareRanks, munitions, grenades } = grants
+  const known = knownFormulas(c, entries, grants)
   const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0)
     + (munitions ? munitions.formulaChoices : 0) + (grenades?.formulas ?? 0) + snareRanks.length * 3
   const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
@@ -34,8 +31,9 @@ export function FormulasSection(props: SectionProps) {
 
 export function FormulasContent({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
-  const sources = formulaSources(c, entries)
-  const known = knownFormulas(c, entries)
+  const grants = formulaGrants(c, entries)
+  const { sources, gadgets, munitions, grenades, snares: snareRanks } = grants
+  const known = knownFormulas(c, entries, grants)
   const knownKeys = new Set(known.map(formula => key(formula.name)))
   const items = useMemo(() => entries.filter(entry => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
     && !entry.deleted && entry.systems.some(system => c.systems.includes(system))), [entries, c.systems])
@@ -43,10 +41,6 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
   const basic = snares.filter(item => item.level === 1 && !featRarity(item))
   const other = sources.brastlewark ? snares.filter(item => item.level <= featTakenLevel(sources.brastlewark!)
     && featRarity(item) === 'Uncommon' && item.traits.some(trait => key(trait) === 'magical')) : []
-  const gadgets = gadgetLimits(c, entries)
-  const munitions = munitionsLimits(c)
-  const grenades = grenadeLimits(c, entries)
-  const snareRanks = snareAdvancements(c, entries)
   const gadgetOptions = items.filter(item => item.traits.some(trait => key(trait) === 'gadget')
     && !['Rare', 'Unique'].includes(featRarity(item) ?? ''))
   const munitionsOptions = munitionsFormulaOptions(items, c.systems)

@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { isValidElement, type ReactNode } from 'react'
-import { expect, it } from 'vitest'
-import { FormulasSection } from './FormulasSection'
+import { expect, it, vi } from 'vitest'
+import { FormulasContent, FormulasSection, FormulasSummary } from './FormulasSection'
+import * as builder from './builder'
 import { GrenadeSpecialist, MunitionsCrafter } from './GearSection'
 import { BLACK_POWDER_FORMULA, gadgetLimits, grenadeLimits, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
 import type { Character, ContentEntry } from './types'
@@ -21,6 +22,29 @@ const entries = [
 ]
 const dedication = { name: 'Snarecrafter Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
 const brastlewark = { name: 'Brastlewark Snare Engineering', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }
+
+it('evaluates each proficiency level once per formula summary or editor render', () => {
+  const character: Character = { ...c, level: 8, feats: [dedication], skillPicks: ['Survival'],
+    skillIncreases: { 3: 'Survival', 7: 'Survival' },
+    snareAdvancementFormulaChoices: ['Spike Snare', '', '', 'Low Snare'] }
+  const ranks = vi.spyOn(builder, 'ranksAt')
+  try {
+    const summary = renderToStaticMarkup(<FormulasSummary c={character} entries={entries} />)
+    expect(summary).toContain('2 known; 2/10 feat choices')
+    expect(ranks.mock.calls.map(([character]) => character.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+    ranks.mockClear()
+    const editor = renderToStaticMarkup(<FormulasContent c={character} entries={entries} save={() => {}} />)
+    expect(editor).toContain('Master snare formula 1')
+    expect(ranks.mock.calls.map(([character]) => character.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+  } finally { ranks.mockRestore() }
+})
+
+it('does not count proficiency earned before a late dedication as a new formula grant', () => {
+  const character: Character = { ...c, level: 16, feats: [{ ...dedication, takenLevel: 8 }],
+    skillPicks: ['Survival'], skillIncreases: { 3: 'Survival', 7: 'Survival', 15: 'Survival' } }
+  expect(snareAdvancements(character, entries)).toEqual([{ rank: 4, level: 15 }])
+  expect(snareAdvancements({ ...character, level: 14 }, entries)).toEqual([])
+})
 
 it('preserves dormant choices and fills gaps when selecting a later formula slot', () => {
   const choices = updateFormulaChoice([], 3, 'Low Snare')

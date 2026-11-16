@@ -1839,11 +1839,25 @@ export function normalizeLongevitySkills(c: Character): Character {
   }
 }
 
-const featData = (c: Character, entries: ContentEntry[], field: string) =>
-  c.feats.flatMap((f) => {
+const featDataNames = new WeakMap<ContentEntry[], Map<string, Set<string>>>()
+const featData = (c: Character, entries: ContentEntry[], field: string) => {
+  let fields = featDataNames.get(entries)
+  if (!fields) {
+    fields = new Map()
+    featDataNames.set(entries, fields)
+  }
+  let names = fields.get(field)
+  if (!names) {
+    names = new Set(entries.filter(entry => entry.kind === 'feat' && !entry.deleted
+      && typeof entry.data[field] === 'string' && !!entry.data[field]).map(entry => entry.name))
+    fields.set(field, names)
+  }
+  return c.feats.flatMap((f) => {
+    if (!names.has(f.name)) return []
     const v = selectedFeatEntry(c, entries, f.name, f.sourceId)?.data[field]
     return typeof v === 'string' && v ? [{ value: v, source: f.name }] : []
   })
+}
 
 // Lore skills taught through Additional Lore, including ancestry-specific grants.
 export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set([

@@ -1,6 +1,7 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { mapAonHit } from './aon'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
@@ -1683,6 +1684,37 @@ describe('feat grants beyond languages', () => {
     expect(ranksAt(c, [feat])['Hunting Lore']).toBe(3)
     expect(featLores({ ...c, level: 7 }, [feat])).toEqual([])
     expect(senses(c, [feat])).toEqual([{ value: 'Darkvision', source: 'Wild Hunter Dedication' }])
+  })
+
+  it('resolves metadata grants only for relevant feat names and refreshes them with the catalog', () => {
+    const grant = entry('feat', 'Custom Lore Grant', { grants_lore: 'Hunting Lore' })
+    const unrelated = Array.from({ length: 20 }, (_, index) => entry('feat', `Unrelated ${index}`))
+    const catalog = [grant, ...unrelated]
+    const c: Character = { ...base, feats: catalog.map(feat => ({ name: feat.name, type: 'General Feat', level: 1 })) }
+    const resolve = vi.spyOn(featChoices, 'selectedFeatEntry')
+    try {
+      expect(featLores(c, catalog)).toEqual(['Hunting Lore'])
+      expect(resolve).toHaveBeenCalledTimes(1)
+      expect(featLores({ ...c, updatedAt: 1 }, catalog)).toEqual(['Hunting Lore'])
+      expect(resolve).toHaveBeenCalledTimes(2)
+      expect(featLores(c, [{ ...grant, data: { grants_lore: 'Sailing Lore' } }, ...unrelated])).toEqual(['Sailing Lore'])
+      expect(featLores(c, [{ ...grant, deleted: true }, ...unrelated])).toEqual([])
+    } finally { resolve.mockRestore() }
+  })
+
+  it('keeps indexed metadata grants tied to the enabled and explicitly selected source', () => {
+    const original = entry('feat', 'Shared Lore Grant')
+    const variant: ContentEntry = { ...original, id: 'sf-lore-grant', systems: ['sf2e'],
+      data: { grants_lore: 'Space Lore', grants_vision: 'Darkvision' } }
+    const catalog = [original, variant]
+    const c: Character = { ...base, systems: ['pf2e', 'sf2e'],
+      feats: [{ name: original.name, type: 'General Feat', level: 1, sourceId: original.id }] }
+    expect(featLores(c, catalog)).toEqual([])
+    const selected: Character = { ...c, feats: [{ ...c.feats[0], sourceId: variant.id }] }
+    expect(featLores(selected, catalog)).toEqual(['Space Lore'])
+    expect(senses(selected, catalog)).toEqual([{ value: 'Darkvision', source: original.name }])
+    expect(featLores({ ...selected, systems: ['pf2e'] }, catalog)).toEqual([])
+    expect(featLores({ ...selected, feats: [{ ...selected.feats[0], sourceId: 'missing' }] }, catalog)).toEqual([])
   })
 })
 

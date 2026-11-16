@@ -53,10 +53,13 @@ export function snareAdvancements(c: Character, entries: ContentEntry[]) {
     return Math.max(ranks.Crafting ?? 0, c.className === 'Ranger' ? ranks.Survival ?? 0 : 0)
   }
   const advancements: { rank: number; level: number }[] = []
-  for (let level = featTakenLevel(dedication); level <= c.level; level++) {
-    const before = level > 1 ? skill(level - 1) : 0
+  const start = featTakenLevel(dedication)
+  let previous = start > 1 ? skill(start - 1) : 0
+  for (let level = start; level <= c.level; level++) {
+    const before = level > 1 ? previous : 0
     const after = skill(level)
     for (let rank = Math.max(2, before + 1); rank <= Math.min(4, after); rank++) advancements.push({ rank, level })
+    previous = after
   }
   return advancements
 }
@@ -96,15 +99,20 @@ export function formulaSources(c: Character, entries: ContentEntry[]) {
   return { snareCrafting, brastlewark, munitionsCrafter }
 }
 
-export function knownFormulas(c: Character, entries: ContentEntry[]) {
-  const { snareCrafting, brastlewark, munitionsCrafter } = formulaSources(c, entries)
+export function formulaGrants(c: Character, entries: ContentEntry[]) {
+  return { sources: formulaSources(c, entries), snares: snareAdvancements(c, entries),
+    gadgets: gadgetLimits(c, entries), grenades: grenadeLimits(c, entries), munitions: munitionsLimits(c) }
+}
+
+export function knownFormulas(c: Character, entries: ContentEntry[], grants = formulaGrants(c, entries)) {
+  const { sources: { snareCrafting, brastlewark, munitionsCrafter }, snares, gadgets, grenades } = grants
   const groups = [
     { source: 'Snare Crafting', names: snareCrafting ? c.snareFormulaChoices ?? [] : [] },
-    ...snareAdvancements(c, entries).map(({ rank }) => ({
+    ...snares.map(({ rank }) => ({
       source: 'Snarecrafter Dedication', names: (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3),
     })),
-    { source: 'Gadget Specialist', names: (c.gadgetFormulaChoices ?? []).slice(0, gadgetLimits(c, entries)?.formulas ?? 0) },
-    { source: 'Grenade Specialist', names: (c.grenadeFormulaChoices ?? []).slice(0, grenadeLimits(c, entries)?.formulas ?? 0) },
+    { source: 'Gadget Specialist', names: (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0) },
+    { source: 'Grenade Specialist', names: (c.grenadeFormulaChoices ?? []).slice(0, grenades?.formulas ?? 0) },
     { source: 'Munitions Crafter', names: munitionsCrafter
       ? [entries.find(entry => !entry.deleted && isBlackPowderDose(entry)
         && entry.systems.some(system => c.systems.includes(system)))?.name ?? BLACK_POWDER_FORMULA,
