@@ -140,6 +140,14 @@ const homebrewFeat = (id: string, name: string, level: number, traits: string[],
   id: `homebrew:${id}`, systems: ['pf2e'], kind: 'feat', source: 'homebrew', name, level, traits, description, data, effects: [], updatedAt: 1,
 })
 
+export const PERSISTENT_SPELLS = [
+  { name: 'Keen Smell', level: 6 },
+  { name: 'Canopy Crawler', level: 8 },
+  { name: 'Animal Feature', level: 8 },
+  { name: 'Magic Hide', level: 10 },
+  { name: 'Gravity Weapon', level: 14 },
+] as const
+
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
   const poison = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
@@ -188,18 +196,11 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       "Prerequisite: You can cast untamed form.\nRequirements: You are currently under the effects of untamed form which has an original duration of 1 minute.\n\nYour shape is as mutable as nature itself, able to shift and change at a moment's notice. You change your form to another that you have access to.",
       { class: 'Druid', actions: 'Single Action', prerequisite: 'You can cast untamed form',
         requirements: 'You are currently under the effects of untamed form which has an original duration of 1 minute.' }),
-    homebrewFeat('persistent-keen-smell', 'Persistent Keen Smell', 6, ['Ranger'],
-      'When you cast Keen Smell, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.',
-      { class: 'Ranger' }),
-    homebrewFeat('persistent-canopy-crawler', 'Persistent Canopy Crawler', 8, ['Ranger'],
-      'When you cast Canopy Crawler, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.',
-      { class: 'Ranger' }),
-    homebrewFeat('persistent-animal-feature', 'Persistent Animal Feature', 8, ['Ranger'],
-      'When you cast Animal Feature, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration. This extended duration applies to all options except wings.\n\nYou can have multiple Animal Feature effects active at the same time. Each effect must meet the spell rank requirement.',
-      { class: 'Ranger' }),
-    homebrewFeat('persistent-magic-hide', 'Persistent Magic Hide', 10, ['Ranger'],
-      'When you cast Magic Hide, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.',
-      { class: 'Ranger' }),
+    ...PERSISTENT_SPELLS.map(({ name, level }) => homebrewFeat(`persistent-${name.toLowerCase().replaceAll(' ', '-')}`,
+      `Persistent ${name}`, level, ['Ranger'],
+      `When you cast ${name}, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.${name === 'Animal Feature'
+        ? ' This extended duration applies to all options except wings.\n\nYou can have multiple Animal Feature effects active at the same time. Each effect must meet the spell rank requirement.' : ''}`,
+      { class: 'Ranger' })),
     homebrewFeat('impaling-throw', 'Impaling Throw', 1, ['Flourish', 'Ranger', '3rd Party'],
       'Requirements: You are wielding a weapon which does piercing damage with the Thrown trait.\n\nYou know a thorn in the flank of your quarry is an easy quarry to take down. Make a ranged Strike against your prey with the required weapon. If you hit the creature, the weapon stays inside of them instead of dropping to the ground. As long as they leave the weapon in, they are clumsy 1. Removing the weapon requires a single Interact action requiring them to succeed on either an Athletics or Medicine skill check against your class DC.\n\nSpecial: You can use Impaling Throw with improvised weapons that are determined to be appropriate, or when throwing weapons without the thrown trait that deal piercing damage.',
       { class: 'Ranger', actions: 'Single Action', requirements: 'You are wielding a weapon which does piercing damage with the Thrown trait.' }),

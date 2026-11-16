@@ -759,6 +759,45 @@ it('keeps requested buff Active toggles on the spell-name line without duplicate
   expect(html).toContain('aria-label="Keen Smell active" checked=""')
 })
 
+it.each([
+  ['Keen Smell', 6], ['Canopy Crawler', 8], ['Animal Feature', 8], ['Magic Hide', 10], ['Gravity Weapon', 14],
+] as const)('shows %s lasting until daily preparations only with its current Persistent feat', (name, level) => {
+  const spell = entry(name, 'spell', { duration: 60 }, ['Focus', 'Ranger'])
+  const c: Character = { ...base, className: 'Ranger', level,
+    spells: [{ name, rank: 1, cantrip: false }], feats: [taken(`Persistent ${name}`, level)] }
+  const before = JSON.stringify(c)
+  const render = (character: Character) => renderToStaticMarkup(<SpellsSection c={character} entries={[spell]} save={() => {}} />)
+  const persistentDuration = '<small>Duration</small>Until next daily preparations'
+  expect(render(c)).toContain(persistentDuration)
+  expect(render(JSON.parse(before))).toContain(persistentDuration)
+  for (const other of [
+    { ...c, feats: [] },
+    { ...c, level: level - 1 },
+    { ...c, feats: [{ ...c.feats[0], takenLevel: level + 1 }] },
+    { ...c, feats: [taken('Persistent Unrelated Spell', level)] },
+  ]) {
+    expect(render(other)).toContain('<small>Duration</small>1 minute')
+    expect(render(other)).not.toContain(persistentDuration)
+  }
+  if (name === 'Animal Feature') expect(render(c)).toContain('normal duration.')
+  expect(JSON.stringify(c)).toBe(before)
+  expect(spell.data.duration).toBe(60)
+})
+
+it('uses Persistent durations in prepared and innate spell tables too', () => {
+  const spell = entry('Gravity Weapon', 'spell', { duration: 60, tradition: 'Arcane' })
+  const source: ContentEntry = { ...entry('Innate Gravity', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [spell.name], rank: 1, tradition: 'arcane' }] }
+  const c: Character = { ...base, className: 'Wizard', level: 14,
+    feats: [taken('Persistent Gravity Weapon', 14), taken(source.name)],
+    spells: [{ name: spell.name, rank: 1, cantrip: false, entryId: spell.id }],
+    spellcasting: { ability: 'int', rank: 1, slots: { 1: 1 }, tradition: 'Arcane', prepared: { '1:0': spell.id } } }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry('Wizard', 'class', { tradition: 'Arcane' }), spell, source]} save={() => {}} />)
+  expect(html).toContain('aria-label="Spell Rank 1 slot 1"')
+  expect(html).toContain('<b>Innate Spells</b>')
+  expect(html.match(/<small>Duration<\/small>Until next daily preparations/g)).toHaveLength(3)
+})
+
 it.each(['Distracting Decoy', 'Heal Companion', 'Slime Spit', 'Snare Hopping', "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry'])('shows %s duration as Instant', name => {
   const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, name)] }
   for (const duration of [undefined, 0]) {

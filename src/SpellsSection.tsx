@@ -2,7 +2,7 @@ import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useMemo, useState, type ReactNode } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, UNTAMED_SHIFT_CHOICES, type SectionProps } from './builder'
-import { ANIMAL_FEATURES } from './supplemental'
+import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
@@ -202,7 +202,8 @@ function spellSave(save: string, dc?: number) {
   return dc !== undefined && /\b(?:Fortitude|Reflex|Will)\b/i.test(save) && !/\bDC\s+\d+/i.test(save) ? `${save} DC ${dc}` : save
 }
 
-function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rankLabel, rank, saveDC }: {
+function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rankLabel, rank, saveDC }: {
+  c: Character
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
   activeLabel?: string
@@ -212,7 +213,7 @@ function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel,
   rank: number
   saveDC?: number
 }) {
-  const metadata = spellMetadata(entry, rank)
+  const metadata = spellMetadata(entry, rank, c)
   const inlineActive = INLINE_SPELL_BUFFS.includes(name)
   const activeToggle = onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
     onChange={(e) => onToggle(e.target.checked)} /> {activeLabel ?? (name === 'Oaken Resilience' ? 'Active on you' : 'Active')}</label>
@@ -224,7 +225,8 @@ function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel,
         {rankLabel && <small className="spell-rank-label">{rankLabel}</small>}
         {note && <small>{note}</small>}
       </div>
-      <span><small>Duration</small>{metadata.duration}</span>
+      <span><small>Duration</small>{metadata.duration}{metadata.durationNote
+        && <SourceNote source="Persistent Animal Feature" note={metadata.durationNote} inlineSource={false} />}</span>
       <span><small>Range</small>{metadata.range}</span>
       <span><small>Save</small>{spellSave(metadata.save, saveDC)}</span>
       <span><small>Area/Targets</small>{metadata.targets}</span>
@@ -238,7 +240,7 @@ function SpellItem({ name, entry, note, onRemove, active, onToggle, activeLabel,
   )
 }
 
-function spellMetadata(entry?: ContentEntry, rank = entry?.level ?? 0) {
+function spellMetadata(entry?: ContentEntry, rank = entry?.level ?? 0, c?: Character) {
   const value = (...keys: string[]) => {
     for (const key of keys) {
       const current = entry?.data[key]
@@ -248,6 +250,8 @@ function spellMetadata(entry?: ContentEntry, rank = entry?.level ?? 0) {
     return '—'
   }
   const name = entry?.name ?? ''
+  const persistent = !!c && PERSISTENT_SPELLS.some(spell => spell.name === name && c.level >= spell.level)
+    && activeFeatsNamed(c, `Persistent ${name}`).length > 0
   const duration = value('duration_text', 'duration')
   const seconds = /^\d+$/.test(duration) ? Number(duration) : undefined
   const unit = seconds ? ([[86400, 'day'], [3600, 'hour'], [60, 'minute'], [6, 'round'], [1, 'second']] as const)
@@ -262,9 +266,11 @@ function spellMetadata(entry?: ContentEntry, rank = entry?.level ?? 0) {
   ].includes(name)
   if (tracks && rank >= 4) return { duration: '8 hours', range: '20 feet', save, targets: 'Up to 10 creatures' }
   return {
-    duration: instant ? 'Instant' : tracks && rank >= 2 || name === 'Speak with Plants' && rank >= 4 ? '8 hours'
+    duration: persistent ? 'Until next daily preparations'
+      : instant ? 'Instant' : tracks && rank >= 2 || name === 'Speak with Plants' && rank >= 4 ? '8 hours'
       : unit && seconds !== undefined ? `${seconds / unit[0]} ${unit[1]}${seconds / unit[0] === 1 ? '' : 's'}`
       : seconds === 0 ? '—' : duration,
+    durationNote: persistent && name === 'Animal Feature' ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : ['Speak with Plants', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck"].includes(name)
       || tracks && range === '—' ? 'Self'
@@ -287,7 +293,8 @@ function spellResolution(entry: ContentEntry) {
   }
 }
 
-function InnateSpellRow({ grant, note, active, onToggle, activeLabel, inlineControls, children, saveDC }: {
+function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, children, saveDC }: {
+  c: Character
   grant: ReturnType<typeof grantedFeatSpells>[number]
   note?: ReactNode
   active?: boolean
@@ -297,7 +304,7 @@ function InnateSpellRow({ grant, note, active, onToggle, activeLabel, inlineCont
   children?: ReactNode
   saveDC?: number
 }) {
-  return <SpellItem name={grant.entry.name} entry={grant.entry} rank={grant.rank} note={note}
+  return <SpellItem c={c} name={grant.entry.name} entry={grant.entry} rank={grant.rank} note={note}
     active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} saveDC={saveDC}>
     {children}
   </SpellItem>
@@ -553,7 +560,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     <ul>{listedSpells.filter(spell => spell.group === group).map(spell => {
       const entry = spellEntry(spell.name, spell.entryId)
       const rank = Math.ceil(c.level / 2)
-      return <SpellItem key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
+      return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
         inlineControls={inlineControls(spell.name)} {...buffProps(spell.name, entry)}
         onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== spell.index),
           activeSpells: c.activeSpells?.filter(name => name !== spell.name) }) : undefined}>
@@ -630,7 +637,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
               const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
                 : spellIndex.byId.get(selectedValue)
-              const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank)
+              const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
               const spent = sc.spentSlots?.includes(slotKey) ?? false
               const selectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
@@ -666,7 +673,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     buttonLabel="Details" className="picker-details" />}
                   {selectedEntry && <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />}
                 </div>
-                <span><small>Duration</small>{metadata.duration}</span>
+                <span><small>Duration</small>{metadata.duration}{metadata.durationNote
+                  && <SourceNote source="Persistent Animal Feature" note={metadata.durationNote} inlineSource={false} />}</span>
                 <span><small>Range</small>{metadata.range}</span>
                 <span><small>Save</small>{spellSave(metadata.save, classSpellDC)}</span>
                 <span><small>Area/Targets</small>{metadata.targets}</span>
@@ -721,7 +729,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         })}
         <small>{ABILITY_LABEL[innateSpellAbility(c)]} spell attack {signed(abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level))};
           DC {10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level)} (trained).</small>
-        <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem key={entry.name} name={entry.name} entry={entry} rank={Math.ceil(c.level / 2)}
+        <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem c={c} key={entry.name} name={entry.name} entry={entry} rank={Math.ceil(c.level / 2)}
           inlineControls={inlineControls(entry.name)} saveDC={10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level)}
           note={`Minor Magic; rank ${Math.ceil(c.level / 2)} ${c.minorMagic?.tradition}`} {...buffProps(entry.name, entry)}>
           {controls(entry.name)}
@@ -738,7 +746,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const entry = spellEntry(s.name, s.entryId)
               const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
               const details = grant ? grantDetails(grant) : undefined
-              return <SpellItem key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
+              return <SpellItem c={c} key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
                 note={details?.note} saveDC={details ? details.dc : classSpellDC} {...buffProps(s.name, entry)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== s.index),
                   activeSpells: c.activeSpells?.filter(name => name !== s.name) }) : undefined}>
@@ -757,7 +765,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <SpellColumns />
           <ul>{group.grants.map(grant => {
             const details = grantDetails(grant)
-            return <InnateSpellRow key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
+            return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
               inlineControls={<>{inlineControls(grant.entry.name)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               {...buffProps(grant.entry.name, grant.entry)}>
               {controls(grant.entry.name, grant.rank)}
