@@ -17,6 +17,8 @@ const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
 const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall|tian xia origin)\b/i
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
 const LASTWALL_TRAINING = 'Member of or trained by Knights of Lastwall'
+const PATHFINDER_MEMBERSHIP = 'Member of the Pathfinder Society'
+const PATHFINDER_TRAINING = 'Member of or trained by the Pathfinder Society'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
@@ -33,6 +35,7 @@ const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKON
   OLD_CHELIAX, DONGUN_HOLD_OR_ALKENSTAR, ALKENSTAR, MANA_WASTES, NIXBRIX_CHALLENGE]
   .map(label => [label.toLowerCase(), label]))
 achievementLabels.set(LASTWALL_MEMBERSHIP.toLowerCase(), LASTWALL_TRAINING)
+achievementLabels.set(PATHFINDER_MEMBERSHIP.toLowerCase(), PATHFINDER_TRAINING)
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
   'knights of lastwall',
@@ -49,6 +52,7 @@ export function achievementKey(access: string) {
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
   if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return key
   if (key === 'from the mana wastes') return MANA_WASTES.toLowerCase()
+  if (key === PATHFINDER_TRAINING.toLowerCase()) return PATHFINDER_MEMBERSHIP.toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
 }
 
@@ -154,7 +158,8 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
       || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase() && achievements.has(achievementKey(ALKENSTAR)))
   return {
     requirement: key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM
-      : key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_TRAINING : narrative,
+      : key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_TRAINING
+      : key === PATHFINDER_MEMBERSHIP.toLowerCase() ? PATHFINDER_TRAINING : narrative,
     automatic: ethnicity || background || ancestry || !!achievement,
     approved: c.featAccessOverrides?.includes(entry.id) ?? false,
     source: ethnicity ? 'ethnicity' : background ? 'background' : ancestry ? 'ancestry' : achievement ? 'achievement' : undefined,

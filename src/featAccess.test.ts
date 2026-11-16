@@ -215,7 +215,7 @@ it('groups Lastwall membership access wordings into one named achievement and pr
 })
 
 it.each([
-  ['A character who is a member of the Pathfinder Society has access to this option.', 'Member of the Pathfinder Society'],
+  ['A character who is a member of the Pathfinder Society has access to this option.', 'Member of or trained by the Pathfinder Society'],
   ['You are a member of the Eyeswide.', 'Member of the Eyeswide'],
   ["You've trained with or defeated a member of the wild hunt.", 'Trained with or defeated a member of the wild hunt'],
   ['You\u2019ve trained with a member of the wild hunt.', 'Trained with a member of the wild hunt'],
@@ -238,11 +238,18 @@ it('groups equivalent membership labels without dropping rank requirements', () 
   ]
   const options = achievementOptions(entries)
   expect(options).toHaveLength(2)
-  const member = options.find(option => option.requirement === 'Member of the Pathfinder Society')
+  const member = options.find(option => option.requirement === 'Member of or trained by the Pathfinder Society')
   expect(member?.feats).toEqual(['Other Society Feat', 'Society Feat'])
-  const saved = { ...character, achievements: [member!.key] }
-  expect(featAccess(saved, entries[1])?.automatic).toBe(true)
-  expect(featAccess(saved, entries[2])?.automatic).toBe(false)
+  for (const value of [member!.key, member!.requirement, 'Member of the Pathfinder Society.']) {
+    const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [value] }))
+    expect(featAccess(saved, entries[1])).toMatchObject({
+      requirement: 'Member of or trained by the Pathfinder Society', automatic: true, source: 'achievement',
+    })
+    expect(featAccess(saved, entries[2])?.automatic).toBe(false)
+  }
+  expect(featAccess(character, entries[0])).toMatchObject({
+    requirement: 'Member of or trained by the Pathfinder Society', automatic: false,
+  })
 })
 
 it.each(['Uncommon', 'Rare', 'Unique'])('shows %s rarity without inventing an Access requirement', rarity => {
