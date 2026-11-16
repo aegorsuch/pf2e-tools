@@ -2452,9 +2452,8 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
     return combinationName(entries, value)
   }
   return activeFeatsNamed(c, 'Unconventional Weaponry').find(feat => !!feat.choice && identity(feat.choice) === identity(name)
-    && (uncommonWeapon(weapon) && ([weapon, ...combinationForms(entries, weapon.name)].some(form => weaponHasAncestryTrait(form, entries)) || feat.culturalWeapon)
-      || !featRarity(weapon) && feat.culturalWeapon
-      || /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(weapon.name) && featRarity(weapon) === 'Rare' && feat.rareWeaponOverride && feat.culturalWeapon)
+    && (uncommonWeapon(weapon) || !featRarity(weapon)
+      || /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(weapon.name) && featRarity(weapon) === 'Rare' && feat.rareWeaponOverride)
     && featChoiceOptions(feat.name, c, entries, feat.slot ?? '', c.feats.indexOf(feat))?.some(option => identity(option) === identity(name)))
 }
 
@@ -3150,6 +3149,12 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export function weaponEntry(entries: ContentEntry[], name: string) {
   let entry = resolveWeaponEntry(entries, name)
+  if (entry?.source === 'homebrew' && entry.data.url && entry.traits.some(trait => /^two-hand$/i.test(trait.trim()))) {
+    const source = entries.find(candidate => candidate.kind === 'weapon' && candidate.source === 'official'
+      && !candidate.deleted && candidate.data.url === entry?.data.url)
+    const twoHand = source?.traits.find(trait => /^two-hand\s+(?:1)?d(?:4|6|8|10|12)$/i.test(trait.trim()))
+    if (twoHand) entry = { ...entry, traits: entry.traits.map(trait => /^two-hand$/i.test(trait.trim()) ? twoHand : trait) }
+  }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
     entry = { ...entry, traits: [...entry.traits.filter(trait => !/^two-hand$/i.test(trait.trim())), 'Two-Hand d8'] }
@@ -3767,8 +3772,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const dice = m ? (+m[1]) * (1 + w.striking) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
-  const twoHandDie = attachedSource && weaponHands(entries, attachedSource) === 2
-    ? traits.map(trait => /^two-hand\s+d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean) : undefined
+  const twoHandDie = weaponHands(entries, attachedSource ?? w) === 2
+    ? traits.map(trait => /^two-hand\s+(?:1)?d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean) : undefined
   const baseDie = m ? Number(twoHandDie ?? m[2]) : 0
   const dieSteps = [4, 6, 8, 10, 12]
   const die = hasFeat(c, 'Deadly Simplicity') && isDeadlySimplicityWeapon(c, entries, entry)

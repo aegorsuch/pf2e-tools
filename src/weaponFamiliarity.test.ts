@@ -185,12 +185,14 @@ it('applies Unconventional Weaponry only to its valid selected weapon and checks
   expect(weaponAccessSources({ ...c, feats: [selected('Unconventional Weaponry', martial.name, 9)] }, entries, martial)).toEqual([])
 })
 
-it('requires cultural eligibility confirmation rather than treating every uncommon weapon as ancestral', () => {
+it('grants Access and familiarity to a selected cultural weapon without a separate approval', () => {
   const katana = weapon('Katana', 'Martial', [], 'uncommon')
   const entries = [wizard, katana]
   const c = { ...character, feats: [selected('Unconventional Weaponry', katana.name)] }
-  expect(weaponAccessSources(c, entries, katana)).toEqual([])
-  expect(attack(c, katana, entries).rank).toBe(1)
+  expect(weaponAccessSources(c, entries, katana)).toEqual(['Unconventional Weaponry'])
+  expect(gearAccess(c, entries, katana)).toMatchObject({ automatic: true, sources: ['Unconventional Weaponry'] })
+  expect(attack(c, katana, entries).rank).toBe(2)
+  expect(weaponAccessSources({ ...c, feats: [] }, entries, katana)).toEqual([])
   const confirmed = { ...c, feats: [{ ...c.feats[0], culturalWeapon: true }] }
   expect(weaponAccessSources(confirmed, entries, katana)).toEqual(['Unconventional Weaponry'])
   expect(attack(confirmed, katana, entries).rank).toBe(2)
@@ -208,7 +210,7 @@ it('allows culturally common weapons and makes the rare Shobhad exception explic
   const c = { ...character, feats: [selection] }
   expect(featChoiceOptions('Unconventional Weaponry', c, entries, '')).toContain(common.name)
   expect(featChoiceOptions('Unconventional Weaponry', c, entries, '')).toContain('Shobhad Longrifle (Pathfinder)')
-  expect(weaponAccessSources(c, entries, common)).toEqual([])
+  expect(weaponAccessSources(c, entries, common)).toEqual(['Unconventional Weaponry'])
   expect(weaponAccessSources({ ...c, feats: [{ ...selection, culturalWeapon: true }] }, entries, common))
     .toEqual(['Unconventional Weaponry'])
   const rifle = { ...selection, choice: rare.name, culturalWeapon: true }

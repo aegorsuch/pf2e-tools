@@ -74,6 +74,8 @@ it('preserves weapon versatile damage labels from full AoN traits', async () => 
         markdown: '<traits><trait label="Combination" /></traits><title level="2">Melee</title>\n<traits><trait label="Versatile S" /></traits><title level="2">Ranged</title>\n<traits><trait label="Versatile B" /></traits>' } },
       { _id: 'stock', _source: { category, trait: ['Attached', 'Two-Hand'],
         markdown: '<traits><trait label="Attached" /><trait label="Two-Hand d8" /></traits>' } },
+      { _id: 'katana', _source: { category, trait: ['Two-Hand'],
+        markdown: '<traits><trait label="Two-Hand 1d10" url="/Traits.aspx?ID=198" /></traits>' } },
     ] : []
     return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
   }
@@ -82,4 +84,5 @@ it('preserves weapon versatile damage labels from full AoN traits', async () => 
   expect(hits.find(hit => hit._id === 'other')?._source?.trait).toEqual(['Versatile S'])
   expect(hits.find(hit => hit._id === 'combination')?._source?.trait).toEqual(['Versatile S'])
   expect(hits.find(hit => hit._id === 'stock')?._source?.trait).toEqual(['Attached', 'Two-Hand d8'])
+  expect(hits.find(hit => hit._id === 'katana')?._source?.trait).toEqual(['Two-Hand d10'])
 })

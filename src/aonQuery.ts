@@ -268,7 +268,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (versatile && Array.isArray(s.trait)) {
             s.trait = s.trait.map(trait => typeof trait === 'string' && /^versatile$/i.test(trait.trim()) ? versatile : trait)
           }
-          const twoHand = /<trait\b[^>]*\blabel="(Two-Hand\s+d(?:4|6|8|10|12))"\s*[^>]*>/i.exec(traits)?.[1]
+          const twoHand = /<trait\b[^>]*\blabel="(Two-Hand\s+(?:1)?d(?:4|6|8|10|12))"\s*[^>]*>/i.exec(traits)?.[1]?.replace(/\b1d/i, 'd')
           if (twoHand && Array.isArray(s.trait)) {
             s.trait = s.trait.map(trait => typeof trait === 'string' && /^two-hand$/i.test(trait.trim()) ? twoHand : trait)
           }

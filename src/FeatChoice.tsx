@@ -1,5 +1,5 @@
 import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationForms, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry, weaponHasAncestryTrait } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -91,8 +91,6 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     const options = (featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []).map(option =>
       choice && weapon && /^Shobhad Longrifle(?: \((?:Pathfinder|Starfinder)\))?$/.test(choice)
         && weaponEntry(entries, option)?.id === weapon.id ? choice : option)
-    const cultural = feat.name === 'Unconventional Weaponry' && !!weapon
-      && (!featRarity(weapon) || ![weapon, ...combinationForms(entries, weapon.name)].some(form => weaponHasAncestryTrait(form, entries)))
     const rareException = feat.name === 'Unconventional Weaponry' && !!weapon
       && /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(weapon.name) && featRarity(weapon) === 'Rare'
     return <details className="feat-choice-details">
@@ -107,10 +105,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           {choice && !options.includes(choice) && <option disabled>{choice}</option>}
           {options.map(name => <option key={name}>{name}</option>)}
         </SearchableSelect>
-        {cultural && <label><input type="checkbox" checked={!!feat.culturalWeapon}
-          onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, culturalWeapon: event.target.checked } : existing) })} />
-          {' '}GM confirmed weapon is common in another culture</label>}
-        {cultural && !feat.culturalWeapon && <small>Access and familiarity require confirmation of cultural eligibility.</small>}
+        {feat.name === 'Unconventional Weaponry' && <small>Choose an ancestry weapon or one common in another culture. Eligible selected weapons gain Access and familiarity.</small>}
         {rareException && <label><input type="checkbox" checked={!!feat.rareWeaponOverride}
           onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, rareWeaponOverride: event.target.checked } : existing) })} />
           {' '}GM allows rare Shobhad Longrifle for this feat (house rule)</label>}

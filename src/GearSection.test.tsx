@@ -425,6 +425,34 @@ it('links attached weapons to their firearm and persists selection without extra
   expect(ownedWeapons(c, entries).some(w => w.attachedTo)).toBe(false)
 })
 
+it.each(['Katana', 'Claymore'])('changes %s damage with its saved grip in Equipment and Offense', name => {
+  const katana: ContentEntry = { ...weapon, id: 'katana', name: 'Katana', traits: ['Two-Hand d10'],
+    data: { ...weapon.data, url: 'https://2e.aonprd.com/Weapons.aspx?ID=411', hands: 1, damage: '1d6 slashing' } }
+  const claymore: ContentEntry = { ...katana, id: 'claymore', name: 'Claymore', source: 'homebrew', traits: ['Two-Hand'] }
+  const entries = [katana, claymore]
+  let c: Character = { ...character([]), weapons: [{ id: 'blade', name, potency: 1, striking: 2, runes: [] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const damage = () => weaponAttack(c, entries, c.weapons![0]).damage
+  for (const displayOnly of [false, true]) {
+    const change = (hands: string) => {
+      const select = findElement(WeaponList({ c, entries, save, displayOnly }), element => element.props['aria-label'] === `Hands: ${name}`)!
+      ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: hands } })
+    }
+    expect(damage()).toBe('3d6 slashing')
+    change('2')
+    c = JSON.parse(JSON.stringify(c))
+    expect(damage()).toBe('3d10 slashing')
+    for (const view of [false, true]) {
+      expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} displayOnly={view} />)).toContain('3d10 S')
+    }
+    change('1')
+    expect(damage()).toBe('3d6 slashing')
+  }
+  expect(claymore.traits).toEqual(['Two-Hand'])
+  const custom = { ...claymore, traits: ['Two-Hand 1d12'] }
+  expect(weaponAttack(c, [katana, custom], { ...c.weapons![0], name: 'Claymore', handsHeld: 2 }).damage).toBe('3d12 slashing')
+})
+
 it('uses the attached weapon two-hand die based on its base weapon grip', () => {
   const gun = { ...weapon, name: 'Gun', data: { hands: '1 or 2', weapon_group: 'Firearm', weapon_type: 'Ranged' } }
   const stock = { ...weapon, name: 'Reinforced Stock', traits: ['Attached', 'Finesse', 'Two-Hand'],
