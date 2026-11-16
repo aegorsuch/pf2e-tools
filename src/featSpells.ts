@@ -43,6 +43,32 @@ const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace'
 const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
   || spell.name.toLowerCase() === spellAlias(name)
 
+const spellIndexes = new WeakMap<ContentEntry[], { spells: ContentEntry[]; named: Map<string, ContentEntry[]> }>()
+function spellIndex(entries: ContentEntry[]) {
+  let index = spellIndexes.get(entries)
+  if (!index) {
+    const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted)
+    const named = new Map<string, ContentEntry[]>()
+    for (const spell of spells) {
+      const name = spell.name.toLowerCase()
+      const variants = named.get(name) ?? []
+      variants.push(spell)
+      named.set(name, variants)
+    }
+    index = { spells, named }
+    spellIndexes.set(entries, index)
+  }
+  return index
+}
+
+function matchingSpells(entries: ContentEntry[], name: string) {
+  const named = spellIndex(entries).named
+  const normalized = name.toLowerCase()
+  const alias = spellAlias(name)
+  const exact = named.get(normalized) ?? []
+  return alias === normalized ? exact : [...exact, ...(named.get(alias) ?? [])]
+}
+
 function ancestralOptions(c: Character, source?: ContentEntry) {
   const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1]
   if (!options) return undefined
@@ -100,19 +126,19 @@ export function ancestralMagicAvailable(c: Character, entries: ContentEntry[], f
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (feat.name === 'Mask of Power') {
-    return entries.filter(spell => spell.kind === 'spell' && !spell.deleted
+    return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
       && ['Fear', 'Phantom Pain', 'True Strike', 'Sure Strike'].includes(spell.name))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
   if (feat.name === 'Touch of the Sea') {
-    return entries.filter(spell => spell.kind === 'spell' && !spell.deleted
+    return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
       && ['Gale Blast', 'Spout'].includes(spell.name)).sort((a, b) => a.name.localeCompare(b.name))
   }
   if (feat.name === 'Ancestral Cantrip') {
     const rules = ancestralCantripRules(c, entries, feat.sourceId)
-    return entries.filter(spell => spell.kind === 'spell' && !spell.deleted
+    return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
       && spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
       && !!rules && (rules.any ? !!rules.tradition && String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(rules.tradition.toLowerCase())
@@ -122,7 +148,7 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
   }
   if (feat.name === 'Ancestral Magic') {
     const rules = ancestralMagicRules(c, entries, feat)
-    return entries.filter(spell => spell.kind === 'spell' && !spell.deleted
+    return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
       && rules?.spells.some(name => matchesSpell(spell, name)))
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -130,7 +156,7 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
   const entry = featSource(c, entries, feat.name)
   const rule = entry?.spellGrants?.find(grant => grant.choice)
   if (!rule && feat.name !== 'Qi Spells') return undefined
-  return entries.filter(spell => spell.kind === 'spell' && !spell.deleted && spell.systems.some(system => c.systems.includes(system))
+  return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted && spell.systems.some(system => c.systems.includes(system))
     && (feat.name === 'Qi Spells'
       ? spell.level === 1 && spell.traits.includes('Focus') && spell.traits.includes('Monk')
       : rule?.choice === 'cantrip'
@@ -248,8 +274,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         ? { ...baseRule, frequency: 'twice per day' } : baseRule
       const names = rule.choice ? options?.filter(spell => spell.name === feat.choice).map(spell => spell.name) ?? [] : rule.spells
       for (const name of names) {
-        const available = entries.filter(spell => spell.kind === 'spell' && !spell.deleted && matchesSpell(spell, name)
-          && spell.systems.some(system => c.systems.includes(system)))
+        const available = matchingSpells(entries, name).filter(spell => spell.systems.some(system => c.systems.includes(system)))
         const entry = available.find(spell => spell.name.toLowerCase() === name.toLowerCase()) ?? available[0]
         if (entry) out.push({ entry, source: feat.name, rule, rank: rule.heightened || entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
           ? Math.ceil(c.level / 2) : rule.rank ?? entry.level,
@@ -283,8 +308,7 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
       return [{ name: 'Caustic Blast', source }]
     }
     return (source?.spellGrants ?? []).flatMap(rule => (rule.choice ? feat.choice ? [feat.choice] : [] : rule.spells)
-      .filter(name => !entries.some(entry => entry.kind === 'spell' && !entry.deleted && matchesSpell(entry, name)
-        && entry.systems.some(system => c.systems.includes(system))))
+      .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.some(system => c.systems.includes(system))))
       .map(name => ({ name, source })))
   })
 }

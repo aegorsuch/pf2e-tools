@@ -25,6 +25,23 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('keeps exact spell names, aliases, systems and refreshed content correct with indexed grants', () => {
+  const source: ContentEntry = { ...entry('Quiet Steps', 'feat'), spellGrants: [
+    { kind: 'innate', spells: ['Pass Without Trace'], heightened: true },
+  ] }
+  const alias: ContentEntry = { ...entry('Vanishing Tracks', 'spell'), id: 'pf-alias', systems: ['pf2e'] }
+  const sfAlias: ContentEntry = { ...alias, id: 'sf-alias', systems: ['sf2e'] }
+  const exact: ContentEntry = { ...alias, id: 'exact', name: 'Pass Without Trace' }
+  const catalog = [source, sfAlias, alias, exact]
+  const c: Character = { ...base, systems: ['pf2e'], feats: [taken(source.name)] }
+  expect(grantedFeatSpells(c, catalog).map(grant => grant.entry.id)).toEqual([exact.id])
+  expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, catalog).map(grant => grant.entry.id)).toEqual([sfAlias.id])
+  expect(unresolvedFeatSpells(c, catalog)).toEqual([])
+  const refreshed = [source, sfAlias, alias, { ...exact, deleted: true }]
+  expect(grantedFeatSpells(c, refreshed).map(grant => grant.entry.id)).toEqual([alias.id])
+  expect(unresolvedFeatSpells(c, [source, { ...alias, deleted: true }]).map(grant => grant.name)).toEqual(['Pass Without Trace'])
+})
+
 it('offers As Mutable as Nature only after acquiring the ability to cast Untamed Form', () => {
   const mutable = homebrewCharacterOptions([]).find(entry => entry.name === 'As Mutable as Nature')!
   const c: Character = { ...base, className: 'Druid', order: 'Untamed', level: 20,

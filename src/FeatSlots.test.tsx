@@ -8,10 +8,37 @@ import { eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots
 import { achievementOptions } from './featAccess'
 import { grantedFeatSpells } from './featSpells'
 import { getSettings, updateSettings } from './settings'
+import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('reuses selected prerequisite checks for empty slots and invalidates changed rules, settings and content', () => {
+  const source: ContentEntry = { id: 'target', name: 'Target', kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Ranger'], description: '', data: { prerequisite: 'Strength +4' }, effects: [], updatedAt: 0 }
+  let entries = [source]
+  let c: Character = { ...emptyRanger(), feats: [{ name: source.name, type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const check = vi.spyOn(builder, 'featSelectionPrerequisiteChecker')
+  const previous = getSettings().autoLores
+  const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['class']} save={() => {}} onSearch={() => {}} />)
+  try {
+    render()
+    expect(check).toHaveBeenCalledTimes(1)
+    c = JSON.parse(JSON.stringify({ ...c, extraSlots: [{ category: 'class', level: 1, count: 1 }], dismissedFeatSlots: [], updatedAt: 1 }))
+    render()
+    expect(check).toHaveBeenCalledTimes(1)
+    c = { ...c, abilities: { ...c.abilities, str: 18 } }
+    render()
+    expect(check).toHaveBeenCalledTimes(2)
+    updateSettings({ autoLores: !previous })
+    render()
+    expect(check).toHaveBeenCalledTimes(3)
+    entries = [{ ...source, data: { prerequisite: 'Dexterity +4' } }]
+    render()
+    expect(check).toHaveBeenCalledTimes(4)
+  } finally { check.mockRestore(); updateSettings({ autoLores: previous }) }
+})
 
 it('shows one Additional Lore per skill and prefers the specific ancestry source', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 7,

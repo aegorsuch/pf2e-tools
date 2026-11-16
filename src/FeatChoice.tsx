@@ -6,6 +6,16 @@ import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 
+const repeatableFeatNames = new WeakMap<SectionProps['entries'], Set<string>>()
+function isRepeatableFeat(entries: SectionProps['entries'], name: string) {
+  let names = repeatableFeatNames.get(entries)
+  if (!names) {
+    names = new Set(entries.filter(entry => entry.kind === 'feat' && entry.data.repeatable === true).map(entry => entry.name))
+    repeatableFeatNames.set(entries, names)
+  }
+  return names.has(name)
+}
+
 export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
@@ -321,7 +331,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   const isWarden = hasWardenChoice(feat) && c.systems.includes('pf2e')
   if (['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(feat.name)
     && c.className === 'Mechanic' && c.systems.includes('sf2e')) return null
-  const repeatable = entries.some((entry) => entry.kind === 'feat' && entry.name === feat.name && entry.data.repeatable === true)
+  const repeatable = !isWarden && isRepeatableFeat(entries, feat.name)
   if (!isWarden && !repeatable) return null
   if (!isWarden) {
     return <label className="feat-choice">

@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
-  ancestralSkills, experiencedLaborerLore, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
+  ancestralSkills, experiencedLaborerLore, trainedFeatLores, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
@@ -62,7 +62,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const ranks = downloaded ? { ...permanentRanks, [downloaded.skill]: Math.max(permanentRanks[downloaded.skill] ?? 0, downloaded.rank) } : permanentRanks
   const laborer = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Experienced Laborer')[0] : undefined
   const laborerLore = experiencedLaborerLore(c)
-  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...(laborerLore ? [laborerLore] : []), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
+  const trainedLores = trainedFeatLores(c)
+  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
@@ -88,7 +89,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
   const baseRanks = editingSkills ? ranksAt(noPaidIncreases, entries, 99, false) : ranks
-  const rankGrants = (editingSkills ? ['Technomagical Scrapper', 'Greenwatch Initiate', 'Ancestral Skills', 'Experienced Laborer'] : []).flatMap(name => {
+  const rankGrants = (editingSkills ? ['Technomagical Scrapper', 'Greenwatch Initiate', 'Ancestral Skills', ...new Set(trainedLores.map(grant => grant.source))] : []).flatMap(name => {
     const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
     return feat ? [{ level: featTakenLevel(feat), without: ranksAt({
       ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== name),
@@ -207,7 +208,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             delete rankOverrides[s.name]
             const withoutLore = { ...c, lores: c.lores.filter(lore => lore.name !== s.name),
               skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides }
-            const stillGranted = [...featLores(c, entries), ...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills].includes(s.name)
+            const stillGranted = [...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills].includes(s.name)
               || activeFeatsNamed(c, "Officer's Medical Training").some(feat => feat.choice === s.name)
                 && (ranksAt(withoutLore, entries)[s.name] ?? 0) > 0
             save({ lores: c.lores.filter(lore => lore.name !== s.name),
@@ -239,8 +240,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
           {s.name === 'Diplomacy' && laborer && <SourceNote inlineSource={false}
             source="Experienced Laborer" note={`+2 circumstance to Gather Information when consulting professionals related to ${laborerLore ?? 'your chosen Lore'}.`} />}
-          {s.name === laborerLore && <SourceNote inlineSource={false}
-            source="Experienced Laborer" note="Free trained Lore; does not use a skill training pick." />}
+          {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
+            source={grant.source} note="Free trained Lore; does not use a skill training pick." />)}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}
             source="Pick On Someone My Size" note="+1 circumstance to Demoralize a larger creature that attacked an ally since the start of your last turn." />}
           {s.name === 'Perception' && !!activeFeatsNamed(c, 'Enhanced Olfactory System').length && <SourceNote inlineSource={false}

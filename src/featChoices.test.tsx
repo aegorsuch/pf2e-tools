@@ -39,6 +39,19 @@ it('skips ancestry resolution for missing and unambiguous feat sources without i
   expect(ancestry).not.toHaveBeenCalled()
 })
 
+it('indexes repeatable choice metadata once and refreshes it with the catalog', () => {
+  const repeatable = vi.fn(() => false)
+  const source: ContentEntry = { ...entries[0], kind: 'feat', name: 'Custom Feat', spellGrants: undefined,
+    data: { get repeatable() { return repeatable() } } }
+  const catalog = [source]
+  const c: Character = { ...base, feats: [{ name: source.name, type: 'Class Feat', level: 1 }] }
+  expect(FeatChoice({ c, entries: catalog, index: 0, save: () => {} })).toBeNull()
+  expect(FeatChoice({ c: { ...c, updatedAt: 1 }, entries: catalog, index: 0, save: () => {} })).toBeNull()
+  expect(repeatable).toHaveBeenCalledTimes(1)
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[{ ...source, data: { repeatable: true } }]} index={0} save={() => {}} />))
+    .toContain('Custom Feat choice')
+})
+
 it('saves and restores a valid feat spell choice without accepting another tradition', () => {
   const source: ContentEntry = {
     ...entries[0], id: 'magic', kind: 'feat', name: 'Otherworldly Magic', traits: [], data: {},

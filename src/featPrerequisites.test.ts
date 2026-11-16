@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
-import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
+import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
 import * as featChoices from './featChoices'
@@ -17,6 +17,23 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('does not evaluate skill ranks for feat references or armor and weapon prerequisites', () => {
+  const ranks = vi.fn(() => ({ Crafting: 1 }))
+  const facts: PrerequisiteFacts = {
+    className: 'Barbarian', additionalSubclasses: [], orders: [], features: [], senses: [],
+    feats: [{ name: 'Earlier Feat', level: 1, category: 'class' }], abilities: base.abilities,
+    armor: { Light: 1 }, weapons: { Martial: 1 }, get ranks() { return ranks() },
+  }
+  const earlier = entry('feat', 'Earlier Feat', { prerequisite: 'Level 1' }, 1, ['Barbarian'])
+  const checker = createFeatPrerequisiteChecker([earlier], { level: 3, entryIds: [], knownOrders: [], facts: () => facts })
+  for (const prerequisite of ['Earlier Feat', 'trained in light armor', 'trained with martial weapons']) {
+    expect(checker(target(prerequisite)).missing).toEqual([])
+  }
+  expect(ranks).not.toHaveBeenCalled()
+  expect(checker(target('trained in Crafting')).missing).toEqual([])
+  expect(ranks).toHaveBeenCalled()
+})
 
 it.each(['Cyborg', 'SRO'])('limits Additional Arms for %s while preserving its current slot and the opt-out', trait => {
   const previous = getSettings().singleAdditionalArms

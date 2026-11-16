@@ -26,6 +26,33 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('grants Underworld Investigator free trained Lore without Additional Lore progression', () => {
+  const previous = getSettings().autoLores
+  updateSettings({ autoLores: false })
+  const feat = { name: 'Underworld Investigator', type: 'Class Feat', level: 1, slot: 'class:1:0' }
+  const c: Character = { ...base, feats: [feat] }
+  try {
+    for (const level of [1, 3, 7, 15, 20]) expect(ranksAt({ ...c, level }, [ranger])['Underworld Lore']).toBe(1)
+    expect(skillRankBudget(c, [ranger]).trained).toBe(skillRankBudget(base, [ranger]).trained)
+    expect(builder.featLores(c, [ranger])).not.toContain('Underworld Lore')
+    expect(builder.automaticFeatGrants(c, [ranger]).some(grant => grant.source === feat.name)).toBe(false)
+    expect(ranksAt({ ...c, feats: [] }, [ranger])['Underworld Lore']).toBeUndefined()
+    expect(ranksAt({ ...c, systems: ['sf2e'] }, [ranger])['Underworld Lore']).toBeUndefined()
+    expect(ranksAt({ ...c, level: 9, feats: [{ ...feat, takenLevel: 9 }] }, [ranger], 9)['Underworld Lore']).toBeUndefined()
+    expect(ranksAt({ ...c, level: 3, skillIncreases: { 3: 'Underworld Lore' } }, [ranger])['Underworld Lore']).toBe(2)
+    const restored: Character = JSON.parse(JSON.stringify(c))
+    const markup = renderToStaticMarkup(<SkillsSection c={restored} entries={[ranger]} save={() => {}} />)
+    expect(markup).toContain('Underworld Lore')
+    expect(markup).toContain('Underworld Investigator')
+    expect(markup).toContain('Free trained Lore; does not use a skill training pick.')
+    expect(builder.skillDownload({ ...c, systems: ['pf2e', 'sf2e'],
+      feats: [feat, { name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Underworld Lore' }] }, [ranger]))
+      .toEqual({ skill: 'Underworld Lore', rank: 1 })
+    updateSettings({ autoLores: true })
+    expect(ranksAt({ ...c, level: 7 }, [ranger])['Underworld Lore']).toBe(3)
+  } finally { updateSettings({ autoLores: previous }) }
+})
+
 it.each(['Orc', 'Human'])('gives Experienced Laborer one free trained Lore for %s', ancestry => {
   const previous = getSettings().autoLores
   updateSettings({ autoLores: false })

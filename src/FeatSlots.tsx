@@ -11,6 +11,8 @@ import { compareFeatSelections } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
 import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
+import type { PrerequisiteCheck } from './featPrerequisites'
+import { getSettings } from './settings'
 
 interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
@@ -22,6 +24,18 @@ interface FeatSlotsProps extends SectionProps {
 }
 
 const PAGE = 100
+
+const selectedCheckCaches = new WeakMap<ContentEntry[], { context: string; checks: Map<string, PrerequisiteCheck> }>()
+function selectedChecks(c: Character, entries: ContentEntry[]) {
+  // Empty-slot layout and save timestamps do not affect a selected feat's prerequisites.
+  const context = JSON.stringify([{ ...c, extraSlots: undefined, dismissedFeatSlots: undefined, updatedAt: undefined }, getSettings()])
+  let cache = selectedCheckCaches.get(entries)
+  if (!cache || cache.context !== context) {
+    cache = { context, checks: new Map() }
+    selectedCheckCaches.set(entries, cache)
+  }
+  return cache.checks
+}
 
 const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
@@ -36,6 +50,16 @@ export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSe
 }
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
+  const checks = selectedChecks(c, entries)
+  const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
+    const key = JSON.stringify([slot, entry])
+    let result = checks.get(key)
+    if (!result) {
+      result = featSelectionPrerequisiteChecker(c, entries, slot)(entry)
+      checks.set(key, result)
+    }
+    return result
+  }
   const allSlots = plannedSlots(c)
   const featsByName = featByName(entries)
   const grantedType = (name: string) => {
@@ -308,7 +332,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }
-            : currentEntry ? prerequisitesFor(currentEntry, s) : undefined
+            : currentEntry ? selectedPrerequisites(s, currentEntry) : undefined
           const picksType = s.category === 'archetype'
           const popup = !!onSearch || picksType
           const multiclassOnly = s.grantedBy === 'Multitalented' || s.grantedBy === 'Eldritch Trickster'

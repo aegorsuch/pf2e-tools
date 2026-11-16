@@ -331,9 +331,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (ranked || inheritedRank) {
       const rank = RANKS.indexOf(ranked?.[1] ?? inheritedRank!)
       const subject = name.replace(rankPrefix, '').replace(/^(?:your choice of|at least one of|one of)\s+/, '').replace(/\s+saves?$/, '')
-      const skill = Object.keys(facts.ranks).find((skill) => key(skill) === subject)
       const armor = /^(light|medium|heavy) armor$|^(unarmored) defense$/.exec(subject)
       const weapon = /^(simple|martial|advanced) weapons?$|^(unarmed) attacks?$/.exec(subject)
+      const skill = armor || weapon || /^clan daggers?$/.test(subject) ? undefined
+        : Object.keys(facts.ranks).find((skill) => key(skill) === subject)
       if (/^(?:at least )?(?:one|any) skill$/.test(subject)) {
         return resultFor(Object.entries(facts.ranks).some(([stat, value]) =>
           !/^(?:perception|fortitude|reflex|will)$/i.test(stat) && value >= rank), text)
@@ -387,7 +388,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const next = new Set([...trail, ...references])
       const checks = selected.map((feat) => {
         const sources = featPrerequisiteSources(entries, {
-          ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds,
+          className: facts.className, ancestry: facts.ancestry, heritage: facts.heritage,
+          ancestryTraits: facts.ancestryTraits, name: feat.name, category: feat.category, entryIds: context.entryIds,
         })
         const requirements = [...new Set(sources.map((entry) => String(entry.data.prerequisite ?? '')))]
         return requirements.length > 1 ? manual(`Verify source version of ${text}`)

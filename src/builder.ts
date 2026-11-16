@@ -657,7 +657,12 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const character = { ...c, level: Math.min(c.level, atLevel),
         feats: c.feats.filter((feat, index) => index !== excludedIndex && featTakenLevel(feat) <= Math.min(c.level, atLevel)) }
       if (character.boosts) character.abilities = computeAbilities(character, entries)
-      const ranks = ranksAt(character, entries)
+      let ranks: PrerequisiteFacts['ranks'] | undefined
+      let armor: PrerequisiteFacts['armor'] | undefined
+      let weapons: PrerequisiteFacts['weapons'] | undefined
+      let senseValues: PrerequisiteFacts['senses'] | undefined
+      let featureNames: PrerequisiteFacts['features'] | undefined
+      let wardenSpells: string[] | undefined
       const subclass = selectedSubclass(character, entries)
       const additionalSubclasses = character.feats.flatMap((feat) => feat.choice && (
         character.className === 'Bard' && feat.name === 'Multifarious Muse'
@@ -689,7 +694,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           name: feat.name, level: featTakenLevel(feat),
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
         })),
-        features: [...features.map((feature) => feature.name), ...museFeats,
+        get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
           ...automaticFeatGrants(character, entries).map((feat) => feat.name),
           ...tokens(byName(entries, 'background', character.background)?.data.feat),
           ...(character.className === 'Druid' && (character.order ?? subclass) === 'Animal' ? ['Animal Companion'] : []),
@@ -697,14 +702,15 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           ...(hasFocusPool ? ['focus pool'] : []),
           ...(casting || hasFocusPool || character.spells?.length ? ['ability to cast spells'] : []),
           ...(character.companions?.length ? ['an animal companion'] : []),
-        ],
-        ranks: { ...Object.fromEntries(statDefs(character).map((stat) => [stat.name, 0])), ...ranks },
-        armor: armorRanks(character, entries), weapons: weaponRanks(character, entries),
+        ] },
+        get ranks() { return ranks ??= { ...Object.fromEntries(statDefs(character).map((stat) => [stat.name, 0])), ...ranksAt(character, entries) } },
+        get armor() { return armor ??= armorRanks(character, entries) },
+        get weapons() { return weapons ??= weaponRanks(character, entries) },
         weaponRank: name => weaponEntry(entries, name) ? weaponAttack(character, entries,
           { id: 'prerequisite', name, potency: 0, striking: 0, runes: [] }).rank : undefined,
         abilities: character.abilities,
         // Prerequisites describe available capabilities, not the current combat toggle.
-        senses: senses({ ...character, raging: true }, entries).map((sense) => sense.value),
+        get senses() { return senseValues ??= senses({ ...character, raging: true }, entries).map((sense) => sense.value) },
         spellcastingClassFeature: casting, maxSpellRank, focusPool: hasFocusPool,
         untamedForm: knowsSpell(character, entries, 'Untamed Form'),
         championBlessings: championBlessings(character),
@@ -725,11 +731,11 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           || character.feats.some(feat => ['Inventor Dedication', 'Second Innovation', 'Third Innovation'].includes(feat.name)
             && /^construct(?: innovation)?$/i.test(feat.choice ?? '')),
         companionTypes: character.companions?.map(companion => companion.type) ?? [],
-        wardenSpells: [...new Set([...grantedWardenSpells(character, entries).map(spell => spell.name),
+        get wardenSpells() { return wardenSpells ??= [...new Set([...grantedWardenSpells(character, entries).map(spell => spell.name),
           ...focus.spells.filter(spell => {
             const entry = byName(entries, 'spell', spell.name)
             return entry && wardenTierOf(entry)
-          }).map(spell => spell.name)])],
+          }).map(spell => spell.name)])] },
       }
       facts.set(atLevel, value)
       return value
@@ -1952,6 +1958,15 @@ export function experiencedLaborerLore(c: Character) {
   return choice && !/^lore$/i.test(choice) ? /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore` : undefined
 }
 
+export function trainedFeatLores(c: Character) {
+  const laborer = experiencedLaborerLore(c)
+  return [
+    ...(laborer ? [{ name: laborer, source: 'Experienced Laborer' }] : []),
+    ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Underworld Investigator').length
+      ? [{ name: 'Underworld Lore', source: 'Underworld Investigator' }] : []),
+  ]
+}
+
 const ANCESTRY_LORE_GRANTS: Record<string, { skills: string[]; lore: string }> = {
   "Grandmother's Lore": { skills: ['Deception', 'Thievery'], lore: 'Lao Shu Po Lore' },
   'Ysoki Lore': { skills: ['Acrobatics', 'Stealth'], lore: 'Ysoki Lore' },
@@ -2253,8 +2268,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   if (isPioneerHuman(c)) bump('Survival')
   c.skillPicks?.forEach(bump)
   featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
-  const laborerLore = experiencedLaborerLore({ ...c, level: Math.min(c.level, beforeLevel - 1) })
-  if (laborerLore) bump(laborerLore)
+  trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).forEach(grant => bump(grant.name))
   skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
   ranks.Perception = rankFromText(klass?.data.perception_proficiency)
@@ -2275,8 +2289,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
   const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
-  const laborerLore = experiencedLaborerLore({ ...c, level: Math.min(c.level, beforeLevel - 1) })
-  if (loreUp && laborerLore) lores.push(laborerLore)
+  if (loreUp) lores.push(...trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).map(grant => grant.name))
   if (loreUp) lores.push(...activeFeatsNamed({ ...c, level: Math.min(c.level, beforeLevel - 1) }, "Officer's Medical Training")
     .flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) ? [feat.choice] : []))
   if (loreUp) lores.push(...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries))
@@ -2363,6 +2376,7 @@ export function skillDownload(c: Character, entries: ContentEntry[]) {
   const skill = feat?.choice
   const valid = statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
     || c.lores.some(lore => lore.name === skill) || featLores(c, entries).includes(skill ?? '')
+    || trainedFeatLores(c).some(grant => grant.name === skill)
     || backgroundSkills(byName(entries, 'background', c.background)).includes(skill ?? '')
     || backgroundSkills(freeHeartBackground(c, entries)).includes(skill ?? '') || autoClassSkills(c, entries).includes(skill ?? '')
   return skill && valid ? { skill, rank: c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 } : undefined
