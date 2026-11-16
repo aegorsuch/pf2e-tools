@@ -20,6 +20,37 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it.each([
+    ['Small', 'Small', false],
+    ['Small', 'Medium', true],
+    ['Medium', 'Medium', false],
+    ['Medium', 'Large', true],
+    ['Large', 'Large', false],
+    ['Large', 'Huge', true],
+  ])('grants Rider full mount for a %s rider with a %s companion: %s', (riderSize, companionSize, mount) => {
+    const ancestry = entry('ancestry', 'Sized Ancestry', { size: riderSize })
+    const bird = entry('companion', 'Bird', { ...bear.data, size: companionSize, speed_raw: '10 feet, fly 60 feet' }, 1, ['Animal'])
+    const c: Character = { ...base, level: 1, ancestry: ancestry.name,
+      feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }],
+      companions: [{ id: 'bird', type: bird.name, name: '' }] }
+    const before = JSON.stringify({ c, bird })
+    const stats = companionStats(c, [ancestry, bird], bird.name)!
+    expect(stats).toMatchObject({ mount, riderMount: mount, size: companionSize, speed: '10 feet, fly 60 feet' })
+    expect(companionStats({ ...c, feats: [] }, [ancestry, bird], bird.name)?.mount).toBe(false)
+    expect(companionStats({ ...c, feats: [{ ...c.feats[0], takenLevel: 2 }] }, [ancestry, bird], bird.name)?.mount).toBe(false)
+    expect(companionStats(c, [ancestry, { ...bird, traits: ['Construct'] }], bird.name)?.mount).toBe(false)
+    expect(JSON.stringify({ c, bird })).toBe(before)
+  })
+
+  it('updates Rider mount eligibility with companion growth and preserves native mount abilities', () => {
+    const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
+    const medium = { ...bear, data: { ...bear.data, size: 'Medium' } }
+    expect(companionStats(c, [medium], medium.name)?.mount).toBe(false)
+    expect(companionStats(c, [medium], medium.name, { mature: true, advanced: undefined, specializations: [] })?.mount).toBe(true)
+    const horse = entry('companion', 'Horse', { ...bear.data, mount: true })
+    expect(companionStats({ ...c, feats: [] }, [horse], horse.name)).toMatchObject({ mount: true, riderMount: false })
+  })
+
   it('applies Pale Horse only while mounted on the faithful steed and scales retaliation', () => {
     const companions: NonNullable<Character['companions']> = [
       { id: 'first', type: 'Bear', name: '', paleHorse: 'Fire' },

@@ -177,6 +177,12 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const clumsy = enlarge ? 1 : 0
   const total = (k: string, ability: Ability) => mods[ability] + prof(k) - (ability === 'dex' ? clumsy : 0)
   const size = enlarge?.size ?? naturalSize
+  const riderSizes = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
+    .match(/tiny|small|medium|large|huge|gargantuan/gi) ?? ['Medium']
+  const riderSize = Math.max(...riderSizes.map(value => SIZES.findIndex(candidate => candidate.toLowerCase() === value.toLowerCase())))
+  const riderMount = d.mount !== true && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
+    && c.feats.some(feat => feat.name === 'Rider' && featTakenLevel(feat) <= c.level)
+    && SIZES.indexOf(size) > riderSize
   const flat = (advanced === 'Savage' ? 3 : advanced === 'Nimble' ? 2 : 0)
 
   const attacks = String(d.companion_attacks ?? '').split(';').filter(Boolean).map((a) => {
@@ -254,7 +260,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     maneuverTraits: String(d.companion_maneuver_traits ?? ''),
     maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
     maneuverDescription: String(d.companion_maneuver_description ?? ''),
-    mount: d.mount === true,
+    mount: d.mount === true || riderMount, riderMount,
   }
 
 }

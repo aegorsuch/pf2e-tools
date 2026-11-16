@@ -297,12 +297,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       : index === 0 ? stage : 'Young'}</span>                      <span>{stats.size}{enlargeNote
                         && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}</span>
                     {!isConstruct && index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
-                    {stats.mount && <span>Mount</span>}
+                    {stats.mount && <span>Mount{stats.riderMount && <SourceNote source="Rider" inlineSource={false}
+                      note="Grants the full mount special ability: can move and Support you on the same turn and use its other Speeds while ridden. Companion must be at least one size larger than you." />}</span>}
                     {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
                   {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                   {!isConstruct && !stats.mount && !!activeFeatsNamed(c, 'Rider').length && <div>
-                    <SourceNote source="Rider" note="While you ride this animal companion, it can move and Support you on the same turn. It must be at least one size larger than you and can use only its land Speed while carrying a rider." />
+                    <SourceNote source="Rider" note="This companion gains the full mount special ability while it is at least one size larger than you. Once eligible, it can move and Support you on the same turn and use its other Speeds while ridden." />
                   </div>}
                   {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
                     Creatures touching or hitting the steed with an adjacent melee Strike take {stats.paleHorse.retaliation} {stats.paleHorse.damage.toLowerCase()} damage.</div>}
