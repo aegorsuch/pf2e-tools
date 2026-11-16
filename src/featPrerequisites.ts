@@ -13,6 +13,7 @@ export interface PrerequisiteFacts {
   ancestryTraits?: string[]
   subclass?: string
   additionalSubclasses: string[]
+  exocortexes?: string[]
   orders: string[]
   feats: { name: string; level: number; category?: string }[]
   features: string[]
@@ -25,6 +26,7 @@ export interface PrerequisiteFacts {
   spellcastingClassFeature?: boolean
   maxSpellRank?: number
   focusPool?: boolean
+  untamedForm?: boolean
   wardenSpells?: string[]
   companionTypes?: string[]
   familiar?: boolean
@@ -252,6 +254,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)
+    if (name === 'you can cast untamed form') return resultFor(!!facts.untamedForm, text)
+    const exocortex = /^(drone|mine|turret) exocortex$/.exec(name)
+    if (exocortex) return resultFor(facts.className === 'Mechanic'
+      && !!facts.exocortexes?.some(choice => key(choice) === exocortex[1]), text)
     if (name === 'sneak attack 2d6' && facts.className === 'Rogue') return resultFor(level >= 5, text)
     if (name === 'construct companion' || name === 'a construct companion') return resultFor(!!facts.constructCompanion, text)
     if (facts.className === 'Champion' && ['blessed armament', 'blessed shield', 'blessed swiftness'].includes(name)) {

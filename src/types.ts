@@ -306,6 +306,12 @@ export interface Character {
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
+  untamedForm?: {
+    form?: string
+    shape?: string
+    rank?: number
+    originalDuration?: '1 minute' | '10 minutes' | '24 hours' | '1 hour' | 'unlimited'
+  }
   oakenResilienceRank?: number
   spentFocusPoints?: number[]
   innateSpellUses?: Record<string, number>

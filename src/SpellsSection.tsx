@@ -13,8 +13,68 @@ import { featTakenLevel } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
+import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
+
+export function UntamedFormOptions({ c, entries, save }: SectionProps) {
+  const active = isSpellActive(c, entries, 'Untamed Form')
+  const mutable = !!activeFeatsNamed(c, 'As Mutable as Nature').length
+  const canChange = canChangeUntamedForm(c, entries)
+  const options = untamedFormOptions(c)
+  const ranks = untamedFormRanks(c)
+  const state = c.untamedForm
+  const durations: NonNullable<NonNullable<Character['untamedForm']>['originalDuration']>[] =
+    ['1 minute', '10 minutes', '24 hours', '1 hour', 'unlimited']
+  return <fieldset className="col">
+    <legend>Untamed Form</legend>
+    <label>Cast rank{' '}
+      <select aria-label="Untamed Form cast rank" value={state?.rank && ranks.includes(state.rank) ? state.rank : ranks[0]} disabled={active}
+        onChange={event => {
+          const rank = Number(event.target.value)
+          if (active || !ranks.includes(rank)) return
+          save({ untamedForm: { rank } })
+        }}>
+        {ranks.map(rank => <option key={rank} value={rank}>{rank}{rank !== ranks[0] ? ' (Form Control)' : ''}</option>)}
+      </select>
+    </label>
+    <label>{active && mutable ? 'Change form' : 'Form'}{' '}
+      {active && mutable && <ActionIcon actions="Single Action" />}
+      <select aria-label="Untamed Form list" value={state?.form ?? ''} disabled={active && !canChange}
+        onChange={event => {
+          const form = options.find(option => option.name === event.target.value)
+          if (!form || active && !canChange) return
+          save({ untamedForm: { ...state, form: form.name, shape: undefined,
+            originalDuration: active ? state?.originalDuration : form.duration } })
+        }}>
+        <option value="">Choose form list</option>
+        {state?.form && !options.some(option => option.name === state.form) && <option value={state.form} disabled>{state.form} (unavailable)</option>}
+        {options.map(option => <option key={option.name}>{option.name}</option>)}
+      </select>
+    </label>
+    <label>Shape{' '}
+      <input aria-label="Untamed Form shape" value={state?.shape ?? ''} disabled={!state?.form || active && !canChange}
+        onChange={event => {
+          if (!state?.form || active && !canChange) return
+          save({ untamedForm: { ...state, shape: event.target.value } })
+        }} />
+    </label>
+    <label>Original duration{' '}
+      <select aria-label="Untamed Form original duration" value={state?.originalDuration ?? ''} disabled={active || !state?.form}
+        onChange={event => {
+          const duration = durations.find(duration => duration === event.target.value)
+          if (active || !state?.form || !duration) return
+          save({ untamedForm: { ...state, originalDuration: duration } })
+        }}>
+        <option value="">Choose duration</option>
+        {durations.map(duration => <option key={duration}>{duration}</option>)}
+      </select>
+    </label>
+    {mutable && active && !canChange && <small>As Mutable as Nature requires an original duration of 1 minute.</small>}
+    {canChange && <small>Each form change costs 1 action. Remaining spell duration does not reset.</small>}
+    <small>Track the chosen battle form's other statistics separately; this does not replace your character statistics.</small>
+  </fieldset>
+}
 
 export function FocusPointTracker({ c, entries = [], save, points }: Pick<SectionProps, 'c' | 'save'> & { entries?: ContentEntry[]; points: number }) {
   const capacity = Math.min(3, Math.max(0, points))
@@ -303,7 +363,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
       })}
       {activeUntamedShiftEffects(c, entries).includes('Plant') && <small>Reach 10 feet, or 15 feet with a reach weapon.</small>}
     </fieldset>}
-    {name === 'Untamed Form' && <small>Track the chosen battle form's other statistics separately; this toggle does not replace your character statistics.</small>}
+    {name === 'Untamed Form' && <UntamedFormOptions c={c} entries={entries} save={save} />}
     {name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank} (Grown of Oak)</small>
       : <label>Cast rank{' '}

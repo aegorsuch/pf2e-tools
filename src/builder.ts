@@ -629,6 +629,21 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
 
 const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed']]
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
+const MECHANIC_EXOCORTEXES = ['Drone', 'Mine', 'Turret']
+
+function mechanicExocortexes(c: Character) {
+  if (c.className !== 'Mechanic') return []
+  const primary = MECHANIC_EXOCORTEXES.find(name => name.toLowerCase() === c.subclass?.toLowerCase())
+  const choices = primary ? [primary] : []
+  const experimenter = activeFeatsNamed(c, 'Exocortex Experimenter')
+    .filter(feat => featTakenLevel(feat) >= 6).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))
+  for (const feat of experimenter) {
+    if (choices.length >= 3 || choices.length >= 2 && featTakenLevel(feat) < 12) continue
+    const choice = MECHANIC_EXOCORTEXES.find(name => name.toLowerCase() === feat.choice?.toLowerCase())
+    if (primary && choice && !choices.includes(choice)) choices.push(choice)
+  }
+  return choices
+}
 
 export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
   options: { ignoreAttributePrerequisites?: boolean } = {}) {
@@ -664,7 +679,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const value: PrerequisiteFacts = {
         className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
         ancestryTraits: ancestryFeatTraits(character),
-        subclass, additionalSubclasses,
+        subclass, additionalSubclasses, exocortexes: mechanicExocortexes(character),
         orders: character.className === 'Druid' ? [
           character.order ?? subclass ?? '',
           ...character.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []),
@@ -690,6 +705,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         // Prerequisites describe available capabilities, not the current combat toggle.
         senses: senses({ ...character, raging: true }, entries).map((sense) => sense.value),
         spellcastingClassFeature: casting, maxSpellRank, focusPool: hasFocusPool,
+        untamedForm: knowsSpell(character, entries, 'Untamed Form'),
         championBlessings: championBlessings(character),
         sanctification: character.className === 'Champion' && byName(entries, 'deity', character.deity)?.data.sanctification
           ? deitySanctification(character, entries).selected ?? 'None' : undefined,
@@ -770,13 +786,6 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
         && isDeadlySimplicityWeapon(character, entries, weapon))) missing.push('a deity with a qualifying simple or unarmed favored weapon')
       manual = manual.filter((requirement) => !/^(?:deity with a simple or unarmed attack favored weapon|trained with your deity's favored weapon)$/i.test(requirement))
     }
-    const exocortex = /^(drone|mine|turret) exocortex$/i.exec(String(entry.data.prerequisite ?? '').trim())
-    if (exocortex) {
-      if (character.className !== 'Mechanic' || character.subclass?.toLowerCase() !== exocortex[1].toLowerCase()) {
-        missing.push(`${exocortex[1].toLowerCase()} exocortex`)
-      }
-      manual = manual.filter(requirement => !/^(?:drone|mine|turret) exocortex$/i.test(requirement))
-    }
     return { missing: [...new Set(missing)], manual }
   }
 }
@@ -836,6 +845,12 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 3)
       && (e.name !== 'Plentiful Grenades' || !taken.has(e.name) || slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (e.name !== 'Exocortex Experimenter' || !taken.has(e.name) || slot.level >= 12
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (e.name !== 'Expansive Array' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (!['Exocortex Experimenter', 'Convertible Chassis'].includes(e.name)
+        || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
+        || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
@@ -851,6 +866,10 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Plentiful Grenades' && slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
+        || e.name === 'Exocortex Experimenter' && slot.level >= 12
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
+        || e.name === 'Expansive Array'
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
         || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
@@ -987,6 +1006,11 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Exocortex Experimenter' && c.systems.includes('sf2e')) {
+    const used = new Set([c.subclass?.toLowerCase(),
+      ...c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice?.toLowerCase())])
+    return MECHANIC_EXOCORTEXES.filter(option => !used.has(option.toLowerCase()))
+  }
   if (name === 'Convertible Chassis' && c.systems.includes('sf2e')) {
     const base = c.mechanicDroneBaseChassis ?? c.mechanicDroneChassis
     const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))
@@ -3008,6 +3032,42 @@ export function knowsSpell(c: Character, entries: ContentEntry[], name: string) 
 
 export const isSpellActive = (c: Character, entries: ContentEntry[], name: string) =>
   !!c.activeSpells?.includes(name) && knowsSpell(c, entries, name)
+
+export function untamedFormRanks(c: Character) {
+  const maximum = Math.ceil(c.level / 2)
+  return [...new Set([maximum, ...(activeFeatsNamed(c, 'Form Control').length ? [Math.max(1, maximum - 2)] : [])])]
+}
+
+export function untamedFormOptions(c: Character) {
+  const ranks = untamedFormRanks(c)
+  const castRank = c.untamedForm?.rank && ranks.includes(c.untamedForm.rank) ? c.untamedForm.rank : ranks[0]
+  const has = (name: string) => activeFeatsNamed(c, name).length > 0
+  const choices: Array<{ name: string; rank: number; available: boolean; duration?: NonNullable<Character['untamedForm']>['originalDuration'] }> = [
+    { name: 'Pest Form', rank: 1, available: true, duration: '10 minutes' },
+    { name: 'Pest Form (Non-flying Insect)', rank: 1, available: has('Insect Shape'), duration: '24 hours' },
+    { name: 'Animal Form', rank: 2, available: true },
+    { name: 'Humanoid Form', rank: 2, available: has('Anthropomorphic Shape') },
+    { name: 'Insect Form', rank: 3, available: has('Insect Shape') },
+    { name: 'Dinosaur Form', rank: 4, available: has('Ferocious Shape') },
+    { name: 'Aerial Form (Bat or Bird)', rank: 4, available: has('Soaring Shape') },
+    { name: 'Aerial Form (Wasp)', rank: 4, available: has('Soaring Shape') && has('Insect Shape') },
+    { name: 'Aerial Form (Pterosaur)', rank: 4, available: has('Soaring Shape') && has('Ferocious Shape') },
+    { name: 'Elemental Form', rank: 5, available: has('Elemental Shape') },
+    { name: 'Plant Form', rank: 5, available: has('Plant Shape') },
+    { name: 'Dragon Form', rank: 6, available: has('Dragon Shape') },
+    { name: 'Monstrosity Form (Cave Worm or Sea Serpent)', rank: 8, available: has('Monstrosity Shape') },
+    { name: 'Monstrosity Form (Phoenix)', rank: 8, available: has('Monstrosity Shape') && has('Soaring Shape') },
+  ]
+  return choices.filter(choice => choice.available && choice.rank <= castRank)
+    .map(choice => ({ name: choice.name, duration: castRank < ranks[0]
+      ? has('Perfect Form Control') ? 'unlimited' : choice.duration === '24 hours' ? '24 hours' : '1 hour'
+      : choice.duration ?? '1 minute' }))
+}
+
+export function canChangeUntamedForm(c: Character, entries: ContentEntry[]) {
+  return !!activeFeatsNamed(c, 'As Mutable as Nature').length
+    && isSpellActive(c, entries, 'Untamed Form') && c.untamedForm?.originalDuration === '1 minute'
+}
 
 export function magicHideTarget(c: Character) {
   return companionSpellTarget(c, c.magicHideCompanionId)

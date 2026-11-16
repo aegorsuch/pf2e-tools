@@ -3,14 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { classSpellcasting, eligibleFeats, featChoiceOptions, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, weaponAttack } from './builder'
+import { canChangeUntamedForm, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection } from './SpellsSection'
+import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
 import type { Character, ContentEntry } from './types'
+import { homebrewCharacterOptions } from './supplemental'
 
 const base: Character = {
   id: 'c', systems: ['pf2e', 'sf2e'], name: 'Test', level: 5, className: 'Fighter',
@@ -23,6 +24,101 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
   _id: name, _source: { name, category: 'feat', level, markdown: `Header\n\n---\n\n${markdown}` },
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
+
+it('offers As Mutable as Nature only after acquiring the ability to cast Untamed Form', () => {
+  const mutable = homebrewCharacterOptions([]).find(entry => entry.name === 'As Mutable as Nature')!
+  const c: Character = { ...base, className: 'Druid', order: 'Untamed', level: 20,
+    feats: [{ ...taken('Untamed Form'), type: 'Class Feat', slot: 'class:10:0' }] }
+  const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
+  expect(eligibleFeats([mutable], c, slot)).toContain(mutable)
+  expect(eligibleFeats([mutable], c, { ...slot, level: 10 })).not.toContain(mutable)
+  expect(eligibleFeats([mutable], { ...c, feats: [] }, slot)).not.toContain(mutable)
+  expect(eligibleFeats([mutable], { ...c, feats: [], spells: [
+    { name: 'Untamed Form', rank: 6, cantrip: false },
+  ] }, slot)).toContain(mutable)
+  expect(eligibleFeats([mutable], { ...c, feats: [], spells: [
+    { name: 'Untamed Shift', rank: 6, cantrip: false },
+  ] }, slot)).not.toContain(mutable)
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: [
+    { ...c.feats[0], slot: 'class:14:0' },
+  ] }, [mutable], slot)(mutable)).toEqual({ missing: ['You can cast untamed form'], manual: [] })
+  expect(mutable.data).toMatchObject({ actions: 'Single Action', class: 'Druid' })
+})
+
+it('limits Untamed Form lists by cast rank, shape feats and acquisition level', () => {
+  const c: Character = { ...base, level: 12, feats: [
+    taken('Untamed Form'), taken('Insect Shape', 6), taken('Soaring Shape', 8),
+    taken('Dragon Shape', 12), taken('Monstrosity Shape', 16),
+  ] }
+  const names = (character: Character) => untamedFormOptions(character).map(option => option.name)
+  expect(names(c)).toEqual(expect.arrayContaining(['Animal Form', 'Insect Form', 'Aerial Form (Bat or Bird)',
+    'Aerial Form (Wasp)', 'Dragon Form']))
+  expect(names(c)).not.toContain('Dinosaur Form')
+  expect(names(c)).not.toContain('Aerial Form (Pterosaur)')
+  expect(names(c).some(name => name.startsWith('Monstrosity Form'))).toBe(false)
+  expect(names({ ...c, level: 11 })).not.toContain('Dragon Form')
+  const controlled = { ...c, feats: [...c.feats, taken('Form Control', 4)], untamedForm: { rank: 4 } }
+  expect(names(controlled)).not.toContain('Dragon Form')
+  expect(untamedFormOptions(controlled).find(option => option.name === 'Animal Form')?.duration).toBe('1 hour')
+  expect(untamedFormOptions({ ...controlled, level: 18, untamedForm: { rank: 7 },
+    feats: [...controlled.feats, taken('Perfect Form Control', 18)] })[0].duration).toBe('unlimited')
+  expect(names({ ...c, untamedForm: { rank: 2 } })).toContain('Dragon Form')
+  expect(names({ ...c, feats: [...c.feats, taken('Ferocious Shape', 8)] })).toContain('Aerial Form (Pterosaur)')
+  expect(names({ ...c, level: 16 })).toContain('Monstrosity Form (Phoenix)')
+  expect(names({ ...c, level: 16, feats: c.feats.filter(feat => feat.name !== 'Soaring Shape') }))
+    .not.toContain('Monstrosity Form (Phoenix)')
+})
+
+it('persists one-action form changes without recasting, restoring focus, or resetting the original duration', () => {
+  let c: Character = { ...base, className: 'Druid', level: 12,
+    feats: [taken('Untamed Form'), taken('As Mutable as Nature', 12), taken('Insect Shape', 6)],
+    activeSpells: ['Untamed Form'], spentFocusPoints: [0],
+    untamedForm: { form: 'Animal Form', shape: 'Bear', rank: 6, originalDuration: '1 minute' } }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const controls = () => UntamedFormOptions({ c, entries: [], save })
+  type Control = { disabled?: boolean; value?: unknown; onChange: (event: { target: { value: string } }) => void }
+  const find = (label: string, node: ReactNode = controls()): Control | undefined => {
+    let found: Control | undefined
+    Children.forEach(node, child => {
+      if (found || !isValidElement<{ children?: ReactNode; 'aria-label'?: string } & Control>(child)) return
+      found = child.props['aria-label'] === label ? child.props
+        : child.props.children !== undefined ? find(label, child.props.children) : undefined
+    })
+    return found
+  }
+  expect(canChangeUntamedForm(c, [])).toBe(true)
+  expect(find('Untamed Form cast rank')?.disabled).toBe(true)
+  find('Untamed Form list')!.onChange({ target: { value: 'Insect Form' } })
+  expect(c.untamedForm).toEqual({ form: 'Insect Form', shape: undefined, rank: 6, originalDuration: '1 minute' })
+  find('Untamed Form shape')!.onChange({ target: { value: 'Mantis' } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.untamedForm?.shape).toBe('Mantis')
+  expect(c.spentFocusPoints).toEqual([0])
+  expect(c.activeSpells).toEqual(['Untamed Form'])
+  find('Untamed Form list')!.onChange({ target: { value: 'Pest Form' } })
+  expect(c.untamedForm?.originalDuration).toBe('1 minute')
+  find('Untamed Form list')!.onChange({ target: { value: 'Dragon Form' } })
+  expect(c.untamedForm?.form).toBe('Pest Form')
+  expect(renderToStaticMarkup(controls())).toContain('Each form change costs 1 action.')
+  for (const originalDuration of ['10 minutes', '24 hours', '1 hour', 'unlimited'] as const) {
+    c = { ...c, untamedForm: { ...c.untamedForm, originalDuration } }
+    expect(canChangeUntamedForm(c, [])).toBe(false)
+    expect(find('Untamed Form list')?.disabled).toBe(true)
+    find('Untamed Form list')!.onChange({ target: { value: 'Animal Form' } })
+    expect(c.untamedForm?.form).toBe('Pest Form')
+  }
+  c = { ...c, untamedForm: { form: 'Animal Form', originalDuration: '1 minute' }, level: 11 }
+  expect(canChangeUntamedForm(c, [])).toBe(false)
+  c = { ...c, level: 12, activeSpells: [] }
+  expect(canChangeUntamedForm(c, [])).toBe(false)
+  find('Untamed Form list')!.onChange({ target: { value: 'Pest Form' } })
+  expect(c.untamedForm?.originalDuration).toBe('10 minutes')
+  find('Untamed Form list')!.onChange({ target: { value: 'Pest Form (Non-flying Insect)' } })
+  expect(c.untamedForm?.originalDuration).toBe('24 hours')
+  c = { ...c, activeSpells: ['Untamed Form'], feats: c.feats.filter(feat => feat.name !== 'Untamed Form'),
+    untamedForm: { originalDuration: '1 minute' } }
+  expect(canChangeUntamedForm(c, [])).toBe(false)
+})
 
 it('grants Mortal Heart its modified eighth-rank innate spell once daily', () => {
   const renewal = entry('Moment of Renewal', 'spell')

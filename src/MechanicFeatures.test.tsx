@@ -17,12 +17,167 @@ import { switchDroneChassis } from './droneChassis'
 import { FeatChoice } from './FeatChoice'
 import { HighTechMedic } from './HighTechMedic'
 import { setEnduringMod } from './mechanicEnduring'
+import { mapAonHit } from './aon'
+import { featPrerequisiteChecker } from './builder'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
   abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+// Tech Core and Galactic Ancestries selection prerequisites; action Requirements are not feat prerequisites.
+const mechanicFeatRules = [
+  ['Commercial Customization', 1, 'drone exocortex', 'Drone'],
+  ['Critical Explosion', 1, 'mine exocortex', 'Mine'],
+  ['Explosive Shot', 1, '', 'Any'],
+  ['High-tech Medic', 1, '', 'Any'],
+  ['Shielded Turret', 1, 'turret exocortex', 'Turret'],
+  ['Spontaneous Crafting', 1, 'Trained in Crafting', 'Any'],
+  ['Area Denial Turret', 2, 'turret exocortex', 'Turret'],
+  ['Coordinated Fire', 2, 'drone exocortex or turret exocortex', 'Drone,Turret'],
+  ['Grenade Specialist', 2, '', 'Any'],
+  ['Healing Mines', 2, 'mine exocortex', 'Mine'],
+  ['Hunker Down', 2, '', 'Any'],
+  ['Instant Deployment', 2, '', 'Any'],
+  ['Mobile Deployment', 2, 'mine exocortex or turret exocortex', 'Mine,Turret'],
+  ['Double Detonation', 4, 'mine exocortex', 'Mine'],
+  ['Energy Neutralizer', 4, '', 'Any'],
+  ['Self-destruct', 4, 'turret exocortex', 'Turret'],
+  ['Tactical Drone', 4, 'drone exocortex', 'Drone'],
+  ['Transmutative Casing', 4, '', 'Any'],
+  ['Boosting The Basics', 6, '', 'Any'],
+  ['Debilitating Exocortex', 6, '', 'Any'],
+  ['Exocortex Experimenter', 6, '', 'Any'],
+  ['Maneuvering Mines', 6, 'mine exocortex', 'Mine'],
+  ['Tactical Customization', 6, 'Tactical Drone', 'Drone'],
+  ['Tactical Team-up', 6, 'turret exocortex', 'Turret'],
+  ['Activate Targeting System', 8, '', 'Any'],
+  ['Advanced Drone', 8, 'Tactical Drone', 'Drone'],
+  ['Auto Target', 8, 'drone exocortex or turret exocortex', 'Drone,Turret'],
+  ['Deploy Motion Dampener', 8, '', 'Any'],
+  ['Double Deployment', 8, 'mine exocortex', 'Mine'],
+  ['Expansive Array', 8, 'turret exocortex', 'Turret'],
+  ['Instant Install', 8, '', 'Any'],
+  ['Plentiful Grenades', 8, 'Grenade Specialist', 'Any'],
+  ['Advanced Customization', 10, 'Advanced Drone', 'Drone'],
+  ['Deploy Bunker', 10, 'drone exocortex or turret exocortex', 'Drone,Turret'],
+  ['Energy Expulsion', 10, 'turret exocortex', 'Turret'],
+  ['Improved Debilitating Exocortex', 10, 'Debilitating Exocortex', 'Any'],
+  ['Parallel Deployment', 10, 'Exocortex Experimenter; mine exocortex; turret exocortex', 'None'],
+  ['Parallel Reposition', 10, 'Exocortex Experimenter; drone exocortex', 'None'],
+  ['Proximity Alert Mines', 10, 'mine exocortex', 'Mine'],
+  ['Steady Modifications', 10, '', 'Any'],
+  ['Advanced Transmutative Casing', 12, 'Transmutative Casing', 'Any'],
+  ['Enhanced Energy Neutralizer', 12, 'Energy Neutralizer', 'Any'],
+  ['Glitch Pulse', 12, '', 'Any'],
+  ['Impressive Healing Mines', 12, 'Healing Mines', 'Mine'],
+  ['Advanced Targeting System', 14, 'Activate Targeting System', 'Any'],
+  ['Double Debilitating Exocortex', 14, 'Improved Debilitating Exocortex', 'Any'],
+  ['Redeploy Munitions', 14, 'mine exocortex', 'Mine'],
+  ['Shaped Blast', 14, '', 'Any'],
+  ['Superior Drone', 14, 'Advanced Drone', 'Drone'],
+  ['Exploitive Assault', 16, '', 'Any'],
+  ['Foolproof Debilitations', 16, 'Debilitating Exocortex', 'Any'],
+  ['Superior Customization', 16, 'Superior Drone', 'Drone'],
+  ['Superior Transmutative Casing', 16, 'Transmutative Casing', 'Any'],
+  ['Automated Exocortex', 18, '', 'Any'],
+  ['Extra Enduring Mods', 18, '', 'Any'],
+  ['Apocalyptic Explosions', 20, '', 'Any'],
+  ['Auto Loop', 20, '', 'Any'],
+  ['Multitasker', 20, '', 'Any'],
+  ['High Voltage', 1, 'drone exocortex', 'Drone'],
+  ['Kinetic Resonator', 10, '', 'Any'],
+  ['Rocket Boosters', 10, 'drone exocortex', 'Drone'],
+  ['Spinning Blades', 12, 'drone exocortex', 'Drone'],
+  ['Convertible Chassis', 18, 'drone exocortex', 'Drone'],
+] as const
+const mechanicFeatCatalog: ContentEntry[] = mechanicFeatRules.map(([name, level, prerequisite]) => ({
+  id: `mechanic:${name}`, name, level, kind: 'feat', source: 'official', systems: ['sf2e'],
+  traits: ['Mechanic'], data: { prerequisite }, description: '', effects: [], updatedAt: 0,
+}))
+
+it.each(mechanicFeatRules)('checks the printed prerequisites and acquisition level for %s', (name, level, _prerequisite, allowed) => {
+  const feat = mechanicFeatCatalog.find(feat => feat.name === name)!
+  const slot = { category: 'class' as const, level, key: `class:${level}:audit` }
+  for (const subclass of ['Drone', 'Mine', 'Turret']) {
+    const c: Character = { ...mechanic, level: 20, subclass, rankOverrides: { Crafting: 1 },
+      mechanicDroneBaseChassis: 'Powerful',
+      feats: mechanicFeatCatalog.filter(entry => entry.level < level && entry.name !== 'Exocortex Experimenter')
+        .map(entry => ({ name: entry.name, type: 'Class Feat', level: entry.level, slot: `class:${entry.level}:${entry.name}` })) }
+    const expected = allowed === 'Any' || allowed.split(',').includes(subclass)
+    const result = featSelectionPrerequisiteChecker(c, mechanicFeatCatalog, slot)(feat)
+    expect(result.manual, `${name}, ${subclass}: unresolved prerequisite`).toEqual([])
+    expect(result.missing.length === 0, `${name}, ${subclass}`).toBe(expected)
+    expect(eligibleFeats(mechanicFeatCatalog, c, slot).includes(feat), `${name}, ${subclass}: picker`).toBe(expected)
+    expect(eligibleFeats(mechanicFeatCatalog, c, { ...slot, level: level - 1 }).includes(feat)).toBe(false)
+  }
+})
+
+it.each(mechanicFeatRules.filter(([, , prerequisite]) => !!prerequisite))(
+  'does not waive prerequisite ownership for %s', (name, level) => {
+    const feat = mechanicFeatCatalog.find(feat => feat.name === name)!
+    const c = { ...mechanic, subclass: undefined, feats: [], rankOverrides: { Crafting: 0 } }
+    const result = featPrerequisiteChecker(c, mechanicFeatCatalog, level)(feat)
+    expect(result.manual).toEqual([])
+    expect(result.missing.length).toBeGreaterThan(0)
+  })
+
+it('recognizes repeatable feats described as selectable a second time', () => {
+  for (const verb of ['take', 'select']) {
+    const feat = mapAonHit({ _id: verb, _source: { category: 'feat', name: 'Expansive Array', level: 8,
+      trait: ['Mechanic'], markdown: `**Special** You can ${verb} this feat a second time.` } }, 'sf2e')
+    expect(feat?.data.repeatable).toBe(true)
+  }
+})
+
+it('enforces secondary exocortex choices and their acquisition levels through prerequisite chains', () => {
+  const c: Character = { ...mechanic, level: 20, subclass: 'Mine', feats: [
+    { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Drone' },
+    { name: 'Tactical Drone', type: 'Class Feat', level: 4, slot: 'class:8:0' },
+    { name: 'Advanced Drone', type: 'Class Feat', level: 8, slot: 'class:10:0', choice: 'Burly' },
+    { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:12:0', choice: 'Turret' },
+  ] }
+  const check = (name: string, level: number, character = c) => featSelectionPrerequisiteChecker(character, mechanicFeatCatalog,
+    { category: 'class', level, key: `class:${level}:audit` })(mechanicFeatCatalog.find(feat => feat.name === name)!)
+  expect(check('Commercial Customization', 5).missing).toEqual(['drone exocortex'])
+  expect(check('Commercial Customization', 6)).toEqual({ missing: [], manual: [] })
+  expect(check('Advanced Customization', 12)).toEqual({ missing: [], manual: [] })
+  expect(check('Parallel Deployment', 10).missing).toEqual(['turret exocortex'])
+  expect(check('Parallel Deployment', 12)).toEqual({ missing: [], manual: [] })
+  expect(check('Parallel Reposition', 10)).toEqual({ missing: [], manual: [] })
+  expect(check('Advanced Customization', 12, { ...c, feats: c.feats.map(feat =>
+    feat.name === 'Tactical Drone' ? { ...feat, slot: 'class:4:0' } : feat) }).missing).toEqual(['drone exocortex'])
+  for (const choice of ['Mine', 'invalid', undefined]) {
+    expect(check('Commercial Customization', 10, { ...c, feats: c.feats.map(feat =>
+      feat.slot === 'class:6:0' ? { ...feat, choice } : feat) }).missing).toEqual(['drone exocortex'])
+  }
+  const tooEarly = { ...c, feats: c.feats.map(feat => feat.slot === 'class:12:0' ? { ...feat, slot: 'class:10:0' } : feat) }
+  expect(check('Parallel Deployment', 12, tooEarly).missing).toEqual(['turret exocortex'])
+  expect(check('Parallel Deployment', 12, { ...c, className: 'Inventor' }).missing).toContain('mine exocortex')
+  expect(featChoiceOptions('Exocortex Experimenter', c, [], 'class:6:0')).toEqual(['Drone'])
+  expect(featChoiceOptions('Exocortex Experimenter', c, [], 'class:12:0')).toEqual(['Turret'])
+  const markup = renderToStaticMarkup(<FeatChoice c={c} entries={mechanicFeatCatalog} save={() => {}} index={0} />)
+  expect(markup).toContain('Additional exocortex')
+  expect(markup).toContain('<option selected="">Drone</option>')
+  expect(markup).not.toContain('<option>Mine</option>')
+})
+
+it.each([
+  ['Exocortex Experimenter', 6, 12], ['Expansive Array', 8, 8],
+] as const)('limits %s to two selections and gates its second selection', (name, firstLevel, secondLevel) => {
+  const feat = mechanicFeatCatalog.find(feat => feat.name === name)!
+  const c: Character = { ...mechanic, level: 20, subclass: name === 'Expansive Array' ? 'Turret' : 'Mine',
+    feats: [{ name, type: 'Class Feat', level: firstLevel, slot: `class:${firstLevel}:0`, choice: 'Drone' }] }
+  const slot = { category: 'class' as const, level: secondLevel, key: `class:${secondLevel}:extra:1` }
+  if (secondLevel > firstLevel) {
+    expect(eligibleFeats([feat], c, { ...slot, level: secondLevel - 1 })).not.toContain(feat)
+  }
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  const twice = { ...c, feats: [...c.feats, { name, type: 'Class Feat', level: firstLevel, slot: slot.key, choice: 'Turret' }] }
+  expect(eligibleFeats([feat], twice, { ...slot, level: 20, key: 'class:20:audit' })).not.toContain(feat)
+  expect(eligibleFeats([feat], twice, slot)).toContain(feat)
+})
 
 it('offers the three official exocortexes and scales mine capacity and DC', () => {
   expect(subclassOptions(mechanic, []).map(entry => entry.name)).toEqual(['Drone', 'Mine', 'Turret'])
