@@ -88,9 +88,11 @@ async function loadHits(system: GameSystem, onProgress?: (n: number) => void) {
 export function mapAonHits(hits: Hit[], system: GameSystem) {
   const entries: ContentEntry[] = []
   const hasUpdatedJuggernaut = system === 'pf2e' && hits.some(hit => hit._id === 'feat-5880')
+  const hasUpdatedFlexibility = system === 'pf2e' && hits.some(hit => hit._id === 'feat-4858')
   for (const h of hits) {
     if (system === 'pf2e' && EXCLUDED_LEGACY_RANGER_FEAT_IDS.includes(h._id ?? '')) continue
     if (hasUpdatedJuggernaut && h._id === 'feat-1167') continue
+    if (hasUpdatedFlexibility && h._id === 'feat-1171') continue
     const e = mapAonHit(h, system)
     if (e) entries.push(e)
   }

@@ -197,6 +197,39 @@ it('puts selected feat requirements on their exact rank buttons without granting
     .not.toContain('prerequisites note')
 })
 
+it('shows available Fighter and ancestry skill requirements before selection and only includes owned archetypes', () => {
+  const feat: ContentEntry = { ...ranger, kind: 'feat', id: 'flip', name: 'Farabellus Flip', level: 4, traits: ['Fighter'],
+    data: { prerequisite: 'trained in Acrobatics; trained in medium armor' } }
+  const entries: ContentEntry[] = [
+    feat,
+    { ...feat, id: 'display', name: 'Dazzling Display', data: { prerequisite: 'expert in Intimidation' } },
+    { ...feat, id: 'ancestry', name: 'Human Acrobat', traits: ['Human'], data: { prerequisite: 'master in Acrobatics' } },
+    { ...feat, id: 'medic', name: 'Medic Dedication', level: 2, traits: ['Archetype', 'Dedication'],
+      data: { archetype: 'Medic', prerequisite: 'trained in Religion' } },
+    { ...feat, id: 'medicine', name: 'Medic Training', traits: ['Archetype'],
+      data: { archetype: 'Medic', prerequisite: 'master in Medicine' } },
+    { ...feat, id: 'assassin', name: 'Assassin Training', traits: ['Archetype'],
+      data: { archetype: 'Assassin', prerequisite: 'master in Stealth' } },
+    { ...feat, id: 'wizard', name: 'Wizard Study', traits: ['Wizard'], data: { prerequisite: 'expert in Arcana' } },
+    { ...feat, id: 'future', name: 'Future Fighter', level: 20, data: { prerequisite: 'legendary in Nature' } },
+    { ...feat, id: 'skill', name: 'Fighter Skill', traits: ['Fighter', 'Skill'], data: { prerequisite: 'master in Crafting' } },
+    { ...feat, id: 'general', name: 'Fighter General', traits: ['Fighter', 'General'], data: { prerequisite: 'master in Society' } },
+  ]
+  const c: Character = { ...base, level: 10, className: 'Fighter', ancestry: 'Human' }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} />)
+  const markup = render(c)
+  for (const rank of ['Acrobatics Trained', 'Acrobatics Master', 'Intimidation Expert']) {
+    expect(markup).toContain(`aria-label="${rank} prerequisites note"`)
+  }
+  for (const rank of ['Medicine Master', 'Stealth Master', 'Arcana Expert', 'Nature Legendary', 'Crafting Master', 'Society Master', 'Religion Trained']) {
+    expect(markup).not.toContain(`aria-label="${rank} prerequisites note"`)
+  }
+  const owned = { ...c, feats: [{ name: 'Medic Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  expect(render(owned)).toContain('aria-label="Medicine Master prerequisites note"')
+  expect(ranksAt(c, entries).Acrobatics ?? 0).toBe(0)
+  expect(c.feats).toEqual([])
+})
+
 it('applies only the highest owned Killer belt bonus and removes it when gear is removed', () => {
   const ordinary: ContentEntry = { ...KILLERS_BELT_MAJOR, id: 'ordinary-belt', name: "Killer's Belt",
     source: 'official', level: 4, effects: [] }

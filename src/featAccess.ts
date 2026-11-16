@@ -16,9 +16,10 @@ interface AchievementOption {
 const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
 const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall|tian xia origin)\b/i
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
-const LASTWALL_TRAINING = 'Member of or trained by Knights of Lastwall'
+const LASTWALL_TRAINING = 'Trained by Knights of Lastwall'
 const PATHFINDER_MEMBERSHIP = 'Member of the Pathfinder Society'
-const PATHFINDER_TRAINING = 'Member of or trained by the Pathfinder Society'
+const PATHFINDER_TRAINING = 'Trained by the Pathfinder Society'
+const SHACKLES_TRAVEL = 'Traveled through the Shackles'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
@@ -38,6 +39,7 @@ achievementLabels.set(LASTWALL_MEMBERSHIP.toLowerCase(), LASTWALL_TRAINING)
 achievementLabels.set(PATHFINDER_MEMBERSHIP.toLowerCase(), PATHFINDER_TRAINING)
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
+  'member of knights of lastwall',
   'knights of lastwall',
   'knights of lastwall have access to this feat',
   'a character who is a member of the knights of lastwall has access to this option',
@@ -47,12 +49,13 @@ const lastwallAccess = new Set([
 
 export function achievementKey(access: string) {
   const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
+    .replace(/^(?:member of or trained by|trained by) /, 'member of ')
   if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
   if (/^rivethun adherent background or (?:you are )?(?:a )?member of the rivethun$/.test(key)) return RIVETHUN_MEMBERSHIP.toLowerCase()
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
   if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return key
   if (key === 'from the mana wastes') return MANA_WASTES.toLowerCase()
-  if (key === PATHFINDER_TRAINING.toLowerCase()) return PATHFINDER_MEMBERSHIP.toLowerCase()
+  if (key === 'from the shackles' || key === SHACKLES_TRAVEL.toLowerCase()) return SHACKLES_TRAVEL.toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
 }
 
@@ -70,6 +73,7 @@ function achievementLabel(requirement: string) {
 
 function narrativeRequirement(entry: ContentEntry, access: string) {
   return entry.name === 'Wukong Extension' ? WUKONG_EXTENSION_ACCESS
+    : achievementKey(access) === SHACKLES_TRAVEL.toLowerCase() ? SHACKLES_TRAVEL
     : ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)
     && (achievementKey(access) === 'from nidal' || /^you\ufffdre from nidal[.!?]*$/i.test(access))
     ? NIDAL_HUSBANDRY : access
@@ -78,6 +82,13 @@ function narrativeRequirement(entry: ContentEntry, access: string) {
 function isAchievementRequirement(requirement: string) {
   const key = achievementKey(requirement)
   return narrativeAccess.test(requirement) || key === OLD_CHELIAX.toLowerCase() || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
+    || key === SHACKLES_TRAVEL.toLowerCase()
+}
+
+function trainingLabel(requirement: string, key: string) {
+  const label = achievementLabels.get(key) ?? achievementLabel(requirement)
+  return /^(?:member of|trained by) /i.test(label)
+    ? label.replace(/^member of(?: or trained by)? /i, 'Trained by ') : requirement
 }
 
 function blackPowderFeat(entry: ContentEntry) {
@@ -103,7 +114,7 @@ export function achievementOptions(entries: ContentEntry[]) {
         add(achievementKey(label), label, entry.name)
       }
     } else if (isAchievementRequirement(requirement)) {
-      add(key, achievementLabels.get(key) ?? achievementLabel(requirement), entry.name)
+      add(key, trainingLabel(achievementLabels.get(key) ?? achievementLabel(requirement), key), entry.name)
     }
   }
   const result = [...options.values()].sort((a, b) => a.requirement.localeCompare(b.requirement))
@@ -157,9 +168,7 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
     : isAchievementRequirement(narrative) && (achievements.has(key)
       || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase() && achievements.has(achievementKey(ALKENSTAR)))
   return {
-    requirement: key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM
-      : key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_TRAINING
-      : key === PATHFINDER_MEMBERSHIP.toLowerCase() ? PATHFINDER_TRAINING : narrative,
+    requirement: trainingLabel(key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : narrative, key),
     automatic: ethnicity || background || ancestry || !!achievement,
     approved: c.featAccessOverrides?.includes(entry.id) ?? false,
     source: ethnicity ? 'ethnicity' : background ? 'background' : ancestry ? 'ancestry' : achievement ? 'achievement' : undefined,

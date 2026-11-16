@@ -77,7 +77,7 @@ it('offers Alkenstar, Mana Wastes, and Nixbrix achievements as alternative Black
 it('shows Rivethun membership while automatically accepting its background and retaining old checked wording', () => {
   const access = 'Rivethun Adherent background or you are a member of the Rivethun'
   const source = { ...feat, data: { access } }
-  expect(achievementOptions([source])[0].requirement).toBe('Member of the Rivethun')
+  expect(achievementOptions([source])[0].requirement).toBe('Trained by the Rivethun')
   expect(featAccess({ ...character, background: 'Rivethun Adherent' }, source)).toMatchObject({ automatic: true, source: 'background' })
   expect(featAccess({ ...character, achievements: [access] }, source)?.automatic).toBe(true)
   expect(featAccess({ ...character, achievements: ['Member of the Rivethun'] }, source)?.automatic).toBe(true)
@@ -98,8 +98,11 @@ it('shows only defender training as an achievement and accepts actual Dwarf ance
 it('capitalizes membership labels and shares equipment membership with feat achievements', () => {
   const armor: ContentEntry = { ...feat, kind: 'armor', data: { access: 'a character who is a member of the Hellknights has access to this armor.' } }
   const [option] = achievementOptions([armor])
-  expect(option.requirement).toBe('Member of the Hellknights')
+  expect(option.requirement).toBe('Trained by the Hellknights')
   expect(featAccess({ ...character, achievements: [option.key] }, armor)?.automatic).toBe(true)
+  expect(featAccess({ ...character, achievements: [option.requirement] }, armor)).toMatchObject({
+    requirement: 'Trained by the Hellknights', automatic: true,
+  })
 })
 it('shares Tian elementalism access with Intensified Element Stance without bypassing Medicine training', () => {
   const label = 'Tian Xia origin or exposure to Tian elementalism'
@@ -199,24 +202,25 @@ it('groups Lastwall membership access wordings into one named achievement and pr
   ]
   const [option] = achievementOptions(entries)
   expect(achievementOptions(entries)).toHaveLength(1)
-  expect(option.requirement).toBe('Member of or trained by Knights of Lastwall')
+  expect(option.requirement).toBe('Trained by Knights of Lastwall')
   expect(option.feats).toEqual(['Devoted Guardian', 'Everstand Stance', 'Member Feat'])
-  for (const value of [option.key, option.requirement, 'Member of the Knights of Lastwall', 'knights of lastwall have access to this feat']) {
+  for (const value of [option.key, option.requirement, 'Member of the Knights of Lastwall',
+    'Member of or trained by Knights of Lastwall', 'knights of lastwall have access to this feat']) {
     const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [value] }))
     for (const entry of entries) expect(featAccess(saved, entry)).toMatchObject({
-      requirement: 'Member of or trained by Knights of Lastwall', automatic: true, source: 'achievement',
+      requirement: 'Trained by Knights of Lastwall', automatic: true, source: 'achievement',
     })
     expect(featAccess(saved, { ...feat, data: { access: 'Member of the Knights of Lastwall of knight rank.' } })?.automatic).toBe(false)
     expect(featAccess(saved, { ...feat, data: { access: 'You are from the Eye of Dread region.' } })?.automatic).toBe(false)
   }
   expect(featAccess(character, entries[0])).toMatchObject({
-    requirement: 'Member of or trained by Knights of Lastwall', automatic: false,
+    requirement: 'Trained by Knights of Lastwall', automatic: false,
   })
 })
 
 it.each([
-  ['A character who is a member of the Pathfinder Society has access to this option.', 'Member of or trained by the Pathfinder Society'],
-  ['You are a member of the Eyeswide.', 'Member of the Eyeswide'],
+  ['A character who is a member of the Pathfinder Society has access to this option.', 'Trained by the Pathfinder Society'],
+  ['You are a member of the Eyeswide.', 'Trained by the Eyeswide'],
   ["You've trained with or defeated a member of the wild hunt.", 'Trained with or defeated a member of the wild hunt'],
   ['You\u2019ve trained with a member of the wild hunt.', 'Trained with a member of the wild hunt'],
   ['You have trained with a member of the wild hunt.', 'Trained with a member of the wild hunt'],
@@ -227,6 +231,7 @@ it.each([
   const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [option.key] }))
   expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement' })
   expect(featAccess({ ...character, achievements: [access] }, entry)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess({ ...character, achievements: [label] }, entry)).toMatchObject({ automatic: true, source: 'achievement' })
   expect(featAccess(character, entry)?.automatic).toBe(false)
 })
 
@@ -238,18 +243,44 @@ it('groups equivalent membership labels without dropping rank requirements', () 
   ]
   const options = achievementOptions(entries)
   expect(options).toHaveLength(2)
-  const member = options.find(option => option.requirement === 'Member of or trained by the Pathfinder Society')
+  const member = options.find(option => option.requirement === 'Trained by the Pathfinder Society')
   expect(member?.feats).toEqual(['Other Society Feat', 'Society Feat'])
-  for (const value of [member!.key, member!.requirement, 'Member of the Pathfinder Society.']) {
+  for (const value of [member!.key, member!.requirement, 'Member of the Pathfinder Society.',
+    'Member of or trained by the Pathfinder Society']) {
     const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [value] }))
     expect(featAccess(saved, entries[1])).toMatchObject({
-      requirement: 'Member of or trained by the Pathfinder Society', automatic: true, source: 'achievement',
+      requirement: 'Trained by the Pathfinder Society', automatic: true, source: 'achievement',
     })
     expect(featAccess(saved, entries[2])?.automatic).toBe(false)
   }
   expect(featAccess(character, entries[0])).toMatchObject({
-    requirement: 'Member of or trained by the Pathfinder Society', automatic: false,
+    requirement: 'Trained by the Pathfinder Society', automatic: false,
   })
+})
+
+it('offers Shackles travel as shared access while preserving legacy selections and actual prerequisites', () => {
+  const label = 'Traveled through the Shackles'
+  const entries: ContentEntry[] = ['Cheaters Always Prosper', 'Cannonball Fall', 'Rock the Boat'].map(name => ({
+    ...feat, id: name, name, level: 8, traits: ['Fighter'],
+    data: { access: "You're from the Shackles", prerequisite: 'trained in Acrobatics' },
+  }))
+  const [option] = achievementOptions(entries)
+  expect(achievementOptions(entries)).toEqual([{
+    key: label.toLowerCase(), requirement: label, feats: entries.map(entry => entry.name).sort(),
+  }])
+  for (const value of [option.key, label, `${label}.`, "You're from the Shackles", 'From the Shackles']) {
+    const saved: Character = JSON.parse(JSON.stringify({ ...character, level: 8, achievements: [value] }))
+    for (const entry of entries) expect(featAccess(saved, entry)).toMatchObject({
+      requirement: label, automatic: true, source: 'achievement',
+    })
+    const slot = { key: 'class:8:0', category: 'class' as const, level: 8 }
+    expect(featSelectionPrerequisiteChecker(saved, entries, slot)(entries[0]))
+      .toEqual({ missing: ['trained in Acrobatics'], manual: [] })
+    expect(featSelectionPrerequisiteChecker({ ...saved, skillPicks: ['Acrobatics'] }, entries, slot)(entries[0]))
+      .toEqual({ missing: [], manual: [] })
+    expect(featAccess(saved, { ...entries[0], data: { access: "You're from Ustalav." } })?.automatic).toBe(false)
+  }
+  expect(featAccess(character, entries[0])).toMatchObject({ requirement: label, automatic: false })
 })
 
 it.each(['Uncommon', 'Rare', 'Unique'])('shows %s rarity without inventing an Access requirement', rarity => {

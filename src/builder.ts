@@ -4366,26 +4366,33 @@ export function skillRankRequirements(c: Character, entries: ContentEntry[], ski
   if (!skills.length) return result
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const skillPattern = new RegExp(`\\b(?:${[...skills].sort((a, b) => b.length - a.length).map(escape).join('|')})\\b`, 'gi')
+  const sources = new Map<string, ContentEntry>()
+  for (const category of ['class', 'ancestry', 'archetype'] as const) {
+    for (const source of eligibleFeats(entries, c, { category, level: c.level, key: `${category}:${c.level}:skill-requirements` },
+      { includeUnmetPrerequisites: true })) sources.set(source.id, source)
+  }
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
     const category = feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase()
     if (!['class', 'ancestry', 'archetype'].includes(category) || /\bdedication$/i.test(feat.name)) continue
-    const sources = featPrerequisiteSources(entries, { ...c, name: feat.name,
+    const selectedSources = featPrerequisiteSources(entries, { ...c, name: feat.name,
       entryIds: feat.sourceId ? [feat.sourceId] : c.entryIds, ancestryTraits: ancestryFeatTraits(c),
       category })
-    for (const source of sources.filter(source => !source.traits.some(trait => /^(?:skill|general|dedication)$/i.test(trait)))) {
-      const text = String(source.data.prerequisite ?? '')
-      const clauses = text.matchAll(/\b(trained|expert|master|legendary)\s+(?:in|with)\s+([\s\S]*?)(?=\b(?:untrained|trained|expert|master|legendary)\s+(?:in|with)\s+|$)/gi)
-      for (const clause of clauses) {
-        const rank = RANKS.findIndex(rank => rank.toLowerCase() === clause[1].toLowerCase())
-        for (const match of clause[2].matchAll(skillPattern)) {
-          const skill = skills.find(skill => skill.toLowerCase() === match[0].toLowerCase())!
-          const ranks = result.get(skill) ?? new Map<number, string[]>()
-          const notes = ranks.get(rank) ?? []
-          const note = `${feat.name}: ${text}`
-          if (!notes.includes(note)) notes.push(note)
-          ranks.set(rank, notes)
-          result.set(skill, ranks)
-        }
+    for (const source of selectedSources) sources.set(source.id, source)
+  }
+  for (const source of sources.values()) {
+    if (source.traits.some(trait => /^(?:skill|general|dedication)$/i.test(trait)) || /\bdedication$/i.test(source.name)) continue
+    const text = String(source.data.prerequisite ?? '')
+    const clauses = text.matchAll(/\b(trained|expert|master|legendary)\s+(?:in|with)\s+([\s\S]*?)(?=\b(?:untrained|trained|expert|master|legendary)\s+(?:in|with)\s+|$)/gi)
+    for (const clause of clauses) {
+      const rank = RANKS.findIndex(rank => rank.toLowerCase() === clause[1].toLowerCase())
+      for (const match of clause[2].matchAll(skillPattern)) {
+        const skill = skills.find(skill => skill.toLowerCase() === match[0].toLowerCase())!
+        const ranks = result.get(skill) ?? new Map<number, string[]>()
+        const notes = ranks.get(rank) ?? []
+        const note = `${source.name}: ${text}`
+        if (!notes.includes(note)) notes.push(note)
+        ranks.set(rank, notes)
+        result.set(skill, ranks)
       }
     }
   }

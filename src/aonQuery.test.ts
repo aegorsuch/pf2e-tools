@@ -20,6 +20,19 @@ it('keeps full equipment rules for clickable item descriptions instead of trunca
   }
 })
 
+it('keeps only remastered Ultimate Flexibility when both versions are available', () => {
+  const legacy = { _id: 'feat-1171', _source: { category: 'feat', name: 'Ultimate Flexibility', trait: ['Fighter', 'Uncommon'] } }
+  const current = { _id: 'feat-4858', _source: { category: 'feat', name: 'Ultimate Flexibility', trait: ['Fighter'],
+    prerequisite: 'improved flexibility' } }
+  for (const hits of [[legacy, current], [current, legacy]]) {
+    expect(mapAonHits(hits, 'pf2e')).toMatchObject([
+      { id: 'aon:pf2e:feat-4858', data: { prerequisite: 'improved flexibility' } },
+    ])
+  }
+  expect(mapAonHits([legacy], 'pf2e')).toHaveLength(1)
+  expect(mapAonHits([legacy, current], 'sf2e')).toHaveLength(2)
+})
+
 it('excludes the legacy Ranger snare chain from existing snapshots but keeps remastered snares', () => {
   const legacy = [
     ['feat-506', 'Snare Specialist'], ['feat-509', 'Quick Snares'], ['feat-516', 'Powerful Snares'],
