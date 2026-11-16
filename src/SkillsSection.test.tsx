@@ -63,54 +63,46 @@ it('grants Underworld Investigator free trained Lore without Additional Lore pro
   } finally { updateSettings({ autoLores: previous }) }
 })
 
-it.each(['Orc', 'Human'])('gives Experienced Laborer one free trained Lore for %s', ancestry => {
+it.each(['Orc', 'Human'])('adds Experienced Laborer to the regular trained skill array for %s', ancestry => {
   const previous = getSettings().autoLores
   updateSettings({ autoLores: false })
-  let c: Character = { ...base, systems: ['sf2e'], ancestry, level: 7,
+  const c: Character = { ...base, systems: ['sf2e'], ancestry, level: 7,
     feats: [
       ...(ancestry === 'Human' ? [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' }] : []),
       { name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
     ] }
   const entries = [{ ...ranger, systems: ['sf2e' as const] }]
-  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
-  const change = (value: string) => {
-    const input = { value, setCustomValidity: vi.fn(), reportValidity: vi.fn() }
-    ;(findInput(tree(), 'Experienced Laborer Lore specialty')!.onBlur as (event: unknown) => void)({ target: input })
-    return input
-  }
   try {
-    expect(renderToStaticMarkup(tree())).toContain('One free trained Lore skill.')
-    expect(change('Lore').setCustomValidity).toHaveBeenCalledWith('Enter a Lore specialty, not just Lore.')
-    expect(c.feats.at(-1)?.choice).toBeUndefined()
-    change('  Mining  Lore ')
-    c = JSON.parse(JSON.stringify(c))
-    expect(ranksAt(c, entries)['Mining Lore']).toBe(1)
-    expect(skillRankBudget(c, entries).trained).toBe(4)
+    const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
+    expect(markup).not.toContain('Experienced Laborer Lore specialty')
+    expect(markup).not.toContain('One free trained Lore skill.')
+    expect(skillRankBudget(c, entries).trained).toBe(5)
     expect(builder.automaticFeatGrants(c, entries).some(grant => grant.source === 'Experienced Laborer')).toBe(false)
-    expect(ranksAt({ ...c, level: 0 }, entries)['Mining Lore'] ?? 0).toBe(0)
-    expect(renderToStaticMarkup(tree())).toContain('Gather Information when consulting professionals related to Mining Lore.')
-    expect(ranksAt(c, entries).Diplomacy ?? 0).toBe(0)
-    c = { ...c, skillIncreases: { 3: 'Mining Lore' } }
-    expect(ranksAt(c, entries)['Mining Lore']).toBe(2)
-    change('Engineering')
-    expect(c.skillIncreases).toEqual({})
-    expect(ranksAt(c, entries)['Engineering Lore']).toBe(1)
-    expect(ranksAt(c, entries)['Mining Lore'] ?? 0).toBe(0)
-    expect(skillRankBudget(c, entries).trained).toBe(4)
-    change('')
-    expect(builder.experiencedLaborerLore(c)).toBeUndefined()
+    const trained: Character = { ...c, skillPicks: ['Diplomacy'] }
+    expect(ranksAt(trained, entries).Diplomacy).toBe(1)
+    expect(skillRankBudget(trained, entries).trained).toBe(4)
+    expect(skillRankBudget({ ...c, level: 0 }, entries).trained).toBe(4)
+    expect(skillRankBudget({ ...c, systems: ['pf2e'] }, entries).trained).toBe(4)
+    expect(skillRankBudget({ ...c, level: 8, feats: [{ ...c.feats.at(-1)!, takenLevel: 9 }] }, entries).trained).toBe(4)
   } finally { updateSettings({ autoLores: previous }) }
 })
 
-function findInput(node: ReactNode, label: string): Record<string, unknown> | undefined {
-  let found: Record<string, unknown> | undefined
-  Children.forEach(node, child => {
-    if (found || !isValidElement<Record<string, unknown>>(child)) return
-    found = child.type === 'input' && child.props['aria-label'] === label
-      ? child.props : findInput(child.props.children as ReactNode, label)
-  })
-  return found
-}
+it('preserves a saved Experienced Laborer Lore as an ordinary trained pick', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 7, lores: [{ name: 'mining Lore', rank: 0 }],
+    feats: [{ name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1, choice: '  Mining  Lore ' }],
+    skillIncreases: { 3: 'mining Lore' } }
+  const entries = [{ ...ranger, systems: ['sf2e' as const] }]
+  const normalized = builder.normalizeConditionalSkillChoices(c, entries)
+  expect(normalized.feats[0].choice).toBeUndefined()
+  expect(normalized.skillPicks).toEqual(['mining Lore'])
+  expect(normalized.lores).toEqual(c.lores)
+  expect(normalized.skillIncreases).toEqual(c.skillIncreases)
+  expect(ranksAt(c, entries)['mining Lore']).toBe(2)
+  expect(skillRankBudget(c, entries).trained).toBe(4)
+  expect(builder.normalizeConditionalSkillChoices(normalized, entries)).toBe(normalized)
+  expect(c.feats[0].choice).toBe('  Mining  Lore ')
+  expect(skillRankBudget({ ...normalized, skillPicks: [] }, entries).trained).toBe(5)
+})
 
 function findSelect(node: ReactNode, label: string): Record<string, unknown> | undefined {
   let found: Record<string, unknown> | undefined
@@ -867,7 +859,7 @@ it('offers one alphabetized Lore list from both sources without already-known Lo
   expect(options).toEqual([...options].sort((a, b) => a.localeCompare(b)))
   expect(new Set(options.map(name => name.toLowerCase())).size).toBe(options.length)
   expect(options).toEqual(expect.arrayContaining([
-    'Academia Lore', 'Abadar Lore', 'Astral Plane Lore', 'Outer Rifts Lore', 'Pathfinder Society Lore',
+    'Academia Lore', 'Abadar Lore', 'Erastil Lore', 'Astral Plane Lore', 'Outer Rifts Lore', 'Pathfinder Society Lore',
     'Corporate Lore', 'Piracy Lore', 'Necrovite Lore', 'Apostae Lore', 'Heaven Lore',
   ]))
   for (const name of ['Sailing Lore', 'Magic Lore', 'Adventuring Lore', 'Planar Lore']) expect(options).not.toContain(name)

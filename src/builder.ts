@@ -2016,6 +2016,7 @@ export function loreReplacementChoices(c: Character, entries: ContentEntry[], in
 }
 
 export function normalizeConditionalSkillChoices(c: Character, entries: ContentEntry[]): Character {
+  c = normalizeLaborerSkills(c)
   const picks = [...(c.skillPicks ?? [])]
   const lores = [...c.lores]
   let changed = false
@@ -2072,16 +2073,24 @@ function ancestralSkillLores(c: Character, entries: ContentEntry[], selections =
   })
 }
 
-export function experiencedLaborerLore(c: Character) {
-  if (!c.systems.includes('sf2e')) return undefined
-  const choice = activeFeatsNamed(c, 'Experienced Laborer')[0]?.choice?.trim().replace(/\s+/g, ' ')
-  return choice && !/^lore$/i.test(choice) ? /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore` : undefined
+function normalizeLaborerSkills(c: Character): Character {
+  if (!c.systems.includes('sf2e')) return c
+  const feat = activeFeatsNamed(c, 'Experienced Laborer')[0]
+  const choice = feat?.choice?.trim().replace(/\s+/g, ' ')
+  if (!choice || /^lore$/i.test(choice)) return c
+  const name = /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`
+  const existing = c.lores.find(lore => lore.name.toLowerCase() === name.toLowerCase())
+  const skill = existing?.name ?? name
+  return {
+    ...c,
+    feats: c.feats.map(selected => selected === feat ? { ...selected, choice: undefined } : selected),
+    skillPicks: [...new Set([...(c.skillPicks ?? []), skill])],
+    lores: existing ? c.lores : [...c.lores, { name: skill, rank: 0 }],
+  }
 }
 
 export function trainedFeatLores(c: Character) {
-  const laborer = experiencedLaborerLore(c)
   return [
-    ...(laborer ? [{ name: laborer, source: 'Experienced Laborer' }] : []),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Underworld Investigator').length
       ? [{ name: 'Underworld Lore', source: 'Underworld Investigator' }] : []),
   ]
@@ -2441,7 +2450,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 }
 
 function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: number, withOverrides: boolean) {
-  c = { ...normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }), level: c.level }
+  c = { ...normalizeLaborerSkills(normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) })), level: c.level }
   const ranks = baseRanks(c, entries, beforeLevel)
   const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const rankUp = getSettings().autoClassSkills
@@ -4077,6 +4086,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(selected) > c.level) return total
     if (selected.name === 'Skill Download') return total
     if (selected.name === 'Natural Skill') return total + 2
+    if (selected.name === 'Experienced Laborer' && c.systems.includes('sf2e')) return total + 1
     if (selected.name === "Officer's Education") return total + (activeFeatsNamed(c, selected.name).slice(0, 2).includes(selected) ? 2 : 0)
     if (selected.name === 'Ancestral Longevity') return total + 1
     const feat = selectedFeatEntry(c, entries, selected.name, selected.sourceId)
@@ -4089,7 +4099,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
 }
 
 export function skillRankBudget(c: Character, entries: ContentEntry[]) {
-  c = normalizeLongevitySkills(c)
+  c = normalizeLaborerSkills(normalizeLongevitySkills(c))
   let effectivePicks = [...(c.skillPicks ?? [])]
   let currentRanks = effectivePicks.length ? ranksAt({ ...c, skillPicks: effectivePicks }, entries, 99, false) : {}
   for (const skill of c.skillPicks ?? []) {
