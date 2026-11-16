@@ -9,6 +9,7 @@ on:
     - cron: '0 6 * * 1'
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -36,6 +37,33 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist
+      - name: Wait for Pages artifact visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ARTIFACT_NAME: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            count=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
+              --jq "[.artifacts[] | select(.name == \"$ARTIFACT_NAME\" and .expired == false)] | length")
+            if [ "$count" -eq 1 ]; then
+              echo "Pages artifact visible."
+              exit 0
+            fi
+            if [ "$count" -gt 1 ]; then
+              echo "::error::Multiple artifacts named $ARTIFACT_NAME."
+              exit 1
+            fi
+            if [ "$attempt" -lt 12 ]; then sleep 5; fi
+          done
+          echo "::error::Pages artifact $ARTIFACT_NAME was not visible within 60 seconds."
+          exit 1
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
