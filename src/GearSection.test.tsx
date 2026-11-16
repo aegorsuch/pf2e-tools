@@ -589,6 +589,41 @@ it.each(['Katana', 'Claymore'])('changes %s damage with its saved grip in Equipm
   expect(weaponAttack(c, [katana, custom], { ...c.weapons![0], name: 'Claymore', handsHeld: 2 }).damage).toBe('3d12 slashing')
 })
 
+it.each(['Longbow', 'Composite Longbow'])('persists %s holding and shooting grips without changing damage', name => {
+  const composite = name.startsWith('Composite')
+  const bow: ContentEntry = { ...weapon, name, traits: composite ? ['Propulsive'] : [],
+    data: { hands: '1+', weapon_type: 'Ranged', weapon_category: 'Martial', weapon_group: 'Bow', range: 100, damage: '1d8 piercing' } }
+  const entries = [bow]
+  let c: Character = { ...character([]), abilities: { ...character([]).abilities, str: 18 },
+    weapons: [{ id: 'bow', name, potency: 1, striking: 2, runes: [] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const grip = (displayOnly: boolean) => findElement(WeaponList({ c, entries, save, displayOnly }),
+    element => element.props['aria-label'] === `Hands: ${name}`)!
+  for (const displayOnly of [false, true]) {
+    for (const hands of [2, 1]) {
+      ;(grip(displayOnly).props.onChange as (event: { target: { value: string } }) => void)({ target: { value: String(hands) } })
+      c = JSON.parse(JSON.stringify(c))
+      expect(c.weapons![0].handsHeld).toBe(hands)
+      expect(equippedWeaponHands(c, entries)).toBe(hands)
+      expect(weaponAttack(c, entries, c.weapons![0]).damage).toBe(`3d8${composite ? '+2' : ''} piercing`)
+      for (const view of [false, true]) {
+        expect(grip(view).props.value).toBe(hands)
+        const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} displayOnly={view} />)
+        expect(html).toContain('1 (hold)</option>')
+        expect(html).toContain('2 (shoot)</option>')
+      }
+    }
+  }
+  c = { ...c, shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, raised: false, damage: 0 } }
+  for (const view of [false, true]) {
+    const option = findElement(grip(view).props.children as ReactNode, element => element.type === 'option' && element.props.value === 2)!
+    expect(option.props.disabled).toBe(true)
+    ;(grip(view).props.onChange as (event: { target: { value: string } }) => void)({ target: { value: '2' } })
+    expect(c.weapons![0].handsHeld).toBe(1)
+    expect(equippedHands(c, entries)).toBe(2)
+  }
+})
+
 it('uses the attached weapon two-hand die based on its base weapon grip', () => {
   const gun = { ...weapon, name: 'Gun', data: { hands: '1 or 2', weapon_group: 'Firearm', weapon_type: 'Ranged' } }
   const stock = { ...weapon, name: 'Reinforced Stock', traits: ['Attached', 'Finesse', 'Two-Hand'],

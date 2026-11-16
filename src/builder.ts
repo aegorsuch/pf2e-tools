@@ -3139,7 +3139,8 @@ export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
 }
 
 export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
-  return String(entry.data.hands).trim() === '1 or 2'
+  return String(entry.data.hands).trim() === '1+'
+    || String(entry.data.hands).trim() === '1 or 2'
     || String(entry.data.hands).trim() === '1'
       && [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^two-hand\b/i.test(trait))
 }

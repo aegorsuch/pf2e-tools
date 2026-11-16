@@ -1019,6 +1019,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const fixed = w.id === OVERSIZED_THROW.id || shieldBash
         const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
         const hands = weaponHands(entries, w, c)
+        const bowGrip = String(a.entry?.data.hands).trim() === '1+'
         const equipped = weaponEquipped(c, entries, w)
         const linkedSource = shieldSource ? undefined : attachmentSource ?? haft
         const fixedEquipped = hands === 0 || !!linkedSource || !!w.attachedTo
@@ -1101,8 +1102,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                     || equipped && next > (hands ?? 0) && (unknownHands || handsUsed - (hands ?? 0) + next > handLimit)) return
                   update(w.id, { handsHeld: next })
                 }}>
-                <option value={1}>1</option>
-                <option value={2} disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > handLimit)}>2</option>
+                <option value={1}>{bowGrip ? '1 (hold)' : '1'}</option>
+                <option value={2} disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > handLimit)}>{bowGrip ? '2 (shoot)' : '2'}</option>
               </select>
             </label>}
         </>
