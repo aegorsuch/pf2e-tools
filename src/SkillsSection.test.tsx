@@ -585,7 +585,7 @@ it.each([
     feats: [{ name: source, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
   expect(ranksAt(c, [ranger])[skill]).toBe(2)
-  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${source} note"`)
+  expect(renderToStaticMarkup(tree())).not.toContain(source)
   ;(findButtons(tree()).get(`${skill} Master`)!.onClick as () => void)()
   expect(c.skillIncreases).toEqual({ 7: skill })
   expect(ranksAt(c, [ranger])[skill]).toBe(3)
