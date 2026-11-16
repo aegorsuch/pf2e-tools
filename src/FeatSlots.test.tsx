@@ -969,7 +969,8 @@ it('unlocks Wild Hunter through a saved achievement without bypassing level or s
   findButton(tree(), allowedLabel)!()
   expect(c.feats).toContainEqual({ name: wild.name, type: 'Dedication Feat', level: 8, slot: 'archetype:8:0' })
   const selected = renderToStaticMarkup(tree())
-  expect(selected).toContain('Satisfied by checked achievement.')
+  expect(selected).not.toContain('Satisfied by checked achievement.')
+  expect(selected).not.toContain('Access does not replace prerequisites.')
   expect(selected).not.toContain('Granted by selected ethnicity.')
   c = { ...c, achievements: [] }
   expect(renderToStaticMarkup(tree())).toContain('aria-label="Access information"')
@@ -1229,7 +1230,8 @@ it('gates access separately, ignores stale next-feat approval, preserves saved a
   expect(c.feats[0].name).toBe(witch.name)
   expect(c.featAccessOverrides).toEqual([witch.id])
   const approvedMarkup = renderToStaticMarkup(tree())
-  expect(approvedMarkup).toContain('GM approved access.')
+  expect(approvedMarkup).not.toContain('GM approved access.')
+  expect(approvedMarkup).not.toContain('Access does not replace prerequisites.')
   expect(approvedMarkup).not.toContain('class="feat-access-controls"')
   expect(approvedMarkup).toContain('class="feat-name" aria-haspopup="dialog">Witch Warden</button>')
   c = { ...c, ethnicity: 'Ulfen' }
@@ -1244,12 +1246,14 @@ it('gates access separately, ignores stale next-feat approval, preserves saved a
   const metMarkup = renderToStaticMarkup(tree())
   expect(metMarkup).not.toContain('class="feat-access-controls"')
   expect(metMarkup).toContain('class="feat-name" aria-haspopup="dialog">Witch Warden</button>')
-  expect(metMarkup).toContain('Access: Kellid ethnicity. Granted by selected ethnicity.')
+  expect(metMarkup).not.toContain('Granted by selected ethnicity.')
+  expect(metMarkup).not.toContain('Access does not replace prerequisites.')
   c = { ...c, ethnicity: 'Ulfen' }
   const missingMarkup = renderToStaticMarkup(tree())
   expect(missingMarkup).toContain('class="feat-access-controls"')
   expect(missingMarkup).toContain('aria-label="Access information"')
   expect(missingMarkup).toContain('Access: Kellid ethnicity</small>')
+  expect(missingMarkup).toContain('Access not established; GM permission required.')
   expect(missingMarkup).not.toContain('GM approval needed')
   c = { ...c, ethnicity: 'Kellid', feats: [{ ...c.feats[0], name: prerequisite.name }] }
   expect(renderToStaticMarkup(tree())).toContain('aria-label="Prerequisites unmet"')

@@ -67,10 +67,8 @@ export function EntryDescription({ name, entry, className, prerequisites, access
         {!history.length && !!prerequisites?.manual.length && <p className="feat-prerequisite-note">
           Check prerequisites manually: {text(prerequisites.manual.join('; '))}
         </p>}
-        {!history.length && access && <p className="feat-prerequisite-note">
-          Access: {access.requirement}{/[.!?]$/.test(access.requirement) ? '' : '.'} {access.automatic
-            ? access.source === 'achievement' ? 'Satisfied by checked achievement.' : 'Granted by selected ethnicity.'
-            : access.approved ? 'GM approved access.' : 'Access not established; GM permission required.'}
+        {!history.length && access && !access.automatic && !access.approved && <p className="feat-prerequisite-note">
+          Access: {access.requirement}{/[.!?]$/.test(access.requirement) ? '' : '.'} Access not established; GM permission required.
           {' '}Access does not replace prerequisites.
         </p>}
         <p>{text(description || 'Description unavailable. Sync Archives of Nethys content to load it.')}</p>

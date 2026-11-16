@@ -282,14 +282,13 @@ const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
 
 function GearAccess({ c, entries, entry, save }: SectionProps & { entry: ContentEntry }) {
   const access = gearAccess(c, entries, entry)
-  if (!access) return null
+  if (!access || access.automatic) return null
   return <div className="col gear-access">
-    <small>Access: {access.requirement}{access.automatic
-      ? ` (met${access.sources.length ? `: ${access.sources.join(', ')}` : ''})` : access.approved ? ' (GM approved)' : ' (not met)'}</small>
-    {!access.automatic && <label><input type="checkbox" aria-label={`GM approved access to ${entry.name}`} checked={access.approved}
+    {!access.approved && <small>Access: {access.requirement} (not met)</small>}
+    <label><input type="checkbox" aria-label={`GM approved access to ${entry.name}`} checked={access.approved}
       onChange={event => save({ gearAccessOverrides: event.target.checked
         ? [...new Set([...(c.gearAccessOverrides ?? []), entry.id])]
-        : c.gearAccessOverrides?.filter(id => id !== entry.id) })} /> GM approved access</label>}
+        : c.gearAccessOverrides?.filter(id => id !== entry.id) })} /> GM approved access</label>
   </div>
 }
 

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -27,6 +27,26 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it.each(['unmet', 'automatic', 'approved'])('only shows unmet gear access helper text (%s)', state => {
+  const restricted: ContentEntry = { ...weapon, name: 'Restricted Longsword', traits: ['Uncommon'],
+    data: { ...weapon.data, access: 'Kellid ethnicity' } }
+  const c: Character = { ...character([]), ethnicity: state === 'automatic' ? 'Kellid' : undefined,
+    gearAccessOverrides: state === 'approved' ? [restricted.id] : [] }
+  function OpenSearch() {
+    const tree = Search({ c, entries: [restricted], save: () => {}, kind: 'weapon', label: 'Add Weapon', onPick: () => {} })
+    if (tree.type === 'button' && isValidElement<{ onClick?: () => void }>(tree)) tree.props.onClick?.()
+    return tree
+  }
+  const markup = renderToStaticMarkup(<OpenSearch />)
+  expect(markup).toContain(restricted.name)
+  expect(markup.includes('Access: Kellid ethnicity (not met)')).toBe(state === 'unmet')
+  expect(markup.includes('Meet Access or obtain GM approval before adding.')).toBe(state === 'unmet')
+  expect(markup.includes('aria-label="GM approved access to Restricted Longsword"')).toBe(state !== 'automatic')
+  expect(markup).not.toContain('(met')
+  expect(markup).not.toContain('(GM approved)')
+  if (state === 'approved') expect(markup).toContain('checked=""')
 })
 
 it.each([false, true])('shows the Oversized Throw two-action icon in both views (displayOnly=%s)', displayOnly => {
