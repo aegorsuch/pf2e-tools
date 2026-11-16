@@ -11,6 +11,7 @@ import { getSettings, updateSettings } from './settings'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
+import { TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 
 let previousPlanning: boolean
 beforeEach(() => {
@@ -495,6 +496,37 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
       .toContain('Versatile Rogue (Mastermind)')
     expect(ranksAt(legacy, entries).Society).toBe(3)
   } finally { updateSettings(settings) }
+})
+
+it('keeps Torag boon slot and source tag when clearing its selected feat, including stale slot dismissals', () => {
+  const dwarf: ContentEntry = { id: 'dwarf-feat', name: 'Unburdened Iron', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const human: ContentEntry = { ...dwarf, id: 'human-feat', name: 'Human Feat', traits: ['Human'] }
+  const regular = { name: human.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+  let c: Character = { ...emptyRanger(), deity: 'Torag', divineIntercessions: { Torag: ['moderate-boon'] },
+    entryIds: [human.id, dwarf.id], dismissedFeatSlots: [TORAG_BOON_FEAT_SLOT],
+    extraSlots: [{ category: 'ancestry', level: 1, count: 1 }],
+    feats: [regular, { name: dwarf.name, type: 'Ancestry Feat', level: 1, slot: TORAG_BOON_FEAT_SLOT, sourceId: dwarf.id }] }
+  const entries = [human, dwarf]
+  const tree = () => FeatSlots({ c, entries, categories: ['ancestry'], save: patch => { c = { ...c, ...patch } } })
+  expect(plannedSlots(c, entries).some(slot => slot.key === TORAG_BOON_FEAT_SLOT)).toBe(true)
+  expect(renderToStaticMarkup(tree())).toContain('<small>(Torag boon)</small>')
+  expect(findButton(tree(), 'Remove L01 Ancestry feat slot torag-moderate-boon')).toBeUndefined()
+  const clear = findButton(tree(), 'Clear L01 Ancestry feat selection')!
+  expect(clear).toBeDefined()
+  vi.mocked(window.confirm).mockReturnValueOnce(false)
+  clear()
+  expect(c.feats).toHaveLength(2)
+  clear()
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats).toEqual([regular])
+  expect(c.entryIds).toEqual([human.id])
+  expect(c.extraSlots).toEqual([{ category: 'ancestry', level: 1, count: 1 }])
+  expect(c.dismissedFeatSlots).not.toContain(TORAG_BOON_FEAT_SLOT)
+  expect(plannedSlots(c, entries).filter(slot => slot.key === TORAG_BOON_FEAT_SLOT)).toHaveLength(1)
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Empty (Torag boon)')
+  expect(markup).toContain('aria-label="Clear L01 Ancestry feat selection" title="Clear selection" disabled=""')
 })
 
 it('keeps Versatile Rogue and Eldritch Trickster granted slots while allowing their selections to be cleared', () => {

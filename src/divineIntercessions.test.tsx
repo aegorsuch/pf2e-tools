@@ -133,7 +133,7 @@ it('gives Torag one first-level Dwarf ancestry slot without opening Dwarf feats 
   expect(eligibleFeats(entries, c, normal).map(entry => entry.name)).toEqual(['Human Feat'])
   expect(plannedSlots({ ...c, divineIntercessions: {} }, entries).some(slot => slot.key === boon.key)).toBe(false)
   expect(renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['ancestry']} />))
-    .toContain('Empty (Torag (Moderate Boon))')
+    .toContain('Empty (Torag boon)')
 })
 
 it.each(['uncheck', 'change-deity'])('suspends and restores Torag feat choices after %s without losing saved metadata', action => {

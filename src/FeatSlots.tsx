@@ -13,6 +13,7 @@ import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralC
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { getSettings } from './settings'
+import { TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 
 interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
@@ -420,7 +421,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showAddSlot = index === (addSlotIndex >= 0 ? addSlotIndex : slots.findIndex(sameLevel))
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
-          const emptyLabel = s.redundantFeat || s.grantedAncestry && s.grantedBy !== 'Social Chameleon' ? `Empty (${s.grantedBy})` : '- empty -'
+          const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : undefined
+          const emptyLabel = grantSource ? `Empty (${grantSource})`
+            : s.redundantFeat || s.grantedAncestry && s.grantedBy !== 'Social Chameleon' ? `Empty (${s.grantedBy})` : '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
           const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
@@ -473,7 +476,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {homebrewDedication(s.key) ? (
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access}
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
                   descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                     : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)
