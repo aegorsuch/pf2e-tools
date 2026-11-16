@@ -18,7 +18,7 @@ it('grants Direwolf Bonded a separate Canny Acumen choice slot with normal profi
   const feat = (name: string): ContentEntry => ({ id: name, systems: ['pf2e'], kind: 'feat', source: 'official',
     name, level: 1, traits: ['General'], description: '', data: {}, effects: [], updatedAt: 0 })
   const entries: ContentEntry[] = [
-    { ...feat('Direwolf Bonded'), kind: 'background', source: 'homebrew', data: { feat: 'Canny Acumen, Train Animal' } },
+    { ...feat('Direwolf Bonded'), kind: 'background', source: 'homebrew', data: { feat: 'Canny Acumen, Titan Wrestler' } },
     feat('Canny Acumen'), feat('Toughness'),
   ]
   let c: Character = { ...emptyRanger(), level: 1, background: 'Direwolf Bonded', feats: [] }

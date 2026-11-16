@@ -23,10 +23,10 @@ it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze'
   expect(background.data.feat).toBe('Quick Squeeze')
 })
 
-it('provides Direwolf Bonded boosts, training and normal Train Animal without adding an animal companion', () => {
+it('provides Direwolf Bonded boosts, training and Titan Wrestler without adding an animal companion', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Direwolf Bonded')!
   const c: Character = { ...base, level: 1, className: 'Fighter', background: background.name }
-  const entries = [background, ...['Canny Acumen', 'Train Animal'].map((name): ContentEntry => ({
+  const entries = [background, ...['Canny Acumen', 'Titan Wrestler'].map((name): ContentEntry => ({
     ...HAFT_STRIKER_WEAPON, id: name, name, kind: 'feat', level: 1, traits: name === 'Canny Acumen' ? ['General'] : ['General', 'Skill'],
   }))]
   const before = JSON.stringify(c)
@@ -35,9 +35,11 @@ it('provides Direwolf Bonded boosts, training and normal Train Animal without ad
   expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')).toMatchObject({ group: 'background', label: 'Background (free)' })
   const feats = renderToStaticMarkup(createElement(FeatSlots, { c, entries, save: () => {} }))
   expect(feats).toContain('Canny Acumen')
-  expect(feats).toContain('Train Animal')
-  expect(background.description).toContain('Train Animal skill feat, with its normal benefits')
-  expect(background.description).not.toContain('restricted to')
+  expect(feats).toContain('Titan Wrestler')
+  expect(background.description).toContain('Canny Acumen general feat and the Titan Wrestler skill feat.')
+  expect(background.description).not.toContain('Train Animal')
+  expect(background.description).not.toContain('general feat slot')
+  expect(background.description).not.toContain('Obtain an animal companion')
   expect(background.description).toContain('Aid your Nature, Perception, and Survival checks')
   const minions = renderToStaticMarkup(createElement(MinionsContent, { c, entries, save: () => {} }))
   expect(minions).not.toContain('Choose companion')
