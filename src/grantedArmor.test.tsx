@@ -147,13 +147,11 @@ it('applies selected extra blessings only when available and to the wielded shie
   expect(shieldStats({ ...shield, id: 'unequipped' }, c)).toEqual({ hardness: 5, hp: 20 })
 })
 
-it('provides Ranger and Druid copies without the impulse trait', () => {
+it('does not recreate retired Hardwood Armor homebrew or modify the official feat', () => {
   const original: ContentEntry = { id: 'hardwood', kind: 'feat', name: 'Hardwood Armor', systems: ['pf2e'], source: 'official',
     level: 1, traits: ['Impulse', 'Kineticist', 'Wood', 'Primal'], data: {}, description: '', effects: [], updatedAt: 0 }
-  const copy = homebrewCharacterOptions([original]).find(entry => entry.name === 'Hardwood Armor')!
-  expect(copy.data.class).toBe('Ranger, Druid')
-  expect(copy.traits).toEqual(['Wood', 'Primal', 'Ranger', 'Druid'])
-  expect(original.traits).toContain('Impulse')
+  expect(homebrewCharacterOptions([original]).some(entry => entry.name === 'Hardwood Armor')).toBe(false)
+  expect(original).toMatchObject({ source: 'official', traits: ['Impulse', 'Kineticist', 'Wood', 'Primal'] })
 })
 
 function find(node: ReactNode, predicate: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {

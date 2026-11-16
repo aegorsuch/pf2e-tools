@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 import { isWeaponMode } from './weaponModes'
 
@@ -89,6 +89,7 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
   const entries: ContentEntry[] = []
   const hasUpdatedJuggernaut = system === 'pf2e' && hits.some(hit => hit._id === 'feat-5880')
   for (const h of hits) {
+    if (system === 'pf2e' && EXCLUDED_LEGACY_RANGER_FEAT_IDS.includes(h._id ?? '')) continue
     if (hasUpdatedJuggernaut && h._id === 'feat-1167') continue
     const e = mapAonHit(h, system)
     if (e) entries.push(e)

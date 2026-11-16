@@ -108,8 +108,6 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
   })
   const strongArm = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Strong Arm' && entry.traits.includes('Rogue'))
-  const hardwood = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
-    && entry.name === 'Hardwood Armor' && entry.traits.includes('Kineticist'))
   return [
     ...rangerCopies,
     homebrewFeat('rider', 'Rider', 1, ['Champion', 'Commander', 'Druid', 'Ranger'],
@@ -118,12 +116,6 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('greywatch-initiate', 'Greywatch Initiate', 4, ['Gunslinger', 'Investigator', 'Ranger'],
       "You've received the basic training developed for all Greywatch recruits. You become an expert in Deception and gain the Face in the Crowd and Lengthy Diversion skill feats.",
       { class: 'Gunslinger, Investigator, Ranger', prerequisite: 'Trained in Deception' }),
-    ...(hardwood ? [{
-      ...hardwood, id: 'homebrew:hardwood-armor-ranger-druid', source: 'homebrew' as const,
-      traits: hardwood.traits.filter(trait => !['Impulse', 'Kineticist'].includes(trait)).concat(['Ranger', 'Druid']),
-      description: 'You create a wooden breastplate. Its material and fundamental runes automatically improve with your level. Druids also create a wooden shield, which improves as you level.',
-      data: { class: 'Ranger, Druid' }, updatedAt: 1,
-    }] : []),
     ...(strongArm ? [{ ...strongArm, id: 'homebrew:strong-arm-ranger-barbarian', source: 'homebrew' as const,
       traits: [...strongArm.traits.filter(trait => trait !== 'Rogue'), 'Ranger', 'Barbarian'],
       data: { ...Object.fromEntries(Object.entries(strongArm.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger, Barbarian' },

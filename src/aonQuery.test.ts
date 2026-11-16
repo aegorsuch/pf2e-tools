@@ -1,6 +1,44 @@
 import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
-import { mapAonHit } from './aon'
+import { mapAonHit, mapAonHits } from './aon'
+
+it('excludes the legacy Ranger snare chain from existing snapshots but keeps remastered snares', () => {
+  const legacy = [
+    ['feat-506', 'Snare Specialist'], ['feat-509', 'Quick Snares'], ['feat-516', 'Powerful Snares'],
+    ['feat-527', 'Lightning Snares'], ['feat-539', 'Ubiquitous Snares'],
+    ['feat-1766', 'Snare Hopping'], ['feat-1779', 'Impossible Snares'],
+  ].map(([id, name]) => ({ _id: id, _source: { category: 'feat', name, trait: ['Ranger'] } }))
+  const current = [
+    { _id: 'current-lightning', _source: { category: 'feat', name: 'Lightning Snares', trait: ['Archetype'], archetype: ['Snarecrafter'] } },
+    { _id: 'current-dedication', _source: { category: 'feat', name: 'Snarecrafter Dedication', trait: ['Archetype', 'Dedication'] } },
+    { _id: 'current-crafting', _source: { category: 'feat', name: 'Snare Crafting', trait: ['General', 'Skill'] } },
+  ]
+  expect(mapAonHits([...legacy, ...current], 'pf2e').map(entry => entry.name))
+    .toEqual(['Lightning Snares', 'Snarecrafter Dedication', 'Snare Crafting'])
+  expect(mapAonHits(legacy, 'sf2e')).toHaveLength(legacy.length)
+})
+
+it('excludes retired Ranger feats from Pathfinder feat queries only', async () => {
+  const queries: Array<{ category?: string; mustNot: unknown[] }> = []
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      query: { bool: { filter: Array<{ term?: { category?: string } }>; must_not?: unknown[] } }
+    }
+    queries.push({ category: body.query.bool.filter.find(filter => filter.term)?.term?.category,
+      mustNot: body.query.bool.must_not ?? [] })
+    return new Response(JSON.stringify({ hits: { hits: [] } }), { status: 200 })
+  }
+  await fetchAonHits('pf2e', fetchFn)
+  const exclusion = { ids: { values: [
+    'feat-506', 'feat-509', 'feat-516', 'feat-527', 'feat-539', 'feat-1766', 'feat-1779',
+  ] } }
+  expect(queries.find(query => query.category === 'feat')?.mustNot).toContainEqual(exclusion)
+  expect(queries.filter(query => query.category !== 'feat').every(query =>
+    !query.mustNot.some(clause => JSON.stringify(clause) === JSON.stringify(exclusion)))).toBe(true)
+  queries.length = 0
+  await fetchAonHits('sf2e', fetchFn)
+  expect(queries.find(query => query.category === 'feat')?.mustNot).not.toContainEqual(exclusion)
+})
 
 it('retains Starfinder weapon upgrade capacity, grade tracking, and ammunition', async () => {
   const markdown = '**Upgrades** 1\n**Ammunition** 10 [charges](/equipment/ammunition/2-batteries)\n'

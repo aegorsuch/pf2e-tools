@@ -17,6 +17,8 @@ export const newId = () => crypto.randomUUID()
 export async function ensureSupplementalContent() {
   await db.transaction('rw', db.content, async () => {
     if (!await db.content.get(HAFT_STRIKER_WEAPON.id)) await db.content.add(HAFT_STRIKER_WEAPON)
+    const hardwood = await db.content.get('homebrew:hardwood-armor-ranger-druid')
+    if (hardwood?.source === 'homebrew' && !hardwood.deleted) await removeEntry(hardwood.id)
     const bases = await db.content.where('kind').anyOf('companion', 'weapon', 'feat').toArray()
     const groups = await db.content.where('kind').anyOf('weaponGroup', 'armorGroup').toArray()
     const customGear = await db.content.where('source').equals('homebrew').filter(entry =>
