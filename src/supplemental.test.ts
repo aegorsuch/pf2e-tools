@@ -23,7 +23,7 @@ it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze'
   expect(background.data.feat).toBe('Quick Squeeze')
 })
 
-it('provides Direwolf Bonded boosts, training and restricted feat grants without adding an animal companion', () => {
+it('provides Direwolf Bonded boosts, training and normal Train Animal without adding an animal companion', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Direwolf Bonded')!
   const c: Character = { ...base, level: 1, className: 'Fighter', background: background.name }
   const entries = [background, ...['Canny Acumen', 'Train Animal'].map((name): ContentEntry => ({
@@ -36,7 +36,8 @@ it('provides Direwolf Bonded boosts, training and restricted feat grants without
   const feats = renderToStaticMarkup(createElement(FeatSlots, { c, entries, save: () => {} }))
   expect(feats).toContain('Canny Acumen')
   expect(feats).toContain('Train Animal')
-  expect(background.description).toContain('restricted to training direwolves')
+  expect(background.description).toContain('Train Animal skill feat, with its normal benefits')
+  expect(background.description).not.toContain('restricted to')
   expect(background.description).toContain('Aid your Nature, Perception, and Survival checks')
   const minions = renderToStaticMarkup(createElement(MinionsContent, { c, entries, save: () => {} }))
   expect(minions).not.toContain('Choose companion')
