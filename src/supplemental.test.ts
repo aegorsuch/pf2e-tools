@@ -30,8 +30,8 @@ it('provides Direwolf Bonded boosts, training and restricted feat grants without
     ...HAFT_STRIKER_WEAPON, id: name, name, kind: 'feat', level: 1, traits: name === 'Pet' ? ['General'] : ['General', 'Skill'],
   }))]
   const before = JSON.stringify(c)
-  expect(backgroundSkills(background)).toEqual(['Nature', 'Hunting Lore'])
-  expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['str', 'wis'])
+  expect(backgroundSkills(background)).toEqual(['Nature', 'Sarkoris Lore'])
+  expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['dex', 'wis'])
   expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')).toMatchObject({ group: 'background', label: 'Background (free)' })
   const feats = renderToStaticMarkup(createElement(FeatSlots, { c, entries, save: () => {} }))
   expect(feats).toContain('Pet')
