@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { eligibleFeats } from './builder'
-import { companionAdvancement, companionStats, faithfulSteedChange, specializationOptions } from './companions'
+import { companionAdvancement, companionStats, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
@@ -20,6 +20,31 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('grants Ferocious Beasts to every animal companion, but not constructs or eidolons', () => {
+    const c: Character = { ...base, level: 13,
+      companions: [{ id: 'first', type: 'Bear', name: '' }, { id: 'second', type: 'Bear', name: '' }],
+      feats: [{ name: 'Ferocious Beasts', type: 'Ancestry Feat', level: 13 }] }
+    const before = JSON.stringify(c)
+    expect(companionStats(c, [bear], 'Bear')?.ferocity).toEqual({ temporaryHp: 0 })
+    expect(companionStats(c, [bear], 'Bear', undefined, 'second')?.ferocity).toEqual({ temporaryHp: 0 })
+    for (const trait of ['Construct', 'Eidolon']) {
+      expect(companionStats(c, [{ ...bear, traits: [trait] }], 'Bear')?.ferocity).toBeUndefined()
+    }
+    expect(companionStats({ ...c, level: 12 }, [bear], 'Bear')?.ferocity).toBeUndefined()
+    expect(companionStats({ ...c, feats: [] }, [bear], 'Bear')?.ferocity).toBeUndefined()
+    expect(JSON.stringify(c)).toBe(before)
+  })
+
+  it('inherits Undying Ferocity only with an active Ferocious Beasts grant', () => {
+    const beasts = { name: 'Ferocious Beasts', type: 'Ancestry Feat', level: 13 }
+    const undying = { name: 'Undying Ferocity', type: 'Ancestry Feat', level: 9 }
+    const c: Character = { ...base, level: 15, feats: [beasts, undying] }
+    expect(minionFerocity(c)).toEqual({ temporaryHp: 15 })
+    expect(minionFerocity({ ...c, level: 20 })).toEqual({ temporaryHp: 20 })
+    expect(minionFerocity({ ...c, feats: [undying] })).toBeUndefined()
+    expect(minionFerocity({ ...c, feats: [beasts, { ...undying, takenLevel: 16 }] })).toEqual({ temporaryHp: 0 })
+  })
+
   it.each([
     ['Small', 'Small', false],
     ['Small', 'Medium', true],

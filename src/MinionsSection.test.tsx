@@ -5,6 +5,7 @@ import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './Minio
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
+import { CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import type { Character, ContentEntry } from './types'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
@@ -78,6 +79,44 @@ it('shows Rider full mount benefits once the companion is large enough without c
   expect(render({ ...c, feats: [] })).not.toContain('it can move and Support you on the same turn')
   expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).toContain('<span>Mount</span>')
   expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).not.toContain('it can move and Support you on the same turn')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('shows granted Ferocity on each eligible minion without consuming familiar or pet choices', () => {
+  const c: Character = {
+    id: 'ferocious-minions', systems: ['pf2e'], name: 'Test', level: 13, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Ferocious Beasts', type: 'Ancestry Feat', level: 13 },
+      { name: 'Undying Ferocity', type: 'Ancestry Feat', level: 9 },
+      { name: 'Familiar', type: 'Class Feat', level: 1 },
+      { name: 'Pet', type: 'General Feat', level: 1 },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'wolf', type: 'Wolf', name: '' }, { id: 'wolf-2', type: 'Wolf', name: '' },
+      { id: 'construct', type: CONSTRUCT_COMPANION_NAME, name: '' }],
+    familiar: { abilities: ['Flier'] }, pet: { abilities: ['Climber'] },
+  }
+  const wolf: ContentEntry = {
+    id: 'wolf', systems: ['pf2e'], name: 'Wolf', kind: 'companion', source: 'official', level: 1,
+    traits: ['Animal'], description: '', effects: [], updatedAt: 0, data: { size: 'Medium', hp: 6 },
+  }
+  const entries = [wolf, CONSTRUCT_COMPANION_ENTRY]
+  const before = JSON.stringify(c)
+  const render = (character = c) => renderToStaticMarkup(<MinionsContent c={character} entries={entries} save={() => {}} />)
+  const html = render()
+  expect(html.match(/aria-label="Orc Ferocity"/g)).toHaveLength(4)
+  expect(html.match(/aria-label="Ferocious Beasts note"/g)).toHaveLength(4)
+  expect(html.match(/Gain 13 temporary HP when using Orc Ferocity/g)).toHaveLength(4)
+  expect(html).toContain('Once per day, when reduced to 0 HP but not immediately killed, remain at 1 HP')
+  expect(html).toContain('wounded increases by 1')
+  expect(html).toContain('One reaction per round, usable only for Orc Ferocity')
+  expect(html).toContain('aria-label="Reaction"')
+  expect(html).toContain('Daily familiar or master abilities (1/2)')
+  expect(html).toContain('<option selected="">Climber</option>')
+  expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Undying Ferocity') })).not.toContain('temporary HP')
+  expect(render({ ...c, level: 12 })).not.toContain('aria-label="Orc Ferocity"')
+  expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Ferocious Beasts') })).not.toContain('aria-label="Orc Ferocity"')
   expect(JSON.stringify(c)).toBe(before)
 })
 

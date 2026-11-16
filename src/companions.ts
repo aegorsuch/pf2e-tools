@@ -1,4 +1,4 @@
-import { byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
+import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
@@ -19,6 +19,11 @@ export const CONSTRUCT_COMPANION_ENTRY: ContentEntry = {
 
 export const isCompanionEquipmentItem = (entry: ContentEntry) =>
   entry.kind === 'item' && String(entry.data.item_subcategory ?? '').toLowerCase() === 'companion items'
+
+export function minionFerocity(c: Character) {
+  if (!activeFeatsNamed(c, 'Ferocious Beasts').length) return undefined
+  return { temporaryHp: activeFeatsNamed(c, 'Undying Ferocity').length ? c.level : 0 }
+}
 
 const HORSESHOE_EFFECTS: Record<string, { speed: number; athletics: number }> = {
   'Alacritous Horseshoes': { speed: 5, athletics: 2 },
@@ -248,6 +253,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy, stealthyCompanion,
+    ferocity: type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
+      ? minionFerocity(c) : undefined,
     primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,
     perception: total('Perception', 'wis'),
     fortitude: total('Fortitude', 'con'),
