@@ -14,6 +14,34 @@ import type { Character, ContentEntry } from './types'
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
 
+it('grants Direwolf Bonded a separate Canny Acumen choice slot with normal proficiency scaling', () => {
+  const feat = (name: string): ContentEntry => ({ id: name, systems: ['pf2e'], kind: 'feat', source: 'official',
+    name, level: 1, traits: ['General'], description: '', data: {}, effects: [], updatedAt: 0 })
+  const entries: ContentEntry[] = [
+    { ...feat('Direwolf Bonded'), kind: 'background', source: 'homebrew', data: { feat: 'Canny Acumen, Train Animal' } },
+    feat('Canny Acumen'), feat('Toughness'),
+  ]
+  let c: Character = { ...emptyRanger(), level: 1, background: 'Direwolf Bonded', feats: [] }
+  const key = 'general:1:direwolf-bonded'
+  const tree = () => FeatSlots({ c, entries, categories: ['general'], save: patch => { c = { ...c, ...patch } } })
+  const slot = plannedSlots(c).find(slot => slot.key === key)!
+  expect(slot).toMatchObject({ category: 'general', level: 1, grantedFeat: 'Canny Acumen' })
+  expect(eligibleFeats(entries, c, slot).map(feat => feat.name)).toEqual(['Canny Acumen'])
+  const choose = findSelect(tree(), 'L01 General feat')!
+  choose({ target: { value: 'Toughness' } })
+  expect(c.feats).toEqual([])
+  choose({ target: { value: JSON.stringify(['Canny Acumen', 'Will']) } })
+  expect(c.feats).toEqual([expect.objectContaining({ name: 'Canny Acumen', choice: 'Will', slot: key, type: 'General Feat' })])
+  c = JSON.parse(JSON.stringify(c))
+  expect(ranksAt(c, entries).Will).toBe(2)
+  expect(ranksAt({ ...c, level: 17 }, entries).Will).toBe(3)
+  expect(renderToStaticMarkup(tree())).toContain('Canny Acumen (Will)')
+  expect(renderToStaticMarkup(tree())).not.toContain('background-feat-row')
+  expect(plannedSlots({ ...c, dismissedFeatSlots: [key] }).some(slot => slot.key === key)).toBe(true)
+  expect(plannedSlots({ ...c, background: 'Other' }).some(slot => slot.key === key)).toBe(false)
+  expect(c.extraSlots).toEqual([])
+})
+
 it('searches adopted Orc Tusks as Teeth while saving and reloading canonical feat identity', () => {
   const tusks: ContentEntry = { id: 'aon:pf2e:feat-4519', name: 'Tusks', kind: 'feat', source: 'official', systems: ['pf2e'],
     level: 1, traits: ['Orc'], description: 'Your tusks deal 1d6 piercing damage. Each tusk has finesse and unarmed traits.',

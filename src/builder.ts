@@ -221,7 +221,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string; grantedFeat?: string }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -399,6 +399,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
+  || key === 'general:1:direwolf-bonded'
 
 export const mechanicIngenuitySlots = (c: Character) =>
   c.className === 'Mechanic' && c.systems.includes('sf2e')
@@ -422,6 +423,11 @@ export function plannedSlots(c: Character): PlannedSlot[] {
       counters.set(id, n + 1)
       slots.push({ key: `${id}:${n}`, category: s.category, level: s.level })
     }
+  }
+  if (c.background === 'Direwolf Bonded' && c.level >= 1) {
+    if (!groupOrder.has('general:1')) groupOrder.set('general:1', groupOrder.size)
+    slots.push({ key: 'general:1:direwolf-bonded', category: 'general', level: 1,
+      grantedBy: 'Direwolf Bonded', grantedFeat: 'Canny Acumen' })
   }
   Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
     const grantingFeat = c.feats.find((f) => f.name === name)
@@ -506,7 +512,7 @@ export function plannedSlots(c: Character): PlannedSlot[] {
     if (!groupOrder.has('archetype:2')) groupOrder.set('archetype:2', groupOrder.size)
     slots.push({ key: d.slot, category: 'archetype', level: 2 })
   }
-  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key)
+  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon')
   for (const slot of slots) {
@@ -829,6 +835,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
+      && (!slot.grantedFeat || e.name === slot.grantedFeat)
       && (!ownedArchetype || isDedication(e) || ownedArchetype(e).length === 0)
       && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
       && (!spellcastingDedications || spellcastingDedications.has(e.name))

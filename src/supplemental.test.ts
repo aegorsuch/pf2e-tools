@@ -26,17 +26,17 @@ it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze'
 it('provides Direwolf Bonded boosts, training and restricted feat grants without adding an animal companion', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Direwolf Bonded')!
   const c: Character = { ...base, level: 1, className: 'Fighter', background: background.name }
-  const entries = [background, ...['Pet', 'Train Animal'].map((name): ContentEntry => ({
-    ...HAFT_STRIKER_WEAPON, id: name, name, kind: 'feat', level: 1, traits: name === 'Pet' ? ['General'] : ['General', 'Skill'],
+  const entries = [background, ...['Canny Acumen', 'Train Animal'].map((name): ContentEntry => ({
+    ...HAFT_STRIKER_WEAPON, id: name, name, kind: 'feat', level: 1, traits: name === 'Canny Acumen' ? ['General'] : ['General', 'Skill'],
   }))]
   const before = JSON.stringify(c)
   expect(backgroundSkills(background)).toEqual(['Nature', 'Sarkoris Lore'])
   expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['dex', 'wis'])
   expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')).toMatchObject({ group: 'background', label: 'Background (free)' })
   const feats = renderToStaticMarkup(createElement(FeatSlots, { c, entries, save: () => {} }))
-  expect(feats).toContain('Pet')
+  expect(feats).toContain('Canny Acumen')
   expect(feats).toContain('Train Animal')
-  expect(background.description).toContain('restricted to gaining and training direwolves')
+  expect(background.description).toContain('restricted to training direwolves')
   expect(background.description).toContain('Aid your Nature, Perception, and Survival checks')
   const minions = renderToStaticMarkup(createElement(MinionsContent, { c, entries, save: () => {} }))
   expect(minions).not.toContain('Choose companion')
