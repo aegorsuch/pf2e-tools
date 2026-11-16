@@ -6,6 +6,8 @@ import { dailyInnateUses, grantedFeatSpells } from './featSpells'
 import { ArmorList, WarmaskGear } from './GearSection'
 import { SkillsSection } from './SkillsSection'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
+import { warmaskItemBonus } from './warmask'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 5, ancestry: 'Orc',
@@ -43,6 +45,29 @@ it('treats the warmask as always worn and attuned while the feat is active', () 
     .toContain('<span class="skill-part"><small>Item</small>+1</span>')
   expect(renderToStaticMarkup(<WarmaskGear c={{ ...c, level: 0 }} entries={[]} save={() => {}} />)).not.toContain('Orc Warmask')
   expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).not.toContain('Orc Warmask')
+})
+
+it.each([[8, 1], [9, 2], [16, 2], [17, 3], [20, 3]])('scales the Warmask item bonus at level %i without raising proficiency', (level, bonus) => {
+  const c = { ...base, level }
+  const before = JSON.stringify(c)
+  expect(warmaskItemBonus(c)).toBe(bonus)
+  expect(ranksAt(c, []).Religion).toBe(1)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
+  const religion = markup.split('class="skill-name">Religion ')[1].split('role="row"')[0]
+  expect(religion).toContain(`<small>Item</small>+${bonus}`)
+  const gear = renderToStaticMarkup(<WarmaskGear c={c} entries={[]} save={() => {}} />)
+  expect(gear).toContain(`+${bonus} item bonus to Religion checks`)
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('can disable Warmask scaling and grants nothing without an active source', () => {
+  const previous = getSettings().warmaskScaling
+  try {
+    updateSettings({ warmaskScaling: false })
+    expect(warmaskItemBonus({ ...base, level: 20 })).toBe(1)
+    expect(warmaskItemBonus({ ...base, feats: [] })).toBe(0)
+    expect(warmaskItemBonus({ ...base, systems: ['sf2e'] })).toBe(0)
+  } finally { updateSettings({ warmaskScaling: previous }) }
 })
 
 it('uses the adopted-Orc Warmask label consistently without renaming the saved feat', () => {

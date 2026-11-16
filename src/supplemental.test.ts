@@ -164,25 +164,31 @@ it('provides Strong Arm to Ranger and Barbarian and applies its range only to th
   expect(weaponAttack(c, [], owned('Oversized Throw', OVERSIZED_THROW.id)).range).toBe(30)
   expect(weaponAttack({ ...c, feats: [] }, [javelin], owned('Javelin')).range).toBe(30)
 })
-it('copies current Katana stats into Claymore without changing the source or using legacy stats', () => {
+it('stops seeding Claymore while preserving statistics for previously owned copies', () => {
   const katana: ContentEntry = {
     ...HAFT_STRIKER_WEAPON, id: 'aon:pf2e:weapon-411', name: 'Katana',
     traits: ['Deadly d8', 'Two-Hand d10', 'Uncommon', 'Versatile P'],
     data: { weapon_category: 'Martial', weapon_group: 'Sword', weapon_type: 'Melee', damage: '1d6 S',
       hands: '1', bulk: 1, price: 200, rarity: 'uncommon', url: 'https://2e.aonprd.com/Weapons.aspx?ID=411' },
   }
-  const [claymore] = homebrewWeapons([{ ...katana, id: 'aon:pf2e:weapon-55', data: {} }, katana])
-  expect(claymore).toMatchObject({
-    id: 'homebrew:claymore', name: 'Claymore', source: 'homebrew', level: katana.level,
-    traits: katana.traits, data: katana.data, updatedAt: 1,
-  })
+  expect(homebrewWeapons([katana])).toEqual([])
+  const claymore: ContentEntry = { ...katana, id: 'homebrew:claymore', name: 'Claymore',
+    source: 'homebrew', data: { ...katana.data, retired: true } }
   expect(katana.name).toBe('Katana')
-  expect(claymore.description).not.toMatch(/katana|copy|using .*statistics/i)
-  expect(claymore.description).toContain('broad-bladed sword')
   const weapon = { id: 'claymore', name: 'Claymore', potency: 1, striking: 1, runes: [] }
   expect(weaponAttack(base, [claymore], weapon).damage).toBe('2d6+1 S')
   expect(homebrewWeapons([{ ...katana, deleted: true }])).toEqual([])
   expect(homebrewWeapons([{ ...katana, source: 'homebrew' }])).toEqual([])
+})
+
+it('adds a broad-bladed Spear without modifying official Spear statistics', () => {
+  const spear: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'aon:pf2e:weapon-365', name: 'Spear',
+    traits: ['Thrown'], data: { weapon_type: 'Melee', damage: '1d6 P', hands: 1, thrown_range: 20 } }
+  const before = JSON.stringify(spear)
+  const [broad] = homebrewWeapons([spear])
+  expect(broad).toMatchObject({ name: 'Broad-Bladed Spear', source: 'homebrew', traits: ['Thrown', 'Versatile S'], data: spear.data })
+  expect(JSON.stringify(spear)).toBe(before)
+  expect(homebrewWeapons([{ ...spear, deleted: true }])).toEqual([])
 })
 
 it('removes Agile only while a Barbarian rages with the house rule enabled', () => {

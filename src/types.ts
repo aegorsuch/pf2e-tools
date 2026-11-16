@@ -68,6 +68,7 @@ export interface OwnedWeapon {
   runes: string[]
   upgrades?: string[]
   material?: string
+  size?: 'Small' | 'Large' | 'Huge' | 'Gargantuan'
   livingWeapon?: boolean
   verdantWeapon?: boolean
   inventorInnovation?: boolean
@@ -197,6 +198,8 @@ export interface Character {
   blessedArmament?: { weaponId: string; rune: string }
   haftStrikerWeaponId?: string
   raging?: boolean
+  giantWeaponId?: string
+  giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'
   parrying?: boolean
   activeStance?: string
   activeFeatEffects?: string[]

@@ -16,6 +16,9 @@ import { fetchAonHits } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
+import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
+import { PARRYING_RUNE } from './supplemental'
+import { groupHomebrew } from './HomebrewList'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -39,6 +42,147 @@ const haftStance = content('feat', 'Haft Striker Stance', {}, 4, ['Fighter', 'St
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it.each([
+  [1, 0, 0, 6], [2, 1, 0, 6], [4, 1, 1, 6], [7, 1, 1, 10], [10, 2, 1, 10],
+  [12, 2, 2, 10], [15, 2, 2, 18], [16, 3, 2, 18], [19, 3, 3, 18],
+])('scales only the selected Giant weapon and its Rage bonus at level %i', (level, potency, striking, rage) => {
+  const blade = content('weapon', 'Bastard Sword', { damage: '1d8 S', hands: 1, weapon_category: 'Martial' }, 0, ['Two-Hand d12'])
+  const klass = content('class', 'Barbarian', { attack_proficiency: 'expert in martial weapons' })
+  const first: OwnedWeapon = { id: 'first', name: blade.name, potency: 0, striking: 0, material: 'Cold Iron', runes: [], handsHeld: 2 }
+  const second = { ...first, id: 'second', material: undefined, stowed: true }
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Giant', level, giantWeaponId: first.id,
+    raging: true, abilities: { ...base.abilities, str: 18 }, weapons: [first, second] }
+  const entries = [blade, klass]
+  const before = JSON.stringify(c)
+  expect(effectiveWeapon(c, entries, first)).toMatchObject({ size: 'Large', material: 'Orichalcum', potency, striking })
+  expect(effectiveWeapon(c, entries, second)).toEqual(second)
+  const specialization = level >= 7 ? level >= 15 ? 4 : 2 : 0
+  expect(weaponAttack(c, entries, first)).toMatchObject({ rageDamage: rage, damage: `${1 + striking}d12+${4 + rage + specialization} S` })
+  expect(weaponAttack(c, entries, { ...first, handsHeld: 1 }).damage).toBe(`${1 + striking}d8+${4 + rage + specialization} S`)
+  expect(weaponAttack({ ...c, raging: false }, entries, first).rageDamage).toBe(0)
+  expect(weaponAttack(c, entries, second).rageDamage).toBe(2)
+  expect(weaponAttack(c, entries, first).traits).toEqual(['Two-Hand d12'])
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('applies Giant clumsy only while wielding the selected weapon, including outside Rage', () => {
+  const blade = { ...sword, name: 'Rapier', traits: ['Finesse'] }
+  const weapon = { ...main, name: blade.name, potency: 0, striking: 0 }
+  const c: Character = { ...base, level: 1, className: 'Barbarian', subclass: 'Giant Instinct',
+    weapons: [weapon], giantWeaponId: weapon.id, raging: false, abilities: { ...base.abilities, str: 10 } }
+  const entries = [blade]
+  const stowed: Character = { ...c, weapons: [{ ...weapon, stowed: true }] }
+  expect(giantWeaponClumsy(c, entries)).toBe(1)
+  expect(giantWeaponClumsy(stowed, entries)).toBe(0)
+  expect(armorClass(c, entries)).toBe(armorClass(stowed, entries) - 1)
+  expect(savingThrowBreakdown(c, entries, 'Reflex').total).toBe(savingThrowBreakdown(stowed, entries, 'Reflex').total - 1)
+  expect(savingThrowBreakdown(c, entries, 'Will').total).toBe(savingThrowBreakdown(stowed, entries, 'Will').total)
+  expect(weaponAttack(c, entries, weapon).attack).toBe(weaponAttack(stowed, entries, weapon).attack - 1)
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
+  expect(skills).toContain('class="skill-name">Stealth <b>+3')
+  expect(skills).toContain('Giant Instinct: clumsy 1')
+  expect(giantWeaponClumsy({ ...c, subclass: 'Fury' }, entries)).toBe(0)
+  expect(isGiantWeapon({ ...c, className: 'Fighter' }, entries, weapon)).toBe(false)
+  expect(canBeGiantWeapon(c, entries, { ...weapon, name: 'Fist' })).toBe(false)
+  expect(canBeGiantWeapon(c, entries, { ...weapon, name: 'Unavailable weapon' })).toBe(false)
+})
+
+it('applies chosen Giant raging resistance only from level 9 and while raging', () => {
+  const c: Character = { ...base, level: 9, className: 'Barbarian', subclass: 'Giant',
+    raging: true, giantRagingResistance: 'Fire', abilities: { ...base.abilities, con: 18 } }
+  expect(resistances(c, [])).toEqual([
+    { damage: 'Bludgeoning', value: 7, source: 'Raging Resistance' },
+    { damage: 'Fire', value: 7, source: 'Raging Resistance' },
+  ])
+  expect(resistances({ ...c, raging: false }, [])).toEqual([])
+  expect(resistances({ ...c, level: 8 }, [])).toEqual([])
+  expect(resistances({ ...c, className: 'Fighter' }, [])).toEqual([])
+  expect(resistances({ ...c, giantRagingResistance: undefined }, [])).toEqual([
+    { damage: 'Bludgeoning', value: 7, source: 'Raging Resistance' },
+  ])
+})
+
+it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
+  const agile = { ...sword, traits: ['Agile'] }
+  const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Giant', raging: true, weapons: [main] }
+  const previous = getSettings().barbarianIgnoreAgile
+  try {
+    updateSettings({ barbarianIgnoreAgile: false })
+    expect(weaponAttack(c, [agile], main).rageDamage).toBe(1)
+    updateSettings({ barbarianIgnoreAgile: true })
+    expect(weaponAttack(c, [agile], main).rageDamage).toBe(2)
+    const javelin = { ...main, name: thrown.name }
+    expect(weaponAttack(c, [thrown], javelin).rageDamage).toBe(0)
+    expect(weaponAttack({ ...c, feats: [feat('Raging Thrower')] }, [thrown], javelin).rageDamage).toBe(2)
+    expect(weaponAttack({ ...c, className: 'Fighter' }, [sword], main).rageDamage).toBe(0)
+  } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
+})
+
+it('makes Parrying optional and applies its AC bonus through the existing Parry switch', () => {
+  const weapon = { ...main, runes: ['Parrying'] }
+  const klass = content('class', 'Fighter', { attack_proficiency: 'trained in martial weapons' })
+  const c: Character = { ...base, className: 'Fighter', weapons: [weapon] }
+  const entries = [sword, klass, PARRYING_RUNE]
+  expect(weaponAttack(c, entries, weapon).traits).toContain('Parry')
+  expect(weaponAttack(c, entries, main).traits).not.toContain('Parry')
+  expect(hasParryWeapon(c, entries)).toBe(true)
+  expect(armorClass({ ...c, parrying: true }, entries)).toBe(armorClass(c, entries) + 1)
+  const ranged = { ...sword, data: { ...sword.data, weapon_type: 'Ranged' } }
+  expect(weaponAttack(c, [ranged, klass, PARRYING_RUNE], weapon).traits).not.toContain('Parry')
+  expect(hasParryWeapon(c, [ranged, klass, PARRYING_RUNE])).toBe(false)
+  expect(hasParryWeapon({ ...c, className: undefined }, entries)).toBe(false)
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />))
+    .not.toMatch(/Damage[^<]*Parrying/)
+})
+
+it('activates Parrying only on the melee form of a combination weapon', () => {
+  const melee = { ...sword, name: 'Combination (Melee)', traits: ['Combination'],
+    data: { ...sword.data, weapon_type: 'Melee', url: 'combination' } }
+  const ranged = { ...melee, name: 'Combination (Ranged)', data: { ...melee.data, weapon_type: 'Ranged' } }
+  const weapon: OwnedWeapon = { ...main, name: ranged.name, combinationForm: 'Melee', runes: ['Parrying'] }
+  const klass = content('class', 'Fighter', { attack_proficiency: 'trained in martial weapons' })
+  const c: Character = { ...base, className: 'Fighter', weapons: [weapon] }
+  const entries = [melee, ranged, klass, PARRYING_RUNE]
+  expect(hasParryWeapon(c, entries)).toBe(true)
+  expect(hasParryWeapon({ ...c, weapons: [{ ...weapon, combinationForm: 'Ranged' }] }, entries)).toBe(false)
+})
+
+it.each([[1, 3], [7, 7], [15, 13]])('uses Fury Rage damage %i without granting oversized weapon benefits', (level, rage) => {
+  const c: Character = { ...base, level, className: 'Barbarian', subclass: 'Fury', raging: true }
+  expect(weaponAttack(c, [sword], main).rageDamage).toBe(rage)
+  expect(effectiveWeapon(c, [sword], main)).not.toHaveProperty('size')
+})
+
+it('hides retired Claymore from new picks and homebrew without breaking owned weapon statistics', () => {
+  const claymore = { ...sword, id: 'homebrew:claymore', name: 'Claymore', source: 'homebrew' as const,
+    data: { ...sword.data, retired: true } }
+  expect(gearPickerEntries([sword, claymore], 'weapon').map(entry => entry.name)).toEqual(['Longsword'])
+  expect(groupHomebrew([claymore])).toEqual([])
+  expect(weaponAttack(base, [claymore], { ...main, name: claymore.name }).damage).toBe('2d8+1 slashing')
+})
+
+it.each([['Tradecraft Tattoo', 2], ['Tradecraft Tattoo (Greater)', 3]] as const)(
+  'applies %s only to the Crafting item column without helper text', (name, bonus) => {
+    const item = content('item', name, { usage: 'tattooed on the body', item_category: 'Tattoos' })
+    const c: Character = { ...base, equipment: [{ name, qty: 1, group: 'Tattoos' }] }
+    expect(tradecraftTattooBonus(c, [item])?.value).toBe(bonus)
+    const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[item]} save={() => {}} />)
+    const crafting = markup.split('class="skill-name">Crafting ')[1].split('role="row"')[0]
+    expect(crafting).toContain(`<small>Item</small>+${bonus}`)
+    expect(markup).not.toContain('Tradecraft Tattoo')
+    expect(markup).not.toContain('Earn Income')
+    expect(tradecraftTattooBonus({ ...c, equipment: [{ name, qty: 0 }] }, [item])).toBeUndefined()
+    expect(tradecraftTattooBonus(c, [{ ...item, deleted: true }])).toBeUndefined()
+  })
+
+it('uses only the highest owned Tradecraft grade without stacking tattoo copies', () => {
+  const lesser = content('item', 'Tradecraft Tattoo')
+  const greater = content('item', 'Tradecraft Tattoo (Greater)')
+  const c: Character = { ...base, equipment: [{ name: lesser.name, qty: 2 }, { name: greater.name, qty: 1 }] }
+  expect(tradecraftTattooBonus(c, [lesser, greater])?.value).toBe(3)
+})
 
 it.each([[4, -3], [6, -2], [8, -1], [10, 0], [12, 0], [16, 1]] as const)(
   'uses full negative Strength and half positive Strength for propulsive damage (Strength %s)', (strength, bonus) => {

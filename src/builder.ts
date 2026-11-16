@@ -1588,8 +1588,11 @@ function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weap
 }
 
 function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  const entry = weaponEntry(entries, weapon.name)
-  return hasParryTrait(entry) || defensiveArmamentsParry(c, weapon, entry)
+  const enhanced = effectiveWeapon(c, entries, weapon)
+  const entry = weaponEntry(entries, enhanced.name)
+  return hasParryTrait(entry) || defensiveArmamentsParry(c, enhanced, entry)
+    || enhanced.runes.some(rune => runeName(rune) === 'Parrying'
+      && weaponRuneApplies(entries, enhanced, rune)) && weaponAttack(c, entries, weapon).rank > 0
     || installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name))
 }
 
@@ -2800,6 +2803,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     { label: armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
   ]
   if (circumstance) parts.push({ label: `${circumstance.source} (circumstance)`, value: circumstance.value })
+  const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
+  if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts,
     notes: circumstance ? ['Circumstance bonuses do not stack; apply only against the matching hazard or effect.'] : undefined }
 }
@@ -2878,6 +2883,12 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  if (c.raging && c.level >= 9 && isGiantInstinct(c, entries)) {
+    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    for (const damage of ['bludgeoning', ...(c.giantRagingResistance ? [c.giantRagingResistance] : [])]) {
+      out.push({ damage, value, source: 'Raging Resistance' })
+    }
+  }
   const armor = wornArmor(c, entries)
   if (armor) out.push(...energyNeutralizerResistances(c, armor.id))
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
@@ -3029,6 +3040,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: `${RANKS[rank]} (${armorCategory})` },
   ]
   if (best) parts.push({ label: `${candidates.filter(candidate => candidate.value === best).map(candidate => candidate.label).join(' / ')} (circumstance)`, value: best })
+  const clumsy = giantWeaponClumsy(c, entries)
+  if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
   const notes = candidates.length > 1 ? ['Circumstance bonuses do not stack: '
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
   if (hazardFinderBonus(c)) notes.push('Hazard Finder applies only against hazard attacks.')
@@ -3177,19 +3190,20 @@ export function totalArmHands(c: Character) {
 
 export const ringCapacity = (c: Character) => totalArmHands(c) * 5
 
-function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: string) {
+function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: string, baseBonus = 1) {
   const names = [family, `${family} (Greater)`, `${family} (Major)`]
   return c.equipment.flatMap(item => {
     const entry = item.qty > 0 ? byName(entries, 'item', item.name) : undefined
     if (!entry || entry.deleted || !entry.systems.some(system => c.systems.includes(system))) return []
     const name = equipmentDisplayName(entry.name)
     const grade = names.indexOf(name)
-    return grade < 0 ? [] : [{ source: name, value: grade + 1 }]
+    return grade < 0 ? [] : [{ source: name, value: grade + baseBonus }]
   }).sort((a, b) => b.value - a.value)[0]
 }
 
 export const killerBeltBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Killer's Belt")
 export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
+export const tradecraftTattooBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Tradecraft Tattoo', 2)
 
 export function ringCount(c: Character, entries: ContentEntry[]) {
   return c.equipment.reduce((count, item) =>
@@ -3587,7 +3601,7 @@ export function armorGauntlet(c: Character, entries: ContentEntry[]) {
 export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking']
 export const WEAPON_PROPERTY_RUNES = [
   'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disarming', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
-  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
+  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Parrying', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
   'Unholy', 'Vorpal', 'Wounding',
 ]
 export const ARMOR_PROPERTY_RUNES = [
@@ -3637,6 +3651,7 @@ export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon')
 
 const FALLBACK_RUNE_USAGE: Record<string, string> = {
   Disarming: 'etched onto a melee weapon',
+  Parrying: 'etched onto a melee weapon',
   Grappling: 'etched onto a melee weapon',
   Wounding: 'etched onto a piercing or slashing melee weapon',
   Returning: 'etched onto a thrown weapon',
@@ -3852,6 +3867,48 @@ export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon
     && c.feats.some((feat) => featTakenLevel(feat) <= c.level && ['Verdant Weapon', 'Verdant Weapon Jousting'].includes(feat.name))
 }
 
+export function barbarianInstinct(c: Character, entries: ContentEntry[]) {
+  return c.className === 'Barbarian' && c.systems.includes('pf2e') && c.level >= 1
+    ? selectedSubclass(c, entries)?.replace(/\s+Instinct$/i, '').trim().toLowerCase() : undefined
+}
+
+export const isGiantInstinct = (c: Character, entries: ContentEntry[]) => barbarianInstinct(c, entries) === 'giant'
+
+export function canBeGiantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name)
+  return isGiantInstinct(c, entries) && !!entry && entry.systems.includes('pf2e')
+    && !weapon.attachedTo && !shieldAttachmentSource(c, weapon) && !usesWeaponUpgrades(entry)
+    && weapon.id !== OVERSIZED_THROW.id && weapon.name !== HAFT_STRIKER_WEAPON.name
+    && !PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id)
+    && weaponCategory(entry) !== 'Unarmed'
+    && !entry.traits.some(trait => /^free[- ]hand$/i.test(trait.trim()))
+}
+
+export const isGiantWeapon = (c: Character, entries: ContentEntry[], weapon: OwnedWeapon) =>
+  c.giantWeaponId === weapon.id && canBeGiantWeapon(c, entries, weapon)
+
+export function giantWeaponClumsy(c: Character, entries: ContentEntry[]) {
+  return isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
+    isGiantWeapon(c, entries, weapon) && weaponEquipped(c, entries, weapon)) ? 1 : 0
+}
+
+function giantWeaponSize(c: Character, entries: ContentEntry[]): NonNullable<OwnedWeapon['size']> {
+  const size = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium').toLowerCase()
+  return size === 'tiny' ? 'Small' : size === 'large' ? 'Huge' : size === 'huge' ? 'Gargantuan' : 'Large'
+}
+
+function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, traits: string[], ranged: boolean) {
+  if (!c.raging || !c.systems.includes('pf2e') || c.level < 1
+    || c.className !== 'Barbarian' && !activeFeatsNamed(c, 'Barbarian Dedication').length) return 0
+  if (ranged && (!traits.some(trait => /^thrown\b/.test(trait))
+    || !activeFeatsNamed(c, 'Raging Thrower').length)) return 0
+  const instinct = barbarianInstinct(c, entries)
+  const stage = c.level >= 15 ? 2 : c.level >= 7 ? 1 : 0
+  const value = instinct === 'giant' && isGiantWeapon(c, entries, weapon) ? [6, 10, 18][stage]
+    : instinct === 'fury' ? [3, 7, 13][stage] : 2
+  return traits.includes('agile') ? Math.floor(value / 2) : value
+}
+
 export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const innovation = c.className === 'Inventor' && selectedSubclass(c, entries) === 'Weapon'
     || activeFeatsNamed(c, 'Inventor Dedication').some(feat => feat.choice === 'Weapon')
@@ -3874,6 +3931,7 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
     || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
     || !!weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
     || !!weapon.verdantWeapon && canBeVerdantWeapon(c, entries, weapon)
+    || isGiantWeapon(c, entries, weapon)
     || !!weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)
     || PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id) && activeFeatsNamed(c, "Fane's Fourberie").length > 0
 }
@@ -3961,6 +4019,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
       enhanced = { ...enhanced, material: peachwood }
     }
     if (weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)) enhanced = { ...enhanced, material: 'Orichalcum' }
+    if (isGiantWeapon(c, entries, weapon)) enhanced = { ...enhanced, size: giantWeaponSize(c, entries), material: 'Orichalcum' }
     if (plate) enhanced = { ...enhanced, material: plate.material, potency: weapon.potency, striking: weapon.striking }
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
@@ -4061,6 +4120,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const dex = abilityMod(c.abilities.dex)
   const ability: Ability = ranged ? 'dex' : traits.includes('finesse') && dex > str ? 'dex' : 'str'
   const mod = ability === 'dex' ? dex : str
+  const clumsy = ability === 'dex' ? giantWeaponClumsy(c, entries) : 0
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
     .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
@@ -4112,7 +4172,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     : traits.includes('propulsive') ? str > 0 ? Math.floor(str / 2) : str : 0
   const mechanicSpecialization = c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 7 && rank >= 2
     ? (c.level >= 15 ? 2 : 1) * rank : 0
-  const damageBonus = flat + mechanicSpecialization
+  const barbarianSpecialization = c.className === 'Barbarian' && c.systems.includes('pf2e') && c.level >= 7 && rank >= 2
+    ? (c.level >= 15 ? 2 : 1) * rank : 0
+  const rageDamage = rageDamageBonus(c, entries, w, traits, ranged)
+  const damageBonus = flat + mechanicSpecialization + barbarianSpecialization + rageDamage
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -4128,6 +4191,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     entry,
     upgrades,
     pristineLivingWeapon,
+    rageDamage,
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
@@ -4135,6 +4199,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && !traits.includes('grapple') ? ['Grapple'] : []),
       ...(w.runes.some((rune) => runeName(rune) === 'Disarming') && weaponRuneApplies(entries, w, 'Disarming')
         && !traits.includes('disarm') ? ['Disarm'] : []),
+      ...(w.runes.some((rune) => runeName(rune) === 'Parrying') && weaponRuneApplies(entries, w, 'Parrying')
+        && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
     ability,
@@ -4142,13 +4208,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     prof,
     rank,
     item: w.potency,
-    attack: mod + prof + w.potency,
+    attack: mod + prof + w.potency - clumsy,
     breakdown: {
-      total: mod + prof + w.potency,
+      total: mod + prof + w.potency - clumsy,
       parts: [
         { label: ABILITY_LABEL[ability], value: mod },
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
         { label: 'Effective weapon potency (item)', value: w.potency },
+        ...(clumsy ? [{ label: 'Giant Instinct: clumsy (status)', value: -clumsy }] : []),
       ],
     } satisfies TotalBreakdown,
     range: ranged && num(entry?.data.range) > 0
@@ -4426,7 +4493,7 @@ export function baseItems(items: ContentEntry[]) {
 export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'armor' | 'shield') {
   const seen = new Set<string>()
   // Saved gear resolves by name; picker Access and source must use that same first record.
-  const pool = baseItems([...entries.filter(entry => entry.kind === kind && !entry.deleted),
+  const pool = baseItems([...entries.filter(entry => entry.kind === kind && !entry.deleted && !entry.data.retired),
     ...(kind === 'weapon' ? hammerMultipistolEntries(entries) : [])])
   return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {

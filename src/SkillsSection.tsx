@@ -3,12 +3,12 @@ import { resistances,
   ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, INITIATE_TRAINING, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
-import { warmaskSource } from './warmask'
+import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
@@ -197,6 +197,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     save({ skillIncreases: next, rankOverrides: overrides })
   }
   const filigree = clanDaggerFiligreeBonus(c, entries)
+  const clumsy = giantWeaponClumsy(c, entries)
   const droneSlots = droneCustomizationSlots(c)
   const assistantSkill = c.mechanicDroneAssistantActive && droneSlots
     ? (c.mechanicDroneCustomizations?.Tactical ?? []).slice(0, droneSlots.Tactical)
@@ -216,12 +217,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const armorPenalty = s.kind === 'skill' && (ability === 'str' || ability === 'dex') ? armorCheck : 0
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
-    const warmaskBonus = warmaskSource(c)?.skill === s.name ? 1 : 0
+    const warmaskBonus = warmaskSource(c)?.skill === s.name ? warmaskItemBonus(c) : 0
     const filigreeItem = ['Athletics', 'Diplomacy', 'Society'].includes(s.name) ? filigree : 0
     const belt = s.name === 'Intimidation' ? killerBeltBonus(c, entries) : undefined
     const ink = s.name === 'Stealth' ? wildwoodInkBonus(c, entries) : undefined
+    const tattoo = s.name === 'Crafting' ? tradecraftTattooBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0)
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0)
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
@@ -235,7 +237,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       : s.kind === 'save' ? saveCircumstance
         : [craftingRecall, armorSkill, assistant].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
-    const total = abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0)
+    const clumsyPenalty = ability === 'dex' ? clumsy : 0
+    const total = abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0) - clumsyPenalty
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
     return (
@@ -258,6 +261,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           : signed(total)}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
+          {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}

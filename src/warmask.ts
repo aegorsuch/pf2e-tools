@@ -1,4 +1,5 @@
 import { featTakenLevel } from './featChoices'
+import { getSettings } from './settings'
 import type { Character } from './types'
 
 export const WARMASK_SOURCES = {
@@ -12,4 +13,9 @@ export function warmaskSource(c: Character) {
   if (!c.systems.includes('pf2e')) return undefined
   const choice = c.feats.find(feat => feat.name === 'Orc Warmask' && featTakenLevel(feat) <= c.level)?.choice
   return Object.entries(WARMASK_SOURCES).find(([name]) => name === choice)?.[1]
+}
+
+export function warmaskItemBonus(c: Character) {
+  if (!warmaskSource(c)) return 0
+  return getSettings().warmaskScaling ? c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 : 1
 }

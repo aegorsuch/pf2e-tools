@@ -19,7 +19,7 @@ const LABELS: Partial<Record<EntryKind, string>> = {
 export function groupHomebrew(entries: ContentEntry[]) {
   const affiliations = entries.filter((entry) => entry.kind === 'class' || entry.kind === 'ancestry').map((entry) => entry.name)
   const groups = new Map<string, ContentEntry[]>()
-  for (const entry of entries.filter((entry) => entry.source === 'homebrew' && !entry.deleted)) {
+  for (const entry of entries.filter((entry) => entry.source === 'homebrew' && !entry.deleted && !entry.data.retired)) {
     const names = entry.kind === 'feat' ? [...new Set([
       ...[entry.data.class, entry.data.ancestry, entry.data.archetype].flatMap((value) => typeof value === 'string' ? value.split(',').map((name) => name.trim()).filter(Boolean) : []),
       ...affiliations.filter((name) => entry.traits.some((trait) => trait.toLowerCase() === name.toLowerCase())),

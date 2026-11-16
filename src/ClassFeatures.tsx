@@ -1,5 +1,6 @@
 import { Info } from './Info'
-import { activeFeatsNamed, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
+import type { OwnedWeapon } from './types'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
@@ -15,6 +16,31 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const targets = c.className === 'Champion' && c.level >= 3 ? blessedArmamentTargets(c, entries) : []
   const target = blessedArmamentTarget(c, entries)
   const sanctification = deitySanctification(c, entries)
+  const weapons = ownedWeapons(c, entries)
+  const giant = isGiantInstinct(c, entries)
+  const instinct = barbarianInstinct(c, entries)
+  const verdant = c.systems.includes('pf2e') && ['Verdant Weapon', 'Verdant Weapon Jousting']
+    .some(name => activeFeatsNamed(c, name).length > 0)
+  const verdantWeapon = weapons.find(weapon => weapon.verdantWeapon)
+  const weaponChoice = (label: string, value: string | undefined, eligible: (weapon: OwnedWeapon) => boolean,
+    onChange: (id: string) => void) => {
+    const options = weapons.filter(weapon => eligible(weapon) && weaponEquipped(c, entries, weapon))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    const saved = weapons.find(weapon => weapon.id === value)
+    return <div className="col">
+      <label>{label}{' '}
+        <SearchableSelect aria-label={label} value={value ?? ''} onChange={event => {
+          if (!event.target.value || options.some(weapon => weapon.id === event.target.value)) onChange(event.target.value)
+        }}>
+          <option value="">Choose equipped weapon</option>
+          {value && !options.some(weapon => weapon.id === value)
+            && <option value={value} disabled>{saved ? `${saved.name} (not equipped or unavailable)` : 'Saved weapon unavailable'}</option>}
+          {options.map(weapon => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
+        </SearchableSelect>
+      </label>
+      {!options.length && <small role="status">Equip an eligible weapon in Gear to select it here.</small>}
+    </div>
+  }
   const runes = blessedArmamentRuneOptions(c, entries).filter((rune) => target && !target.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune)) && (target.id === HANDWRAPS.id
     ? !['Returning', 'Shifting'].includes(rune) : weaponRuneApplies(entries, target, rune)))
   return (
@@ -22,6 +48,33 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       <summary><h4>Class Features ({features.length})</h4></summary>
       {!imported && <p>Class feature data is still loading.</p>}
       <MechanicFeatures c={c} save={save} />
+      {giant && <div className="col" aria-label="Giant Instinct">
+        {weaponChoice('Giant Instinct weapon', c.giantWeaponId, weapon => canBeGiantWeapon(c, entries, weapon),
+          id => save({ giantWeaponId: id || undefined }))}
+        <small>Selected weapon is oversized (Large for Small or Medium wielders).
+          House rule: Orichalcum and level-appropriate potency and striking runes.
+          Clumsy 1 applies while wielding it, even outside Rage. Size does not increase damage dice or reach.</small>
+        {c.level >= 9 && <label>Raging Resistance{' '}
+          <select aria-label="Giant Raging Resistance" value={c.giantRagingResistance ?? ''} onChange={event => {
+            const choice = (['Cold', 'Electricity', 'Fire'] as const).find(name => name === event.target.value)
+            save({ giantRagingResistance: choice })
+          }}>
+            <option value="">Choose damage type</option>
+            {['Cold', 'Electricity', 'Fire'].map(name => <option key={name}>{name}</option>)}
+          </select>
+          <small> While raging: bludgeoning and chosen type, resistance 3 + Constitution modifier.</small>
+        </label>}
+      </div>}
+      {verdant && <div className="col" aria-label="Verdant Weapon selection">
+        {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon), id => {
+          const saved = c.weapons ?? weapons.filter(weapon => !weapon.attachedTo)
+          const chosen = weapons.find(weapon => weapon.id === id)
+          save({ weapons: [...saved, ...(chosen && !saved.some(weapon => weapon.id === id) ? [chosen] : [])]
+            .map(weapon => ({ ...weapon, verdantWeapon: weapon.id === id })) })
+        })}
+      </div>}
+      {c.raging && instinct && !['giant', 'fury'].includes(instinct)
+        && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
       {c.className === 'Champion' && activeFeatsNamed(c, 'Dragonslayer Oath').length > 0 && <div className="col">
         <b>Dragonslayer Oath (legacy)</b>
         <small>Against dragons, Retributive Strike deals +4 circumstance damage (+6 with master weapon proficiency).

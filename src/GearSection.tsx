@@ -8,7 +8,7 @@ import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands,
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { classHandwrapKind } from './builder'
+import { classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
@@ -24,7 +24,7 @@ import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { ExploitiveAssault } from './ExploitiveAssault'
 import { mechanicClassDC } from './mechanicRules'
-import { warmaskSource } from './warmask'
+import { warmaskSource, warmaskItemBonus } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
@@ -43,7 +43,7 @@ const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[]
 const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
-    && !['Animated', 'Disarming', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
+    && !['Animated', 'Disarming', 'Parrying', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {
       const source = runeName(rune)
@@ -1001,7 +1001,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const shieldSource = shieldAttachmentSource(c, w)
         const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
-        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentSource.name)})` : ''}`
+        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${enhanced.size ? ` (${enhanced.size})` : ''}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentSource.name)})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const upgradeWeapon = usesWeaponUpgrades(a.entry)
@@ -1031,6 +1031,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
         const shared = livingWeapon ? livingWeaponEnhancements(c, entries, w) : card ? enhanced : w
         const canUseVerdantWeapon = !attachmentSource && canBeVerdantWeapon(c, entries, w)
+        const giantWeapon = isGiantWeapon(c, entries, w)
         const canUseInnovation = !attachmentSource && canBeWeaponInnovation(c, entries, w)
         const innovation = canUseInnovation && !!w.inventorInnovation
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
@@ -1116,7 +1117,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             : hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
             {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
-            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{!!summary.attack.rageDamage
+              && <SourceNote source="Rage" note={`Includes +${summary.attack.rageDamage} Rage damage. Thrown Strikes require Raging Thrower.`} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}</small>
@@ -1141,7 +1143,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           }}>
             <summary><strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
               {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
-              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{!!summary.attack.rageDamage
+                && <SourceNote source="Rage" note={`Includes +${summary.attack.rageDamage} Rage damage. Thrown Strikes require Raging Thrower.`} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             </Fragment>)}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
@@ -1245,8 +1248,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
                 && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}</span>
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
-                  source={plate ? `Inherited from ${plate.name}` : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
-                  onRemove={livingWeapon || plate || innovation || w.verdantWeapon && canUseVerdantWeapon ? undefined : () =>
+                  source={plate ? `Inherited from ${plate.name}` : giantWeapon ? 'Granted by Giant Instinct' : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
+                  onRemove={livingWeapon || plate || innovation || giantWeapon || w.verdantWeapon && canUseVerdantWeapon ? undefined : () =>
                     update(w.id, { material: undefined, ...(upgradeWeapon ? {} : { runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) }) })} />
               </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
                 <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
@@ -1280,8 +1283,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : linkedSource ? `Inherited from ${linkedSource.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || linkedSource ? undefined : (runes) => update(w.id, { runes })} />}
             <div className="row">
-              {canUseVerdantWeapon && <label><input type="checkbox" aria-label={`Verdant Weapon: ${w.name}`} checked={!!w.verdantWeapon}
-                onChange={(e) => saveWeapons(weapons.map((weapon) => ({ ...weapon, verdantWeapon: weapon.id === w.id && e.target.checked })))} /> Verdant Weapon</label>}
               {canUseInnovation && <label><input type="checkbox" aria-label={`Weapon Innovation: ${w.name}`} checked={!!w.inventorInnovation}
                 onChange={event => saveWeapons(weapons.map(weapon => ({ ...weapon, inventorInnovation: weapon.id === w.id && event.target.checked })))} /> Weapon Innovation</label>}
               {!attachmentSource && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove"
@@ -1447,7 +1448,7 @@ export function WarmaskGear({ c, entries }: SectionProps) {
   const source = warmaskSource(c)
   const feat = activeFeatsNamed(c, 'Orc Warmask')[0]
   const entry = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
-  const chosen = source ? `Power source: ${feat.choice} (${source.tradition}). +1 item bonus to ${source.skill} checks.` : undefined
+  const chosen = source ? `Power source: ${feat.choice} (${source.tradition}). +${warmaskItemBonus(c)} item bonus to ${source.skill} checks.` : undefined
   return <EntryDescription character={c} name="Orc Warmask"
     entry={entry && chosen ? { ...entry, description: `${chosen}\n\n${entry.description}` } : entry}
     descriptionNote={!entry ? chosen : undefined} entries={entries} className="equipment-name" />

@@ -20,6 +20,11 @@ export const DISARMING_RUNE: ContentEntry = {
   description: "Curved markings guide this weapon around an opponent's grip. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the disarm trait. Attempt Disarm with the weapon's reach without needing a free hand, and add its item bonus to attack rolls to the Athletics check. On a critical failure, you may drop the weapon to take a failure instead.",
 }
 
+export const PARRYING_RUNE: ContentEntry = {
+  ...GRAPPLING_RUNE, id: 'homebrew:parrying-rune', name: 'Parrying',
+  description: 'Defensive markings guide this weapon into a guarding position. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the parry trait. If you are trained or better with this weapon, you can spend one action while wielding it to gain a +1 circumstance bonus to AC until the start of your next turn. This bonus does not stack with other circumstance bonuses to AC.',
+}
+
 export const KILLERS_BELT_MAJOR: ContentEntry = {
   id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],
@@ -255,7 +260,7 @@ export const ANIMAL_FEATURES = [
 
 export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const base = entries.find((entry) => entry.id === 'aon:pf2e:weapon-304' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
-  const katana = entries.find((entry) => entry.id === 'aon:pf2e:weapon-411' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
+  const spear = entries.find((entry) => entry.id === 'aon:pf2e:weapon-365' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   const flyssa = entries.find((entry) => entry.id === 'aon:pf2e:weapon-285' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   return [...(base ? [{
     ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew' as const, name: 'Clawed Gauntlet',
@@ -263,9 +268,10 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     data: { ...base.data, rarity: 'common' },
     description: 'Four curved blades mounted over the fist give this close-combat gauntlet the appearance of claws.',
     updatedAt: 1,
-  }] : []), ...(katana ? [{
-    ...katana, id: 'homebrew:claymore', source: 'homebrew' as const, name: 'Claymore',
-    description: 'A long, broad-bladed sword with a protective crossguard. Its balanced grip supports controlled cuts and forceful two-handed blows.',
+  }] : []), ...(spear ? [{
+    ...spear, id: 'homebrew:broad-bladed-spear', source: 'homebrew' as const, name: 'Broad-Bladed Spear',
+    traits: [...spear.traits.filter(trait => !/^versatile s$/i.test(trait)), 'Versatile S'],
+    description: 'A spear with a broad, sharpened head that can make sweeping cuts as well as thrusts. It gains versatile S; its other statistics are unchanged.',
     updatedAt: 1,
   }] : []), ...(flyssa ? [{
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
