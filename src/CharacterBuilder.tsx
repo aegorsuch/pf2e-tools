@@ -72,6 +72,7 @@ function Pick({ label, kind, value, options, onChange, ancestry }: {
   const unavailable = kind === 'heritage' && !!value && !labels.has(value)
   return (
       <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare} optionCount={labels.size}
+        searchText={kind === 'background' ? name => String(byName.get(name)?.data.feat ?? '') : undefined}
         renderDetails={name => {
           const entry = byName.get(name)
           return entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" className="picker-details" /> : null
@@ -225,6 +226,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
         addButton.current?.focus()
       }} />}
     </div>
+    {group === 'Handwraps' && <HandwrapsGear c={c} entries={entries} save={save} />}
     {body}
   </div>
 }
@@ -355,7 +357,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
     const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
       Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [],
       Arms: [], Backpacks: [], Belt: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
-      Eyes: [], Eyewear: [], Face: [], Feet: [], Gloves: [], Hands: [], Head: [], Headband: [], Headwear: [],
+      Eyes: [], Eyewear: [], Face: [], Feet: [], Gloves: [], Hands: [], Handwraps: [], Head: [], Headband: [], Headwear: [],
       Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Wrists: [], 'Other Worn Items': [],
     }
     c.equipment.forEach((item, index) => {
@@ -627,8 +629,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
           <GrenadeSpecialist {...section} />
           <EquipmentGroup {...section} group="Hands" rows={equipmentGroups.Hands} />
-          <h4>Handwraps</h4>
-          <HandwrapsGear {...section} />
+          <EquipmentGroup {...section} group="Handwraps" rows={equipmentGroups.Handwraps} />
           <EquipmentGroup {...section} group="Head" rows={equipmentGroups.Head} />
           <EquipmentGroup {...section} group="Headband" rows={equipmentGroups.Headband} />
           <EquipmentGroup {...section} group="Headwear" rows={equipmentGroups.Headwear} />

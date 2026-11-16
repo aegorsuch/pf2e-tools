@@ -1,7 +1,7 @@
 export type GameSystem = 'pf2e' | 'sf2e'
 export const WORN_EQUIPMENT_GROUPS = [
   'Arms', 'Backpacks', 'Belt', 'Body', 'Boots', 'Bracelets', 'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear',
-  'Face', 'Feet', 'Gloves', 'Hands', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
+  'Face', 'Feet', 'Gloves', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
   'Throat', 'Torso', 'Wrists', 'Other Worn Items',
 ] as const
 export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', ...WORN_EQUIPMENT_GROUPS] as const

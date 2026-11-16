@@ -82,15 +82,22 @@ it.each([
     { includeUnmetPrerequisites: true }).map(feat => feat.id)).toEqual([pf.id, different.id])
 })
 
-it.each(['Cooperative Soul', 'Incredible Improvisation'])('offers one official %s across systems while preserving homebrew', name => {
-  const pf = { ...entry('feat', name, {}, 9, ['Human']), description: 'Pathfinder wording.' }
+it.each([
+  ['Advanced General Training', 13, 'ancestry'],
+  ['Cooperative Nature', 1, 'ancestry'],
+  ['Cooperative Soul', 9, 'ancestry'],
+  ['Incredible Improvisation', 9, 'ancestry'],
+  ['Multitalented', 9, 'ancestry'],
+  ['Prescient Planner', 3, 'general'],
+] as const)('offers one official %s across systems while preserving homebrew', (name, level, category) => {
+  const pf = { ...entry('feat', name, {}, level, [category === 'general' ? 'General' : 'Human']), description: 'Pathfinder wording.' }
   const sf: ContentEntry = { ...pf, id: `sf:${name}`, systems: ['sf2e'], description: 'Starfinder wording.',
     data: name === 'Cooperative Soul' ? { prerequisite: 'Cooperative Nature' } : {} }
   const homebrew: ContentEntry = { ...pf, id: `custom:${name}`, source: 'homebrew' }
-  const c: Character = { id: 'human', name: 'Test', systems: ['pf2e', 'sf2e'], ancestry: 'Human', level: 9,
+  const c: Character = { id: 'human', name: 'Test', systems: ['pf2e', 'sf2e'], ancestry: 'Human', level,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
-  const slot = { key: 'ancestry:9:0', category: 'ancestry' as const, level: 9 }
+  const slot = { key: `${category}:${level}:0`, category, level }
   expect(eligibleFeats([sf, pf, homebrew], c, slot, { includeUnmetPrerequisites: true })).toEqual([pf, homebrew])
   expect(eligibleFeats([sf], { ...c, systems: ['sf2e'] }, slot, { includeUnmetPrerequisites: true })).toEqual([sf])
 })

@@ -433,6 +433,37 @@ it('shows and searches distinct Versatile Rogue racket options', () => {
   expect(renderToStaticMarkup(tree())).toContain('Ruffian racket benefits.')
 })
 
+it.each([
+  { name: 'Unconventional Weaponry', count: 2 },
+  { name: 'Unconventional Weaponry', count: 12 },
+  { name: 'Adopted Ancestry', count: 2 },
+  { name: 'Adopted Ancestry', count: 12 },
+])('collapses $name ($count choices) while keeping variants searchable and selectable', ({ name, count }) => {
+  const weaponry = name === 'Unconventional Weaponry'
+  const category = weaponry ? 'ancestry' : 'general'
+  const level = weaponry ? 1 : 3
+  const label = weaponry ? 'L01 Ancestry' : 'L03 General'
+  const key = `${category}:${level}:0`
+  const feat: ContentEntry = { id: 'choices', name, kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 1, traits: [weaponry ? 'Human' : 'General'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [feat, ...Array.from({ length: count }, (_, i): ContentEntry => ({
+    ...feat, id: `choice-${i}`, name: `Choice ${String(i + 1).padStart(2, '0')}`,
+    kind: weaponry ? 'weapon' : 'ancestry', traits: [], data: weaponry ? { weapon_category: 'Martial' } : {},
+  }))]
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', level }
+  const tree = (query = '') => FeatSlots({ c, entries, categories: [category], save: patch => { c = { ...c, ...patch } },
+    search: { [`${key}:open`]: '1', [`${key}:query`]: query }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain(`<details class="feat-variant-group"><summary>${name} (${count} choices)</summary>`)
+  expect(renderToStaticMarkup(tree(name))).toContain(`<details class="feat-variant-group"><summary>${name} (${count} choices)</summary>`)
+  expect(renderToStaticMarkup(tree('choice'))).toContain('<details class="feat-variant-group" open="">')
+  const filtered = renderToStaticMarkup(tree('choice 02'))
+  expect(filtered).toContain(`aria-label="${label}: ${name} (Choice 02)"`)
+  expect(filtered).not.toContain(`aria-label="${label}: ${name} (Choice 01)"`)
+  expect(filtered).not.toContain('feat-variant-group')
+  findButton(tree('choice 02'), `${label}: ${name} (Choice 02)`)!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name, choice: 'Choice 02', slot: key }))
+})
+
 it('offers Mastermind skill variants and saves the chosen skill with its racket', () => {
   const feat: ContentEntry = { id: 'versatile', name: 'Versatile Rogue', kind: 'feat', source: 'homebrew',
     systems: ['pf2e'], level: 10, traits: ['Rogue'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }

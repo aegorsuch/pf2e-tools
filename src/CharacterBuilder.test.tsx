@@ -438,6 +438,10 @@ it.each([false, true])('closes equipment search after adding an item (existing s
 
 it.each([
   ['Boots of Rings', 'worn gloves', 'Gloves'],
+  ['Handwraps of Mighty Blows (+1)', 'worn gloves', 'Handwraps'],
+  ['Hardlight Handwraps (Tactical)', 'worn gloves', 'Handwraps'],
+  ['Dragon Handwraps', 'worn gloves', 'Handwraps'],
+  ['Martial Bands', 'worn handwraps', 'Handwraps'],
   ['Shoes of Speed', 'worn shoes', 'Boots'],
   ['War Bracers', 'worn bracers', 'Bracelets'],
   ['Amulet', 'worn amulet', 'Necklaces'],
@@ -459,6 +463,42 @@ it.each([
   const entry: ContentEntry = { id: name, name, kind: 'item', systems: ['pf2e'], source: 'homebrew', level: 1,
     traits: [], description: '', data: { item_category: 'Worn Items', usage }, effects: [], updatedAt: 0 }
   expect(equipmentGroupName(entry)).toBe(group)
+})
+
+it.each([undefined, 'Gloves', 'Hands'] as const)('separates handwrap inventory and searches from gloves, including saved %s placements', group => {
+  const names = ['Handwraps of Mighty Blows (+1)', 'Hardlight Handwraps (Tactical)', 'Dragon Handwraps']
+  const entries: ContentEntry[] = [...names, 'Gloves of Storing'].map(name => ({
+    id: name, name, kind: 'item', systems: ['pf2e'], source: 'official', level: 1,
+    traits: [], description: '', data: { usage: 'worn gloves' }, effects: [], updatedAt: 0,
+  }))
+  const c: Character = { id: 'handwrap-placement', systems: ['pf2e'], name: 'Test', level: 5, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [...names.map(name => ({ name, qty: 1, group })), { name: 'Gloves of Storing', qty: 1 }],
+    handwraps: { potency: 1, striking: 1, runes: ['Flaming'] },
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const saved = JSON.stringify(c)
+  content.entries = entries
+  try {
+    const equipment = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+      .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+    const gloves = equipment.split('<h4>Gloves</h4>')[1].split('<h4>Hands</h4>')[0]
+    const handwraps = equipment.split('<h4>Handwraps</h4>')[1].split('<h4>Head</h4>')[0]
+    expect(equipment.match(/<h4>Handwraps<\/h4>/g)).toHaveLength(1)
+    expect(gloves).toContain('Gloves of Storing')
+    expect(gloves).not.toContain('Handwraps')
+    expect(handwraps).toContain('Fundamental runes')
+    expect(handwraps).toContain('Flaming')
+    const glovesSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Gloves" />)
+    const handwrapsSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Handwraps" />)
+    expect(glovesSearch).toContain('Add Gloves of Storing')
+    expect(glovesSearch).not.toContain('Handwraps')
+    expect(handwrapsSearch).not.toContain('Gloves of Storing')
+    for (const name of names) {
+      expect(handwraps).toContain(name)
+      expect(handwrapsSearch).toContain(`Add ${name}`)
+    }
+    expect(JSON.stringify(c)).toBe(saved)
+  } finally { content.entries = [] }
 })
 
 it('places the personalized Warmask only in Mask, with its bonus inside its details', () => {

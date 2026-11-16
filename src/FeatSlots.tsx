@@ -366,9 +366,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const slotQuery = (open ? search[`${s.key}:query`] ?? '' : '').trim().toLowerCase()
           const skill = s.category === 'skill' && open ? search[`${s.key}:skill`] ?? '' : ''
           const suggestible = ['general', 'skill'].includes(s.category)
+          const matchesEntry = (entry: ContentEntry) => matches(entry, slotQuery,
+            suggestible ? [...(suggestions.get(entry.name) ?? []), ...(synergies.get(entry.name) ?? [])] : undefined)
+          const variantsFor = (entry: ContentEntry) => optionsFor(entry, s, skill)
+            .filter(variant => matchesEntry(entry) || variant.label.toLowerCase().includes(slotQuery))
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
-            (matches(o, slotQuery, suggestible ? [...(suggestions.get(o.name) ?? []), ...(synergies.get(o.name) ?? [])] : undefined)
-              || o.name === 'Versatile Rogue' && optionsFor(o, s).some(option => option.label.toLowerCase().includes(slotQuery)))
+            (matchesEntry(o) || variantsFor(o).length > 0)
             && matchesSkill(o, skill, featsByName)
             && (!skill || o.name !== 'Skill Training' || optionsFor(o, s, skill).length > 0)
             && (!picksType || (type === 'dedication') === isDedication(o)))
@@ -390,7 +393,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const pairedValues = new Set<string>()
           for (const option of shown) {
             if (suggestible && synergies.has(option.name)) {
-              for (const variant of optionsFor(option, s, skill)) {
+              for (const variant of variantsFor(option)) {
                 const key = JSON.stringify([variant.entry.id, variant.value, variant.label, variant.disabled])
                 if (pairedValues.has(key)) continue
                 pairedValues.add(key)
@@ -399,7 +402,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               continue
             }
             if (suggestible && suggestions.has(option.name)) {
-              for (const variant of optionsFor(option, s, skill)) {
+              for (const variant of variantsFor(option)) {
                 const key = JSON.stringify([variant.entry.id, variant.value, variant.label, variant.disabled])
                 if (suggestedValues.has(key)) continue
                 suggestedValues.add(key)
@@ -408,8 +411,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               continue
             }
             const level = featSelectionLevel(option, c, entries, s.category, s)
-            const variants = optionsFor(option, s, skill).filter(variant => option.name !== 'Versatile Rogue'
-              || matches(option, slotQuery) || variant.label.toLowerCase().includes(slotQuery))
+            const variants = variantsFor(option)
             optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
           }
           const granted = isGrantedSlot(s.key)
@@ -444,6 +446,25 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   ? domainSpellDescription(c, entries, option.entry.name, option.choice)
                   : subclassDescription(option.entry.name, option.choice)} />
           </li>
+          const popupOptions = (options: FeatOption[]) => {
+            const groups = new Map<string, FeatOption[]>()
+            for (const option of options) {
+              const variants = groups.get(option.entry.id) ?? []
+              variants.push(option)
+              groups.set(option.entry.id, variants)
+            }
+            return [...groups].flatMap(([id, variants]) => {
+              const entry = variants[0].entry
+              const collapse = variants.length > 10 || variants.length > 1
+                && ['Unconventional Weaponry', 'Adopted Ancestry'].includes(entry.name)
+              return collapse ? [<li key={id}>
+                <details className="feat-variant-group" open={!!slotQuery && !matchesEntry(entry)}>
+                  <summary>{displayName(entry.name)} ({variants.length} choices)</summary>
+                  <ul className="feat-variant-list">{variants.map(popupOption)}</ul>
+                </details>
+              </li>] : variants.map(popupOption)
+            })
+          }
           return (
             <Fragment key={s.key}>
             {heading}
@@ -505,15 +526,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       {picksType && s.grantedBy !== 'Eldritch Trickster' && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
                       {suggested.length > 0 && <>
                         <li className="feat-modal-level">Suggested prerequisites</li>
-                        {suggested.map(popupOption)}
+                        {popupOptions(suggested)}
                       </>}
                       {paired.length > 0 && <>
                         <li className="feat-modal-level">Suggested combinations</li>
-                        {paired.map(popupOption)}
+                        {popupOptions(paired)}
                       </>}
                       {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => [
                         <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,
-                        ...levelOptions.map(popupOption),
+                        ...popupOptions(levelOptions),
                       ])}
                     </ul>
                     {!options.length && <small role="status">No matching feats.</small>}

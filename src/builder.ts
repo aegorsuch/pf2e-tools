@@ -1024,8 +1024,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const overcrowd = candidates.filter(({ entry }) => entry.name === 'Overcrowd' && entry.source === 'official')
     .sort((a, b) => Number(prerequisites(a.entry).missing.length > 0) - Number(prerequisites(b.entry).missing.length > 0)
       || Number(!!a.entry.data.prerequisite) - Number(!!b.entry.data.prerequisite))[0]?.entry
-  // These shared Human feats have wording changes, not separate selectable benefits.
-  const sharedHumanFeats = new Map(['Cooperative Soul', 'Incredible Improvisation'].map(name => [name,
+  // Prefer Pathfinder versions of these shared feats without hiding homebrew.
+  const sharedOfficialFeats = new Map(['Advanced General Training', 'Cooperative Nature', 'Cooperative Soul',
+    'Incredible Improvisation', 'Multitalented', 'Prescient Planner'].map(name => [name,
     candidates.filter(({ entry }) => entry.name === name && entry.source === 'official')
       .sort((a, b) => Number(!a.entry.systems.includes('pf2e')) - Number(!b.entry.systems.includes('pf2e')))[0]?.entry]))
   const duplicateLore = new Set<string>()
@@ -1048,7 +1049,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
          && (slot.level !== 1 || takenLineage)
          && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Overcrowd' && entry.source === 'official' && entry !== overcrowd) return false
-      if (sharedHumanFeats.has(entry.name) && entry.source === 'official' && entry !== sharedHumanFeats.get(entry.name)) return false
+      if (sharedOfficialFeats.has(entry.name) && entry.source === 'official' && entry !== sharedOfficialFeats.get(entry.name)) return false
       if (entry.name === 'Prehensile Limbs' && specificTail
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Ancestral Skills' && duplicateLore.has(entry.id)

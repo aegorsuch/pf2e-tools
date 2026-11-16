@@ -27,7 +27,7 @@ export function selectOptionList(children: ReactNode, group?: string, disabled =
   })
 }
 
-export function searchSelectOptions(children: ReactNode, query: string, value: string) {
+export function searchSelectOptions(children: ReactNode, query: string, value: string, searchText?: (value: string) => string) {
   const q = query.trim().toLowerCase()
   let matches = 0
   const filter = (nodes: ReactNode): ReactNode => Children.toArray(nodes).flatMap(node => {
@@ -40,7 +40,7 @@ export function searchSelectOptions(children: ReactNode, query: string, value: s
     if (node.type !== 'option') return []
     const text = optionText(node.props.children)
     const key = String(node.props.value ?? text)
-    const match = !q || `${node.props.label ?? text} ${key}`.toLowerCase().includes(q)
+    const match = !q || `${node.props.label ?? text} ${key} ${searchText?.(key) ?? ''}`.toLowerCase().includes(q)
     if (key && match) matches++
     return !key || key === value || match ? [node] : []
   })

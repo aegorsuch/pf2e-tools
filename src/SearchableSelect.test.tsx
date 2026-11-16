@@ -20,6 +20,26 @@ it('searches deity names and epithets while preserving canonical values and save
   expect(markup).not.toContain('Sarenrae')
 })
 
+it.each([
+  ['  BATTLE medicine  ', ['Field Medic']],
+  ['assurance', ['Farmhand', 'Handyman', 'Scholar']],
+  ['additional lore', ['Handyman']],
+  ['farmhand', ['Farmhand']],
+])('searches backgrounds by granted feat or name: %s', (query, expected) => {
+  const feats: Record<string, string> = {
+    'Field Medic': 'Battle Medicine', Farmhand: 'Assurance', Handyman: 'Assurance, Additional Lore', Scholar: 'Assurance (Arcana)',
+  }
+  const children = [
+    <option key="none" value="">No background</option>,
+    ...Object.keys(feats).map(name => <option key={name} value={name}>{name}</option>),
+  ]
+  const result = searchSelectOptions(children, query, '', name => feats[name] ?? '')
+  const matches = selectOptionList(result.children).filter(option => option.value)
+  expect(matches.map(option => option.value)).toEqual(expected)
+  expect(matches.every(option => option.label === option.value)).toBe(true)
+  expect(result.matches).toBe(matches.length)
+})
+
 it('filters grouped choices without enabling unavailable options or dropping unknown saved values', () => {
   const children = [
     <option key="none" value="">Choose feat</option>,

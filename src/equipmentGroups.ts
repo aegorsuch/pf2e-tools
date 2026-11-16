@@ -13,7 +13,8 @@ const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [
   ['Clothing', /\b(?:clothing|clothes|garments?|robes?|vests?|outfits?|dresses)\b/],
   ['Mask', /\b(?:masks?|warmasks?)\b/],
   ['Eyewear', /\b(?:eyepieces?|goggles?|spectacles?|lenses)\b/],
-  ['Gloves', /\b(?:gloves?|gauntlets?|handwraps?|handwear)\b/],
+  ['Gloves', /\b(?:gloves?|gauntlets?|handwear)\b/],
+  ['Handwraps', /\bhandwraps?\b/],
   ['Headband', /\bheadbands?\b/],
   ['Headwear', /\b(?:headwear|headgear|helms?|helmets?|hats?|caps?|circlets?|crowns?|phylacter(?:y|ies))\b/],
   ['Necklaces', /\b(?:necklaces?|amulets?|pendants?|collars?)\b/],
@@ -46,6 +47,7 @@ export function equipmentFitsGroup(entry: ContentEntry, group: EquipmentGroupNam
 }
 
 export function equipmentGroupName(entry?: ContentEntry, name = entry?.name ?? '', savedGroup?: EquipmentGroupName | 'Belts' | 'Waist'): EquipmentGroupName {
+  if ((!savedGroup || savedGroup === 'Gloves' || savedGroup === 'Hands') && /\bhandwraps?\b/i.test(name)) return 'Handwraps'
   if (savedGroup) return savedGroup === 'Belts' || savedGroup === 'Waist' ? 'Belt' : savedGroup
   const category = String(entry?.data.item_category ?? '').trim().toLowerCase()
   if (category === 'grafts') return 'Grafts'
