@@ -244,6 +244,26 @@ it.each([
   expect(skillRankBudget({ ...c, level: 0 }, entries).trained).toBe(3)
 })
 
+it('adds Spelunker replacement training through Adopted Ancestry in Skills', () => {
+  const klass: ContentEntry = { ...ranger, systems: ['sf2e'] }
+  const background: ContentEntry = { ...feyBound, systems: ['sf2e'], name: 'Training', data: { skill: 'Acrobatics' } }
+  let c: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
+    feats: [
+      { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
+      { name: 'Spelunker', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+    ] }
+  expect(ranksAt(c, [klass]).Acrobatics).toBe(1)
+  expect(skillRankBudget(c, [klass]).trained).toBe(4)
+  c = { ...c, background: 'Training' }
+  const entries = [klass, background]
+  expect(skillRankBudget(c, entries).trained).toBe(5)
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  ;(findButtons(tree()).get('Thievery Trained')!.onClick as () => void)()
+  expect(c.skillPicks).toEqual(['Thievery'])
+  expect(ranksAt(c, entries).Thievery).toBe(1)
+  expect(skillRankBudget(c, entries).trained).toBe(4)
+})
+
 it('migrates saved replacement skills into ordinary picks when editing Skills', () => {
   const klass: ContentEntry = { ...ranger, systems: ['sf2e'] }
   let c: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', skillPicks: ['Athletics'],

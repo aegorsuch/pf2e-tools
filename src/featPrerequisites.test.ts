@@ -381,6 +381,20 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  it.each(['Adopted Ancestry', 'Dromaar'])('grants Orc Spelunker benefits through %s', access => {
+    const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
+      heritage: access === 'Dromaar' ? 'Dromaar' : undefined,
+      feats: [...(access === 'Adopted Ancestry'
+        ? [{ name: access, type: 'General Feat', level: 1, choice: 'Orc' }] : []), selected('Spelunker')] }
+    expect(ranksAt(character, []).Acrobatics).toBe(1)
+    expect(automaticFeatGrants(character, [])).toContainEqual({ name: 'Quick Squeeze', source: 'Spelunker', level: 1 })
+    expect(automaticFeatGrants({ ...character, level: 0 }, []).some(grant => grant.source === 'Spelunker')).toBe(false)
+  })
+  it('does not confuse Shisk Spelunker with Orc Spelunker in a mixed-system character', () => {
+    const character: Character = { ...base, systems: ['pf2e', 'sf2e'], ancestry: 'Shisk', feats: [selected('Spelunker')] }
+    expect(ranksAt(character, []).Acrobatics ?? 0).toBe(0)
+    expect(automaticFeatGrants(character, []).some(grant => grant.source === 'Spelunker')).toBe(false)
+  })
   it.each([
     ['Cite the Deep Lore', 'Society', 'Blend In', 'Elf'],
     ["Diplomat's Facade", 'Deception', 'Lie to Me', 'Elf'],

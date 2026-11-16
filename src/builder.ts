@@ -971,7 +971,7 @@ const SKILLS_TAB_ANCESTRY_GRANTS = ['Cite the Deep Lore', "Diplomat's Facade", '
 
 function ancestrySkillGrant(c: Character, name: string) {
   if (!c.systems.includes('sf2e')) return undefined
-  if (name === 'Spelunker' && c.ancestry !== 'Orc') return undefined
+  if (name === 'Spelunker' && !ancestryFeatTraits(c).includes('orc')) return undefined
   return ANCESTRY_SKILL_GRANTS[name]
 }
 
