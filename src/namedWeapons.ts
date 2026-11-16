@@ -37,7 +37,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   Shadowpiercer: [{ name: 'Absorb Shadows', actions: 'Two Actions' }, { name: 'Rebuff Gloom', actions: 'Reaction' }],
   'Callooh Callay': [{ name: 'One, Two!', actions: 'Two Actions' }, { name: 'Rest Thee by the Tumtum', actions: 'Single Action' }],
   'Blade of Fallen Stars': [{ name: 'Deploy bipod', actions: 'Single Action' }, { name: 'Starlight shot', actions: 'Two Actions' }],
-  Briar: [{ name: 'Barkskin', actions: 'Single Action' }, { name: 'Wither plant', actions: 'Reaction' },
+  Briar: [{ name: 'Oaken Resilience', actions: 'Single Action' }, { name: 'Wither plant', actions: 'Reaction' },
     { name: 'Save partner', actions: 'Reaction' }, { name: 'Strike Nyrissa', actions: 'Reaction' }],
   'Coldstar Pistols': [{ name: 'Switch form and Feint', actions: 'Single Action' }, { name: 'Twin shots', actions: 'Single Action' }],
 }
@@ -193,10 +193,15 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   const end = destruction < 0 ? entry.description.length : destruction
   const intro = entry.description.slice(0, tiers[0]?.index ?? end)
   const active = tier ? entry.description.slice(tier.index, next?.index ?? end) : ''
-  return { ...entry, description: [intro, active, destruction < 0 ? '' : entry.description.slice(destruction)].join('\n\n'),
+  const oakenRank = points >= 20 ? 8 : points >= 14 ? 6 : points >= 8 ? 4 : points >= 4 ? 2 : 0
+  const remastered = active.replace(/\bcasts (?:an? )?(?:[2468](?:nd|th)-level )?barkskin on its partner\.?/gi,
+    `casts rank ${oakenRank} Oaken Resilience on its partner. For 10 minutes, the partner gains resistance ${oakenRank} to bludgeoning and piercing damage and weakness ${oakenRank * 3 / 2} to fire. After taking fire damage, the partner can Dismiss the spell as a free action triggered by that damage; this does not reduce the triggering damage.`)
+    .replace(/\bbarkskin\b/gi, 'Oaken Resilience')
+  return { ...entry, description: [intro, remastered, destruction < 0 ? '' : entry.description.slice(destruction)].join('\n\n'),
     traits: [...entry.traits.filter(trait => trait !== 'Intelligent'), ...(points >= 4 ? ['Intelligent'] : [])],
     data: { ...entry.data, named_weapon_potency: points >= 8 ? 4 : 3, named_weapon_striking: points >= 4 ? 3 : 2,
       named_weapon_runes: [points >= 1 ? 'Shifting' : '', points >= 20 ? 'Vorpal' : ''].filter(Boolean).join(';'),
+      named_weapon_oaken_rank: oakenRank,
       artifact_activation_actions: ['Single Action', 'Reaction', 'Reaction', 'Reaction'].slice(0,
         points >= 20 ? 4 : points >= 14 ? 3 : points >= 8 ? 2 : points >= 4 ? 1 : 0).join(';'),
       named_weapon_rules_missing: tiers.length !== 5 } }

@@ -2956,11 +2956,16 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   return out.map((r) => ({ ...r, damage: cap(r.damage) }))
 }
 
-export function oakenResilience(c: Character, entries: ContentEntry[]) {
-  if (!isSpellActive(c, entries, 'Oaken Resilience')) return undefined
-  const rank = grantedFeatSpells(c, entries).find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')?.rank
-    ?? c.oakenResilienceRank
-  if (!Number.isInteger(rank) || rank === undefined || rank < 2 || rank > 10) return undefined
+export function oakenResilience(c: Character, entries: ContentEntry[], target: 'character' | 'familiar' = 'character') {
+  const spellRank = isSpellActive(c, entries, 'Oaken Resilience')
+    ? grantedFeatSpells(c, entries).find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')?.rank
+      ?? c.oakenResilienceRank : undefined
+  const itemRanks = target === 'character' ? carriedWeapons(c, entries)
+    .filter(weapon => weapon.briarOakenResilienceActive)
+    .map(weapon => withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)?.data.named_weapon_oaken_rank) : []
+  const rank = Math.max(0, ...[spellRank, ...itemRanks]
+    .filter((rank): rank is number => typeof rank === 'number' && Number.isInteger(rank) && rank >= 2 && rank <= 10))
+  if (!rank) return undefined
   const steps = 1 + Math.floor((rank - 2) / 2)
   return { rank, resistance: 2 * steps, fireWeakness: 3 * steps }
 }

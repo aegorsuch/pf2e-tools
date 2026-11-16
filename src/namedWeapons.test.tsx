@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
-import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
+import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
 import { namedWeaponAbilities } from './namedWeapons'
@@ -282,6 +282,54 @@ it.each([false, true])('persists Briar points, rejects invalid inputs, and remov
   changeControl(render(), 'Briar Sharpness Points', '0')
   expect(effectiveWeapon(saved, entries, saved.weapons[0])).toMatchObject({ potency: 3, striking: 2, runes: [] })
   expect(saved.weapons[0]).toMatchObject({ id: 'bow', potency: 0, striking: 0, runes: [] })
+})
+
+it.each([false, true])('toggles remastered Briar Oaken Resilience at each earned rank without affecting a familiar (%s)', displayOnly => {
+  const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [
+    '1 Sharpness Point Briar gains shifting.',
+    ...[[4, ''], [8, 'a 4th-level '], [14, 'a 6th-level '], [20, 'an 8th-level ']].flatMap(([points, heightening]) => [
+      `${points} Sharpness Points Briar gains powers.`,
+      `Activate command; Frequency three times per day; Effect Briar casts ${heightening}barkskin on its partner.`,
+    ]),
+  ])
+  const entries = [...namedCatalog, rune('Shifting'), briar]
+  for (const [points, rank] of [[4, 2], [8, 4], [14, 6], [20, 8]]) {
+    let saved: Character = { ...c, weapons: [{ ...owned('Briar'), briarSharpness: points }] }
+    const render = () => WeaponList({ c: saved, entries, save: patch => { saved = { ...saved, ...patch } }, displayOnly })
+    const toggle = (checked: boolean) => {
+      const control = findControl(render(), 'Briar Oaken Resilience active')
+      if (typeof control?.props.onChange !== 'function') throw new Error('Missing Briar Oaken Resilience toggle')
+      control.props.onChange({ target: { checked } })
+    }
+    expect(oakenResilience(saved, entries)).toBeUndefined()
+    const markup = renderToStaticMarkup(render())
+    expect(markup).not.toMatch(/barkskin/i)
+    expect(markup).toContain(`casts rank ${rank} Oaken Resilience`)
+    expect(markup).toContain('Frequency three times per day')
+    expect(markup).toContain('aria-label="Single Action"')
+    expect(markup).toContain('For 10 minutes')
+    toggle(true)
+    saved = JSON.parse(JSON.stringify(saved))
+    expect(oakenResilience(saved, entries)).toEqual({ rank, resistance: rank, fireWeakness: rank * 3 / 2 })
+    expect(resistances(saved, entries)).toEqual([
+      { damage: 'Bludgeoning', value: rank, source: 'Oaken Resilience' },
+      { damage: 'Piercing', value: rank, source: 'Oaken Resilience' },
+    ])
+    expect(oakenResilience(saved, entries, 'familiar')).toBeUndefined()
+    expect(oakenResilience({ ...saved, weapons: saved.weapons?.map(weapon => ({ ...weapon, stowed: true })) }, entries))
+      .toMatchObject({ rank })
+    toggle(false)
+    expect(oakenResilience(saved, entries)).toBeUndefined()
+    if (rank === 8) {
+      saved = { ...saved, spells: [{ name: 'Oaken Resilience', rank: 4, cantrip: false }],
+        activeSpells: ['Oaken Resilience'], oakenResilienceRank: 4 }
+      toggle(true)
+      expect(oakenResilience(saved, entries)).toMatchObject({ rank: 8 })
+      expect(oakenResilience(saved, entries, 'familiar')).toMatchObject({ rank: 4 })
+      toggle(false)
+      expect(oakenResilience(saved, entries)).toMatchObject({ rank: 4 })
+    }
+  }
 })
 
 it('changes named weapon types without losing upgrades or saved artifact access', () => {

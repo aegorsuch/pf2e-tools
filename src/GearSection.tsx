@@ -1006,7 +1006,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const runeCapacity = hasWeaponRuneCapacity(c, w, a.entry)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
-        const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
+        const plainName = a.entry?.data.named_weapon_source === 'Coldstar Pistols' && w.coldstarForm === 'Merged' ? 'Coldstar Pistol'
+          : enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const shieldSource = shieldAttachmentSource(c, w)
@@ -1181,7 +1182,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.length === 0
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
           {abilities.map(ability => <details key={ability.name}>
-            <summary>{ability.name} <ActionIcon actions={ability.actions} /></summary>
+            <summary>{ability.name} <ActionIcon actions={ability.actions} />
+              {namedSource === 'Briar' && ability.name === 'Oaken Resilience' && <label onClick={event => event.stopPropagation()}>
+                {' '}<input type="checkbox" aria-label="Briar Oaken Resilience active" checked={!!w.briarOakenResilienceActive}
+                  onChange={event => update(w.id, { briarOakenResilienceActive: event.target.checked })} /> Active
+              </label>}
+            </summary>
             {ability.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
           </details>)}
         </>

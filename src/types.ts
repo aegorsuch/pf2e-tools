@@ -86,6 +86,7 @@ export interface OwnedWeapon {
   attachedTo?: string
   capacityLoaded?: number
   briarSharpness?: number
+  briarOakenResilienceActive?: boolean
   coldstarForm?: 'Paired' | 'Flame' | 'Frost' | 'Merged'
   azlantiBond?: 0 | 1 | 2
 }

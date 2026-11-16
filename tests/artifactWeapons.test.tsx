@@ -53,6 +53,14 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     expect(attack.traits.includes('Intelligent')).toBe(points >= 4)
     expect(activations).toHaveLength(points >= 20 ? 4 : points >= 14 ? 3 : points >= 8 ? 2 : points >= 4 ? 1 : 0)
     const text = activations.flatMap(ability => ability.paragraphs).join(' ')
+    expect(text).not.toMatch(/barkskin/i)
+    if (points >= 4) {
+      const rank = points >= 20 ? 8 : points >= 14 ? 6 : points >= 8 ? 4 : 2
+      expect(activations[0].name).toBe('Oaken Resilience')
+      expect(text).toContain(`casts rank ${rank} Oaken Resilience`)
+      expect(text).toContain(`resistance ${rank} to bludgeoning and piercing damage`)
+      expect(text).toContain(`weakness ${rank * 3 / 2} to fire`)
+    }
     if (points >= 8) expect(text).toContain(points >= 20 ? 'DC 43' : points >= 14 ? 'DC 41' : 'DC 39')
     if (points < 20) expect(text).not.toContain('resurrects its partner')
     if (points < 14) expect(text).not.toContain('breath of life')
@@ -76,6 +84,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
       for (const displayOnly of [false, true]) {
         const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
         expect(html).toContain('aria-label="Coldstar Pistols form"')
+        expect(html.includes('>Coldstar Pistol</button>')).toBe(coldstarForm === 'Merged')
         expect(html.includes('Flame pistol:')).toBe(coldstarForm === 'Paired')
         expect(html.includes('Frost pistol:')).toBe(coldstarForm === 'Paired')
         expect(html).not.toContain(' loaded')
