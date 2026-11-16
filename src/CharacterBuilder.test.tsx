@@ -58,7 +58,7 @@ it('shows Cyborg traits and its integrated comm unit without the optional house 
     expect(markup).toContain('>Tech trait</a>')
     expect(markup).toContain('Comm Unit')
     expect(markup).toContain('Cyborg; integrated, thought-operated')
-    expect(markup).toContain('Implant limit: 0/8')
+    expect(markup).toContain('aria-label="Augmentation capacity">0/8</small>')
     expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: undefined }} onClose={() => {}} />))
       .not.toContain('Cyborg; integrated, thought-operated')
   } finally { updateSettings({ cyborgTestSubject: previous }); content.entries = [] }
@@ -337,7 +337,7 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
-    const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
+    const headers = [...equipment.matchAll(/<h4>([^<]+)(?:<small\b[^>]*>[^<]*<\/small>)?<\/h4>/g)].map(match => match[1].trim())
     expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
       'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear',
       'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Torso', 'Weapons', 'Wrists'])

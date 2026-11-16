@@ -589,7 +589,7 @@ it('adds granted Augmented Body capacity to the normal limit without rewriting i
   const saved = JSON.stringify(c)
   expect(augmentationLimit(c)).toBe(11)
   const markup = renderToStaticMarkup(<Augmentations c={c} entries={[{ ...implant, systems: ['sf2e'] }]} save={() => {}} />)
-  expect(markup).toContain('Implant limit: 1/11')
+  expect(markup).toContain('aria-label="Augmentation capacity">1/11</small>')
   expect(markup).not.toContain('Augmented Body')
   expect(markup).not.toContain('source unavailable')
   expect(markup).toContain('Dermal Plating')
@@ -648,7 +648,7 @@ it('adds Adapted Augmentations to normal capacity and counts legacy adapted impl
   expect(canInstallAugmentation(full, { ...implant, traits: ['Apex'] }, 'standard')).toBe(true)
   expect(canInstallAugmentation(full, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
   const markup = renderToStaticMarkup(<Augmentations c={full} entries={[implant]} save={() => {}} />)
-  expect(markup).toContain('Implant limit: 6/6')
+  expect(markup).toContain('aria-label="Augmentation capacity">6/6</small>')
   expect(markup).not.toContain('Augmentation implant slot')
   expect(markup).not.toContain('(Adapted Augmentations)')
   expect(markup).not.toContain('Augmented Body')
@@ -1626,8 +1626,20 @@ it.each([false, true])('uses free-hand weapons and available fists for Twin Parr
     const paired: Character = { ...c, weapons: [c.weapons![0], { ...c.weapons![0], id: 'second', name: secondGauntlet.name }] }
     expect(parryValue(paired, [...entries, secondGauntlet])).toBe(2)
     expect(parryValue({ ...paired, weapons: [...paired.weapons!, { ...c.weapons![1], id: 'pistol', name: pistol.name }] },
-      [...entries, secondGauntlet, pistol])).toBe(1)
+      [...entries, secondGauntlet, pistol])).toBe(unarmed ? 2 : 1)
     expect(parryValue({ ...c, weapons: [{ ...c.weapons![1], name: pistol.name }] }, [...entries, pistol])).toBe(0)
+    const bow = content('weapon', 'Longbow', { weapon_category: 'Martial', hands: '1+', weapon_type: 'Ranged', range: 100 })
+    const holdingBow = { ...gauntletOnly, weapons: [c.weapons![0],
+      { id: 'bow', name: bow.name, potency: 0, striking: 0, runes: [], handsHeld: 1 as const }] }
+    expect(parryValue(holdingBow, [...entries, bow])).toBe(unarmed ? 2 : 1)
+    expect(armorClass(holdingBow, [...entries, bow]) - armorClass({ ...holdingBow, parrying: false }, [...entries, bow]))
+      .toBe(unarmed ? 2 : 1)
+    expect(parryValue({ ...holdingBow, feats: [] }, [...entries, bow])).toBe(1)
+    expect(parryValue({ ...holdingBow, level: 3 }, [...entries, bow])).toBe(1)
+    expect(twinnedDefenseActive(holdingBow, [...entries, bow])).toBe(false)
+    expect(parryBonus({ ...holdingBow, parrying: false }, [...entries, bow])).toBe(0)
+    expect(parryValue({ ...holdingBow, weapons: holdingBow.weapons.map(weapon => weapon.id === 'bow'
+      ? { ...weapon, handsHeld: 2 as const } : weapon) }, [...entries, bow])).not.toBe(2)
   } finally {
     updateSettings(previous)
   }

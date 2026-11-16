@@ -269,7 +269,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.redundantFeat || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
+      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -420,10 +420,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showAddSlot = index === (addSlotIndex >= 0 ? addSlotIndex : slots.findIndex(sameLevel))
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
-          const emptyLabel = s.redundantFeat ? `Empty (${s.grantedBy})` : '- empty -'
+          const emptyLabel = s.redundantFeat || s.grantedAncestry && s.grantedBy !== 'Social Chameleon' ? `Empty (${s.grantedBy})` : '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)

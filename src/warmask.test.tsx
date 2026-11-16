@@ -5,6 +5,7 @@ import { FeatChoice } from './FeatChoice'
 import { dailyInnateUses, grantedFeatSpells } from './featSpells'
 import { ArmorList, WarmaskGear } from './GearSection'
 import { SkillsSection } from './SkillsSection'
+import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { warmaskItemBonus } from './warmask'
@@ -88,6 +89,8 @@ it('grants the chosen daily spell at rank 1 with the warmask tradition and share
   expect(grant).toMatchObject({ entry: { name: 'Fear' }, rank: 1,
     rule: { tradition: 'Divine', frequency: 'once per day', condition: 'Must be wearing your warmask' } })
   expect(dailyInnateUses(base, grant)?.limit).toBe(1)
+  expect(renderToStaticMarkup(<SpellsSection c={base} entries={[spell]} save={() => {}} />))
+    .not.toContain('Must be wearing your warmask')
   expect(grantedFeatSpells({ ...base, feats: base.feats.slice(1) }, [spell])).toEqual([])
   expect(grantedFeatSpells({ ...base, level: 4 }, [spell])).toEqual([])
 })

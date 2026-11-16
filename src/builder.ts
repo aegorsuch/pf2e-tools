@@ -18,8 +18,9 @@ import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
-import { hasDivineIntercession } from './divineIntercessions'
+import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, elfAtavismOptions, isVersatileHeritage } from './heritages'
+import { makeNamedBowEntries, namedBowEnhancements } from './namedBows'
 export { heritagesFor, isVersatileHeritage } from './heritages'
 
 export type Ability = keyof Character['abilities']
@@ -376,7 +377,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
-  || key === 'general:1:direwolf-bonded' || key.includes(':redundant:')
+  || key === 'general:1:direwolf-bonded' || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
 
 export const mechanicIngenuitySlots = (c: Character) =>
   c.className === 'Mechanic' && c.systems.includes('sf2e')
@@ -405,6 +406,11 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (!groupOrder.has('general:1')) groupOrder.set('general:1', groupOrder.size)
     slots.push({ key: 'general:1:direwolf-bonded', category: 'general', level: 1,
       grantedBy: 'Direwolf Bonded', grantedFeat: 'Canny Acumen' })
+  }
+  if (c.level >= 1 && hasDivineIntercession(c, 'Torag', 'moderate-boon')) {
+    if (!groupOrder.has('ancestry:1')) groupOrder.set('ancestry:1', groupOrder.size)
+    slots.push({ key: TORAG_BOON_FEAT_SLOT, category: 'ancestry', level: 1, maxFeatLevel: 1,
+      grantedBy: 'Torag (Moderate Boon)', grantedAncestry: 'Dwarf' })
   }
   Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
     const grantingFeat = c.feats.find((f) => f.name === name)
@@ -496,7 +502,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
-    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon')
+    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -791,7 +797,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
           ? 'protective' : character.className === 'Champion' && ['Desecration', 'Iniquity', 'Obedience'].includes(subclass ?? '')
             ? 'offensive' : undefined,
-        familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name)),
+        familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name))
+          || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         primalInnateSpell: innateGrants.some(grant => grant.rule.tradition?.toLowerCase() === 'primal'),
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
           || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
@@ -865,9 +872,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
   }
-  const trait = wanted[slot.category]?.toLowerCase()
+  const trait = (slot.category === 'ancestry' ? slot.grantedAncestry ?? wanted.ancestry : wanted[slot.category])?.toLowerCase()
   const ancestryTraits = slot.category === 'ancestry' || slot.category === 'bonus'
-    ? ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level) }) : []
+    ? slot.grantedAncestry ? [slot.grantedAncestry.toLowerCase()] : ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level) }) : []
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
@@ -1606,8 +1613,10 @@ function twinParryValue(c: Character, entries: ContentEntry[]) {
     return [...(entry?.traits ?? []), ...tokens(entry?.data.trait)].some(trait => /^free[- ]hand$/i.test(trait))
   })
   const freeHands = Math.max(0, totalHandCapacity(c) - equippedHands(c, entries))
-  // Free hands can wield fists even when redundant unarmed rows are hidden from equipment.
-  const freeHandCount = getSettings().unarmedCountsAsWeapons ? freeHands : Math.min(freeHands, freeHandWeapons.length)
+  // The house rule lets a usable free-hand weapon pair with a separate unarmed attack.
+  const freeHandCount = getSettings().unarmedCountsAsWeapons
+    ? Math.max(freeHands, freeHands > 0 && freeHandWeapons.length > 0 ? 2 : 0)
+    : Math.min(freeHands, freeHandWeapons.length)
   if (oneHanded.length + freeHandCount < 2) return 0
   return oneHanded.some(weapon => weaponHasParry(c, entries, weapon))
     || freeHands > 0 && freeHandWeapons.some(weapon => weaponHasParry(c, entries, weapon)) ? 2 : 1
@@ -3499,8 +3508,19 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string) {
   const base = card && byName(entries, 'weapon', card.base)
   if (card && base) return { ...base, id: card.id, name: card.name }
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
-    ?? byName(entries, 'weapon', name) ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
+    ?? byName(entries, 'weapon', name) ?? namedBowEntries(entries).find(entry => entry.name === name)
+    ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
     ?? [...ATTACHED_WEAPONS, SHIELD_BASH].find(entry => entry.name === name)
+}
+
+const namedBowCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+function namedBowEntries(entries: ContentEntry[]) {
+  let bows = namedBowCache.get(entries)
+  if (!bows) {
+    bows = makeNamedBowEntries(entries, propertyRunes(entries, 'Weapon'))
+    namedBowCache.set(entries, bows)
+  }
+  return bows
 }
 
 function hammerMultipistolEntries(entries: ContentEntry[]) {
@@ -3976,6 +3996,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
   const entry = weaponEntry(entries, weapon.name)
+  const builtIn = namedBowEnhancements(entry)
   if (usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed') return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
   const scaled = scaledMaterial(weapon.material, c.level, 'Weapon')
   if (scaled !== weapon.material) weapon = { ...weapon, material: scaled }
@@ -4015,6 +4036,8 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     if (weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)) enhanced = { ...enhanced, material: 'Orichalcum' }
     if (isGiantWeapon(c, entries, weapon)) enhanced = { ...enhanced, size: giantWeaponSize(c, entries), material: 'Orichalcum' }
     if (plate) enhanced = { ...enhanced, material: plate.material, potency: weapon.potency, striking: weapon.striking }
+    if (builtIn) enhanced = { ...enhanced, potency: Math.max(enhanced.potency, builtIn.potency),
+      striking: Math.max(enhanced.striking, builtIn.striking), runes: [...new Set([...builtIn.runes, ...enhanced.runes])] }
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
         .slice(0, maxPropertyRunes(enhanced.potency, enhanced.material,
@@ -4077,6 +4100,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   entry = weaponWithMode(w, entry)
   entry = weaponWithModifications(c, w, entry)
+  if (entry && hasDivineIntercession(c, 'Erastil', 'moderate-boon')
+    && /\blongbow\b/i.test(String(entry.data.named_bow_base ?? entry.name))) {
+    entry = { ...entry, traits: entry.traits.map(trait => /^volley\b/i.test(trait) ? 'Volley (if beneficial)' : trait),
+      data: { ...entry.data, range: num(entry.data.range) * 2 } }
+  }
+  if (entry && hasDivineIntercession(c, 'Gorum', 'moderate-boon')
+    && /^(?:bastard sword|greatsword)$/i.test(entry.name) && !entry.traits.some(trait => /^forceful$/i.test(trait))) {
+    entry = { ...entry, traits: [...entry.traits, 'Forceful'] }
+  }
   const hydraulicFist = !!entry && /^(?:iron )?fists?$/i.test(entry.name) && !!activeFeatsNamed(c, 'Hydraulic Pistons').length
   const mechanicMods = c.className === 'Mechanic' && c.systems.includes('sf2e') && weaponCategory(entry) !== 'Unarmed'
     ? c.mechanicWeaponMods?.[w.id] : undefined
@@ -4117,6 +4149,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const ability: Ability = ranged ? 'dex' : traits.includes('finesse') && dex > str ? 'dex' : 'str'
   const mod = ability === 'dex' ? dex : str
   const clumsy = ability === 'dex' ? giantWeaponClumsy(c, entries) : 0
+  const divineAttackBonus = hasDivineIntercession(c, 'Iomedae', 'major-boon')
+    && /^longsword$/i.test(entry?.name ?? '') && weaponHeld(c, entries, w) ? 2 : 0
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
     .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
@@ -4188,6 +4222,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     upgrades,
     pristineLivingWeapon,
     rageDamage,
+    additionalDamage: divineAttackDamage(c),
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
@@ -4204,13 +4239,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     prof,
     rank,
     item: w.potency,
-    attack: mod + prof + w.potency - clumsy,
+    attack: mod + prof + w.potency - clumsy + divineAttackBonus,
     breakdown: {
-      total: mod + prof + w.potency - clumsy,
+      total: mod + prof + w.potency - clumsy + divineAttackBonus,
       parts: [
         { label: ABILITY_LABEL[ability], value: mod },
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
         { label: 'Effective weapon potency (item)', value: w.potency },
+        ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
         ...(clumsy ? [{ label: 'Giant Instinct: clumsy (status)', value: -clumsy }] : []),
       ],
     } satisfies TotalBreakdown,
@@ -4494,7 +4530,8 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
   const seen = new Set<string>()
   // Saved gear resolves by name; picker Access and source must use that same first record.
   const pool = baseItems([...entries.filter(entry => entry.kind === kind && !entry.deleted && !entry.data.retired),
-    ...(kind === 'weapon' ? hammerMultipistolEntries(entries) : [])])
+    ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
+      ...namedBowEntries(entries).filter(entry => entry.name !== entry.data.named_bow_source)] : [])])
   return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
@@ -4535,6 +4572,7 @@ export function combinationName(entries: ContentEntry[], name: string) {
 
 // Specific magic weapons/armor (Fractal Hook, ...) are not bases; AoN marks them by trait, subcategory or level above 0
 export function isMagicItem(e: ContentEntry) {
+  if (e.data.named_bow) return true
   if (e.source === 'homebrew') return false
   const sub = String(e.data.item_subcategory ?? '')
   if (e.traits.some((t) => t.toLowerCase() === 'magical')) return true

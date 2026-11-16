@@ -5,7 +5,7 @@ import { adoptedAncestryText, featDisplayName } from './featChoices'
 export function StancesSummary({ c, entries }: SectionProps) {
   const active = activeStance(c, entries)
   return <summary className="character-section-summary">
-    <strong>Stances</strong><span>{active ? adoptedAncestryText(c, featDisplayName(active)) : 'None'}</span>
+    <strong>Stances</strong><span>{availableStances(c, entries).length}, {active ? adoptedAncestryText(c, featDisplayName(active)) : 'None'} Active</span>
   </summary>
 }
 

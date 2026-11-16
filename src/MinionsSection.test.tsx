@@ -19,6 +19,17 @@ function findSelect(node: ReactNode, label: string): ((event: { target: { value:
   return found
 }
 
+function findInput(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
+  let found: ((event: { target: { value: string } }) => void) | undefined
+  Children.forEach(node, (child) => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === 'input' && child.props['aria-label'] === label
+      ? child.props.onChange as (event: { target: { value: string } }) => void
+      : findInput(child.props.children as ReactNode, label)
+  })
+  return found
+}
+
 function findToggle(node: ReactNode, label: string): ((event: { target: { checked: boolean } }) => void) | undefined {
   let found: ((event: { target: { checked: boolean } }) => void) | undefined
   Children.forEach(node, (child) => {
@@ -170,6 +181,60 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(html).toContain('Darkvision and Tough')
   expect(html).toContain('Climb Speed 25 feet.')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
+})
+
+it('derives Calistria’s wasp and bonus abilities separately from existing familiar choices', () => {
+  let c: Character = {
+    id: 'wasp', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid', deity: 'Calistria',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { name: 'Leaf', leshyAbility: 'Fungus', abilities: ['Tough', 'Climber'] },
+    divineIntercessions: { Calistria: ['moderate-boon'] },
+  }
+  let saves = 0
+  const tree = () => MinionsContent({ c, entries: [], save: patch => { saves++; c = { ...c, ...patch } } })
+  const markup = () => renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => { saves++ }} />)
+  const before = JSON.stringify(c.familiar)
+  let html = markup()
+  expect(saves).toBe(0)
+  expect(html).toContain('Leshy Familiar, Wasp Familiar')
+  expect(html).toContain('Daily familiar or master abilities (0/2)')
+  expect(html).toContain('Burrower and Flier as bonus abilities')
+  expect(html).toContain('Burrower: Burrow Speed 5 feet; can dig Tiny holes.')
+  expect(html).toContain('Flier: Fly Speed 25 feet.')
+  expect(html).toContain('aria-label="Leshy familiar granted ability"')
+  expect(html).toContain('<small>Hit Points</small> <b>56</b> (includes Tough)')
+  expect(html).toContain('<small>Hit Points</small> <b>40</b>')
+
+  findInput(tree(), 'Wasp familiar name')?.({ target: { value: 'Sting' } })
+  findInput(tree(), 'Wasp familiar ability 1')?.({ target: { value: 'Flier' } })
+  findInput(tree(), 'Wasp familiar ability 2')?.({ target: { value: 'Tough' } })
+  expect(c.waspFamiliar).toEqual({ name: 'Sting', abilities: ['Flier', 'Tough'] })
+  expect(JSON.stringify(c.familiar)).toBe(before)
+  html = markup()
+  expect(html).toContain('Daily familiar or master abilities (2/2)')
+  expect(html.match(/Flier: Fly Speed 25 feet\./g)).toHaveLength(1)
+
+  c = { ...c, divineIntercessions: { Calistria: [] } }
+  html = markup()
+  expect(html).not.toContain('Wasp Familiar')
+  expect(html).not.toContain('Burrower: Burrow Speed')
+  expect(c.waspFamiliar?.name).toBe('Sting')
+  expect(JSON.stringify(c.familiar)).toBe(before)
+  c = { ...c, divineIntercessions: { Calistria: ['moderate-boon'] }, deity: 'Erastil' }
+  expect(markup()).not.toContain('Wasp Familiar')
+  c = { ...c, deity: 'Calistria', feats: [] }
+  html = markup()
+  expect(html).toContain('Wasp Familiar')
+  expect(html).toContain('value="Sting"')
+  expect(html).toContain('Daily familiar or master abilities (2/2)')
+  expect(html).not.toContain('Leshy Familiar')
+  expect(JSON.stringify(c.familiar)).toBe(before)
+  c = { ...c, divineIntercessions: { Calistria: [] } }
+  expect(markup()).not.toContain('aria-label="Wasp familiar name"')
+  expect(markup()).not.toContain('aria-label="Familiar name"')
+  expect(c.waspFamiliar?.abilities).toEqual(['Flier', 'Tough'])
 })
 
 it('selects alphabetized companion equipment and allows multiple Other items', () => {

@@ -5,7 +5,7 @@ import { activeStance, availableStances } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { featDisplayName } from './featChoices'
 import { FeatSlots } from './FeatSlots'
-import { StancesContent } from './StancesSection'
+import { StancesContent, StancesSummary } from './StancesSection'
 import type { Character, ContentEntry } from './types'
 
 const stance = (name: string, level = 1, traits = ['Stance']): ContentEntry => ({
@@ -19,6 +19,15 @@ const base: Character = {
 }
 const learn = (entry: ContentEntry): Character['feats'][number] => ({
   name: entry.name, type: 'Class Feat', level: entry.level, sourceId: entry.id,
+})
+
+it('summarizes available stance count and the active stance without counting future selections', () => {
+  const entries = [stance('Foeseeker Stance'), stance('Tiger Stance'), stance('Future Stance', 18)]
+  const c = { ...base, feats: entries.map(learn) }
+  const render = (character: Character) => renderToStaticMarkup(<StancesSummary c={character} entries={entries} save={() => {}} />)
+  expect(render(c)).toContain('2, None Active')
+  expect(render({ ...c, activeStance: 'Foeseeker Stance' })).toContain('2, Foeseeker Stance Active')
+  expect(render({ ...c, activeStance: 'Future Stance' })).toContain('2, None Active')
 })
 
 it('lists learned stances once in display order, rejecting future, deleted and wrong-source selections', () => {

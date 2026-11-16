@@ -15,6 +15,8 @@ import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
 import { classDifficultyClass, innateSpellAbility } from './builder'
+import { divineAttackDamage } from './divineIntercessions'
+import { SourceNote } from './Info'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -107,7 +109,7 @@ export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'sa
   if (!uses) return null
   const label = `${grant.entry.name} (${grant.source})`
   return <div className="row">
-    <small role="status">{uses.remaining}/{uses.limit} uses remaining{grant.rule.shared ? ' (shared)' : ''}</small>
+    <small role="status" aria-label={`${uses.remaining} of ${uses.limit} uses remaining${grant.rule.shared ? ' (shared)' : ''}`}>{uses.remaining}/{uses.limit}</small>
     <button type="button" aria-label={`Cast ${label}`} disabled={uses.remaining === 0} onClick={() => {
       if (uses.remaining > 0) save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: uses.used + 1 } })
     }}>Cast</button>
@@ -350,8 +352,8 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
     ].filter(Boolean).join(', ')
     return <>
       <EntryDescription name={grant.source} entry={source} entries={entries} />
-      {`; rank ${grant.rank}${grant.rule.tradition ? ` ${grant.rule.tradition}` : ''}${frequency ? `; ${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}` : ''}`}
-      {grant.rule.condition && `; ${grant.rule.condition}`}
+      {frequency && `; ${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`}
+      {grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask') && `; ${grant.rule.condition}`}
       {stats && `; ${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`}
       {higherDC && resolution.save && classDC === undefined
         ? <span role="status">; Class DC unavailable: choose your class key attribute or sync class content.</span>
@@ -372,7 +374,12 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
       }),
     }
   }
+  const attackDamage = divineAttackDamage(c)
   const controls = (name: string, rank = Math.ceil(c.level / 2)) => <>
+    {attackDamage.length > 0 && entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === name
+      && entry.systems.some(system => c.systems.includes(system)) && spellResolution(entry).attack)
+      && attackDamage.map(damage => <small key={damage.source}>+{damage.value} <SourceNote inlineSource={false}
+        source={damage.source} note={damage.note} /></small>)}
     {name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
       : name === 'Canopy Crawler' || name === 'Enlarge Companion' ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} hideToggle /> : null}
     {name === 'Untamed Shift' && <fieldset className="col">
@@ -652,7 +659,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
         </section>)}
       </div>}
       {unresolved.map((grant, index) => <p key={`${grant.source?.id}:${grant.name}:${index}`} className="feat-prerequisite-note" role="status">
-        Spell data unavailable: {grant.name} (<EntryDescription name={grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).
+        Spell data unavailable: {grant.name} (<EntryDescription name={grant.sourceName ?? grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).
         {' '}Review source rules; this spell is not automated.
       </p>)}
       {groups.map((g) => (

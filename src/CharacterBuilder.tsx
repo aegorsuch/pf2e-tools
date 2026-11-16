@@ -33,6 +33,7 @@ import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 import { DivineIntercessions } from './intercessionPicker'
+import { syncDivineBoonFeats } from './divineIntercessions'
 
 const NONE: ContentEntry[] = []
 
@@ -284,6 +285,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       const current = await db.characters.get(c.id)
       if (!current) throw new Error('Character no longer exists')
       const next = { ...current, ...patch, updatedAt: Math.max(Date.now(), current.updatedAt + 1) }
+      Object.assign(next, syncDivineBoonFeats(next))
       Object.assign(next, syncOrderExplorerFeats(next, entries))
       Object.assign(next, faithfulSteedChange(next, entries))
       Object.assign(next, constructCompanionChange(next))

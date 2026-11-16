@@ -2,6 +2,7 @@ import { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntr
 import type { Character, ContentEntry, SpellGrant } from './types'
 import { warmaskSource } from './warmask'
 import { characterHeritages } from './heritages'
+import { divineBoonSpells } from './divineIntercessions'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
@@ -170,6 +171,12 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
 
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
+  for (const grant of divineBoonSpells(c)) {
+    const entry = matchingSpells(entries, grant.name).find(spell => spell.systems.some(system => c.systems.includes(system)))
+    if (entry) out.push({ entry, source: grant.source,
+      rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: grant.frequency },
+      rank: entry.level, usageKey: JSON.stringify(['deity', grant.deity, grant.id, entry.name]) })
+  }
   if (characterHeritages(c, entries).some(heritage => heritage.name === 'Seer Elf')) {
     const entry = matchingSpells(entries, 'Detect Magic').find(spell => spell.systems.some(system => c.systems.includes(system)))
     if (entry) out.push({ entry, source: 'Seer Elf',
@@ -304,11 +311,14 @@ export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFe
   return { key: grant.usageKey, limit, used, remaining: Math.max(0, limit - used) }
 }
 
-export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
+export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { name: string; source?: ContentEntry; sourceName?: string }[] {
+  const missingBoonSpells = divineBoonSpells(c)
+    .filter(grant => !matchingSpells(entries, grant.name).some(entry => entry.systems.some(system => c.systems.includes(system))))
+    .map(grant => ({ name: grant.name, source: entries.find(entry => entry.kind === 'deity' && entry.name === grant.deity), sourceName: grant.source }))
   const seer = characterHeritages(c, entries).find(heritage => heritage.name === 'Seer Elf')
   const missingHeritageSpells = seer && !matchingSpells(entries, 'Detect Magic')
     .some(entry => entry.systems.some(system => c.systems.includes(system))) ? [{ name: 'Detect Magic', source: seer }] : []
-  return [...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
+  return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
     if (feat.name === 'Grown of Oak' && !entries.some(entry => entry.kind === 'spell' && !entry.deleted

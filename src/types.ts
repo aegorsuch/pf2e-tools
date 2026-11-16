@@ -192,6 +192,7 @@ export interface Character {
   background?: string
   deity?: string
   divineIntercessions?: Record<string, string[]>
+  inactiveDivineBoonFeats?: Character['feats']
   blessing?: '' | 'Blessed Armament' | 'Blessed Shield' | 'Blessed Swiftness'
   sanctification?: 'Holy' | 'Unholy'
   legacyTenetsOfGood?: boolean
@@ -347,6 +348,7 @@ export interface Character {
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
+  waspFamiliar?: Character['familiar']
   pet?: { name?: string; aquatic?: boolean; abilities?: string[] }
   faithfulSteedGranted?: boolean
   // Manually added slots on top of those from class/ancestry and granted effects

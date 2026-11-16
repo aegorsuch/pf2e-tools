@@ -625,7 +625,7 @@ it('persists spent daily uses, blocks overspending, undoes use and resets withou
   expect(use().disabled).toBe(true)
   use().onClick()
   expect(dailyInnateUses(c, grant())).toMatchObject({ used: 2, remaining: 0 })
-  expect(renderToStaticMarkup(tree())).toContain('0/2 uses remaining')
+  expect(renderToStaticMarkup(tree())).toContain('>0/2</small>')
   undo().onClick()
   expect(dailyInnateUses(c, grant())).toMatchObject({ used: 1, remaining: 1 })
   findUseButton(ResetDailyInnateUses({ c, save }), 'Reset daily innate uses')!.onClick()
@@ -649,7 +649,7 @@ it('shares alternative daily spells but keeps each-spell and different-source po
   expect(dailyInnateUses(c, independent)?.remaining).toBe(1)
   expect(dailyInnateUses(c, independent)?.key).not.toBe(dailyInnateUses(c, otherIndependent)?.key)
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
-    .toContain('0/1 uses remaining (shared)')
+    .toContain('aria-label="0 of 1 uses remaining (shared)">0/1</small>')
 })
 
 it('does not track at-will or focus spells and retains uses across heightening and feat order changes', () => {
@@ -684,7 +684,8 @@ it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequenc
   expect(grantedFeatSpells(enhanced, data)).toMatchObject([{ rank: 2, rule: { frequency: 'twice per day' } }])
   const enhancedMarkup = renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />)
   expect(enhancedMarkup).not.toContain('rank 2 arcane; twice per day')
-  expect(enhancedMarkup).toContain('2/2 uses remaining')
+  expect(enhancedMarkup).toContain('>2/2</small>')
+  expect(enhancedMarkup).not.toContain('; rank 2 arcane')
   expect(grantedFeatSpells({ ...enhanced, level: 20 }, data)[0].rank).toBe(2)
   const trained = { ...spent, feats: [...spent.feats, taken('Greywatch Initiate', 4)] }
   expect(dailyInnateUses(trained, grantedFeatSpells(trained, data)[0]))
@@ -726,18 +727,18 @@ it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
   expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Command' }, rank: 7,
     rule: { tradition: 'occult', frequency: 'once per day', dc: 'higher-class-or-spell' } }])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('rank 7 occult; DC 39')
+  expect(markup).toContain('; DC 39')
   expect(markup).not.toContain('rank 7 occult; once per day')
   expect(markup).not.toContain('use higher of class DC or spell DC')
   expect(markup).not.toContain('Attack +')
-  expect(markup).toContain('1/1 uses remaining')
+  expect(markup).toContain('>1/1</small>')
   expect(markup).toContain('loses the linguistic trait')
   expect(classDifficultyClass(c, entries)).toBe(39)
   expect(classDifficultyClass({ ...c, level: 10 }, entries)).toBe(30)
   expect(classDifficultyClass({ ...c, level: 19 }, entries)).toBe(43)
   expect(classDifficultyClass({ ...c, boosts: { class: 'dex' } }, entries)).toBe(31)
   const spellHigher = renderToStaticMarkup(<SpellsSection c={{ ...c, boosts: { class: 'dex' } }} entries={entries} save={() => {}} />)
-  expect(spellHigher).toContain('rank 7 occult; DC 35')
+  expect(spellHigher).toContain('; DC 35')
   const unchosen = renderToStaticMarkup(<SpellsSection c={{ ...c, boosts: {} }} entries={entries} save={() => {}} />)
   expect(unchosen).toContain('Class DC unavailable')
   expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
@@ -755,7 +756,7 @@ it('compares Imperious Nature against class spell DC as well as innate spell DC'
     updateSettings({ innateHighestMental: false })
     expect(classDifficultyClass(c, entries)).toBe(36)
     const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-    expect(markup).toContain('rank 7 occult; DC 40')
+    expect(markup).toContain('; DC 40')
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
@@ -781,7 +782,7 @@ it.each(['once per day', 'twice per day', 'at will', 'once per hour'])('deduplic
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Test Spell', 'spell')]} save={() => {}} />)
   expect(markup.includes(frequency)).toBe(!frequency.endsWith('per day'))
-  if (frequency.endsWith('per day')) expect(markup).toContain(`${frequency.startsWith('twice') ? '2/2' : '1/1'} uses remaining`)
+  if (frequency.endsWith('per day')) expect(markup).toContain(`>${frequency.startsWith('twice') ? '2/2' : '1/1'}</small>`)
 })
 
 it('uses higher class spell proficiency and highest mental attribute for innate spells', () => {
@@ -790,7 +791,7 @@ it('uses higher class spell proficiency and highest mental attribute for innate 
   const entries = [grant, entry('One with Stone', 'spell', { saving_throw: 'Fortitude' }), entry('Wizard', 'class', { tradition: 'Arcane' }), master]
   const c = { ...base, className: 'Wizard', level: 15, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('rank 3 divine; Intelligence DC 35')
+  expect(markup).toContain('; Intelligence DC 35')
   expect(grantedFeatSpells(c, entries)[0].rank).toBe(3)
 })
 
@@ -842,7 +843,7 @@ it('grants explicit focus spells with source-specific attributes and caps pool b
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('Charisma DC 19')
   expect(markup).not.toContain('Attack +9')
-  expect(markup).toContain('rank 3 divine')
+  expect(markup).not.toContain('; rank 3 divine')
 })
 
 it('grants only selected qi and domain spells, never linked alternatives or future selections', () => {

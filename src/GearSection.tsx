@@ -17,6 +17,7 @@ import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
+import { namedBowEnhancements } from './namedBows'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
@@ -52,6 +53,7 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
           : source === 'Astral (Greater)' ? 'Greater Astral: spirit damage ignores spirit resistance.'
             : source === 'Flaming' ? '1d10 persistent fire damage on a critical hit.'
               : source === 'Flaming (Greater)' ? '2d10 persistent fire damage on a critical hit; fire damage from this weapon ignores fire resistance.'
+                : source === 'Frost' || source === 'Frost (Greater)' ? `Critical hit: DC ${source === 'Frost' ? 24 : 34} Fortitude or slowed 1 until the end of your next turn.${source === 'Frost (Greater)' ? ' Cold damage from this weapon ignores cold resistance.' : ''}`
                 : source === 'Ashen' ? 'On hit, target must attempt a DC 25 Will save or be confused for 1 round.'
                   : source === 'Ashen (Greater)' ? 'On hit, target must attempt a DC 35 Will save or be confused for 1 round; critical failure extends confusion to 1 minute.'
                     : undefined
@@ -59,12 +61,14 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
         : /^Astral(?: \(Greater\))?$/.test(source) ? '1d6 spirit'
           : source === 'Holy' || source === 'Unholy' ? '1d4 spirit'
             : source === 'Flaming' || source === 'Flaming (Greater)' ? '1d6 fire'
+              : source === 'Frost' || source === 'Frost (Greater)' ? '1d6 cold'
+                : source === 'Thundering' || source === 'Thundering (Greater)' ? '1d6 sonic'
               : source === 'Ashen' ? '1d4 persistent fire'
                 : source === 'Ashen (Greater)' ? '1d8 persistent fire'
                   : source === 'Shockwave' ? damageDice ? `${damageDice} bludgeoning splash` : 'bludgeoning splash equal to weapon damage dice'
                     : rune
       return { source, note, value: value.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase()) }
-    })
+    }).concat(attack.additionalDamage)
 }
 
 export const upgradeDamageSummary = (attack: ReturnType<typeof weaponAttack>) => {
@@ -158,9 +162,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     </span>
   }
   return <section className="col" aria-label="Augmentations">
-    <h4>Augmentations</h4>
-    <small>Implant limit: {standardUsed}/{limit}. Apex augmentations do not count toward this limit.</small>
-    <small>Augmentation effects are not applied automatically; review each item's rules.</small>
+    <h4>Augmentations <small aria-label="Augmentation capacity">{standardUsed}/{limit}</small></h4>
     {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
     <ul>{displayed.map(({ kind, item }) => {
       if (kind === 'granted') return <li key={`granted:${item.source}:${item.name}`}><EntryDescription name={item.name}
@@ -1029,12 +1031,16 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const canUseInnovation = !attachmentSource && canBeWeaponInnovation(c, entries, w)
         const innovation = canUseInnovation && !!w.inventorInnovation
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
-        const automatic = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
+        const builtIn = namedBowEnhancements(a.entry)
+        const automaticBase = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
+        const automatic = { potency: Math.max(automaticBase.potency, builtIn?.potency ?? 0),
+          striking: Math.max(automaticBase.striking, builtIn?.striking ?? 0) }
         const grantedClanWeapon = isGrantedDwarfClanWeapon(c, entries, w)
         const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : w.runes })
-        const freeRunes = [...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
+        const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_bow_source)}` })) ?? []),
+          ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({
@@ -1100,6 +1106,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </select>
             </label>}
         </>
+        const namedBowNotes = <>
+          {a.entry?.data.named_bow_rules_missing && <small role="status">Named bow enhancement details unavailable. Configure its runes and consult the item rules.</small>}
+          {String(a.entry?.data.named_bow_source ?? '').startsWith('Wintershot') && <small>
+            Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_bow_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually; see Summary.
+          </small>}
+        </>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
             <strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>}
@@ -1118,6 +1130,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
           <AttackUpgrades attack={a} />
+          {namedBowNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
@@ -1200,6 +1213,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
             <AttackUpgrades attack={a} />
+            {namedBowNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
@@ -1269,9 +1283,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 onChange={upgrades => update(w.id, { upgrades })} />
             </>}
             {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight') && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
-              : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting'))}
+              : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
+                && !builtIn?.runes.includes(rune))}
               entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
-              limit={maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity)} freeRunes={freeRunes}
+              limit={Math.max(0, maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity) - (builtIn?.runes.length ?? 0))} freeRunes={freeRunes}
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : linkedSource ? `Inherited from ${linkedSource.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || linkedSource ? undefined : (runes) => update(w.id, { runes })} />}
             <div className="row">
@@ -1295,7 +1310,7 @@ function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displa
   const turret = turretWeapon(c, entries)
   if (!turret) return null
   const { entry, weapon, attack, grade } = turret
-  const damageUpgrades = [...upgradeDamageSummary(attack), ...mechanicDamageSummary(c, weapon, attack)]
+  const damageUpgrades = [...upgradeDamageSummary(attack), ...mechanicDamageSummary(c, weapon, attack), ...attack.additionalDamage]
   return <div className="gear-card col" aria-label="Mechanic Turret">
     <strong>Mechanic Turret</strong>
     <small>Attack <TotalBreakdown label="Mechanic Turret attack" breakdown={attack.breakdown} signedTotal />;

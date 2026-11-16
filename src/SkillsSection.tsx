@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, INITIATE_TRAINING, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
@@ -16,7 +16,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { skillRankAllocations, skillRankRequirements, skillTokenPayment, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
-import { divineIntercessionWeaknesses } from './divineIntercessions'
+import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const COMMON_LORES = [...new Set([
@@ -305,6 +305,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
+          {s.name === 'Diplomacy' && hasDivineIntercession(c, 'Sarenrae', 'major-boon') && <SourceNote inlineSource={false}
+            source="Sarenrae (Major Boon)" note="Request: a success becomes a critical success. Creatures other than fiends, undead, and mindless creatures allow one chance to speak and request before combat. Exploiting this for a combat advantage revokes the boon." />}
           {s.name === 'Deception' && !!activeFeatsNamed(c, 'Round Ears').length && <SourceNote inlineSource={false}
             source="Round Ears" note={`${conditionalTotal(4)} to Impersonate someone who is not aiuvarin (+4 circumstance). No observer circumstance bonus or personal circumstance penalty for impersonating a full-blooded human.`} />}
           {s.name === 'Performance' && !!activeFeatsNamed(c, 'Earned Glory').length && <SourceNote inlineSource={false}
@@ -323,6 +325,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Enhanced Olfactory System" note="+2 circumstance to Seek a creature or object within scent range." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
+          {s.kind === 'save' && hasDivineIntercession(c, 'Cayden Cailean', 'moderate-boon') && <SourceNote inlineSource={false}
+            source="Cayden Cailean (Moderate Boon)" note={`Against fear effects, a success becomes a critical success.${classFeatures(entries, c).some(feature => feature.name === 'Bravery') ? ' With fighter Bravery, a critical failure becomes a failure.' : ''}`} />}
+          {s.kind === 'skill' && hasDivineIntercession(c, 'Kazutal', 'major-boon') && <SourceNote inlineSource={false}
+            source="Kazutal (Major Boon)" note="When you Aid, or another creature Aids you, the helper can automatically succeed. If rolling, a success becomes a critical success granting +4 circumstance, regardless of proficiency. Applies only to Aid, not ordinary checks." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
             && <SourceNote inlineSource={false} source="Shiny" note={`${s.name} ${conditionalTotal(3)} when using Aid.`} />}
@@ -418,7 +424,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {movement.source && ` (${movement.source})`}
             {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
           </span>
-        })}</small>
+        })}{hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
+          source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
         {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         {testSubjectAdaptation(c) === 'Radioactive' && <label>
