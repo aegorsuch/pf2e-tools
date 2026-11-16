@@ -839,6 +839,23 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt({ ...c, feats: [] }, entries).Performance).toBeUndefined()
   })
 
+  it('offers only common or accessible Adopted Ancestry choices without losing saved choices', () => {
+    const common = entry('ancestry', 'Dwarf')
+    const uncommon = entry('ancestry', 'Ratfolk', {}, 1, ['Uncommon'])
+    const rare = entry('ancestry', 'Automaton', { rarity: 'rare' })
+    const accessed = entry('ancestry', 'Accessed Ancestry', { rarity: 'uncommon', access: 'Member of the Knights of Lastwall' })
+    const sfOnly = { ...entry('ancestry', 'Shirren'), systems: ['sf2e' as const] }
+    const deleted = { ...entry('ancestry', 'Deleted Ancestry'), deleted: true }
+    const data = [common, uncommon, rare, accessed, sfOnly, deleted, entry('ancestry', base.ancestry!)]
+    const c = { ...base, feats: [selected('Adopted Ancestry', 3, rare.name)] }
+    expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf'])
+    expect(featChoiceOptions('Adopted Ancestry', { ...c, featAccessOverrides: [rare.id] }, data, 'general:3:0'))
+      .toEqual(['Automaton', 'Dwarf'])
+    expect(featChoiceOptions('Adopted Ancestry', { ...c, achievements: ['Member of the Knights of Lastwall'] }, data, 'general:3:0'))
+      .toEqual(['Accessed Ancestry', 'Dwarf'])
+    expect(c.feats[0].choice).toBe(rare.name)
+  })
+
   it('unlocks only the adopted ancestry alongside the original ancestry without losing saved choices on deleveling', () => {
     const data = [
       entry('ancestry', 'Elf'), entry('ancestry', 'Human'), entry('ancestry', 'Dwarf'),

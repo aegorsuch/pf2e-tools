@@ -63,6 +63,25 @@ it('reuses selected prerequisite checks for empty slots and invalidates changed 
   } finally { check.mockRestore(); updateSettings({ autoLores: previous }) }
 })
 
+it('keeps a saved noncommon adopted ancestry disabled until access is established', () => {
+  const ancestry: ContentEntry = { id: 'automaton', name: 'Automaton', kind: 'ancestry', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Rare'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), ancestry: 'Human', feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: ancestry.name },
+  ] }
+  const save = vi.fn()
+  const render = (character = c) => renderToStaticMarkup(<FeatChoice c={character} entries={[ancestry]} save={save} index={0} />)
+  const markup = render()
+  expect(markup).toContain('Ancestry: Automaton (unavailable)')
+  expect(markup).toMatch(/<option[^>]*disabled=""[^>]*value="Automaton"/)
+  expect(markup).toContain('Saved ancestry is unavailable.')
+  const approved = render({ ...c, featAccessOverrides: [ancestry.id] })
+  expect(approved).not.toContain('(unavailable)')
+  expect(approved).not.toContain('Saved ancestry is unavailable.')
+  expect(save).not.toHaveBeenCalled()
+  expect(c.feats[0].choice).toBe(ancestry.name)
+})
+
 it('shows one Additional Lore per skill and prefers the specific ancestry source', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 7,
     feats: [

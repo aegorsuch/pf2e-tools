@@ -1076,7 +1076,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return variants.length ? variants.map(variant => variant.label) : undefined
   }
   if (name === 'Adopted Ancestry') return [...new Set(entries.filter((entry) => entry.kind === 'ancestry' && !entry.deleted
-    && entry.name !== c.ancestry && entry.systems.some((system) => c.systems.includes(system))).map((entry) => entry.name))]
+    && entry.name !== c.ancestry && entry.systems.some((system) => c.systems.includes(system))
+    && (!featRarity(entry) || featAccess(c, entry)?.automatic || c.featAccessOverrides?.includes(entry.id))).map((entry) => entry.name))]
     .sort((a, b) => a.localeCompare(b))
   if (name === 'Skill Training' || name === 'Shiny') {
     const level = name === 'Shiny' && index >= 0 ? Math.min(c.level, featTakenLevel(c.feats[index])) : c.level
