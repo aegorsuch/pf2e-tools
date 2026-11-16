@@ -547,6 +547,7 @@
 .spell-dc-row { grid-template-columns: minmax(0, 1fr) auto 2.6rem 2.6rem 2.6rem; }
 .skill-row.with-item { grid-template-columns: minmax(0, 1fr) auto 2.2rem 2.2rem 2.2rem; }
 .gear-list { gap: 0.5rem; }
+.equipment-name { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: left; text-decoration: underline; text-underline-offset: 0.15em; overflow-wrap: anywhere; }
 .companion-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .companion-choices > select { max-width: 100%; min-width: 0; }
 .gear-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; }

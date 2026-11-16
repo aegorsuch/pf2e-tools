@@ -220,7 +220,7 @@ describe('animal companions', () => {
     }
   })
 
-  it('seeds fixed-size mount variants without changing base stats or normal companion growth', () => {
+  it('seeds smaller companions without Mount and preserves normal growth', () => {
     const originals = [
       entry('companion', 'Isgeri Boarhound', { ...bear.data, strength: 2, dexterity: 3, mount: false }),
       entry('companion', 'Cat', { ...bear.data, strength: 2, dexterity: 3, constitution: 1, mount: false }),
@@ -228,24 +228,44 @@ describe('animal companions', () => {
     const variants = homebrewCompanions(originals)
     expect(variants.map((variant) => variant.name)).toEqual(['Sarkorian Direwolf', 'Snow Leopard'])
     for (const [index, variant] of variants.entries()) {
-      const size = index === 0 ? 'Large' : 'Medium'
+      const size = index === 0 ? 'Medium' : 'Small'
       expect(variant).toMatchObject({
-        source: 'homebrew', traits: ['Mount'],
-        data: { ...originals[index].data, size, mount: true, fixed_size: true },
+        source: 'homebrew', traits: [],
+        data: { ...originals[index].data, size, mount: false, fixed_size: false },
       })
 
       for (const feats of [[], [feat('Impressive Mount')], [feat('Incredible Mount', 'Nimble')], [feat('Incredible Mount', 'Savage'), feat('Specialized Mount', 'Racer')]]) {
         const c = { ...base, feats }
         const advancement = companionAdvancement(c)
         const original = companionStats(c, originals, originals[index].name, advancement)!
+        const grownSize = advancement.mature ? index === 0 ? 'Large' : 'Medium' : size
         expect(companionStats(c, variants, variant.name, advancement)).toEqual({
-          ...original, entry: variant, size, naturalSize: size, mount: true,
+          ...original, entry: variant, size: grownSize, naturalSize: grownSize, mount: false,
         })
         expect(original.size).toBe(advancement.mature ? 'Medium' : 'Small')
       }
     }
     expect(originals.every((original) => original.data.size === 'Small' && original.data.mount === false)).toBe(true)
     expect(homebrewCompanions([{ ...originals[0], deleted: true }, { ...originals[1], kind: 'item' }])).toEqual([])
+    const rider = { ...base, feats: [feat('Impressive Mount'), feat('Rider')] }
+    expect(companionStats(rider, variants, 'Sarkorian Direwolf', companionAdvancement(rider))?.mount).toBe(true)
+    expect(companionStats(rider, variants, 'Snow Leopard', companionAdvancement(rider))?.mount).toBe(false)
+  })
+
+  it('carries Lock Jaw rules into the direwolf and renames all Boarhound text', () => {
+    const original = { ...entry('companion', 'Isgeri Boarhound', {
+      ...bear.data, companion_maneuver: 'Lock Jaw', companion_maneuver_actions: 'Single Action',
+      companion_support: "Your boarhound supports you. Isgeri boarhounds are hunters.",
+      companion_maneuver_requirements: "The boarhound's last action was a successful jaws Strike.",
+      companion_maneuver_description: 'The target becomes grabbed, as if the boarhound successfully Grappled the target.',
+    }), description: 'Isgeri Boarhounds hunt. A boarhound is loyal.' }
+    const [direwolf] = homebrewCompanions([original])
+    expect(direwolf.data.companion_maneuver).toBe('Lock Jaw')
+    expect(direwolf.data.companion_maneuver_actions).toBe('Single Action')
+    expect(direwolf.data.companion_maneuver_requirements).toContain("direwolf's last action")
+    expect(direwolf.data.companion_maneuver_description).toContain('direwolf successfully Grappled')
+    expect(JSON.stringify(direwolf)).not.toMatch(/boarhound/i)
+    expect(original.description).toContain('Boarhounds')
   })
 
   it.each([[16, 20], [18, 25], [20, 30]])('applies Auspice benefits at level %i without granting them to other companions', (level, extraHP) => {

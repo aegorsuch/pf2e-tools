@@ -31,7 +31,8 @@ export async function ensureSupplementalContent() {
     for (const entry of [...homebrewCompanions(bases), ...homebrewWeapons(bases), ...homebrewCharacterOptions(bases)]) {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
-      else if (['homebrew:clawed-gauntlet', 'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider'].includes(entry.id)
+      else if (['homebrew:clawed-gauntlet', 'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
+        'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard'].includes(entry.id)
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }
   })

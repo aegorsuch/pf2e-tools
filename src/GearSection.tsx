@@ -339,7 +339,8 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
           const blocked = !!access && !access.automatic && !access.approved
           return (
           <li key={m.id}>
-            <span><b>{kind === 'weapon' ? combinationName(entries, m.name) : m.name}</b>{weaponDamage(m) ? ` (${weaponDamage(m)})` : ''}{m.level ? ` (level ${m.level})` : ''}
+            <span><b><EntryDescription name={kind === 'weapon' ? combinationName(entries, m.name) : m.name} entry={m}
+              className="equipment-name" /></b>{weaponDamage(m) ? ` (${weaponDamage(m)})` : ''}{m.level ? ` (level ${m.level})` : ''}
               {' '}<small>{m.systems.map(system => system === 'sf2e' ? 'SF2E' : 'PF2E').join(' / ')}</small>
             </span>
             <GearAccess c={c} entries={entries} entry={m} save={save} />
@@ -517,7 +518,8 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
   return (
     <div className="col gear-list">
       {handwraps ? <details className="gear-card" aria-label={item.name} open>
-        <summary><strong>{item.name}</strong></summary>
+        <summary><strong><EntryDescription name={item.name}
+          entry={entries.find(entry => entry.kind === 'item' && entry.name === item.name) ?? item} className="equipment-name" /></strong></summary>
         <small>{handwraps.kind === 'hardlight' ? 'Grade' : 'Fundamental runes'} automatically upgrade with character level.</small>
         {handwraps.kind === 'hardlight' ? <label>Grade{' '}
           <select aria-label="Hardlight handwraps grade" value={handwraps.grade ?? 'Commercial'} onChange={(e) => {
@@ -1101,7 +1103,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         </>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
-            <strong>{displayName}</strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>}
+            <strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>}
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
@@ -1133,7 +1135,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong>{displayName}</strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+            <summary><strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
               {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
@@ -1400,7 +1402,8 @@ export function ShieldEquipment({ c, entries, save }: SectionProps) {
   if (!c.shield && !hardwoodShield(c)) return null
   return <div className="col">
     {[c.shield, hardwoodShield(c)].map(shield => shield && <div className="row" key={shield.id}>
-      <strong>{shield.name}</strong><ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
+      <strong><EntryDescription name={shield.name} entry={entries.find(entry => entry.kind === 'shield' && entry.name === shield.name)}
+        className="equipment-name" /></strong><ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
     </div>)}
   </div>
 }
@@ -1487,7 +1490,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
-              <strong>{armorDisplayName(a)}</strong>
+              <strong><EntryDescription name={armorDisplayName(a)} entry={entry} className="equipment-name" /></strong>
               <label><input type="checkbox" aria-label={`Worn ${a.name}`} checked={a.worn} disabled={wornLocked}
                 title={body ? 'Attached to character' : wornLocked ? 'Cannot wear armor over attached body armor' : undefined}
                 onChange={(e) => {
@@ -1583,7 +1586,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       {part !== 'armor' && <>{shield ? (
         <article className="gear-card">
           <header className="row">
-            <strong>{shield.name}</strong>
+            <strong><EntryDescription name={shield.name} entry={entries.find(entry => entry.kind === 'shield' && entry.name === shield.name)}
+              className="equipment-name" /></strong>
             <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
             <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" checked={equipped?.id === shield.id && shieldRaised(c)}
@@ -1631,7 +1635,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           }} />
       )}
       {woodShield && <article className="gear-card">
-        <header className="row"><strong>{woodShield.name}</strong>
+        <header className="row"><strong><EntryDescription name={woodShield.name}
+          entry={entries.find(entry => entry.kind === 'shield' && entry.name === woodShield.name)} className="equipment-name" /></strong>
           <ShieldEquipped c={c} entries={entries} save={save} shield={woodShield} />
           <label><input type="checkbox" checked={equipped?.id === woodShield.id && shieldRaised(c)}
             disabled={equipped?.id !== woodShield.id || shieldParagonActive(c)}
@@ -1649,7 +1654,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, damage: Math.max(0, +event.target.value || 0) } })} /></label>
       </article>}</>}
       {part !== 'shield' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
-        <header><strong>Orc Warmask</strong></header>
+        <header><strong><EntryDescription name="Orc Warmask" entry={entries.find(entry => entry.kind === 'feat' && entry.name === 'Orc Warmask')}
+          className="equipment-name" /></strong></header>
         {warmaskSource(c) && <small>+1 item bonus to {warmaskSource(c)?.skill}.</small>}
       </article>}
     </div>

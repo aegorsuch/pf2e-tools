@@ -2,6 +2,23 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('keeps full equipment rules for clickable item descriptions instead of truncated summaries', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category && ['equipment', 'weapon', 'armor', 'shield'].includes(category)
+      ? [{ _id: category, _source: { category, name: `Example ${category}`, summary: 'Truncated summary...',
+        markdown: '**Source** Core\n\n---\n\nComplete rules, including the activation and its effects.' } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries).toHaveLength(4)
+  for (const entry of entries) {
+    expect(entry.description).toContain('Complete rules, including the activation and its effects.')
+    expect(entry.description).not.toContain('Truncated summary')
+  }
+})
+
 it('excludes the legacy Ranger snare chain from existing snapshots but keeps remastered snares', () => {
   const legacy = [
     ['feat-506', 'Snare Specialist'], ['feat-509', 'Quick Snares'], ['feat-516', 'Powerful Snares'],

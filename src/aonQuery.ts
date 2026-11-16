@@ -24,8 +24,7 @@ export const DATA_FIELDS = [
 ]
 const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
 export const usesFullItemRules = (source: Record<string, unknown>) =>
-  /Property Runes|Precious Material/i.test(String(source.item_subcategory)) || source.item_category === 'Materials'
-  || source.item_category === 'Augmentations' || source.item_subcategory === 'Weapon Upgrades'
+  ['equipment', 'weapon', 'armor', 'shield'].includes(String(source.category))
 
 // Retain these legacy oaths because their remaster replacements have different mechanics.
 export const RETAINED_LEGACY_FEAT_IDS = ['feat-219', 'feat-1669']
@@ -331,7 +330,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.maneuverActionUrl) s.companion_maneuver_action_url = comp.maneuverActionUrl
         }
         if (!['feat', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
-          && !(category === 'equipment' && usesFullItemRules(s))) delete s.markdown
+          && !usesFullItemRules(s)) delete s.markdown
       }
       hits.push(hit)
     }

@@ -312,7 +312,7 @@ it('shows alloyed metal properties without renaming melee unarmed attacks', () =
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', level: 12,
     feats: [feat('Iron Fists'), feat('Alloyed Attacks', 5, 'Silver')] }
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(html).toContain('<strong>Fists</strong>')
+  expect(html).toContain('aria-haspopup="dialog">Fists</button>')
   expect(html).not.toContain('Silver Fists')
   expect(html).toContain('melee unarmed attacks have Silver properties')
   expect(featChoiceOptions('Alloyed Attacks', c, [], '')).not.toContain('Adamantine')
@@ -328,14 +328,14 @@ it.each(['Cold Iron', 'Silver', 'Adamantine'])('keeps adopted Orc attack labels 
   const tusks = ownedWeapons(c, []).find(weapon => weapon.name === 'Tusks')!
   const before = JSON.stringify(c)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('<strong>Teeth</strong>')
-  expect(markup).not.toContain(`<strong>${material} Teeth</strong>`)
+  expect(markup).toContain('aria-haspopup="dialog">Teeth</button>')
+  expect(markup).not.toContain(`aria-haspopup="dialog">${material} Teeth</button>`)
   expect(markup).toContain(`melee unarmed attacks have ${material} properties`)
   expect(tusks.name).toBe('Tusks')
   expect(weaponAttack(c, [], tusks).damage).toBe(weaponAttack({ ...c, ancestry: 'Orc' }, [], tusks).damage)
   expect(JSON.stringify(c)).toBe(before)
   expect(renderToStaticMarkup(<WeaponList c={{ ...c, level: 12 }} entries={[]} save={() => {}} />))
-    .toContain('<strong>Teeth</strong>')
+    .toContain('aria-haspopup="dialog">Teeth</button>')
 })
 
 it('keeps fixed Cold Iron and Alloyed properties without changing the attack name', () => {
@@ -343,8 +343,8 @@ it('keeps fixed Cold Iron and Alloyed properties without changing the attack nam
     feat('Adopted Ancestry', 1, 'Orc'), feat('Tusks'), feat('Cold Iron Tusks', 5), feat('Alloyed Attacks', 5, 'Silver'),
   ] }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('<strong>Teeth</strong>')
-  expect(markup).not.toContain('<strong>Cold Iron Teeth</strong>')
+  expect(markup).toContain('aria-haspopup="dialog">Teeth</button>')
+  expect(markup).not.toContain('aria-haspopup="dialog">Cold Iron Teeth</button>')
   expect(markup).toContain('melee unarmed attacks have Silver properties')
   expect(markup).toContain('Granted by Cold Iron Teeth')
 })
@@ -378,7 +378,7 @@ it('imports thrown range and applies Strong Arm to playing card daggers', async 
       markdown: '<traits>\n<trait label="Thrown 10 ft." url="/Traits.aspx?ID=195" />\n</traits>',
     } }] : [] } }))
   const hit = (await fetchAonHits('pf2e', fetchFn))[0]
-  expect(hit._source?.markdown).toBeUndefined()
+  expect(hit._source?.markdown).toContain('Thrown 10 ft.')
   const dagger = mapAonHit(hit, 'pf2e')!
   expect(dagger.data.thrown_range).toBe(10)
   const c: Character = { ...base, feats: [feat("Fane's Fourberie", 2), feat('Strong Arm', 2)] }
@@ -1609,7 +1609,7 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
   expect(offense).toContain('Requires Rage and a free hand.')
   expect(offense).not.toContain('aria-label="Equipped Oversized Throw"')
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('<strong>Oversized Throw</strong>')
+  expect(markup).toContain('aria-haspopup="dialog">Oversized Throw</button>')
   expect(markup).not.toContain('aria-label="Weapon material"')
   expect(markup).not.toContain('aria-label="Add property rune"')
   expect(markup).not.toContain('aria-label="Remove Oversized Throw"')

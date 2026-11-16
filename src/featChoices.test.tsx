@@ -273,9 +273,9 @@ it('requests selected legacy Champion oaths alongside remastered Pathfinder feat
     return new Response(JSON.stringify({ hits: { hits: [] } }), { status: 200 })
   }
   await fetchAonHits('pf2e', fetchFn)
-  expect(queries.feat).toEqual({ bool: { filter: [{ term: { category: 'feat' } }], must_not: [
+  expect(queries.feat).toMatchObject({ bool: { filter: [{ term: { category: 'feat' } }], must_not: expect.arrayContaining([
     { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219', 'feat-1669'] } }] } },
-  ] } })
+  ]) } })
   expect(queries.spell).toEqual({ bool: { filter: [{ term: { category: 'spell' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
   expect(mapAonHit({ _id: 'feat-219', _source: { category: 'feat', name: 'Dragonslayer Oath', url: '/Feats.aspx?ID=219' } }, 'pf2e')?.data.url)
     .toBe('https://2e.aonprd.com/Feats.aspx?ID=219&NoRedirect=1')

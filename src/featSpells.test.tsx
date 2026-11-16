@@ -447,7 +447,7 @@ it('applies Untamed Shift selected effects, attack runes, heightening, and form 
   expect(html).not.toContain('Wings require casting with two actions')
   for (const displayOnly of [false, true]) {
     const weapons = renderToStaticMarkup(<WeaponList c={{ ...c, level: 19 }} entries={[]} save={() => {}} displayOnly={displayOnly} />)
-    expect(weapons).toContain('<strong>Claws</strong>')
+    expect(weapons).toContain('aria-haspopup="dialog">Claws</button>')
     expect(weapons).toContain(' + 4d6 persistent bleed')
     expect(weapons).not.toContain('on a hit (Untamed Shift)')
   }

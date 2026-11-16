@@ -32,9 +32,29 @@ it.each([false, true])('shows the Oversized Throw two-action icon in both views 
   const c = { ...character([{ name: 'Oversized Throw', type: 'Class Feat', level: 4 }]), className: 'Barbarian', raging: true }
   const tree = WeaponList({ c, entries: [], save: () => {}, displayOnly })
   const markup = renderToStaticMarkup(tree)
-  expect(markup).toContain('<strong>Oversized Throw</strong> <span class="action-cost" aria-label="Two Actions"')
+  expect(markup).toMatch(/<strong><button[^>]*aria-haspopup="dialog"[^>]*>Oversized Throw<\/button>[\s\S]*?<\/strong> <span class="action-cost" aria-label="Two Actions"/)
   expect(weaponAttack(c, [], { id: OVERSIZED_THROW.id, name: OVERSIZED_THROW.name, potency: 0, striking: 0, runes: [] }).damage)
     .toBe('2d10 bludgeoning')
+})
+
+it('provides rule dialogs on weapon, armor, shield and handwrap names', () => {
+  const sword = { ...weapon, description: 'Longsword rules.' }
+  const armor: ContentEntry = { ...weapon, id: 'armor', kind: 'armor', name: 'Leather Armor', description: 'Leather armor rules.',
+    data: { armor_category: 'Light', ac: 1 } }
+  const shield: ContentEntry = { ...weapon, id: 'shield', kind: 'shield', name: 'Steel Shield', description: 'Steel shield rules.' }
+  const c: Character = { ...character([]),
+    armors: [{ id: 'a', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }],
+    shield: { id: 's', name: shield.name, hardness: 5, hp: 20, damage: 0, raised: false },
+    handwraps: { potency: 0, striking: 0, runes: [] } }
+  const entries = [sword, armor, shield]
+  const before = JSON.stringify(c)
+  const markup = renderToStaticMarkup(<><WeaponList c={c} entries={entries} save={() => {}} />
+    <ArmorList c={c} entries={entries} save={() => {}} /><HandwrapsGear c={c} entries={entries} save={() => {}} /></>)
+  for (const name of ['Longsword', 'Leather Armor', 'Steel Shield', 'Handwraps of Mighty Blows']) {
+    expect(markup).toContain(`aria-haspopup="dialog">${name}</button>`)
+  }
+  for (const entry of entries) expect(markup).toContain(entry.description)
+  expect(JSON.stringify(c)).toBe(before)
 })
 
 it('displays the versatile damage type from cached weapon metadata', () => {
@@ -778,7 +798,7 @@ it('omits ruleset badges from owned armor cards', () => {
   const c: Character = { ...character([]), armors: [{ id: 'hide', name: 'Hide Armor', potency: 0, resilient: 0, runes: [], worn: true }] }
   const armor: ContentEntry = { ...weapon, id: 'hide', name: 'Hide Armor', kind: 'armor', data: { armor_category: 'Medium' } }
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[armor]} save={() => {}} />)
-  expect(markup).toContain('<strong>Hide Armor</strong>')
+  expect(markup).toContain('aria-haspopup="dialog">Hide Armor</button>')
   expect(markup).not.toContain('>PF2e</small>')
   expect(markup).not.toContain('>PF2E</small>')
 })
@@ -861,7 +881,7 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   ;(armorMaterial.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Orichalcum' } })
   expect(c.armors?.[0]).toMatchObject({ material: 'Orichalcum', potency: 3, resilient: 2 })
   const armorMarkup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={save} />)
-  expect(armorMarkup).toContain('<strong>Orichalcum Chain Mail</strong>')
+  expect(armorMarkup).toContain('aria-haspopup="dialog">Orichalcum Chain Mail</button>')
   expect(armorMarkup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(armorMarkup.indexOf('<label>Potency'))
   expect(armorMarkup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(armorMarkup.indexOf('<label>Resilient'))
   expect(armorMarkup).not.toContain('One additional property rune slot')
@@ -1328,11 +1348,11 @@ it('locks the feat-granted Haft Striker weapon only with a qualifying carried we
   c.weapons![0].name = 'Maul'
   const maul = { ...weapon, name: 'Maul', data: { hands: 2, weapon_group: 'Hammer', damage: '1d12 bludgeoning' } }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[maul, HAFT_STRIKER_WEAPON]} save={() => {}} />)
-  expect(markup).toContain('<strong>Haft Striker Stance</strong>')
+  expect(markup).toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
   expect(markup).not.toContain('aria-label="Remove Haft Striker Stance"')
   const manual = { ...c, feats: [], weapons: [{ id: 'manual', name: HAFT_STRIKER_WEAPON.name, potency: 0, striking: 0, runes: [] }] }
   expect(renderToStaticMarkup(<WeaponList c={manual} entries={[HAFT_STRIKER_WEAPON]} save={() => {}} />))
-    .not.toContain('<strong>Haft Striker Stance</strong>')
+    .not.toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
 })
 
 it('locks full plate gauntlets and keeps their saved configuration when other weapons change while armor is unworn', () => {
@@ -1342,11 +1362,11 @@ it('locks full plate gauntlets and keeps their saved configuration when other we
   }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
-  expect(markup).toContain('<strong>Gauntlet</strong>')
+  expect(markup).toContain('aria-haspopup="dialog">Gauntlet</button>')
   expect(markup).not.toContain('aria-label="Remove Gauntlet"')
   const gauntlet = { id: GAUNTLET.id, name: 'Gauntlet', potency: 2, striking: 1, runes: ['Flaming'] }
   c = { ...c, weapons: [...c.weapons!, gauntlet], armors: c.armors!.map((armor) => ({ ...armor, worn: false })) }
-  expect(renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)).not.toContain('<strong>Gauntlet</strong>')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)).not.toContain('aria-haspopup="dialog">Gauntlet</button>')
   const remove = findElement(WeaponList({ c, entries: [weapon], save }), (element) => element.props['aria-label'] === 'Remove Longsword')
   if (!remove) throw new Error('Missing weapon removal')
   ;(remove.props.onClick as () => void)()
@@ -1397,7 +1417,7 @@ it.each(['Half Plate', 'Hellknight Plate'])('selects %s gauntlet variants withou
     expect(c.armors?.find((armor) => armor.id === 'splint')?.gauntlet).toBe('Spiked Gauntlet')
     expect(c.weapons![0]).toMatchObject({ potency: 2, striking: 1, runes: ['Flaming'] })
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)
-    expect(markup).toContain(`<strong>${name}</strong>`)
+    expect(markup).toContain(`aria-haspopup="dialog">${name}</button>`)
     expect(markup).not.toContain(`aria-label="Remove ${name}"`)
     expect(markup.indexOf('>Bladed Gauntlet</option>')).toBeLessThan(markup.indexOf('>Clawed Gauntlet</option>'))
     expect(markup.indexOf('>Gauntlet</option>')).toBeLessThan(markup.indexOf('>Spiked Gauntlet</option>'))
@@ -1407,7 +1427,7 @@ it.each(['Half Plate', 'Hellknight Plate'])('selects %s gauntlet variants withou
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, worn: false })) }
   const unworn = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)
   expect(unworn).not.toContain('aria-label="Armor gauntlet"')
-  expect(unworn).not.toContain('<strong>Clawed Gauntlet</strong>')
+  expect(unworn).not.toContain('aria-haspopup="dialog">Clawed Gauntlet</button>')
 })
 
 function findElement(node: ReactNode, matches: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
@@ -1489,7 +1509,7 @@ it('shows only compatible inherited runes on buff attacks and no removal control
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Claws attack +14: show breakdown')
   expect(markup).toContain('Damage 2d6 S + 1d6 force, Wounding')
-  expect(markup).not.toContain('<strong>Jaws</strong>')
+  expect(markup).not.toContain('aria-haspopup="dialog">Jaws</button>')
   const jawsMarkup = renderToStaticMarkup(<WeaponList c={{ ...c, animalFeature: 'Jaws' }} entries={[]} save={() => {}} />)
   expect(jawsMarkup).toContain('Jaws attack +14: show breakdown')
   expect(jawsMarkup).toContain('Damage 2d8 P + 1d6 force, Wounding')

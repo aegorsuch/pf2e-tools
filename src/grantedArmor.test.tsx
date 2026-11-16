@@ -209,8 +209,8 @@ it('preserves ordinary armor and dormant granted configuration when eligibility 
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   expect(ownedArmors(c, []).find(armor => armor.id === 'purchased')?.worn).toBe(false)
   const bodyCard = find(ArmorList({ c, entries: [], save }), element => element.type === 'article'
-    && !!find(element.props.children as ReactNode, child => child.type === 'strong'
-      && String(child.props.children).includes('Reinforced Chassis')))
+    && !!find(element.props.children as ReactNode, child => typeof child.props.name === 'string'
+      && child.props.name.includes('Reinforced Chassis')))
   const potency = find(bodyCard, element => element.props.label === 'Potency')
   if (!potency) throw new Error('Missing body armor fundamentals')
   ;(potency.props.onChange as (value: number) => void)(2)

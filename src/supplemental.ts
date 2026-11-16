@@ -284,17 +284,23 @@ export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST,
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [
-    { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Large' },
-    { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Medium' },
+    { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium' },
+    { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Small' },
   ]
   return variants.flatMap<ContentEntry>((variant) => {
     const base = entries.find((entry) => entry.kind === 'companion' && entry.source === 'official' && entry.systems.includes('pf2e') && !entry.deleted && entry.name === variant.base)
     if (!base) return []
+    const rename = (text: string) => variant.name === 'Sarkorian Direwolf'
+      ? text.replace(/\b(?:Isgeri )?boarhound(s?)\b/gi, (match: string, plural: string) => {
+        const noun = plural ? 'direwolves' : 'direwolf'
+        return /^[A-Z]/.test(match) ? noun[0].toUpperCase() + noun.slice(1) : noun
+      }) : text
     return [{
       ...base, id: variant.id, name: variant.name, source: 'homebrew',
-      traits: [...new Set([...base.traits, 'Mount'])],
-      description: `Based on ${base.name}. Starts ${variant.size} and never grows larger; has the Mount trait.\n\n${base.description}`,
-      data: { ...base.data, size: variant.size, mount: true, fixed_size: true },
+      traits: base.traits.filter(trait => trait.toLowerCase() !== 'mount'),
+      description: `${rename(base.description)}\n\nStarts ${variant.size}.`,
+      data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: false, fixed_size: false })
+        .map(([key, value]) => [key, typeof value === 'string' ? rename(value) : value])),
       // Fresh-device defaults must not supersede synced user edits or deletions.
       updatedAt: 1,
     }]

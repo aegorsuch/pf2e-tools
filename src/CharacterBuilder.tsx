@@ -126,7 +126,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
     return q || category
       ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && (!q || e.name.toLowerCase().includes(q))
         && (!category || equipmentGroupName(e) === category))
-        .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
+        .sort((a, b) => a.name.localeCompare(b.name))
       : []
   }, [entries, query, category])
   return <div className="equipment-search">
@@ -137,7 +137,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
     </div>
     <ul className="gear-results">
       {matches.map(g => <li key={g.id}>
-        {detail(g) ? <Info label={g.name}>{detail(g)}</Info> : <b>{g.name}</b>} <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
+        <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
         <button aria-label={`Add ${g.name}`} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name)
           save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item) : [...c.equipment, { name: g.name, qty: 1 }] })
@@ -168,11 +168,12 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
         descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
         {' '}<small>(Cyborg; integrated, thought-operated)</small></li>
-      if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><b>Bracelet of Empathy</b></li>
+      if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><EntryDescription name="Bracelet of Empathy"
+        entry={entries.find(entry => entry.kind === 'item' && entry.name === 'Collar of Empathy')} className="equipment-name" /></li>
       if (display.kind === 'simple-poisons') return <li key="simple-poisons"><SimplePoisons c={c} entries={entries} save={save} /></li>
       const { item, index, entry } = display.row
       return <li key={`${item.name}-${index}`}>
-      {item.name} <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
+      <EntryDescription name={item.name} entry={entry} className="equipment-name" /> <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
       <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }
         delete nextMods[`equipment:${item.name}`]

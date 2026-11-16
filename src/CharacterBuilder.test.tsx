@@ -374,6 +374,41 @@ it('shows existing equipment stacks without quantity controls', () => {
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('opens item details from saved equipment names without changing the stack', () => {
+  const item: ContentEntry = { id: 'rope', name: 'Rope', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 0, traits: [], description: 'A strong length of braided rope.', data: { url: 'https://2e.aonprd.com/Equipment.aspx?ID=61' },
+    effects: [], updatedAt: 0 }
+  content.entries = [item]
+  const c: Character = { id: 'equipment-details', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: 'Rope', qty: 2 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const before = JSON.stringify(c)
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+      .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+    expect(markup).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>Rope<\/button>/)
+    expect(markup).toContain(item.description)
+    expect(markup).toContain(String(item.data.url))
+    expect(markup).toContain('x2')
+    expect(JSON.stringify(c)).toBe(before)
+  } finally { content.entries = [] }
+})
+
+it('lists every tattoo beyond the previous forty-result cutoff', () => {
+  const entries = Array.from({ length: 60 }, (_, index): ContentEntry => ({
+    id: `tattoo-${index}`, name: `Tattoo ${String(index).padStart(2, '0')}`, kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: ['Tattoo'], description: `Rules for tattoo ${index}.`, data: { item_category: 'Tattoos' }, effects: [], updatedAt: 0,
+  }))
+  const c: Character = { id: 'all-tattoos', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Tattoos" />)
+  expect([...markup.matchAll(/aria-label="Add Tattoo \d+"/g)]).toHaveLength(60)
+  expect(markup).toContain('aria-label="Add Tattoo 59"')
+  expect(markup).toContain('Rules for tattoo 59.')
+  expect(markup).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>Tattoo 59<\/button>/)
+})
+
 it.each([false, true])('closes equipment search after adding an item (existing stack: %s)', existing => {
   const item: ContentEntry = { id: 'boots', name: 'Azure Boots', systems: ['pf2e'], kind: 'item', source: 'official',
     level: 1, traits: [], description: '', data: { item_category: 'Worn Items' }, effects: [], updatedAt: 0 }
@@ -473,7 +508,7 @@ it('retains official access metadata and shows saved ethnicity without changing 
   } finally { content.entries = [] }
 })
 
-it('retains full material and rune rules through snapshot fetching and mapping, without expanding ordinary item summaries', async () => {
+it('retains full material, rune and ordinary equipment rules through snapshot fetching and mapping', async () => {
   const sources = [
     { name: 'Peachwood Weapon', item_subcategory: 'Precious Material Weapons' },
     { name: 'Grisantian Pelt Armor', item_subcategory: 'Precious Material Armor' },
@@ -488,12 +523,10 @@ it('retains full material and rune rules through snapshot fetching and mapping, 
   }))
   const hits = await fetchAonHits('pf2e', fetchFn)
   expect(hits).toHaveLength(5)
-  for (const hit of hits.slice(0, 4)) {
+  for (const hit of hits) {
     expect(hit._source?.markdown).toContain('Additional benefit.')
     expect(mapAonHit(hit, 'pf2e')?.description).toBe('Full rules.\n\nAdditional benefit.')
   }
-  expect(hits[4]._source?.markdown).toBeUndefined()
-  expect(mapAonHit(hits[4], 'pf2e')?.description).toBe('Short summary.')
 })
 
 it('alphabetizes collapsible main sections without showing other feat slots', () => {
