@@ -14,6 +14,20 @@ import { wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
+const COMMON_LORES = [...new Set([
+  // https://2e.aonprd.com/Skills.aspx?ID=41
+  'Academia', 'Accounting', 'Architecture', 'Art', 'Astronomy', 'Carpentry', 'Circus', 'Driving',
+  'Engineering', 'Farming', 'Fishing', 'Fortune-Telling', 'Games', 'Genealogy', 'Gladiatorial',
+  'Guild', 'Heraldry', 'Herbalism', 'Hunting', 'Labor', 'Legal', 'Library', 'Military',
+  'Abadar', 'Iomedae', 'Demon', 'Giant', 'Vampire', 'Astral Plane', 'Heaven', 'Outer Rifts',
+  'Hellknights', 'Pathfinder Society', 'Absalom', 'Magnimar', 'Mountain', 'River',
+  'Alcohol', 'Baking', 'Butchering', 'Cooking', 'Tea', 'Mercantile', 'Midwifery', 'Milling',
+  'Mining', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
+  'Underworld', 'Warfare',
+  // https://2e.aonsrd.com/skills/9-lore
+  'Corporate', 'Piracy', 'Necrovite', 'Apostae', 'Heaven',
+].map(topic => `${topic} Lore`))].sort((a, b) => a.localeCompare(b))
+
 const RESISTANCE_NOTES: Record<string, string> = {
   'Poison Resistance': '+1 status bonus to saving throws against poisons.',
   'Harden Flesh': 'Physical resistance except against adamantine. Lasts until the beginning of your next turn; clear the active toggle when it ends.',
@@ -510,6 +524,20 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           form.reset()
           form.closest('details')?.removeAttribute('open')
         }}>
+          <label className="lore-options">Common Lore
+            <select aria-label="Common Lore" size={8} defaultValue="" onChange={event => {
+              const control = event.currentTarget
+              const form = control.form
+              const input = form?.elements.namedItem('lore')
+              if (!form || !(input instanceof HTMLInputElement)) return
+              input.value = control.value
+              input.setCustomValidity('')
+            }}>
+              <option value="" disabled>Choose Lore</option>
+              {COMMON_LORES.filter(name => !lores.some(existing => existing.toLowerCase() === name.toLowerCase()))
+                .map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
           <label>Lore specialty <input name="lore" aria-label="Lore specialty" required
             onInput={event => event.currentTarget.setCustomValidity('')} /></label>
           <button type="submit">Add Lore</button>

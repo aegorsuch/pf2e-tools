@@ -394,19 +394,36 @@ it('imports thrown range and applies Strong Arm to playing card daggers', async 
   expect(weaponAttack(c, [parameterized], card).thrownRange).toBe(40)
 })
 
-it('tracks augmentation limits and extra slots from earned feats without rewriting installed augmentations', () => {
+it('adds granted Augmented Body capacity to the normal limit without rewriting installed augmentations', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 9, heritage: 'Synthflesh Verthani',
     feats: [feat('Transgnomanist', 5), feat('Easily Augmented'), feat('Augmented Shell', 9),
       feat('Reconfigurable Frame', 5), feat('Reconfigurable Frame', 5), feat('Augmented Perfection', 17)],
     augmentations: [{ id: 'a', entryId: 'plating', name: 'Dermal Plating', slot: 'body:0' }] }
   const implant = { ...content('item', 'Dermal Plating', { item_category: 'Augmentations' }), id: 'plating', systems: ['sf2e'] as const }
-  expect(augmentationLimit(c)).toBe(10)
+  const saved = JSON.stringify(c)
+  expect(augmentationLimit(c)).toBe(11)
   const markup = renderToStaticMarkup(<Augmentations c={c} entries={[{ ...implant, systems: ['sf2e'] }]} save={() => {}} />)
-  expect(markup).toContain('Implant limit: 0/10')
-  expect(markup).toContain('Augmented Body 1 (used)')
+  expect(markup).toContain('Implant limit: 1/11')
+  expect(markup).not.toContain('Augmented Body')
+  expect(markup).not.toContain('source unavailable')
   expect(markup).toContain('Dermal Plating')
   expect(c.augmentations?.[0].slot).toBe('body:0')
+  expect(JSON.stringify(c)).toBe(saved)
   expect(renderToStaticMarkup(<Augmentations c={{ ...c, systems: ['pf2e'] }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('adds one normal implant per active Augmented Body acquisition', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 4, feats: [
+    { ...feat('Augmented Body'), takenLevel: 5 }, { ...feat('Augmented Body'), slot: 'general:9:0' },
+  ] }
+  expect(augmentationLimit(c)).toBe(4)
+  expect(augmentationLimit({ ...c, level: 5 })).toBe(5)
+  expect(augmentationLimit({ ...c, level: 9 })).toBe(6)
+})
+
+it('keeps Augmented Dedication implant increases alongside its granted Augmented Body capacity', () => {
+  const c: Character = { ...base, systems: ['sf2e'], feats: [feat('Augmented Dedication', 2)] }
+  expect(augmentationLimit(c)).toBe(7)
 })
 
 it('increases Cyborg implant limit independently of the Test-Subject house rule', () => {
@@ -425,20 +442,30 @@ it('increases Cyborg implant limit independently of the Test-Subject house rule'
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
-it('enforces normal and feat-granted implant slots while permitting exempt augmentations', () => {
+it('enforces the expanded normal implant limit while retaining adapted and exempt slots', () => {
   const implant: ContentEntry = { ...content('item', 'Dermal Plating', { item_category: 'Augmentations', rarity: 'common' }),
     systems: ['sf2e'] }
   const installed = Array.from({ length: 4 }, (_, index) => ({ id: String(index), entryId: String(index), name: `Implant ${index}`, slot: 'standard' }))
   const c: Character = { ...base, systems: ['sf2e'], level: 5, feats: [feat('Transgnomanist', 5), feat('Adapted Augmentations')],
     augmentations: installed }
-  expect(canInstallAugmentation(c, implant, 'standard')).toBe(false)
-  expect(canInstallAugmentation(c, implant, 'body:0')).toBe(true)
+  expect(augmentationLimit(c)).toBe(5)
+  expect(canInstallAugmentation(c, implant, 'standard')).toBe(true)
+  expect(canInstallAugmentation(c, implant, 'body:0')).toBe(false)
   expect(canInstallAugmentation(c, { ...implant, level: 6 }, 'body:0')).toBe(false)
   expect(canInstallAugmentation(c, { ...implant, level: 2 }, 'adapted')).toBe(false)
   expect(canInstallAugmentation(c, { ...implant, data: { ...implant.data, rarity: 'rare' } }, 'adapted')).toBe(false)
   expect(canInstallAugmentation(c, implant, 'adapted')).toBe(true)
-  expect(canInstallAugmentation(c, { ...implant, traits: ['Apex'] }, 'standard')).toBe(true)
-  expect(canInstallAugmentation(c, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
+  const full = { ...c, augmentations: [...installed, { id: 'legacy', entryId: implant.id, name: implant.name, slot: 'body:0' }] }
+  expect(canInstallAugmentation(full, implant, 'standard')).toBe(false)
+  expect(canInstallAugmentation(full, { ...implant, traits: ['Apex'] }, 'standard')).toBe(true)
+  expect(canInstallAugmentation(full, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
+  const markup = renderToStaticMarkup(<Augmentations c={full} entries={[implant]} save={() => {}} />)
+  expect(markup).toContain('Implant limit: 5/5')
+  expect(markup).not.toContain('Augmented Body')
+  const reduced = { ...full, feats: [] }
+  expect(renderToStaticMarkup(<Augmentations c={reduced} entries={[implant]} save={() => {}} />))
+    .toContain('Installed augmentations exceed your current implant limit.')
+  expect(reduced.augmentations).toEqual(full.augmentations)
   expect(canInstallAugmentation({ ...c, feats: [] }, implant, 'body:0')).toBe(false)
   expect(canInstallAugmentation({ ...c, augmentations: [...installed, { id: 'body', entryId: implant.id, name: implant.name, slot: 'body:0' }] }, implant, 'body:0')).toBe(false)
 })

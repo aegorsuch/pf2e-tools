@@ -112,6 +112,16 @@ function findInput(node: ReactNode, label: string): Record<string, unknown> | un
   return found
 }
 
+function findSelect(node: ReactNode, label: string): Record<string, unknown> | undefined {
+  let found: Record<string, unknown> | undefined
+  Children.forEach(node, child => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === 'select' && child.props['aria-label'] === label
+      ? child.props : findSelect(child.props.children as ReactNode, label)
+  })
+  return found
+}
+
 it('shows radioactive protection and tracks the two separate daily abilities', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
     testSubjectAdaptation: 'Radioactive', ysokiDailyUses: { contaminate: true, retinalHud: false },
@@ -226,7 +236,7 @@ it('shows subclass-granted Lore as a trained skill without an Additional Lore fe
   expect(markup).toContain('Sailing Lore')
   expect(ranksAt(c, [])['Sailing Lore']).toBe(1)
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, subclass: 'Forensic Medicine' }} entries={[]} save={() => {}} />))
-    .not.toContain('Sailing Lore')
+    .not.toContain('aria-label="Sailing Lore proficiency"')
 })
 
 it('applies clan dagger filigree skill bonuses and marks conditional bonuses separately', () => {
@@ -849,7 +859,21 @@ it('gives Subtle Cyborg Deception or an extra skill-array choice when already tr
   expect(skillRankBudget({ ...duplicate, skillPicks: ['Diplomacy'] }, [ranger, background]).trained).toBe(4)
 })
 
-it('adds, trains, and removes custom Lore using regular skill selections', () => {
+it('offers one alphabetized Lore list from both sources without already-known Lore', () => {
+  const c: Character = { ...base, lores: [{ name: 'sailing Lore', rank: 0 }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  const list = /<select[^>]*aria-label="Common Lore"[^>]*>([\s\S]*?)<\/select>/.exec(markup)![1]
+  const options = [...list.matchAll(/<option value="([^"]+)"/g)].map(match => match[1])
+  expect(options).toEqual([...options].sort((a, b) => a.localeCompare(b)))
+  expect(new Set(options.map(name => name.toLowerCase())).size).toBe(options.length)
+  expect(options).toEqual(expect.arrayContaining([
+    'Academia Lore', 'Abadar Lore', 'Astral Plane Lore', 'Outer Rifts Lore', 'Pathfinder Society Lore',
+    'Corporate Lore', 'Piracy Lore', 'Necrovite Lore', 'Apostae Lore', 'Heaven Lore',
+  ]))
+  for (const name of ['Sailing Lore', 'Magic Lore', 'Adventuring Lore', 'Planar Lore']) expect(options).not.toContain(name)
+})
+
+it('adds listed or custom Lore, trains it, and removes it using regular skill selections', () => {
   let c: Character = { ...base, level: 5 }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
   const findForm = (node: ReactNode): Record<string, unknown> | undefined => {
@@ -899,6 +923,16 @@ it('adds, trains, and removes custom Lore using regular skill selections', () =>
     expect(c.skillPicks).toEqual([])
     expect(c.skillIncreases).toEqual({})
     expect(skillRankBudget(c, [ranger]).trained).toBe(4)
+    for (const name of ['Academia Lore', 'Corporate Lore']) {
+      ;(findSelect(tree(), 'Common Lore')!.onChange as (event: unknown) => void)({
+        currentTarget: { value: name, form },
+      })
+      expect(input.value).toBe(name)
+      expect(c.lores).not.toContainEqual({ name, rank: 0 })
+      submit(input.value)
+      expect(c.lores).toContainEqual({ name, rank: 0 })
+      expect(ranksAt(c, [ranger])[name]).toBe(0)
+    }
   } finally {
     vi.unstubAllGlobals()
   }

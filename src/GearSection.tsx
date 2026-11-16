@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationBodySlots, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, hardwoodShield, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands, SHIELD_ATTACHED_WEAPONS, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
@@ -124,8 +124,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     ...installed.map(item => ({ kind: 'installed' as const, item })),
   ].sort((a, b) => a.item.name.localeCompare(b.item.name))
   const limit = augmentationLimit(c)
-  const standardUsed = installed.filter(item => item.slot === 'standard').length
-  const bodySlots = augmentationBodySlots(c)
+  const standardUsed = augmentationLimitUsed(c)
   const adapted = activeFeatsNamed(c, 'Adapted Augmentations').length > 0
   const biotechUpgrade = activeFeatsNamed(c, 'Biotech Os Upgrade').length > 0
   const secondaryPower = activeFeatsNamed(c, 'Secondary Power Source').length > 0
@@ -170,11 +169,11 @@ export function Augmentations({ c, entries, save }: SectionProps) {
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
-      const invalid = item.slot.startsWith('body:') && !bodySlots.includes(item.slot) || item.slot === 'adapted' && !adapted
+      const invalid = item.slot === 'adapted' && !adapted
       return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
-        {' '}<small>({item.slot === 'standard' ? 'implant limit' : item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : item.slot === 'adapted' ? 'Adapted Augmentations' : 'Augmented Body'}{invalid ? '; source unavailable' : ''})</small>
+        {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : item.slot === 'adapted' ? 'Adapted Augmentations' : 'implant limit'}{invalid ? '; source unavailable' : ''})</small>
         {powerControl(item.id, item.name)}
         {' '}<button type="button" onClick={() => confirmRemoval(`augmentation "${item.name}"`,
           () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
@@ -221,7 +220,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     </SearchableSelect>
     {!exemption && <label>Implant slot{' '}<select aria-label="Augmentation implant slot" value={slot} onChange={event => setSlot(event.target.value)}>
       <option value="standard">Standard ({standardUsed}/{limit})</option>
-      {bodySlots.map((value, index) => <option key={value} value={value}>Augmented Body {index + 1}{installed.some(item => item.slot === value) ? ' (used)' : ''}</option>)}
       {adapted && <option value="adapted">Adapted Augmentations{installed.some(item => item.slot === 'adapted') ? ' (used)' : ''}</option>}
     </select></label>}
     <button type="button" disabled={!available} onClick={() => {

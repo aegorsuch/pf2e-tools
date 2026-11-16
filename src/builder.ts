@@ -265,11 +265,11 @@ export function augmentationLimit(c: Character) {
   return 4 + 4 * Number(hasCyborgHeritage(c)) + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
     + count('Easily Augmented') * (c.heritage?.toLowerCase() === 'synthflesh verthani' ? 2 : 1)
     + 2 * (count('Augmented Dedication') + count('Augmented Perfection'))
+    + count('Augmented Body') + count('Transgnomanist') + count('Augmented Dedication')
 }
-export function augmentationBodySlots(c: Character) {
-  const count = ['Augmented Body', 'Transgnomanist', 'Augmented Dedication']
-    .reduce((sum, name) => sum + activeFeatsNamed(c, name).length, 0)
-  return Array.from({ length: count }, (_, index) => `body:${index}`)
+export function augmentationLimitUsed(c: Character) {
+  // Saved Augmented Body slots now count as ordinary implants.
+  return (c.augmentations ?? []).filter(item => !['apex', 'exempt', 'adapted'].includes(item.slot)).length
 }
 export function augmentationExemption(entry: ContentEntry) {
   if (entry.traits.some(trait => trait.toLowerCase() === 'apex')) return 'apex'
@@ -281,10 +281,8 @@ export function canInstallAugmentation(c: Character, entry: ContentEntry, slot: 
     || String(entry.data.item_category).toLowerCase() !== 'augmentations') return false
   const installed = c.augmentations ?? []
   if (augmentationExemption(entry)) return true
-  if (slot === 'standard') return installed.filter(item => item.slot === 'standard').length < augmentationLimit(c)
+  if (slot === 'standard') return augmentationLimitUsed(c) < augmentationLimit(c)
   if (installed.some(item => item.slot === slot)) return false
-  if (augmentationBodySlots(c).includes(slot)) return entry.level <= c.level
-    && !installed.some(item => item.slot.startsWith('body:') && item.name.toLowerCase() === entry.name.toLowerCase())
   return slot === 'adapted' && activeFeatsNamed(c, 'Adapted Augmentations').length > 0 && entry.level <= 1
     && !entry.traits.some(trait => /^(uncommon|rare|unique)$/i.test(trait)) && !/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity))
 }

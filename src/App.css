@@ -505,6 +505,8 @@
 .lore-add form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; margin-top: 0.5rem; }
 .lore-add label { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 .lore-add input { min-width: 0; max-width: 100%; }
+.lore-add .lore-options { flex-basis: 100%; flex-direction: column; align-items: stretch; min-width: 0; }
+.lore-options select { max-width: 100%; }
 .lore-remove { padding: 0 0.3rem; margin-right: 0.2rem; }
 .prof-badges { display: flex; flex-wrap: nowrap; gap: 0.5rem 0.6rem; margin-block: 0.5rem; font-size: 0.85em; }
 .prof-badges span { display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; }
