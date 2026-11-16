@@ -114,7 +114,8 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     ...rangerCopies,
     ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:ranger-twinned-defense-stance', name: 'Twinned Defense Stance',
       source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Ranger'],
-      description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance'),
+      description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance')
+        .split('\n\n').filter(paragraph => !/^Archetypes?\b/i.test(paragraph)).join('\n\n'),
       data: { ...Object.fromEntries(Object.entries(twinnedDefense.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger' },
       updatedAt: 1 }] : []),
     homebrewFeat('rider', 'Rider', 1, ['Champion', 'Commander', 'Druid', 'Ranger'],

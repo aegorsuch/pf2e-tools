@@ -99,12 +99,14 @@ it('provides ranger copies of the druid feats without changing their rules', () 
 
 it('copies Twinned Defense for Ranger without changing Fighter rules or archetype access', () => {
   const original: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'twinned-defense', kind: 'feat', name: 'Twinned Defense (Fighter)',
-    level: 16, traits: ['Fighter', 'Stance'], description: 'Gain the benefits of Twin Parry while in this stance.',
+    level: 16, traits: ['Fighter', 'Stance'],
+    description: 'Twinned Defense (Fighter)\n\nArchetypes Dual-Weapon Warrior (Level 18)\n\nGain the benefits of Twin Parry while in this stance.',
     data: { class: 'Fighter', actions: 'Single Action', prerequisite: 'Twin Parry', requirements: 'Wielding two melee weapons',
       archetype: 'Dual-Weapon Warrior', archetype_levels: 'Dual-Weapon Warrior=18' } }
   const before = JSON.stringify(original)
   const copy = homebrewCharacterOptions([original]).find(entry => entry.name === 'Twinned Defense Stance')!
-  expect(copy).toMatchObject({ level: 16, source: 'homebrew', traits: ['Stance', 'Ranger'], description: original.description,
+  expect(copy).toMatchObject({ level: 16, source: 'homebrew', traits: ['Stance', 'Ranger'],
+    description: 'Twinned Defense Stance\n\nGain the benefits of Twin Parry while in this stance.',
     data: { class: 'Ranger', prerequisite: 'Twin Parry', actions: 'Single Action', requirements: original.data.requirements } })
   expect(copy.data.archetype).toBeUndefined()
   expect(copy.data.archetype_levels).toBeUndefined()

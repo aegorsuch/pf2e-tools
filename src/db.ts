@@ -32,7 +32,7 @@ export async function ensureSupplementalContent() {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
       else if (['homebrew:clawed-gauntlet', 'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
-        'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard'].includes(entry.id)
+        'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance'].includes(entry.id)
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }
   })
