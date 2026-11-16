@@ -231,7 +231,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
         {options.map((choice) => <option key={choice}>{choice}</option>)}
       </SearchableSelect>
-      {noteId && <small id={noteId}>Choose a common ancestry or one with established access. Physiological requirements need GM approval.</small>}
+      {noteId && <small id={noteId}>Choose a common ancestry or one with established access; physiological requirements need GM approval.</small>}
       {noteId && feat.choice && !options.includes(feat.choice)
         && <small role="status">Saved ancestry is unavailable. Check content and GM access, or choose another ancestry.</small>}
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)

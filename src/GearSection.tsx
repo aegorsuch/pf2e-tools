@@ -8,7 +8,7 @@ import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands,
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { adoptedAncestryText, ancestralAttackName } from './featChoices'
+import { adoptedAncestryText } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
 import { ActionIcon } from './ActionIcon'
@@ -997,8 +997,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
         const shieldSource = shieldAttachmentSource(c, w)
         const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
-        const material = unarmed ? /^(?:Cold Iron|Silver|Adamantine)\b/.exec(enhanced.material ?? '')?.[0] ?? alloy : undefined
-        const displayName = `${ancestralAttackName(c, plainName, material)}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
+        const displayName = `${adoptedAncestryText(c, plainName)}${attachmentSource ? ` (Attached to ${attachmentSource.name})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const upgradeWeapon = usesWeaponUpgrades(a.entry)

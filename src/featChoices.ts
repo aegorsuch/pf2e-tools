@@ -41,15 +41,6 @@ export function adoptedAncestryText(c: Character, text: string) {
   })
 }
 
-export function ancestralAttackName(c: Character, name: string, material?: string) {
-  const display = adoptedAncestryText(c, name)
-  const tusks = /^Tusks(?: \(Orc\))?$/i.test(name)
-  const fixed = tusks && c.feats.some(feat => feat.name === 'Cold Iron Tusks' && featTakenLevel(feat) <= c.level)
-    && c.level >= 5 ? 'Cold Iron' : undefined
-  const selected = material ?? (tusks || /^Iron Fists?$/i.test(name) ? fixed ?? alloyedAttackChoice(c) : undefined)
-  return selected && !display.startsWith(`${selected} `) ? `${selected} ${display}` : display
-}
-
 export function ancestryFeatTraits(c: Character) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const testSubject = c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg' && getSettings().cyborgTestSubject
