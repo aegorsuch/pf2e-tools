@@ -66,6 +66,16 @@ it.each([
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it.each([false, true])('includes Giant Rage damage without helper text in weapon displayOnly=%s', displayOnly => {
+  const klass = content('class', 'Barbarian', { attack_proficiency: 'expert in martial weapons' })
+  const c: Character = { ...base, level: 15, className: 'Barbarian', subclass: 'Giant', raging: true,
+    giantWeaponId: main.id, weapons: [main] }
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[sword, klass]} save={() => {}} displayOnly={displayOnly} />)
+  expect(html).toContain('Damage 3d8+23 S')
+  expect(html).not.toContain('Includes +18 Rage damage')
+  expect(html).not.toContain('Thrown Strikes require Raging Thrower')
+})
+
 it('applies Giant clumsy only while wielding the selected weapon, including outside Rage', () => {
   const blade = { ...sword, name: 'Rapier', traits: ['Finesse'] }
   const weapon = { ...main, name: blade.name, potency: 0, striking: 0 }

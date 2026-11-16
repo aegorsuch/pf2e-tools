@@ -1117,8 +1117,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             : hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
             {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
-            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{!!summary.attack.rageDamage
-              && <SourceNote source="Rage" note={`Includes +${summary.attack.rageDamage} Rage damage. Thrown Strikes require Raging Thrower.`} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}</small>
@@ -1143,8 +1142,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           }}>
             <summary><strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
               {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
-              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{!!summary.attack.rageDamage
-                && <SourceNote source="Rage" note={`Includes +${summary.attack.rageDamage} Rage damage. Thrown Strikes require Raging Thrower.`} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             </Fragment>)}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
