@@ -158,9 +158,7 @@ it('enforces secondary exocortex choices and their acquisition levels through pr
   expect(featChoiceOptions('Exocortex Experimenter', c, [], 'class:6:0')).toEqual(['Drone'])
   expect(featChoiceOptions('Exocortex Experimenter', c, [], 'class:12:0')).toEqual(['Turret'])
   const markup = renderToStaticMarkup(<FeatChoice c={c} entries={mechanicFeatCatalog} save={() => {}} index={0} />)
-  expect(markup).toContain('Additional exocortex')
-  expect(markup).toContain('<option selected="">Drone</option>')
-  expect(markup).not.toContain('<option>Mine</option>')
+  expect(markup).toBe('')
 })
 
 it.each([

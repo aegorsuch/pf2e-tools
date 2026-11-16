@@ -23,6 +23,7 @@ export interface Settings {
   generalFeatsOnly: boolean
   planSkillPrerequisites: boolean
   skillTokenConversion: boolean
+  fighterPhysicalSkills: boolean
   innateHighestMental: boolean
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
@@ -37,7 +38,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, innateHighestMental: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

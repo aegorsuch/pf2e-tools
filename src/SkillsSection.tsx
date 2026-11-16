@@ -509,17 +509,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
-      {(getSettings().skillTokenConversion || !!c.skillTokenUpgrades?.length) && <details className="skill-token-exchange">
-        <summary>Skill token rules</summary>
-        <p>Choose E, M or L on a skill above. Unused lower-tier choices combine automatically when needed;
-          no separate conversion step is required. Click a purchased rank again to refund it.</p>
-        <p>Two unused Trained choices buy one Expert upgrade; two Expert tokens buy Master;
-          two Master tokens buy Legendary. Lower tokens can be combined recursively.
-          Starting from Trained, this costs 2 / 6 / 14 Trained choices in total.</p>
-        <p>Existing proficiencies are never traded away. Expert requires level 3, Master 7, Legendary 15.
-          Source restrictions still apply. Temporary Skill Download choices cannot be exchanged.
-          Purchases take effect at the level where you make them. Disable the house rule to pause purchases without deleting them.</p>
-        {!!c.skillTokenUpgrades?.length && <ul>
+      {!!c.skillTokenUpgrades?.length && <details className="skill-token-exchange">
+        <summary>Converted skill upgrades</summary>
+        <ul>
           {c.skillTokenUpgrades.map((purchase, index) => {
             const inactive = tokenState?.inactive.find(item => item.index === index)
             return <li key={`${purchase.skill}:${purchase.rank}:${index}`}>
@@ -530,7 +522,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 onClick={() => refundTokens(purchase.skill, purchase.rank)}>Refund</button>
             </li>
           })}
-        </ul>}
+        </ul>
       </details>}
       <details className="lore-add">
         <summary aria-label="Add Lore skill" title="Add Lore skill">+</summary>

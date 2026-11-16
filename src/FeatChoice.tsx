@@ -43,10 +43,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   const feat = c.feats[index]
   if (!feat) return null
   if (feat.name === 'Carry Their Memories' || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
-  if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone', 'Convertible Chassis', 'Exocortex Experimenter'].includes(feat.name)) {
+  if (c.systems.includes('sf2e') && feat.name === 'Exocortex Experimenter') return null
+  if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone', 'Convertible Chassis'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     return <label className="feat-choice">{feat.name === 'Advanced Drone' ? 'Advancement' : feat.name === 'Superior Drone' ? 'Specialization'
-      : feat.name === 'Exocortex Experimenter' ? 'Additional exocortex' : 'Additional chassis'}{' '}
+      : 'Additional chassis'}{' '}
       <select aria-label={`${feat.name} choice`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value
         if (choice && !options.includes(choice)) return

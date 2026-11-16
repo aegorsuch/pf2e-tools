@@ -1747,6 +1747,9 @@ export function classSkills(klass?: ContentEntry) {
     return m ? [m[1].split(/,| or /).map((x) => x.trim()).filter(Boolean)] : []
   })[0] ?? []
   const extra = lines.map((l) => /additional skills? equal to (\d+)/i.exec(l)).find(Boolean)
+  if (klass?.name === 'Fighter' && getSettings().fighterPhysicalSkills) {
+    return { fixed: [...new Set([...fixed, 'Acrobatics', 'Athletics'])], choices: [], additional: extra ? +extra[1] : 0 }
+  }
   return { fixed, choices, additional: extra ? +extra[1] : 0 }
 }
 

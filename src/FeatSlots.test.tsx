@@ -1049,6 +1049,35 @@ it('blocks Animal Strength selection until Animal Feature is actually learned as
   expect(c.feats.find(selected => selected.name === feat.name)).toMatchObject({ slot: 'class:6:0' })
 })
 
+it('selects Exocortex Experimenter variants without a separate choice control and preserves saved choices', () => {
+  const feat: ContentEntry = {
+    id: 'experimenter', systems: ['sf2e'], kind: 'feat', name: 'Exocortex Experimenter', level: 6,
+    traits: ['Mechanic'], source: 'official', description: '', data: { repeatable: true }, effects: [], updatedAt: 1,
+  }
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Mechanic', subclass: 'Drone', level: 12,
+    feats: [{ name: feat.name, type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
+  let search: Record<string, string> = { 'class:6:0:open': '1' }
+  const tree = () => FeatSlots({ c, entries: [feat], save: patch => { c = { ...c, ...patch } },
+    categories: ['class'], search, onSearch: () => {} })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('aria-label="L06 Class: Exocortex Experimenter (Mine)"')
+  expect(markup).toContain('aria-label="L06 Class: Exocortex Experimenter (Turret)"')
+  expect(markup).not.toContain('aria-label="L06 Class: Exocortex Experimenter (Drone)"')
+  expect(markup).not.toContain('aria-label="Exocortex Experimenter choice"')
+  findButton(tree(), 'L06 Class: Exocortex Experimenter (Mine)')!()
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats.find(selected => selected.slot === 'class:6:0')).toMatchObject({ name: feat.name, choice: 'Mine' })
+  expect(renderToStaticMarkup(tree())).toContain('>Exocortex Experimenter (Mine)</button>')
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />)).toBe('')
+  search = { 'class:12:0:open': '1' }
+  const second = renderToStaticMarkup(tree())
+  expect(second).toContain('aria-label="L12 Class: Exocortex Experimenter (Turret)"')
+  expect(second).not.toContain('aria-label="L12 Class: Exocortex Experimenter (Mine)"')
+  expect(second).not.toContain('aria-label="L12 Class: Exocortex Experimenter (Drone)"')
+  findButton(tree(), 'L12 Class: Exocortex Experimenter (Turret)')!()
+  expect(c.feats.map(selected => selected.choice)).toEqual(['Mine', 'Turret'])
+})
+
 it('offers explicit favored-terrain variants and persists the chosen terrain', () => {
   let c: Character = { ...emptyRanger(), level: 2 }
   const feat: ContentEntry = {

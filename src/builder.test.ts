@@ -1278,7 +1278,7 @@ describe('skills', () => {
     expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toMatchObject({ fixed: ['Arcana'], additional: 2 })
   })
   it('ignores choice lines', () => {
-    const k = entry('class', 'Fighter', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
+    const k = entry('class', 'Test Class', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
     expect(classSkills(k)).toMatchObject({ fixed: [], additional: 3 })
   })
   it('combines sources, increases and overrides', () => {
@@ -1577,10 +1577,34 @@ describe('automatic class skill training', () => {
 describe('class skill choice', () => {
   it('auto-trains the picked skill only', () => {
     const fighter = entry('class', 'Fighter', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
-    expect(classSkills(fighter).choices).toEqual(['Acrobatics', 'Athletics'])
-    const c = { ...base, className: 'Fighter', classSkill: 'Athletics' }
-    expect(ranksAt(c, [fighter]).Athletics).toBe(1)
-    expect(ranksAt(c, [fighter]).Acrobatics ?? 0).toBe(0)
+    const previous = getSettings().fighterPhysicalSkills
+    try {
+      updateSettings({ fighterPhysicalSkills: false })
+      expect(classSkills(fighter).choices).toEqual(['Acrobatics', 'Athletics'])
+      const c = { ...base, className: 'Fighter', classSkill: 'Athletics' }
+      expect(ranksAt(c, [fighter]).Athletics).toBe(1)
+      expect(ranksAt(c, [fighter]).Acrobatics ?? 0).toBe(0)
+    } finally { updateSettings({ fighterPhysicalSkills: previous }) }
+  })
+
+  it('grants Fighters both physical skills without spending choices and restores saved training when disabled', () => {
+    const fighter = entry('class', 'Fighter', { skill_proficiency: 'Trained in your choice of Acrobatics or Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
+    const c = { ...base, className: 'Fighter', classSkill: 'Athletics', skillPicks: ['Acrobatics', 'Stealth'] }
+    const before = JSON.stringify(c)
+    const previous = getSettings()
+    try {
+      updateSettings({ fighterPhysicalSkills: true, autoClassSkills: false })
+      expect(classSkills(fighter)).toEqual({ fixed: ['Acrobatics', 'Athletics'], choices: [], additional: 3 })
+      expect(ranksAt({ ...c, skillPicks: [] }, [fighter])).toMatchObject({ Acrobatics: 1, Athletics: 1 })
+      expect(skillRankBudget(c, [fighter]).trained).toBe(2)
+      updateSettings({ autoClassSkills: true })
+      expect(ranksAt({ ...c, level: 7 }, [fighter])).toMatchObject({ Acrobatics: 3, Athletics: 3 })
+      updateSettings({ fighterPhysicalSkills: false, autoClassSkills: false })
+      expect(ranksAt({ ...c, skillPicks: [] }, [fighter])).toMatchObject({ Athletics: 1 })
+      expect(ranksAt({ ...c, skillPicks: [] }, [fighter]).Acrobatics ?? 0).toBe(0)
+      expect(skillRankBudget(c, [fighter]).trained).toBe(1)
+      expect(JSON.stringify(c)).toBe(before)
+    } finally { updateSettings(previous) }
   })
 })
 

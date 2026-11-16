@@ -509,7 +509,6 @@
 .rank-dots .rank-choice .source-note-trigger { min-width: 24px; width: auto; padding: 0; background: none; border: 0; }
 .skill-token-exchange { margin-block: 0.5rem; }
 .skill-token-exchange summary { cursor: pointer; }
-.skill-token-exchange p { max-width: 70ch; font-size: 0.85em; }
 .skill-token-exchange li { margin-block: 0.4rem; overflow-wrap: anywhere; }
 .lore-add > summary { display: inline-grid; place-items: center; cursor: pointer; list-style: none; width: 2rem; height: 2rem; border: 1px solid var(--border); border-radius: 5px; }
 .lore-add > summary::-webkit-details-marker { display: none; }

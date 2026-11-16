@@ -12,6 +12,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'exclusiveCyborgHearts', label: 'Cyborg Hearts: Machine Heart or Mortal Heart' },
   { key: 'cyborgTestSubject', label: 'Cyborg Heritage adds Test-Subject Ysoki Heritage' },
   { key: 'druidCavalier', label: 'Druid Cavalier Dedication' },
+  { key: 'fighterPhysicalSkills', label: 'Fighter Grants Acrobatics and Athletics',
+    description: 'Fighters are trained in both Acrobatics and Athletics instead of choosing one. Additional skill choices are unchanged. Disabling restores the saved class skill choice.' },
   { key: 'freeArchetype', label: 'Free Archetype' },
   { key: 'gauntletFinesse', label: 'Gauntlet and Spiked Gauntlet Gain Finesse' },
   { key: 'generalFeatsOnly', label: 'General Feats Only' },
@@ -26,7 +28,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: "Feat skill prerequisites use actual skill ranks at your character's selected build level, even for earlier feat slots. Unassigned ranks do not qualify. Other prerequisites are unchanged." },
   { key: 'rangerSnarecrafter', label: 'Ranger Snarecrafter Dedication' },
   { key: 'skillTokenConversion', label: 'Skill Token Conversion',
-    description: 'Choose a higher skill rank to combine unused choices automatically. Two Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. From Trained: 2 / 6 / 14 Trained choices total. Existing proficiencies, source restrictions and level caps remain. Full rules and refunds are in Skills > Skill token rules.' },
+    description: 'Choose a higher skill rank to combine unused choices automatically. Two Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. From Trained: 2 / 6 / 14 Trained choices total. Expert requires level 3, Master 7, Legendary 15. Existing proficiencies and source restrictions remain. Click a purchased rank again to refund it. Disabling preserves purchases.' },
   { key: 'unarmedCountsAsWeapons', label: 'Unarmed attacks count as weapons' },
 ]
 

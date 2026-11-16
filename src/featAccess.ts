@@ -153,7 +153,8 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
     : isAchievementRequirement(narrative) && (achievements.has(key)
       || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase() && achievements.has(achievementKey(ALKENSTAR)))
   return {
-    requirement: key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : narrative,
+    requirement: key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM
+      : key === LASTWALL_MEMBERSHIP.toLowerCase() ? LASTWALL_TRAINING : narrative,
     automatic: ethnicity || background || ancestry || !!achievement,
     approved: c.featAccessOverrides?.includes(entry.id) ?? false,
     source: ethnicity ? 'ethnicity' : background ? 'background' : ancestry ? 'ancestry' : achievement ? 'achievement' : undefined,

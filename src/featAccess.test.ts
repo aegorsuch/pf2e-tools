@@ -203,11 +203,15 @@ it('groups Lastwall membership access wordings into one named achievement and pr
   expect(option.feats).toEqual(['Devoted Guardian', 'Everstand Stance', 'Member Feat'])
   for (const value of [option.key, option.requirement, 'Member of the Knights of Lastwall', 'knights of lastwall have access to this feat']) {
     const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [value] }))
-    for (const entry of entries) expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement' })
+    for (const entry of entries) expect(featAccess(saved, entry)).toMatchObject({
+      requirement: 'Member of or trained by Knights of Lastwall', automatic: true, source: 'achievement',
+    })
     expect(featAccess(saved, { ...feat, data: { access: 'Member of the Knights of Lastwall of knight rank.' } })?.automatic).toBe(false)
     expect(featAccess(saved, { ...feat, data: { access: 'You are from the Eye of Dread region.' } })?.automatic).toBe(false)
   }
-  expect(featAccess(character, entries[0])?.automatic).toBe(false)
+  expect(featAccess(character, entries[0])).toMatchObject({
+    requirement: 'Member of or trained by Knights of Lastwall', automatic: false,
+  })
 })
 
 it.each([
