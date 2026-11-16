@@ -1370,24 +1370,36 @@ it.each([[1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1], [12, 2, 2], [16, 3, 2], [1
   },
 )
 
-it('uses +2 for Twin Parry only with two wielded melee weapons and a parry weapon', () => {
-  const claw = content('weapon', 'Clawed Gauntlet', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d4 slashing' }, 1, ['Parry', 'Free-Hand'])
-  const sword = content('weapon', 'Sword', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d6 slashing' })
-  const twin = { ...content('feat', 'Twin Parry', {}, 4), description: 'You gain a +1 circumstance bonus to AC until the start of your next turn, or a +2 circumstance bonus if either weapon has the parry trait.' }
-  const entries = [claw, sword, twin]
-  const c: Character = { ...base, className: 'Ranger', level: 4, feats: [feat('Twin Parry', 4)], parrying: true,
-    weapons: [{ id: 'a', name: claw.name, potency: 0, striking: 0, runes: [] }, { id: 'b', name: sword.name, potency: 0, striking: 0, runes: [] }] }
-  expect(parryValue(c, entries)).toBe(2)
-  expect(armorClass(c, entries) - armorClass({ ...c, parrying: false }, entries)).toBe(2)
-  expect(parryValue({ ...c, weapons: [c.weapons![0]] }, entries)).toBe(1)
-  expect(parryValue({ ...c, weapons: [c.weapons![0], { ...c.weapons![1], stowed: true }] }, entries)).toBe(1)
-  expect(parryValue({ ...c, feats: [] }, entries)).toBe(1)
-  const secondGauntlet = { ...claw, id: 'second-gauntlet', name: 'Second Gauntlet' }
-  const pistol = content('weapon', 'Pistol', { weapon_category: 'Martial', hands: 1, weapon_type: 'Ranged', range: 30 })
-  const paired: Character = { ...c, weapons: [c.weapons![0], { ...c.weapons![0], id: 'second', name: secondGauntlet.name }] }
-  expect(parryValue(paired, [...entries, secondGauntlet])).toBe(2)
-  expect(parryValue({ ...paired, weapons: [...paired.weapons!, { ...c.weapons![1], id: 'pistol', name: pistol.name }] },
-    [...entries, secondGauntlet, pistol])).toBe(1)
+it.each([false, true])('uses free-hand weapons and available fists for Twin Parry with the unarmed house rule %s', unarmed => {
+  const previous = getSettings()
+  updateSettings({ unarmedCountsAsWeapons: unarmed })
+  try {
+    const claw = content('weapon', 'Clawed Gauntlet', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d4 slashing' }, 1, ['Parry', 'Free-Hand'])
+    const sword = content('weapon', 'Sword', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee', damage: '1d6 slashing' })
+    const twin = { ...content('feat', 'Twin Parry', {}, 4), description: 'You gain a +1 circumstance bonus to AC until the start of your next turn, or a +2 circumstance bonus if either weapon has the parry trait.' }
+    const entries = [claw, sword, twin]
+    const c: Character = { ...base, className: 'Ranger', level: 4, feats: [feat('Twin Parry', 4)], parrying: true,
+      weapons: [{ id: 'a', name: claw.name, potency: 0, striking: 0, runes: [] }, { id: 'b', name: sword.name, potency: 0, striking: 0, runes: [] }] }
+    expect(parryValue(c, entries)).toBe(2)
+    expect(armorClass(c, entries) - armorClass({ ...c, parrying: false }, entries)).toBe(2)
+    const gauntletOnly = { ...c, weapons: [c.weapons![0], { ...c.weapons![1], stowed: true }] }
+    expect(ownedWeapons(gauntletOnly, entries).some(weapon => weapon.name === 'Fist')).toBe(false)
+    expect(parryValue(gauntletOnly, entries)).toBe(unarmed ? 2 : 1)
+    expect(armorClass(gauntletOnly, entries) - armorClass({ ...gauntletOnly, parrying: false }, entries)).toBe(unarmed ? 2 : 1)
+    expect(parryValue({ ...c, feats: [] }, entries)).toBe(1)
+    const bare = { ...c, weapons: [] }
+    expect(hasParryWeapon(bare, entries)).toBe(unarmed)
+    expect(parryValue(bare, entries)).toBe(unarmed ? 1 : 0)
+    const secondGauntlet = { ...claw, id: 'second-gauntlet', name: 'Second Gauntlet' }
+    const pistol = content('weapon', 'Pistol', { weapon_category: 'Martial', hands: 1, weapon_type: 'Ranged', range: 30 })
+    const paired: Character = { ...c, weapons: [c.weapons![0], { ...c.weapons![0], id: 'second', name: secondGauntlet.name }] }
+    expect(parryValue(paired, [...entries, secondGauntlet])).toBe(2)
+    expect(parryValue({ ...paired, weapons: [...paired.weapons!, { ...c.weapons![1], id: 'pistol', name: pistol.name }] },
+      [...entries, secondGauntlet, pistol])).toBe(1)
+    expect(parryValue({ ...c, weapons: [{ ...c.weapons![1], name: pistol.name }] }, [...entries, pistol])).toBe(0)
+  } finally {
+    updateSettings(previous)
+  }
 })
 
 it('adds Nimble Elf speed and Tree Climber climb speed only when feats are active', () => {

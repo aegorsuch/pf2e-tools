@@ -1558,19 +1558,8 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     || installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name))
 }
 
-export function hasParryWeapon(c: Character, entries: ContentEntry[]) {
-  return ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon) && weaponHasParry(c, entries, weapon))
-}
-
-function parryFeatEntries(c: Character, entries: ContentEntry[]) {
-  return c.feats.filter(feat => featTakenLevel(feat) <= c.level).map(feat => selectedFeatEntry(c, entries, feat.name, feat.sourceId)).filter((entry): entry is ContentEntry => !!entry)
-}
-
-export function parryValue(c: Character, entries: ContentEntry[]) {
-  const featEntries = parryFeatEntries(c, entries)
-  const hasWeapon = hasParryWeapon(c, entries)
-  if (!hasWeapon) return 0
-  const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
+function twinParryValue(c: Character, entries: ContentEntry[]) {
+  if (!activeFeatsNamed(c, 'Twin Parry').length) return 0
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
     const entry = weaponEntry(entries, weapon.name)
     const melee = /melee/i.test(String(entry?.data.weapon_type ?? '')) || !isRanged(entry)
@@ -1582,13 +1571,30 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
     return [...(entry?.traits ?? []), ...tokens(entry?.data.trait)].some(trait => /^free[- ]hand$/i.test(trait))
   })
   const freeHands = Math.max(0, totalHandCapacity(c) - equippedHands(c, entries))
-  const twinParry = activeFeatsNamed(c, 'Twin Parry').length > 0
-    && oneHanded.length + Math.min(freeHands, freeHandWeapons.length) >= 2
-    && (oneHanded.some(weapon => weaponHasParry(c, entries, weapon))
-      || freeHands > 0 && freeHandWeapons.some(weapon => weaponHasParry(c, entries, weapon)))
+  // Free hands can wield fists even when redundant unarmed rows are hidden from equipment.
+  const freeHandCount = getSettings().unarmedCountsAsWeapons ? freeHands : Math.min(freeHands, freeHandWeapons.length)
+  if (oneHanded.length + freeHandCount < 2) return 0
+  return oneHanded.some(weapon => weaponHasParry(c, entries, weapon))
+    || freeHands > 0 && freeHandWeapons.some(weapon => weaponHasParry(c, entries, weapon)) ? 2 : 1
+}
+
+export function hasParryWeapon(c: Character, entries: ContentEntry[]) {
+  return ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon) && weaponHasParry(c, entries, weapon))
+    || twinParryValue(c, entries) > 0
+}
+
+function parryFeatEntries(c: Character, entries: ContentEntry[]) {
+  return c.feats.filter(feat => featTakenLevel(feat) <= c.level).map(feat => selectedFeatEntry(c, entries, feat.name, feat.sourceId)).filter((entry): entry is ContentEntry => !!entry)
+}
+
+export function parryValue(c: Character, entries: ContentEntry[]) {
+  const featEntries = parryFeatEntries(c, entries).filter(entry => entry.name !== 'Twin Parry')
+  const hasWeapon = hasParryWeapon(c, entries)
+  if (!hasWeapon) return 0
+  const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
   const tacticalGrid = ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
     && installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
-  return Math.max(1, featBonus, twinParry ? 2 : 0, tacticalGrid ? 2 : 0)
+  return Math.max(1, featBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0)
 }
 
 export const parryBonus = (c: Character, entries: ContentEntry[]) => c.parrying ? parryValue(c, entries) : 0

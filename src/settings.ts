@@ -27,12 +27,13 @@ export interface Settings {
   inventorFirearmAccess: boolean
   // House rule: Gauntlet and Spiked Gauntlet gain finesse
   gauntletFinesse: boolean
+  unarmedCountsAsWeapons: boolean
   barbarianIgnoreAgile: boolean
   cyborgTestSubject: boolean
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

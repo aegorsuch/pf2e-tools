@@ -318,6 +318,11 @@ export default function App() {
               onChange={(e) => updateSettings({ rangerSnarecrafter: e.target.checked })} />{' '}
             Ranger Snarecrafter Dedication
           </label>
+          <label>
+            <input type="checkbox" checked={settings.unarmedCountsAsWeapons}
+              onChange={(e) => updateSettings({ unarmedCountsAsWeapons: e.target.checked })} />{' '}
+            Unarmed attacks count as weapons
+          </label>
         </section>
       )}
 
