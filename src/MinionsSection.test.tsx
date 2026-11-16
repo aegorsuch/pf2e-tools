@@ -112,6 +112,12 @@ it('shows granted Ferocity on each eligible minion without consuming familiar or
   expect(html).toContain('aria-label="Reaction"')
   expect(html).toContain('Daily familiar or master abilities (1/2)')
   expect(html).toContain('<option selected="">Climber</option>')
+  const adopted = render({ ...c, ancestry: 'Human', feats: [
+    ...c.feats, { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
+  ] })
+  expect(adopted.match(/aria-label="Ferocity"/g)).toHaveLength(4)
+  expect(adopted).toContain('Gain 13 temporary HP when using Ferocity')
+  expect(adopted).not.toContain('Orc Ferocity')
   expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Undying Ferocity') })).not.toContain('temporary HP')
   expect(render({ ...c, level: 12 })).not.toContain('aria-label="Orc Ferocity"')
   expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Ferocious Beasts') })).not.toContain('aria-label="Orc Ferocity"')

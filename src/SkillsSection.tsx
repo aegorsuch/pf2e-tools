@@ -5,6 +5,7 @@ import { resistances,
 } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
+import { adoptedAncestryText } from './featChoices'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource } from './warmask'
@@ -230,7 +231,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           : signed(abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0))}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
-          {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
+          {!!warmaskBonus && <SourceNote inlineSource={false} source={adoptedAncestryText(c, 'Orc Warmask')} note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {s.name === 'Perception' && sights.map(sight => {

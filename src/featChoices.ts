@@ -39,7 +39,7 @@ export function adoptedAncestryText(c: Character, text: string) {
   if ([c.ancestry, c.heritage].some(name => /^(orc|dromaar|half-orc)$/i.test(name?.trim() ?? ''))
     || !c.feats.some(feat => feat.name === 'Adopted Ancestry' && feat.choice?.trim().toLowerCase() === 'orc'
       && featTakenLevel(feat) <= c.level)) return text
-  return text.replace(/\btusks?\b/gi, word => {
+  return text.replace(/\bOrc (Ferocity|Superstition|Warmask)\b/g, '$1').replace(/\btusks?\b/gi, word => {
     const replacement = word.toLowerCase() === 'tusk' ? 'tooth' : 'teeth'
     return word === word.toUpperCase() ? replacement.toUpperCase()
       : word[0] === word[0].toUpperCase() ? replacement[0].toUpperCase() + replacement.slice(1) : replacement

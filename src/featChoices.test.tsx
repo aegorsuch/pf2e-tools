@@ -4,6 +4,7 @@ import { expect, it, vi } from 'vitest'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { FeatChoice } from './FeatChoice'
+import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { FeatSlots } from './FeatSlots'
 import { LanguagesSection } from './LanguagesSection'
@@ -23,6 +24,20 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each(['Ferocity', 'Superstition', 'Warmask'])('displays %s without Orc only for active adopted-Orc characters', name => {
+  const adopted = { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' }
+  const c: Character = { ...base, ancestry: 'Human', feats: [adopted] }
+  const render = (character: Character) => renderToStaticMarkup(<EntryDescription character={character} name={`Orc ${name}`} />)
+  expect(render(c)).toContain(`aria-haspopup="dialog">${name}</button>`)
+  for (const character of [
+    { ...c, feats: [] },
+    { ...c, feats: [{ ...adopted, takenLevel: 2 }] },
+    ...['Orc', 'Dromaar', 'Half-Orc'].map(ancestry => ({ ...c, ancestry })),
+    { ...c, feats: [{ ...adopted, choice: 'Dwarf' }] },
+  ]) expect(render(character)).toContain(`aria-haspopup="dialog">Orc ${name}</button>`)
+  expect(c.feats).toEqual([adopted])
+})
 
 it('skips ancestry resolution for missing and unambiguous feat sources without ignoring saved source IDs', () => {
   const ancestry = vi.fn(() => 'Human')

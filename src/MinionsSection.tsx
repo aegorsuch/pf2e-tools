@@ -2,7 +2,7 @@ import { Info, SourceNote } from './Info'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
-import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
+import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
 import { newId } from './db'
@@ -40,18 +40,19 @@ function minionSummaryData(c: Character) {
   return { companions, advancement, constructAdvancement, stage, leshy, familiar, seaFriend, pet }
 }
 
-function MinionFerocity({ ferocity }: { ferocity: ReturnType<typeof minionFerocity> }) {
+function MinionFerocity({ c, ferocity }: { c: Character; ferocity: ReturnType<typeof minionFerocity> }) {
   if (!ferocity) return null
-  return <section className="companion-actions" aria-label="Orc Ferocity">
+  const name = adoptedAncestryText(c, 'Orc Ferocity')
+  return <section className="companion-actions" aria-label={name}>
     <h5>Reactions</h5>
     <div className="companion-action">
       <div className="companion-action-title">
-        <ActionIcon actions="Reaction" /><b>Orc Ferocity</b>
-        <SourceNote source="Ferocious Beasts" note="Grants Orc Ferocity and one reaction per round usable only for Orc Ferocity." />
+        <ActionIcon actions="Reaction" /><b>{name}</b>
+        <SourceNote source="Ferocious Beasts" note={`Grants ${name} and one reaction per round usable only for ${name}.`} />
       </div>
-      <p className="companion-action-description">Once per day, when reduced to 0 HP but not immediately killed, remain at 1 HP instead of being knocked out; wounded increases by 1. One reaction per round, usable only for Orc Ferocity.</p>
+      <p className="companion-action-description">Once per day, when reduced to 0 HP but not immediately killed, remain at 1 HP instead of being knocked out; wounded increases by 1. One reaction per round, usable only for {name}.</p>
       {ferocity.temporaryHp > 0 && <p className="companion-action-description">
-        Gain {ferocity.temporaryHp} temporary HP when using Orc Ferocity.
+        Gain {ferocity.temporaryHp} temporary HP when using {name}.
         <SourceNote source="Undying Ferocity" note="Ferocious Beasts also grants your Undying Ferocity benefit: temporary HP equal to this minion's level." />
       </p>}
     </div>
@@ -391,7 +392,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       </div>}
                     </div>}
                   </section>}
-                  <MinionFerocity ferocity={stats.ferocity} />
+                  <MinionFerocity c={c} ferocity={stats.ferocity} />
                   {stats.stealthyCompanion && <div><small>Camouflage</small> In natural terrain, your companion can Hide and Sneak without cover or concealment.</div>}
                   {stats.primalHowl && <div><small>Advanced maneuver</small> <b>Primal Howl</b> (2 actions, primal, sonic; once per hour): 30-foot cone, {stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.</div>}
                   {stats.entry.description && <Info label="About">{stats.entry.description}</Info>}
@@ -464,7 +465,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             {oaken && <small>Oaken Resilience: Bludgeoning and piercing resistance {oaken.resistance}; fire weakness {oaken.fireWeakness}.</small>}
             <small>Grown of Oak targets your leshy familiar only if within 30 feet when cast.</small>
           </>}
-          <MinionFerocity ferocity={ferocity} />
+          <MinionFerocity c={c} ferocity={ferocity} />
         </details>}
         {pet && <details className="character-subsection" open>
           <summary><h4>{seaFriend ? 'Aquatic Pet' : 'Pet'}</h4></summary>
@@ -493,7 +494,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             .map(ability => <small key={ability}>{ability}: {PET_ABILITY_NOTES[ability]}</small>)}
           {seaFriend && petAbilities.some(ability => ['Darkvision', 'Tough'].includes(ability)) && <small>Choose a different pet ability; Darkvision and Tough are already granted.</small>}
           <small>Pet abilities must include abilities natural to the chosen animal; review ability effects and Command an Animal rules.</small>
-          <MinionFerocity ferocity={ferocity} />
+          <MinionFerocity c={c} ferocity={ferocity} />
         </details>}
       </div>
   )

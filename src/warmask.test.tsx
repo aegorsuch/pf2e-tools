@@ -44,6 +44,19 @@ it('treats the warmask as always worn and attuned while the feat is active', () 
   expect(renderToStaticMarkup(<ArmorList c={{ ...c, level: 0 }} entries={[]} save={() => {}} />)).not.toContain('Orc Warmask')
 })
 
+it('uses the adopted-Orc Warmask label consistently without renaming the saved feat', () => {
+  const c: Character = { ...base, ancestry: 'Human', feats: [
+    ...base.feats, { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
+  ] }
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />))
+    .toContain('aria-haspopup="dialog">Warmask</button>')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />))
+    .toContain('aria-label="Warmask note"')
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} index={0} save={() => {}} />))
+    .toContain('aria-label="Warmask power source"')
+  expect(c.feats[0].name).toBe('Orc Warmask')
+})
+
 it('grants the chosen daily spell at rank 1 with the warmask tradition and shared daily use', () => {
   const grant = grantedFeatSpells(base, [spell])[0]
   expect(grant).toMatchObject({ entry: { name: 'Fear' }, rank: 1,

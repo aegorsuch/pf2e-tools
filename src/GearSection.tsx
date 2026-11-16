@@ -1654,7 +1654,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           onChange={event => save({ hardwoodShield: { ...c.hardwoodShield, damage: Math.max(0, +event.target.value || 0) } })} /></label>
       </article>}</>}
       {part !== 'shield' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length > 0 && <article className="gear-card">
-        <header><strong><EntryDescription name="Orc Warmask" entry={entries.find(entry => entry.kind === 'feat' && entry.name === 'Orc Warmask')}
+        <header><strong><EntryDescription character={c} name="Orc Warmask" entry={entries.find(entry => entry.kind === 'feat' && entry.name === 'Orc Warmask')}
           className="equipment-name" /></strong></header>
         {warmaskSource(c) && <small>+1 item bonus to {warmaskSource(c)?.skill}.</small>}
       </article>}

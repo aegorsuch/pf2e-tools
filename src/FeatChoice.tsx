@@ -1,4 +1,4 @@
-import { hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
+import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
@@ -61,7 +61,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   if (feat.name === 'Orc Warmask') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     return <span className="feat-choice feat-choice-with-note">
-      <label>Power source{' '}<select aria-label="Orc Warmask power source" value={feat.choice ?? ''} disabled={!!feat.choice}
+      <label>Power source{' '}<select aria-label={adoptedAncestryText(c, 'Orc Warmask power source')} value={feat.choice ?? ''} disabled={!!feat.choice}
         onChange={event => {
           const choice = event.target.value
           if (!options.includes(choice)) return
