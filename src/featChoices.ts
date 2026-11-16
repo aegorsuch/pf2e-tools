@@ -10,6 +10,11 @@ const WARDEN_TIERS: Record<string, string> = {
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
 
+export const INITIATE_TRAINING = {
+  'Greenwatch Initiate': { skill: 'Survival', feats: ['Experienced Tracker', 'Survey Wildlife'] },
+  'Greywatch Initiate': { skill: 'Deception', feats: ['Face in the Crowd', 'Lengthy Diversion'] },
+} as const
+
 const ANCESTRAL_UNARMED_FEATS: Record<string, string[]> = {
   orc: ['Tusks', 'Tusks (Orc)', 'Iron Fists', 'Iron Fist'],
   barathu: ['Tentacle Whip'],

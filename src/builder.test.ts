@@ -26,6 +26,62 @@ it('merges equivalent cross-system ancestry feats after eligibility filtering bu
   expect(options.map(option => option.id)).toEqual([original.id, different.id, restricted.id])
 })
 
+it('merges equivalent skill feats without losing clarifications, different rules, homebrew, or saved sources', () => {
+  const rules = "Choose a skill you're trained in. You can receive a result of 10 + your proficiency bonus."
+  const clarification = '<details class="clarification"><summary>Paizo Clarification</summary>This still counts as a roll.</details>'
+  const special = '\n\n**Special** You can select this feat multiple times. Each time, choose a different skill.'
+  const mapped = (system: 'pf2e' | 'sf2e', id: string, body: string, prerequisite = 'trained in at least one skill') =>
+    mapAonHit({ _id: id, _source: { category: 'feat', name: 'Assurance', level: 1,
+      trait: ['Fortune', 'General', 'Skill'], skill: system === 'pf2e' ? ['Athletics', 'Athletics'] : ['Athletics'],
+      prerequisite, markdown: `Assurance\n\nSource ${system}\n\n---\n\n${body}${special}` } }, system)!
+  const pf = mapped('pf2e', 'pf-assurance', `${rules} ${clarification}`)
+  const sf = mapped('sf2e', 'sf-assurance', rules.replace("you're", 'you\u2019re'), 'Trained in at least one skill')
+  const different = mapped('sf2e', 'different-rules', rules.replace('10 +', '12 +'))
+  const restricted = mapped('sf2e', 'different-prerequisite', rules, 'expert in at least one skill')
+  const homebrew: ContentEntry = { ...pf, id: 'custom-assurance', source: 'homebrew' }
+  const c: Character = { id: 'skill-dedup', name: 'Test', systems: ['pf2e', 'sf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const data = [sf, pf, different, restricted, homebrew]
+  const slot = { key: 'skill:1:0', category: 'skill' as const, level: 1 }
+  const options = (character: Character, available = data) =>
+    eligibleFeats(available, character, slot, { includeUnmetPrerequisites: true }).map(feat => feat.id)
+  expect(options(c)).toEqual([pf.id, different.id, restricted.id, homebrew.id])
+  expect(pf.description).toContain('Paizo Clarification')
+  expect(pf.description).toContain('Each time, choose a different skill.')
+  expect(options({ ...c, systems: ['sf2e', 'pf2e'] })).toEqual([sf.id, different.id, restricted.id, homebrew.id])
+  expect(options(c, [sf])).toEqual([sf.id])
+  const selected = { ...c, entryIds: [sf.id],
+    feats: [{ name: sf.name, type: 'Skill Feat', level: 1, slot: slot.key, sourceId: sf.id }] }
+  const saved = JSON.stringify(selected)
+  expect(options(selected)).toEqual([sf.id, different.id, restricted.id, homebrew.id])
+  expect(options({ ...selected, feats: [{ ...selected.feats[0], sourceId: undefined }] }))
+    .toEqual([sf.id, different.id, restricted.id, homebrew.id])
+  expect(JSON.stringify(selected)).toBe(saved)
+})
+
+it.each([
+  ['Arcane Sense', '5119', '761-arcane-sense', {}, {}, []],
+  ['Quick Identification', '5195', '861-quick-identification',
+    { prerequisite: 'trained in Arcana, Nature, Occultism, or Religion' },
+    { prerequisite: 'Trained in Arcana, Trained in Nature, Trained in Occultism, or Trained in Religion' }, []],
+  ['Automatic Knowledge', '5122', '765-automatic-knowledge',
+    { prerequisite: 'expert in a skill with the Recall Knowledge action; Assurance in that skill' },
+    { prerequisite: 'expert in a skill with the Recall Knowledge action, Assurance in that skill' }, []],
+  ['Train Animal', '5228', '900-train-animal', {}, {}, ['Downtime', 'Manipulate']],
+] as const)('merges audited %s core-book copies but not unrelated versions', (name, pfId, sfId, pfData, sfData, extraTraits) => {
+  const pf = { ...entry('feat', name, pfData, 1, ['General', 'Skill', ...extraTraits]),
+    id: `aon:pf2e:feat-${pfId}`, description: 'Flavor. Shared benefit.' }
+  const sf: ContentEntry = { ...pf, id: `aon:sf2e:feats--${sfId}`, systems: ['sf2e'], data: sfData,
+    traits: ['General', 'Skill'], description: 'Shared benefit.' }
+  const different = { ...pf, id: 'other-version', description: 'Different benefit.' }
+  const c: Character = { id: 'shared-skill', name: 'Test', systems: ['pf2e', 'sf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(eligibleFeats([sf, pf, different], c, { key: 'skill:1:0', category: 'skill', level: 1 },
+    { includeUnmetPrerequisites: true }).map(feat => feat.id)).toEqual([pf.id, different.id])
+})
+
 it.each(['Cooperative Soul', 'Incredible Improvisation'])('offers one official %s across systems while preserving homebrew', name => {
   const pf = { ...entry('feat', name, {}, 9, ['Human']), description: 'Pathfinder wording.' }
   const sf: ContentEntry = { ...pf, id: `sf:${name}`, systems: ['sf2e'], description: 'Starfinder wording.',
@@ -671,22 +727,48 @@ describe('official passive feat mechanics', () => {
     expect(movementSpeeds({ ...c, spells: [] }, [])).toHaveLength(1)
   })
 
-  it('applies Greenwatch expert Survival at acquisition, preserves later increases, and grants its prerequisite skill feats', () => {
-    const greenwatch = { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }
-    const c: Character = { ...base, level: 7, skillPicks: ['Survival'], feats: [greenwatch] }
-    expect(ranksAt(c, entries).Survival).toBe(2)
-    expect(ranksAt(c, entries, 4).Survival).toBe(1)
-    expect(ranksAt({ ...c, skillIncreases: { 3: 'Survival' } }, entries).Survival).toBe(2)
-    expect(ranksAt({ ...c, skillIncreases: { 7: 'Survival' } }, entries).Survival).toBe(3)
-    expect(ranksAt({ ...c, rankOverrides: { Survival: 0 } }, entries).Survival).toBe(2)
+  it.each([
+    { source: 'Greenwatch Initiate', skill: 'Survival', grants: ['Experienced Tracker', 'Survey Wildlife'] },
+    { source: 'Greywatch Initiate', skill: 'Deception', grants: ['Face in the Crowd', 'Lengthy Diversion'] },
+  ])('applies $source expert $skill at acquisition and preserves later increases and feat grants', ({ source, skill, grants }) => {
+    const initiate = { name: source, type: 'Class Feat', level: 4, slot: 'class:4:0' }
+    const c: Character = { ...base, level: 7, skillPicks: [skill], feats: [initiate] }
+    expect(ranksAt(c, entries)[skill]).toBe(2)
+    expect(ranksAt(c, entries, 4)[skill]).toBe(1)
+    expect(ranksAt({ ...c, skillIncreases: { 3: skill } }, entries)[skill]).toBe(2)
+    expect(ranksAt({ ...c, skillIncreases: { 7: skill } }, entries)[skill]).toBe(3)
+    expect(ranksAt({ ...c, rankOverrides: { [skill]: 0 } }, entries)[skill]).toBe(2)
     expect(automaticFeatGrants(c, entries)).toEqual([
-      { name: 'Experienced Tracker', source: greenwatch.name, level: 4 }, { name: 'Survey Wildlife', source: greenwatch.name, level: 4 },
+      { name: grants[0], source, level: 4 }, { name: grants[1], source, level: 4 },
     ])
-    const swift = entry('feat', 'Swift Tracker', { prerequisite: 'expert in Survival; Experienced Tracker' }, 6, ['Ranger'])
-    expect(featPrerequisiteChecker(c, [...entries, swift])(swift)).toEqual({ missing: [], manual: [] })
+    const dependent = entry('feat', 'Dependent', { prerequisite: `expert in ${skill}; ${grants[0]}` }, 6, ['Ranger'])
+    expect(featPrerequisiteChecker(c, [...entries, dependent])(dependent)).toEqual({ missing: [], manual: [] })
     expect(automaticFeatGrants({ ...c, level: 3 }, entries)).toEqual([])
-    expect(ranksAt({ ...c, level: 3 }, entries).Survival).toBe(1)
-    expect(ranksAt({ ...c, feats: [] }, entries).Survival).toBe(1)
+    expect(ranksAt({ ...c, level: 3 }, entries)[skill]).toBe(1)
+    expect(ranksAt({ ...c, feats: [] }, entries)[skill]).toBe(1)
+  })
+
+  it('dates Greywatch training and duplicate feat replacements by actual acquisition', () => {
+    const face = entry('feat', 'Face in the Crowd', {}, 1, ['General', 'Skill'])
+    const lengthy = entry('feat', 'Lengthy Diversion', {}, 1, ['General', 'Skill'])
+    const c: Character = { ...base, level: 9, skillPicks: ['Deception'], feats: [
+      { name: 'Greywatch Initiate', type: 'Class Feat', level: 4, slot: 'class:8:0' },
+      { name: face.name, type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
+    ], skillIncreases: { 9: 'Deception' } }
+    const data = [...entries, face, lengthy]
+    const before = JSON.stringify(c)
+    expect(ranksAt(c, data, 8).Deception).toBe(1)
+    expect(ranksAt(c, data, 9).Deception).toBe(2)
+    expect(ranksAt(c, data).Deception).toBe(3)
+    expect(automaticFeatGrants(c, data)).toEqual([
+      { name: face.name, source: 'Greywatch Initiate', level: 8 },
+      { name: lengthy.name, source: 'Greywatch Initiate', level: 8 },
+    ])
+    expect(plannedSlots(c, data).filter(slot => slot.redundantFeat)).toEqual([
+      expect.objectContaining({ category: 'skill', level: 8, redundantFeat: face.name, grantedBy: 'Greywatch Initiate' }),
+    ])
+    expect(plannedSlots({ ...c, level: 7 }, data).some(slot => slot.redundantFeat)).toBe(false)
+    expect(JSON.stringify(c)).toBe(before)
   })
 
   it.each([[3, 1], [4, 2], [5, 4], [6, 5], [7, 7], [15, 15]])('scales Untrained Improvisation at level %i without granting trained ranks', (level, bonus) => {

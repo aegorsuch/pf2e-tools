@@ -41,6 +41,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const leadsTo = kind === 'feat' ? /<title\b[^>]*>[^<]*\bleads to\.\.\.<\/title>([\s\S]*)/i.exec(text(s.markdown))?.[1] : undefined
   const featLinks = leadsTo ? [...leadsTo.matchAll(/\[([^\]]+)\]\((\/(?:Feats\.aspx|feats\/)[^)]*)\)/gi)]
     .map(match => ({ name: match[1], url: AON_SITES[system] + match[2] })) : []
+  const comparisonMarkdown = kind === 'feat' ? text(s.markdown)
+    .replace(/<details\b[^>]*\bclass=["'][^"']*\bclarification\b[^"']*["'][^>]*>[\s\S]*?<\/details>/gi, '') : ''
   // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
   if (text(s.resistances)) data.resistances = text(s.resistances)
@@ -58,6 +60,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     description: (['feat', 'spell', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
       || kind === 'item' && usesFullItemRules(s)) && text(s.markdown).trim()
       ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
+    ...(kind === 'feat' && comparisonMarkdown !== text(s.markdown)
+      ? { comparisonRules: comparisonMarkdown.split(/\n\s*\n/).map(plain).join('\n\n') } : {}),
     data,
     effects: [],
     ...(kind === 'weapon' && Array.isArray(s.weapon_modes) ? { weaponModes: s.weapon_modes.filter(isWeaponMode) } : {}),

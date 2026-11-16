@@ -115,6 +115,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('rider', 'Rider', 1, ['Champion', 'Commander', 'Druid', 'Ranger'],
       "You are especially good at riding animal companions. You gain the Ride general feat. You gain a +1 circumstance bonus to Nature checks to Command an Animal when commanding your own animal companion, if a check is required.\n\nIf you gain an animal companion, it gains the mount special ability while it is at least one size larger than you. This is the full mount special ability: while carrying a rider, it can move and Support you on the same turn and can use its other Speeds, not just its land Speed. This feat does not grant any new Speeds or increase the companion's size.\n\nThis feat does not grant an animal companion and does not apply to construct companions, eidolons, or familiars.",
       { class: 'Champion, Commander, Druid, Ranger' }),
+    homebrewFeat('greywatch-initiate', 'Greywatch Initiate', 4, ['Gunslinger', 'Investigator', 'Ranger'],
+      "You've received the basic training developed for all Greywatch recruits. You become an expert in Deception and gain the Face in the Crowd and Lengthy Diversion skill feats.",
+      { class: 'Gunslinger, Investigator, Ranger', prerequisite: 'Trained in Deception' }),
     ...(hardwood ? [{
       ...hardwood, id: 'homebrew:hardwood-armor-ranger-druid', source: 'homebrew' as const,
       traits: hardwood.traits.filter(trait => !['Impulse', 'Kineticist'].includes(trait)).concat(['Ranger', 'Druid']),

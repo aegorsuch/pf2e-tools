@@ -652,6 +652,11 @@ it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequenc
   expect(renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />))
     .toContain('rank 2 arcane; twice per day')
   expect(grantedFeatSpells({ ...enhanced, level: 20 }, data)[0].rank).toBe(2)
+  const trained = { ...spent, feats: [...spent.feats, taken('Greywatch Initiate', 4)] }
+  expect(dailyInnateUses(trained, grantedFeatSpells(trained, data)[0]))
+    .toMatchObject({ key: uses.key, used: 1, limit: 2, remaining: 1 })
+  expect(grantedFeatSpells({ ...c, feats: [...c.feats, { ...taken('Greywatch Initiate', 4), takenLevel: 10 }] }, data)[0].rule.frequency)
+    .toBe('once per day')
   expect(grantedFeatSpells({ ...c, feats: [...c.feats, taken('Face in the Crowd', 10)] }, data)[0].rule.frequency).toBe('once per day')
   expect(grantedFeatSpells({ ...c, level: 8 }, data)).toEqual([])
   expect(grantedFeatSpells(c, data)[0].rule.frequency).toBe('once per day')

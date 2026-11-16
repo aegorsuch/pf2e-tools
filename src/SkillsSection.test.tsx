@@ -577,14 +577,18 @@ it('applies Clever Improviser only to untrained skills while leaving ranks, trai
     .toContain('Deception <b>+0</b>')
 })
 
-it('spends later skill increases after Greenwatch training without upgrading Survival from an earlier increase', () => {
-  let c: Character = { ...base, level: 7, skillPicks: ['Survival'],
-    feats: [{ name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+it.each([
+  { source: 'Greenwatch Initiate', skill: 'Survival' },
+  { source: 'Greywatch Initiate', skill: 'Deception' },
+])('spends later skill increases after $source without using earlier increases', ({ source, skill }) => {
+  let c: Character = { ...base, level: 7, skillPicks: [skill],
+    feats: [{ name: source, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
-  expect(ranksAt(c, [ranger]).Survival).toBe(2)
-  ;(findButtons(tree()).get('Survival Master')!.onClick as () => void)()
-  expect(c.skillIncreases).toEqual({ 7: 'Survival' })
-  expect(ranksAt(c, [ranger]).Survival).toBe(3)
+  expect(ranksAt(c, [ranger])[skill]).toBe(2)
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${source} note"`)
+  ;(findButtons(tree()).get(`${skill} Master`)!.onClick as () => void)()
+  expect(c.skillIncreases).toEqual({ 7: skill })
+  expect(ranksAt(c, [ranger])[skill]).toBe(3)
 })
 
 it('keeps Ancestral Skills training fixed, refunds redundant picks and spends only later increases', () => {

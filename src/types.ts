@@ -142,6 +142,7 @@ export interface ContentEntry {
   level: number
   traits: string[]
   description: string
+  comparisonRules?: string
   // Kind-specific fields (e.g. damage, bulk, prerequisites, armor/weapon group id)
   data: Record<string, string | number | boolean>
   effects: Effect[]

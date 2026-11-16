@@ -1,9 +1,9 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
-export { ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
+export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import { getSettings } from './settings'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
@@ -640,14 +640,42 @@ export function featByName(entries: ContentEntry[]) {
   }
   return map
 }
+// Verified shared rules; these core-book copies differ in prose, examples, or cross-references.
+const SHARED_SKILL_FEATS: Readonly<Record<string, string>> = Object.fromEntries([
+  [5119, '761-arcane-sense'], [5123, '766-bargain-hunter'], [6472, '2679-dirty-trick'],
+  [5193, '859-quick-coercion'], [5195, '861-quick-identification'], [3495, '1043-stitch-flesh'],
+  [5221, '891-survey-wildlife'], [5228, '900-train-animal'], [5229, '901-trick-magic-item'],
+  [5235, '907-virtuosic-performer'], [5122, '765-automatic-knowledge'], [5135, '780-communal-crafting'],
+  [5136, '781-confabulator'], [5178, '839-magical-crafting'], [5179, '2688-magical-shorthand'],
+  [5207, '875-robust-recovery'], [6459, '2669-aerobatics-mastery'], [5151, '808-foil-senses'],
+  [5211, '880-shameless-request'], [5167, '827-legendary-codebreaker'], [5171, '831-legendary-performer'],
+  [5172, '832-legendary-professional'], [5173, '833-legendary-sneak'], [5231, '902-unified-theory'],
+].flatMap(([pf, sf]) => [[`aon:pf2e:feat-${pf}`, `shared:${sf}`], [`aon:sf2e:feats--${sf}`, `shared:${sf}`]]))
+
 function featEquivalence(entry: ContentEntry, ancestries: Set<string>) {
-  const rules = entry.description.split(/\n\s*---\s*\n/).at(-1)!.toLowerCase()
+  const sharedSkill = entry.source === 'official' && entry.traits.some(trait => trait.toLowerCase() === 'skill')
+  const sharedRules = sharedSkill ? SHARED_SKILL_FEATS[entry.id] : undefined
+  const normalize = (text: string) => text.toLowerCase().replace(/[\u2019\u2018]/g, "'").replace(/\s+/g, ' ').trim()
+  const rules = (sharedSkill ? entry.comparisonRules ?? entry.description : entry.description).split(/\n\s*---\s*\n/).at(-1)!.toLowerCase()
     .replace(/[\u2019\u2018]/g, "'").replace(/\b(you|they|we)'ve\b/g, '$1 have').replace(/\b(you|they|we)'re\b/g, '$1 are')
     .replace(/\bthat's\b/g, 'that is').replace(/\(such as [^)]*\)/g, '').replace(/\b[^.\n]* leads to\.\.\.[\s\S]*$/, '')
     .replace(/[^a-z0-9]+/g, ' ').trim()
-  const data = Object.entries(entry.data).filter(([key]) => !['url', 'sourceBook'].includes(key)).sort(([a], [b]) => a.localeCompare(b))
-  const traits = entry.traits.map(trait => trait.toLowerCase()).filter(trait => trait !== 'ancestry' && !ancestries.has(trait)).sort()
-  return JSON.stringify([entry.source, entry.name.toLowerCase(), entry.level, traits, data, rules, entry.effects, entry.spellGrants ?? []])
+  const data = Object.entries(entry.data).filter(([key]) => !['url', 'sourceBook'].includes(key))
+    .map(([key, value]) => {
+      if (!sharedSkill || typeof value !== 'string') return [key, value] as const
+      let normalized = normalize(value)
+      if (key === 'skill') normalized = [...new Set(value.split(',').map(normalize))].sort().join(', ')
+      if (key === 'prerequisite') {
+        normalized = normalized.replace(/;/g, ',')
+        const rank = /^(trained|expert|master|legendary) in /.exec(normalized)?.[0]
+        if (rank) normalized = normalized.replace(new RegExp(`(, |\\bor )${rank}`, 'g'), '$1')
+      }
+      return [key, normalized] as const
+    }).sort(([a], [b]) => a.localeCompare(b))
+  const traits = [...new Set(entry.traits.map(trait => trait.toLowerCase())
+    .filter(trait => trait !== 'ancestry' && !ancestries.has(trait)
+      && !(sharedRules && entry.name === 'Train Animal' && ['downtime', 'manipulate'].includes(trait))))].sort()
+  return JSON.stringify([entry.source, entry.name.toLowerCase(), entry.level, traits, data, sharedRules ?? rules, entry.effects, entry.spellGrants ?? []])
 }
 
 const featIndexCache = new WeakMap<ContentEntry[], { entry: ContentEntry; traits: Set<string>; equivalence: string }[]>()
@@ -945,6 +973,17 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     candidates.sort((a, b) => Number(!a.traits.has(primaryAncestry)) - Number(!b.traits.has(primaryAncestry)))
   }
   const seen = new Set<string>()
+  const selected = c.feats.find(feat => feat.slot === slot.key)
+  const selectedSource = selected && selectedFeatEntry(c, entries, selected.name, selected.sourceId)
+  const skillSources = new Map<string, ContentEntry>()
+  for (const { entry, equivalence, traits } of candidates) {
+    if (entry.source !== 'official' || !traits.has('skill')) continue
+    const previous = skillSources.get(equivalence)
+    if (!previous || entry.id === selectedSource?.id || previous.id !== selectedSource?.id
+      && !previous.systems.includes(c.systems[0]) && entry.systems.includes(c.systems[0])) {
+      skillSources.set(equivalence, entry)
+    }
+  }
   const specificTail = slot.category === 'ancestry' && !!primaryAncestry && entries.some(entry =>
     entry.kind === 'feat' && !entry.deleted && entry.name === 'Prehensile Tail'
     && entry.systems.some(system => c.systems.includes(system))
@@ -982,6 +1021,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Ancestral Skills' && duplicateLore.has(entry.id)
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
+      if (skillSources.has(equivalence) && skillSources.get(equivalence) !== entry) return false
       if (seen.has(equivalence)) return false
       seen.add(equivalence)
       return true
@@ -2294,9 +2334,10 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (activeFeatsNamed(c, 'Clever Improviser').length) {
     grants.push({ name: 'Untrained Improvisation', source: 'Clever Improviser', level: sourceLevel('Clever Improviser') })
   }
-  if (activeFeatsNamed(c, 'Greenwatch Initiate').length) {
-    for (const name of ['Experienced Tracker', 'Survey Wildlife']) {
-      grants.push({ name, source: 'Greenwatch Initiate', level: sourceLevel('Greenwatch Initiate') })
+  for (const [source, training] of Object.entries(INITIATE_TRAINING)) {
+    if (!activeFeatsNamed(c, source).length) continue
+    for (const name of training.feats) {
+      grants.push({ name, source, level: sourceLevel(source) })
     }
   }
   if (activeFeatsNamed(c, 'Snarecrafter Dedication').length) {
@@ -2420,8 +2461,10 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const scrapperGrants: Record<string, number> = prior ? { Crafting: Math.min(2, (prior.Crafting ?? 0) + 1) } : {}
   const variant = prior && scrapperVariants(prior).find(option => option.label === scrapper?.feat.choice || option.skill === scrapper?.feat.choice)
   if (variant) scrapperGrants[variant.skill] = variant.rank
-  const greenwatch = activeFeatsNamed(c, 'Greenwatch Initiate').find(feat => featTakenLevel(feat) < beforeLevel)
-  const greenwatchLevel = greenwatch && featTakenLevel(greenwatch)
+  const initiateGrants = Object.entries(INITIATE_TRAINING).flatMap(([name, training]) => {
+    const level = Math.min(...activeFeatsNamed(c, name).map(featTakenLevel).filter(level => level < beforeLevel))
+    return Number.isFinite(level) ? [{ skill: training.skill, level }] : []
+  })
   const ancestral = activeFeatsNamed(c, 'Ancestral Skills').find(feat => featTakenLevel(feat) < beforeLevel)
   const ancestralLevel = ancestral && featTakenLevel(ancestral)
   const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
@@ -2431,7 +2474,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
-    ...(greenwatchLevel === undefined ? [] : [greenwatchLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
+    ...initiateGrants.map(grant => grant.level), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
     ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
     ...ingenuitySlots.map(slot => slot.level)])].sort((a, b) => a - b)
   for (const l of levels) {
@@ -2459,7 +2502,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       }
     }
     if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
-    if (l === greenwatchLevel) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
+    for (const grant of initiateGrants.filter(grant => grant.level === l)) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
     if (l === ancestralLevel) for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   }
   if (withOverrides) {
@@ -2472,7 +2515,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       }
     }
   }
-  if (greenwatch) ranks.Survival = Math.max(ranks.Survival ?? 0, 2)
+  for (const grant of initiateGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
   for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
     ...autoSkills,

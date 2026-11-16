@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
-  ancestralSkills, experiencedLaborerLore, trainedFeatLores, FAVORED_TERRAINS, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
+  ancestralSkills, experiencedLaborerLore, trainedFeatLores, FAVORED_TERRAINS, INITIATE_TRAINING, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
@@ -89,7 +89,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
   const baseRanks = editingSkills ? ranksAt(noPaidIncreases, entries, 99, false) : ranks
-  const rankGrants = (editingSkills ? ['Technomagical Scrapper', 'Greenwatch Initiate', 'Ancestral Skills', ...new Set(trainedLores.map(grant => grant.source))] : []).flatMap(name => {
+  const rankGrants = (editingSkills ? ['Technomagical Scrapper', ...Object.keys(INITIATE_TRAINING), 'Ancestral Skills', ...new Set(trainedLores.map(grant => grant.source))] : []).flatMap(name => {
     const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
     return feat ? [{ level: featTakenLevel(feat), without: ranksAt({
       ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== name),
@@ -219,6 +219,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {!!warmaskBonus && <SourceNote inlineSource={false} source="Orc Warmask" note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
+          {Object.entries(INITIATE_TRAINING).filter(([name, training]) => training.skill === s.name && activeFeatsNamed(c, name).length > 0)
+            .map(([name]) => <SourceNote key={name} source={name} note={`Grants expert proficiency in ${s.name}.`} />)}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {s.name === 'Perception' && sights.map(sight => {

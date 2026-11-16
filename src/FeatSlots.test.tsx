@@ -733,6 +733,23 @@ it('filters skill feats by declared skill, combines search, and keeps filters se
   }))
 })
 
+it('labels genuinely different editions and saves the selected skill feat source', () => {
+  const pf: ContentEntry = { id: 'pf-seasoned', name: 'Seasoned', data: {}, kind: 'feat', systems: ['pf2e'],
+    level: 1, traits: ['General', 'Skill'], source: 'official', description: 'Craft potions and elixirs.', effects: [], updatedAt: 0 }
+  const sf: ContentEntry = { ...pf, id: 'sf-seasoned', systems: ['sf2e'], description: 'Craft serums.' }
+  const c: Character = { ...emptyRanger(), systems: ['pf2e', 'sf2e'], level: 2 }
+  const save = vi.fn()
+  const tree = () => FeatSlots({ c, entries: [pf, sf], categories: ['skill'], save,
+    search: { 'skill:2:0:open': '1' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="L02 Skill: Seasoned (PF2e)"')
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="L02 Skill: Seasoned (SF2e)"')
+  findButton(tree(), 'L02 Skill: Seasoned (SF2e)')!()
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({
+    feats: [expect.objectContaining({ name: 'Seasoned', sourceId: sf.id, slot: 'skill:2:0' })],
+    entryIds: [sf.id],
+  }))
+})
+
 it('filters Lore, knowledge skills and prerequisite feat chains without leaking filters between slots', () => {
   const feat = (name: string, data: ContentEntry['data'] = {}): ContentEntry => ({
     id: name, name, data, kind: 'feat', systems: ['sf2e'], level: 1, traits: ['General', 'Skill'],
@@ -820,7 +837,7 @@ it('pins prerequisite suggestions before pagination, searches unlocks, and saves
   c = { ...c, skillPicks: ['Athletics'] }
   search['general:3:0:open'] = '1'
   findButton(tree(), label)!()
-  expect(c.feats).toContainEqual({ name: 'Titan Wrestler', type: 'General Feat', level: 1, slot: 'general:3:0' })
+  expect(c.feats).toContainEqual({ name: 'Titan Wrestler', type: 'General Feat', level: 1, slot: 'general:3:0', sourceId: 'titan' })
   expect(c.entryIds).toContain('titan')
   expect(search['general:3:0:open']).toBe('')
 })
@@ -1753,7 +1770,7 @@ it('selects Skill Training together with its skill through a standard feat slot'
     c, entries, save: (patch) => { c = { ...c, ...patch } }, categories: ['skill'],
   }), 'L02 Skill feat')!
   choose({ target: { value: JSON.stringify(['Skill Training', 'Stealth']) } })
-  expect(c.feats).toEqual([{ name: 'Skill Training', type: 'Skill Feat', level: 1, slot: 'skill:2:0', choice: 'Stealth' }])
+  expect(c.feats).toEqual([{ name: 'Skill Training', type: 'Skill Feat', level: 1, slot: 'skill:2:0', choice: 'Stealth', sourceId: 'skill-training' }])
 })
 
 it('blocks unmet feat chains while preserving and flagging existing selections after a prerequisite is removed', () => {

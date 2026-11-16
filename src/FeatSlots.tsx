@@ -217,10 +217,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       dismissedFeatSlots: (next.dismissedFeatSlots ?? []).filter((key) => !visibleKeys.has(key) && (!isGrantedSlot(key) || keys.has(key))),
     })
   }
-  const choose = (key: string, category: FeatSlotCategory, level: number, name: string) => {
+  const choose = (key: string, category: FeatSlotCategory, level: number, name: string, sourceId?: string) => {
     const slot = allSlots.find((slot) => slot.key === key) ?? { key, category, level }
     if (slot.grantedBy === 'Eldritch Trickster' && name === 'N/A') return
-    const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot)).find((option) => option.value === name && !option.disabled)
+    const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot))
+      .find((option) => option.value === name && !option.disabled && (!sourceId || option.entry.id === sourceId))
     if (name && name !== 'N/A' && !option) return
     const changedAncestry = slot.grantedBy === 'Social Chameleon' && category === 'general'
       && c.feats.find(feat => feat.slot === key)?.choice !== option?.choice
@@ -230,7 +231,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (option) {
       const { entry, choice } = option
       feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key,
-        ...(category === 'ancestry' || ['Ancestral Cantrip', 'Ancestral Magic', 'Ancestral Weapon Familiarity'].includes(entry.name) ? { sourceId: entry.id } : {}),
+        ...(category === 'ancestry' || entry.traits.some(trait => trait.toLowerCase() === 'skill')
+          || ['Ancestral Cantrip', 'Ancestral Magic', 'Ancestral Weapon Familiarity'].includes(entry.name) ? { sourceId: entry.id } : {}),
         ...(slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}), ...(choice ? { choice } : {}) })
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
@@ -375,6 +377,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             || featSelectionLevel(a, c, entries, s.category, s) - featSelectionLevel(b, c, entries, s.category, s)
             || a.name.localeCompare(b.name))
           const shown = popup ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
+          const names = new Set<string>()
+          const sourceVariants = new Set<string>()
+          for (const option of options) {
+            if (names.has(option.name) && option.traits.some(trait => trait.toLowerCase() === 'skill')) sourceVariants.add(option.name)
+            names.add(option.name)
+          }
           const optionsByLevel = new Map<number, FeatOption[]>()
           const suggested: FeatOption[] = []
           const paired: FeatOption[] = []
@@ -383,7 +391,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           for (const option of shown) {
             if (suggestible && synergies.has(option.name)) {
               for (const variant of optionsFor(option, s, skill)) {
-                const key = JSON.stringify([variant.value, variant.label, variant.disabled])
+                const key = JSON.stringify([variant.entry.id, variant.value, variant.label, variant.disabled])
                 if (pairedValues.has(key)) continue
                 pairedValues.add(key)
                 paired.push(variant)
@@ -392,7 +400,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             }
             if (suggestible && suggestions.has(option.name)) {
               for (const variant of optionsFor(option, s, skill)) {
-                const key = JSON.stringify([variant.value, variant.label, variant.disabled])
+                const key = JSON.stringify([variant.entry.id, variant.value, variant.label, variant.disabled])
                 if (suggestedValues.has(key)) continue
                 suggestedValues.add(key)
                 suggested.push(variant)
@@ -419,11 +427,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               const eligible = eligibleFeats(entries, c, s)
               return eligible.length === 1 && eligible[0].name === current
             })()
+          const optionLabel = (option: FeatOption) => sourceVariants.has(option.entry.name)
+            ? `${option.label} (${option.entry.source === 'homebrew' ? 'Homebrew'
+              : option.entry.systems.map(system => system === 'pf2e' ? 'PF2e' : 'SF2e').join('/')})` : option.label
           const popupOption = (option: FeatOption) => <li key={`${option.entry.id}:${option.value}`} className="picker-option-row">
-            <button type="button" aria-label={`${label}: ${option.label}`} disabled={option.disabled}
+            <button type="button" aria-label={`${label}: ${optionLabel(option)}`} disabled={option.disabled}
               className={option.entry.name === current ? 'active' : undefined}
-              onClick={() => { choose(s.key, s.category, s.level, option.value); onSearch?.(`${s.key}:open`, '') }}>
-              {option.label}
+              onClick={() => { choose(s.key, s.category, s.level, option.value, option.entry.id); onSearch?.(`${s.key}:open`, '') }}>
+              {optionLabel(option)}
             </button>
             <EntryDescription character={c} name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
               entry={option.entry} entries={entries} buttonLabel="Details" className="picker-details"

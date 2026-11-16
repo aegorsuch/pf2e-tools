@@ -65,6 +65,20 @@ it('offers Rider as a level-one companion-class feat and grants Ride without cre
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('offers Greywatch Initiate at level four to its three classes with trained Deception required', () => {
+  const greywatch = homebrewCharacterOptions([]).find(entry => entry.name === 'Greywatch Initiate')!
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  const c: Character = { ...base, level: 4, skillPicks: ['Deception'] }
+  for (const className of ['Gunslinger', 'Investigator', 'Ranger']) {
+    expect(eligibleFeats([greywatch], { ...c, className }, slot)).toContain(greywatch)
+  }
+  expect(eligibleFeats([greywatch], { ...c, className: 'Fighter' }, slot)).toEqual([])
+  expect(eligibleFeats([greywatch], { ...c, skillPicks: [] }, slot)).toEqual([])
+  expect(eligibleFeats([greywatch], { ...c, level: 3 }, { ...slot, key: 'class:2:0', level: 2 })).toEqual([])
+  expect(eligibleFeats([greywatch], c, { ...slot, category: 'skill' })).toEqual([])
+  expect(greywatch).toMatchObject({ source: 'homebrew', data: { prerequisite: 'Trained in Deception' } })
+})
+
 it('provides ranger copies of the druid feats without changing their rules', () => {
   const originals: ContentEntry[] = ['Effortless Concentration', 'Forgotten Presence', 'Timeless Nature'].map((name, index) => ({
     ...HAFT_STRIKER_WEAPON, id: `official:${index}`, kind: 'feat', name, level: [16, 8, 14][index],

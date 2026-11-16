@@ -1,4 +1,4 @@
-import { ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
+import { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import type { Character, ContentEntry, SpellGrant } from './types'
 import { warmaskSource } from './warmask'
 
@@ -270,7 +270,9 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     for (const baseRule of rules) {
       const rule = feat.name === 'Forgotten in the Crowd' && baseRule.kind === 'innate'
         && baseRule.frequency === 'once per day' && baseRule.spells.some(name => name.toLowerCase() === 'invisibility')
-        && c.feats.some(other => other.name === 'Face in the Crowd' && featTakenLevel(other) <= c.level)
+        && c.feats.some(other => featTakenLevel(other) <= c.level && (other.name === 'Face in the Crowd'
+          || Object.entries(INITIATE_TRAINING).some(([name, training]) => other.name === name
+            && training.feats.some(name => name === 'Face in the Crowd'))))
         ? { ...baseRule, frequency: 'twice per day' } : baseRule
       const names = rule.choice ? options?.filter(spell => spell.name === feat.choice).map(spell => spell.name) ?? [] : rule.spells
       for (const name of names) {
