@@ -496,6 +496,48 @@ it('syncs Dynamic Weighting grip controls, damage, and hand usage across both we
   }
 })
 
+it.each(['Phase Cutlass', 'Reality Ripper'])('persists %s modes and syncs mode damage and traits in both weapon views', name => {
+  const phase = name === 'Phase Cutlass'
+  const firstType = phase ? 'slashing' : 'acid'
+  const die = phase ? 6 : 8
+  const entry: ContentEntry = { ...weapon, name, systems: ['sf2e'],
+    traits: ['Modular', 'Tech', ...(phase ? ['Analog', 'Powered'] : ['Razing', 'Deadly'])],
+    data: { hands: phase ? 1 : 2, damage: `2d${die} Modular`, weapon_type: phase ? 'Melee' : 'Ranged',
+      weapon_category: 'Martial', weapon_tracking: 1, upgrade_slots: 2 },
+    weaponModes: [
+      { id: 'mode-1', damageType: firstType, traits: phase ? ['Analog'] : ['Tech', 'Razing'] },
+      { id: 'mode-2', damageType: 'void', traits: phase ? ['Powered', 'Tech'] : ['Tech', 'Deadly d10'] },
+    ] }
+  let c: Character = { ...character([]), systems: ['sf2e'],
+    weapons: [{ id: 'mode-weapon', name, potency: 0, striking: 0, runes: [] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  for (const displayOnly of [false, true]) {
+    const change = (mode: string) => {
+      const select = findElement(WeaponList({ c, entries: [entry], save, displayOnly }),
+        element => element.props['aria-label'] === `Mode: ${name}`)!
+      ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: mode } })
+    }
+    expect(weaponAttack(c, [entry], c.weapons![0]).damage).toBe(`2d${die} ${firstType}`)
+    change('mode-2')
+    c = JSON.parse(JSON.stringify(c))
+    expect(c.weapons![0].weaponMode).toBe('mode-2')
+    expect(weaponAttack(c, [entry], c.weapons![0]).damage).toBe(`2d${die} void`)
+    for (const view of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={save} displayOnly={view} />)
+      expect(markup).toContain(`2d${die} void`)
+      expect(markup).toContain(phase ? 'Powered' : 'Deadly d10')
+      expect(markup).not.toContain(phase ? '>Analog' : '>Razing')
+    }
+    change('invalid')
+    expect(c.weapons![0].weaponMode).toBe('mode-2')
+    change('mode-1')
+    expect(weaponAttack(c, [entry], c.weapons![0]).damage).toBe(`2d${die} ${firstType}`)
+  }
+  c = { ...c, weapons: c.weapons!.map(w => ({ ...w, weaponMode: 'unavailable' })) }
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={save} />))
+    .toContain('Saved mode unavailable; showing first mode')
+})
+
 it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinforcement while Blessed Shield is selected', rune => {
   const c: Character = { ...character([]), className: 'Champion', level: 10, blessing: 'Blessed Shield',
     shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, reinforcingRune: rune } }

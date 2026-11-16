@@ -10,6 +10,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
+import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -1062,6 +1063,19 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         const equipControls = <>
+            {a.entry?.weaponModes && a.entry.weaponModes.length > 1 && <label title="Changing modes uses an Interact action. Powered attacks still require ammunition or charges.">Mode{' '}
+              <ActionIcon actions="Single Action" />
+              <select aria-label={`Mode: ${displayName}`} value={w.weaponMode ?? a.entry.weaponModes[0].id} onChange={event => {
+                if (a.entry?.weaponModes?.some(mode => mode.id === event.target.value)) update(w.id, { weaponMode: event.target.value })
+              }}>
+                {w.weaponMode && !a.entry.weaponModes.some(mode => mode.id === w.weaponMode)
+                  && <option value={w.weaponMode} disabled>Saved mode unavailable; showing first mode</option>}
+                {a.entry.weaponModes.map(mode => <option key={mode.id} value={mode.id}>
+                  {mode.damageType[0].toUpperCase() + mode.damageType.slice(1)}{mode.traits.some(trait => /^powered$/i.test(trait)) ? ' (powered)'
+                    : mode.traits.some(trait => /^analog$/i.test(trait)) ? ' (analog)' : ''}
+                </option>)}
+              </select>
+            </label>}
             <label title={attachmentSource ? `Follows ${attachmentSource.name}` : linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'

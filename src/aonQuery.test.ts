@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
+import { mapAonHit } from './aon'
 
 it('retains Starfinder weapon upgrade capacity, grade tracking, and ammunition', async () => {
   const markdown = '**Upgrades** 1\n**Ammunition** 10 [charges](/equipment/ammunition/2-batteries)\n'
@@ -17,6 +18,29 @@ it('retains Starfinder weapon upgrade capacity, grade tracking, and ammunition',
   const hits = await fetchAonHits('sf2e', fetchFn)
   expect(hits.find(hit => hit._id === 'base')?._source).toMatchObject({ upgrade_slots: 1, weapon_ammunition: '10 charges' })
   expect(hits.find(hit => hit._id === 'advanced')?._source).toMatchObject({ upgrade_slots: 2, weapon_tracking: 1 })
+})
+
+it('retains modular mode traits and damage types and the base weapon minimum grade', async () => {
+  const markdown = '<traits><trait label="Modular (A and Razing or V and Deadly d10)" /></traits>'
+    + '<title level="2">Mode 1</title><traits><trait label="Tech" /><trait label="Razing" /></traits>\n**Damage** 1d8 A\n'
+    + '<title level="2">Mode 2</title><traits><trait label="Tech" /><trait label="Deadly d10" /></traits>\n**Damage** 1d8 V\n'
+    + '<title level="2">Improvements</title><table><tr><th>Grade</th><th>Level</th><th>Upgrades</th><th>Traits</th></tr>'
+    + '<tr><td>Tactical Reality Ripper</td><td>2</td><td>1</td><td>[Tracking +1](/traits/183-tracking)</td></tr>'
+    + '<tr><td>Advanced Reality Ripper</td><td>4</td><td>2</td><td>[Tracking +1](/traits/183-tracking)</td></tr></table>'
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    return new Response(JSON.stringify({ hits: { hits: category === 'weapon' ? [
+      { _id: 'ripper', _source: { category, name: 'Reality Ripper', level: 2, trait: ['Tech', 'Modular', 'Razing', 'Deadly'], markdown } },
+    ] : [] } }), { status: 200 })
+  }
+  const hit = (await fetchAonHits('sf2e', fetchFn))[0]
+  const mapped = mapAonHit(hit, 'sf2e')!
+  expect(mapped.data).toMatchObject({ weapon_tracking: 1, upgrade_slots: 1 })
+  expect(mapped.weaponModes).toEqual([
+    { id: 'mode-1', damageType: 'acid', traits: ['Tech', 'Razing'] },
+    { id: 'mode-2', damageType: 'void', traits: ['Tech', 'Deadly d10'] },
+  ])
 })
 
 const companionMarkdown = `**Melee** <actions value="Single Action" /> jaws

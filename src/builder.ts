@@ -11,6 +11,7 @@ import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNT
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
+import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { DRONE_CHASSIS } from './droneChassis'
@@ -3150,13 +3151,16 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export function weaponEntry(entries: ContentEntry[], name: string) {
   let entry = resolveWeaponEntry(entries, name)
-  if (entry?.source === 'homebrew' && entry.data.url && entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))) {
+  if (entry?.source === 'homebrew' && entry.data.url && (entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))
+    || !entry.weaponModes && entry.traits.some(trait => /^modular\b/i.test(trait)))) {
     const source = entries.find(candidate => candidate.kind === 'weapon' && candidate.source === 'official'
       && !candidate.deleted && candidate.data.url === entry?.data.url)
-    if (source) entry = { ...entry, traits: entry.traits.map(trait => {
-      const parameter = /^(two-hand|deadly|fatal(?: aim)?)$/i.exec(trait.trim())?.[1]
-      return parameter ? source.traits.find(value => new RegExp(`^${parameter}\\s+(?:1)?d(?:4|6|8|10|12)$`, 'i').test(value.trim())) ?? trait : trait
-    }) }
+    if (source) entry = { ...entry,
+      ...(!entry.weaponModes && entry.traits.some(trait => /^modular\b/i.test(trait)) && source.weaponModes ? { weaponModes: source.weaponModes } : {}),
+      traits: entry.traits.map(trait => {
+        const parameter = /^(two-hand|deadly|fatal(?: aim)?)$/i.exec(trait.trim())?.[1]
+        return parameter ? source.traits.find(value => new RegExp(`^${parameter}\\s+(?:1)?d(?:4|6|8|10|12)$`, 'i').test(value.trim())) ?? trait : trait
+      }) }
   }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
@@ -3701,6 +3705,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       : specialization.includes('weapon specialization') || c.className === 'Barbarian' && c.level >= 7 ? 2 : 1
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
+  entry = weaponWithMode(w, entry)
   entry = weaponWithModifications(c, w, entry)
   const hydraulicFist = !!entry && /^(?:iron )?fists?$/i.test(entry.name) && !!activeFeatsNamed(c, 'Hydraulic Pistons').length
   const mechanicMods = c.className === 'Mechanic' && c.systems.includes('sf2e') && weaponCategory(entry) !== 'Unarmed'

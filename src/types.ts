@@ -4,6 +4,7 @@ export type EntryKind =
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
   | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass' | 'familiar' | 'trait'
 export type Source = 'official' | 'homebrew'
+export type WeaponMode = { id: string; damageType: string; traits: string[] }
 export type HardlightGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior' | 'Elite' | 'Ultimate' | 'Paragon'
 export type DroneCustomizationGrade = 'Commercial' | 'Tactical' | 'Advanced' | 'Superior'
 export type DroneCustomization = { name: string; choice?: string; choice2?: string }
@@ -67,6 +68,7 @@ export interface OwnedWeapon {
     complexSimplicityTraits?: string[]
   }
   combinationForm?: 'Melee' | 'Ranged'
+  weaponMode?: string
   stowed?: boolean
   cheekStored?: boolean
   cheekHolstered?: boolean
@@ -144,6 +146,7 @@ export interface ContentEntry {
   data: Record<string, string | number | boolean>
   effects: Effect[]
   spellGrants?: SpellGrant[]
+  weaponModes?: WeaponMode[]
   featLinks?: { name: string; url: string }[]
   updatedAt: number
   deleted?: boolean

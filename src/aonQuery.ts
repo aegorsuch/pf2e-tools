@@ -1,4 +1,5 @@
 import type { EntryKind, GameSystem, SpellGrant } from './types.ts'
+import { parseWeaponModes } from './weaponModes.ts'
 
 // Verified live: both systems share one Elasticsearch host, split by index (pf2e: aon, sf2e: aonsf).
 export const AON_ENDPOINTS: Record<GameSystem, string> = {
@@ -230,15 +231,21 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
       if (s) {
         if (category === 'weapon' && typeof s.markdown === 'string') {
           if (system === 'sf2e') {
+            const modes = parseWeaponModes(s.markdown)
+            if (modes.length > 1) s.weapon_modes = modes
             const name = String(s.name ?? '').trim().toLowerCase()
             const table = /<table>([\s\S]*?)<\/table>/gi
             for (const match of s.markdown.matchAll(table)) {
               const headers = [...match[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)].map(cell => plain(cell[1]).toLowerCase())
               const slotColumn = headers.indexOf('upgrades')
+              const levelColumn = headers.indexOf('level')
               if (slotColumn < 0) continue
               for (const row of match[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
                 const cells = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(cell => plain(cell[1]))
-                if (cells[0]?.toLowerCase() === name && /^\d+$/.test(cells[slotColumn] ?? '')) {
+                const baseName = cells[0]?.replace(/^(?:commercial|tactical|advanced|superior|elite|ultimate|paragon)\s+/i, '').toLowerCase()
+                const baseGrade = baseName === name && levelColumn >= 0 && /^\d+$/.test(cells[levelColumn] ?? '')
+                  && Number(cells[levelColumn]) === s.level
+                if ((cells[0]?.toLowerCase() === name || baseGrade) && /^\d+$/.test(cells[slotColumn] ?? '')) {
                   s.upgrade_slots = Number(cells[slotColumn])
                   const tracking = /\btracking\s*\+(\d+)/i.exec(cells.join(' '))?.[1]
                   if (tracking) s.weapon_tracking = Number(tracking)

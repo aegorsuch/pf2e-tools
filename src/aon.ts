@@ -1,6 +1,7 @@
 import { db, ensureSupplementalContent } from './db'
 import { CATEGORY_TO_KIND, DATA_FIELDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
+import { isWeaponMode } from './weaponModes'
 
 export const AON_SITES: Record<GameSystem, string> = {
   pf2e: 'https://2e.aonprd.com',
@@ -59,6 +60,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       ? text(s.markdown).split(/\n\s*\n/).map(plain).join('\n\n') : text(s.summary),
     data,
     effects: [],
+    ...(kind === 'weapon' && Array.isArray(s.weapon_modes) ? { weaponModes: s.weapon_modes.filter(isWeaponMode) } : {}),
     ...(kind === 'feat' ? { spellGrants: parseFeatSpellGrants(text(s.markdown)) } : {}),
     ...(featLinks.length ? { featLinks } : {}),
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
