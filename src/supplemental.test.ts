@@ -181,12 +181,11 @@ it('stops seeding Claymore while preserving statistics for previously owned copi
   expect(homebrewWeapons([{ ...katana, source: 'homebrew' }])).toEqual([])
 })
 
-it('adds a broad-bladed Spear without modifying official Spear statistics', () => {
+it('does not seed a broad-bladed Spear or modify official Spear statistics', () => {
   const spear: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'aon:pf2e:weapon-365', name: 'Spear',
     traits: ['Thrown'], data: { weapon_type: 'Melee', damage: '1d6 P', hands: 1, thrown_range: 20 } }
   const before = JSON.stringify(spear)
-  const [broad] = homebrewWeapons([spear])
-  expect(broad).toMatchObject({ name: 'Broad-Bladed Spear', source: 'homebrew', traits: ['Thrown', 'Versatile S'], data: spear.data })
+  expect(homebrewWeapons([spear])).toEqual([])
   expect(JSON.stringify(spear)).toBe(before)
   expect(homebrewWeapons([{ ...spear, deleted: true }])).toEqual([])
 })

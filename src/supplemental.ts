@@ -273,18 +273,12 @@ export const ANIMAL_FEATURES = [
 
 export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const base = entries.find((entry) => entry.id === 'aon:pf2e:weapon-304' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
-  const spear = entries.find((entry) => entry.id === 'aon:pf2e:weapon-365' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   const flyssa = entries.find((entry) => entry.id === 'aon:pf2e:weapon-285' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   return [...(base ? [{
     ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew' as const, name: 'Clawed Gauntlet',
     traits: base.traits.filter(trait => trait.toLowerCase() !== 'uncommon'),
     data: { ...base.data, rarity: 'common' },
     description: 'Four curved blades mounted over the fist give this close-combat gauntlet the appearance of claws.',
-    updatedAt: 1,
-  }] : []), ...(spear ? [{
-    ...spear, id: 'homebrew:broad-bladed-spear', source: 'homebrew' as const, name: 'Broad-Bladed Spear',
-    traits: [...spear.traits.filter(trait => !/^versatile s$/i.test(trait)), 'Versatile S'],
-    description: 'A spear with a broad, sharpened head that can make sweeping cuts as well as thrusts. It gains versatile S; its other statistics are unchanged.',
     updatedAt: 1,
   }] : []), ...(flyssa ? [{
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',

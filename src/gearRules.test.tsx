@@ -194,12 +194,15 @@ it.each([[1, 3], [7, 7], [15, 13]])('uses Fury Rage damage %i without granting o
   expect(effectiveWeapon(c, [sword], main)).not.toHaveProperty('size')
 })
 
-it('hides retired Claymore from new picks and homebrew without breaking owned weapon statistics', () => {
-  const claymore = { ...sword, id: 'homebrew:claymore', name: 'Claymore', source: 'homebrew' as const,
-    data: { ...sword.data, retired: true } }
-  expect(gearPickerEntries([sword, claymore], 'weapon').map(entry => entry.name)).toEqual(['Longsword'])
-  expect(groupHomebrew([claymore])).toEqual([])
-  expect(weaponAttack(base, [claymore], { ...main, name: claymore.name }).damage).toBe('2d8+1 slashing')
+it.each([
+  ['Claymore', '1d8 slashing', '2d8+1 slashing'],
+  ['Broad-Bladed Spear', '1d6 P', '2d6+1 P'],
+])('hides retired %s from new picks and homebrew without breaking owned weapon statistics', (name, damage, expected) => {
+  const retired = { ...sword, id: `homebrew:${name.toLowerCase().replaceAll(' ', '-')}`, name, source: 'homebrew' as const,
+    data: { ...sword.data, damage, retired: true } }
+  expect(gearPickerEntries([sword, retired], 'weapon').map(entry => entry.name)).toEqual(['Longsword'])
+  expect(groupHomebrew([retired])).toEqual([])
+  expect(weaponAttack(base, [retired], { ...main, name }).damage).toBe(expected)
 })
 
 it.each([['Tradecraft Tattoo', 2], ['Tradecraft Tattoo (Greater)', 3]] as const)(

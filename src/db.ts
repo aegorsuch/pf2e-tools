@@ -25,9 +25,11 @@ export async function ensureSupplementalContent() {
     if (!await db.content.get(HAFT_STRIKER_WEAPON.id)) await db.content.add(HAFT_STRIKER_WEAPON)
     const hardwood = await db.content.get('homebrew:hardwood-armor-ranger-druid')
     if (hardwood?.source === 'homebrew' && !hardwood.deleted) await removeEntry(hardwood.id)
-    const claymore = await db.content.get('homebrew:claymore')
-    if (claymore?.source === 'homebrew' && !claymore.deleted && !claymore.data.retired) {
-      await db.content.put({ ...claymore, data: { ...claymore.data, retired: true }, updatedAt: Date.now() })
+    for (const id of ['homebrew:claymore', 'homebrew:broad-bladed-spear']) {
+      const entry = await db.content.get(id)
+      if (entry?.source === 'homebrew' && !entry.deleted && !entry.data.retired) {
+        await db.content.put({ ...entry, data: { ...entry.data, retired: true }, updatedAt: Date.now() })
+      }
     }
     const bases = await db.content.where('kind').anyOf('companion', 'weapon', 'feat').toArray()
     const groups = await db.content.where('kind').anyOf('weaponGroup', 'armorGroup').toArray()
@@ -41,7 +43,7 @@ export async function ensureSupplementalContent() {
     for (const entry of [DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, KILLERS_BELT_MAJOR, ...HUNTERS_ARROWHEADS, ...homebrewCompanions(bases), ...homebrewWeapons(bases), ...homebrewCharacterOptions(bases)]) {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
-      else if (['homebrew:clawed-gauntlet', 'homebrew:broad-bladed-spear', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, KILLERS_BELT_MAJOR.id,
+      else if (['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, KILLERS_BELT_MAJOR.id,
         'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance'].includes(entry.id)
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
