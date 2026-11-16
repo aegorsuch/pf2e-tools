@@ -127,13 +127,21 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
   const matches = useMemo(() => {
     const q = query.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
-    return q || category
-      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e)
+    if (!q && !category) return []
+    const candidates = entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e)
         && (!q || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(e.name)].some(name => name.toLowerCase().includes(q)))
         && (!category || equipmentFitsGroup(e, category)))
-        .sort((a, b) => equipmentDisplayName(a.name).localeCompare(equipmentDisplayName(b.name)))
-      : []
-  }, [entries, query, category])
+    const owned = new Set(c.equipment.map(item => item.name))
+    const unique = new Map<string, ContentEntry>()
+    for (const entry of candidates) {
+      const key = entry.source === 'official' && entry.data.url
+        ? `${entry.systems.join(',')}:${entry.data.url}:${entry.level}:${equipmentDisplayName(entry.name)}` : entry.id
+      const previous = unique.get(key)
+      if (!previous || owned.has(entry.name) || !owned.has(previous.name)
+        && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, entry)
+    }
+    return [...unique.values()].sort((a, b) => equipmentDisplayName(a.name).localeCompare(equipmentDisplayName(b.name)))
+  }, [entries, query, category, c.equipment])
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}

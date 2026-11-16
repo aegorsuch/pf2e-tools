@@ -540,14 +540,26 @@ it('formats graded equipment titles and sorts by base name while retaining canon
     systems: ['pf2e'], source: 'official', level: 9, traits: [], description: 'Greater belt rules.',
     data: { usage: 'worn belt' }, effects: [], updatedAt: 1 }
   const ordinary = { ...greater, id: 'belt', name: "Killer's Belt", level: 4 }
+  const url = 'https://2e.aonprd.com/Equipment.aspx?ID=3968'
+  ordinary.data = { ...ordinary.data, url }
+  ordinary.description = 'Base parent rules.'
+  const priced = { ...ordinary, id: 'belt-type', name: 'Killer\u2019s Belt', description: 'Base priced rules.',
+    data: { ...ordinary.data, price: 9500 } }
   const amber = { ...greater, id: 'amber', name: 'Amber Belt', level: 1 }
   const c: Character = { id: 'belt-names', systems: ['pf2e'], name: 'Test', level: 10,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [{ name: greater.name, qty: 1 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
-  content.entries = [greater, ordinary, amber]
+  content.entries = [greater, ordinary, amber, priced]
   try {
     const search = renderToStaticMarkup(<EquipmentSearch c={c} entries={content.entries} save={() => {}} category="Belts" />)
     expect(search).toContain('aria-label="Add Killer&#x27;s Belt (Greater)"')
+    expect(search.match(/aria-label="Add Killer&#x27;s Belt"/g)).toHaveLength(1)
+    expect(search).toContain('Base priced rules.')
+    expect(search).not.toContain('Base parent rules.')
+    const ownedBase = renderToStaticMarkup(<EquipmentSearch c={{ ...c, equipment: [{ name: ordinary.name, qty: 1 }] }}
+      entries={content.entries} save={() => {}} category="Belts" />)
+    expect(ownedBase).toContain('Base parent rules.')
+    expect(ownedBase).not.toContain('Base priced rules.')
     expect(search.indexOf('>Amber Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt</button>'))
     expect(search.indexOf('>Killer&#x27;s Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt (Greater)</button>'))
     expect(renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />))
