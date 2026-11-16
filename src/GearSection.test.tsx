@@ -42,7 +42,7 @@ it('displays the versatile damage type from cached weapon metadata', () => {
   expect(markup).not.toContain('>Versatile</button>')
 })
 
-it('limits equipped weapons by hands while preserving legacy and always-equipped attacks', () => {
+it.each([false, true])('syncs weapon equip controls and hand limits across both views (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
   const dagger = { ...weapon, id: 'dagger', name: 'Dagger', data: { hands: 1 } }
   const arbalest = { ...weapon, id: 'arbalest', name: 'Arbalest', data: { hands: 2, weapon_group: 'Crossbow', weapon_type: 'Ranged' } }
@@ -53,13 +53,14 @@ it('limits equipped weapons by hands while preserving legacy and always-equipped
   ] }
   const entries = [sword, dagger, arbalest]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const input = (name: string) => findElement(WeaponList({ c, entries, save, displayOnly: true }), e => e.props['aria-label'] === `Equipped ${name}`)!
+  const input = (name: string, view = displayOnly) => findElement(WeaponList({ c, entries, save, displayOnly: view }), e => e.props['aria-label'] === `Equipped ${name}`)!
   const toggle = (name: string, checked: boolean) => (input(name).props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked } })
   expect(equippedWeaponHands(c, entries)).toBe(2)
   expect(input('Arbalest').props.disabled).toBe(true)
   expect(input('Fist').props).toMatchObject({ checked: true, disabled: true })
-  expect(findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === 'Equipped Longsword')).toBeUndefined()
+  expect(input('Longsword', !displayOnly).props.checked).toBe(true)
   toggle('Longsword', false)
+  expect(input('Longsword', !displayOnly).props.checked).toBe(false)
   expect(input('Arbalest').props.disabled).toBe(true)
   toggle('Dagger', false)
   expect(input('Arbalest').props.disabled).toBe(false)
@@ -68,6 +69,7 @@ it('limits equipped weapons by hands while preserving legacy and always-equipped
   expect(equippedWeaponHands(c, entries)).toBe(2)
   expect(input('Longsword').props.disabled).toBe(true)
   expect(input('Arbalest').props.checked).toBe(true)
+  expect(input('Arbalest', !displayOnly).props).toMatchObject({ checked: true, disabled: false })
   const free = { ...weapon, name: 'Free Hand', traits: ['Free-Hand'], data: { hands: 1 } }
   c.weapons!.push({ id: 'free', name: free.name, potency: 0, striking: 0, runes: [], stowed: true })
   expect(weaponEquipped(c, [...entries, free], c.weapons![3])).toBe(true)
@@ -162,13 +164,13 @@ it('caps saved Additional Arms selections without removing them and restores rep
   } finally { updateSettings({ singleAdditionalArms: previous }) }
 })
 
-it('uses one shared shield equip state and counts its hand once', () => {
+it.each([false, true])('uses one shared shield equip state and counts its hand once (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
   let c: Character = { ...character([]), weapons: [{ id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }],
     shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true, equipped: false,
       attachedWeapon: { id: 'boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [], attachedTo: 'steel' } } }
   const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
-  const control = () => findElement(WeaponList({ c, entries: [sword], save, displayOnly: true }),
+  const control = () => findElement(WeaponList({ c, entries: [sword], save, displayOnly }),
     element => element.props['aria-label'] === 'Equipped Shield Boss (Attached to Steel Shield)')!
   const toggle = (checked: boolean) => (control().props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked } })
   expect(control().props.disabled).toBe(false)
@@ -266,7 +268,7 @@ it('combines a tail with regular hands in the shared pool', () => {
   expect(renderToStaticMarkup(tree())).toContain('Hands used: 3/3')
 })
 
-it('enforces the shared pool when changing grip and preserves over-capacity saved weapons', () => {
+it.each([false, true])('syncs grip changes between views and preserves over-capacity saved weapons (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, name: 'Sword', data: { hands: 1 } }
   const spear = { ...weapon, name: 'Spear', data: { hands: '1 or 2' } }
   const dagger = { ...weapon, name: 'Dagger', data: { hands: 1 } }
@@ -276,15 +278,16 @@ it('enforces the shared pool when changing grip and preserves over-capacity save
     { id: 'dagger', name: dagger.name, potency: 0, striking: 0, runes: [], handPair: 3 },
   ] }
   const entries = [sword, spear, dagger]
-  const tree = () => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly: true })
+  const tree = (view = displayOnly) => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly: view })
   const grip = () => findElement(tree(), e => e.props['aria-label'] === 'Hands: Spear')!
   expect(findElement(grip(), e => e.type === 'option' && e.props.value === 2)!.props.disabled).toBe(true)
   ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Dagger')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
   expect(findElement(grip(), e => e.type === 'option' && e.props.value === 2)!.props.disabled).toBe(false)
   ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  expect(findElement(tree(!displayOnly), e => e.props['aria-label'] === 'Hands: Spear')!.props.value).toBe(2)
   expect(equippedWeaponHands(c, entries)).toBe(3)
   c = { ...c, feats: [] }
-  expect(renderToStaticMarkup(tree())).toContain('Unequip weapons to use at most 2 hands in total.')
+  expect(renderToStaticMarkup(tree(true))).toContain('Unequip weapons to use at most 2 hands in total.')
   expect(weaponEquipped(c, entries, c.weapons![1])).toBe(true)
   expect(c.weapons![1].handPair).toBe(-1)
 })

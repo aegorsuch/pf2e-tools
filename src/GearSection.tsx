@@ -1061,11 +1061,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
-        if (displayOnly) return <div key={w.id} className="gear-card">
-          <div className="weapon-offense-header">
-            <strong>{displayName}</strong>
-            {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
-              && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
+        const equipControls = <>
             <label title={attachmentSource ? `Follows ${attachmentSource.name}` : linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
@@ -1090,6 +1086,13 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 <option value={2} disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > handLimit)}>2</option>
               </select>
             </label>}
+        </>
+        if (displayOnly) return <div key={w.id} className="gear-card">
+          <div className="weapon-offense-header">
+            <strong>{displayName}</strong>
+            {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
+              && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
+            {equipControls}
           </div>
           {cannotEquip && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.'
             : hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
@@ -1124,6 +1127,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             </Fragment>)}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
+            <div className="row">{equipControls}</div>
             {!attachmentSource && canAttachWeapon(entries, w) && <label>Attached weapon{' '}
               <select aria-label={`Attached weapon: ${displayName}`} value={w.attachedWeapon ?? ''}
                 onChange={event => {
