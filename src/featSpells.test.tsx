@@ -6,7 +6,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -23,10 +23,10 @@ it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and 
   const render = () => renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
   try {
     updateSettings({ innateHighestMental: true })
-    for (const stat of ['DC 23', 'Attack +13'])
-      expect(render()).toContain(`${highest === 'int' ? 'Intelligence' : highest === 'wis' ? 'Wisdom' : 'Charisma'} ${stat}`)
+    expect(render()).toContain('Will DC 23')
+    expect(render()).toContain(`${highest === 'int' ? 'Intelligence' : highest === 'wis' ? 'Wisdom' : 'Charisma'} Attack +13`)
     updateSettings({ innateHighestMental: false })
-    expect(render()).toContain(`Charisma DC ${highest === 'cha' ? 23 : 17}`)
+    expect(render()).toContain(`Will DC ${highest === 'cha' ? 23 : 17}`)
     expect(render()).toContain(`Charisma Attack +${highest === 'cha' ? 13 : 7}`)
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
@@ -52,9 +52,9 @@ it('restores an explicit innate Wisdom ability when highest-mental rule is disab
   const previous = getSettings().innateHighestMental
   try {
     updateSettings({ innateHighestMental: true })
-    expect(render()).toContain('Intelligence DC 23')
+    expect(render()).toContain('Will DC 23')
     updateSettings({ innateHighestMental: false })
-    expect(render()).toContain('Wisdom DC 21')
+    expect(render()).toContain('Will DC 21')
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
@@ -669,11 +669,11 @@ it('persists individual daily-use dots and restores them without ending active s
   expect(renderToStaticMarkup(tree())).toContain('aria-label="0 of 2 uses remaining"')
   undo(2).onClick()
   expect(dailyInnateUses(c, grant())).toMatchObject({ spent: [0], used: 1, remaining: 1 })
-  findUseButton(ResetDailyInnateUses({ c, save }), 'Reset daily innate uses')!.onClick()
+  undo(1).onClick()
   expect(dailyInnateUses(c, grant())).toMatchObject({ used: 0, remaining: 2 })
-  expect(c.innateSpellUses).toEqual({})
+  expect(c.innateSpellUses?.['another pool']).toBe(1)
   expect(c.activeSpells).toEqual(['Invisibility'])
-  expect(findUseButton(ResetDailyInnateUses({ c, save }), 'Reset daily innate uses')!.disabled).toBe(true)
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).not.toContain('Reset daily innate uses')
 })
 
 it('shares alternative daily spells but keeps each-spell and different-source pools independent', () => {
@@ -712,8 +712,8 @@ it('places Warden focus spells before innate spells without showing granting-sou
   const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, 'Gravity Weapon'), taken(source.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, entry('Invisibility', 'spell'),
     entry('Gravity Weapon', 'spell', { warden_spell_tier: 'Initiate' })]} save={() => {}} />)
-  expect(markup).toContain('<b>Initiate Warden</b>')
-  expect(markup.indexOf('<b>Initiate Warden</b>')).toBeLessThan(markup.indexOf('<b>Innate Spells</b>'))
+  expect(markup).toContain('<h5>Initiate Warden</h5>')
+  expect(markup.indexOf('<h5>Initiate Warden</h5>')).toBeLessThan(markup.indexOf('<b>Innate Spells</b>'))
   expect(markup).not.toContain('aria-haspopup="dialog">Daily Magic</button>')
   expect(markup).not.toContain('>Refocus</button>')
 })
@@ -773,7 +773,9 @@ it('grants Empathetic Connection Mindlink at its fixed rank without irrelevant D
   const render = (c: Character) => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(render(character)).not.toContain('Intelligence DC')
   expect(render({ ...character, level: 12 })).not.toContain('Attack +')
-  expect(render(character)).toContain('target is temporarily immune for 24 hours')
+  expect(render(character)).not.toContain('target is temporarily immune for 24 hours')
+  expect(render(character)).not.toContain('at will')
+  expect(spells[0].rule.condition).toContain('24 hours')
   expect(render(character)).not.toContain('Slots per rank')
   expect(grantedFeatSpells({ ...character, level: 4 }, entries)).toEqual([])
   expect(knowsSpell(character, entries, 'Mindlink')).toBe(true)
@@ -804,7 +806,7 @@ it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
   expect(classDifficultyClass({ ...c, level: 19 }, entries)).toBe(43)
   expect(classDifficultyClass({ ...c, boosts: { class: 'dex' } }, entries)).toBe(31)
   const spellHigher = renderToStaticMarkup(<SpellsSection c={{ ...c, boosts: { class: 'dex' } }} entries={entries} save={() => {}} />)
-  expect(spellHigher).toContain('; DC 35')
+  expect(spellHigher).toContain('Will DC 35')
   const unchosen = renderToStaticMarkup(<SpellsSection c={{ ...c, boosts: {} }} entries={entries} save={() => {}} />)
   expect(unchosen).toContain('Class DC unavailable')
   expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
@@ -838,7 +840,7 @@ it.each<{ data: ContentEntry['data']; traits: string[]; description: string; dc:
   const spell = { ...entry('Test Spell', 'spell', data, traits), description }
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
-  expect(markup.includes('Intelligence DC 21')).toBe(dc)
+  expect(/<small>Save<\/small>(?:basic )?(?:Will|Reflex|Fortitude) DC 21/.test(markup)).toBe(dc)
   expect(markup.includes('Attack +11')).toBe(attack)
 })
 
@@ -860,7 +862,7 @@ it('uses higher class spell proficiency and highest mental attribute for innate 
   const entries = [grant, entry('One with Stone', 'spell', { saving_throw: 'Fortitude' }), entry('Wizard', 'class', { tradition: 'Arcane' }), master]
   const c = { ...base, className: 'Wizard', level: 15, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Intelligence DC 35')
+  expect(markup).toContain('Fortitude DC 35')
   expect(grantedFeatSpells(c, entries)[0].rank).toBe(3)
 })
 
@@ -910,9 +912,62 @@ it('grants explicit focus spells with source-specific attributes and caps pool b
   expect(focusSpells(c, entries)).toMatchObject({ points: 1, spells: [{ name: 'Lay on Hands' }] })
   expect(focusSpells({ ...c, level: 6 }, entries).points).toBe(3)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Charisma DC 19')
+  expect(markup).toContain('basic Fortitude DC 19')
   expect(markup).not.toContain('Attack +9')
   expect(markup).not.toContain('; rank 3 divine')
+})
+
+it.each([
+  [1, '1 hour', 'Self', 'Self'],
+  [2, '8 hours', 'Self', 'Self'],
+  [4, '8 hours', '20 feet', 'up to 10 creatures'],
+  [7, '8 hours', '20 feet', 'up to 10 creatures'],
+] as const)('shows rank %i Vanishing Tracks metadata without an Active toggle', (rank, duration, range, targets) => {
+  const source: ContentEntry = { ...entry('Trackless Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: ['Vanishing Tracks'], rank, tradition: 'primal' }] }
+  const spell = entry('Vanishing Tracks', 'spell', { duration: 3600 })
+  const c: Character = { ...base, level: 20, feats: [taken(source.name)] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />)
+  expect(html).toContain(`<small>Duration</small>${duration}`)
+  expect(html).toContain(`<small>Range</small>${range}`)
+  expect(html).toContain(`<small>Area/Targets</small>${targets}`)
+  expect(html).not.toContain('aria-label="Vanishing Tracks active"')
+})
+
+it('shows Warden and other focus metadata with class proficiency and source-specific save DCs', () => {
+  const source: ContentEntry = { ...entry('Focus Magic', 'feat'),
+    spellGrants: [{ kind: 'focus', spells: ['Other Focus'], ability: 'cha' }] }
+  const master: ContentEntry = { ...entry('Master Spellcaster', 'classFeature', { class: 'Ranger' }), level: 15 }
+  const metadata = { duration: 60, range: 30, saving_throw: 'Will', targets: 'one creature' }
+  const entries = [source, master, entry('Warden Test', 'spell', { ...metadata, warden_spell_tier: 'Initiate' }),
+    entry('Other Focus', 'spell', metadata, ['Focus'])]
+  const c: Character = { ...base, level: 20, className: 'Ranger',
+    abilities: { ...base.abilities, wis: 22, cha: 14 },
+    feats: [taken('Initiate Warden', 1, 'Warden Test'), taken(source.name)] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('<small>Save</small>Will DC 42')
+  expect(html).toContain('<small>Save</small>Will DC 38')
+  expect(html.match(/<small>Duration<\/small>1 minute/g)).toHaveLength(2)
+  expect(html.match(/<small>Range<\/small>30 feet/g)).toHaveLength(2)
+  expect(html.match(/<small>Area\/Targets<\/small>one creature/g)).toHaveLength(2)
+  expect(html.match(/class="spellbook-columns"/g)).toHaveLength(2)
+})
+
+it('uses class DC and selected slot rank for prepared spell metadata', () => {
+  const fear = entry('Fear', 'spell', { saving_throw: 'Will', traditions: 'Arcane' })
+  const tracks = entry('Vanishing Tracks', 'spell', { duration: 3600, traditions: 'Arcane' })
+  const master = { ...entry('Master Spellcaster', 'classFeature', { class: 'Wizard' }), level: 15 }
+  const c: Character = { ...base, level: 20, className: 'Wizard', abilities: { ...base.abilities, int: 22 },
+    spells: [fear, tracks].map(spell => ({ name: spell.name, rank: 1, cantrip: false, entryId: spell.id })),
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: { 1: 1, 4: 1 },
+      prepared: { '1:0': fear.id, '4:0': tracks.id } } }
+  const entries = [fear, tracks, master, entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' })]
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  const rows = html.match(/<li class="spellbook-row">[\s\S]*?<\/li>/g)
+  expect(rows?.[0]).toContain('<small>Save</small>Will DC 42')
+  expect(rows?.[1]).toContain('<small>Duration</small>8 hours')
+  expect(rows?.[1]).toContain('<small>Range</small>20 feet')
+  expect(rows?.[1]).toContain('<small>Area/Targets</small>up to 10 creatures')
 })
 
 it('grants only selected qi and domain spells, never linked alternatives or future selections', () => {

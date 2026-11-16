@@ -467,7 +467,7 @@ it('shows feat grants once without deleting independently added spells', () => {
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('<strong>Spells</strong><span>1 spells</span>')
   expect(markup).toContain('Gravity Weapon')
-  expect(markup).toContain('<b>Initiate Warden</b>')
+  expect(markup).toContain('<h5>Initiate Warden</h5>')
   expect(markup).not.toContain('Warden feat')
   expect((markup.match(/aria-haspopup="dialog">Gravity Weapon<\/button>/g) ?? [])).toHaveLength(1)
   expect(grantedWardenSpells({ ...c, feats: [] }, entries)).toEqual([])
@@ -507,8 +507,8 @@ it('labels Warden spells in spell listings by tier', () => {
   expect(spellWardenLabel(undefined)).toBeUndefined()
   const c: Character = { ...base, spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('<b>Initiate Warden</b>')
-  expect(markup).not.toContain('<b>Rank 1</b>')
+  expect(markup).toContain('<h5>Initiate Warden</h5>')
+  expect(markup).not.toContain('<h5>Rank 1</h5>')
 })
 
 it('uses Warden tier headings without changing ordinary spell rank groups', () => {
@@ -518,8 +518,8 @@ it('uses Warden tier headings without changing ordinary spell rank groups', () =
   ]
   const c: Character = { ...base, spells: spells.map((s) => ({ name: s.name, rank: 5, cantrip: false, entryId: s.id })) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup).toContain('<b>Peerless Warden</b>')
-  expect(markup).toContain('<b>Rank 5</b>')
+  expect(markup).toContain('<h5>Peerless Warden</h5>')
+  expect(markup).toContain('<h5>Rank 5</h5>')
   expect(markup).not.toContain('(Peerless Warden)')
 })
 

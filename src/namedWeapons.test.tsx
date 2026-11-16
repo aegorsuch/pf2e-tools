@@ -95,13 +95,21 @@ it('applies Wintershot fundamental and Frost runes, preserves upgrades, and show
 
 it('keeps the artifact version distinct with +3 major striking, Greater Frost and Holy', () => {
   const artifact = { ...winter, name: 'Wintershot (Artifact)', id: 'wintershot-artifact', level: 20,
+    traits: [...winter.traits, 'Artifact'],
     data: { ...winter.data, item_subcategory: '', item_category: 'Artifacts' },
     description: 'Wintershot is a +3 major striking greater frost holy composite shortbow. Auroral Shine requires DC 43 Fortitude.' }
   const entries = [...catalog, artifact]
   expect(effectiveWeapon(c, entries, owned('Wintershot (Artifact) (Shortbow)')))
-    .toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy'] })
+    .toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy', 'Grievous'] })
   expect(weaponAttack(c, entries, owned('Wintershot (Artifact) (Longbow)')).damage).toBe('4d8+1 piercing')
   expect(weaponEntry(entries, 'Wintershot (Artifact)')?.level).toBe(20)
+  for (const displayOnly of [false, true]) {
+    const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned('Wintershot (Artifact) (Longbow)')] }}
+      entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(html).toContain('>Wintershot Longbow</button>')
+    expect(html).not.toContain('>Wintershot (Artifact)')
+    expect(html).not.toContain('aria-label="Remove Grievous rune"')
+  }
 })
 
 it.each(['Shortbow', 'Longbow'])('shows all artifact activations and outcomes for %s without using standard-bow rules', type => {
@@ -278,9 +286,9 @@ it.each([false, true])('persists Briar points, rejects invalid inputs, and remov
   changeControl(render(), 'Briar Sharpness Points', '25')
   saved = JSON.parse(JSON.stringify(saved))
   expect(saved.weapons[0].briarSharpness).toBe(25)
-  expect(effectiveWeapon(saved, entries, saved.weapons[0]).runes).toEqual(['Shifting', 'Vorpal'])
+  expect(effectiveWeapon(saved, entries, saved.weapons[0]).runes).toEqual(['Shifting', 'Vorpal', 'Grievous'])
   changeControl(render(), 'Briar Sharpness Points', '0')
-  expect(effectiveWeapon(saved, entries, saved.weapons[0])).toMatchObject({ potency: 3, striking: 2, runes: [] })
+  expect(effectiveWeapon(saved, entries, saved.weapons[0])).toMatchObject({ potency: 3, striking: 2, runes: ['Grievous'] })
   expect(saved.weapons[0]).toMatchObject({ id: 'bow', potency: 0, striking: 0, runes: [] })
 })
 
@@ -382,10 +390,19 @@ it('preserves existing Wintershot variant IDs and saved access approvals', () =>
   expect(gearAccess(saved, namedCatalog, choice)?.approved).toBe(true)
 })
 
+it('does not duplicate Grievous when already present in an artifact source or saved rune list', () => {
+  const source = { ...shadowpiercer,
+    description: shadowpiercer.description.replace('+4 major striking ghost touch', '+4 major striking grievous ghost touch') }
+  const entries = [...namedCatalog.filter(entry => entry !== shadowpiercer), source, rune('Grievous')]
+  const weapon = { ...owned('Shadowpiercer'), runes: ['Grievous', 'Flaming'] }
+  expect(effectiveWeapon(c, entries, weapon).runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
+  expect(weapon.runes).toEqual(['Grievous', 'Flaming'])
+})
+
 it('gives both Shadowpiercer bases +4 major striking and Ghost Touch with base-specific hands, range, and traits', () => {
   for (const name of ["Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Spear)', 'Shadowpiercer']) {
     const weapon = owned(name)
-    expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Ghost Touch'] })
+    expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Ghost Touch', 'Grievous'] })
     const attack = weaponAttack(c, namedCatalog, weapon)
     expect(attack.damage).toBe('4d6+2 piercing')
     expect(attack.additionalDamage[0].value).toBe('2d6 precision vs. incorporeal or shadow creatures')
@@ -394,12 +411,12 @@ it('gives both Shadowpiercer bases +4 major striking and Ghost Touch with base-s
     expect(attack.traits.includes('Reach')).toBe(name.includes("Dancer's"))
   }
   const enhanced = effectiveWeapon(c, namedCatalog, { ...owned('Shadowpiercer'), striking: 3, runes: ['Flaming'] })
-  expect(enhanced.runes).toEqual(['Ghost Touch', 'Flaming'])
+  expect(enhanced.runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
 })
 
 it('uses Callooh Callay base dice, finesse and two-hand traits, preserves Vorpal, and applies matching deity boons', () => {
   const longsword = owned('Callooh Callay (Longsword)')
-  expect(effectiveWeapon(c, namedCatalog, longsword)).toMatchObject({ potency: 3, striking: 3, runes: ['Vorpal'] })
+  expect(effectiveWeapon(c, namedCatalog, longsword)).toMatchObject({ potency: 3, striking: 3, runes: ['Vorpal', 'Grievous'] })
   expect(weaponAttack(c, namedCatalog, longsword).damage).toBe('4d8+2 slashing')
   expect(weaponAttack(c, namedCatalog, owned('Callooh Callay (Shortsword)')).traits).toContain('Finesse')
   const bastard = { ...owned('Callooh Callay (Bastard Sword)'), handsHeld: 2 as const }
@@ -419,7 +436,7 @@ it('supports both Blade of Fallen Stars forms and saved unsuffixed names with sh
     expect(combinationName(namedCatalog, name)).toBe('Blade of Fallen Stars')
     for (const combinationForm of ['Melee', 'Ranged'] as const) {
       const weapon = { ...owned(name), combinationForm }
-      expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Frost (Greater)'] })
+      expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Frost (Greater)', 'Grievous'] })
       const attack = weaponAttack(c, namedCatalog, weapon)
       expect(attack.damage).toBe(combinationForm === 'Melee' ? '4d8+2 slashing' : '4d10 piercing')
       expect(attack.range).toBe(combinationForm === 'Melee' ? 0 : 30)

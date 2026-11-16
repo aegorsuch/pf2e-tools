@@ -92,13 +92,17 @@ it('marks longbow Volley as beneficial-only with Erastil and restores normal ran
 })
 
 it('grants Erastil Speak with Plants only while his major boon is active, without inventing a frequency', () => {
-  const spell: ContentEntry = { ...deity('Speak with Plants'), kind: 'spell', level: 4 }
+  const spell: ContentEntry = { ...deity('Speak with Plants'), kind: 'spell', level: 3, data: { duration: 3600 } }
   const entries = [spell, deity('Erastil')]
   const c = character('Erastil', { Erastil: ['major-boon'] })
   expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Speak with Plants' },
     rank: 4, source: 'Erastil (Major Boon)', rule: { kind: 'innate', tradition: 'divine' } }])
   expect(grantedFeatSpells(c, entries)[0].rule.frequency).toBeUndefined()
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)).toContain('Speak with Plants')
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Speak with Plants')
+  expect(html).toContain('<small>Duration</small>8 hours')
+  expect(html).toContain('<small>Range</small>Self')
+  expect(html).not.toContain('aria-label="Speak with Plants active"')
   expect(grantedFeatSpells({ ...c, deity: 'Torag' }, entries)).toEqual([])
   expect(grantedFeatSpells({ ...c, divineIntercessions: {} }, entries)).toEqual([])
   expect(unresolvedFeatSpells(c, [{ ...spell, deleted: true }])).toMatchObject([

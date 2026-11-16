@@ -1,15 +1,15 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, deityWeapon, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, hasDeityWeaponGrant, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands, SHIELD_ATTACHED_WEAPONS, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
+import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { classHandwrapKind, isGiantWeapon } from './builder'
-import { equipmentDisplayName } from './equipmentGroups'
+import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
@@ -316,10 +316,10 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   const query = q.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
   const matches = [...new Map(
     pool
-      .filter((e) => inTab(e, tab) && (!query || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(e.name)]
+      .filter((e) => inTab(e, tab) && (!query || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(specificMagicItemName(e))]
         .some(name => name.toLowerCase().includes(query))))
       .filter((e) => filters.every((f) => !picked[f.label] || f.values(e).includes(picked[f.label])))
-      .sort((a, b) => equipmentDisplayName(a.name).localeCompare(equipmentDisplayName(b.name)))
+      .sort((a, b) => equipmentDisplayName(specificMagicItemName(a)).localeCompare(equipmentDisplayName(specificMagicItemName(b))))
       .map((m) => [kind === 'weapon' ? combinationName(entries, m.name) : m.name, m]),
   ).values()]
   const close = () => { setOpen(false); setQ(''); setPicked({}) }
@@ -349,7 +349,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
           const blocked = !!access && !access.automatic && !access.approved
           return (
           <li key={m.id}>
-            <span><b><EntryDescription name={kind === 'weapon' ? combinationName(entries, m.name) : m.name} entry={m}
+            <span><b><EntryDescription name={specificMagicItemName(m, kind === 'weapon' ? combinationName(entries, m.name) : m.name)} entry={m}
               className="equipment-name" /></b>{weaponDamage(m) ? ` (${weaponDamage(m)})` : ''}{m.level ? ` (level ${m.level})` : ''}
               {' '}<small>{m.systems.map(system => system === 'sf2e' ? 'SF2E' : 'PF2E').join(' / ')}</small>
             </span>
@@ -947,12 +947,11 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
 export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
   const weapons = ownedWeapons(c, entries)
   const gauntlet = armorGauntlet(c, entries)
-  const favored = deityWeapon(c, entries)
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
   const saveWeapons = (next: OwnedWeapon[], extra?: Partial<Character>) => save({
     ...(livingSource ? { livingWeaponEnhancements: livingWeaponEnhancements(c, entries, livingSource) } : {}),
     weapons: [...next.filter(weapon => !weapon.attachedTo), ...(c.weapons ?? []).filter((weapon) =>
-      (isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id || weapon.id.startsWith('deity-weapon:')) && !weapons.some((visible) => visible.id === weapon.id))],
+      (isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id) && !weapons.some((visible) => visible.id === weapon.id))],
     ...extra,
   })
   const update = (id: string, patch: Partial<OwnedWeapon>) => {
@@ -986,7 +985,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   return (
     <div className="col gear-list">
       {displayOnly && <small>Hands used: {handsUsed}/{handLimit}{unknownHands ? ' (some weapon hands unknown)' : ''}</small>}
-      {hasDeityWeaponGrant(c) && !favored && <small role="status">Favored weapon unavailable. Sync official content and check your deity's favored weapon.</small>}
       {activeFeatsNamed(c, "Fane's Fourberie").length > 0 && PLAYING_CARD_WEAPONS.some(card => !weapons.some(weapon => weapon.id === card.id))
         && <small role="status">Playing-card weapon statistics unavailable. Sync dagger and dart content.</small>}
       {displayOnly && (unknownHands || handsUsed > handLimit) && <small role="status">
@@ -1009,7 +1007,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const plainName = a.entry?.data.named_weapon_source === 'Coldstar Pistols' && w.coldstarForm === 'Merged' ? 'Coldstar Pistol'
           : enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
-            : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name : combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, '')
+            : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name
+              : specificMagicItemName(a.entry, combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, ''), true)
         const shieldSource = shieldAttachmentSource(c, w)
         const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
         const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentSource.name)})` : ''}`
@@ -1504,7 +1503,7 @@ export function ShieldEquipment({ c, entries, save }: SectionProps) {
 
 export function ShieldAttachment({ c, entries, save, shield }: SectionProps & { shield: OwnedShield }) {
   const current = shield.attachedWeapon
-  const options = SHIELD_ATTACHED_WEAPONS.filter(name => !!weaponEntry(entries, name))
+  const options = shieldAttachmentOptions(shield).filter(name => !!weaponEntry(entries, name))
   return <label>Attached weapon{' '}
     <select aria-label={`Attached weapon: ${shield.name}`} value={current?.name ?? ''} onChange={event => {
       const name = options.find(name => name === event.target.value)
@@ -1555,6 +1554,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
   ], ...extra })
   const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   const shield = c.shield
+  const shieldUpgrades = !shield || shieldAllowsUpgrades(shield)
   const grantedShields = ownedShields(c).filter(shield => shield.id !== c.shield?.id)
   const equipped = equippedShield(c)
   const materialOptions = part !== 'armor' && shield && !shield.material ? shieldMaterialOptions(entries, shield, c.systems) : []
@@ -1595,7 +1595,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
-              <strong><EntryDescription name={armorDisplayName(a)} entry={entry} className="equipment-name" /></strong>
+              <strong><EntryDescription name={armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) })} entry={entry} className="equipment-name" /></strong>
               <label><input type="checkbox" aria-label={`Worn ${a.name}`} checked={a.worn} disabled={wornLocked}
                 title={body ? 'Attached to character' : wornLocked ? 'Cannot wear armor over attached body armor' : undefined}
                 onChange={(e) => {
@@ -1706,7 +1706,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
           <ShieldAttachment c={c} entries={entries} save={save} shield={shield} />
-          <div className="row">
+          {shieldUpgrades && <div className="row">
             {shield.material ? <div className="gear-runes"><span>Material</span>
               <GearTag name={shield.material.name} kind="material"
                 entry={entries.find(entry => entry.kind === 'item' && entry.name === shield.material?.name)}
@@ -1722,21 +1722,22 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               granted={blessedShieldBenefit(c, shield, entries)?.rune}
               locked={championBlessings(c).includes('Blessed Shield')}
               onChange={reinforcingRune => save({ shield: { ...shield, reinforcingRune } })} />
-          </div>
-          {!shield.material && !materialOptions.length && <small>No matching materials available. Sync Archives of Nethys content if needed.</small>}
-          {shield.material && (shield.material.hardness === undefined || shield.material.hp === undefined)
+          </div>}
+          {shieldUpgrades && !shield.material && !materialOptions.length && <small>No matching materials available. Sync Archives of Nethys content if needed.</small>}
+          {shieldUpgrades && shield.material && (shield.material.hardness === undefined || shield.material.hp === undefined)
             && <small>Material durability unavailable; base shield durability is used.</small>}
-          {shield.material && <small>Material special effects are not applied automatically.</small>}
+          {shieldUpgrades && shield.material && <small>Material special effects are not applied automatically.</small>}
           <div className="row">
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
+            {shield.name === 'Scale of Igroon' && <button type="button"
+              aria-label="Recover 4 HP (start of wielder’s turn)" title="Recover 4 HP (start of wielder’s turn)"
+              disabled={equipped?.id !== shield.id || shield.damage <= 0}
+              onClick={() => save({ shield: { ...shield, damage: Math.max(0, shield.damage - 4) } })}>
+              +4 HP
+            </button>}
           </div>
           <ShieldDurability c={c} entries={entries} shield={shield} />
           <NamedArmorAbilities entry={shieldEntry(entries, shield.name)} />
-          {shieldEntry(entries, shield.name)?.data.named_shield && <button type="button"
-            disabled={equipped?.id !== shield.id || shield.damage <= 0}
-            onClick={() => save({ shield: { ...shield, damage: Math.max(0, shield.damage - 4) } })}>
-            Recover 4 HP (start of wielder’s turn)
-          </button>}
           <button type="button" className="spell-remove" aria-label={`Remove ${shield.name}`} title="Remove"
             onClick={() => confirmRemoval(`shield "${shield.name}"`, () => save({ shield: undefined }))}>×</button>
         </article>

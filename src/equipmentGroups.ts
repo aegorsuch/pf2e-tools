@@ -4,6 +4,13 @@ export { WORN_EQUIPMENT_GROUPS, EQUIPMENT_GROUPS, type EquipmentGroupName } from
 export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")
   .replace(/^(Minor|Lesser|Moderate|Greater|Major|Supreme|True)\s+(.+)$/, '$2 ($1)')
 
+export function specificMagicItemName(entry: ContentEntry | undefined, name = entry?.name ?? '', owned = false) {
+  const base = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base ?? '').replace(/^Composite /, '')
+  const sourceName = String(entry?.data.named_weapon_source ?? name)
+  const source = owned ? sourceName.replace(/ \(Artifact\)/gi, '') : sourceName
+  return base && !source.toLowerCase().endsWith(base.toLowerCase()) ? `${source} ${base}` : source
+}
+
 const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [
   ['Backpacks', /\b(?:backpacks?|rucksacks?)\b/],
   ['Belt', /\b(?:belts?|girdles?|sashes?|waist)\b/],

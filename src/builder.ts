@@ -293,6 +293,10 @@ export function shieldChange(c: Character, shield: OwnedShield,
 }
 type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
 
+export function shieldAllowsUpgrades(shield: { name?: string }) {
+  return shield.name !== 'Scale of Igroon'
+}
+
 export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, entries: ContentEntry[] = []) {
   if (!championBlessings(c).includes('Blessed Shield') || !shield.id || equippedShield(c)?.id !== shield.id) return undefined
   const ranks = Object.keys(SHIELD_RUNES) as (keyof typeof SHIELD_RUNES)[]
@@ -300,16 +304,17 @@ export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, ent
   const sturdy = /^Sturdy Shield(?: \((Minor|Lesser|Moderate|Greater|Major|Supreme)\))?$/i.exec(shield.name ?? '')
   const sturdyRank = sturdy && ranks.find(rank => rank.toLowerCase() === (sturdy[1] ?? 'Minor').toLowerCase())
   const sturdyLevel = sturdy ? byName(entries, 'item', shield.name)?.level ?? (sturdyRank && SHIELD_RUNES[sturdyRank].level) : undefined
-  const overlap = shield.reinforcingRune === appropriate || sturdyLevel === SHIELD_RUNES[appropriate].level
+  const overlap = shieldAllowsUpgrades(shield) && shield.reinforcingRune === appropriate || sturdyLevel === SHIELD_RUNES[appropriate].level
   return { rune: overlap ? undefined : appropriate, hardness: overlap ? 1 : 0 }
 }
 
 export function shieldStats(shield: ShieldStatsInput, c?: Character, entries: ContentEntry[] = []) {
   const named = shield.name ? makeNamedShieldEntry(entries, shield.name) : undefined
-  const hardness = Math.max(shield.material?.hardness ?? shield.hardness, num(named?.data.hardness))
-  const hp = Math.max(shield.material?.hp ?? shield.hp, num(named?.data.hp))
+  const material = shieldAllowsUpgrades(shield) ? shield.material : undefined
+  const hardness = Math.max(material?.hardness ?? shield.hardness, num(named?.data.hardness))
+  const hp = Math.max(material?.hp ?? shield.hp, num(named?.data.hp))
   const blessing = c && blessedShieldBenefit(c, shield, entries)
-  const purchased = shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
+  const purchased = shieldAllowsUpgrades(shield) && shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
   const granted = blessing?.rune && SHIELD_RUNES[blessing.rune]
   const rune = granted && (!purchased || granted.level > purchased.level) ? granted : purchased
   return {
@@ -318,6 +323,7 @@ export function shieldStats(shield: ShieldStatsInput, c?: Character, entries: Co
   }
 }
 export function shieldMaterialOptions(entries: ContentEntry[], shield: OwnedShield, systems: Character['systems']) {
+  if (!shieldAllowsUpgrades(shield)) return []
   const type = /tower shield/i.test(shield.name) ? 'Tower Shield' : /buckler/i.test(shield.name) ? 'Buckler' : 'Shield'
   return entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.some(system => systems.includes(system))
     && entry.data.item_subcategory === 'Precious Material Shields'
@@ -2819,7 +2825,7 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
   return {
     perception: abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level)
-      + perceptionItemBonus(c) + perceptionCircumstanceBonus(c),
+      + perceptionItemBonus(c, entries) + perceptionCircumstanceBonus(c),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
     fortitude: savingThrowBreakdown(c, entries, 'Fortitude', ranks).total,
@@ -2972,7 +2978,7 @@ export function oakenResilience(c: Character, entries: ContentEntry[], target: '
 
 export const wornArmor = (c: Character, entries: ContentEntry[] = []): OwnedArmor | undefined =>
   ownedArmors(c, entries).find(armor => armor.worn)
-export const perceptionItemBonus = (c: Character) => Math.max(0, ...(wornArmor(c)?.runes ?? []).map((rune) => {
+export const perceptionItemBonus = (c: Character, entries: ContentEntry[] = []) => Math.max(0, ...(wornArmor(c, entries)?.runes ?? []).map((rune) => {
   const name = runeName(rune)
   return name === 'Sunweave' ? 1 : name === 'Sunweave (Greater)' ? 2 : name === 'Sunweave (Major)' ? 3 : 0
 }))
@@ -3287,8 +3293,7 @@ export function deityWeapon(c: Character, entries: ContentEntry[]) {
   const entry = (previous ? weaponEntry(entries, previous.name) : undefined)
     ?? carried.map((weapon) => weaponEntry(entries, weapon.name)).find((entry) => entry && isFavoredWeapon(c, entries, entry.name))
     ?? (gauntlet && isFavoredWeapon(c, entries, gauntlet.name) ? weaponEntry(entries, gauntlet.name) : undefined)
-    ?? [...entries.filter((entry) => entry.kind === 'weapon' && !entry.deleted), ...SUPPLEMENTAL_WEAPONS]
-      .find((entry) => isFavoredWeapon(c, entries, entry.name))
+    ?? SUPPLEMENTAL_WEAPONS.find(entry => isAutomaticUnarmed(entry.name) && isFavoredWeapon(c, entries, entry.name))
   if (!entry) return undefined
   const id = gauntlet?.name === entry.name ? GAUNTLET.id : `deity-weapon:${entry.id}`
   const saved = carried.find((weapon) => weapon.id === id)
@@ -3326,7 +3331,6 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
     && (!PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id) || cards.some(card => card.id === weapon.id))
-    && (!weapon.id.startsWith('deity-weapon:') || weapon.id === favored?.id)
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
@@ -3338,7 +3342,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   for (const card of cards) if (!available.some(weapon => weapon.id === card.id)) {
     available.push({ id: card.id, name: card.name, potency: 0, striking: 0, runes: [] })
   }
-  if (favored && !available.some((weapon) => weapon.id === favored.id)) {
+  if (favored && weaponCategory(favored.entry) === 'Unarmed' && !available.some((weapon) => weapon.id === favored.id)) {
     available.push({ id: favored.id, name: favored.entry.name, potency: 0, striking: 0, runes: [] })
   }
   for (const source of [...available]) {
@@ -3348,7 +3352,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     }
   }
   for (const shield of ownedShields(c)) {
-    if (shield) available.push({ ...(shield.attachedWeapon ?? {
+    const attachedWeapon = shieldAttachedWeapon(shield)
+    if (shield) available.push({ ...(attachedWeapon ?? {
       id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
     }), attachedTo: shield.id })
   }
@@ -3478,10 +3483,20 @@ export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
   return !!entry && /^(firearm|crossbow)$/i.test(String(entry.data.weapon_group ?? ''))
 }
 export const SHIELD_ATTACHED_WEAPONS = ['Shield Boss', 'Shield Pistol', 'Shield Spikes'] as const
+export function shieldAttachmentOptions(shield: Pick<OwnedShield, 'name'>) {
+  return SHIELD_ATTACHED_WEAPONS.filter(name => shield.name !== 'Scale of Igroon' || name !== 'Shield Pistol')
+}
+function shieldAttachedWeapon(shield: OwnedShield) {
+  const weapon = shield.attachedWeapon
+  return shield.name === 'Scale of Igroon' && weapon && !shieldAttachmentOptions(shield).some(name => name === weapon.name)
+    ? undefined : weapon
+}
 export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
-  return ownedShields(c).find(shield => shield.id === weapon.attachedTo
-    && (shield.attachedWeapon?.id === weapon.id
-      || !shield.attachedWeapon && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name))
+  return ownedShields(c).find(shield => {
+    const attached = shieldAttachedWeapon(shield)
+    return shield.id === weapon.attachedTo && (attached?.id === weapon.id
+      || !attached && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name)
+  })
 }
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
@@ -3489,7 +3504,6 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
   || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
-  || deityWeapon(c, entries)?.entry.name === name && (!id || deityWeapon(c, entries)?.id === id)
 export function weaponEntry(entries: ContentEntry[], name: string) {
   let entry = resolveWeaponEntry(entries, name)
   if (entry?.source === 'homebrew' && entry.data.url && (entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))
@@ -3518,7 +3532,8 @@ export function weaponEntry(entries: ContentEntry[], name: string) {
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string) {
-  const hammerMultipistol = hammerMultipistolEntries(entries).find(entry => entry.name === name)
+  const hammerMultipistol = name.startsWith('Hammer Multipistol')
+    ? hammerMultipistolEntries(entries).find(entry => entry.name === name) : undefined
   if (hammerMultipistol) return hammerMultipistol
   const shobhad = /^Shobhad Longrifle \((Pathfinder|Starfinder)\)$/.exec(name)
   if (shobhad) {
@@ -4020,7 +4035,9 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   const shield = shieldAttachmentSource(c, weapon)
   if (shield) {
     const generated = shield.id === 'granted-shield:hardwood'
-    const material = generated ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)' : shield.material?.name
+    const material = shield.name === 'Scale of Igroon' && weapon.name !== SHIELD_BASH.name ? 'Orichalcum' : generated
+      ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)'
+      : shieldAllowsUpgrades(shield) ? shield.material?.name : undefined
     if (weapon.name === SHIELD_BASH.name) return { ...weapon, material, potency: 0, striking: 0, runes: [] }
     const automatic = automaticWeaponFundamentals(c.level)
     return withBlessedArmament(c, entries, { ...weapon, material,

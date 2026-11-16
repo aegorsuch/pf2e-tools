@@ -43,9 +43,14 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
 }
 
 const MATERIALS: Record<string, string> = {
-  Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine',
+  Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
+}
+
+function artifactRunes(entry: ContentEntry, runes: string) {
+  return [...new Set([...runes.split(';').filter(Boolean),
+    ...(entry.traits.some(trait => trait.toLowerCase() === 'artifact') ? ['Grievous'] : [])])].join(';')
 }
 
 export function namedWeaponBases(entry?: ContentEntry) {
@@ -129,7 +134,9 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         price: item.data.price ?? '', rarity: item.data.rarity ?? 'common', item_category: 'Weapons',
         artifact_activation_actions: item.data.artifact_activation_actions ?? '',
         item_subcategory: 'Specific Magic Weapons', named_weapon: true, named_weapon_source: item.name, named_weapon_base: base.name,
-        named_weapon_material: MATERIALS[item.name] ?? '', ...fixed }
+        named_weapon_material: MATERIALS[item.name] ?? '',
+        named_weapon_resolver_only: item.name === 'Serithtial' && !native, ...fixed,
+        named_weapon_runes: artifactRunes(item, fixed.named_weapon_runes) }
       if (item.data.bulk !== undefined) data.bulk = item.data.bulk
       if (['Axe of the Dwarven Lords', "Spear of the Destroyer's Flame"].includes(item.name)) {
         data.thrown_range = 30
@@ -175,8 +182,8 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     const merged = weapon.coldstarForm === 'Merged'
     return { ...entry, data: { ...entry.data, hands: !weapon.coldstarForm || weapon.coldstarForm === 'Paired' ? 2 : 1,
       range: merged ? 120 : 60, named_weapon_potency: merged ? 4 : 3, named_weapon_striking: merged ? 3 : 2,
-      named_weapon_runes: merged ? 'Flaming (Greater);Frost (Greater)'
-        : weapon.coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)', named_weapon_rules_missing: false } }
+      named_weapon_runes: artifactRunes(entry, merged ? 'Flaming (Greater);Frost (Greater)'
+        : weapon.coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)'), named_weapon_rules_missing: false } }
   }
   if (source === 'Azlanti Diamond') {
     const bond = [0, 1, 2].includes(weapon.azlantiBond ?? 0) ? weapon.azlantiBond ?? 0 : 0
@@ -200,7 +207,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   return { ...entry, description: [intro, remastered, destruction < 0 ? '' : entry.description.slice(destruction)].join('\n\n'),
     traits: [...entry.traits.filter(trait => trait !== 'Intelligent'), ...(points >= 4 ? ['Intelligent'] : [])],
     data: { ...entry.data, named_weapon_potency: points >= 8 ? 4 : 3, named_weapon_striking: points >= 4 ? 3 : 2,
-      named_weapon_runes: [points >= 1 ? 'Shifting' : '', points >= 20 ? 'Vorpal' : ''].filter(Boolean).join(';'),
+      named_weapon_runes: artifactRunes(entry, [points >= 1 ? 'Shifting' : '', points >= 20 ? 'Vorpal' : ''].filter(Boolean).join(';')),
       named_weapon_oaken_rank: oakenRank,
       artifact_activation_actions: ['Single Action', 'Reaction', 'Reaction', 'Reaction'].slice(0,
         points >= 20 ? 4 : points >= 14 ? 3 : points >= 8 ? 2 : points >= 4 ? 1 : 0).join(';'),

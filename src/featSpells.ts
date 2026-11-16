@@ -175,7 +175,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     const entry = matchingSpells(entries, grant.name).find(spell => spell.systems.some(system => c.systems.includes(system)))
     if (entry) out.push({ entry, source: grant.source,
       rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: grant.frequency },
-      rank: entry.level, usageKey: JSON.stringify(['deity', grant.deity, grant.id, entry.name]) })
+      rank: Math.max(entry.level, grant.rank ?? entry.level), usageKey: JSON.stringify(['deity', grant.deity, grant.id, entry.name]) })
   }
   if (characterHeritages(c, entries).some(heritage => heritage.name === 'Seer Elf')) {
     const entry = matchingSpells(entries, 'Detect Magic').find(spell => spell.systems.some(system => c.systems.includes(system)))

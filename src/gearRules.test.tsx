@@ -884,29 +884,31 @@ it.each([0, 1, 2, 3])('converts armor resilient tier %i directly into its provid
   expect(effectiveWeapon(c, [], { ...gauntlet, id: 'purchased', potency: 0, striking: 0 })).toMatchObject({ potency: 0, striking: 0 })
 })
 
-it('grants one deity-favored weapon to Champions, Clerics and active Vindicator Rangers', () => {
+it('keeps favored weapon benefits without forcing Champions, Clerics or Vindicators to own one', () => {
   for (const className of ['Champion', 'Cleric', 'Ranger']) {
     const c: Character = { ...base, className, weapons: [], feats: className === 'Ranger' ? [feat('Vindicator Dedication', 2)] : [] }
     const granted = ownedWeapons(c, [sword, deity]).filter(w => w.name === sword.name)
-    expect(granted).toHaveLength(1)
-    expect(effectiveWeapon(c, [sword, deity], granted[0])).toMatchObject({ potency: 2, striking: 1 })
-    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword, deity]} save={() => {}} />)
+    expect(granted).toHaveLength(0)
+    const owned = { ...main, potency: 0, striking: 0 }
+    const equipped = { ...c, weapons: [owned] }
+    expect(effectiveWeapon(equipped, [sword, deity], owned)).toMatchObject({ potency: 2, striking: 1 })
+    const markup = renderToStaticMarkup(<WeaponList c={equipped} entries={[sword, deity]} save={() => {}} />)
     expect(markup).not.toContain('Favored weapon of Iomedae')
-    expect(markup).not.toContain('aria-label="Remove Longsword"')
+    expect(markup).toContain('aria-label="Remove Longsword"')
   }
   const ranger = { ...base, className: 'Ranger', weapons: [] }
   expect(ownedWeapons(ranger, [sword, deity]).some(w => w.name === sword.name)).toBe(false)
   expect(ownedWeapons({ ...ranger, level: 1, feats: [feat('Vindicator Dedication', 2)] }, [sword, deity]).some(w => w.name === sword.name)).toBe(false)
 })
 
-it('retains dormant deity weapon configuration and keeps purchased duplicates independently removable', () => {
+it('retains legacy deity weapons as removable inventory across class changes', () => {
   const c: Character = { ...base, weapons: [] }
-  const granted = ownedWeapons(c, [sword, deity]).find(w => w.name === sword.name)!
+  const granted = { ...main, id: `deity-weapon:${sword.id}` }
   const saved = { ...granted, potency: 3, striking: 3, runes: ['Flaming'] }
   const equipped = { ...c, weapons: [{ ...main, id: 'purchased' }, saved] }
   expect(ownedWeapons(equipped, [sword, deity]).filter(w => w.name === sword.name)).toHaveLength(2)
-  expect(renderToStaticMarkup(<WeaponList c={equipped} entries={[sword, deity]} save={() => {}} />).match(/aria-label="Remove Longsword"/g)).toHaveLength(1)
-  expect(ownedWeapons({ ...equipped, className: 'Fighter' }, [sword, deity]).some(w => w.id === granted.id)).toBe(false)
+  expect(renderToStaticMarkup(<WeaponList c={equipped} entries={[sword, deity]} save={() => {}} />).match(/aria-label="Remove Longsword"/g)).toHaveLength(2)
+  expect(ownedWeapons({ ...equipped, className: 'Fighter' }, [sword, deity]).some(w => w.id === granted.id)).toBe(true)
   expect(ownedWeapons(equipped, [sword, deity]).find(w => w.id === granted.id)).toEqual(saved)
   expect(effectiveWeapon({ ...equipped, level: 2 }, [sword, deity], saved)).toMatchObject({ potency: 3, striking: 3 })
 })

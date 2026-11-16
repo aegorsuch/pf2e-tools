@@ -134,7 +134,7 @@ export function hasDivineIntercession(c: Character, deity: string, id: string) {
 
 export function divineBoonSpells(c: Character) {
   return [
-    { deity: 'Erastil', id: 'major-boon', name: 'Speak with Plants', source: 'Erastil (Major Boon)', frequency: undefined },
+    { deity: 'Erastil', id: 'major-boon', name: 'Speak with Plants', source: 'Erastil (Major Boon)', frequency: undefined, rank: 4 },
     { deity: 'Kazutal', id: 'moderate-boon', name: 'Liminal Doorway', source: 'Kazutal (Moderate Boon)', frequency: 'once per day' },
   ].filter(grant => hasDivineIntercession(c, grant.deity, grant.id))
 }

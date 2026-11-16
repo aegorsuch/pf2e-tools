@@ -256,7 +256,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const tattoo = s.name === 'Crafting' ? tradecraftTattooBonus(c, entries) : undefined
     const artifact = artifactItemSkillBonus(c, entries, s.name)
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
-    const item = s.name === 'Perception' ? perceptionItemBonus(c)
+    const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
       : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0)
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''

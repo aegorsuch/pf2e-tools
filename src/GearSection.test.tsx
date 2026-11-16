@@ -68,6 +68,15 @@ it.each([
     .toBe(visible.some(name => name === entry.name))
 })
 
+it('shows specific magic item base types in the picker without changing saved names', () => {
+  const armor: ContentEntry = { ...weapon, id: 'embrace', kind: 'armor', name: 'Ancestral Embrace', traits: ['Magical'],
+    data: { named_armor: true, named_armor_base: 'Leather Armor', armor_category: 'Light' } }
+  const markup = renderToStaticMarkup(<OpenGearSearch c={character([])} entries={[armor]} save={() => {}}
+    kind="armor" label="Add Armor" onPick={() => {}} tab="Magic" />)
+  expect(markup).toContain('>Ancestral Embrace Leather Armor</button>')
+  expect(armor.name).toBe('Ancestral Embrace')
+})
+
 it.each(['armor', 'shield'] as const)('retains existing Custom filtering for %s', kind => {
   const custom: ContentEntry = { ...weapon, id: 'custom-gear', name: 'Custom Gear', kind, source: 'homebrew',
     data: kind === 'armor' ? { armor_category: 'Light', ac: 1 } : {} }
@@ -739,6 +748,45 @@ it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinfor
   expect(unblessed).toContain(`aria-label="Remove Reinforcing Rune (${rune}) rune"`)
 })
 
+it('limits Scale of Igroon construction and places compact recovery beside damage', () => {
+  const entries = ['Shield Spikes', 'Shield Pistol', 'Shield Boss'].map(name => ({ ...weapon, id: name, name }))
+  let c: Character = { ...character([]), weapons: [],
+    shield: { id: 'scale', name: 'Scale of Igroon', hardness: 20, hp: 160, damage: 6, raised: false,
+      material: { name: 'Orichalcum' }, reinforcingRune: 'Supreme' } }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = () => renderToStaticMarkup(<ArmorList c={c} entries={entries} save={save} part="shield" />)
+  expect(markup()).not.toContain('Shield material')
+  expect(markup()).not.toContain('Reinforcing Rune')
+  expect(markup()).not.toContain('Orichalcum')
+  expect(markup()).toContain('>Shield Boss</option>')
+  expect(markup()).toContain('>Shield Spikes</option>')
+  expect(markup()).not.toContain('Shield Pistol')
+  expect(markup()).toContain('>+4 HP</button>')
+  const row = () => findElement(ArmorList({ c, entries, save, part: 'shield' }), e =>
+    e.props.className === 'row' && !!findElement(e.props.children as ReactNode, child => child.type === 'input' && child.props.type === 'number'))!
+  const recover = () => findElement(row(), e => e.type === 'button')!
+  const heal = () => (recover().props.onClick as () => void)()
+  heal()
+  expect(c.shield?.damage).toBe(2)
+  heal()
+  expect(c.shield?.damage).toBe(0)
+  expect(recover().props.disabled).toBe(true)
+  c = { ...c, shield: { ...c.shield!, damage: 8, equipped: false } }
+  expect(recover().props.disabled).toBe(true)
+  c = { ...c, shield: { ...c.shield!, equipped: true } }
+  const attachment = findElement(ShieldAttachment({ c, entries, save, shield: c.shield! }), e => e.type === 'select')!
+  const select = (name: string) => (attachment.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: name } })
+  select('Shield Pistol')
+  expect(c.shield?.attachedWeapon).toBeUndefined()
+  select('Shield Spikes')
+  const attached = ownedWeapons(c, entries).find(w => w.attachedTo === 'scale')!
+  expect(attached.name).toBe('Shield Spikes')
+  expect(effectiveWeapon(c, entries, attached).material).toBe('Orichalcum')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)).not.toContain('Orichalcum')
+  c = { ...c, shield: { ...c.shield!, attachedWeapon: { ...c.shield!.attachedWeapon!, name: 'Shield Pistol' } } }
+  expect(ownedWeapons(c, entries).find(w => w.attachedTo === 'scale')?.name).toBe('Shield Bash')
+})
+
 it('automates shield weapon enhancements without helper text and preserves editable property runes', () => {
   const entries = ['Shield Spikes', 'Shield Pistol', 'Shield Boss'].map(name => ({
     ...weapon, id: name, name, traits: ['Attached'],
@@ -1082,7 +1130,7 @@ it('opens grade-specific weapon and armor material rules with the correct item l
   expect(armor).toContain('aria-label="Remove Grisantian Hide (High-Grade) material"')
 })
 
-it('preserves a dormant deity weapon when editing other gear and restores its identity after changing class back', () => {
+it('preserves legacy deity weapons when editing other gear and leaves both copies removable', () => {
   const dormant: OwnedWeapon = { id: 'deity-weapon:longsword', name: 'Longsword', potency: 3, striking: 3, runes: ['Flaming'] }
   let c: Character = { ...character([]), deity: 'Iomedae', weapons: [...character([]).weapons!, dormant] }
   const entries: ContentEntry[] = [weapon, { ...weapon, id: 'deity', kind: 'deity', name: 'Iomedae', data: { favored_weapon: 'longsword' } }]
@@ -1093,8 +1141,26 @@ it('preserves a dormant deity weapon when editing other gear and restores its id
   expect(c.weapons?.find(w => w.id === dormant.id)).toEqual(dormant)
   c = { ...c, className: 'Cleric' }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)
-  expect(markup.match(/aria-label="Remove Longsword"/g)).toHaveLength(1)
+  expect(markup.match(/aria-label="Remove Longsword"/g)).toHaveLength(2)
   expect(effectiveWeapon(c, entries, dormant)).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
+})
+
+it('confirms removal of a favored longsword and does not recreate it after reload', () => {
+  let c: Character = { ...character([]), className: 'Cleric', deity: 'Iomedae',
+    weapons: [{ ...character([]).weapons![0], id: 'deity-weapon:longsword' }] }
+  const entries: ContentEntry[] = [weapon, { ...weapon, id: 'deity', kind: 'deity', name: 'Iomedae', data: { favored_weapon: 'longsword' } }]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const remove = () => {
+    const button = findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === 'Remove Longsword')!
+    ;(button.props.onClick as () => void)()
+  }
+  vi.mocked(window.confirm).mockReturnValueOnce(false)
+  remove()
+  expect(c.weapons?.some(w => w.name === 'Longsword')).toBe(true)
+  remove()
+  c = JSON.parse(JSON.stringify(c))
+  expect(ownedWeapons(c, entries).some(w => w.name === 'Longsword')).toBe(false)
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)).not.toContain('Favored weapon unavailable')
 })
 
 it('alphabetizes Animal Feature effects, greys out rank-four choices until level seven, and switches a single persisted effect', () => {

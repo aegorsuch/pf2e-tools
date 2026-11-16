@@ -21,7 +21,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|elven chain)\b/i.exec(item.description)
       if (!enchantment) return []
       let properties = ` ${enchantment[2].toLowerCase()} `
-      const fixed: string[] = []
+      const fixed: string[] = item.name === 'Ancestral Embrace' ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
       const candidates = [...runes, ...(/\bgreater fortification\b/i.test(enchantment[2])
         && !runes.some(rune => rune.name === 'Fortification (Greater)') ? [{ name: 'Fortification (Greater)' }] : [])]
       for (const rune of candidates.sort((a, b) => b.name.length - a.name.length)) {
@@ -65,13 +65,18 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
   }
 }
 
+const shieldCache = new WeakMap<ContentEntry[], ContentEntry | null>()
+
 export function makeNamedShieldEntry(entries: ContentEntry[], name: string): ContentEntry | undefined {
   if (name !== 'Scale of Igroon') return undefined
+  const cached = shieldCache.get(entries)
+  if (cached !== undefined) return cached ?? undefined
   const item = entries.find(entry => entry.kind === 'item' && !entry.deleted && entry.name === name && entry.systems.includes('pf2e'))
   const stats = item && /\bHardness (\d+), HP (\d+), BT (\d+)\b/.exec(item.description)
-  if (!item || !stats) return undefined
-  return { ...item, kind: 'shield' as const,
-    data: { ...item.data, named_shield: true, hardness: Number(stats[1]), hp: Number(stats[2]), bt: Number(stats[3]) } }
+  const shield = item && stats ? { ...item, kind: 'shield' as const,
+    data: { ...item.data, named_shield: true, hardness: Number(stats[1]), hp: Number(stats[2]), bt: Number(stats[3]) } } : undefined
+  shieldCache.set(entries, shield ?? null)
+  return shield
 }
 
 const ACTIONS: Record<string, string[]> = {

@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mapAonHits } from '../src/aon'
-import { artifactItemSkillBonus, effectiveWeapon, gearPickerEntries, giantWeaponClumsy, maxPropertyRunes, resistances, senses, weaponAttack, weaponEntry, weaponHands } from '../src/builder'
+import { artifactItemSkillBonus, effectiveWeapon, gearPickerEntries, giantWeaponClumsy, maxPropertyRunes, resistances, senses, shieldEntry, shieldStats, weaponAttack, weaponEntry, weaponHands } from '../src/builder'
 import { WeaponList } from '../src/GearSection'
-import { namedWeaponAbilities } from '../src/namedWeapons'
+import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements } from '../src/namedWeapons'
 import type { Character, OwnedWeapon } from '../src/types'
 
 const snapshot = 'public/data/aon-pf2e.json'
@@ -27,6 +27,34 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
   const hits: Parameters<typeof mapAonHits>[0] = existsSync(snapshot) ? JSON.parse(readFileSync(snapshot, 'utf8')) : []
   const entries = mapAonHits(hits, 'pf2e')
 
+  it('reuses catalog indexes for repeated artifact weapon lookups', () => {
+    const weapons = ['Briar', 'Serithtial', 'Coldstar Pistols'].map(name => own(name))
+    for (const weapon of weapons) weaponEntry(entries, weapon.name)
+    const scan = vi.spyOn(entries, 'filter')
+    try {
+      for (let i = 0; i < 12; i++) weaponEntry(entries, weapons[i % weapons.length].name)
+      expect(scan).not.toHaveBeenCalled()
+    } finally {
+      scan.mockRestore()
+    }
+  })
+
+  it('reuses artifact shield metadata across durability and description lookups', () => {
+    const shield = { id: 'scale', name: 'Scale of Igroon', hardness: 20, hp: 160, damage: 0, raised: false }
+    shieldEntry(entries, shield.name)
+    shieldStats(shield, c, entries)
+    const scan = vi.spyOn(entries, 'find')
+    try {
+      for (let i = 0; i < 6; i++) {
+        shieldEntry(entries, shield.name)
+        shieldStats(shield, c, entries)
+      }
+      expect(scan).not.toHaveBeenCalled()
+    } finally {
+      scan.mockRestore()
+    }
+  })
+
   it.each(names)('adapts %s with usable fundamentals and complete source properties', name => {
     const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === name)
     expect(choices.length, name).toBeGreaterThan(0)
@@ -35,7 +63,9 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     expect(attack.entry?.data.named_weapon_rules_missing, name).toBeFalsy()
     expect(attack.damage, name).toMatch(/^\d+d\d+/)
     const weapon = effectiveWeapon(c, entries, own(name))
-    expect(weapon.runes.length).toBeLessThanOrEqual(maxPropertyRunes(weapon.potency, weapon.material))
+    expect(weapon.runes.filter(rune => rune === 'Grievous')).toHaveLength(1)
+    expect(weapon.runes.length).toBeLessThanOrEqual(Math.max(maxPropertyRunes(weapon.potency, weapon.material),
+      namedWeaponEnhancements(attack.entry)?.runes.length ?? 0))
     expect(namedWeaponAbilities(attack.entry).some(ability => ability.name === 'Properties'), name).toBe(true)
   })
 
@@ -65,7 +95,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     if (points < 20) expect(text).not.toContain('resurrects its partner')
     if (points < 14) expect(text).not.toContain('breath of life')
     expect(weaponAttack(c, entries, JSON.parse(JSON.stringify(weapon))).damage).toBe(attack.damage)
-    expect(effectiveWeapon(c, entries, { ...weapon, briarSharpness: 0 }).runes).toEqual([])
+    expect(effectiveWeapon(c, entries, { ...weapon, briarSharpness: 0 }).runes).toEqual(['Grievous'])
   })
 
   it('switches Coldstar paired, single and merged forms, retaining magic and upgrades across reload', () => {
@@ -78,8 +108,8 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
       expect(attack.damage).toBe(coldstarForm === 'Merged' ? '4d6 P' : '3d6 P')
       expect(attack.range).toBe(coldstarForm === 'Merged' ? 120 : 60)
       expect(weaponHands(entries, reloaded)).toBe(coldstarForm === 'Paired' ? 2 : 1)
-      expect(effective.runes).toEqual(coldstarForm === 'Merged' ? ['Flaming (Greater)', 'Frost (Greater)']
-        : [coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)'])
+      expect(effective.runes).toEqual([...(coldstarForm === 'Merged' ? ['Flaming (Greater)', 'Frost (Greater)']
+        : [coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)']), 'Grievous'])
       expect(attack.traits).toEqual(expect.arrayContaining(['Agile', 'Concealable', 'Concussive', 'Fatal d10']))
       for (const displayOnly of [false, true]) {
         const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
@@ -96,9 +126,25 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
   })
 
   it('keeps Serithtial legal shapes official and uses each shape rather than bastard-sword statistics', () => {
-    const forms = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === 'Serithtial')
+    const picker = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === 'Serithtial')
+    expect(picker).toHaveLength(1)
+    expect(picker[0].data.named_weapon_base).toBe('Bastard Sword')
+    const forms = namedWeaponBases(weaponEntry(entries, 'Serithtial')).map(base => `Serithtial (${base})`)
     expect(forms).toHaveLength(8)
-    expect(forms.every(entry => entry.source === 'official')).toBe(true)
+    expect(forms.every(name => weaponEntry(entries, name)?.source === 'official')).toBe(true)
+    for (const name of ['Serithtial', ...forms]) {
+      expect(effectiveWeapon(c, entries, own(name, { material: 'Cold Iron' })).material).toBe('Orichalcum')
+    }
+    for (const displayOnly of [false, true]) {
+      const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [own('Serithtial (Dagger)')] }}
+        entries={entries} save={() => {}} displayOnly={displayOnly} />)
+      if (!displayOnly) {
+        expect(html).toContain('Orichalcum')
+        expect(html).toContain('Built into Serithtial')
+      }
+      expect(html).not.toContain('aria-label="Remove Orichalcum material"')
+      expect(html).not.toContain('Add material...')
+    }
     const dagger = weaponAttack(c, entries, own('Serithtial (Dagger)'))
     expect(dagger.damage).toBe('4d4+2 P')
     expect(dagger.traits).toContain('Agile')

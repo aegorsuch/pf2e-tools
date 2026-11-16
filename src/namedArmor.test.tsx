@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, resistances, savingThrowBreakdown, shieldEntry, shieldStats } from './builder'
+import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, perceptionItemBonus, resistances, savingThrowBreakdown, shieldEntry, shieldMaterialOptions, shieldStats } from './builder'
 import { ArmorList } from './GearSection'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
@@ -63,6 +63,21 @@ const character: Character = {
 }
 const owned = (name: string): OwnedArmor => ({ id: name, name, potency: 0, resilient: 0, runes: [], worn: true })
 const shield: OwnedShield = { id: 'scale', name: scale.name, hardness: 0, hp: 0, raised: false, damage: 8 }
+
+it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Perception bonus', () => {
+  const c = { ...character, armors: [owned(embrace.name)] }
+  expect(effectiveArmor(c, entries, c.armors[0]).runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)'])
+  expect(perceptionItemBonus(c, entries)).toBe(3)
+  expect(perceptionItemBonus({ ...c, armors: [{ ...c.armors[0], worn: false }] }, entries)).toBe(0)
+  const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
+  expect(html).toContain('>Ancestral Embrace Leather Armor</button>')
+  expect(html).toContain('Moonweave (Major)')
+  expect(html).toContain('Sunweave (Major)')
+  expect(html).not.toContain('aria-label="Remove Moonweave (Major) rune"')
+  expect(html).not.toContain('aria-label="Remove Sunweave (Major) rune"')
+  expect(c.armors[0].name).toBe('Ancestral Embrace')
+  expect(c.armors[0].runes).toEqual([])
+})
 
 it('derives named armor bases, fundamental runes, elven construction, and immutable source metadata', () => {
   const before = JSON.stringify(entries)
@@ -126,9 +141,12 @@ it('keeps situational effects manual and exposes source activations in expandabl
   expect(gearPickerEntries(entries, 'shield').some(entry => entry.name === scale.name)).toBe(true)
 })
 
-it('uses source shield durability without discarding stronger saved upgrades or applying conditional bonuses', () => {
+it('uses source shield durability and preserves saved base stats without material or rune upgrades', () => {
   expect(shieldStats(shield, character, entries)).toMatchObject({ hardness: 20, hp: 160 })
   expect(shieldStats({ ...shield, hardness: 25, hp: 200 }, character, entries)).toMatchObject({ hardness: 25, hp: 200 })
+  expect(shieldStats({ ...shield, material: { name: 'Custom material', hardness: 50, hp: 500 },
+    reinforcingRune: 'Supreme' }, character, entries)).toMatchObject({ hardness: 20, hp: 160 })
+  expect(shieldMaterialOptions(entries, shield, character.systems)).toEqual([])
   expect(shieldEntry(entries, scale.name)?.data.url).toBe(scale.data.url)
   expect(armorSaveBonus({ ...character, shield }, entries)).toBe(0)
   expect(resistances({ ...character, shield, equipment: [{ name: mask.name, qty: 1 }] }, entries)).toEqual([])
