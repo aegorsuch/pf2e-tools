@@ -983,7 +983,7 @@ it('automatically chooses the deity-favored armament without requiring another w
 })
 
 it('removes irrelevant active toggles while retaining their spell descriptions and damage rolls', () => {
-  const names = ["Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision", 'Invisibility']
+  const names = ["Ranger's Bramble", 'Ephemeral Tracking', "Hunter's Vision", 'Invisibility', 'Gluttonous Growth', 'Pack Breaker']
   const entries = names.map((name) => content('spell', name, { duration: 60 }))
   const c: Character = { ...base, className: 'Ranger', spells: names.map((name) => ({ name, rank: 3, cantrip: false })) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)

@@ -102,6 +102,7 @@ it('grants Erastil Speak with Plants only while his major boon is active, withou
   expect(html).toContain('Speak with Plants')
   expect(html).toContain('<small>Duration</small>8 hours')
   expect(html).toContain('<small>Range</small>Self')
+  expect(html).toContain('<small>Area/Targets</small>Self')
   expect(html).not.toContain('aria-label="Speak with Plants active"')
   expect(grantedFeatSpells({ ...c, deity: 'Torag' }, entries)).toEqual([])
   expect(grantedFeatSpells({ ...c, divineIntercessions: {} }, entries)).toEqual([])

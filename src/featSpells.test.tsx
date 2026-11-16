@@ -356,9 +356,9 @@ it('alphabetizes innate spell names independently of feat selection order', () =
   expect(innate).toContain('1 minute')
   expect(innate).toContain('30 feet')
   expect(innate).toContain('Reflex')
-  expect(innate).toContain('one creature')
-  expect(innate).toContain('>Cast</span>')
-  expect(innate.match(/>Cast<\/span>/g)).toHaveLength(1)
+  expect(innate).toContain('One creature')
+  expect(innate).toContain('>Spell</span>')
+  expect(innate.match(/>Spell<\/span>/g)).toHaveLength(1)
   const firstRow = innate.match(/<li class="innate-spell-row">([\s\S]*?)<\/li>/)?.[1] ?? ''
   expect(firstRow.slice(0, firstRow.indexOf('<span><small>Duration')))
     .toContain('aria-label="Spend Alpha (Alpha Magic) use 1"')
@@ -372,16 +372,19 @@ it('shows original duration units, touch range and Sure Strike self-targeting wi
     entry('Sure Strike', 'spell', { duration_text: 'until the end of your turn' }),
     entry('Mindlink', 'spell', { range: 0, target: '1 willing creature' }),
     entry('Legacy Buff', 'spell', { duration: 60, range: 30 }),
+    entry('Variable Spell', 'spell', { duration_text: 'varies', target: 'up to 10 creatures' }),
   ]
   const source: ContentEntry = { ...entry('Innate Magic', 'feat'),
     spellGrants: [{ kind: 'innate', spells: spells.map(spell => spell.name), rank: 2, tradition: 'arcane', frequency: 'once per day' }] }
   const c: Character = { ...base, feats: [taken(source.name)], activeSpells: ['Invisibility'] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, ...spells]} save={() => {}} />)
-  for (const value of ['10 minutes', '1 minute', 'Touch', '30 feet', 'Self', 'until the end of your turn']) {
+  for (const value of ['10 minutes', '1 minute', 'Touch', '30 feet', 'Self', 'Until the end of your turn']) {
     expect(markup).toContain(`>${value}</span>`)
   }
   expect(markup).not.toContain('>600</span>')
   expect(markup).not.toContain('>0</span>')
+  expect(markup).toContain('<small>Duration</small>Varies')
+  expect(markup).toContain('<small>Area/Targets</small>Up to 10 creatures')
   expect(markup).not.toContain('aria-label="Invisibility active"')
   expect(markup).toContain('aria-label="Spend Invisibility (Innate Magic) use 1"')
   expect(c.activeSpells).toEqual(['Invisibility'])
@@ -429,7 +432,7 @@ it('renders prepared class spell slots with slot selection, metadata, casting, a
   expect(html).toContain('disabled="" aria-label="Cast spell slot rank 3 slot 1"')
   expect(html).toContain('aria-label="Reset class spell slots"')
   expect(html).toContain('1 minute')
-  expect(html).toContain('basic Reflex')
+  expect(html).toContain('Basic Reflex')
   expect(html).toContain('1 creature')
 })
 
@@ -712,10 +715,58 @@ it('places Warden focus spells before innate spells without showing granting-sou
   const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, 'Gravity Weapon'), taken(source.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, entry('Invisibility', 'spell'),
     entry('Gravity Weapon', 'spell', { warden_spell_tier: 'Initiate' })]} save={() => {}} />)
-  expect(markup).toContain('<h5>Initiate Warden</h5>')
-  expect(markup.indexOf('<h5>Initiate Warden</h5>')).toBeLessThan(markup.indexOf('<b>Innate Spells</b>'))
+  expect(markup).toContain('<b>Focus Spells</b>')
+  expect(markup.indexOf('<b>Focus Spells</b>')).toBeLessThan(markup.indexOf('<b>Innate Spells</b>'))
   expect(markup).not.toContain('aria-haspopup="dialog">Daily Magic</button>')
   expect(markup).not.toContain('>Refocus</button>')
+})
+
+it.each(['Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck"])('shows %s range as Self with missing or zero imported range', name => {
+  const selfTargets = ['Animal Feature', "Hunter's Luck"].includes(name)
+  const tier = selfTargets ? 'Advanced' : 'Initiate'
+  const c: Character = { ...base, className: 'Ranger', feats: [taken(`${tier} Warden`, selfTargets ? 4 : 1, name)] }
+  for (const range of [undefined, 0]) {
+    const data: ContentEntry['data'] = { warden_spell_tier: tier }
+    if (range !== undefined) data.range = range
+    if (selfTargets) data.targets = 'you'
+    const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry(name, 'spell', data)]} save={() => {}} />)
+    expect(html).toContain('<small>Range</small>Self')
+    expect(html).not.toContain('<small>Range</small>Touch')
+    if (selfTargets) expect(html).toContain('<small>Area/Targets</small>Self')
+  }
+})
+
+it('shows Pulverizing Wake range as a 15-foot cone', () => {
+  const c: Character = { ...base, level: 20, className: 'Ranger', feats: [taken('Peerless Warden', 16, 'Pulverizing Wake')] }
+  const spell = entry('Pulverizing Wake', 'spell', { warden_spell_tier: 'Peerless', range: 0, area: '15-foot cone' })
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('<small>Range</small>15-foot cone')
+  expect(html).toContain('<small>Area/Targets</small>1 creature within reach')
+})
+
+it('keeps requested buff Active toggles on the spell-name line without duplicates', () => {
+  const names = ['Imitate Fauna', 'Gravity Weapon', 'Keen Smell', 'Magic Hide']
+  const c: Character = { ...base, className: 'Ranger',
+    spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Gravity Weapon', 'Keen Smell'] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell'))} save={() => {}} />)
+  const titles = html.match(/<div class="spell-title">[\s\S]*?<\/div>/g) ?? []
+  for (const name of names) {
+    const title = titles.find(title => title.includes(`aria-haspopup="dialog">${name}</button>`))
+    expect(title).toContain(`aria-label="${name} active"`)
+    expect(html.match(new RegExp(`aria-label="${name} active"`, 'g'))).toHaveLength(1)
+  }
+  expect(html).toContain('aria-label="Gravity Weapon active" checked=""')
+  expect(html).toContain('aria-label="Keen Smell active" checked=""')
+})
+
+it.each(['Distracting Decoy', 'Heal Companion', 'Slime Spit', 'Snare Hopping', "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry'])('shows %s duration as Instant', name => {
+  const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, name)] }
+  for (const duration of [undefined, 0]) {
+    const data: ContentEntry['data'] = { warden_spell_tier: 'Initiate' }
+    if (duration !== undefined) data.duration = duration
+    const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry(name, 'spell', data)]} save={() => {}} />)
+    expect(html).toContain('<small>Duration</small>Instant')
+  }
 })
 
 it('does not track at-will or focus spells and retains uses across heightening and feat order changes', () => {
@@ -772,6 +823,7 @@ it('grants Empathetic Connection Mindlink at its fixed rank without irrelevant D
   expect(spells).toMatchObject([{ entry: { name: 'Mindlink' }, rank: 1, rule: { frequency: 'at will', tradition: 'occult' } }])
   const render = (c: Character) => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(render(character)).not.toContain('Intelligence DC')
+  expect(render(character)).toContain('<small>Duration</small>Instant')
   expect(render({ ...character, level: 12 })).not.toContain('Attack +')
   expect(render(character)).not.toContain('target is temporarily immune for 24 hours')
   expect(render(character)).not.toContain('at will')
@@ -840,7 +892,7 @@ it.each<{ data: ContentEntry['data']; traits: string[]; description: string; dc:
   const spell = { ...entry('Test Spell', 'spell', data, traits), description }
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
-  expect(/<small>Save<\/small>(?:basic )?(?:Will|Reflex|Fortitude) DC 21/.test(markup)).toBe(dc)
+  expect(/<small>Save<\/small>(?:basic )?(?:Will|Reflex|Fortitude) DC 21/i.test(markup)).toBe(dc)
   expect(markup.includes('Attack +11')).toBe(attack)
 })
 
@@ -912,7 +964,7 @@ it('grants explicit focus spells with source-specific attributes and caps pool b
   expect(focusSpells(c, entries)).toMatchObject({ points: 1, spells: [{ name: 'Lay on Hands' }] })
   expect(focusSpells({ ...c, level: 6 }, entries).points).toBe(3)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('basic Fortitude DC 19')
+  expect(markup).toContain('Basic Fortitude DC 19')
   expect(markup).not.toContain('Attack +9')
   expect(markup).not.toContain('; rank 3 divine')
 })
@@ -920,8 +972,8 @@ it('grants explicit focus spells with source-specific attributes and caps pool b
 it.each([
   [1, '1 hour', 'Self', 'Self'],
   [2, '8 hours', 'Self', 'Self'],
-  [4, '8 hours', '20 feet', 'up to 10 creatures'],
-  [7, '8 hours', '20 feet', 'up to 10 creatures'],
+  [4, '8 hours', '20 feet', 'Up to 10 creatures'],
+  [7, '8 hours', '20 feet', 'Up to 10 creatures'],
 ] as const)('shows rank %i Vanishing Tracks metadata without an Active toggle', (rank, duration, range, targets) => {
   const source: ContentEntry = { ...entry('Trackless Magic', 'feat'),
     spellGrants: [{ kind: 'innate', spells: ['Vanishing Tracks'], rank, tradition: 'primal' }] }
@@ -949,8 +1001,11 @@ it('shows Warden and other focus metadata with class proficiency and source-spec
   expect(html).toContain('<small>Save</small>Will DC 38')
   expect(html.match(/<small>Duration<\/small>1 minute/g)).toHaveLength(2)
   expect(html.match(/<small>Range<\/small>30 feet/g)).toHaveLength(2)
-  expect(html.match(/<small>Area\/Targets<\/small>one creature/g)).toHaveLength(2)
-  expect(html.match(/class="spellbook-columns"/g)).toHaveLength(2)
+  expect(html.match(/<small>Area\/Targets<\/small>One creature/g)).toHaveLength(2)
+  expect(html.match(/class="spellbook-columns"/g)).toHaveLength(1)
+  expect(html).toContain('<span>Spell</span><span>Duration</span>')
+  expect(html.indexOf('aria-haspopup="dialog">Other Focus</button>'))
+    .toBeLessThan(html.indexOf('aria-haspopup="dialog">Warden Test</button>'))
 })
 
 it('uses class DC and selected slot rank for prepared spell metadata', () => {
@@ -967,7 +1022,7 @@ it('uses class DC and selected slot rank for prepared spell metadata', () => {
   expect(rows?.[0]).toContain('<small>Save</small>Will DC 42')
   expect(rows?.[1]).toContain('<small>Duration</small>8 hours')
   expect(rows?.[1]).toContain('<small>Range</small>20 feet')
-  expect(rows?.[1]).toContain('<small>Area/Targets</small>up to 10 creatures')
+  expect(rows?.[1]).toContain('<small>Area/Targets</small>Up to 10 creatures')
 })
 
 it('grants only selected qi and domain spells, never linked alternatives or future selections', () => {

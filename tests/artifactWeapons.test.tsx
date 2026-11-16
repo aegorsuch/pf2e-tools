@@ -114,7 +114,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
       for (const displayOnly of [false, true]) {
         const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
         expect(html).toContain('aria-label="Coldstar Pistols form"')
-        expect(html.includes('>Coldstar Pistol</button>')).toBe(coldstarForm === 'Merged')
+        expect(html).toContain(`>Coldstar Dueling Pistol${coldstarForm === 'Paired' ? 's' : ''}</button>`)
         expect(html.includes('Flame pistol:')).toBe(coldstarForm === 'Paired')
         expect(html.includes('Frost pistol:')).toBe(coldstarForm === 'Paired')
         expect(html).not.toContain(' loaded')

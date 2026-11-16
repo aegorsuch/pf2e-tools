@@ -17,7 +17,7 @@ import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
-import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements } from './namedWeapons'
+import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus } from './builder'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
@@ -1004,14 +1004,17 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const runeCapacity = hasWeaponRuneCapacity(c, w, a.entry)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
-        const plainName = a.entry?.data.named_weapon_source === 'Coldstar Pistols' && w.coldstarForm === 'Merged' ? 'Coldstar Pistol'
-          : enhanced.name === 'Iron Fist' ? 'Fists'
+        const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name
               : specificMagicItemName(a.entry, combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, ''), true)
         const shieldSource = shieldAttachmentSource(c, w)
-        const attachmentSource = shieldSource ?? (w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined)
-        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentSource.name)})` : ''}`
+        const sourceWeapon = w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined
+        const attachmentSource = shieldSource ?? sourceWeapon
+        const attachmentName = shieldSource ? specificMagicItemName(shieldEntry(entries, shieldSource.name), shieldSource.name, true)
+          : sourceWeapon ? specificMagicItemName(withNamedWeaponState(weaponEntry(entries, sourceWeapon.name), sourceWeapon, c.level),
+            combinationName(entries, sourceWeapon.name), true).replace(/\bDueling Pistols$/, 'Dueling Pistol') : ''
+        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const upgradeWeapon = usesWeaponUpgrades(a.entry)
@@ -1495,7 +1498,7 @@ export function ShieldEquipment({ c, entries, save }: SectionProps) {
   if (!shields.length) return null
   return <div className="col">
     {shields.map(shield => <div className="row" key={shield.id}>
-      <strong><EntryDescription name={shield.name} entry={shieldEntry(entries, shield.name)}
+      <strong><EntryDescription name={specificMagicItemName(shieldEntry(entries, shield.name), shield.name, true)} entry={shieldEntry(entries, shield.name)}
         className="equipment-name" /></strong><ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
     </div>)}
   </div>
@@ -1696,7 +1699,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       {part !== 'armor' && <>{shield ? (
         <article className="gear-card">
           <header className="row">
-            <strong><EntryDescription name={shield.name} entry={shieldEntry(entries, shield.name)}
+            <strong><EntryDescription name={specificMagicItemName(shieldEntry(entries, shield.name), shield.name, true)} entry={shieldEntry(entries, shield.name)}
               className="equipment-name" /></strong>
             <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
             <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>

@@ -5,8 +5,10 @@ export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u201
   .replace(/^(Minor|Lesser|Moderate|Greater|Major|Supreme|True)\s+(.+)$/, '$2 ($1)')
 
 export function specificMagicItemName(entry: ContentEntry | undefined, name = entry?.name ?? '', owned = false) {
-  const base = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base ?? '').replace(/^Composite /, '')
   const sourceName = String(entry?.data.named_weapon_source ?? name)
+  if (sourceName === 'Coldstar Pistols') return `Coldstar Dueling Pistol${Number(entry?.data.hands) === 1 ? '' : 's'}`
+  const base = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base
+    ?? (entry?.data.named_shield || sourceName === 'Scale of Igroon' ? 'Shield' : ''))
   const source = owned ? sourceName.replace(/ \(Artifact\)/gi, '') : sourceName
   return base && !source.toLowerCase().endsWith(base.toLowerCase()) ? `${source} ${base}` : source
 }

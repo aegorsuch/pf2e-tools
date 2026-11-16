@@ -755,6 +755,7 @@ it('limits Scale of Igroon construction and places compact recovery beside damag
       material: { name: 'Orichalcum' }, reinforcingRune: 'Supreme' } }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const markup = () => renderToStaticMarkup(<ArmorList c={c} entries={entries} save={save} part="shield" />)
+  expect(markup()).toContain('>Scale of Igroon Shield</button>')
   expect(markup()).not.toContain('Shield material')
   expect(markup()).not.toContain('Reinforcing Rune')
   expect(markup()).not.toContain('Orichalcum')

@@ -106,7 +106,7 @@ it('keeps the artifact version distinct with +3 major striking, Greater Frost an
   for (const displayOnly of [false, true]) {
     const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned('Wintershot (Artifact) (Longbow)')] }}
       entries={entries} save={() => {}} displayOnly={displayOnly} />)
-    expect(html).toContain('>Wintershot Longbow</button>')
+    expect(html).toContain('>Wintershot Composite Longbow</button>')
     expect(html).not.toContain('>Wintershot (Artifact)')
     expect(html).not.toContain('aria-label="Remove Grievous rune"')
   }
@@ -253,6 +253,36 @@ const namedCatalog: ContentEntry[] = [...catalog, rune('Ghost Touch'), rune('Vor
   melee('Rapier', '1d6 piercing', ['Finesse', 'Deadly d8', 'Disarm']),
   gunMelee, gunRanged, shadowpiercer, callooh, fallenStars, finalStand,
 ]
+
+it.each([false, true])('includes full base weapon names in specific weapon titles (%s)', displayOnly => {
+  const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [])
+  const weapons = [{ ...owned('Briar'), id: 'briar' }, owned('Wintershot (Longbow)')]
+  const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons }} entries={[...namedCatalog, briar]}
+    save={() => {}} displayOnly={displayOnly} />)
+  expect(html).toContain('>Briar Bastard Sword</button>')
+  expect(html).toContain('>Wintershot Composite Longbow</button>')
+  expect(weapons.map(weapon => weapon.name)).toEqual(['Briar', 'Wintershot (Longbow)'])
+})
+
+it.each([undefined, 'Paired', 'Merged', 'Flame', 'Frost'] as const)(
+  'names Coldstar forms and their individual attachment source correctly (%s)', coldstarForm => {
+    const pistol: ContentEntry = { ...melee('Dueling Pistol', '1d6 piercing'),
+      data: { ...melee('', '').data, damage: '1d6 piercing', hands: 1, weapon_type: 'Ranged',
+        weapon_group: 'Firearm', range: 60, reload: 1 } }
+    const coldstar = specific('Coldstar Pistols', 'Dueling Pistol', '+3 greater striking', [])
+    const bayonet = { ...melee('Bayonet', '1d4 piercing'), traits: ['Attached to Crossbow or Firearm'] }
+    const weapon: OwnedWeapon = { ...owned(coldstar.name), coldstarForm, attachedWeapon: 'Bayonet' }
+    for (const displayOnly of [false, true]) {
+      const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }}
+        entries={[pistol, coldstar, bayonet]} save={() => {}} displayOnly={displayOnly} />)
+      const name = !coldstarForm || coldstarForm === 'Paired' ? 'Coldstar Dueling Pistols' : 'Coldstar Dueling Pistol'
+      expect(html).toContain(`>${name}</button>`)
+      expect(html).toContain('>Bayonet (Attached to Coldstar Dueling Pistol)</button>')
+    }
+    expect(weapon.name).toBe('Coldstar Pistols')
+    expect(weapon.coldstarForm).toBe(coldstarForm)
+  },
+)
 
 function findControl(node: ReactNode, label: string): ReactElement<Record<string, unknown>> | undefined {
   let found: ReactElement<Record<string, unknown>> | undefined

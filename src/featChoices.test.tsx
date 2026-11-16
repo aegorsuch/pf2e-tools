@@ -467,7 +467,7 @@ it('shows feat grants once without deleting independently added spells', () => {
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('<strong>Spells</strong><span>1 spells</span>')
   expect(markup).toContain('Gravity Weapon')
-  expect(markup).toContain('<h5>Initiate Warden</h5>')
+  expect(markup).toContain('<b>Focus Spells</b>')
   expect(markup).not.toContain('Warden feat')
   expect((markup.match(/aria-haspopup="dialog">Gravity Weapon<\/button>/g) ?? [])).toHaveLength(1)
   expect(grantedWardenSpells({ ...c, feats: [] }, entries)).toEqual([])
@@ -499,7 +499,7 @@ it('shows persisted Active toggles for granted buffs and timed spells, not insta
     .not.toContain('aria-label="Animal Feature: Claws" checked=""')
 })
 
-it('labels Warden spells in spell listings by tier', () => {
+it('keeps Warden tier labels for feat choices but combines their spell listings', () => {
   expect(spellWardenLabel('Initiate')).toBe('Initiate Warden')
   expect(spellWardenLabel('Advanced')).toBe('Advanced Warden')
   expect(spellWardenLabel('Master')).toBe('Master Warden')
@@ -507,18 +507,25 @@ it('labels Warden spells in spell listings by tier', () => {
   expect(spellWardenLabel(undefined)).toBeUndefined()
   const c: Character = { ...base, spells: [{ name: 'Gravity Weapon', rank: 1, cantrip: false, entryId: 'Gravity Weapon' }] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('<h5>Initiate Warden</h5>')
+  expect(markup).toContain('<b>Focus Spells</b>')
+  expect(markup).not.toContain('<h5>Initiate Warden</h5>')
   expect(markup).not.toContain('<h5>Rank 1</h5>')
 })
 
-it('uses Warden tier headings without changing ordinary spell rank groups', () => {
+it('combines all Warden tiers without changing ordinary spell rank groups', () => {
   const spells = [
     spell('Gluttonous Growth', 'Peerless'),
-    { ...spell('Ordinary Spell', ''), data: {}, level: 5 },
+    spell('Gravity Weapon', 'Initiate'),
+    spell('Animal Feature', 'Advanced'),
+    spell('Ephemeral Tracking', 'Master'),
+    { ...spell('Ordinary Spell', ''), data: {}, traits: [], level: 5 },
   ]
   const c: Character = { ...base, spells: spells.map((s) => ({ name: s.name, rank: 5, cantrip: false, entryId: s.id })) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup).toContain('<h5>Peerless Warden</h5>')
+  expect(markup.match(/<h5>Focus 1<\/h5>/g)).toHaveLength(1)
+  expect(markup).not.toMatch(/<h5>(?:Initiate|Advanced|Master|Peerless) Warden<\/h5>/)
+  const focus = markup.slice(markup.indexOf('<b>Focus Spells</b>'), markup.indexOf('<h5>Rank 5</h5>'))
+  for (const spell of spells.slice(0, -1)) expect(focus).toContain(`aria-haspopup="dialog">${spell.name}</button>`)
   expect(markup).toContain('<h5>Rank 5</h5>')
   expect(markup).not.toContain('(Peerless Warden)')
 })
