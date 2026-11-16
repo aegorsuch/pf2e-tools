@@ -305,6 +305,24 @@ it('shows synced inventory counts and shared hand usage in Equipment and Offense
   } finally { content.entries = [] }
 })
 
+it.each([
+  { className: 'Barbarian', dedicationLevel: undefined, visible: true },
+  { className: 'Ranger', dedicationLevel: 2, visible: true },
+  { className: 'Ranger', dedicationLevel: undefined, visible: false },
+  { className: 'Ranger', dedicationLevel: 6, visible: false },
+])('puts eligible Rage control in Offense header: $className, dedication $dedicationLevel', ({ className, dedicationLevel, visible }) => {
+  content.entries = []
+  const c: Character = { id: 'rage-header', systems: ['pf2e'], name: 'Test', level: 4, className, raging: true,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: dedicationLevel === undefined ? [] : [{ name: 'Barbarian Dedication', type: 'Archetype Feat', level: dedicationLevel }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const offense = markup.slice(markup.indexOf('<strong>Offense</strong>'), markup.indexOf('<strong>Skill Feats</strong>'))
+  const header = offense.slice(0, offense.indexOf('</summary>'))
+  expect(header.includes('aria-label="Rage active" checked=""')).toBe(visible)
+  expect(offense.slice(offense.indexOf('</summary>'))).not.toContain('aria-label="Rage active"')
+})
+
 it('orders equipment groups alphabetically and separates grafts and tattoos from other equipment', () => {
   const item = (name: string, category: string): ContentEntry => ({ id: name, name, kind: 'item',
     systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '', data: { item_category: category }, effects: [], updatedAt: 0 })

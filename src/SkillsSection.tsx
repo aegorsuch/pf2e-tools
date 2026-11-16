@@ -64,6 +64,15 @@ export function ArmorProficiency({ c, entries }: Pick<SectionProps, 'c' | 'entri
   return <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
 }
 
+export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' | 'save'> & { summary?: boolean }) {
+  if (c.className !== 'Barbarian' && !activeFeatsNamed(c, 'Barbarian Dedication').length) return null
+  const toggle = <label><input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
+    onChange={(event) => save({ raging: event.target.checked })} /> Rage active</label>
+  return summary
+    ? <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>{toggle}</span>
+    : toggle
+}
+
 export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const editingSkills = part === 'skills'
   const c = editingSkills ? normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries) : original
@@ -344,9 +353,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     )
   })
 
-  const rageToggle = (c.className === 'Barbarian' || !!activeFeatsNamed(c, 'Barbarian Dedication').length)
-    && <label><input type="checkbox" aria-label={part === 'defense' ? 'Rage active (defense)' : 'Rage active'} checked={!!c.raging}
-      onChange={(event) => save({ raging: event.target.checked })} /> Rage active</label>
   const hazardToggle = <FeatEffectToggle c={c} save={save} name="Hazard Finder" label="Hazard checks active"
     ariaLabel={`Hazard checks active (${part})`}
     title="Only for Perception checks to find traps and hazards, AC against their attacks, and saves against their effects. Does not affect initiative." />
@@ -354,13 +360,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   if (part === 'offense') {
     const athlete = ragingAthleteBenefits(c, entries)
     const terrain = favoredTerrainBenefits(c, entries)
+    const characterSenses = senses(c, entries)
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
-        {senses(c, entries).length > 0 && <small>Senses: {senses(c, entries).map((s) => `${s.value} (${s.source})`).join(', ')}</small>}
-        {rageToggle}
+        <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}</small>
         {hazardToggle}
         <FeatEffectToggle c={c} save={save} name='Eye for Treasure' label="Crafting Recall Knowledge active"
           title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
@@ -458,7 +464,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {' '}Grandmother's Favorite used <SourceNote inlineSource={false} source="Grandmother's Favorite"
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
-        {rageToggle}
+        <RageToggle c={c} save={save} />
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
         {hazardToggle}
         <FeatEffectToggle c={c} save={save} name="Stonemason's Eye" label="Stonework Perception active"

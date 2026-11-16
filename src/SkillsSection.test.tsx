@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { ArmorProficiency, SkillsSection } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SkillsSection } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import * as builder from './builder'
@@ -26,6 +26,30 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each([undefined, 'Darkvision'])('always shows Senses, including when ancestry vision is %s', vision => {
+  const ancestry: ContentEntry = { ...ranger, id: 'ancestry', kind: 'ancestry', name: 'Test ancestry', data: vision ? { vision } : {} }
+  const html = renderToStaticMarkup(<SkillsSection c={{ ...base, ancestry: ancestry.name }} entries={[ancestry]}
+    save={() => {}} part="offense" />)
+  expect(html).toContain(vision ? 'Senses: Darkvision (Test ancestry)' : 'Senses: No special senses')
+  if (vision) expect(html).not.toContain('No special senses')
+})
+
+it('saves Rage state through the shared toggle and isolates summary clicks', () => {
+  let c: Character = { ...base, className: 'Barbarian' }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  for (const checked of [true, false]) {
+    const toggle = RageToggle({ c, save })!
+    const input = Children.toArray(toggle.props.children).find(child => isValidElement(child) && child.type === 'input')
+    if (!isValidElement<{ onChange: (event: { target: { checked: boolean } }) => void }>(input)) throw new Error('Missing Rage input')
+    input.props.onChange({ target: { checked } })
+    expect(c.raging).toBe(checked)
+    expect(renderToStaticMarkup(<RageToggle c={c} save={save} summary />).includes('checked=""')).toBe(checked)
+  }
+  const stopPropagation = vi.fn()
+  RageToggle({ c, save, summary: true })!.props.onClick({ stopPropagation })
+  expect(stopPropagation).toHaveBeenCalledOnce()
+})
 
 it.each<{ level: number; current: number; target: number; rank: string; increases: Record<string, string>; payment: string[] }>([
   { level: 3, current: 1, target: 2, rank: 'Expert', increases: { 3: 'Nature' }, payment: ['trained:0', 'trained:1'] },

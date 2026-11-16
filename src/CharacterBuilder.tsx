@@ -13,7 +13,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, SkillsSection } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SkillsSection } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
@@ -573,7 +573,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
-          {(shield || parry > 0) && <span className="defense-summary-toggles" onClick={(event) => event.stopPropagation()}>
+          {(shield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
                 onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
@@ -679,6 +679,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <summary className="character-section-summary">
           <strong>Offense</strong>
           <span>{weaponCount} Weapons, {handsUsed}/{handLimit} Hands</span>
+          <RageToggle {...section} summary />
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />
