@@ -27,6 +27,119 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('converts training recursively at 2:1, persists purchases and refunds them without removing original ranks', () => {
+  const klass = { ...ranger, data: { ...ranger.data,
+    skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 20 plus your Intelligence modifier' } }
+  const entries = [klass]
+  let c: Character = { ...base, level: 15, skillPicks: ['Athletics', 'Acrobatics', 'Stealth', 'Deception'],
+    skillIncreases: { 3: 'Nature', 5: 'Acrobatics', 7: 'Nature', 9: 'Acrobatics', 11: 'Stealth', 13: 'Deception', 15: 'Nature' } }
+  const before = JSON.stringify(c)
+  const available = skillRankBudget(c, entries).trained
+  for (const [rank, spent] of [[2, 2], [3, 6], [4, 14]]) {
+    const purchases = builder.skillTokenPurchase(c, entries, 'Athletics', rank, true)
+    expect(purchases).toBeDefined()
+    c = JSON.parse(JSON.stringify({ ...c, skillTokenUpgrades: purchases }))
+    expect(ranksAt(c, entries).Athletics).toBe(rank)
+    expect(skillRankBudget(c, entries).trained).toBe(available - spent)
+  }
+  expect(c.skillIncreases).toEqual(JSON.parse(before).skillIncreases)
+  expect(ranksAt(c, entries, 15).Athletics).toBe(1)
+  const previous = getSettings().skillTokenConversion
+  try {
+    updateSettings({ skillTokenConversion: false })
+    expect(ranksAt(c, entries).Athletics).toBe(1)
+    expect(skillRankBudget(c, entries).trained).toBe(available)
+    updateSettings({ skillTokenConversion: true })
+    expect(ranksAt(c, entries).Athletics).toBe(4)
+  } finally { updateSettings({ skillTokenConversion: previous }) }
+  const confirm = vi.fn(() => false)
+  vi.stubGlobal('window', { confirm })
+  try {
+    const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+    const refund = () => (findButtons(tree()).get('Refund Athletics Expert token upgrade')!.onClick as () => void)()
+    refund()
+    expect(ranksAt(c, entries).Athletics).toBe(4)
+    confirm.mockReturnValue(true)
+    refund()
+    expect(c.skillTokenUpgrades).toEqual([])
+    expect(ranksAt(c, entries).Athletics).toBe(1)
+    expect(skillRankBudget(c, entries).trained).toBe(available)
+    expect(c.skillPicks).toEqual(JSON.parse(before).skillPicks)
+  } finally { vi.unstubAllGlobals() }
+})
+
+it.each([[7, 2, 3, ['3', '5']], [15, 3, 4, ['7', '9']]] as const)(
+  'spends unused higher-tier tokens at level %i without trading away the existing rank', (level, current, target, payment) => {
+    const c: Character = { ...base, level, rankOverrides: { Athletics: current } }
+    const purchases = builder.skillTokenPurchase(c, [ranger], 'Athletics', target, true)!
+    expect(purchases.at(-1)?.payment).toEqual(payment)
+    const upgraded = { ...c, skillTokenUpgrades: purchases }
+    expect(ranksAt(upgraded, [ranger]).Athletics).toBe(target)
+    expect(c.rankOverrides?.Athletics).toBe(current)
+    expect(builder.skillTokenPurchase({ ...c, level: target === 4 ? 14 : 6 }, [ranger], 'Athletics', target, true))
+      .toBeUndefined()
+    expect(builder.skillTokenPurchase(c, [ranger], 'Perception', target, true)).toBeUndefined()
+  })
+
+it('prevents double spending, missing funding and temporary Skill Download ranks from creating permanent purchases', () => {
+  const c: Character = { ...base, level: 3, skillPicks: ['Athletics', 'Acrobatics'] }
+  const purchases = builder.skillTokenPurchase(c, [ranger], 'Athletics', 2, true)!
+  const upgraded = { ...c, skillTokenUpgrades: purchases }
+  expect(builder.skillTokenPurchase(upgraded, [ranger], 'Acrobatics', 2, true)).toBeUndefined()
+  const duplicate = { ...upgraded, skillTokenUpgrades: [...purchases, { ...purchases[0], skill: 'Acrobatics' }] }
+  expect(builder.skillTokenState(duplicate, [ranger]).inactive).toHaveLength(1)
+  expect(ranksAt(duplicate, [ranger])).toMatchObject({ Athletics: 2, Acrobatics: 1 })
+  const spentElsewhere = { ...upgraded, skillPicks: [...c.skillPicks!, 'Deception', 'Medicine'] }
+  expect(ranksAt(spentElsewhere, [ranger]).Athletics).toBe(1)
+  expect(renderToStaticMarkup(<SkillsSection c={spentElsewhere} entries={[ranger]} save={() => {}} />))
+    .toContain('Payment unavailable')
+  const downloaded: Character = { ...base, level: 17, feats: [
+    { name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Athletics' },
+  ] }
+  expect(builder.skillTokenPurchase(downloaded, [ranger], 'Athletics', 4)).toBeUndefined()
+})
+
+it('keeps restricted Mechanic tokens restricted when combining them', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 7,
+    rankOverrides: { Athletics: 2, Computers: 2 }, skillPicks: ['Athletics', 'Computers', 'Deception', 'Medicine'],
+    skillIncreases: { 3: 'Nature', 7: 'Nature', 'mechanic-ingenuity:7': 'Computers' } }
+  expect(builder.skillTokenPurchase(c, [ranger], 'Athletics', 3, true)).toBeUndefined()
+  const purchases = builder.skillTokenPurchase(c, [ranger], 'Computers', 3, true)!
+  expect(purchases.at(-1)?.payment.slice().sort()).toEqual(['5', 'mechanic-ingenuity:3'])
+  expect(ranksAt({ ...c, skillTokenUpgrades: purchases }, [ranger]).Computers).toBe(3)
+})
+
+it('puts selected feat requirements on their exact rank buttons without granting proficiency', () => {
+  const feat: ContentEntry = { ...ranger, id: 'nimble', kind: 'feat', name: 'Nimble Athlete', level: 4,
+    traits: ['Ranger'], data: { prerequisite: 'expert in Athletics or Acrobatics' } }
+  const ancestry = { ...feat, id: 'ancestry-study', name: 'Ancestral Study', traits: ['Human'],
+    data: { prerequisite: 'trained in Arcana, master in Society' } }
+  const archetype = { ...feat, id: 'archetype-study', name: 'Archetype Study', traits: ['Archetype'],
+    data: { prerequisite: 'expert in Stealth' } }
+  const excluded = ['Skill', 'General', 'Dedication'].map(category => ({ ...feat,
+    id: category, name: `${category} Study`, traits: [category], data: { prerequisite: 'master in Athletics' } }))
+  const c: Character = { ...base, level: 20, ancestry: 'Human', feats: [
+    { name: feat.name, type: 'Class Feat', level: 4, slot: 'class:4:0' },
+    { name: ancestry.name, type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
+    { name: archetype.name, type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+    ...excluded.map(entry => ({ name: entry.name, type: `${entry.traits[0]} Feat`, level: 1,
+      slot: `${entry.traits[0] === 'Dedication' ? 'archetype' : entry.traits[0].toLowerCase()}:1:0` })),
+  ] }
+  const entries = [ranger, feat, ancestry, archetype, ...excluded]
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('aria-label="Athletics Expert prerequisites note"')
+  expect(markup).toContain('aria-label="Acrobatics Expert prerequisites note"')
+  expect(markup).toContain('aria-label="Arcana Trained prerequisites note"')
+  expect(markup).toContain('aria-label="Society Master prerequisites note"')
+  expect(markup).toContain('aria-label="Stealth Expert prerequisites note"')
+  expect(markup).not.toContain('aria-label="Athletics Master prerequisites note"')
+  expect(markup).toContain('Nimble Athlete: expert in Athletics or Acrobatics')
+  expect(markup).toContain('Current rank: Untrained')
+  expect(ranksAt(c, entries).Athletics ?? 0).toBe(0)
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 3 }} entries={entries} save={() => {}} />))
+    .not.toContain('prerequisites note')
+})
+
 it('applies only the highest owned Killer belt bonus and removes it when gear is removed', () => {
   const ordinary: ContentEntry = { ...KILLERS_BELT_MAJOR, id: 'ordinary-belt', name: "Killer's Belt",
     source: 'official', level: 4, effects: [] }
@@ -38,7 +151,7 @@ it('applies only the highest owned Killer belt bonus and removes it when gear is
     const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
     const intimidation = markup.split('class="skill-name">Intimidation')[1].split('class="skill-name">')[0]
     expect(intimidation).toContain(`<b>+${value}`)
-    expect(intimidation).toContain(`+${value} item bonus to Intimidation checks`)
+    expect(intimidation).not.toContain('item bonuses do not stack')
   }
   expect(builder.killerBeltBonus(base, entries)).toBeUndefined()
   expect(builder.killerBeltBonus({ ...base, equipment: [{ name: greater.name, qty: 0 }] }, entries)).toBeUndefined()
@@ -50,8 +163,7 @@ it('shows Rider as a conditional Nature bonus without increasing ordinary Nature
   const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
   const markup = render(c)
-  expect(markup).toContain('+1 circumstance bonus to Command an Animal checks for your own animal companion')
-  expect(markup).toContain('Does not apply to other Nature checks.')
+  expect(markup).toContain('+4 to Command an Animal checks for your own animal companion, if a check is required.')
   expect(ranksAt(c, [ranger]).Nature).toBe(ranksAt(base, [ranger]).Nature)
   expect(render(base)).not.toContain('Command an Animal checks for your own animal companion')
 })
@@ -66,7 +178,7 @@ it.each([[12, 18, 'Dexterity', 12], [20, 12, 'Strength', 13], [18, 18, 'Strength
     const markup = row(c)
     expect(markup).toContain(`<b>+${total}`)
     expect(markup).toContain(`<small>${ability}</small>`)
-    expect(markup).toContain(`Athletics DC ${10 + total}`)
+    expect(markup).not.toContain('Uses the higher of Strength or Dexterity')
     expect(row({ ...c, feats: [] })).toContain('<small>Strength</small>')
     expect(row({ ...c, feats: [{ ...c.feats[0], takenLevel: 6 }] })).toContain('<small>Strength</small>')
     expect(row({ ...c, level: 3 })).not.toContain('Nimble Athlete note')
@@ -87,7 +199,7 @@ it.each([['Wildwood Ink', 1], ['Greater Wildwood Ink', 2], ['Wildwood Ink (Major
     expect(markup).toContain(`<b>+${normal}`)
     expect(markup).toContain(`aria-label="${builder.wildwoodInkBonus(c, entries)!.source} note"`)
     expect(markup).toMatch(/popoverTarget|popovertarget/)
-    expect(markup).toContain(`+${value + 1} in forests (+1 more), for Stealth +${normal + 1}`)
+    expect(markup).toContain(`Stealth +${normal + 1} in forests (${builder.wildwoodInkBonus(c, entries)!.source})`)
     expect(render({ ...c, equipment: [{ name, qty: 0 }] })).toContain('<b>+7')
     expect(render(c, [ranger, { ...ink, deleted: true }])).toContain('<b>+7')
     expect(render({ ...c, systems: ['sf2e'] })).not.toContain('in forests')
@@ -594,7 +706,7 @@ it('keeps Pioneer training fixed, refunds redundant picks, and notes conditional
     skillPicks: ['Survival'], activeFeatEffects: ['Terrain Expertise'] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
   expect(renderToStaticMarkup(tree())).toContain('Survival <b>+9')
-  expect(renderToStaticMarkup(tree())).toContain('+1 circumstance bonus to Survival in Forest terrain')
+  expect(renderToStaticMarkup(tree())).toContain('+10 to Survival in Forest terrain')
   expect(renderToStaticMarkup(tree())).not.toContain('Terrain Expertise active')
   expect(findButtons(tree()).get('Survival Trained')?.disabled).toBe(false)
   ;(findButtons(tree()).get('Survival Trained')!.onClick as () => void)()
@@ -629,7 +741,7 @@ it('applies Clever Improviser only to untrained skills while leaving ranks, trai
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
   expect(markup).toContain('Deception <b>+4</b>')
   expect(markup).toContain('Nature <b>+7</b>')
-  expect(markup).toContain('your proficiency rank remains untrained')
+  expect(markup).not.toContain('your proficiency rank remains untrained')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />))
     .toContain('Fortitude +9: show breakdown')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
@@ -659,7 +771,7 @@ it('keeps Ancestral Skills training fixed, refunds redundant picks and spends on
     feats: [{ name: feat.name, level: 1, type: 'Ancestry Feat', slot: 'ancestry:5:0' }] }
   const tree = () => SkillsSection({ c, entries: [ranger, feat], save: patch => { c = { ...c, ...patch } } })
   expect(findButtons(tree()).get('Diplomacy Trained')?.disabled).toBe(true)
-  expect(findButtons(tree()).get('Diplomacy Expert')?.disabled).toBe(true)
+  expect(findButtons(tree()).get('Diplomacy Expert')?.disabled).toBe(false)
   expect(findButtons(tree()).get('Society Trained')?.disabled).toBe(false)
   ;(findButtons(tree()).get('Society Trained')!.onClick as () => void)()
   expect(c.skillPicks).toEqual([])
@@ -723,7 +835,7 @@ it('allocates paid increases after Scrapper grants instead of spending earlier i
   let c: Character = { ...base, level: 5, skillPicks: ['Crafting'],
     feats: [{ name: 'Technomagical Scrapper', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Occultism to Trained' }] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
-  expect(findButtons(tree()).get('Occultism Expert')?.disabled).toBe(true)
+  expect(findButtons(tree()).get('Occultism Expert')?.disabled).toBe(false)
   c = { ...c, level: 7 }
   expect(findButtons(tree()).get('Occultism Expert')?.disabled).toBe(false)
   ;(findButtons(tree()).get('Occultism Expert')!.onClick as () => void)()
@@ -775,8 +887,9 @@ it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () =>
   expect(markup).toMatch(/Deception <b>\+0<button[^>]*>\*<\/button><span/)
   expect(markup).toMatch(/Performance <b>\+3<button[^>]*>\*<\/button><span/)
   expect(markup).not.toContain('</button> (Shiny)')
-  expect(markup).toMatch(/role="note">\+3 circumstance bonus only when using Aid for this skill\. \(Shiny\)<\/span>/)
-  expect(markup.match(/\+3 circumstance bonus only when using Aid for this skill\./g)).toHaveLength(8)
+  expect(markup).toContain('Deception +3 when using Aid. (Shiny)')
+  expect(markup).toContain('Performance +6 when using Aid. (Shiny)')
+  expect(markup.match(/when using Aid\./g)).toHaveLength(8)
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [] }} entries={[ranger]} save={() => {}} />))
     .not.toContain('Shiny note')
 })
@@ -931,7 +1044,7 @@ it('adds listed or custom Lore, trains it, and removes it using regular skill se
     let found: Record<string, unknown> | undefined
     Children.forEach(node, child => {
       if (found || !isValidElement<Record<string, unknown>>(child)) return
-      found = child.type === 'form' ? child.props : findForm(child.props.children as ReactNode)
+      found = child.type === 'form' && child.props['aria-label'] === 'Add Lore' ? child.props : findForm(child.props.children as ReactNode)
     })
     return found
   }
@@ -1060,8 +1173,8 @@ it('sorts all skills with Lore and allows trained and Lore rank increases', () =
   const entries = [ranger, feyBound]
   const props = () => ({ c, entries, save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
   const markup = renderToStaticMarkup(<SkillsSection {...props()} />)
-  expect(markup.indexOf('Diplomacy')).toBeLessThan(markup.indexOf('Fey Lore'))
-  expect(markup.indexOf('Fey Lore')).toBeLessThan(markup.indexOf('Intimidation'))
+  expect(markup.indexOf('class="skill-name">Diplomacy')).toBeLessThan(markup.indexOf('class="skill-name">Fey Lore'))
+  expect(markup.indexOf('class="skill-name">Fey Lore')).toBeLessThan(markup.indexOf('class="skill-name">Intimidation'))
   expect(markup).not.toContain('Perception')
   expect(markup).not.toContain('Fortitude')
   const offense = renderToStaticMarkup(<SkillsSection {...props()} part="offense" />)

@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Character, ContentEntry } from './types'
-import { GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons } from './supplemental'
+import { GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, removeColdIronTusks } from './supplemental'
 
 export const db = new Dexie('2e-builder') as Dexie & {
   characters: EntityTable<Character, 'id'>
@@ -15,7 +15,13 @@ db.version(1).stores({
 export const newId = () => crypto.randomUUID()
 
 export async function ensureSupplementalContent() {
-  await db.transaction('rw', db.content, async () => {
+  await db.transaction('rw', db.content, db.characters, async () => {
+    const tusks = await db.content.get('homebrew:cold-iron-tusks')
+    if (tusks && !tusks.deleted) await removeEntry(tusks.id)
+    for (const character of await db.characters.toArray()) {
+      const updated = removeColdIronTusks(character)
+      if (updated !== character) await db.characters.put({ ...updated, updatedAt: Date.now() })
+    }
     if (!await db.content.get(HAFT_STRIKER_WEAPON.id)) await db.content.add(HAFT_STRIKER_WEAPON)
     const hardwood = await db.content.get('homebrew:hardwood-armor-ranger-druid')
     if (hardwood?.source === 'homebrew' && !hardwood.deleted) await removeEntry(hardwood.id)
@@ -31,7 +37,8 @@ export async function ensureSupplementalContent() {
     for (const entry of [GRAPPLING_RUNE, KILLERS_BELT_MAJOR, ...homebrewCompanions(bases), ...homebrewWeapons(bases), ...homebrewCharacterOptions(bases)]) {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
-      else if (['homebrew:clawed-gauntlet', 'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
+      else if (['homebrew:clawed-gauntlet', 'homebrew:claymore', 'homebrew:seax', GRAPPLING_RUNE.id, KILLERS_BELT_MAJOR.id,
+        'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance'].includes(entry.id)
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }

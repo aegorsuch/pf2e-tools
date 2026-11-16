@@ -1,12 +1,13 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { armorClass, armorEntry, armorGauntlet, armorSpecialization, blessedShieldBenefit, defenseSummary, equippedShield, hardwoodShield, ownedArmors, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
-import { ArmorList } from './GearSection'
+import { armorClass, armorEntry, armorGauntlet, armorSpecialization, blessedShieldBenefit, defenseSummary, effectiveWeapon, equippedShield, hardwoodShield, inventorBuckler, isLockedWeapon, ownedArmors, ownedWeapons, shieldChange, shieldEquipChange, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
+import { ArmorList, WeaponList } from './GearSection'
 import { SkillsSection } from './SkillsSection'
 import { grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
 
 const base: Character = {
   id: 'armor', systems: ['pf2e'], name: 'Armor test', level: 1,
@@ -252,10 +253,64 @@ it('does not grant Inventor armor from other innovations or future feats', () =>
 })
 
 it('provides the configured gauntlet for a worn Power Suit only', () => {
+  const previous = getSettings().inventorArmorGauntlets
   const c: Character = { ...base, className: 'Inventor', subclass: 'Armor',
     armors: [{ id: INVENTOR_ARMOR_ID, name: 'Power Suit', worn: true, potency: 1, resilient: 0, runes: [], gauntlet: 'Clawed Gauntlet' }] }
-  expect(armorGauntlet(c, [])).toMatchObject({ name: 'Clawed Gauntlet' })
-  expect(armorGauntlet({ ...c, inventorArmorSuit: 'Subterfuge Suit' }, [])).toBeUndefined()
+  try {
+    updateSettings({ inventorArmorGauntlets: false })
+    expect(armorGauntlet(c, [])).toMatchObject({ name: 'Clawed Gauntlet' })
+    expect(armorGauntlet({ ...c, inventorArmorSuit: 'Subterfuge Suit' }, [])).toBeUndefined()
+  } finally { updateSettings({ inventorArmorGauntlets: previous }) }
+})
+
+it.each([
+  [1, 0, 0, 3, 6], [2, 1, 0, 3, 6], [4, 1, 1, 6, 50],
+  [12, 2, 2, 6, 70], [19, 3, 3, 10, 114],
+])('scales locked Armor Innovation gauntlets at level %s', (level, potency, striking, hardness, hp) => {
+  const c: Character = { ...base, className: 'Inventor', subclass: 'Armor', level }
+  const gauntlet = ownedWeapons(c, []).find(weapon => weapon.name === 'Bladed Gauntlet')!
+  expect(gauntlet).toBeDefined()
+  expect(isLockedWeapon(c, gauntlet.name, [], gauntlet.id)).toBe(true)
+  expect(effectiveWeapon(c, [], gauntlet)).toMatchObject({ potency, striking })
+  expect(shieldStats(inventorBuckler(c)!)).toEqual({ hardness, hp })
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} part="shield" />)
+  expect(markup).toContain('Gauntlet Buckler')
+  expect(markup).not.toContain('aria-label="Remove Gauntlet Buckler"')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />))
+    .not.toContain('aria-label="Remove Bladed Gauntlet"')
+})
+
+it('grants both gauntlets with either worn suit, preserving saved equipment when switched off', () => {
+  const previous = getSettings().inventorArmorGauntlets
+  let c: Character = { ...base, level: 10, className: 'Inventor', subclass: 'Armor', inventorArmorSuit: 'Subterfuge Suit',
+    shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, raised: true, damage: 2 },
+    armors: [{ id: INVENTOR_ARMOR_ID, name: 'Subterfuge Suit', worn: true, potency: 0, resilient: 0, runes: [], gauntlet: 'Clawed Gauntlet' }],
+    weapons: [{ id: 'blade', name: 'Bladed Gauntlet', potency: 0, striking: 0, runes: ['Ghost Touch'] }] }
+  const savedArmor = JSON.stringify(c.armors)
+  try {
+    updateSettings({ inventorArmorGauntlets: true })
+    expect(armorGauntlet(c, [])).toMatchObject({ name: 'Bladed Gauntlet', locked: true })
+    expect(ownedWeapons(c, []).filter(weapon => weapon.name === 'Bladed Gauntlet')).toHaveLength(1)
+    expect(effectiveWeapon(c, [], c.weapons![0])).toMatchObject({ potency: 2, striking: 1, runes: ['Ghost Touch'] })
+    const buckler = inventorBuckler(c)!
+    c = { ...c, ...shieldEquipChange(c, buckler, true) }
+    c = { ...c, ...shieldRaisedChange(c, true) }
+    c = { ...c, ...shieldChange(c, buckler, { damage: 4 }) }
+    expect(c.shield).toMatchObject({ equipped: false, raised: false, damage: 2 })
+    expect(c.inventorBuckler).toMatchObject({ equipped: true, raised: true, damage: 4 })
+    expect(equippedShield(c)?.id).toBe(buckler.id)
+    const equipped = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} part="shield" />)
+    expect(equipped).toContain('Raise Buckler')
+    updateSettings({ inventorArmorGauntlets: false })
+    expect(inventorBuckler(c)).toBeUndefined()
+    expect(armorGauntlet(c, [])).toBeUndefined()
+    expect(JSON.stringify(c.armors)).toBe(savedArmor)
+    expect(c.weapons?.[0].runes).toEqual(['Ghost Touch'])
+    updateSettings({ inventorArmorGauntlets: true })
+    expect(inventorBuckler(c)?.damage).toBe(4)
+    expect(inventorBuckler({ ...c, subclass: 'Construct' })).toBeUndefined()
+    expect(inventorBuckler({ ...c, armors: c.armors!.map(armor => ({ ...armor, worn: false })) })).toBeUndefined()
+  } finally { updateSettings({ inventorArmorGauntlets: previous }) }
 })
 
 it.each([

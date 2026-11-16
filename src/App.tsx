@@ -11,7 +11,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { loadRequiredCatalogs } from './catalogLoading'
 import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
-import { updateSettings, useSettings } from './settings'
+import { useSettings } from './settings'
 import { refreshApp } from './refresh'
 import './App.css'
 
@@ -50,8 +50,8 @@ function AccountIcon() {
 
 export default function App() {
   const enabled = ALL_SYSTEMS
-  const settings = useSettings()
-  const [showSettings, setShowSettings] = useState(false)
+  useSettings()
+  const [rulesOpen, setRulesOpen] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -136,8 +136,13 @@ export default function App() {
               setRefreshing(false)
             }
           }}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
-          <button type="button" className="gear-button" title="Settings" aria-label="Settings" aria-expanded={showSettings}
-            onClick={() => setShowSettings((v) => !v)}><GearIcon /></button>
+          <button type="button" className="gear-button" title="House rules" aria-label="Rules" aria-controls="homebrew-rules"
+            aria-expanded={!editingId && rulesOpen} onClick={() => {
+              setEditingId(null)
+              setHomebrewSearch('')
+              setRulesOpen(true)
+              requestAnimationFrame(() => document.getElementById('homebrew-rules')?.scrollIntoView({ block: 'start' }))
+            }}><GearIcon /></button>
           {supabase && (
             <div className="account">
               <button type="button" className="gear-button" title={user ? `Account (${user.email ?? user.id})` : 'Sign in'} aria-label="Account"
@@ -231,106 +236,6 @@ export default function App() {
           <button type="button" onClick={() => setEditingId(null)}>Back to characters</button>
         </div>)}
 
-      {showSettings && (
-        <section className="col settings-panel" aria-label="Character settings">
-          <label>
-            <input type="checkbox" checked={settings.singleAdditionalArms}
-              onChange={(e) => updateSettings({ singleAdditionalArms: e.target.checked })} />{' '}
-            Additional Arms: Once
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.adoptedDwarfClanDagger}
-              onChange={(e) => updateSettings({ adoptedDwarfClanDagger: e.target.checked })} />{' '}
-            Adopted Ancestry (Dwarf) Grants Clan Dagger
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.autoClassSkills}
-              onChange={(e) => updateSettings({ autoClassSkills: e.target.checked })} />{' '}
-            Auto-Advance Class-Specific Skills
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.autoLores}
-              onChange={(e) => updateSettings({ autoLores: e.target.checked })} />{' '}
-            Auto-Advance Lores
-          </label>
-          <label title="Temporarily removes Agile from weapons while a Barbarian is raging. Agile returns when Rage ends.">
-            <input type="checkbox" checked={settings.barbarianIgnoreAgile}
-              onChange={(e) => updateSettings({ barbarianIgnoreAgile: e.target.checked })} />{' '}
-            Barbarians ignore Agile while Raging
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.championFormNoFlight}
-              onChange={(e) => updateSettings({ championFormNoFlight: e.target.checked })} />{' '}
-            Celestial and Fiendish Form: No Flight
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.championCavalier}
-              onChange={(e) => updateSettings({ championCavalier: e.target.checked })} />{' '}
-            Champion Cavalier Dedication
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.exclusiveCyborgHearts}
-              onChange={(e) => updateSettings({ exclusiveCyborgHearts: e.target.checked })} />{' '}
-            Cyborg Hearts: Machine Heart or Mortal Heart
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.cyborgTestSubject}
-              onChange={(e) => updateSettings({ cyborgTestSubject: e.target.checked })} />{' '}
-            Cyborg Heritage adds Test-Subject Ysoki Heritage
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.druidCavalier}
-              onChange={(e) => updateSettings({ druidCavalier: e.target.checked })} />{' '}
-            Druid Cavalier Dedication
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.freeArchetype}
-              onChange={(e) => updateSettings({ freeArchetype: e.target.checked })} />{' '}
-            Free Archetype
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.gauntletFinesse}
-              onChange={(e) => updateSettings({ gauntletFinesse: e.target.checked })} />{' '}
-            Gauntlet and Spiked Gauntlet Gain Finesse
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.generalFeatsOnly}
-              onChange={(e) => updateSettings({ generalFeatsOnly: e.target.checked })} />{' '}
-            General Feats Only
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.singleTrainingFeats}
-              onChange={(e) => updateSettings({ singleTrainingFeats: e.target.checked })} />{' '}
-            General Training and Advanced General Training: Once Each
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.inventorFirearmAccess}
-              onChange={(e) => updateSettings({ inventorFirearmAccess: e.target.checked })} />{' '}
-            Inventor Access: Bladed Gauntlet, Firearm Ammunition, and Firearms
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.orderExplorerSkills}
-              onChange={(e) => updateSettings({ orderExplorerSkills: e.target.checked })} />{' '}
-            Order Explorer Grants Skills
-          </label>
-          <label title="Feat skill prerequisites use actual skill ranks at your character's selected build level, even for earlier feat slots. Unassigned ranks do not qualify. Other prerequisites are unchanged.">
-            <input type="checkbox" checked={settings.planSkillPrerequisites}
-              onChange={(e) => updateSettings({ planSkillPrerequisites: e.target.checked })} />{' '}
-            Plan Feats Using Final Skill Ranks
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.rangerSnarecrafter}
-              onChange={(e) => updateSettings({ rangerSnarecrafter: e.target.checked })} />{' '}
-            Ranger Snarecrafter Dedication
-          </label>
-          <label>
-            <input type="checkbox" checked={settings.unarmedCountsAsWeapons}
-              onChange={(e) => updateSettings({ unarmedCountsAsWeapons: e.target.checked })} />{' '}
-            Unarmed attacks count as weapons
-          </label>
-        </section>
-      )}
-
       {!editingId && <>
       <div className="home-section-heading">
         <h2>Characters</h2>
@@ -359,7 +264,8 @@ export default function App() {
       <label className="homebrew-search">Search homebrew
         <input type="search" value={homebrewSearch} onChange={event => setHomebrewSearch(event.target.value)} />
       </label>
-      <HomebrewList entries={entries ?? []} search={homebrewSearch} onEdit={entry => { setCatalogRetry(value => value + 1); setDraft(entry) }} onDelete={(id) => {
+      <HomebrewList entries={entries ?? []} search={homebrewSearch} rulesOpen={rulesOpen} onRulesToggle={setRulesOpen}
+        onEdit={entry => { setCatalogRetry(value => value + 1); setDraft(entry) }} onDelete={(id) => {
         void removeEntry(id).catch((error: unknown) =>
           setStatus(`Could not delete homebrew: ${error instanceof Error ? error.message : String(error)}`))
       }} />

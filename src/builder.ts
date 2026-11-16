@@ -20,6 +20,15 @@ import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoice
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 
 export type Ability = keyof Character['abilities']
+
+export function innateSpellAbility(c: Character, normal: Ability = 'cha'): Ability {
+  if (!getSettings().innateHighestMental) return normal
+  let best: Ability = ['int', 'wis', 'cha'].includes(normal) ? normal : 'cha'
+  for (const ability of ['int', 'wis', 'cha'] as const) {
+    if (c.abilities[ability] > c.abilities[best]) best = ability
+  }
+  return best
+}
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
 export const ABILITY_LABEL: Record<Ability, string> = {
@@ -295,7 +304,7 @@ export function hardwoodShield(c: Character): OwnedShield | undefined {
   return { id: 'granted-shield:hardwood', name: `Duskwood Shield (${high ? 'High' : 'Standard'}-Grade)`,
     hardness: Math.max(high ? 8 : 5, 3 + increments),
     hp: Math.max(high ? 32 : 20, 12 + 4 * increments),
-    damage: c.hardwoodShield?.damage ?? 0, raised: !!c.hardwoodShield?.raised, reinforcingRune: c.hardwoodShield?.reinforcingRune,
+    damage: c.hardwoodShield?.damage ?? 0, raised: !!c.hardwoodShield?.raised, equipped: c.hardwoodShield?.equipped, reinforcingRune: c.hardwoodShield?.reinforcingRune,
     attachedWeapon: c.hardwoodShield?.attachedWeapon }
 }
 export const SHIELD_RUNES = {
@@ -306,6 +315,25 @@ export const SHIELD_RUNES = {
   Major: { level: 16, hardness: 5, hp: 84, maxHardness: 17, maxHp: 136 },
   Supreme: { level: 19, hardness: 7, hp: 108, maxHardness: 20, maxHp: 160 },
 } as const
+export function inventorBuckler(c: Character): OwnedShield | undefined {
+  if (!getSettings().inventorArmorGauntlets || !ownedArmors(c, []).some(armor => armor.id === INVENTOR_ARMOR_ID && armor.worn)) return undefined
+  const automatic = (Object.keys(SHIELD_RUNES) as (keyof typeof SHIELD_RUNES)[])
+    .reverse().find(rank => SHIELD_RUNES[rank].level <= c.level)
+  const installed = c.inventorBuckler?.reinforcingRune
+  return { id: 'granted-shield:inventor', name: 'Gauntlet Buckler', hardness: 3, hp: 6,
+    damage: c.inventorBuckler?.damage ?? 0, raised: !!c.inventorBuckler?.raised, equipped: c.inventorBuckler?.equipped,
+    reinforcingRune: installed && (!automatic || SHIELD_RUNES[installed].level > SHIELD_RUNES[automatic].level) ? installed : automatic,
+    attachedWeapon: c.inventorBuckler?.attachedWeapon }
+}
+export function ownedShields(c: Character): OwnedShield[] {
+  return [c.shield, hardwoodShield(c), inventorBuckler(c)].filter((shield): shield is OwnedShield => !!shield)
+}
+export function shieldChange(c: Character, shield: OwnedShield,
+  patch: Partial<Pick<OwnedShield, 'equipped' | 'raised' | 'damage' | 'reinforcingRune' | 'attachedWeapon'>>): Partial<Character> {
+  if (shield.id === 'granted-shield:hardwood') return { hardwoodShield: { ...c.hardwoodShield, ...patch } }
+  if (shield.id === 'granted-shield:inventor') return { inventorBuckler: { ...c.inventorBuckler, ...patch } }
+  return { shield: { ...shield, ...patch } }
+}
 type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
 
 export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, entries: ContentEntry[] = []) {
@@ -343,24 +371,18 @@ export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['ma
   return stats ? { name: entry.name, hardness: Number(stats[1]), hp: Number(stats[2]) } : { name: entry.name }
 }
 export function equippedShield(c: Character) {
-  const generated = hardwoodShield(c)
-  return generated && (c.hardwoodShield?.equipped ?? !c.shield) ? generated
+  const generated = ownedShields(c).find(shield => shield.id !== c.shield?.id && (shield.equipped ?? !c.shield))
+  return generated ? generated
     : c.shield?.equipped !== false ? c.shield : undefined
 }
 export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: boolean): Partial<Character> {
-  if (shield.id === 'granted-shield:hardwood') {
-    const keepPhysical = !equipped && !!c.shield && equippedShield(c)?.id === c.shield.id
-    return {
-      hardwoodShield: { ...c.hardwoodShield, equipped, ...(!equipped ? { raised: false } : {}) },
-      ...(c.shield ? { shield: { ...c.shield, equipped: keepPhysical, raised: keepPhysical && c.shield.raised } } : {}),
-    }
+  const previous = equippedShield(c)?.id
+  const change: Partial<Character> = {}
+  for (const current of [shield, ...ownedShields(c).filter(item => item.id !== shield.id)]) {
+    const active = current.id === shield.id ? equipped : !equipped && current.id === previous
+    Object.assign(change, shieldChange(c, current, { equipped: active, ...(!active ? { raised: false } : {}) }))
   }
-  const keepGenerated = !equipped && equippedShield(c)?.id === 'granted-shield:hardwood'
-  return {
-    shield: { ...shield, equipped, ...(!equipped ? { raised: false } : {}) },
-    ...(hardwoodShield(c) ? { hardwoodShield: { ...c.hardwoodShield, equipped: keepGenerated,
-      ...(!keepGenerated ? { raised: false } : {}) } } : {}),
-  }
+  return change
 }
 export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   const shield = equippedShield(c)
@@ -373,8 +395,7 @@ export const isBucklerShield = (name: string) => /buckler/i.test(name)
 export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {
   const shield = equippedShield(c)
   if (!shield) return {}
-  return shield.id === 'granted-shield:hardwood'
-    ? { hardwoodShield: { ...c.hardwoodShield, raised } } : { shield: { ...shield, raised } }
+  return shieldChange(c, shield, { raised })
 }
 export const shieldParagonActive = (c: Character) => !!equippedShield(c) && activeFeatsNamed(c, 'Shield Paragon').length > 0
 export const shieldRaised = (c: Character) => !!equippedShield(c) && (!!equippedShield(c)?.raised || shieldParagonActive(c))
@@ -2579,6 +2600,10 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     ...(isPioneerHuman(c) ? ['Survival'] : []),
     ...skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
+  if (getSettings().skillTokenConversion && c.skillTokenUpgrades?.length) {
+    const state = skillTokenState({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
+    for (const { purchase } of state.active) ranks[purchase.skill] = Math.max(ranks[purchase.skill] ?? 0, purchase.rank)
+  }
   return ranks
 }
 
@@ -3235,7 +3260,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     } else weapons.push(grant)
   }
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
-  const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name)) || c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
+  const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
   const haftStriker = !!haftStrikerSource(c, entries)
   const oversizedThrow = canOversizedThrow(c)
   const gauntlet = armorGauntlet(c, entries)
@@ -3274,7 +3299,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
         potency: 0, striking: 0, runes: [] })
     }
   }
-  for (const shield of [c.shield, hardwoodShield(c)]) {
+  for (const shield of ownedShields(c)) {
     if (shield) available.push({ ...(shield.attachedWeapon ?? {
       id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
     }), attachedTo: shield.id })
@@ -3406,7 +3431,7 @@ export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
 }
 export const SHIELD_ATTACHED_WEAPONS = ['Shield Boss', 'Shield Pistol', 'Shield Spikes'] as const
 export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
-  return [c.shield, hardwoodShield(c)].find(shield => shield && shield.id === weapon.attachedTo
+  return ownedShields(c).find(shield => shield.id === weapon.attachedTo
     && (shield.attachedWeapon?.id === weapon.id
       || !shield.attachedWeapon && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name))
 }
@@ -3471,7 +3496,7 @@ function hammerMultipistolEntries(entries: ContentEntry[]) {
     id: `homebrew:hammer-multipistol-${entry.name.endsWith('(Melee)') ? 'melee' : 'ranged'}`,
     source: 'homebrew' as const,
     name: entry.name.replace(/^Mace Multipistol/, 'Hammer Multipistol'),
-    description: '',
+    description: 'A reinforced hammer head is built into this multipistol, letting its wielder switch between crushing melee blows and close-range gunfire.',
     data: { ...entry.data },
   }))
 }
@@ -3544,8 +3569,9 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
 
 export function armorGauntlet(c: Character, entries: ContentEntry[]) {
   const armor = ownedArmors(c, entries).find((armor) => armor.worn)
+  if (armor?.id === INVENTOR_ARMOR_ID && getSettings().inventorArmorGauntlets) return { armor, name: 'Bladed Gauntlet', locked: true }
   return armor && ['Full Plate', 'Half Plate', 'Hellknight Plate', 'Splint Mail', 'Power Suit'].includes(armor.name)
-    ? { armor, name: armor.gauntlet ?? GAUNTLET.name } : undefined
+    ? { armor, name: armor.gauntlet ?? GAUNTLET.name, locked: false } : undefined
 }
 
 // ---------- Weapons ----------
@@ -3833,6 +3859,7 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
 
 export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   return !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
+    || weapon.name === 'Bladed Gauntlet' && !!armorGauntlet(c, entries)?.locked
     || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)
     || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
@@ -3902,8 +3929,11 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     weapon = { ...weapon, potency: Math.max(weapon.potency, shared?.potency ?? 0),
       striking: Math.max(weapon.striking, shared?.striking ?? 0), runes: shared?.runes ?? weapon.runes, material: undefined }
   }
-  const plate = weapon.id === GAUNTLET.id ? armorGauntlet(c, entries)?.armor : undefined
-  if (plate) weapon = { ...weapon, material: plate.material, potency: plate.potency, striking: plate.resilient }
+  const gauntlet = weapon.id === GAUNTLET.id || weapon.name === 'Bladed Gauntlet' ? armorGauntlet(c, entries) : undefined
+  const plate = weapon.id === GAUNTLET.id || gauntlet?.locked ? gauntlet?.armor : undefined
+  if (plate) weapon = { ...weapon, material: plate.material,
+    potency: plate.id === INVENTOR_ARMOR_ID && getSettings().inventorArmorGauntlets ? Math.max(weapon.potency, plate.potency) : plate.potency,
+    striking: plate.id === INVENTOR_ARMOR_ID && getSettings().inventorArmorGauntlets ? Math.max(weapon.striking, plate.resilient) : plate.resilient }
   const haft = weapon.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
   if (haft) {
     const source = effectiveWeapon(c, entries, haft)
@@ -3922,7 +3952,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
       enhanced = { ...enhanced, material: peachwood }
     }
     if (weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)) enhanced = { ...enhanced, material: 'Orichalcum' }
-    if (plate) enhanced = { ...enhanced, material: plate.material, potency: plate.potency, striking: plate.resilient }
+    if (plate) enhanced = { ...enhanced, material: plate.material, potency: weapon.potency, striking: weapon.striking }
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
         .slice(0, maxPropertyRunes(enhanced.potency, enhanced.material,
@@ -3933,9 +3963,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     return animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource))
   }
   const fundamentals = effectiveHandwraps(c, entries)
-  const material = weapon.name === ORC_TUSKS.name && c.level >= 5 && hasFeat(c, 'Cold Iron Tusks')
-    ? scaledMaterial('Cold Iron (Low-Grade)', c.level, 'Weapon') : undefined
-  const enhanced: OwnedWeapon = { ...weapon, material,
+  const enhanced: OwnedWeapon = { ...weapon, material: undefined,
     potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
     striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0),
     runes: fundamentals?.kind === 'hardlight' ? [] : fundamentals?.runes ?? [] }
@@ -4081,6 +4109,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
     || c.level >= 4 && hasFeat(c, 'Verdant Weapon Jousting') && !!livingSource?.verdantWeapon && canBeVerdantWeapon(c, entries, livingSource)
+    || c.level >= 4 && activeFeatsNamed(c, 'Weapon Innovation Jousting').length > 0
+      && !!livingSource?.inventorInnovation && canBeWeaponInnovation(c, entries, livingSource)
     || c.level >= 14 && (hasFeat(c, 'Living Weapon Joust') || hasFeat(c, 'Living Weapon Jousting')) && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource))
   const pristineLivingWeapon = c.level >= 14
     && ['Pristine Living Weapon', 'Living Weapon', 'Wild Hunter Dedication'].every((name) => hasFeat(c, name))
@@ -4187,7 +4217,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   }, 0)
 }
 
-export function skillRankBudget(c: Character, entries: ContentEntry[]) {
+function baseSkillRankBudget(c: Character, entries: ContentEntry[]) {
   c = normalizeLaborerSkills(normalizeLongevitySkills(c))
   let effectivePicks = [...(c.skillPicks ?? [])]
   let currentRanks = effectivePicks.length ? ranksAt({ ...c, skillPicks: effectivePicks }, entries, 99, false) : {}
@@ -4217,6 +4247,146 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
     else remaining.legendary++
   }
   return remaining
+}
+
+type SkillTokenUpgrade = NonNullable<Character['skillTokenUpgrades']>[number]
+interface SkillToken {
+  key: string
+  rank: number
+  skills?: string[]
+}
+
+function unusedSkillTokens(c: Character, entries: ContentEntry[]) {
+  const tokens: SkillToken[] = Array.from({ length: baseSkillRankBudget(c, entries).trained },
+    (_, index) => ({ key: `trained:${index}`, rank: 1 }))
+  const add = (key: string, rank: number, skills?: string[]) => {
+    if (!c.skillIncreases?.[key]) tokens.push({ key, rank, skills })
+  }
+  if (longevityExpertLevel(c) !== undefined) add(LONGEVITY_EXPERT_SLOT, 2)
+  for (const slot of officerEducationSlots(c)) add(slot.key, 2)
+  for (const slot of mechanicIngenuitySlots(c)) add(slot.key, rankCap(slot.level), ['Computers', 'Crafting'])
+  for (const level of skillIncreaseLevels(c)) add(String(level), rankCap(level))
+  return tokens
+}
+
+function takeSkillToken(tokens: SkillToken[], rank: number): string[] | undefined {
+  const index = tokens.reduce((best, token, index) => token.rank >= rank
+    && (best < 0 || token.rank < tokens[best].rank) ? index : best, -1)
+  if (index >= 0) return [tokens.splice(index, 1)[0].key]
+  if (rank <= 1) return undefined
+  const first = takeSkillToken(tokens, rank - 1)
+  const second = first && takeSkillToken(tokens, rank - 1)
+  return first && second ? [...first, ...second] : undefined
+}
+
+export function skillTokenState(c: Character, entries: ContentEntry[]) {
+  const raw = { ...c, skillTokenUpgrades: undefined }
+  const ranks = ranksAt(raw, entries)
+  const available = unusedSkillTokens(raw, entries)
+  const active: { purchase: SkillTokenUpgrade; index: number }[] = []
+  const inactive: { purchase: SkillTokenUpgrade; index: number; reason: string }[] = []
+  const used = new Set<string>()
+  const names = new Set(statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name))
+  const enabled = getSettings().skillTokenConversion
+  for (const { purchase, index } of (c.skillTokenUpgrades ?? []).map((purchase, index) => ({ purchase, index }))
+    .sort((a, b) => a.purchase.level - b.purchase.level || a.purchase.rank - b.purchase.rank)) {
+    let reason = !enabled ? 'House rule disabled; purchase preserved.'
+      : !Number.isInteger(purchase.level) || purchase.level < 1 || ![2, 3, 4].includes(purchase.rank)
+        ? 'Invalid purchase level or rank.'
+        : purchase.level > c.level ? `Available at level ${purchase.level}.`
+          : purchase.level < (purchase.rank === 4 ? 15 : purchase.rank === 3 ? 7 : 3)
+            ? 'Purchase is below the minimum proficiency level.'
+            : !names.has(purchase.skill) && !/^.+ lore$/i.test(purchase.skill)
+              ? 'Only skills and Lore can be upgraded.' : ''
+    const atLevel = { ...raw, level: Math.min(c.level, purchase.level) }
+    if (!reason) {
+      const prior = Math.max(ranksAt(atLevel, entries)[purchase.skill] ?? 0,
+        ...active.filter(item => item.purchase.skill === purchase.skill).map(item => item.purchase.rank))
+      if (prior < purchase.rank - 1) reason = `Requires ${RANKS[purchase.rank - 1]} ${purchase.skill} first.`
+    }
+    const sources = !reason ? unusedSkillTokens(atLevel, entries).filter(token =>
+      !used.has(token.key) && (!token.skills || token.skills.includes(purchase.skill))) : []
+    const payment = !reason && new Set(purchase.payment).size === purchase.payment.length
+      ? takeSkillToken(sources.filter(token => purchase.payment.includes(token.key)), purchase.rank) : undefined
+    if (!reason && (!payment || payment.length !== purchase.payment.length)) reason = 'Payment unavailable; refund or restore its unused skill choices.'
+    if (reason) inactive.push({ purchase, index, reason })
+    else {
+      purchase.payment.forEach(key => used.add(key))
+      active.push({ purchase, index })
+      ranks[purchase.skill] = Math.max(ranks[purchase.skill] ?? 0, purchase.rank)
+    }
+  }
+  return { active, inactive, used, ranks, available: available.filter(token => !used.has(token.key)) }
+}
+
+export function skillTokenPurchase(c: Character, entries: ContentEntry[], skill: string, target: number,
+  convertOnly = false, state = skillTokenState(c, entries)) {
+  if (!getSettings().skillTokenConversion || !Number.isInteger(target)
+    || target < 2 || target > (c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1)) return undefined
+  const current = state.ranks[skill] ?? 0
+  if (current < 1 || target <= current || !statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
+    && !/^.+ lore$/i.test(skill)) return undefined
+  const available = state.available.filter(token => !token.skills || token.skills.includes(skill))
+  const purchases: SkillTokenUpgrade[] = []
+  for (const rank of [2, 3, 4] as const) {
+    if (rank <= current || rank > target) continue
+    const eligible = available.filter(token => !convertOnly || token.rank < rank)
+    const payment = takeSkillToken(eligible, rank)
+    if (!payment) return undefined
+    for (const key of payment) available.splice(available.findIndex(token => token.key === key), 1)
+    purchases.push({ skill, rank, level: c.level, payment })
+  }
+  return [...c.skillTokenUpgrades ?? [], ...purchases]
+}
+
+export function skillTokenPayment(payment: string[], c: Character, entries: ContentEntry[]) {
+  const sources = unusedSkillTokens({ ...c, skillTokenUpgrades: undefined }, entries)
+  return [1, 2, 3, 4].flatMap(rank => {
+    const count = payment.filter(key => sources.some(token => token.key === key && token.rank === rank)).length
+    return count ? [`${count} ${RANKS[rank]}`] : []
+  }).join(' + ')
+}
+
+export function skillRankBudget(c: Character, entries: ContentEntry[]) {
+  const raw = { ...c, skillTokenUpgrades: undefined }
+  const remaining = baseSkillRankBudget(raw, entries)
+  if (!getSettings().skillTokenConversion || !c.skillTokenUpgrades?.length) return remaining
+  const state = skillTokenState(c, entries)
+  for (const token of unusedSkillTokens(raw, entries)) {
+    if (state.used.has(token.key)) remaining[(['trained', 'expert', 'master', 'legendary'] as const)[token.rank - 1]]--
+  }
+  return remaining
+}
+
+export function skillRankRequirements(c: Character, entries: ContentEntry[], skills: string[]) {
+  const result = new Map<string, Map<number, string[]>>()
+  if (!skills.length) return result
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const skillPattern = new RegExp(`\\b(?:${[...skills].sort((a, b) => b.length - a.length).map(escape).join('|')})\\b`, 'gi')
+  for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
+    const category = feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase()
+    if (!['class', 'ancestry', 'archetype'].includes(category) || /\bdedication$/i.test(feat.name)) continue
+    const sources = featPrerequisiteSources(entries, { ...c, name: feat.name,
+      entryIds: feat.sourceId ? [feat.sourceId] : c.entryIds, ancestryTraits: ancestryFeatTraits(c),
+      category })
+    for (const source of sources.filter(source => !source.traits.some(trait => /^(?:skill|general|dedication)$/i.test(trait)))) {
+      const text = String(source.data.prerequisite ?? '')
+      const clauses = text.matchAll(/\b(trained|expert|master|legendary)\s+(?:in|with)\s+([\s\S]*?)(?=\b(?:untrained|trained|expert|master|legendary)\s+(?:in|with)\s+|$)/gi)
+      for (const clause of clauses) {
+        const rank = RANKS.findIndex(rank => rank.toLowerCase() === clause[1].toLowerCase())
+        for (const match of clause[2].matchAll(skillPattern)) {
+          const skill = skills.find(skill => skill.toLowerCase() === match[0].toLowerCase())!
+          const ranks = result.get(skill) ?? new Map<number, string[]>()
+          const notes = ranks.get(rank) ?? []
+          const note = `${feat.name}: ${text}`
+          if (!notes.includes(note)) notes.push(note)
+          ranks.set(rank, notes)
+          result.set(skill, ranks)
+        }
+      }
+    }
+  }
+  return result
 }
 
 // ---------- Spells ----------

@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { groupHomebrew, HomebrewList } from './HomebrewList'
 import { homebrewCharacterOptions } from './supplemental'
 import type { ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -67,4 +68,23 @@ it('filters homebrew by entry or category and expands matching groups', () => {
   expect(render('wOlF')).not.toContain('Edit Cat')
   expect(render('companions')).toContain('Edit Cat')
   expect(render('missing')).toContain('No homebrew matches your search.')
+})
+
+it('includes every saved rule in its own searchable category even without homebrew entries', () => {
+  const render = (search = '') => renderToStaticMarkup(
+    <HomebrewList entries={[]} search={search} onEdit={() => {}} onDelete={() => {}} />,
+  )
+  expect(render().match(/type="checkbox"/g)).toHaveLength(Object.keys(getSettings()).length)
+  expect(render()).toContain('id="homebrew-rules"')
+  expect(render('Rules')).toContain('Inventor Armor Innovation Gauntlets')
+  expect(render('highest mental')).toContain('open=""')
+  expect(render('highest mental')).toContain('Innate Spells Use Highest Mental Attribute')
+  expect(render('highest mental')).not.toContain('Free Archetype')
+  const previous = getSettings().innateHighestMental
+  try {
+    updateSettings({ innateHighestMental: false })
+    expect(render('innate')).not.toContain('checked=""')
+    updateSettings({ innateHighestMental: true })
+    expect(render('innate')).toContain('checked=""')
+  } finally { updateSettings({ innateHighestMental: previous }) }
 })

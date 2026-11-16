@@ -6,7 +6,6 @@ import { resistances,
 import { killerBeltBonus, wildwoodInkBonus } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
-import { adoptedAncestryText } from './featChoices'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource } from './warmask'
@@ -14,6 +13,8 @@ import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
+import { getSettings } from './settings'
+import { skillRankRequirements, skillTokenPayment, skillTokenPurchase, skillTokenState } from './builder'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const COMMON_LORES = [...new Set([
@@ -98,6 +99,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const skillNames = new Set(skills.map((stat) => stat.name))
+  const tokenState = editingSkills && (getSettings().skillTokenConversion || c.skillTokenUpgrades?.length)
+    ? skillTokenState(c, entries) : undefined
+  const requirements = editingSkills ? skillRankRequirements(c, entries, [...skillNames]) : undefined
+  const hasTokenPurchase = (name: string) => !!tokenState?.active.some(item => item.purchase.skill === name)
   const offense = stats.filter((stat) => stat.kind === 'perception')
   const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
@@ -116,6 +121,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const armorCheck = starfinderArmorPenalties(c, entries).check
   const saveCircumstance = part === 'defense' ? savingThrowCircumstance(c, entries) : undefined
   const assignRank = (name: string, target: number) => {
+    if (hasTokenPurchase(name)) return undefined
     let rank = baseRanks[name] ?? 0
     const next = Object.fromEntries(Object.entries(c.skillIncreases ?? {}).filter(([, skill]) => skill !== name))
     if (target <= rank) return next
@@ -128,7 +134,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const canUseExpertSlot = (level: number) => canSpendAt(name, level)
       && (ranksAt({ ...c, level, skillIncreases: next, rankOverrides: undefined }, entries, level + 1, false)[name] ?? 0) === 1
     const expert = target === 2 && rank === 1
-      ? expertSlots.find(slot => !next[slot.key] && canUseExpertSlot(slot.level)) : undefined
+      ? expertSlots.find(slot => !next[slot.key] && !tokenState?.used.has(slot.key) && canUseExpertSlot(slot.level)) : undefined
     if (expert) {
       next[expert.key] = name
       return next
@@ -139,7 +145,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       slots.push(...mechanicIngenuitySlots(c).map(slot => ({ ...slot, expertOnly: false, restricted: true })))
     slots.sort((a, b) => a.level - b.level || Number(b.restricted) - Number(a.restricted))
     for (const slot of slots) {
-      if (next[slot.key] || !canSpendAt(name, slot.level)
+      if (next[slot.key] || tokenState?.used.has(slot.key) || !canSpendAt(name, slot.level)
         || (slot.expertOnly ? rank !== 1 || !canUseExpertSlot(slot.level) : !canIncreaseTo(slot.level, rank))) continue
       next[slot.key] = name
       if (++rank >= target) return next
@@ -147,6 +153,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     return undefined
   }
   const canReachRank = (name: string, target: number) => !!assignRank(name, target)
+    || !!tokenState && !!skillTokenPurchase(c, entries, name, target, false, tokenState)
   const setRank = (name: string, r: number) => {
     if (!skillNames.has(name)) return
     const currentRank = permanentRanks[name] ?? 0
@@ -171,7 +178,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     if (target < base || target > maxRank || (target > currentRank && !canReachRank(name, target))) return
 
     const next = assignRank(name, target)
-    if (!next) return
+    if (!next) {
+      const purchases = tokenState && skillTokenPurchase(c, entries, name, target, false, tokenState)
+      if (purchases) save({ skillTokenUpgrades: purchases })
+      return
+    }
     const overrides = { ...c.rankOverrides }
     delete overrides[name]
     save({ skillIncreases: next, rankOverrides: overrides })
@@ -216,6 +227,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         : [craftingRecall, armorSkill, assistant].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
     const total = abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0)
+    const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
@@ -230,19 +242,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               || activeFeatsNamed(c, "Officer's Medical Training").some(feat => feat.choice === s.name)
                 && (ranksAt(withoutLore, entries)[s.name] ?? 0) > 0
             save({ lores: c.lores.filter(lore => lore.name !== s.name),
-              ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides } : {}) })
+              ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides,
+                skillTokenUpgrades: c.skillTokenUpgrades?.filter(purchase => purchase.skill !== s.name) } : {}) })
           })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(total)}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
-          {!!warmaskBonus && <SourceNote inlineSource={false} source={adoptedAncestryText(c, 'Orc Warmask')} note="+1 item bonus while the feat is active; the mask is always worn and attuned." />}
-          {belt && <SourceNote inlineSource={false} source={belt.source} note={`+${belt.value} item bonus to Intimidation checks; item bonuses do not stack.`} />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
-            note={`+${ink.value} item bonus to Stealth; +${ink.value + 1} in forests (${signed(forestIncrease)} more), for Stealth ${signed(total + forestIncrease)}. Item bonuses do not stack.`} />}
-          {s.name === 'Athletics' && c.level >= 4 && activeFeatsNamed(c, 'Nimble Athlete').length > 0
-            && <SourceNote inlineSource={false} source="Nimble Athlete"
-              note={`Uses the higher of Strength or Dexterity for Athletics checks and DCs (${ABILITY_LABEL[ability]}). Athletics DC ${10 + total}.`} />}
+            note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {s.name === 'Perception' && sights.map(sight => {
@@ -261,7 +269,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
             source="Tinkering Fingers" note="Repair without a toolkit without the penalty; +1 circumstance to Repair checks with a repair toolkit." />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
-            source="Rider" note="+1 circumstance bonus to Command an Animal checks for your own animal companion, if a check is required. Does not apply to other Nature checks." />}
+            source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
@@ -274,10 +282,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
-            && <SourceNote inlineSource={false} source="Shiny" note="+3 circumstance bonus only when using Aid for this skill." />}
+            && <SourceNote inlineSource={false} source="Shiny" note={`${s.name} ${conditionalTotal(3)} when using Aid.`} />}
           {s.name === 'Survival' && wasteland && <SourceNote inlineSource={false} source="Wasteland Warrior" note={hazardNote} />}
           {s.name === 'Survival' && terrainExpertise && <SourceNote inlineSource={false} source="Terrain Expertise"
-            note={`+1 circumstance bonus to Survival in ${terrainExpertise.terrains.join(', ')} terrain.`} />}
+            note={`${conditionalTotal(1)} to Survival in ${terrainExpertise.terrains.join(', ')} terrain.`} />}
           </b></span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
@@ -293,9 +301,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             const disabled = s.kind !== 'skill' || i + 1 > maxRank || (!downloadAvailable && (i === 0
               ? trainedDisabled
               : target < baseRank || (target > permanentRank && !canReachRank(s.name, target))))
+              || hasTokenPurchase(s.name) && target < permanentRank
+            const required = requirements?.get(s.name)?.get(i + 1)
             return (
+              <span className="rank-choice" key={letter}>
               <button
-                key={letter}
                 type="button"
                 className={rank >= i + 1 ? 'on' : ''}
                 aria-pressed={rank === i + 1}
@@ -306,16 +316,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                     : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
                   : i === 0 && fixed.has(s.name) ? picks.includes(s.name) ? 'Refund redundant training choice' : 'Trained granted by class or background' : RANKS[i + 1]}
                 onClick={() => setRank(s.name, i + 1)}
-              >{letter}</button>
+              >{letter}</button>{!!required?.length && <SourceNote inlineSource={false}
+                source={`${s.name} ${RANKS[i + 1]} prerequisites`}
+                note={`${required.join('; ')}. Current rank: ${RANKS[permanentRank]}.`} />}
+              </span>
             )
           })}
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[ability]}</small>{signed(abil)}</span>
-        <span className="skill-part"><small>Proficiency</small>{signed(prof)}
-          {improvised && <SourceNote inlineSource={false} source={improvised.source} note={improvised.trainedActions
-            ? 'Untrained skill proficiency improved. You can also attempt trained-only skill actions; your proficiency rank remains untrained.'
-            : 'Untrained skill proficiency improved. Trained-only skill actions still require training.'} />}
-        </span>
+        <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
         <span className="skill-part"><small>Item</small>{signed(item)}</span>
         {circumstance && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
       </div>
@@ -491,9 +500,58 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
+      {(getSettings().skillTokenConversion || !!c.skillTokenUpgrades?.length) && <details className="skill-token-exchange">
+        <summary>Skill token exchange</summary>
+        <p>Two unused Trained choices buy one Expert upgrade; two Expert tokens buy Master;
+          two Master tokens buy Legendary. Lower tokens can be combined recursively.
+          Starting from Trained, this costs 2 / 6 / 14 Trained choices in total.</p>
+        <p>Existing proficiencies are never traded away. Expert requires level 3, Master 7, Legendary 15.
+          Source restrictions still apply. Temporary Skill Download choices cannot be exchanged.
+          Purchases take effect at the level where you make them. Disable the house rule to pause purchases without deleting them.</p>
+        {getSettings().skillTokenConversion && <form aria-label="Skill token exchange" onSubmit={event => {
+          event.preventDefault()
+          const control = event.currentTarget.elements.namedItem('skill')
+          if (!(control instanceof HTMLSelectElement)) return
+          const rank = permanentRanks[control.value] ?? 0
+          const purchases = tokenState && skillTokenPurchase(c, entries, control.value, rank + 1, true, tokenState)
+          if (!purchases) {
+            control.setCustomValidity('Choose an eligible trained skill with enough convertible tokens.')
+            control.reportValidity()
+            return
+          }
+          save({ skillTokenUpgrades: purchases })
+        }}>
+          <label>Convert tokens for <select name="skill" aria-label="Skill token upgrade" defaultValue="" required
+            onChange={event => event.currentTarget.setCustomValidity('')}>
+            <option value="" disabled>Choose upgrade</option>
+            {skills.flatMap(skill => {
+              const target = (permanentRanks[skill.name] ?? 0) + 1
+              const purchases = tokenState && skillTokenPurchase(c, entries, skill.name, target, true, tokenState)
+              const purchase = purchases?.at(-1)
+              return purchase ? [<option key={skill.name} value={skill.name}>{skill.name}: {RANKS[target]}
+                {' '}({skillTokenPayment(purchase.payment, c, entries)})</option>] : []
+            })}
+          </select></label>
+          <button type="submit">Convert and upgrade</button>
+        </form>}
+        {!!c.skillTokenUpgrades?.length && <ul>
+          {c.skillTokenUpgrades.map((purchase, index) => {
+            const inactive = tokenState?.inactive.find(item => item.index === index)
+            return <li key={`${purchase.skill}:${purchase.rank}:${index}`}>
+              {purchase.skill}: {RANKS[purchase.rank]} (level {purchase.level})
+              {inactive ? <span role="status"> — {inactive.reason}</span>
+                : <> — spent {skillTokenPayment(purchase.payment, c, entries)}</>}
+              {' '}<button type="button" aria-label={`Refund ${purchase.skill} ${RANKS[purchase.rank]} token upgrade`}
+                onClick={() => confirmRemoval(`${purchase.skill} ${RANKS[purchase.rank]} token upgrade and higher token upgrades for this skill`,
+                  () => save({ skillTokenUpgrades: c.skillTokenUpgrades?.filter(item =>
+                    item.skill !== purchase.skill || item.rank < purchase.rank) }))}>Refund</button>
+            </li>
+          })}
+        </ul>}
+      </details>}
       <details className="lore-add">
         <summary aria-label="Add Lore skill" title="Add Lore skill">+</summary>
-        <form onSubmit={event => {
+        <form aria-label="Add Lore" onSubmit={event => {
           event.preventDefault()
           const form = event.currentTarget
           const input = form.elements.namedItem('lore')
@@ -529,7 +587,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <button type="submit">Add Lore</button>
         </form>
       </details>
-      {wasteland && <small>Wasteland Warrior: {hazardNote}</small>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}
       </div>

@@ -3,6 +3,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { featDisplayName } from './featChoices'
 import { equipmentDisplayName } from './equipmentGroups'
 import type { ContentEntry, EntryKind } from './types'
+import { HouseRules, matchingHouseRules } from './HouseRules'
 
 const displayName = (entry: ContentEntry) => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
   ? equipmentDisplayName(entry.name) : featDisplayName(entry)
@@ -36,19 +37,23 @@ export function groupHomebrew(entries: ContentEntry[]) {
     .map(([name, content]) => ({ name, entries: content.sort((a, b) => displayName(a).localeCompare(displayName(b)) || a.level - b.level) }))
 }
 
-export function HomebrewList({ entries, search = '', onEdit, onDelete }: {
+export function HomebrewList({ entries, search = '', onEdit, onDelete, rulesOpen, onRulesToggle }: {
   entries: ContentEntry[]
   search?: string
   onEdit: (entry: ContentEntry) => void
   onDelete: (id: string) => void
+  rulesOpen?: boolean
+  onRulesToggle?: (open: boolean) => void
 }) {
   const query = search.trim().toLowerCase()
   const groups = groupHomebrew(entries).map(group => ({
     ...group, entries: query && !group.name.toLowerCase().includes(query)
       ? group.entries.filter(entry => [entry.name, displayName(entry)].some(name => name.toLowerCase().includes(query))) : group.entries,
   })).filter(group => group.entries.length)
+  if (matchingHouseRules(search).length) groups.push({ name: 'Rules', entries: [] })
   if (query && !groups.length) return <p>No homebrew matches your search.</p>
-  return groups.map((group) => (
+  return groups.sort((a, b) => a.name.localeCompare(b.name)).map((group) => group.name === 'Rules'
+    ? <HouseRules key="Rules" search={search} open={rulesOpen} onToggle={onRulesToggle} /> : (
     <details key={group.name} className="character-subsection homebrew-group" open={query ? true : undefined}>
       <summary><h3>{group.name} ({group.entries.length})</h3></summary>
       <ul className="character-list">

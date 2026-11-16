@@ -1,9 +1,15 @@
-import type { ContentEntry, HardlightGrade, OwnedArmor } from './types'
+import type { Character, ContentEntry, HardlightGrade, OwnedArmor } from './types'
+
+export function removeColdIronTusks(c: Character): Character {
+  const feats = c.feats.filter(feat => feat.name !== 'Cold Iron Tusks')
+  const entryIds = c.entryIds.filter(id => id !== 'homebrew:cold-iron-tusks')
+  return feats.length === c.feats.length && entryIds.length === c.entryIds.length ? c : { ...c, feats, entryIds }
+}
 
 export const GRAPPLING_RUNE: ContentEntry = {
   id: 'homebrew:grappling-rune', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: 'Grappling', level: 5, traits: ['Magical', 'Rare'],
-  description: 'Homebrew weapon property rune modeled on Hooked. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the grapple trait. You can use it to Grapple without a free hand, using its reach and adding its item bonus to attack rolls as an item bonus to the Athletics check. On a critical failure, you can drop the weapon to take the effects of a failure instead.\n\nIf the weapon normally has the grapple trait, you can attempt to Grapple the target as a reaction when you critically hit it with this weapon.',
+  description: 'Etched loops and interlocking lines help this weapon catch and hold foes. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the grapple trait. You can use it to Grapple without a free hand, using its reach and adding its item bonus to attack rolls as an item bonus to the Athletics check. On a critical failure, you can drop the weapon to take the effects of a failure instead.\n\nIf the weapon normally has the grapple trait, you can attempt to Grapple the target as a reaction when you critically hit it with this weapon.',
   data: { item_category: 'Runes', item_subcategory: 'Weapon Property Runes', usage: 'etched onto a melee weapon',
     price: 14000, bulk: 0, rarity: 'rare', sourceBook: 'Homebrew' },
   effects: [], updatedAt: 1,
@@ -12,7 +18,7 @@ export const GRAPPLING_RUNE: ContentEntry = {
 export const KILLERS_BELT_MAJOR: ContentEntry = {
   id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],
-  description: "Homebrew upgrade of Killer's Belt. Price 15,000 gp.\n\nWhile wearing and investing this belt, you gain a +3 item bonus to Intimidation checks.\n\nActivate: Bleeding Rubies (one action, manipulate). Frequency: once per day. Requirements: You have a free hand, and your last action dealt damage to an enemy with a Strike or spell attack roll. Crush one of the belt's rubies to cause that enemy to take 3d6 persistent bleed damage. The ruby returns after 24 hours.",
+  description: "Blood-red rubies set in this imposing belt project a fearsome presence. Price 15,000 gp.\n\nWhile wearing and investing this belt, you gain a +3 item bonus to Intimidation checks.\n\nActivate: Bleeding Rubies (one action, manipulate). Frequency: once per day. Requirements: You have a free hand, and your last action dealt damage to an enemy with a Strike or spell attack roll. Crush one of the belt's rubies to cause that enemy to take 3d6 persistent bleed damage. The ruby returns after 24 hours.",
   data: { item_category: 'Worn Items', item_subcategory: 'Other Worn Items', usage: 'worn belt',
     bulk: 0.1, price: 1500000, rarity: 'common', skill: 'Intimidation', sourceBook: 'Homebrew',
     url: 'https://2e.aonprd.com/Equipment.aspx?ID=3968' },
@@ -93,7 +99,7 @@ export const CLAN_DAGGER: ContentEntry = {
 export const CLAN_DAGGER_DEXTERITY: ContentEntry = {
   ...CLAN_DAGGER, id: 'supplemental:clan-dagger-dexterity', name: 'Clan Dagger (Dexterity)',
   source: 'homebrew', traits: ['Agile', 'Disarm', 'Dwarf', 'Finesse', 'Parry', 'Uncommon', 'Versatile S'],
-  description: 'A Dexterity-key clan dagger using Main-gauche statistics, with automatically improving fundamental runes and Orichalcum material.',
+  description: 'An orichalcum clan dagger balanced for precise, agile cuts and deft parries. Its fundamental runes improve automatically with its wielder.',
   data: { ...CLAN_DAGGER.data, weapon_category: 'Martial', damage: '1d4 piercing',
     url: 'https://2e.aonprd.com/Weapons.aspx?ID=387' },
 }
@@ -153,8 +159,6 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       updatedAt: 1 }] : []),
     homebrewFeat('favored-weapon-jousting', 'Favored Weapon Jousting', 4, ['Champion'],
       "You know how to use the favored weapon of your deity while riding your animal companion. If one handed and melee, your deity's favored weapon gains the jousting trait.", { class: 'Champion', prerequisite: 'Favored Weapon Symbol' }),
-    homebrewFeat('cold-iron-tusks', 'Cold Iron Tusks', 5, ['Orc', 'Uncommon'],
-      'Like all orcs, you have tusks, but, uniquely, you coat or inlay them with cold iron, allowing your bite to easily damage demons.', { ancestry: 'Orc', rarity: 'uncommon' }),
     homebrewFeat('primal-nimbleness', 'Primal Nimbleness', 1, ['Druid', 'Ranger'],
       'Your muscles are tightly honed. Your Speed increases by 5 feet.', { class: 'Druid, Ranger' }),
     homebrewFeat('as-mutable-as-nature', 'As Mutable as Nature', 12, ['Druid', '3rd Party'],
@@ -183,6 +187,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       "You cultivate a divine conduit within your deity's symbol that can manifest into your deity's favored weapon. You spend 10 minutes focusing divine energy into your deity's symbol, imprinting it with the potential of your deity's favored weapon.\n\nWhen holding or wearing the imprinted holy symbol, you can use an Interact action to cause the divine energy to surge outward, immediately growing the weapon directly from the symbol into your hand. A second Interact action causes the divine matter to swiftly retract back into the holy symbol.\n\nThe favored weapon from your icon can be etched with weapon runes or affixed with talismans as normal, which are safely suppressed when the weapon is retracted inside the symbol.", { class: 'Champion' }),
     homebrewFeat('verdant-weapon-jousting', 'Verdant Weapon Jousting', 4, ['Druid'],
       'You know how to use your verdant weapon while riding your animal companion. If one handed and melee, your verdant weapon gains the jousting trait.', { class: 'Druid' }),
+    homebrewFeat('weapon-innovation-jousting', 'Weapon Innovation Jousting', 4, ['Inventor'],
+      'Your weapon innovation is balanced for mounted combat. Your one-handed melee weapon innovation gains the jousting trait. Its mounted benefits apply while riding a suitable mount, including a construct companion.',
+      { class: 'Inventor', prerequisite: 'Weapon innovation' }),
     homebrewFeat('living-weapon-joust', 'Living Weapon Jousting', 14, ['Archetype'],
       'You know how to use your living weapon while riding your animal companion. If one handed and melee, your living weapon gains the jousting trait.', { archetype: 'Wild Hunter' }),
     homebrewFeat('pristine-living-weapon', 'Pristine Living Weapon', 14, ['Archetype'],
@@ -253,11 +260,11 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     updatedAt: 1,
   }] : []), ...(katana ? [{
     ...katana, id: 'homebrew:claymore', source: 'homebrew' as const, name: 'Claymore',
-    description: 'A homebrew claymore using katana statistics.',
+    description: 'A long, broad-bladed sword with a protective crossguard. Its balanced grip supports controlled cuts and forceful two-handed blows.',
     updatedAt: 1,
   }] : []), ...(flyssa ? [{
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
-    description: 'A homebrew seax using flyssa statistics.',
+    description: 'A broad-backed blade with a long cutting edge and a sharp point, carried as both a tool and a close-quarters weapon.',
     updatedAt: 1,
   }] : [])]
 }
@@ -315,8 +322,10 @@ export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST,
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [
-    { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium' },
-    { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Small' },
+    { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium',
+      description: "A powerful, keen-nosed direwolf raised among Sarkoris's hunting traditions. It tracks quarry over rough ground and fights alongside its bonded partner." },
+    { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Small',
+      description: 'A pale-furred mountain cat whose spotted coat blends with snow and stone. It stalks prey with patience, then closes in with a sudden pounce.' },
   ]
   return variants.flatMap<ContentEntry>((variant) => {
     const base = entries.find((entry) => entry.kind === 'companion' && entry.source === 'official' && entry.systems.includes('pf2e') && !entry.deleted && entry.name === variant.base)
@@ -329,7 +338,7 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
     return [{
       ...base, id: variant.id, name: variant.name, source: 'homebrew',
       traits: base.traits.filter(trait => trait.toLowerCase() !== 'mount'),
-      description: `${rename(base.description)}\n\nStarts ${variant.size}.`,
+      description: `${variant.description}\n\nStarts ${variant.size}.`,
       data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: false, fixed_size: false })
         .map(([key, value]) => [key, typeof value === 'string' ? rename(value) : value])),
       // Fresh-device defaults must not supersede synced user edits or deletions.

@@ -7,6 +7,21 @@ import { FeatSlots } from './FeatSlots'
 import { MinionsContent } from './MinionsSection'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { removeColdIronTusks } from './supplemental'
+
+it('retires Cold Iron Tusks without touching other feats, weapons or character choices', () => {
+  const c: Character = { ...base, entryIds: ['homebrew:cold-iron-tusks', 'other'],
+    feats: [{ name: 'Cold Iron Tusks', type: 'Ancestry Feat', level: 5 }, { name: 'Tusks', type: 'Ancestry Feat', level: 1 }],
+    skillPicks: ['Athletics'] }
+  const before = JSON.stringify(c)
+  const updated = removeColdIronTusks(c)
+  expect(updated.feats.map(feat => feat.name)).toEqual(['Tusks'])
+  expect(updated.entryIds).toEqual(['other'])
+  expect(updated.skillPicks).toEqual(['Athletics'])
+  expect(JSON.stringify(c)).toBe(before)
+  expect(removeColdIronTusks(updated)).toBe(updated)
+  expect(homebrewCharacterOptions([]).some(entry => entry.name === 'Cold Iron Tusks')).toBe(false)
+})
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
@@ -79,6 +94,20 @@ it('offers Greywatch Initiate at level four to its three classes with trained De
   expect(greywatch).toMatchObject({ source: 'homebrew', data: { prerequisite: 'Trained in Deception' } })
 })
 
+it('offers Weapon Innovation Jousting to Inventors with an acquired weapon innovation', () => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Weapon Innovation Jousting')!
+  const weapon = { ...HAFT_STRIKER_WEAPON, id: 'innovation:weapon', kind: 'subclass' as const, name: 'Weapon', data: { class: 'Inventor' } }
+  const entries = [feat, weapon]
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  const c: Character = { ...base, level: 10, className: 'Inventor', subclass: 'Weapon' }
+  expect(eligibleFeats(entries, c, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...c, subclass: 'Armor' }, slot)).not.toContain(feat)
+  const secondary: Character = { ...c, subclass: 'Armor',
+    feats: [{ name: 'Second Innovation', type: 'Class Feat', level: 8, choice: 'Weapon' }] }
+  expect(eligibleFeats(entries, secondary, slot)).not.toContain(feat)
+  expect(eligibleFeats(entries, secondary, { ...slot, key: 'class:8:0', level: 8 })).toContain(feat)
+})
+
 it('provides ranger copies of the druid feats without changing their rules', () => {
   const originals: ContentEntry[] = ['Effortless Concentration', 'Forgotten Presence', 'Timeless Nature'].map((name, index) => ({
     ...HAFT_STRIKER_WEAPON, id: `official:${index}`, kind: 'feat', name, level: [16, 8, 14][index],
@@ -148,6 +177,8 @@ it('copies current Katana stats into Claymore without changing the source or usi
     traits: katana.traits, data: katana.data, updatedAt: 1,
   })
   expect(katana.name).toBe('Katana')
+  expect(claymore.description).not.toMatch(/katana|copy|using .*statistics/i)
+  expect(claymore.description).toContain('broad-bladed sword')
   const weapon = { id: 'claymore', name: 'Claymore', potency: 1, striking: 1, runes: [] }
   expect(weaponAttack(base, [claymore], weapon).damage).toBe('2d6+1 S')
   expect(homebrewWeapons([{ ...katana, deleted: true }])).toEqual([])
@@ -189,6 +220,8 @@ it('copies Flyssa mechanics into a separate homebrew Seax without changing the o
   }
   const original = JSON.stringify(flyssa)
   const [seax] = homebrewWeapons([flyssa])
+  expect(seax.description).not.toMatch(/flyssa|copy|using .*statistics/i)
+  expect(seax.description).toContain('broad-backed blade')
   expect(seax).toMatchObject({ id: 'homebrew:seax', name: 'Seax', source: 'homebrew', traits: flyssa.traits, data: flyssa.data })
   expect(weaponAttack(base, [seax], { id: 'seax', name: 'Seax', potency: 0, striking: 0, runes: [] }))
     .toMatchObject({ damage: '1d6+1 S', ability: 'dex', traits: ['Agile', 'Finesse', 'Versatile P'] })

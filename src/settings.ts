@@ -22,10 +22,13 @@ export interface Settings {
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
   planSkillPrerequisites: boolean
+  skillTokenConversion: boolean
+  innateHighestMental: boolean
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
   inventorFirearmAccess: boolean
+  inventorArmorGauntlets: boolean
   // House rule: Gauntlet and Spiked Gauntlet gain finesse
   gauntletFinesse: boolean
   unarmedCountsAsWeapons: boolean
@@ -34,7 +37,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, innateHighestMental: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 
@@ -113,4 +116,4 @@ export function applySyncedSettings(value: unknown, updatedAt: number) {
 
 export const useSettings = () => useSyncExternalStore((cb) => {
   return subscribeSettings(cb)
-}, getSettings)
+}, getSettings, getSettings)

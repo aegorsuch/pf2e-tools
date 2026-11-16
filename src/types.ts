@@ -297,6 +297,7 @@ export interface Character {
   warmask?: { worn?: boolean; attuned?: boolean; alternateSkill?: string }
   shield?: OwnedShield
   hardwoodShield?: { equipped?: boolean; raised?: boolean; damage?: number; reinforcingRune?: OwnedShield['reinforcingRune']; attachedWeapon?: OwnedWeapon }
+  inventorBuckler?: Character['hardwoodShield']
   lores: { name: string; rank: number }[]
   languages: string[]
   // Original Pathbuilder data kept so nothing is lost on import
@@ -308,6 +309,7 @@ export interface Character {
   // Trained skill picks and skill increases keyed by level
   skillPicks?: string[]
   skillIncreases?: Record<string, string>
+  skillTokenUpgrades?: { skill: string; rank: 2 | 3 | 4; level: number; payment: string[] }[]
   // Legacy skill-rank overrides; saves and Perception are always derived from class/features
   rankOverrides?: Record<string, number>
   spellcasting?: {

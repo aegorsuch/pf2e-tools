@@ -12,6 +12,22 @@ import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
+import { getSettings, updateSettings } from './settings'
+
+it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and DCs and restores source rules when disabled', highest => {
+  const grant = feat('Empathetic Connection', 'You gain _[mindlink](/spells/188-mindlink)_ as a 1st-rank occult innate spell at-will.', 5)
+  const entries = [grant, entry('Mindlink', 'spell')]
+  const character: Character = { ...base, abilities: { ...base.abilities, int: 10, wis: 10, cha: 10, [highest]: 22 },
+    feats: [taken(grant.name, 5)] }
+  const previous = getSettings().innateHighestMental
+  const render = () => renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
+  try {
+    updateSettings({ innateHighestMental: true })
+    expect(render()).toContain(`${highest === 'int' ? 'Intelligence' : highest === 'wis' ? 'Wisdom' : 'Charisma'} DC 23, Attack +13`)
+    updateSettings({ innateHighestMental: false })
+    expect(render()).toContain(`Charisma DC ${highest === 'cha' ? 23 : 17}, Attack +${highest === 'cha' ? 13 : 7}`)
+  } finally { updateSettings({ innateHighestMental: previous }) }
+})
 
 const base: Character = {
   id: 'c', systems: ['pf2e', 'sf2e'], name: 'Test', level: 5, className: 'Fighter',
@@ -24,6 +40,21 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
   _id: name, _source: { name, category: 'feat', level, markdown: `Header\n\n---\n\n${markdown}` },
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
+
+it('restores an explicit innate Wisdom ability when highest-mental rule is disabled', () => {
+  const grant: ContentEntry = { ...entry('Wise Spark', 'feat'), spellGrants: [
+    { kind: 'innate', spells: ['Fear'], ability: 'wis', rank: 1, tradition: 'Divine' },
+  ] }
+  const c: Character = { ...base, abilities: { ...base.abilities, int: 22, wis: 18 }, feats: [taken(grant.name)] }
+  const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Fear', 'spell')]} save={() => {}} />)
+  const previous = getSettings().innateHighestMental
+  try {
+    updateSettings({ innateHighestMental: true })
+    expect(render()).toContain('Intelligence DC 23, Attack +13')
+    updateSettings({ innateHighestMental: false })
+    expect(render()).toContain('Wisdom DC 21, Attack +11')
+  } finally { updateSettings({ innateHighestMental: previous }) }
+})
 
 it('keeps exact spell names, aliases, systems and refreshed content correct with indexed grants', () => {
   const source: ContentEntry = { ...entry('Quiet Steps', 'feat'), spellGrants: [
@@ -670,8 +701,8 @@ it('grants Empathetic Connection Mindlink at its fixed rank, with scaling innate
   const spells = grantedFeatSpells(character, entries)
   expect(spells).toMatchObject([{ entry: { name: 'Mindlink' }, rank: 1, rule: { frequency: 'at will', tradition: 'occult' } }])
   const render = (c: Character) => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(render(character)).toContain('Charisma DC 19, Attack +9')
-  expect(render({ ...character, level: 12 })).toContain('Charisma DC 28, Attack +18')
+  expect(render(character)).toContain('Intelligence DC 21, Attack +11')
+  expect(render({ ...character, level: 12 })).toContain('Intelligence DC 30, Attack +20')
   expect(render(character)).toContain('target is temporarily immune for 24 hours')
   expect(render(character)).not.toContain('Slots per rank')
   expect(grantedFeatSpells({ ...character, level: 4 }, entries)).toEqual([])
@@ -691,13 +722,13 @@ it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
   expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
 })
 
-it('uses higher class spell proficiency for innate spells, without using the class attribute', () => {
+it('uses higher class spell proficiency and highest mental attribute for innate spells', () => {
   const grant = feat('Stonewalker', 'You can cast [_one with stone_](/Spells.aspx?ID=1619) as a 3rd-rank divine innate spell once per day.')
   const master = { ...entry('Master Spellcaster', 'classFeature', { class: 'Wizard' }), level: 15 }
   const entries = [grant, entry('One with Stone', 'spell'), entry('Wizard', 'class', { tradition: 'Arcane' }), master]
   const c = { ...base, className: 'Wizard', level: 15, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('rank 3 divine; once per day; Charisma DC 33, Attack +23')
+  expect(markup).toContain('rank 3 divine; once per day; Intelligence DC 35, Attack +25')
   expect(grantedFeatSpells(c, entries)[0].rank).toBe(3)
 })
 

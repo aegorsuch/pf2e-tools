@@ -305,7 +305,8 @@ it('adds Hammer Multipistol as a custom copy of both Mace Multipistol forms', ()
   const copies = gearPickerEntries(entries, 'weapon').filter(entry => entry.name.startsWith('Hammer Multipistol'))
   expect(copies).toHaveLength(2)
   expect(copies.map(entry => combinationName(entries, entry.name))).toEqual(['Hammer Multipistol', 'Hammer Multipistol'])
-  expect(copies[0]).toMatchObject({ source: 'homebrew', description: '' })
+  expect(copies[0]).toMatchObject({ source: 'homebrew' })
+  expect(copies.every(copy => copy.description.includes('reinforced hammer head') && !/copy of/i.test(copy.description))).toBe(true)
   expect(weaponEntry(entries, copies[0].name)?.data).toEqual(melee.data)
   expect(combinationForms(entries, copies[0].name)).toHaveLength(2)
 })
@@ -340,7 +341,7 @@ it.each(['Cold Iron', 'Silver', 'Adamantine'])('keeps adopted Orc attack labels 
     .toContain('aria-haspopup="dialog">Teeth</button>')
 })
 
-it('keeps fixed Cold Iron and Alloyed properties without changing the attack name', () => {
+it('keeps Alloyed properties and normal tusks without the retired Cold Iron material', () => {
   const c = { ...base, ancestry: 'Human', feats: [
     feat('Adopted Ancestry', 1, 'Orc'), feat('Tusks'), feat('Cold Iron Tusks', 5), feat('Alloyed Attacks', 5, 'Silver'),
   ] }
@@ -348,7 +349,7 @@ it('keeps fixed Cold Iron and Alloyed properties without changing the attack nam
   expect(markup).toContain('aria-haspopup="dialog">Teeth</button>')
   expect(markup).not.toContain('aria-haspopup="dialog">Cold Iron Teeth</button>')
   expect(markup).toContain('melee unarmed attacks have Silver properties')
-  expect(markup).toContain('Granted by Cold Iron Teeth')
+  expect(markup).not.toContain('Granted by Cold Iron Teeth')
 })
 
 it('provides both playing-card usages with one shared deck and automatic fundamentals', () => {
@@ -1036,6 +1037,21 @@ it('applies Jousting only to qualifying selected verdant, living, or favored one
   }
 })
 
+it('adds Weapon Innovation Jousting only to an active, qualifying one-handed melee innovation', () => {
+  const entry = { ...sword, level: 0 }
+  const innovation = { ...main, inventorInnovation: true }
+  const c: Character = { ...base, className: 'Inventor', subclass: 'Weapon', level: 10,
+    weapons: [innovation], feats: [feat('Weapon Innovation Jousting', 4)] }
+  expect(weaponAttack(c, [entry], innovation).traits).toContain('Jousting')
+  expect(weaponAttack(c, [entry], { ...innovation, inventorInnovation: false }).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, subclass: 'Armor' }, [entry], innovation).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, feats: [] }, [entry], innovation).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, level: 3 }, [entry], innovation).traits).not.toContain('Jousting')
+  expect(weaponAttack({ ...c, feats: [{ ...c.feats[0], takenLevel: 12 }] }, [entry], innovation).traits).not.toContain('Jousting')
+  expect(weaponAttack(c, [{ ...entry, data: { ...entry.data, hands: 2 } }], innovation).traits).not.toContain('Jousting')
+  expect(weaponAttack(c, [{ ...entry, data: { ...entry.data, weapon_type: 'Ranged', range: 20 } }], innovation).traits).not.toContain('Jousting')
+})
+
 it('grants Living Weapon Joust to the one-handed haft attack, not its two-handed source', () => {
   const spear = content('weapon', "Dancer's Spear", { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' })
   const source = { ...main, name: spear.name, livingWeapon: true }
@@ -1056,10 +1072,12 @@ it('grants Living Weapon Joust to the one-handed haft attack, not its two-handed
   expect(weaponAttack({ ...c, weapons: [] }, entries, haft).traits).not.toContain('Jousting')
 })
 
-it.each(['Verdant Weapon Jousting', 'Favored Weapon Jousting'])('uses the selected haft source for %s', name => {
-  const spear = content('weapon', 'Spear', { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' })
-  const source = { ...main, name: spear.name, verdantWeapon: name === 'Verdant Weapon Jousting' }
+it.each(['Verdant Weapon Jousting', 'Favored Weapon Jousting', 'Weapon Innovation Jousting'])('uses the selected haft source for %s', name => {
+  const spear = content('weapon', 'Spear', { hands: 2, weapon_group: 'Spear', damage: '1d6 piercing' }, 0)
+  const source = { ...main, name: spear.name, verdantWeapon: name === 'Verdant Weapon Jousting',
+    inventorInnovation: name === 'Weapon Innovation Jousting' }
   const c: Character = { ...base, activeStance: haftStance.name, level: 10, weapons: [source],
+    ...(name === 'Weapon Innovation Jousting' ? { className: 'Inventor', subclass: 'Weapon' } : {}),
     feats: [feat(name, 4), feat('Haft Striker Stance', 4)] }
   const patron = { ...deity, data: { ...deity.data, favored_weapon: spear.name } }
   const entries = [spear, patron, haftStance]
@@ -1070,18 +1088,12 @@ it.each(['Verdant Weapon Jousting', 'Favored Weapon Jousting'])('uses the select
   expect(weaponAttack({ ...c, level: 3 }, entries, haft).traits).not.toContain('Jousting')
 })
 
-it.each([[5, 'Low-Grade', 1, 1], [9, 'Low-Grade', 1, 1], [10, 'Standard-Grade', 2, 1], [15, 'Standard-Grade', 2, 2], [16, 'High-Grade', 3, 2]] as const)('scales locked Cold Iron Tusks material at level %i while inheriting class handwraps', (level, grade, potency, striking) => {
-  const c = { ...base, level, feats: [feat('Cold Iron Tusks', 5)] }
-  const tusks = ownedWeapons(c, []).find((weapon) => weapon.name === ORC_TUSKS.name)!
-  expect(effectiveWeapon(c, [], tusks)).toMatchObject({ material: `Cold Iron (${grade})`, potency, striking, runes: [] })
-  expect(effectiveWeapon({ ...c, handwraps: { potency: 2, striking: 1, runes: ['Flaming'] } }, [], tusks))
-    .toMatchObject({ potency: level >= 16 ? 3 : 2, striking: level >= 12 ? 2 : 1, runes: ['Flaming'] })
-  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain(`aria-haspopup="dialog">Cold Iron (${grade})</button>`)
-  expect(markup).not.toContain(`aria-label="Remove Cold Iron (${grade}) material"`)
-  expect(markup).not.toContain('Configure unarmed potency')
-  expect(markup).not.toContain('locked by Cold Iron Tusks')
-  expect(ownedWeapons({ ...c, level: 4 }, []).map((weapon) => weapon.name)).not.toContain('Tusks')
+it('ignores retired Cold Iron Tusks while ordinary Tusks still inherit class handwraps', () => {
+  const c = { ...base, level: 20, feats: [feat('Cold Iron Tusks', 5)] }
+  expect(ownedWeapons(c, []).some(weapon => weapon.name === ORC_TUSKS.name)).toBe(false)
+  const ordinary = { ...c, feats: [...c.feats, feat('Tusks')] }
+  const tusks = ownedWeapons(ordinary, []).find(weapon => weapon.name === ORC_TUSKS.name)!
+  expect(effectiveWeapon(ordinary, [], tusks)).toMatchObject({ material: undefined, potency: 3, striking: 3 })
 })
 
 it('applies Animal Feature senses, movement, and level gates without changing land Speed', () => {

@@ -226,6 +226,9 @@ describe('animal companions', () => {
       entry('companion', 'Cat', { ...bear.data, strength: 2, dexterity: 3, constitution: 1, mount: false }),
     ]
     const variants = homebrewCompanions(originals)
+    expect(variants[0].description).toContain('direwolf raised among Sarkoris')
+    expect(variants[1].description).toContain('pale-furred mountain cat')
+    expect(variants.every(variant => !/copy|using .*statistics|Isgeri|big cat, such as/i.test(variant.description))).toBe(true)
     expect(variants.map((variant) => variant.name)).toEqual(['Sarkorian Direwolf', 'Snow Leopard'])
     for (const [index, variant] of variants.entries()) {
       const size = index === 0 ? 'Medium' : 'Small'

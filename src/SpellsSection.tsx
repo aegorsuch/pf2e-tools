@@ -14,6 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
+import { innateSpellAbility } from './builder'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -320,7 +321,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
   const unresolved = unresolvedFeatSpells(c, entries)
   const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
   const grantNote = (grant: typeof featSpells[number]) => {
-    const ability = grant.rule.ability ?? (grant.rule.kind === 'innate' ? 'cha' : casting?.ability)
+    const ability = grant.rule.kind === 'innate' ? innateSpellAbility(c, grant.rule.ability) : grant.rule.ability ?? casting?.ability
     const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, spellRank), c.level) : undefined
     const source = entries.find(entry => entry.kind === 'feat' && (grant.source === entry.name || grant.source.startsWith(`${entry.name}:`)))
     return <>
@@ -586,8 +587,8 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
             {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
           </SearchableSelect>
         })}
-        <small>Charisma spell attack {signed(abilityMod(c.abilities.cha) + proficiencyBonus(1, c.level))};
-          DC {10 + abilityMod(c.abilities.cha) + proficiencyBonus(1, c.level)} (trained).</small>
+        <small>{ABILITY_LABEL[innateSpellAbility(c)]} spell attack {signed(abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level))};
+          DC {10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level)} (trained).</small>
         <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem key={entry.name} name={entry.name} entry={entry}
           inlineControls={inlineControls(entry.name)} note={`Minor Magic; rank ${Math.ceil(c.level / 2)} ${c.minorMagic?.tradition}`} {...buffProps(entry.name, entry)}>
           {controls(entry.name)}
