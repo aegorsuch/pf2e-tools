@@ -66,7 +66,7 @@ it.each([false, true])('syncs weapon equip controls and hand limits across both 
   const toggle = (name: string, checked: boolean) => (input(name).props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked } })
   expect(equippedWeaponHands(c, entries)).toBe(2)
   expect(input('Arbalest').props.disabled).toBe(true)
-  expect(input('Fist').props).toMatchObject({ checked: true, disabled: true })
+  expect(input('Fist')).toBeUndefined()
   expect(input('Longsword', !displayOnly).props.checked).toBe(true)
   toggle('Longsword', false)
   expect(input('Longsword', !displayOnly).props.checked).toBe(false)
@@ -173,18 +173,21 @@ it('caps saved Additional Arms selections without removing them and restores rep
   } finally { updateSettings({ singleAdditionalArms: previous }) }
 })
 
-it.each([false, true])('uses one shared shield equip state and counts its hand once (displayOnly=%s)', displayOnly => {
+it.each([false, true])('hides dependent shield attack Equip controls and retains shared shield state (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
   let c: Character = { ...character([]), weapons: [{ id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }],
     shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true, equipped: false,
       attachedWeapon: { id: 'boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [], attachedTo: 'steel' } } }
   const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
   const control = () => findElement(WeaponList({ c, entries: [sword], save, displayOnly }),
-    element => element.props['aria-label'] === 'Equipped Shield Boss (Attached to Steel Shield)')!
-  const toggle = (checked: boolean) => (control().props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked } })
-  expect(control().props.disabled).toBe(false)
-  expect(control().props.checked).toBe(false)
+    element => element.props['aria-label'] === 'Equipped Shield Boss (Attached to Steel Shield)')
+  const toggle = (checked: boolean) => save(shieldEquipChange(c, c.shield!, checked))
+  const attack = () => ownedWeapons(c, [sword]).find(weapon => weapon.id === 'boss')!
+  expect(control()).toBeUndefined()
+  expect(weaponEquipped(c, [sword], attack())).toBe(false)
   toggle(true)
+  expect(control()).toBeUndefined()
+  expect(weaponEquipped(c, [sword], attack())).toBe(true)
   expect(equippedShield(c)?.id).toBe('steel')
   expect(equippedHands(c, [sword])).toBe(2)
   for (const Component of [ShieldEquipment, ArmorList]) {
@@ -192,14 +195,62 @@ it.each([false, true])('uses one shared shield equip state and counts its hand o
       .toContain('aria-label="Equipped Steel Shield" checked=""')
   }
   toggle(false)
+  expect(weaponEquipped(c, [sword], attack())).toBe(false)
   expect(equippedShield(c)).toBeUndefined()
   expect(c.shield?.raised).toBe(false)
   expect(equippedHands(c, [sword])).toBe(1)
   c = { ...c, shield: { ...c.shield!, attachedWeapon: undefined } }
-  const bash = findElement(WeaponList({ c, entries: [sword], save, displayOnly: true }),
-    element => element.props['aria-label'] === 'Equipped Shield Bash (Attached to Steel Shield)')!
-  ;(bash.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(findElement(WeaponList({ c, entries: [sword], save, displayOnly }),
+    element => element.props['aria-label'] === 'Equipped Shield Bash (Attached to Steel Shield)')).toBeUndefined()
+  toggle(true)
+  const bash = ownedWeapons(c, [sword]).find(weapon => weapon.id === 'shield-bash:steel')!
+  expect(weaponEquipped(c, [sword], bash)).toBe(true)
   expect(equippedShield(c)?.id).toBe('steel')
+})
+
+it.each([false, true])('hides automatic unarmed, Free-Hand and source-dependent Equip checkboxes (displayOnly=%s)', displayOnly => {
+  const spear = { ...weapon, name: 'Spear', data: { ...weapon.data, hands: 2, weapon_group: 'Spear' } }
+  const freeHand = { ...weapon, id: 'free', name: 'Free-Hand Blade', traits: ['Free-Hand'], data: { ...weapon.data, hands: 1 } }
+  const c: Character = { ...character([
+    { name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
+    { name: 'Oversized Throw', type: 'Class Feat', level: 4 },
+  ]), weapons: [
+    { id: 'spear', name: spear.name, potency: 0, striking: 0, runes: [] },
+    { id: 'free', name: freeHand.name, potency: 0, striking: 0, runes: [], stowed: true },
+  ] }
+  const entries = [spear, freeHand]
+  const before = JSON.stringify(c)
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+  expect(markup).toContain('aria-label="Equipped Spear"')
+  for (const name of ['Fist', freeHand.name, HAFT_STRIKER_WEAPON.name, OVERSIZED_THROW.name]) {
+    expect(markup).not.toContain(`aria-label="Equipped ${name}"`)
+    expect(weaponEquipped(c, entries, ownedWeapons(c, entries).find(weapon => weapon.name === name)!)).toBe(true)
+  }
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+  const stowed = { ...c, weapons: c.weapons!.map(weapon => weapon.id === 'spear' ? { ...weapon, stowed: true } : weapon) }
+  const haft = ownedWeapons(stowed, entries).find(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)!
+  expect(weaponEquipped(stowed, entries, haft)).toBe(false)
+  expect(renderToStaticMarkup(<WeaponList c={stowed} entries={entries} save={() => {}} displayOnly={displayOnly} />))
+    .not.toContain(`aria-label="Equipped ${haft.name}"`)
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it.each([false, true])('hides attached weapon Equip checkboxes while following the parent weapon (displayOnly=%s)', displayOnly => {
+  const gun = { ...weapon, id: 'gun', name: 'Rifle', data: { ...weapon.data, hands: 2, weapon_group: 'Firearm', weapon_type: 'Ranged' } }
+  const bayonet = { ...weapon, id: 'bayonet', name: 'Bayonet', data: { ...weapon.data, hands: 1 } }
+  const c: Character = { ...character([]), weapons: [
+    { id: 'gun', name: gun.name, potency: 0, striking: 0, runes: [], attachedWeapon: 'Bayonet' },
+  ] }
+  const entries = [gun, bayonet]
+  for (const stowed of [false, true]) {
+    const current = { ...c, weapons: c.weapons!.map(weapon => ({ ...weapon, stowed })) }
+    const attached = ownedWeapons(current, entries).find(weapon => weapon.attachedTo === 'gun')!
+    const markup = renderToStaticMarkup(<WeaponList c={current} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('aria-label="Equipped Rifle"')
+    expect(markup).not.toContain('aria-label="Equipped Bayonet')
+    expect(weaponEquipped(current, entries, attached)).toBe(!stowed)
+    expect(equippedWeaponHands(current, entries)).toBe(stowed ? 0 : 2)
+  }
 })
 
 it('reserves a free hand for shields, but not bucklers, and switches generated shields without raising the old shield', () => {
@@ -421,8 +472,8 @@ it('links attached weapons to their firearm and persists selection without extra
   expect(equippedWeaponHands(c, entries)).toBe(2)
   expect(weaponEquipped(c, entries, attached)).toBe(true)
   expect(c.weapons?.some(w => w.attachedTo)).toBe(false)
-  const linked = findElement(offense(), e => e.props['aria-label'] === 'Equipped Bayonet (Attached to Arbalest)')!
-  expect(linked.props).toMatchObject({ checked: true, disabled: true })
+  const linked = findElement(offense(), e => e.props['aria-label'] === 'Equipped Bayonet (Attached to Arbalest)')
+  expect(linked).toBeUndefined()
   const base = findElement(offense(), e => e.props['aria-label'] === 'Equipped Arbalest')!
   ;(base.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
   expect(weaponEquipped(c, entries, attached)).toBe(false)
@@ -688,8 +739,8 @@ it('follows selected haft source including a staff wielded in two hands', () => 
   const get = () => ownedWeapons(c, entries).find(w => w.name === HAFT_STRIKER_WEAPON.name)!
   expect(weaponEquipped(c, entries, get())).toBe(true)
   expect(equippedWeaponHands(c, entries)).toBe(2)
-  const input = findElement(WeaponList({ c, entries, save, displayOnly: true }), e => e.props['aria-label'] === 'Equipped Haft Striker Stance')!
-  expect(input.props).toMatchObject({ checked: true, disabled: true })
+  const input = findElement(WeaponList({ c, entries, save, displayOnly: true }), e => e.props['aria-label'] === 'Equipped Haft Striker Stance')
+  expect(input).toBeUndefined()
   const grip = findElement(WeaponList({ c, entries, save, displayOnly: true }), e => e.props['aria-label'] === 'Hands: Staff')!
   ;(grip.props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
   expect(weaponEquipped(c, entries, get())).toBe(false)

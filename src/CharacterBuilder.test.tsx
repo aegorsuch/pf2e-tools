@@ -177,10 +177,9 @@ it('shows the paired Bracelet of Empathy while a companion wears its collar', ()
   try {
     const equipment = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
       .split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
-    const wornItems = equipment.split('<h4>Worn Items</h4>')[1]
-    expect(wornItems).toContain('Bracelet of Empathy')
-    expect(wornItems.indexOf('Azure Boots')).toBeLessThan(wornItems.indexOf('Bracelet of Empathy'))
-    expect(wornItems.indexOf('Bracelet of Empathy')).toBeLessThan(wornItems.indexOf('Zephyr Cloak'))
+    expect(equipment).toContain('Bracelet of Empathy')
+    expect(equipment.indexOf('Azure Boots')).toBeLessThan(equipment.indexOf('Bracelet of Empathy'))
+    expect(equipment.indexOf('Bracelet of Empathy')).toBeLessThan(equipment.indexOf('Zephyr Cloak'))
     expect(equipment).not.toContain('paired with')
     expect(equipment).not.toContain('Paired companion equipment')
     const withoutCollar = { ...c, companions: [{ ...c.companions![0], equipment: undefined }] }
@@ -321,8 +320,9 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
-    expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Bolts', 'Bullets', 'Gadgets', 'Grafts',
-      'Grenade Specialist', 'Handwraps', 'Munitions', 'Other equipment', 'Poisons', 'Shield', 'Tattoos', 'Weapons', 'Worn Items'])
+    expect(headers).toEqual(['Armor', 'Arrows', 'Augmentations', 'Backpacks', 'Belts', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
+      'Cloaks', 'Clothing', 'Eyewear', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Handwraps', 'Headwear',
+      'Munitions', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Tattoos', 'Weapons'])
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
@@ -342,18 +342,20 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
   } finally { content.entries = [] }
 })
 
-it('keeps empty Tattoos, Grafts and worn gear groups available for adding items', () => {
+it('keeps empty Equipment categories available with accessible plus controls and lazy searches', () => {
   content.entries = []
   const c: Character = { id: 'empty-equipment', systems: ['pf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  for (const category of ['tattoos', 'grafts', 'boots', 'bracelets', 'cloaks', 'necklaces', 'rings']) {
-    expect(markup).toContain(`aria-label="Search ${category}"`)
+  for (const category of ['Tattoos', 'Grafts', 'Backpacks', 'Belts', 'Boots', 'Bracelets', 'Cloaks', 'Clothing', 'Eyewear', 'Gloves', 'Headwear', 'Necklaces', 'Rings', 'Other Worn Items']) {
+    expect(markup).toContain(`aria-label="Add ${category}" title="Add ${category}" aria-expanded="false"`)
+    expect(markup).not.toContain(`aria-label="Search ${category.toLowerCase()}"`)
   }
   expect(markup).toContain('<h4>Tattoos</h4>')
   expect(markup).toContain('<h4>Grafts</h4>')
   expect(markup).toContain('do not impose body-slot limits')
+  expect(markup).not.toContain('<h4>Worn Items</h4>')
   expect(c.equipment).toEqual([])
 })
 

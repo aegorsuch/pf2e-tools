@@ -1580,7 +1580,7 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
   expect(offense).toContain('Range 30 feet')
   expect(offense).toContain('Range 120 feet')
   expect(offense).toContain('Requires Rage and a free hand.')
-  expect(offense).toMatch(/aria-label="Equipped Oversized Throw" disabled="" checked=""/)
+  expect(offense).not.toContain('aria-label="Equipped Oversized Throw"')
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('<strong>Oversized Throw</strong>')
   expect(markup).not.toContain('aria-label="Weapon material"')

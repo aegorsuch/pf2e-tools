@@ -1017,7 +1017,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const hands = weaponHands(entries, w, c)
         const equipped = weaponEquipped(c, entries, w)
         const linkedSource = shieldSource ? undefined : attachmentSource ?? haft
-        const fixedEquipped = !shieldSource && (hands === 0 || !!linkedSource)
+        const fixedEquipped = hands === 0 || !!linkedSource || !!w.attachedTo
         const legacyPouchWeapon = w.id === `eq-${w.name}` && c.equipment.some(item =>
           item.name === w.name && (item.cheekQty ?? 0) >= item.qty)
         const cannotEquip = !equipped && (shieldSource ? !canEquipShield(c, entries, shieldSource)
@@ -1077,18 +1077,17 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 </option>)}
               </select>
             </label>}
-            <label title={attachmentSource ? `Follows ${attachmentSource.name}` : linkedSource ? `Follows ${linkedSource.name}` : hands === 0 ? 'Always equipped' : legacyPouchWeapon
+            {!fixedEquipped && <label title={legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
               : undefined}>
               <input type="checkbox" aria-label={`Equipped ${displayName}`} checked={equipped}
-                disabled={fixedEquipped || cannotEquip}
+                disabled={cannotEquip}
                 onChange={event => {
-                  if (fixedEquipped || event.target.checked && cannotEquip) return
-                  if (shieldSource) save(shieldEquipChange(c, shieldSource, event.target.checked))
-                  else update(w.id, { stowed: !event.target.checked, ...(event.target.checked ? { cheekStored: false, cheekHolstered: false } : {}) })
+                  if (event.target.checked && cannotEquip) return
+                  update(w.id, { stowed: !event.target.checked, ...(event.target.checked ? { cheekStored: false, cheekHolstered: false } : {}) })
                 }} /> Equipped
-            </label>
+            </label>}
             {!linkedSource && !shieldSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
               <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
                 onChange={event => {

@@ -1,6 +1,6 @@
 import { Info } from './Info'
 import { confirmRemoval } from './confirmRemoval'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
@@ -119,20 +119,23 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
-function EquipmentSearch({ c, entries, save, category }: SectionProps & { category?: EquipmentGroupName }) {
+function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q
-      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && e.name.toLowerCase().includes(q)
+    return q || category
+      ? entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e) && (!q || e.name.toLowerCase().includes(q))
         && (!category || equipmentGroupName(e) === category))
         .sort((a, b) => a.name.localeCompare(b.name)).slice(0, 40)
       : []
   }, [entries, query, category])
-  return <>
-    <input aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
-      value={query} onChange={event => setQuery(event.target.value)} />
-    <ul>
+  return <div className="equipment-search">
+    <div className="row">
+      <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
+        autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
+      {onClose && <button type="button" onClick={onClose}>Cancel</button>}
+    </div>
+    <ul className="gear-results">
       {matches.map(g => <li key={g.id}>
         {detail(g) ? <Info label={g.name}>{detail(g)}</Info> : <b>{g.name}</b>} <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
         <button aria-label={`Add ${g.name}`} onClick={() => {
@@ -140,23 +143,26 @@ function EquipmentSearch({ c, entries, save, category }: SectionProps & { catego
           save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item) : [...c.equipment, { name: g.name, qty: 1 }] })
         }}>Add</button>
       </li>)}
+      {(query.trim() || category) && !matches.length && <li><small>No matching {category?.toLowerCase() ?? 'equipment'}.</small></li>}
     </ul>
-  </>
+  </div>
 }
 
 type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
 
 function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracelets = [], simplePoisons = false }: SectionProps & { group: EquipmentGroupName; rows: EquipmentRow[]; integratedComm?: ContentEntry | null; bracelets?: string[]; simplePoisons?: boolean }) {
+  const [adding, setAdding] = useState(false)
+  const searchId = useId()
+  const addButton = useRef<HTMLButtonElement>(null)
   const displayed = [
     ...rows.map(row => ({ kind: 'item' as const, name: row.item.name, row })),
     ...(integratedComm !== undefined ? [{ kind: 'comm' as const, name: 'Comm Unit' }] : []),
     ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
-  const worn = WORN_EQUIPMENT_GROUPS.some(name => name === group)
-  const addCategory = worn || group === 'Grafts' || group === 'Tattoos' ? group : undefined
-  if (!displayed.length && !addCategory) return null
-  const body = <><ul>
+  const alwaysAvailable = WORN_EQUIPMENT_GROUPS.some(name => name === group) || group === 'Grafts' || group === 'Tattoos'
+  if (!displayed.length && !alwaysAvailable) return null
+  const body = displayed.length > 0 && <ul>
     {displayed.map(display => {
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
         descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
@@ -192,11 +198,20 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       </li>
     })}
   </ul>
-    {addCategory && <EquipmentSearch c={c} entries={entries} save={save} category={addCategory} />}
-  </>
-  return worn ? <details open={displayed.length > 0 || undefined}>
-    <summary>{group} <small>({displayed.length})</small></summary>{body}
-  </details> : <div><h4>{group}</h4>{body}</div>
+  return <div className="equipment-group">
+    <div className="equipment-group-heading">
+      <h4>{group}</h4>
+      <button ref={addButton} type="button" className="icon-button" aria-label={`Add ${group}`} title={`Add ${group}`}
+        aria-expanded={adding} aria-controls={searchId} onClick={() => setAdding(!adding)}>+</button>
+    </div>
+    <div id={searchId} hidden={!adding}>
+      {adding && <EquipmentSearch c={c} entries={entries} save={save} category={group} onClose={() => {
+        setAdding(false)
+        addButton.current?.focus()
+      }} />}
+    </div>
+    {body}
+  </div>
 }
 
 function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
@@ -569,33 +584,42 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <div className="character-section-content">
           <BulkLimits {...section} />
           <ArmorProficiency c={c} entries={entries} />
+          <small>Gear groups organize equipment; they do not impose body-slot limits.</small>
           <h4>Armor</h4>
           <ArmorList {...section} part="armor" />
           <EquipmentGroup {...section} group="Arrows" rows={equipmentGroups.Arrows} />
           <Augmentations {...section} />
+          <EquipmentGroup {...section} group="Backpacks" rows={equipmentGroups.Backpacks} />
+          <EquipmentGroup {...section} group="Belts" rows={equipmentGroups.Belts} />
           <EquipmentGroup {...section} group="Bolts" rows={equipmentGroups.Bolts} />
+          <EquipmentGroup {...section} group="Boots" rows={equipmentGroups.Boots} />
+          <EquipmentGroup {...section} group="Bracelets" rows={equipmentGroups.Bracelets} bracelets={pairedEmpathyBracelets} />
           <EquipmentGroup {...section} group="Bullets" rows={equipmentGroups.Bullets} />
           <CheekPouches {...section} />
+          <EquipmentGroup {...section} group="Cloaks" rows={equipmentGroups.Cloaks} />
+          <EquipmentGroup {...section} group="Clothing" rows={equipmentGroups.Clothing} />
+          <EquipmentGroup {...section} group="Eyewear" rows={equipmentGroups.Eyewear} />
           <Gadgets {...section} />
+          <EquipmentGroup {...section} group="Gloves" rows={equipmentGroups.Gloves} />
           <EquipmentGroup {...section} group="Grafts" rows={equipmentGroups.Grafts} />
           <GrenadeSpecialist {...section} />
           <h4>Handwraps</h4>
           <HandwrapsGear {...section} />
+          <EquipmentGroup {...section} group="Headwear" rows={equipmentGroups.Headwear} />
           <MunitionsCrafter {...section} />
+          <EquipmentGroup {...section} group="Necklaces" rows={equipmentGroups.Necklaces} />
           <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']}
             integratedComm={hasCyborgHeritage(c) ? entries.find(entry => entry.kind === 'item'
               && entry.name === 'Comm Unit' && entry.systems.includes('sf2e')) ?? null : undefined} />
+          <EquipmentGroup {...section} group="Other Worn Items" rows={equipmentGroups['Other Worn Items']} />
           <EquipmentGroup {...section} group="Poisons" rows={equipmentGroups.Poisons}
             simplePoisons={activeFeatsNamed(c, 'Poison Weapon').length > 0} />
+          <EquipmentGroup {...section} group="Rings" rows={equipmentGroups.Rings} />
           <h4>Shield</h4>
           <ArmorList {...section} part="shield" />
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
-          <h4>Worn Items</h4>
-          <small>Gear groups organize equipment; they do not impose body-slot limits.</small>
-          {WORN_EQUIPMENT_GROUPS.map(group => <EquipmentGroup key={group} {...section} group={group} rows={equipmentGroups[group]}
-            bracelets={group === 'Bracelets' ? pairedEmpathyBracelets : undefined} />)}
           <EquipmentSearch {...section} />
         </div>
       </DeferredDetails>
