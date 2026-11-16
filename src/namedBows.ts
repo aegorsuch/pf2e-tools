@@ -64,3 +64,18 @@ export function namedBowEnhancements(entry?: ContentEntry) {
     runes: String(entry.data.named_bow_runes).split(';').filter(Boolean),
   }
 }
+
+export function wintershotActivations(entry?: ContentEntry) {
+  if (!entry?.data.named_bow || !/^Wintershot(?: \(Artifact\))?$/.test(String(entry.data.named_bow_source))) return []
+  const starts = [...entry.description.matchAll(/(?:^|\n\n)Activate[\u2014\u2013-]\s*(Auroral Shine|Signal Flare|Rimecrust)\b/g)]
+  return starts.map((match, index) => {
+    const description = entry.description.slice(match.index + match[0].length, starts[index + 1]?.index)
+      .replace(/\n\nNethys Note:[\s\S]*$/, '').trim()
+    return {
+      name: match[1],
+      actions: match[1] === 'Rimecrust' ? 'Two Actions' : 'Single Action',
+      paragraphs: description.replace(/\b(Critical Success|Success|Critical Failure|Failure)\b/g, '\n\n$1')
+        .split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean),
+    }
+  })
+}

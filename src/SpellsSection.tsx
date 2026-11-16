@@ -463,7 +463,7 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
     }
     group.grants.push(grant)
   }
-  innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || b.rank - a.rank)
+  innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.rank - b.rank)
   const knownSpellEntry = (spell: NonNullable<Character['spells']>[number]) =>
     entries.find(entry => entry.kind === 'spell' && !entry.deleted
       && (spell.entryId ? entry.id === spell.entryId : entry.name === spell.name)

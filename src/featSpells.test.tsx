@@ -361,6 +361,22 @@ it('alphabetizes innate spell names independently of feat selection order', () =
   expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
 })
 
+it('sorts innate ranks numerically ascending within each tradition', () => {
+  const sources: ContentEntry[] = [10, 2, 1].map(rank => ({
+    ...entry(`Primal Magic ${rank}`, 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [`Primal Spell ${rank}`], rank, tradition: 'primal' }],
+  }))
+  sources.push({ ...entry('Arcane Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: ['Arcane Spell'], rank: 10, tradition: 'arcane' }] })
+  const spells = ['Primal Spell 10', 'Primal Spell 2', 'Primal Spell 1', 'Arcane Spell'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 20, feats: sources.map(source => taken(source.name)) }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources, ...spells]} save={() => {}} />)
+  const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'))
+  expect([...innate.matchAll(/<h5>([^<]+)<\/h5>/g)].map(match => match[1])).toEqual([
+    'Arcane Spell Rank 10', 'Primal Spell Rank 1', 'Primal Spell Rank 2', 'Primal Spell Rank 10',
+  ])
+})
+
 it('renders prepared class spell slots with slot selection, metadata, casting, and daily reset controls', () => {
   const wizard = entry('Wizard', 'class', { tradition: 'Arcane' })
   const electricArc = entry('Electric Arc', 'spell', { tradition: 'Arcane', duration: 'Instantaneous', range: '30 feet', saving_throw: 'basic Reflex', targets: '1 or 2 creatures' })

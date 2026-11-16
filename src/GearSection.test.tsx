@@ -88,10 +88,12 @@ it.each(['unmet', 'automatic', 'approved'])('only shows unmet gear access helper
   expect(markup).toContain(restricted.name)
   expect(markup.includes('Access: Kellid ethnicity (not met)')).toBe(state === 'unmet')
   expect(markup.includes('Meet Access or obtain GM approval before adding.')).toBe(state === 'unmet')
-  expect(markup.includes('aria-label="GM approved access to Restricted Longsword"')).toBe(state !== 'automatic')
+  expect(markup.includes('aria-label="GM approved access to Restricted Longsword"')).toBe(state === 'unmet')
+  expect(markup.includes('Approve access</label>')).toBe(state === 'unmet')
+  expect(markup).not.toContain('GM approved access</label>')
   expect(markup).not.toContain('(met')
   expect(markup).not.toContain('(GM approved)')
-  if (state === 'approved') expect(markup).toContain('checked=""')
+  if (state === 'approved') expect(c.gearAccessOverrides).toEqual([restricted.id])
 })
 
 it.each([false, true])('shows the Oversized Throw two-action icon in both views (displayOnly=%s)', displayOnly => {

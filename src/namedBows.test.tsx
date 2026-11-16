@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { effectiveWeapon, gearPickerEntries, isMagicItem, weaponAttack, weaponEntry } from './builder'
 import { WeaponList } from './GearSection'
+import { mapAonHit } from './aon'
+import { wintershotActivations } from './namedBows'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const bow = (name: string, long: boolean, composite = true): ContentEntry => ({
@@ -13,7 +15,12 @@ const bow = (name: string, long: boolean, composite = true): ContentEntry => ({
 })
 const winter: ContentEntry = {
   id: 'wintershot', systems: ['pf2e'], kind: 'item', source: 'official', name: 'Wintershot', level: 15,
-  traits: ['Magical', 'Unique'], description: 'Base Weapon Composite Shortbow. This +2 greater striking frost composite shortbow ignores mist and precipitation. Auroral Shine: DC 34 Fortitude. Signal Flare: once per day.',
+  traits: ['Magical', 'Unique'], description: [
+    'Base Weapon Composite Shortbow. This +2 greater striking frost composite shortbow ignores mist and precipitation.',
+    'Activate\u2014Auroral Shine (cold, concentrate, light, primal) Frequency once per 10 minutes; Effect DC 34 Fortitude.',
+    'Critical Success Unaffected. Success Dazzled for 2 rounds. Failure 2d6 persistent cold damage. Critical Failure 4d6 persistent cold damage.',
+    'Activate\u2014Signal Flare (light, manipulate, primal) Frequency once per day; Effect Counteract rank 7 with a +26 modifier.',
+  ].join('\n\n'),
   data: { item_subcategory: 'Specific Magic Weapons', rarity: 'unique', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3702' },
   effects: [], updatedAt: 0,
 }
@@ -57,7 +64,17 @@ it('applies Wintershot fundamental and Frost runes, preserves upgrades, and show
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={catalog} save={() => {}} displayOnly={displayOnly} />)
     expect(markup).toContain('1d6 cold')
-    expect(markup).toContain('Auroral Shine: DC 34 Fortitude')
+    const activations = [...markup.matchAll(/<details>([\s\S]*?)<\/details>/g)].map(match => match[1])
+    expect(activations).toHaveLength(2)
+    expect(activations[0]).toContain('<summary>Auroral Shine ')
+    expect(activations[0]).toContain('aria-label="Single Action"')
+    expect(activations[0]).toContain('once per 10 minutes')
+    expect(activations[0]).toContain('DC 34 Fortitude')
+    expect(activations[0]).toContain('<p>Critical Success Unaffected.</p>')
+    expect(activations[0]).not.toContain('Signal Flare')
+    expect(activations[1]).toContain('once per day')
+    expect(activations[1]).toContain('Counteract rank 7')
+    expect(markup).not.toContain('Wintershot activation details unavailable.')
     expect(markup).toContain('Ignores concealment from mist or precipitation')
     expect(markup).toContain('up to -2')
     expect(markup).toContain('Activations are tracked manually')
@@ -80,6 +97,53 @@ it('keeps the artifact version distinct with +3 major striking, Greater Frost an
     .toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy'] })
   expect(weaponAttack(c, entries, owned('Wintershot (Artifact) (Longbow)')).damage).toBe('4d8+1 piercing')
   expect(weaponEntry(entries, 'Wintershot (Artifact)')?.level).toBe(20)
+})
+
+it.each(['Shortbow', 'Longbow'])('shows all artifact activations and outcomes for %s without using standard-bow rules', type => {
+  const artifact = mapAonHit({ _id: 'artifact', _source: {
+    name: 'Wintershot (Artifact)', category: 'equipment', level: 20,
+    markdown: [
+      'Wintershot is a +3 major striking greater frost holy composite shortbow.',
+      '**Activate\u2014Auroral Shine** <actions string="Single Action" /> (cold, concentrate, light) **Frequency** once per minute; **Effect** Wintershot can\u2019t use this activation. Fire an arrow; on a hit, attempt a DC 43 Fortitude save instead of damage.',
+      '**Critical Success** Unaffected.<br /> **Success** Dazzled for 2 rounds; invisible becomes concealed.<br /> **Failure** 6d6 persistent cold damage; lights last 1 minute.<br /> **Critical Failure** 6d6 persistent cold damage; lights last 10 minutes.',
+      '**Activate\u2014Signal Flare** <actions string="Single Action" /> (light, manipulate) **Frequency** once per hour; **Effect** Wintershot fires a beacon 500 feet upward. Counteract rank 9 with a +25 modifier (+30 against a fiend\u2019s darkness).',
+      '**Activate\u2014Rimecrust** <actions string="Two Actions" /> (cold, concentrate, incapacitation) **Effect** One creature within 30 feet attempts a DC 43 Fortitude save, then becomes temporarily immune for 24 hours.',
+      '**Critical Success** Unaffected.<br /> **Success** Off-guard until its next turn; cold immunity applies.<br /> **Failure** Slowed 1 and off-guard for 1 minute, or until it Escapes (DC 43).<br /> **Critical Failure** Slowed 1 and restrained until it Escapes (DC 43), then slowed 1 and off-guard for 1 minute.',
+      '_Nethys Note: unrelated reference._',
+    ].join('\n\n'),
+  } }, 'pf2e')!
+  const entries = [...catalog, artifact]
+  const name = `Wintershot (Artifact) (${type})`
+  const parsed = wintershotActivations(weaponEntry(entries, name))
+  expect(parsed.map(activation => activation.name)).toEqual(['Auroral Shine', 'Signal Flare', 'Rimecrust'])
+  expect(parsed[0].paragraphs).toHaveLength(5)
+  expect(parsed[2].paragraphs).toHaveLength(5)
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(name)] }}
+      entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    const activations = [...markup.matchAll(/<details>([\s\S]*?)<\/details>/g)].map(match => match[1])
+    expect(activations).toHaveLength(3)
+    expect(activations[0]).toContain('once per minute')
+    expect(activations[0]).toContain('DC 43 Fortitude')
+    expect(activations[0]).toContain('Wintershot can\u2019t use this activation')
+    expect(activations[0]).toContain('<p>Failure 6d6 persistent cold damage; lights last 1 minute.</p>')
+    expect(activations[0]).toContain('<p>Critical Failure 6d6 persistent cold damage; lights last 10 minutes.</p>')
+    expect(activations[1]).toContain('once per hour')
+    expect(activations[1]).toContain('Counteract rank 9')
+    expect(activations[1]).toContain('+25 modifier (+30')
+    expect(activations[2]).toContain('aria-label="Two Actions"')
+    expect(activations[2]).toContain('temporarily immune for 24 hours')
+    expect(activations[2]).toContain('Escapes (DC 43)')
+    expect(activations[2]).toContain('restrained')
+    expect(activations.join('')).not.toMatch(/Nethys Note|DC 34|once per 10 minutes|rank 7/)
+  }
+})
+
+it('reports missing Wintershot activation text instead of silently hiding its abilities', () => {
+  const incomplete = { ...winter, description: 'Base Weapon Composite Shortbow. A +2 greater striking frost composite shortbow.' }
+  const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(winter.name)] }}
+    entries={catalog.map(entry => entry.id === winter.id ? incomplete : entry)} save={() => {}} displayOnly />)
+  expect(markup).toContain('Wintershot activation details unavailable. Sync content or open its item description.')
 })
 
 it('uses each named tier rather than applying the stronger family version to every bow', () => {

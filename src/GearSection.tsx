@@ -17,7 +17,7 @@ import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
-import { namedBowEnhancements } from './namedBows'
+import { namedBowEnhancements, wintershotActivations } from './namedBows'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
@@ -277,13 +277,13 @@ const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
 
 function GearAccess({ c, entries, entry, save }: SectionProps & { entry: ContentEntry }) {
   const access = gearAccess(c, entries, entry)
-  if (!access || access.automatic) return null
+  if (!access || access.automatic || access.approved) return null
   return <div className="col gear-access">
     {!access.approved && <small>Access: {access.requirement} (not met)</small>}
     <label><input type="checkbox" aria-label={`GM approved access to ${entry.name}`} checked={access.approved}
       onChange={event => save({ gearAccessOverrides: event.target.checked
         ? [...new Set([...(c.gearAccessOverrides ?? []), entry.id])]
-        : c.gearAccessOverrides?.filter(id => id !== entry.id) })} /> GM approved access</label>
+        : c.gearAccessOverrides?.filter(id => id !== entry.id) })} /> Approve access</label>
   </div>
 }
 
@@ -1106,11 +1106,18 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </select>
             </label>}
         </>
+        const activations = wintershotActivations(a.entry)
         const namedBowNotes = <>
           {a.entry?.data.named_bow_rules_missing && <small role="status">Named bow enhancement details unavailable. Configure its runes and consult the item rules.</small>}
           {String(a.entry?.data.named_bow_source ?? '').startsWith('Wintershot') && <small>
-            Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_bow_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually; see Summary.
+            Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_bow_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.
           </small>}
+          {String(a.entry?.data.named_bow_source ?? '').startsWith('Wintershot') && activations.length === 0
+            && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
+          {activations.map(activation => <details key={activation.name}>
+            <summary>{activation.name} <ActionIcon actions={activation.actions} /></summary>
+            {activation.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+          </details>)}
         </>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">

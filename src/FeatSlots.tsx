@@ -557,7 +557,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   <input type="checkbox" aria-label={`GM approved access: ${currentEntry.name}`} checked={access.approved}
                     onChange={(event) => save({ featAccessOverrides: event.target.checked
                       ? [...new Set([...(c.featAccessOverrides ?? []), currentEntry.id])]
-                      : c.featAccessOverrides?.filter(id => id !== currentEntry.id) })} /> GM approved access
+                      : c.featAccessOverrides?.filter(id => id !== currentEntry.id) })} /> Approve access
                 </label>}
               </div>}
               {!automaticOrderFeat && <button type="button" aria-label={locked ? `${label} slot is granted by a house rule`
