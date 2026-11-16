@@ -729,8 +729,9 @@ function mechanicExocortexes(c: Character) {
 }
 
 export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
-  options: { ignoreAttributePrerequisites?: boolean } = {}) {
+  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean } = {}) {
   const facts = new Map<number, PrerequisiteFacts>()
+  let buildSkillRanks: PrerequisiteFacts['ranks'] | undefined
   return createFeatPrerequisiteChecker(entries, {
     level: Math.min(c.level, level), entryIds: c.entryIds, knownOrders: Object.keys(DRUID_ORDERS), ...options,
     facts: (atLevel) => {
@@ -786,6 +787,15 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           ...(character.companions?.length ? ['an animal companion'] : []),
         ] },
         get ranks() { return ranks ??= { ...Object.fromEntries(statDefs(character).map((stat) => [stat.name, 0])), ...ranksAt(character, entries) } },
+        get buildSkillRanks() {
+          if (!options.planSkillPrerequisites) return undefined
+          if (!buildSkillRanks) {
+            const build = { ...c, feats: c.feats.filter((_feat, index) => index !== excludedIndex) }
+            if (build.boosts) build.abilities = computeAbilities(build, entries)
+            buildSkillRanks = { ...Object.fromEntries(statDefs(build).map(stat => [stat.name, 0])), ...ranksAt(build, entries) }
+          }
+          return buildSkillRanks
+        },
         get armor() { return armor ??= armorRanks(character, entries) },
         get weapons() { return weapons ??= weaponRanks(character, entries) },
         weaponRank: name => weaponEntry(entries, name) ? weaponAttack(character, entries,
@@ -832,6 +842,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
   const multitalented = slot.grantedBy === 'Multitalented'
   const check = featPrerequisiteChecker(c, entries, level, excludedIndex, {
     ignoreAttributePrerequisites: multitalented && c.heritage?.trim().toLowerCase() === 'aiuvarin',
+    planSkillPrerequisites: getSettings().planSkillPrerequisites,
   })
   const archetype = archetypePrerequisites(character, entries, slot.key, slot.category === 'archetype', multitalented)
   const requirements: Record<string, string[]> = {

@@ -10,9 +10,37 @@ import { grantedFeatSpells } from './featSpells'
 import { getSettings, updateSettings } from './settings'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
+import { homebrewCharacterOptions } from './supplemental'
 
-beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
-afterEach(() => vi.unstubAllGlobals())
+let previousPlanning: boolean
+beforeEach(() => {
+  previousPlanning = getSettings().planSkillPrerequisites
+  updateSettings({ planSkillPrerequisites: false })
+  vi.stubGlobal('window', { confirm: vi.fn(() => true) })
+})
+afterEach(() => {
+  updateSettings({ planSkillPrerequisites: previousPlanning })
+  vi.unstubAllGlobals()
+})
+
+it('clears selected skill prerequisite warnings while planning without changing character skills', () => {
+  const c: Character = { ...emptyRanger(), level: 20,
+    skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' },
+    feats: [{ name: 'Nimble Athlete', type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const entries = homebrewCharacterOptions([])
+  const before = JSON.stringify(c)
+  const save = vi.fn()
+  const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={save} categories={['class']} />)
+  expect(render()).toContain('Prerequisites unmet: expert in Athletics')
+  updateSettings({ planSkillPrerequisites: true })
+  expect(render()).not.toContain('Prerequisites unmet: expert in Athletics')
+  expect(renderToStaticMarkup(<FeatSlots c={{ ...c, skillIncreases: {} }} entries={entries} save={save} categories={['class']} />))
+    .toContain('Prerequisites unmet: expert in Athletics')
+  updateSettings({ planSkillPrerequisites: false })
+  expect(render()).toContain('Prerequisites unmet: expert in Athletics')
+  expect(save).not.toHaveBeenCalled()
+  expect(JSON.stringify(c)).toBe(before)
+})
 
 it.each([undefined, 'Dermal Plating'])('uses Augmented Body only as extra implant capacity, ignoring legacy choice %s', choice => {
   const entry: ContentEntry = { id: 'augmented-body', name: 'Augmented Body', kind: 'feat', systems: ['sf2e'],

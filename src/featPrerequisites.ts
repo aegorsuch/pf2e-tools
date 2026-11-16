@@ -19,6 +19,7 @@ export interface PrerequisiteFacts {
   feats: { name: string; level: number; category?: string }[]
   features: string[]
   ranks: Record<string, number>
+  buildSkillRanks?: Record<string, number>
   armor: Record<string, number>
   weapons: Record<string, number>
   weaponRank?: (name: string) => number | undefined
@@ -335,16 +336,22 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const armor = /^(light|medium|heavy) armor$|^(unarmored) defense$/.exec(subject)
       const weapon = /^(simple|martial|advanced) weapons?$|^(unarmed) attacks?$/.exec(subject)
       const skill = armor || weapon || /^clan daggers?$/.test(subject) ? undefined
-        : Object.keys(facts.ranks).find((skill) => key(skill) === subject)
+        : Object.keys(facts.buildSkillRanks ?? facts.ranks).find((skill) => key(skill) === subject)
       if (/^(?:at least )?(?:one|any) skill$/.test(subject)) {
-        return resultFor(Object.entries(facts.ranks).some(([stat, value]) =>
+        return resultFor(Object.entries(facts.buildSkillRanks ?? facts.ranks).some(([stat, value]) =>
           !/^(?:perception|fortitude|reflex|will)$/i.test(stat) && value >= rank), text)
       }
-      if (skill) return resultFor(rankSatisfied(subject === 'crafting' && survivalForCrafting && facts.className === 'Ranger'
-        ? Math.max(facts.ranks[skill], facts.ranks.Survival ?? 0) : facts.ranks[skill], rank), text)
+      if (skill) {
+        const ranks = /^(?:perception|fortitude|reflex|will)$/i.test(skill)
+          ? facts.ranks : facts.buildSkillRanks ?? facts.ranks
+        const actual = subject === 'crafting' && survivalForCrafting && facts.className === 'Ranger'
+          ? Math.max(ranks[skill], ranks.Survival ?? 0) : ranks[skill]
+        return resultFor(rankSatisfied(actual, rank), text)
+      }
       if (/^[\w' -]+ lore$/.test(subject) && !/\b(?:and|or)\b/.test(subject)) return resultFor(rankSatisfied(0, rank), text)
       if (/^(?:at least )?one (?:or more )?lore skills?$/.test(subject)) {
-        return resultFor(Object.entries(facts.ranks).some(([skill, value]) => / lore$/i.test(skill) && value >= rank), text)
+        return resultFor(Object.entries(facts.buildSkillRanks ?? facts.ranks)
+          .some(([skill, value]) => / lore$/i.test(skill) && value >= rank), text)
       }
       if (armor) {
         const group = armor[1] ?? armor[2]

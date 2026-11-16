@@ -313,6 +313,11 @@ export default function App() {
               onChange={(e) => updateSettings({ orderExplorerSkills: e.target.checked })} />{' '}
             Order Explorer Grants Skills
           </label>
+          <label title="Feat skill prerequisites use actual skill ranks at your character's selected build level, even for earlier feat slots. Unassigned ranks do not qualify. Other prerequisites are unchanged.">
+            <input type="checkbox" checked={settings.planSkillPrerequisites}
+              onChange={(e) => updateSettings({ planSkillPrerequisites: e.target.checked })} />{' '}
+            Plan Feats Using Final Skill Ranks
+          </label>
           <label>
             <input type="checkbox" checked={settings.rangerSnarecrafter}
               onChange={(e) => updateSettings({ rangerSnarecrafter: e.target.checked })} />{' '}

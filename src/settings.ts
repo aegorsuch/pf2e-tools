@@ -21,6 +21,7 @@ export interface Settings {
   championFormNoFlight: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
+  planSkillPrerequisites: boolean
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
@@ -33,7 +34,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, singleTrainingFeats: true, inventorFirearmAccess: true, gauntletFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

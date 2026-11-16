@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
@@ -20,17 +20,72 @@ const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], lev
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
 it.each(['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler'])(
-  'offers Nimble Athlete as a level-4 expert-Athletics class feat for %s', className => {
+  'offers Nimble Athlete only with actual expert Athletics for %s', className => {
     const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Nimble Athlete')!
     const c: Character = { ...base, systems: [className === 'Operative' ? 'sf2e' : 'pf2e'],
       className, level: 4, rankOverrides: { Athletics: 2 } }
     const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
     expect(eligibleFeats([feat], c, slot)).toContain(feat)
-    expect(eligibleFeats([feat], { ...c, rankOverrides: { Athletics: 1 } }, slot)).not.toContain(feat)
+    expect(eligibleFeats([feat], { ...c, rankOverrides: {} }, slot)).not.toContain(feat)
     expect(eligibleFeats([feat], c, { ...slot, level: 2 })).not.toContain(feat)
     expect(eligibleFeats([feat], { ...c, className: 'Wizard' }, slot)).not.toContain(feat)
     expect(eligibleFeats([feat], c, { ...slot, category: 'general' })).not.toContain(feat)
   })
+
+it.each([
+  ['expert in Athletics', true],
+  ['expert in Athletics and Stealth', false],
+  ['master in Athletics', false],
+  ['trained in Stealth', false],
+  ['expert in Sailing Lore', true],
+  ['trained in Warfare Lore', false],
+  ['expert in one Lore skill', true],
+  ['master in one Lore skill', false],
+  ['expert in any skill', true],
+  ['master in any skill', false],
+] as const)('uses actual final-build ranks for %s in earlier slots', (prerequisite, allowed) => {
+  const feat = target(prerequisite)
+  const c: Character = { ...base, skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics', 17: 'Sailing Lore' },
+    lores: [{ name: 'Sailing Lore', rank: 1 }] }
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  const before = JSON.stringify(c)
+  expect(ranksAt({ ...c, level: 4 }, []).Athletics).toBe(1)
+  expect(ranksAt(c, [])).toMatchObject({ Athletics: 2, 'Sailing Lore': 2 })
+  expect(eligibleFeats([feat], c, slot).includes(feat)).toBe(allowed)
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('does not let a selected feat qualify through its own skill grant', () => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Greywatch Initiate')!
+  const c: Character = { ...base, className: 'Ranger',
+    feats: [{ name: feat.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  expect(ranksAt(c, [feat]).Deception).toBe(2)
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat).missing).toContain('Trained in Deception')
+})
+
+it('uses later allocated skills only in planning mode and leaves other prerequisites strict', () => {
+  const previous = getSettings().planSkillPrerequisites
+  const c: Character = { ...base, className: 'Ranger', level: 20,
+    skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' } }
+  const nimble = homebrewCharacterOptions([]).find(entry => entry.name === 'Nimble Athlete')!
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  try {
+    updateSettings({ planSkillPrerequisites: true })
+    expect(featSelectionPrerequisiteChecker(c, [nimble], slot)(nimble).missing).toEqual([])
+    for (const prerequisite of ['legendary in Perception', 'legendary in Fortitude', 'legendary in heavy armor',
+      'legendary with martial weapons', 'Strength +4', 'Living Weapon']) {
+      expect(featSelectionPrerequisiteChecker(c, [entry('feat', 'Living Weapon')], slot)(target(prerequisite)).missing.length,
+        prerequisite).toBeGreaterThan(0)
+    }
+    expect(featSelectionPrerequisiteChecker({ ...c, level: 2 }, [nimble], slot)(nimble).missing).toContain('expert in Athletics')
+    expect(featSelectionPrerequisiteChecker({ ...c, level: 14 }, [nimble], slot)(nimble).missing).toContain('expert in Athletics')
+    expect(featSelectionPrerequisiteChecker({ ...c, level: 15 }, [nimble], slot)(nimble).missing).toEqual([])
+    updateSettings({ planSkillPrerequisites: false })
+    expect(featSelectionPrerequisiteChecker(c, [nimble], slot)(nimble).missing).toContain('expert in Athletics')
+    expect(featSelectionPrerequisiteChecker({ ...c, rankOverrides: { Athletics: 2 } }, [nimble], slot)(nimble).missing).toEqual([])
+  } finally { updateSettings({ planSkillPrerequisites: previous }) }
+})
 
 it('does not evaluate skill ranks for feat references or armor and weapon prerequisites', () => {
   const ranks = vi.fn(() => ({ Crafting: 1 }))
@@ -413,6 +468,12 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  let previousPlanning: boolean
+  beforeEach(() => {
+    previousPlanning = getSettings().planSkillPrerequisites
+    updateSettings({ planSkillPrerequisites: false })
+  })
+  afterEach(() => updateSettings({ planSkillPrerequisites: previousPlanning }))
   it('does not resolve ancestry skill sources for unrelated selected feats', () => {
     const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
       feats: Array.from({ length: 100 }, (_, index) => selected(`Unrelated feat ${index}`)) }
