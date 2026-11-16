@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { canChangeUntamedForm, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
+import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, ResetDailyInnateUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
@@ -15,17 +15,19 @@ import { homebrewCharacterOptions } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 
 it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and DCs and restores source rules when disabled', highest => {
-  const grant = feat('Empathetic Connection', 'You gain _[mindlink](/spells/188-mindlink)_ as a 1st-rank occult innate spell at-will.', 5)
-  const entries = [grant, entry('Mindlink', 'spell')]
+  const grant = feat('Mental Magic', 'You can cast [fear](/Spells.aspx?ID=1) and [ignition](/Spells.aspx?ID=2) as occult innate spells at will.', 5)
+  const entries = [grant, entry('Fear', 'spell', { saving_throw: 'Will' }), entry('Ignition', 'spell', { saving_throw: 'AC' }, ['Attack'])]
   const character: Character = { ...base, abilities: { ...base.abilities, int: 10, wis: 10, cha: 10, [highest]: 22 },
     feats: [taken(grant.name, 5)] }
   const previous = getSettings().innateHighestMental
   const render = () => renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
   try {
     updateSettings({ innateHighestMental: true })
-    expect(render()).toContain(`${highest === 'int' ? 'Intelligence' : highest === 'wis' ? 'Wisdom' : 'Charisma'} DC 23, Attack +13`)
+    for (const stat of ['DC 23', 'Attack +13'])
+      expect(render()).toContain(`${highest === 'int' ? 'Intelligence' : highest === 'wis' ? 'Wisdom' : 'Charisma'} ${stat}`)
     updateSettings({ innateHighestMental: false })
-    expect(render()).toContain(`Charisma DC ${highest === 'cha' ? 23 : 17}, Attack +${highest === 'cha' ? 13 : 7}`)
+    expect(render()).toContain(`Charisma DC ${highest === 'cha' ? 23 : 17}`)
+    expect(render()).toContain(`Charisma Attack +${highest === 'cha' ? 13 : 7}`)
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
@@ -46,13 +48,13 @@ it('restores an explicit innate Wisdom ability when highest-mental rule is disab
     { kind: 'innate', spells: ['Fear'], ability: 'wis', rank: 1, tradition: 'Divine' },
   ] }
   const c: Character = { ...base, abilities: { ...base.abilities, int: 22, wis: 18 }, feats: [taken(grant.name)] }
-  const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Fear', 'spell')]} save={() => {}} />)
+  const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Fear', 'spell', { saving_throw: 'Will' })]} save={() => {}} />)
   const previous = getSettings().innateHighestMental
   try {
     updateSettings({ innateHighestMental: true })
-    expect(render()).toContain('Intelligence DC 23, Attack +13')
+    expect(render()).toContain('Intelligence DC 23')
     updateSettings({ innateHighestMental: false })
-    expect(render()).toContain('Wisdom DC 21, Attack +11')
+    expect(render()).toContain('Wisdom DC 21')
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
@@ -680,8 +682,9 @@ it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequenc
   expect(dailyInnateUses({ ...enhanced, innateSpellUses: spent.innateSpellUses }, grantedFeatSpells(enhanced, data)[0]))
     .toMatchObject({ key: uses.key, used: 1, limit: 2, remaining: 1 })
   expect(grantedFeatSpells(enhanced, data)).toMatchObject([{ rank: 2, rule: { frequency: 'twice per day' } }])
-  expect(renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />))
-    .toContain('rank 2 arcane; twice per day')
+  const enhancedMarkup = renderToStaticMarkup(<SpellsSection c={enhanced} entries={data} save={() => {}} />)
+  expect(enhancedMarkup).not.toContain('rank 2 arcane; twice per day')
+  expect(enhancedMarkup).toContain('2/2 uses remaining')
   expect(grantedFeatSpells({ ...enhanced, level: 20 }, data)[0].rank).toBe(2)
   const trained = { ...spent, feats: [...spent.feats, taken('Greywatch Initiate', 4)] }
   expect(dailyInnateUses(trained, grantedFeatSpells(trained, data)[0]))
@@ -694,15 +697,15 @@ it('grants Forgotten in the Crowd rank-two Invisibility and doubles its frequenc
   expect(source.spellGrants?.[0].frequency).toBe('once per day')
 })
 
-it('grants Empathetic Connection Mindlink at its fixed rank, with scaling innate DC and source restrictions', () => {
+it('grants Empathetic Connection Mindlink at its fixed rank without irrelevant DC or attack statistics', () => {
   const grant = feat('Empathetic Connection', 'You gain _[mindlink](/spells/188-mindlink)_ as a 1st-rank occult innate spell at-will. The target is temporarily immune for 24 hours.', 5)
   const entries = [grant, entry('Mindlink', 'spell')]
   const character = { ...base, feats: [taken(grant.name, 5)] }
   const spells = grantedFeatSpells(character, entries)
   expect(spells).toMatchObject([{ entry: { name: 'Mindlink' }, rank: 1, rule: { frequency: 'at will', tradition: 'occult' } }])
   const render = (c: Character) => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(render(character)).toContain('Intelligence DC 21, Attack +11')
-  expect(render({ ...character, level: 12 })).toContain('Intelligence DC 30, Attack +20')
+  expect(render(character)).not.toContain('Intelligence DC')
+  expect(render({ ...character, level: 12 })).not.toContain('Attack +')
   expect(render(character)).toContain('target is temporarily immune for 24 hours')
   expect(render(character)).not.toContain('Slots per rank')
   expect(grantedFeatSpells({ ...character, level: 4 }, entries)).toEqual([])
@@ -712,23 +715,82 @@ it('grants Empathetic Connection Mindlink at its fixed rank, with scaling innate
 
 it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
   const grant = feat('Imperious Nature', "Your legendary abilities inspire compliance. Once per day, you can cast _[command](/spells/43-command)_ as a 7th-rank occult innate spell using the higher of your class DC or  spell DC. This effect loses the linguistic trait.", 17)
-  const entries = [grant, entry('Command', 'spell')]
-  const c = { ...base, level: 17, feats: [taken(grant.name, 17)] }
+  const expertise = { ...entry('Fighter Expertise', 'classFeature', { class: 'Fighter' }), level: 11,
+    description: 'Your proficiency rank for your fighter class DC increases to expert.' }
+  const mastery = { ...expertise, id: 'mastery', name: 'Versatile Legend', level: 19,
+    description: 'Your proficiency rank for your fighter class DC increases to master.' }
+  const entries = [grant, entry('Command', 'spell', { saving_throw: 'Will' }),
+    entry('Fighter', 'class', { attribute: 'Strength, Dexterity' }), expertise, mastery]
+  const c: Character = { ...base, level: 17, boosts: { class: 'str' }, abilities: { ...base.abilities, str: 26 },
+    feats: [taken(grant.name, 17)] }
   expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Command' }, rank: 7,
     rule: { tradition: 'occult', frequency: 'once per day', dc: 'higher-class-or-spell' } }])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('rank 7 occult; once per day; use higher of class DC or spell DC')
+  expect(markup).toContain('rank 7 occult; DC 39')
+  expect(markup).not.toContain('rank 7 occult; once per day')
+  expect(markup).not.toContain('use higher of class DC or spell DC')
+  expect(markup).not.toContain('Attack +')
+  expect(markup).toContain('1/1 uses remaining')
   expect(markup).toContain('loses the linguistic trait')
+  expect(classDifficultyClass(c, entries)).toBe(39)
+  expect(classDifficultyClass({ ...c, level: 10 }, entries)).toBe(30)
+  expect(classDifficultyClass({ ...c, level: 19 }, entries)).toBe(43)
+  expect(classDifficultyClass({ ...c, boosts: { class: 'dex' } }, entries)).toBe(31)
+  const spellHigher = renderToStaticMarkup(<SpellsSection c={{ ...c, boosts: { class: 'dex' } }} entries={entries} save={() => {}} />)
+  expect(spellHigher).toContain('rank 7 occult; DC 35')
+  const unchosen = renderToStaticMarkup(<SpellsSection c={{ ...c, boosts: {} }} entries={entries} save={() => {}} />)
+  expect(unchosen).toContain('Class DC unavailable')
   expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
+})
+
+it('compares Imperious Nature against class spell DC as well as innate spell DC', () => {
+  const grant = feat('Imperious Nature', 'Once per day, you can cast [command](/spells/43-command) as a 7th-rank occult innate spell using the higher of your class DC or spell DC.', 17)
+  const master = { ...entry('Master Spellcaster', 'classFeature', { class: 'Wizard' }), level: 15 }
+  const entries = [grant, entry('Command', 'spell', { saving_throw: 'Will' }),
+    entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' }), master]
+  const c: Character = { ...base, className: 'Wizard', level: 17, abilities: { ...base.abilities, int: 24, cha: 10 },
+    feats: [taken(grant.name, 17)] }
+  const previous = getSettings().innateHighestMental
+  try {
+    updateSettings({ innateHighestMental: false })
+    expect(classDifficultyClass(c, entries)).toBe(36)
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+    expect(markup).toContain('rank 7 occult; DC 40')
+  } finally { updateSettings({ innateHighestMental: previous }) }
+})
+
+it.each<{ data: ContentEntry['data']; traits: string[]; description: string; dc: boolean; attack: boolean }>([
+  { data: { saving_throw: 'Will' }, traits: [], description: '', dc: true, attack: false },
+  { data: { saving_throw: 'AC' }, traits: ['Attack'], description: '', dc: false, attack: true },
+  { data: {}, traits: [], description: '', dc: false, attack: false },
+  { data: { save: 'basic Reflex' }, traits: ['Attack'], description: '', dc: true, attack: true },
+  { data: {}, traits: [], description: 'An unwilling undead target attempts a basic Fortitude save.', dc: true, attack: false },
+  { data: {}, traits: [], description: 'Make a ranged spell attack against the target.', dc: false, attack: true },
+])('shows only relevant per-spell statistics: $data, $traits, $description', ({ data, traits, description, dc, attack }) => {
+  const grant: ContentEntry = { ...entry('Test Magic', 'feat'), spellGrants: [{ kind: 'innate', spells: ['Test Spell'] }] }
+  const spell = { ...entry('Test Spell', 'spell', data, traits), description }
+  const c: Character = { ...base, feats: [taken(grant.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
+  expect(markup.includes('Intelligence DC 21')).toBe(dc)
+  expect(markup.includes('Attack +11')).toBe(attack)
+})
+
+it.each(['once per day', 'twice per day', 'at will', 'once per hour'])('deduplicates %s only when daily uses are tracked', frequency => {
+  const grant: ContentEntry = { ...entry('Test Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: ['Test Spell'], frequency }] }
+  const c: Character = { ...base, feats: [taken(grant.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Test Spell', 'spell')]} save={() => {}} />)
+  expect(markup.includes(frequency)).toBe(!frequency.endsWith('per day'))
+  if (frequency.endsWith('per day')) expect(markup).toContain(`${frequency.startsWith('twice') ? '2/2' : '1/1'} uses remaining`)
 })
 
 it('uses higher class spell proficiency and highest mental attribute for innate spells', () => {
   const grant = feat('Stonewalker', 'You can cast [_one with stone_](/Spells.aspx?ID=1619) as a 3rd-rank divine innate spell once per day.')
   const master = { ...entry('Master Spellcaster', 'classFeature', { class: 'Wizard' }), level: 15 }
-  const entries = [grant, entry('One with Stone', 'spell'), entry('Wizard', 'class', { tradition: 'Arcane' }), master]
+  const entries = [grant, entry('One with Stone', 'spell', { saving_throw: 'Fortitude' }), entry('Wizard', 'class', { tradition: 'Arcane' }), master]
   const c = { ...base, className: 'Wizard', level: 15, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('rank 3 divine; once per day; Intelligence DC 35, Attack +25')
+  expect(markup).toContain('rank 3 divine; Intelligence DC 35')
   expect(grantedFeatSpells(c, entries)[0].rank).toBe(3)
 })
 
@@ -773,12 +835,13 @@ it('retains cross-system spell links and scopes separately stated heightening to
 it('grants explicit focus spells with source-specific attributes and caps pool by acquired spells', () => {
   const blessed = feat('Blessed One Dedication', 'You gain the [_lay on hands_](/Spells.aspx?ID=2047) devotion spell. Your devotion spells are divine spells. Your spellcasting attribute is Charisma.')
   const other = entry('Other Focus', 'feat', { grants_focus_spells: 'Other Spell, Third Spell' })
-  const entries = [blessed, other, entry('Lay on Hands', 'spell', {}, ['Focus']), entry('Other Spell', 'spell', {}, ['Focus']), entry('Third Spell', 'spell', {}, ['Focus'])]
+  const entries = [blessed, other, entry('Lay on Hands', 'spell', { saving_throw: 'basic Fortitude' }, ['Focus']), entry('Other Spell', 'spell', {}, ['Focus']), entry('Third Spell', 'spell', {}, ['Focus'])]
   const c = { ...base, feats: [taken(blessed.name), taken(other.name, 6)] }
   expect(focusSpells(c, entries)).toMatchObject({ points: 1, spells: [{ name: 'Lay on Hands' }] })
   expect(focusSpells({ ...c, level: 6 }, entries).points).toBe(3)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Charisma DC 19, Attack +9')
+  expect(markup).toContain('Charisma DC 19')
+  expect(markup).not.toContain('Attack +9')
   expect(markup).toContain('rank 3 divine')
 })
 

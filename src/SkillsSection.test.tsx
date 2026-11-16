@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { ArmorProficiency, RageToggle, SkillsSection } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SkillsSection, SkillsSummary } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import * as builder from './builder'
@@ -26,6 +26,27 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {
+  const klass = { ...ranger, data: { ...ranger.data,
+    skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 5 plus your Intelligence modifier' } }
+  let c: Character = { ...base, level: 5, skillPicks: ['Athletics', 'Acrobatics', 'Crafting'], skillIncreases: { 3: 'Athletics' } }
+  const render = () => renderToStaticMarkup(<SkillsSummary c={c} entries={[klass]} />)
+  expect(render()).toContain('3/5 Trained, 1/2 Expert, 0/0 Master, 0/0 Legendary')
+  const previous = getSettings().skillTokenConversion
+  try {
+    updateSettings({ skillTokenConversion: true })
+    c = { ...c, skillTokenUpgrades: builder.skillTokenPurchase(c, [klass], 'Acrobatics', 2, true) }
+    expect(c.skillTokenUpgrades).toHaveLength(1)
+    expect(render()).toContain('5/5 Trained, 1/2 Expert')
+    updateSettings({ skillTokenConversion: false })
+    expect(render()).toContain('3/5 Trained, 1/2 Expert')
+  } finally { updateSettings({ skillTokenConversion: previous }) }
+  c = { ...c, skillTokenUpgrades: undefined, feats: [{ name: 'Skill Download', type: 'Ancestry Feat', level: 1 }] }
+  expect(render()).toContain('3/6 Trained')
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Deception' }] }
+  expect(render()).toContain('4/6 Trained')
+})
 
 it.each([undefined, 'Darkvision'])('always shows Senses, including when ancestry vision is %s', vision => {
   const ancestry: ContentEntry = { ...ranger, id: 'ancestry', kind: 'ancestry', name: 'Test ancestry', data: vision ? { vision } : {} }
@@ -439,6 +460,15 @@ it('shows Pain Tolerance resistance and conditional save bonus without increasin
   expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
   const before = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 5 }} entries={[ranger]} save={() => {}} part="defense" />)
   expect(before).not.toContain('Pain Tolerance')
+})
+
+it('shows Round Ears and Earned Glory conditions without applying Impersonate bonuses to ordinary Deception', () => {
+  const c: Character = { ...base, feats: ['Round Ears', 'Earned Glory'].map(name =>
+    ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toContain('to Impersonate someone who is not aiuvarin (+4 circumstance)')
+  expect(markup).toContain('critical failure becomes a failure (Impressive Performance)')
+  expect(markup).toMatch(/skill-name">Deception <b>\+3/)
 })
 
 it('shows Ysoki conditional bonuses without applying them to ordinary totals', () => {

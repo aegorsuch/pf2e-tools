@@ -26,6 +26,35 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it.each(['Buckler', 'Gauntlet Buckler'])('optionally adds Finesse only to melee attachments on a %s', name => {
+  const previous = getSettings().bucklerMeleeFinesse
+  const entry: ContentEntry = { id: 'spikes', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Shield Spikes',
+    level: 0, traits: ['Attached to Shield'], description: '', data: { damage: '1d6 piercing', weapon_type: 'Melee',
+      weapon_category: 'Martial', hands: '1' }, effects: [], updatedAt: 0 }
+  const attached: OwnedWeapon = { id: 'attachment', name: entry.name, attachedTo: 'buckler', potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, level: 1, shield: { id: 'buckler', name, hardness: 3, hp: 6, damage: 0, raised: false,
+    attachedWeapon: attached } }
+  try {
+    updateSettings({ bucklerMeleeFinesse: true })
+    const enabled = weaponAttack(c, [entry], attached)
+    expect(enabled.traits).toContain('Finesse')
+    expect(weaponAttack({ ...c, shield: { ...c.shield!, name: 'Steel Shield' } }, [entry], attached).traits).not.toContain('Finesse')
+    expect(weaponAttack(c, [entry], { ...attached, attachedTo: undefined }).traits).not.toContain('Finesse')
+    const ranged = { ...entry, name: 'Shield Pistol', data: { ...entry.data, weapon_type: 'Ranged', range: '20' } }
+    const pistol = { ...attached, name: ranged.name }
+    expect(weaponAttack({ ...c, shield: { ...c.shield!, attachedWeapon: pistol } }, [ranged], pistol).traits).not.toContain('Finesse')
+    const bareBuckler = { ...c, shield: { ...c.shield!, attachedWeapon: undefined } }
+    const bash = ownedWeapons(bareBuckler, []).find(weapon => weapon.name === 'Shield Bash')!
+    expect(weaponAttack(bareBuckler, [], bash).traits).not.toContain('Finesse')
+    updateSettings({ bucklerMeleeFinesse: false })
+    const disabled = weaponAttack(c, [entry], attached)
+    expect(disabled.traits).not.toContain('Finesse')
+    expect(enabled.attack - disabled.attack).toBe(3)
+    expect(enabled.damage).toBe(disabled.damage)
+    expect(entry.traits).toEqual(['Attached to Shield'])
+  } finally { updateSettings({ bucklerMeleeFinesse: previous }) }
+})
+
 it('shows Dragonslayer Oath reaction benefits only after acquisition', () => {
   const c: Character = { ...base, level: 10, feats: [{ ...feat('Dragonslayer Oath', 2), slot: 'class:6:0' }] }
   const markup = renderToStaticMarkup(<ClassFeatures c={c} entries={[]} save={() => {}} />)
@@ -599,25 +628,29 @@ it('increases Cyborg implant limit independently of the Test-Subject house rule'
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
-it('enforces the expanded normal implant limit while retaining adapted and exempt slots', () => {
+it('adds Adapted Augmentations to normal capacity and counts legacy adapted implants without special slots', () => {
   const implant: ContentEntry = { ...content('item', 'Dermal Plating', { item_category: 'Augmentations', rarity: 'common' }),
     systems: ['sf2e'] }
   const installed = Array.from({ length: 4 }, (_, index) => ({ id: String(index), entryId: String(index), name: `Implant ${index}`, slot: 'standard' }))
   const c: Character = { ...base, systems: ['sf2e'], level: 5, feats: [feat('Transgnomanist', 5), feat('Adapted Augmentations')],
     augmentations: installed }
-  expect(augmentationLimit(c)).toBe(5)
+  expect(augmentationLimit(c)).toBe(6)
   expect(canInstallAugmentation(c, implant, 'standard')).toBe(true)
   expect(canInstallAugmentation(c, implant, 'body:0')).toBe(false)
   expect(canInstallAugmentation(c, { ...implant, level: 6 }, 'body:0')).toBe(false)
   expect(canInstallAugmentation(c, { ...implant, level: 2 }, 'adapted')).toBe(false)
   expect(canInstallAugmentation(c, { ...implant, data: { ...implant.data, rarity: 'rare' } }, 'adapted')).toBe(false)
-  expect(canInstallAugmentation(c, implant, 'adapted')).toBe(true)
-  const full = { ...c, augmentations: [...installed, { id: 'legacy', entryId: implant.id, name: implant.name, slot: 'body:0' }] }
+  expect(canInstallAugmentation(c, implant, 'adapted')).toBe(false)
+  const full = { ...c, augmentations: [...installed,
+    { id: 'legacy-body', entryId: implant.id, name: implant.name, slot: 'body:0' },
+    { id: 'legacy-adapted', entryId: implant.id, name: implant.name, slot: 'adapted' }] }
   expect(canInstallAugmentation(full, implant, 'standard')).toBe(false)
   expect(canInstallAugmentation(full, { ...implant, traits: ['Apex'] }, 'standard')).toBe(true)
   expect(canInstallAugmentation(full, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
   const markup = renderToStaticMarkup(<Augmentations c={full} entries={[implant]} save={() => {}} />)
-  expect(markup).toContain('Implant limit: 5/5')
+  expect(markup).toContain('Implant limit: 6/6')
+  expect(markup).not.toContain('Augmentation implant slot')
+  expect(markup).not.toContain('(Adapted Augmentations)')
   expect(markup).not.toContain('Augmented Body')
   const reduced = { ...full, feats: [] }
   expect(renderToStaticMarkup(<Augmentations c={reduced} entries={[implant]} save={() => {}} />))
@@ -663,6 +696,12 @@ it.each(['Buckler', 'Gauntlet Buckler'])('uses %s AC bonus when raised', name =>
   expect(renderToStaticMarkup(<ArmorList c={c} entries={[shieldEntry]} save={() => {}} />)).toContain('Raise Buckler (+1 AC)')
   expect(armorClass(c, [])).toBe(armorClass({ ...c, shield: undefined }, []) + 1)
   expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('Raise Buckler (+1 AC)')
+  const elegant = { ...c, feats: [feat('Elegant Buckler', 1)] }
+  const unraised = { ...elegant, shield: { ...shield, raised: false } }
+  expect(armorClass(elegant, [shieldEntry])).toBe(armorClass(unraised, [shieldEntry]) + 2)
+  expect(renderToStaticMarkup(<ArmorList c={elegant} entries={[shieldEntry]} save={() => {}} />)).toContain('Raise Buckler (+2 AC)')
+  expect(armorClass({ ...elegant, feats: [{ ...elegant.feats[0], takenLevel: 11 }] }, [shieldEntry])).toBe(armorClass(c, [shieldEntry]))
+  expect(armorClass({ ...elegant, shield: { ...shield, name: 'Steel Shield' } }, [])).toBe(armorClass(unraised, []) + 2)
 })
 
 it('hides shield base durability while keeping calculated durability visible', () => {

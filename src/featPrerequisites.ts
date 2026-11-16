@@ -10,6 +10,7 @@ export interface PrerequisiteFacts {
   className?: string
   ancestry?: string
   heritage?: string
+  heritages?: string[]
   ethnicity?: string
   ancestryTraits?: string[]
   subclass?: string
@@ -246,9 +247,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
     if (name === 'arctic elf, cavern elf, desert elf, woodland elf, or any other elf heritage based on adapting to an environment') {
-      const heritage = key(facts.heritage ?? '')
-      if (['arctic elf', 'cavern elf', 'desert elf', 'woodland elf', 'aquatic elf'].includes(heritage)) return met()
-      if (!heritage || ['ancient elf', 'seer elf', 'whisper elf', 'half-elf'].includes(heritage)) return missing(text)
+      const heritages = [facts.heritage ?? '', ...(facts.heritages ?? [])].map(key).filter(Boolean)
+      if (heritages.some(heritage => ['arctic elf', 'cavern elf', 'desert elf', 'woodland elf', 'aquatic elf'].includes(heritage))) return met()
+      if (!heritages.length || heritages.every(heritage => ['ancient elf', 'seer elf', 'whisper elf', 'half-elf', 'aiuvarin'].includes(heritage))) return missing(text)
       return manual(text)
     }
     if (name === 'spellcasting class feature') return resultFor(!!facts.spellcastingClassFeature, text)
@@ -389,6 +390,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.features.some((feature) => references.includes(key(feature)))) return met()
     const content = references.flatMap(knownEntries)
     if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference
+      || !!facts.heritages?.some(heritage => key(heritage) === reference)
       || !!facts.ancestryTraits?.some(trait => key(trait) === reference), text)
     if (content.some((entry) => entry.kind === 'ancestry')) return resultFor(key(facts.ancestry ?? '') === reference, text)
     if (content.some((entry) => entry.kind === 'class')) return resultFor(key(facts.className ?? '') === reference, text)

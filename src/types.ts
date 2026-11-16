@@ -191,6 +191,7 @@ export interface Character {
   rogueRacketSkills?: Record<string, string>
   background?: string
   deity?: string
+  divineIntercessions?: Record<string, string[]>
   blessing?: '' | 'Blessed Armament' | 'Blessed Shield' | 'Blessed Swiftness'
   sanctification?: 'Holy' | 'Unholy'
   legacyTenetsOfGood?: boolean

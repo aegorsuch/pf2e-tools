@@ -5,6 +5,7 @@ import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
+import { EntryDescription } from './EntryDescription'
 
 const repeatableFeatNames = new WeakMap<SectionProps['entries'], Set<string>>()
 function isRepeatableFeat(entries: SectionProps['entries'], name: string) {
@@ -91,7 +92,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </SearchableSelect>}
     </span>
   }
-  if (['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
+  if (['Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
     'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Experienced Laborer'].includes(feat.name)) return null
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
@@ -216,10 +217,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
-  if (['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan'].includes(feat.name)) {
+  const atavism = feat.name === 'Elf Atavism' || feat.name === 'Elven Atavism'
+  if (atavism || ['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
-    const label = feat.name === 'Adopted Ancestry' ? 'ancestry'
+    const label = atavism ? 'heritage' : feat.name === 'Adopted Ancestry' ? 'ancestry'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
     const choiceControl = <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
@@ -232,6 +234,12 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
         {options.map((choice) => <option key={choice}>{choice}</option>)}
       </SearchableSelect>
+      {atavism && feat.choice && <EntryDescription name={feat.choice} buttonLabel="Heritage details"
+        entry={entries.find(entry => entry.kind === 'heritage' && entry.name === feat.choice && !entry.deleted
+          && entry.systems.some(system => c.systems.includes(system)))} />}
+      {atavism && feat.choice === 'Ancient Elf' && <small role="status">Ancient Elf requires a non-elf ancestry with a lifespan measured in multiple centuries; alternate benefits require GM approval. Choose its multiclass dedication separately.</small>}
+      {atavism && feat.choice && !options.includes(feat.choice)
+        && <small role="status">Saved heritage is unavailable. Sync content or choose an enabled Elf heritage.</small>}
       {noteId && <small id={noteId}>Choose a common ancestry or one with established access; physiological requirements need GM approval.</small>}
       {noteId && feat.choice && !options.includes(feat.choice)
         && <small role="status">Saved ancestry is unavailable. Check content and GM access, or choose another ancestry.</small>}

@@ -630,6 +630,9 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .deity-card { margin-top: 0.5rem; text-align: left; }
 .deity-card p { margin: 0.35rem 0; }
 .deity-card h4, .deity-card h5 { margin: 0.6rem 0 0.2rem; }
+.divine-intercessions { margin-top: 1rem; text-align: left; }
+.divine-intercession { margin: 0.6rem 0; }
+.divine-intercession p { margin: 0.2rem 0 0.2rem 1.5rem; }
 
 .feat-filters {
   display: flex;

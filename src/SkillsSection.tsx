@@ -14,7 +14,9 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
-import { skillRankRequirements, skillTokenPayment, skillTokenPurchase, skillTokenState } from './builder'
+import { skillRankAllocations, skillRankRequirements, skillTokenPayment, skillTokenPurchase, skillTokenState } from './builder'
+import { characterHeritages } from './heritages'
+import { divineIntercessionWeaknesses } from './divineIntercessions'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const COMMON_LORES = [...new Set([
@@ -64,6 +66,14 @@ export function ArmorProficiency({ c, entries }: Pick<SectionProps, 'c' | 'entri
   return <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
 }
 
+export function SkillsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  return <summary className="character-section-summary">
+    <strong>Skills</strong>
+    <span aria-label="Skill allocations">{skillRankAllocations(c, entries)
+      .map(({ rank, used, total }) => `${used}/${total} ${rank}`).join(', ')}</span>
+  </summary>
+}
+
 export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' | 'save'> & { summary?: boolean }) {
   if (c.className !== 'Barbarian' && !activeFeatsNamed(c, 'Barbarian Dedication').length) return null
   const toggle = <label><input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
@@ -84,6 +94,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
   const extraBackgroundSkills = editingSkills ? backgroundSkills(freeHeartBackground(c, entries)) : []
   const permanentRanks = ranksAt(c, entries)
+  const heritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
   const downloaded = skillDownload(c, entries)
   const ranks = downloaded ? { ...permanentRanks, [downloaded.skill]: Math.max(permanentRanks[downloaded.skill] ?? 0, downloaded.rank) } : permanentRanks
   const trainedLores = trainedFeatLores(c)
@@ -294,6 +305,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
+          {s.name === 'Deception' && !!activeFeatsNamed(c, 'Round Ears').length && <SourceNote inlineSource={false}
+            source="Round Ears" note={`${conditionalTotal(4)} to Impersonate someone who is not aiuvarin (+4 circumstance). No observer circumstance bonus or personal circumstance penalty for impersonating a full-blooded human.`} />}
+          {s.name === 'Performance' && !!activeFeatsNamed(c, 'Earned Glory').length && <SourceNote inlineSource={false}
+            source="Earned Glory" note="Make an Impression on an elf: a critical failure becomes a failure (Impressive Performance)." />}
+          {['Arcana', 'Nature', 'Occultism', 'Religion'].includes(s.name) && heritages.has('Seer Elf') && <SourceNote inlineSource={false}
+            source="Seer Elf" note={`${conditionalTotal(1)} to Identify Magic and Decipher Writing of a magical nature (+1 circumstance).`} />}
+          {s.name === 'Perception' && heritages.has('Whisper Elf') && <SourceNote inlineSource={false}
+            source="Whisper Elf" note={`${conditionalTotal(2)} to Seek hidden or undetected creatures within 30 feet (+2 circumstance). When you can hear a creature capable of making sound, targeting it uses flat DC 3 if concealed or 9 if hidden.`} />}
+          {s.name === 'Athletics' && heritages.has('Woodland Elf') && <SourceNote inlineSource={false}
+            source="Woodland Elf" note="Climb trees, vines, or foliage at half your Speed on a success and full Speed on a critical success; Quick Climb allows full Speed on a success. No effect on a climb Speed. You can always Take Cover in forest terrain." />}
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
             source={grant.source} note="Free trained Lore; does not use a skill training pick." />)}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}
@@ -438,6 +459,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const researched = researchedSpellResistance(c, entries)
     const hpBonuses = hitPointBonuses(c)
     const oaken = oakenResilience(c, entries)
+    const divineWeaknesses = divineIntercessionWeaknesses(c)
     return (
       <>
         <div className="defense-summary">
@@ -493,6 +515,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}</small>
+        {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map(weakness =>
+          `${weakness.damage} ${weakness.value} (${weakness.source})`).join(', ')}. Weaknesses to the same damage type don’t stack; apply only the highest.</small>}
         {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness (Test-Subject Ysoki)</small>}
         {oaken && <small>Weakness: Fire {oaken.fireWeakness} (Oaken Resilience)</small>}
       </>

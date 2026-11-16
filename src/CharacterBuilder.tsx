@@ -13,7 +13,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, RageToggle, SkillsSection } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
@@ -32,6 +32,7 @@ import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
+import { DivineIntercessions } from './intercessionPicker'
 
 const NONE: ContentEntry[] = []
 
@@ -593,6 +594,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <div className="character-section-content">
           <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
           <DeityCard deity={deity} />
+          {deity && <DivineIntercessions deity={deity} selected={c.divineIntercessions?.[deity.name] ?? []}
+            onChange={selected => save({ divineIntercessions: { ...c.divineIntercessions, [deity.name]: selected } })} />}
         </div>
       </DeferredDetails>
 
@@ -687,7 +690,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       </DeferredDetails>
       {featSection('skill')}
       <DeferredDetails>
-        <summary className="character-section-summary"><strong>Skills</strong></summary>
+        <SkillsSummary {...section} />
         <div className="character-section-content">
           <SkillsSection {...section} />
         </div>

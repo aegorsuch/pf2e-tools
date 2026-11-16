@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { innateSpellAbility } from './builder'
+import { classDifficultyClass, innateSpellAbility } from './builder'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -234,6 +234,17 @@ function spellMetadata(entry?: ContentEntry) {
   }
 }
 
+function spellResolution(entry: ContentEntry) {
+  const defense = spellMetadata(entry).save
+  return {
+    save: /\b(?:Fortitude|Reflex|Will)\b/i.test(defense)
+      || /\b(?:Fortitude|Reflex|Will) (?:saving throws?|saves?)\b/i.test(entry.description),
+    attack: entry.traits.some(trait => /^attack$/i.test(trait))
+      || /\b(?:AC|Armor Class)\b/i.test(defense)
+      || /\b(?:make|attempt) (?:a |an )?(?:ranged |melee )?spell attack\b/i.test(entry.description),
+  }
+}
+
 function InnateSpellRow({ grant, note, active, onToggle, activeLabel, inlineControls, children }: {
   grant: ReturnType<typeof grantedFeatSpells>[number]
   note?: ReactNode
@@ -324,13 +335,28 @@ export function SpellsContent({ c, entries, save }: SectionProps) {
     const ability = grant.rule.kind === 'innate' ? innateSpellAbility(c, grant.rule.ability) : grant.rule.ability ?? casting?.ability
     const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, spellRank), c.level) : undefined
     const source = entries.find(entry => entry.kind === 'feat' && (grant.source === entry.name || grant.source.startsWith(`${entry.name}:`)))
+    const resolution = spellResolution(grant.entry)
+    const frequency = dailyInnateUses(c, grant) ? undefined : grant.rule.frequency
+    const higherDC = grant.rule.dc === 'higher-class-or-spell'
+    const classDC = higherDC && resolution.save ? classDifficultyClass(c, entries) : undefined
+    const castingAbility = casting?.ability ?? sc?.ability
+    const spellDC = mod === undefined ? undefined : Math.max(10 + mod, casting && castingAbility
+      ? 10 + abilityMod(c.abilities[castingAbility]) + proficiencyBonus(Math.max(1, spellRank), c.level) : 0)
+    const dc = higherDC ? classDC === undefined || spellDC === undefined ? undefined : Math.max(classDC, spellDC)
+      : mod === undefined ? undefined : 10 + mod
+    const stats = [
+      resolution.save && dc !== undefined ? `DC ${dc}` : undefined,
+      resolution.attack && mod !== undefined ? `Attack ${signed(mod)}` : undefined,
+    ].filter(Boolean).join(', ')
     return <>
       <EntryDescription name={grant.source} entry={source} entries={entries} />
-      {`; rank ${grant.rank}${grant.rule.tradition ? ` ${grant.rule.tradition}` : ''}${grant.rule.frequency ? `; ${grant.rule.frequency}${grant.rule.shared ? ' shared between alternatives' : ''}` : ''}`}
+      {`; rank ${grant.rank}${grant.rule.tradition ? ` ${grant.rule.tradition}` : ''}${frequency ? `; ${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}` : ''}`}
       {grant.rule.condition && `; ${grant.rule.condition}`}
-      {grant.rule.dc === 'higher-class-or-spell' ? '; use higher of class DC or spell DC'
-        : ability && mod !== undefined ? `; ${ABILITY_LABEL[ability]} DC ${10 + mod}, Attack ${signed(mod)}`
-        : '; check granting source for spellcasting attribute and DC'}
+      {stats && `; ${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`}
+      {higherDC && resolution.save && classDC === undefined
+        ? <span role="status">; Class DC unavailable: choose your class key attribute or sync class content.</span>
+        : (resolution.save || resolution.attack) && mod === undefined
+          && <span role="status">; Check granting source for spellcasting attribute and DC.</span>}
     </>
   }
   const buffProps = (name: string, entry?: ContentEntry) => {

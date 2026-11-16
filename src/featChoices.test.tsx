@@ -11,7 +11,8 @@ import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats, languageAllowance, migrateAncestralLinguistics } from './builder'
-import { classSpellcasting, ranksAt, researchedSpellResistanceChoices, weaponAttack } from './builder'
+import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
+import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
 
 const spell = (name: string, tier: string): ContentEntry => ({
@@ -24,6 +25,63 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each(['Elf Atavism', 'Elven Atavism'])('adds a separate Elf heritage selection for %s without replacing primary heritage', name => {
+  const heritage = (name: string, ancestry: string): ContentEntry => ({ ...entries[0], id: name, name,
+    kind: 'heritage', traits: [], data: { ancestry } })
+  const catalog = [heritage('Cavern Elf', 'Elf'), heritage('Arctic Elf', 'Elf'), heritage('Pioneer Human', 'Human'),
+    heritage('Aiuvarin', 'Elf'), { ...heritage('Missing Elf', 'Elf'), deleted: true }]
+  let c: Character = { ...base, ancestry: 'Human', heritage: 'Aiuvarin',
+    feats: [{ name, type: 'Ancestry Feat', level: 1 }] }
+  const tree = () => FeatChoice({ c, entries: catalog, index: 0, save: patch => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) } })
+  expect(featChoiceOptions(name, c, catalog, '', 0)).toEqual(['Arctic Elf', 'Cavern Elf'])
+  expect(renderToStaticMarkup(tree())).toContain(`aria-label="${name} heritage"`)
+  findSelect(tree()).onChange({ target: { value: 'Cavern Elf' } })
+  expect(c.feats[0].choice).toBe('Cavern Elf')
+  expect(c.heritage).toBe('Aiuvarin')
+  expect(renderToStaticMarkup(tree())).toContain('Heritage details')
+  findSelect(tree()).onChange({ target: { value: 'Pioneer Human' } })
+  expect(c.feats[0].choice).toBe('Cavern Elf')
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Missing Elf' }] }
+  expect(renderToStaticMarkup(tree())).toContain('<option disabled="" value="Missing Elf" selected="">Missing Elf</option>')
+})
+
+it('applies only the active Atavism heritage benefits while retaining primary heritage benefits', () => {
+  const heritage = (name: string, data: ContentEntry['data'] = {}): ContentEntry =>
+    ({ ...entries[0], id: name, name, kind: 'heritage', traits: [], data })
+  const catalog = [heritage('Aiuvarin', { vision: 'Low-light Vision' }), heritage('Cavern Elf'),
+    heritage('Arctic Elf', { resistances: 'cold=half' }), heritage('Desert Elf', { resistances: 'fire=half' }),
+    heritage('Aquatic Elf'), heritage('Seer Elf')]
+  let c: Character = { ...base, ancestry: 'Human', heritage: 'Aiuvarin', level: 9,
+    feats: [{ name: 'Elf Atavism', type: 'Ancestry Feat', level: 1, choice: 'Cavern Elf' }] }
+  expect(senses(c, catalog)).toEqual(expect.arrayContaining([
+    { value: 'Darkvision', source: 'Cavern Elf' }, { value: 'Low-light Vision', source: 'Aiuvarin' },
+  ]))
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Arctic Elf' }] }
+  expect(resistances(c, catalog)).toContainEqual({ damage: 'Cold', value: 4, source: 'Arctic Elf' })
+  expect(senses(c, catalog).some(sense => sense.value === 'Darkvision')).toBe(false)
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Desert Elf' }] }
+  expect(resistances(c, catalog)).toContainEqual({ damage: 'Fire', value: 4, source: 'Desert Elf' })
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Aquatic Elf' }] }
+  expect(movementSpeeds(c, catalog)).toContainEqual({ name: 'Swim', feet: 30, source: 'Aquatic Elf' })
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Seer Elf' }] }
+  const detect: ContentEntry = { ...entries[0], name: 'Detect Magic', level: 1, traits: ['Cantrip'] }
+  expect(grantedFeatSpells(c, [...catalog, detect])).toMatchObject([{
+    entry: detect, source: 'Seer Elf', rank: 5, rule: { kind: 'innate', tradition: 'arcane', frequency: 'at will' },
+  }])
+  expect(unresolvedFeatSpells(c, catalog)).toMatchObject([{ name: 'Detect Magic', source: { name: 'Seer Elf' } }])
+  const future = { ...c, feats: [{ ...c.feats[0], takenLevel: 10 }] }
+  expect(grantedFeatSpells(future, [...catalog, detect])).toEqual([])
+  expect(unresolvedFeatSpells(future, catalog)).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [] }, [...catalog, detect])).toEqual([])
+  expect(c.heritage).toBe('Aiuvarin')
+})
+
+it('preserves full heritage rules instead of truncated catalog summaries', () => {
+  const heritage = mapAonHit({ _id: 'heritage-242', _source: { category: 'heritage', name: 'Seer Elf',
+    summary: 'You have an inborn ability...', markdown: 'Full heritage rules.\n\nYou gain a +1 circumstance bonus to Identify Magic.' } }, 'pf2e')
+  expect(heritage?.description).toBe('Full heritage rules.\n\nYou gain a +1 circumstance bonus to Identify Magic.')
+})
 
 it.each(['Ferocity', 'Superstition', 'Warmask'])('displays %s without Orc only for active adopted-Orc characters', name => {
   const adopted = { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' }

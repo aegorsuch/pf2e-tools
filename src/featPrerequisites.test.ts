@@ -6,6 +6,7 @@ import { getSettings, updateSettings } from './settings'
 import * as featChoices from './featChoices'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
+import { normalizeConditionalSkillChoices, skillRankBudget } from './builder'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
   ({ id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, data, level, traits, description: '', effects: [], updatedAt: 1 })
@@ -18,6 +19,63 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('grants Earned Glory Performance and Impressive Performance only after its taken level', () => {
+  const feat = { name: 'Earned Glory', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+  const c: Character = { ...base, level: 5, ancestry: 'Human', heritage: 'Aiuvarin', feats: [feat] }
+  expect(ranksAt(c, []).Performance).toBe(1)
+  expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Impressive Performance', source: 'Earned Glory', level: 5 })
+  expect(additionalSkillCount(c, [])).toBe(additionalSkillCount({ ...c, feats: [] }, []))
+  const earlier = { ...c, level: 4 }
+  expect(ranksAt(earlier, []).Performance ?? 0).toBe(0)
+  expect(automaticFeatGrants(earlier, []).some(grant => grant.source === 'Earned Glory')).toBe(false)
+  expect(ranksAt({ ...c, systems: ['sf2e'] }, []).Performance ?? 0).toBe(0)
+})
+
+it('recognizes the additional Elf Atavism heritage for prerequisites without discarding Aiuvarin', () => {
+  const heritage = entry('heritage', 'Arctic Elf', { ancestry: 'Elf' })
+  const c: Character = { ...base, ancestry: 'Human', heritage: 'Aiuvarin',
+    feats: [{ name: 'Elf Atavism', type: 'Ancestry Feat', level: 1, choice: 'Arctic Elf' }] }
+  expect(check('Arctic Elf heritage', c, [heritage])).toEqual({ missing: [], manual: [] })
+  expect(check('Arctic Elf heritage', { ...c, feats: [] }, [heritage]).missing).not.toEqual([])
+  expect(check('Arctic Elf heritage', { ...c, feats: [{ ...c.feats[0], takenLevel: 21 }] }, [heritage]).missing).not.toEqual([])
+})
+
+it.each<[string, string, string | undefined]>([
+  ['Round Ears', 'Deception', undefined],
+  ['Sociable', 'Diplomacy', 'Hobnobber'],
+])('automates %s training, duplicate replacement tokens and its skill feat', (name, skill, bonus) => {
+  const c: Character = { ...base, level: 1, feats: [{ name, type: 'Ancestry Feat', level: 1 }] }
+  expect(ranksAt(c, [])[skill]).toBe(1)
+  expect(automaticFeatGrants(c, [])).toEqual(bonus ? [{ name: bonus, source: name, level: 1 }] : [])
+  const background = entry('background', 'Socialite', { skill })
+  const duplicate = { ...c, background: background.name }
+  expect(additionalSkillCount(duplicate, [background])).toBe(additionalSkillCount({ ...duplicate, feats: [] }, [background]) + 1)
+  expect(skillRankBudget(duplicate, [background]).trained).toBe(1)
+  expect(ranksAt({ ...duplicate, skillPicks: ['Crafting'] }, [background])).toMatchObject({ [skill]: 1, Crafting: 1 })
+  const earlier = { ...c, feats: [{ ...c.feats[0], takenLevel: 5 }] }
+  expect(ranksAt(earlier, [])[skill] ?? 0).toBe(0)
+  expect(automaticFeatGrants(earlier, [])).toEqual([])
+})
+
+it.each(['class', 'background'] as const)('adds one reusable trained slot when Earned Glory duplicates %s Performance', source => {
+  const entries = [entry('class', 'Bard', { skill_proficiency: source === 'class'
+    ? 'Trained in Performance, Trained in a number of additional skills equal to 4 plus your Intelligence modifier'
+    : 'Trained in a number of additional skills equal to 4 plus your Intelligence modifier' }),
+  entry('background', 'Performer', { skill: 'Performance' })]
+  const c: Character = { ...base, level: 1, className: 'Bard', background: source === 'background' ? 'Performer' : undefined,
+    feats: [{ name: 'Earned Glory', type: 'Ancestry Feat', level: 1 }] }
+  expect(additionalSkillCount(c, entries)).toBe(5)
+  expect(skillRankBudget(c, entries).trained).toBe(5)
+  const spent = { ...c, skillPicks: ['Diplomacy'] }
+  expect(ranksAt(spent, entries)).toMatchObject({ Performance: 1, Diplomacy: 1 })
+  expect(skillRankBudget(spent, entries).trained).toBe(4)
+  const legacy = normalizeConditionalSkillChoices({ ...c, feats: [{ ...c.feats[0], choice: 'Diplomacy' }] }, entries)
+  expect(legacy.feats[0].choice).toBeUndefined()
+  expect(legacy.skillPicks).toEqual(['Diplomacy'])
+  expect(skillRankBudget(legacy, entries).trained).toBe(4)
+  expect(ranksAt(legacy, entries)).toMatchObject({ Performance: 1, Diplomacy: 1 })
+})
 
 it.each(['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler'])(
   'offers Nimble Athlete only with actual expert Athletics for %s', className => {

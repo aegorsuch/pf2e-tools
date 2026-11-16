@@ -111,7 +111,6 @@ const weaponCapacity = (entry?: ContentEntry) => {
 
 export function Augmentations({ c, entries, save }: SectionProps) {
   const [picked, setPicked] = useState('')
-  const [slot, setSlot] = useState('standard')
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
@@ -127,7 +126,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   ].sort((a, b) => a.item.name.localeCompare(b.item.name))
   const limit = augmentationLimit(c)
   const standardUsed = augmentationLimitUsed(c)
-  const adapted = activeFeatsNamed(c, 'Adapted Augmentations').length > 0
   const biotechUpgrade = activeFeatsNamed(c, 'Biotech Os Upgrade').length > 0
   const secondaryPower = activeFeatsNamed(c, 'Secondary Power Source').length > 0
   const powerIds = new Set([...installed.map(item => item.id),
@@ -138,7 +136,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   const selected = options.find(entry => entry.id === picked)
   const exemption = selected && augmentationExemption(selected)
-  const available = !!selected && canInstallAugmentation(c, selected, slot)
+  const available = !!selected && canInstallAugmentation(c, selected, 'standard')
   const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
   const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
   const powerControl = (id: string, name: string) => {
@@ -171,11 +169,10 @@ export function Augmentations({ c, entries, save }: SectionProps) {
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
-      const invalid = item.slot === 'adapted' && !adapted
       return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
-        {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : item.slot === 'adapted' ? 'Adapted Augmentations' : 'implant limit'}{invalid ? '; source unavailable' : ''})</small>
+        {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : 'implant limit'})</small>
         {powerControl(item.id, item.name)}
         {' '}<button type="button" onClick={() => confirmRemoval(`augmentation "${item.name}"`,
           () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
@@ -220,16 +217,12 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       <option value="">Choose augmentation</option>
       {options.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
     </SearchableSelect>
-    {!exemption && <label>Implant slot{' '}<select aria-label="Augmentation implant slot" value={slot} onChange={event => setSlot(event.target.value)}>
-      <option value="standard">Standard ({standardUsed}/{limit})</option>
-      {adapted && <option value="adapted">Adapted Augmentations{installed.some(item => item.slot === 'adapted') ? ' (used)' : ''}</option>}
-    </select></label>}
     <button type="button" disabled={!available} onClick={() => {
       if (!selected || !available) return
-      save({ augmentations: [...installed, { id: newId(), entryId: selected.id, name: selected.name, slot: exemption ?? slot }] })
+      save({ augmentations: [...installed, { id: newId(), entryId: selected.id, name: selected.name, slot: exemption ?? 'standard' }] })
       setPicked('')
     }}>Add augmentation</button>
-    {selected && !available && <small role="status">This augmentation or implant slot is unavailable. Check level, rarity, and slot limits.</small>}
+    {selected && !available && <small role="status">This augmentation is unavailable. Check its source and your implant limit.</small>}
   </section>
 }
 

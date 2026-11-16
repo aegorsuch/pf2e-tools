@@ -1,6 +1,7 @@
 import { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import type { Character, ContentEntry, SpellGrant } from './types'
 import { warmaskSource } from './warmask'
+import { characterHeritages } from './heritages'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
@@ -169,6 +170,12 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
 
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
+  if (characterHeritages(c, entries).some(heritage => heritage.name === 'Seer Elf')) {
+    const entry = matchingSpells(entries, 'Detect Magic').find(spell => spell.systems.some(system => c.systems.includes(system)))
+    if (entry) out.push({ entry, source: 'Seer Elf',
+      rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'at will', heightened: true },
+      rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', 'Seer Elf', entry.name]) })
+  }
   for (const [index, feat] of c.feats.entries()) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
@@ -298,7 +305,10 @@ export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFe
 }
 
 export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
-  return c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
+  const seer = characterHeritages(c, entries).find(heritage => heritage.name === 'Seer Elf')
+  const missingHeritageSpells = seer && !matchingSpells(entries, 'Detect Magic')
+    .some(entry => entry.systems.some(system => c.systems.includes(system))) ? [{ name: 'Detect Magic', source: seer }] : []
+  return [...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
     if (feat.name === 'Grown of Oak' && !entries.some(entry => entry.kind === 'spell' && !entry.deleted
@@ -312,5 +322,5 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]) {
     return (source?.spellGrants ?? []).flatMap(rule => (rule.choice ? feat.choice ? [feat.choice] : [] : rule.spells)
       .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.some(system => c.systems.includes(system))))
       .map(name => ({ name, source })))
-  })
+  })]
 }

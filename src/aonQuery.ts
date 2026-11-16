@@ -294,7 +294,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         // Keep full rules text for description popups and class features.
         const found = parseResistances(plain(typeof s.markdown === 'string' ? s.markdown : ''))
         if (found) s.resistances = found
-        if (category === 'feat' && typeof s.markdown === 'string') {
+        if (['feat', 'heritage'].includes(category) && typeof s.markdown === 'string') {
           const langs = parseFeatLanguages(s.markdown)
           if (langs) s.grants_languages = langs
           const focus = parseFeatFocus(s.markdown)
@@ -329,7 +329,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
           if (comp.maneuverActionUrl) s.companion_maneuver_action_url = comp.maneuverActionUrl
         }
-        if (!['feat', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
+        if (!['feat', 'heritage', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
           && !usesFullItemRules(s)) delete s.markdown
       }
       hits.push(hit)
