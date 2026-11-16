@@ -101,6 +101,8 @@ it.each([false, true])('includes Giant Rage damage without helper text in weapon
     giantWeaponId: main.id, weapons: [main] }
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[sword, klass]} save={() => {}} displayOnly={displayOnly} />)
   expect(html).toContain('Damage 3d8+23 S')
+  expect(html).not.toContain('Longsword (Large)')
+  expect(effectiveWeapon(c, [sword, klass], main).size).toBe('Large')
   expect(html).not.toContain('Includes +18 Rage damage')
   expect(html).not.toContain('Thrown Strikes require Raging Thrower')
 })
