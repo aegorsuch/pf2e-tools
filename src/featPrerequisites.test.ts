@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
+import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
 import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -381,6 +381,62 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  it.each([
+    ['Cite the Deep Lore', 'Society', 'Blend In', 'Elf'],
+    ["Diplomat's Facade", 'Deception', 'Lie to Me', 'Elf'],
+    ['Broken Hand Technique', 'Athletics', 'Titan Wrestler', 'Orc'],
+    ['Spelunker', 'Acrobatics', 'Quick Squeeze', 'Orc'],
+    ['Rugged Survivalist', 'Survival', 'Forager', 'Orc'],
+  ])('keeps %s effects available through Adopted Ancestry', (name, skill, bonus, ancestry) => {
+    const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
+      feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: ancestry }, selected(name)] }
+    if (name !== 'Rugged Survivalist') expect(ranksAt(character, [])[skill]).toBe(1)
+    expect(automaticFeatGrants(character, [])).toContainEqual({ name: bonus, source: name, level: 1 })
+  })
+  it('uses the selected adopted Ancestral Skills variant for skills and ancestry Lore', () => {
+    const native = { ...entry('feat', 'Ancestral Skills', {}, 1, ['Human']), id: 'human-skills',
+      systems: ['sf2e' as const], description: 'Option(s): Diplomacy, Society' }
+    const adopted = { ...native, id: 'elf-skills', traits: ['Elf'], description: 'Option(s): Arcana, Nature' }
+    const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human', entryIds: [adopted.id],
+      feats: [
+        { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Elf' },
+        { name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1, sourceId: adopted.id },
+      ] }
+    const entries = [native, adopted]
+    expect(ranksAt(character, entries)).toMatchObject({ Arcana: 1, Nature: 1, 'Elf Lore': 4 })
+    expect(ranksAt(character, entries).Diplomacy ?? 0).toBe(0)
+    expect(featLores(character, entries)).toEqual(['Elf Lore'])
+    expect(automaticFeatGrants(character, entries)).toContainEqual({
+      name: 'Additional Lore', choice: 'Elf', source: 'Ancestral Skills', level: 1,
+    })
+    const legacy = { ...character, feats: character.feats.map(feat => ({ ...feat, sourceId: undefined })) }
+    expect(featLores(legacy, entries)).toEqual(['Elf Lore'])
+    const lore = { ...adopted, name: 'Elven Lore', id: 'elven-lore',
+      description: 'You become trained in Arcana and Nature. You gain the Additional Lore general feat for Elf Lore.' }
+    const withLore = { ...character, feats: [...character.feats.filter(feat => feat.name !== 'Ancestral Skills'), selected(lore.name)] }
+    expect(ranksAt(withLore, [native, adopted, lore])).toMatchObject({ Arcana: 1, Nature: 1, 'Elf Lore': 4 })
+    const eligible = eligibleFeats([native, adopted, lore], { ...withLore, feats: withLore.feats.slice(0, 1) },
+      { key: 'ancestry:1:0', category: 'ancestry', level: 1 })
+    expect(eligible).toContain(native)
+    expect(eligible).not.toContain(adopted)
+  })
+  it('applies adopted climb and the selected burrowing variant without granting native ancestry statistics', () => {
+    const slow = { ...entry('feat', 'Burrowing Specialist', {}, 9, ['Ysoki']), id: 'ysoki-burrow',
+      systems: ['sf2e' as const], description: 'Option(s): 10 feet' }
+    const fast = { ...slow, id: 'talphi-burrow', traits: ['Talphi'], description: 'Option(s): 25 feet' }
+    const character: Character = { ...base, systems: ['pf2e', 'sf2e'], ancestry: 'Human',
+      feats: [
+        { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Elf' },
+        { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Talphi' },
+        { name: 'Tree Climber', type: 'Ancestry Feat', level: 1 },
+        { name: 'Burrowing Specialist', type: 'Ancestry Feat', level: 9, sourceId: fast.id },
+      ] }
+    expect(movementSpeeds(character, [slow, fast])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Climb', feet: 10, source: 'Tree Climber' }),
+      expect.objectContaining({ name: 'Burrow', feet: 25, source: 'Burrowing Specialist' }),
+    ]))
+    expect(senses({ ...character, feats: character.feats.slice(0, 2) }, [])).toEqual([])
+  })
   it.each(['Adopted Ancestry', 'Dromaar'])('grants Orc Spelunker benefits through %s', access => {
     const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
       heritage: access === 'Dromaar' ? 'Dromaar' : undefined,
@@ -394,6 +450,16 @@ describe('shared prerequisite enforcement', () => {
     const character: Character = { ...base, systems: ['pf2e', 'sf2e'], ancestry: 'Shisk', feats: [selected('Spelunker')] }
     expect(ranksAt(character, []).Acrobatics ?? 0).toBe(0)
     expect(automaticFeatGrants(character, []).some(grant => grant.source === 'Spelunker')).toBe(false)
+  })
+  it.each(['Spelunker', 'Rugged Survivalist'])('preserves the selected Pathfinder %s variant when Starfinder is also enabled', name => {
+    const source = entry('feat', name, {}, 1, name === 'Spelunker' ? ['Shisk'] : ['Archetype', 'Skill'])
+    const character: Character = { ...base, systems: ['pf2e', 'sf2e'], ancestry: 'Orc',
+      feats: [
+        { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Shisk' },
+        { name, type: 'Ancestry Feat', level: 1, sourceId: source.id },
+      ] }
+    expect(automaticFeatGrants(character, [source]).some(grant => grant.source === name)).toBe(false)
+    expect(ranksAt(character, [source]).Acrobatics ?? 0).toBe(0)
   })
   it.each([
     ['Cite the Deep Lore', 'Society', 'Blend In', 'Elf'],

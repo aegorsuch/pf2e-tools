@@ -1,4 +1,4 @@
-import { featTakenLevel } from './featChoices'
+import { ancestryFeatTraits, featTakenLevel } from './featChoices'
 import type { Character, ContentEntry, OwnedArmor } from './types'
 import { armorModifications } from './inventorArmor'
 
@@ -42,8 +42,9 @@ const armorEntry = (id: string, name: string, data: ContentEntry['data'], traits
 
 export function grantedArmorEntries(c: Character, innovation = c.subclass): ContentEntry[] {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
-  const body = c.systems.includes('pf2e') ? BODY_ARMOR.find(source => source.ancestry === c.ancestry
-    && ('feat' in source ? active.some(feat => feat.name === source.feat) : source.heritage === c.heritage))
+  const body = c.systems.includes('pf2e') ? BODY_ARMOR.find(source =>
+    'feat' in source ? ancestryFeatTraits(c).includes(source.ancestry.toLowerCase()) && active.some(feat => feat.name === source.feat)
+      : source.ancestry === c.ancestry && source.heritage === c.heritage)
     : undefined
   const chassis = body?.ancestry === 'Automaton'
   const entries: ContentEntry[] = body ? [armorEntry(`granted-armor:${body.ancestry.toLowerCase()}`, body.name, {
@@ -102,7 +103,7 @@ function starfinderBodyArmor(c: Character, hasFeat: (name: string) => boolean): 
     'Attached body armor. Material is fixed; see source rules for armor runes, upgrades, and flight suits.'),
     systems: ['sf2e'], level: grade.level,
   })
-  if (c.ancestry === 'Copaxi' && hasFeat('Armored Shell')) return make('Armored Shell', 'feats/1383-armored-shell', {
+  if (ancestryFeatTraits(c).includes('copaxi') && hasFeat('Armored Shell')) return make('Armored Shell', 'feats/1383-armored-shell', {
     ac: hasFeat('Enhanced Shell') ? 4 : 3, armor_category: 'Special', armor_group: '', strength: 3,
     min_proficiency: 1, runes_allowed: false, upgrades_allowed: hasFeat('Enhanced Shell'),
     upgrade_slots: hasFeat('Enhanced Shell') ? 2 : 0, flight_suit_allowed: true,

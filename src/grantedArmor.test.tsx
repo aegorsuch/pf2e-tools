@@ -16,6 +16,27 @@ const base: Character = {
 const feat = (name: string, choice?: string, level = 1): Character['feats'][number] =>
   ({ name, choice, level, type: 'Ancestry Feat' })
 
+it.each([
+  ['Kashrishi', 'Tough Skin', 'pf2e'],
+  ['Automaton', 'Reinforced Chassis', 'pf2e'],
+  ['Copaxi', 'Armored Shell', 'sf2e'],
+] as const)('applies selected %s body armor feats through Adopted Ancestry', (ancestry, name, system) => {
+  const c: Character = { ...base, systems: [system], ancestry: 'Human', feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: ancestry }, feat(name),
+  ] }
+  const native = grantedArmorEntries({ ...c, ancestry, feats: [feat(name)] })
+  const adopted = grantedArmorEntries(c)
+  expect(adopted).toHaveLength(1)
+  expect(adopted[0].data).toEqual(native[0].data)
+  expect(adopted[0].name).toBe(native[0].name)
+  expect(grantedArmorEntries({ ...c, level: 0 })).toEqual([])
+})
+it('does not grant inherited body armor merely from adopting its ancestry', () => {
+  const c: Character = { ...base, ancestry: 'Human',
+    feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Conrasu' }] }
+  expect(grantedArmorEntries(c)).toEqual([])
+})
+
 it.each(['Ranger', 'Druid', 'Kineticist'])('grants locked, scaling Hardwood Armor to %s without replacing owned gear', className => {
   const c: Character = { ...base, className, level: 11, feats: [feat('Hardwood Armor')],
     armors: [{ id: 'existing', name: 'Chain Mail', worn: false, potency: 1, resilient: 0, runes: [] }] }

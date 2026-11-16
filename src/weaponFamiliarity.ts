@@ -1,4 +1,4 @@
-import { featTakenLevel } from './featChoices'
+import { ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
 interface FamiliarityRule {
@@ -69,15 +69,9 @@ export function familiarityChoiceOptions(name: string, c: Character, entries: Co
 function ancestralFamiliaritySource(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (feat.name !== 'Ancestral Weapon Familiarity' || !c.systems.includes('sf2e')) return undefined
   const level = Math.min(c.level, featTakenLevel(feat))
-  const ancestries = [c.ancestry, c.heritage, ...c.feats.filter(feat => feat.name === 'Adopted Ancestry'
-    && featTakenLevel(feat) <= level).map(feat => feat.choice)]
-    .filter((name): name is string => !!name)
-  const sources = entries.filter(entry => entry.kind === 'feat' && !entry.deleted && entry.name === feat.name
-    && entry.systems.includes('sf2e') && (!feat.sourceId || entry.id === feat.sourceId))
-  for (const ancestry of ancestries) {
-    const entry = sources.find(source => source.traits.some(trait => key(trait) === key(ancestry)))
-    if (entry) return { entry, ancestry }
-  }
+  const entry = selectedFeatEntry({ ...c, level }, entries, feat.name, feat.sourceId)
+  const ancestry = entry?.traits.find(trait => ancestryFeatTraits({ ...c, level }).includes(trait.toLowerCase()))
+  if (entry?.systems.includes('sf2e') && ancestry) return { entry, ancestry }
 }
 
 export function isFixedAncestralWeaponFamiliarity(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {

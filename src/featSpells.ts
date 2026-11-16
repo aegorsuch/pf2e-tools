@@ -1,4 +1,4 @@
-import { featTakenLevel } from './featChoices'
+import { ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import type { Character, ContentEntry, SpellGrant } from './types'
 import { warmaskSource } from './warmask'
 
@@ -43,7 +43,6 @@ const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace'
 const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
   || spell.name.toLowerCase() === spellAlias(name)
 
-const featCache = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
 function ancestralOptions(c: Character, source?: ContentEntry) {
   const options = /Option\(s\):\s*([^\n]*)/i.exec(source?.description ?? '')?.[1]
   if (!options) return undefined
@@ -57,25 +56,11 @@ function ancestralOptions(c: Character, source?: ContentEntry) {
 
 function featSource(c: Character, entries: ContentEntry[], name: string, sourceId?: string) {
   if (name === 'Ancestral Magic' || name === 'Ancestral Cantrip') {
-    const ancestries = [c.ancestry, c.heritage, ...c.feats.filter(feat => feat.name === 'Adopted Ancestry'
-      && featTakenLevel(feat) <= c.level).map(feat => feat.choice),
-      ...(c.systems.includes('pf2e') && c.feats.some(feat => feat.name === 'Orc Kinship' && featTakenLevel(feat) <= c.level) ? ['Orc'] : [])]
-      .filter((value): value is string => !!value)
-    return entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
-      && entry.systems.some(system => c.systems.includes(system))
-      && (!sourceId || entry.id === sourceId)
-      && !!ancestralOptions(c, entry)
-      && entry.traits.some(trait => ancestries.some(ancestry => ancestry.toLowerCase() === trait.toLowerCase())))
+    const source = selectedFeatEntry(c, entries, name, sourceId)
+    return source && ancestralOptions(c, source)
+      && source.traits.some(trait => ancestryFeatTraits(c).includes(trait.toLowerCase())) ? source : undefined
   }
-  let map = featCache.get(entries)
-  if (!map) {
-    map = new Map()
-    for (const entry of entries) if (entry.kind === 'feat' && !entry.deleted) {
-      for (const system of entry.systems) if (!map.has(`${system}:${entry.name}`)) map.set(`${system}:${entry.name}`, entry)
-    }
-    featCache.set(entries, map)
-  }
-  return c.systems.map(system => map.get(`${system}:${name}`)).find(Boolean)
+  return selectedFeatEntry(c, entries, name, sourceId)
 }
 
 function ancestralCantripRules(c: Character, entries: ContentEntry[], sourceId?: string) {

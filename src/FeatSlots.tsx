@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -101,11 +101,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         ?? spell.replace(/\b\w/g, char => char.toUpperCase()))
     }
     if (name !== 'Creature Speech') return undefined
-    const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
-      && entry.systems.some(system => c.systems.includes(system))
-      && entry.traits.some(trait => trait.toLowerCase() === c.ancestry?.toLowerCase()))
+    const source = selectedFeatEntry(c, entries, name, sourceId)
     const option = /Option\(s\):\s*([^\n]+)/i.exec(source?.description ?? '')?.[1]?.trim()
-    return option && (c.ancestry === 'Ysoki' && option.toLowerCase() === 'rodents'
+    return option && (source?.traits.some(trait => trait.toLowerCase() === 'ysoki') && option.toLowerCase() === 'rodents'
       ? 'Rats' : option.replace(/^[a-z]/, char => char.toUpperCase()))
   }
   const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
@@ -187,7 +185,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     if (option) {
       const { entry, choice } = option
       feats.push({ name: entry.name, type: `${LABEL[category]} Feat`, level: entry.level, slot: key,
-        ...(['Ancestral Cantrip', 'Ancestral Magic', 'Ancestral Weapon Familiarity'].includes(entry.name) ? { sourceId: entry.id } : {}),
+        ...(category === 'ancestry' || ['Ancestral Cantrip', 'Ancestral Magic', 'Ancestral Weapon Familiarity'].includes(entry.name) ? { sourceId: entry.id } : {}),
         ...(slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}), ...(choice ? { choice } : {}) })
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }

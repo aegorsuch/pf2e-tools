@@ -1,4 +1,5 @@
 import type { Character, ContentEntry } from './types'
+import { getSettings } from './settings'
 
 const WARDEN_TIERS: Record<string, string> = {
   'Initiate Warden': 'Initiate',
@@ -8,6 +9,40 @@ const WARDEN_TIERS: Record<string, string> = {
 }
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
+
+export function ancestryFeatTraits(c: Character) {
+  const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  const testSubject = c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg' && getSettings().cyborgTestSubject
+  return [c.ancestry, c.heritage, ...(c.heritage?.trim().toLowerCase() === 'dromaar' ? ['Orc'] : []),
+    ...(testSubject ? ['Test-Subject Ysoki'] : []), ...active.filter(feat => feat.name === 'Adopted Ancestry').map(feat => feat.choice),
+    ...(c.systems.includes('pf2e') && active.some(feat => feat.name === 'Orc Kinship') ? ['Orc'] : [])]
+    .filter((name): name is string => !!name).map(name => name.trim().toLowerCase())
+}
+
+const selectedFeatCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+export function selectedFeatEntry(c: Character, entries: ContentEntry[], name: string, sourceId?: string) {
+  let names = selectedFeatCache.get(entries)
+  if (!names) {
+    names = new Map()
+    for (const entry of entries) if (entry.kind === 'feat' && !entry.deleted) {
+      const variants = names.get(entry.name) ?? []
+      variants.push(entry)
+      names.set(entry.name, variants)
+    }
+    selectedFeatCache.set(entries, names)
+  }
+  const sources = (names.get(name) ?? []).filter(entry => entry.systems.some(system => c.systems.includes(system)))
+  const id = sourceId ?? c.feats.find(feat => feat.name === name && featTakenLevel(feat) <= c.level)?.sourceId
+  if (id) return sources.find(entry => entry.id === id)
+  // Older saves retain content IDs without a per-feat source ID.
+  const saved = sources.filter(entry => c.entryIds.includes(entry.id))
+  if (saved.length === 1) return saved[0]
+  for (const ancestry of ancestryFeatTraits(c)) {
+    const source = sources.find(entry => entry.traits.some(trait => trait.toLowerCase() === ancestry))
+    if (source) return source
+  }
+  return c.systems.map(system => sources.find(entry => entry.systems.includes(system))).find(Boolean)
+}
 
 export const isCompanionAdvancement = (name: string) => /^Incredible (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Imposing Destrier'
 export const isCompanionSpecialization = (name: string) => /^Specialized (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Auspicious Mount'

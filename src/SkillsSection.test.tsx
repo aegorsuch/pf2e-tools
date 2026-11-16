@@ -6,7 +6,7 @@ import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
-import { updateSettings } from './settings'
+import { getSettings, updateSettings } from './settings'
 
 const ranger: ContentEntry = {
   id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
@@ -24,6 +24,55 @@ const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+}
+
+it.each(['Orc', 'Human'])('gives Experienced Laborer one free trained Lore for %s', ancestry => {
+  const previous = getSettings().autoLores
+  updateSettings({ autoLores: false })
+  let c: Character = { ...base, systems: ['sf2e'], ancestry, level: 7,
+    feats: [
+      ...(ancestry === 'Human' ? [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' }] : []),
+      { name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+    ] }
+  const entries = [{ ...ranger, systems: ['sf2e' as const] }]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const change = (value: string) => {
+    const input = { value, setCustomValidity: vi.fn(), reportValidity: vi.fn() }
+    ;(findInput(tree(), 'Experienced Laborer Lore specialty')!.onBlur as (event: unknown) => void)({ target: input })
+    return input
+  }
+  try {
+    expect(renderToStaticMarkup(tree())).toContain('One free trained Lore skill.')
+    expect(change('Lore').setCustomValidity).toHaveBeenCalledWith('Enter a Lore specialty, not just Lore.')
+    expect(c.feats.at(-1)?.choice).toBeUndefined()
+    change('  Mining  Lore ')
+    c = JSON.parse(JSON.stringify(c))
+    expect(ranksAt(c, entries)['Mining Lore']).toBe(1)
+    expect(skillRankBudget(c, entries).trained).toBe(4)
+    expect(builder.automaticFeatGrants(c, entries).some(grant => grant.source === 'Experienced Laborer')).toBe(false)
+    expect(ranksAt({ ...c, level: 0 }, entries)['Mining Lore'] ?? 0).toBe(0)
+    expect(renderToStaticMarkup(tree())).toContain('Gather Information when consulting professionals related to Mining Lore.')
+    expect(ranksAt(c, entries).Diplomacy ?? 0).toBe(0)
+    c = { ...c, skillIncreases: { 3: 'Mining Lore' } }
+    expect(ranksAt(c, entries)['Mining Lore']).toBe(2)
+    change('Engineering')
+    expect(c.skillIncreases).toEqual({})
+    expect(ranksAt(c, entries)['Engineering Lore']).toBe(1)
+    expect(ranksAt(c, entries)['Mining Lore'] ?? 0).toBe(0)
+    expect(skillRankBudget(c, entries).trained).toBe(4)
+    change('')
+    expect(builder.experiencedLaborerLore(c)).toBeUndefined()
+  } finally { updateSettings({ autoLores: previous }) }
+})
+
+function findInput(node: ReactNode, label: string): Record<string, unknown> | undefined {
+  let found: Record<string, unknown> | undefined
+  Children.forEach(node, child => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === 'input' && child.props['aria-label'] === label
+      ? child.props : findInput(child.props.children as ReactNode, label)
+  })
+  return found
 }
 
 it('shows radioactive protection and tracks the two separate daily abilities', () => {

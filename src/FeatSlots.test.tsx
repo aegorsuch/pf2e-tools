@@ -46,6 +46,12 @@ it('labels fixed ancestral cantrips and creature speech without extra choices', 
   const selected = { ...c, feats: [{ ...c.feats[0], name: 'Ancestral Cantrip' }] }
   expect(renderToStaticMarkup(<FeatSlots c={selected} entries={[cantrip, speech]} categories={['ancestry']} save={() => {}} />))
     .toContain('Ancestral Cantrip (Seek The Stars)')
+  const adopted: Character = { ...c, ancestry: 'Human', feats: [
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Ysoki' },
+    { ...c.feats[0], sourceId: speech.id },
+  ] }
+  expect(renderToStaticMarkup(<FeatSlots c={adopted} entries={[cantrip, speech]} categories={['ancestry']} save={() => {}} />))
+    .toContain('Creature Speech (Rats)')
 })
 
 it("keeps Officer's Education general slots tied to their source feats", () => {
@@ -811,7 +817,7 @@ it('offers separate Scrapper skill variants, saves one shared feat, and restores
   expect(save).not.toHaveBeenCalled()
   findSelect(tree(), 'L05 Ancestry feat')!({ target: { value: JSON.stringify([feat.name, 'Arcana to Trained']) } })
   c = JSON.parse(JSON.stringify(c))
-  expect(c.feats).toEqual([{ name: feat.name, type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Arcana to Trained' }])
+  expect(c.feats).toEqual([{ name: feat.name, type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', sourceId: feat.id, choice: 'Arcana to Trained' }])
   expect(c.entryIds).toEqual([feat.id])
   expect(ranksAt(c, [feat])).toMatchObject({ Crafting: 1, Arcana: 1 })
   expect(renderToStaticMarkup(tree())).toContain('>Technomagical Scrapper (Arcana to Trained)</button>')

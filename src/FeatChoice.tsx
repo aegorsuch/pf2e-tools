@@ -81,7 +81,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   if (['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
-    'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms'].includes(feat.name)) return null
+    'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Experienced Laborer'].includes(feat.name)) return null
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
