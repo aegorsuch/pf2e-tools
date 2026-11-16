@@ -2082,15 +2082,23 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   c.feats.forEach((feat, index) => {
     const grant = ancestrySkillGrant(c, entries, feat.name)
     if (!grant || featTakenLevel(feat) > c.level) return
+    if (SKILLS_TAB_ANCESTRY_GRANTS.includes(feat.name) && !feat.choice) {
+      trained.push(grant.skill)
+      return
+    }
     const ranks = ancestrySkillBefore(c, entries, index)
-    if (!ranks[grant.skill] || SKILLS_TAB_ANCESTRY_GRANTS.includes(feat.name) && !feat.choice) trained.push(grant.skill)
+    if (!ranks[grant.skill]) trained.push(grant.skill)
     else if (feat.choice && skills.has(feat.choice) && !ranks[feat.choice]) trained.push(feat.choice)
   })
   c.feats.forEach((feat, index) => {
     if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name) && !ancestryLoreGrant(c, entries, feat.name)) return
-    const ranks = ancestrySkillBefore(c, entries, index)
     const simpleSkills = feat.name === 'Dwarven Lore' ? undefined
       : ancestryLoreGrant(c, entries, feat.name)?.skills ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
+    if (simpleSkills && feat.name !== 'Pick On Someone My Size') {
+      trained.push(...simpleSkills)
+      return
+    }
+    const ranks = ancestrySkillBefore(c, entries, index)
     if (simpleSkills) {
       if (feat.name !== 'Pick On Someone My Size' || !ranks.Intimidation) trained.push(...simpleSkills)
     } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
@@ -2123,8 +2131,8 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const warmask = warmaskSource(c)
   if (warmask) {
     const index = c.feats.findIndex(feat => feat.name === 'Orc Warmask' && featTakenLevel(feat) <= c.level)
-    const alternatives = warmaskAlternateSkills(c, entries, index)
-    if (alternatives.length && c.warmask?.alternateSkill && alternatives.includes(c.warmask.alternateSkill)) trained.push(c.warmask.alternateSkill)
+    const alternate = c.warmask?.alternateSkill
+    if (alternate && warmaskAlternateSkills(c, entries, index).includes(alternate)) trained.push(alternate)
     else trained.push(warmask.skill)
   }
   const holdMarkSkills: Record<string, string> = {
@@ -2363,8 +2371,37 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   return ranks
 }
 
+const rankCaches = new WeakMap<ContentEntry[], {
+  settings: ReturnType<typeof getSettings>
+  values: Map<string, Record<string, number>>
+}>()
+
 // Ranks from class/background/picks plus skill increases below `beforeLevel`; legacy overrides apply only to skills.
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
+  const settings = getSettings()
+  let cache = rankCaches.get(entries)
+  if (!cache || cache.settings !== settings) {
+    cache = { settings, values: new Map() }
+    rankCaches.set(entries, cache)
+  }
+  // Recursive training grants repeatedly visit the same earlier character state.
+  const key = JSON.stringify([{ ...c, extraSlots: undefined, dismissedFeatSlots: undefined, updatedAt: undefined }, beforeLevel, withOverrides])
+  const cached = cache.values.get(key)
+  if (cached) {
+    cache.values.delete(key)
+    cache.values.set(key, cached)
+    return { ...cached }
+  }
+  const ranks = calculateRanks(c, entries, beforeLevel, withOverrides)
+  if (cache.values.size >= 128) {
+    const oldest = cache.values.keys().next().value
+    if (oldest !== undefined) cache.values.delete(oldest)
+  }
+  cache.values.set(key, { ...ranks })
+  return ranks
+}
+
+function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: number, withOverrides: boolean) {
   c = { ...normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }), level: c.level }
   const ranks = baseRanks(c, entries, beforeLevel)
   const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)

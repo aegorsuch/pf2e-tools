@@ -83,6 +83,52 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('resolves successive ancestry training grants without exponential history checks', () => {
+  const names = ['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
+    'Eye for Treasure', 'Rat Retinal HUD', 'Munitions Crafter', 'Orc Lore']
+  const data = names.map(name => ({ ...entry('feat', name, {}, 1, ['Orc']), systems: ['sf2e' as const] }))
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', level: 20,
+    feats: names.map((name, index) => ({ name, type: 'Ancestry Feat', level: 1, slot: `ancestry:${index + 1}:0` })) }
+  const source = vi.spyOn(featChoices, 'selectedFeatEntry')
+  try {
+    expect(ranksAt(c, data)).toMatchObject({
+      Society: 1, Deception: 1, Athletics: 1, Acrobatics: 1, Crafting: 1, Computers: 1,
+    })
+    expect(source.mock.calls.length).toBeLessThan(2000)
+  } finally { source.mockRestore() }
+})
+
+it('keeps cached ranks isolated and current after character, rule and catalog changes', () => {
+  const previous = getSettings().autoClassSkills
+  const c: Character = { ...base, level: 7, skillPicks: [], feats: [
+    { name: 'Skill Training', type: 'Skill Feat', level: 1, slot: 'skill:2:0', choice: 'Medicine' },
+  ] }
+  try {
+    updateSettings({ autoClassSkills: false })
+    const first = ranksAt(c, entries)
+    expect(first).toMatchObject({ Arcana: 1, Medicine: 1 })
+    first.Arcana = 99
+    expect(ranksAt(c, entries).Arcana).toBe(1)
+    c.skillPicks!.push('Athletics')
+    c.feats[0].choice = 'Nature'
+    expect(ranksAt(c, entries)).toMatchObject({ Athletics: 1, Nature: 1 })
+    expect(ranksAt(c, entries).Medicine).toBeUndefined()
+    c.rankOverrides = { Nature: 3 }
+    expect(ranksAt(c, entries).Nature).toBe(3)
+    expect(ranksAt(c, entries, 99, false).Nature).toBe(1)
+    expect(ranksAt(c, entries, 2, false).Nature).toBeUndefined()
+    updateSettings({ autoClassSkills: true })
+    expect(ranksAt(c, entries).Arcana).toBe(3)
+    const changed = entries.map(source => source.kind === 'class' && source.name === 'Wizard'
+      ? { ...source, data: { ...source.data, skill_proficiency: 'Trained in Occultism' } } : source)
+    expect(ranksAt(c, changed).Occultism).toBe(3)
+    expect(ranksAt(c, changed).Arcana).toBe(1)
+    c.level = 1
+    expect(ranksAt(c, entries, 99, false)).toMatchObject({ Arcana: 1, Athletics: 1 })
+    expect(ranksAt(c, entries, 99, false).Nature).toBeUndefined()
+  } finally { updateSettings({ autoClassSkills: previous }) }
+})
+
 describe('replacement slots for redundant fixed feat grants', () => {
   const data = [
     entry('background', 'Direwolf Bonded', { feat: 'Canny Acumen, Titan Wrestler' }),

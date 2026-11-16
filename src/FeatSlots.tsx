@@ -387,6 +387,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showAddSlot = index === (addSlotIndex >= 0 ? addSlotIndex : slots.findIndex(sameLevel))
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
+          const emptyLabel = s.redundantFeat ? `Empty (${s.grantedBy})` : '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
           const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon'
@@ -414,7 +415,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             {heading}
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
-              {s.redundantFeat && <small>Duplicate {s.redundantFeat} replacement ({s.grantedBy})</small>}
               {homebrewDedication(s.key) ? (
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
@@ -426,11 +426,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               ) : popup ? (
                 <button type="button" className="feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
                   onClick={() => onSearch?.(`${s.key}:open`, '1')}>
-                  {current || '- empty -'}
+                  {current || emptyLabel}
                 </button>
               ) : <select aria-label={`${label} feat`} value={current}
                 onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
-                <option value="">- empty -</option>
+                <option value="">{emptyLabel}</option>
                 {suggested.length > 0 && <optgroup label="Suggested prerequisites">
                   {suggested.sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.label.localeCompare(b.label))
                     .map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
@@ -457,7 +457,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       ))}
                     </div>}
                     <ul className="feat-modal-list">
-                      <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>- empty -</button></li>
+                      <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>{emptyLabel}</button></li>
                       {picksType && s.grantedBy !== 'Eldritch Trickster' && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
                       {suggested.length > 0 && <>
                         <li className="feat-modal-level">Suggested prerequisites</li>
