@@ -34,6 +34,7 @@ import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
+import { NamedArmorAbilities } from './NamedArmorAbilities'
 
 const NONE: ContentEntry[] = []
 
@@ -206,6 +207,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
             ? { mechanicEnduringMod: undefined } : {}) })
       })}>Remove</button>
       <HighTechMedic c={c} save={save} index={index} entry={entry} />
+      {entry?.name === 'Shadowed Scale, the Jungle Secret' && <NamedArmorAbilities entry={entry} />}
       <ItemTroubleshoot c={c} save={save} kind="equipment" id={item.mechanicItemId} label={item.name}
         attach={id => ({ equipment: c.equipment.map((gear, i) => i === index ? { ...gear, mechanicItemId: id } : gear) })} />
       {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>

@@ -35,6 +35,19 @@ export const KILLERS_BELT_MAJOR: ContentEntry = {
   effects: [{ type: 'bonus', target: 'Intimidation', bonusType: 'item', value: 3 }], updatedAt: 1,
 }
 
+export const HUNTERS_ARROWHEADS: ContentEntry[] = [
+  { grade: 'Greater', bonus: 2, level: 9, price: 65000 },
+  { grade: 'Major', bonus: 3, level: 17, price: 1500000 },
+].map(({ grade, bonus, level, price }) => ({
+  id: `homebrew:hunters-arrowhead-${grade.toLowerCase()}`, systems: ['pf2e'], kind: 'item', source: 'homebrew',
+  name: `Hunter's Arrowhead (${grade})`, level, traits: ['Invested', 'Magical', 'Rare'],
+  description: `This stronger charm is a religious symbol of Ketephys. Wear it as a pendant or carry it in a pocket or quiver. Against a creature you have designated with Hunt Prey, gain a +${bonus} item bonus to Survival checks and attack rolls. This item bonus does not stack with weapon potency or other item bonuses.\n\nActivate: Guided Shot (reaction, concentrate). Frequency once per day. Trigger You would miss with a bow attack. Effect Gain a +2 circumstance bonus to that attack roll, potentially turning the miss into a hit. Track this activation manually.`,
+  data: { item_category: 'Worn Items', item_subcategory: 'Other Worn Items', usage: 'worn or carried',
+    bulk: 0, price, rarity: 'rare', skill: 'Survival', sourceBook: 'Homebrew',
+    url: 'https://2e.aonprd.com/Equipment.aspx?ID=2343' },
+  effects: [], updatedAt: 1,
+}))
+
 export const HAFT_STRIKER_WEAPON: ContentEntry = {
   id: 'supplemental:haft-striker-stance',
   systems: ['pf2e'],

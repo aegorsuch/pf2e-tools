@@ -17,7 +17,8 @@ import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
-import { namedBowEnhancements, wintershotActivations } from './namedBows'
+import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements } from './namedWeapons'
+import { hunterArrowheadBonus } from './builder'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
@@ -31,6 +32,9 @@ import { armorModifications, armorModificationOptions, armorModificationSlots, t
 import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
+import { namedArmorEnhancements } from './namedArmor'
+import { NamedArmorAbilities } from './NamedArmorAbilities'
+import { shieldEntry } from './builder'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
@@ -44,11 +48,15 @@ const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[]
 const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
-    && !['Animated', 'Disarming', 'Parrying', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
+    && !['Animated', 'Disarming', 'Parrying', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)', 'Vorpal', 'Speed', 'Quickstrike', 'Spell Reservoir', 'Bane'].includes(runeName(rune))
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {
       const source = runeName(rune)
-      const note = source === 'Holy' ? 'Holy: 2d4 spirit instead against unholy targets.'
+      const note = source === 'Anarchic' ? 'Legacy alignment rule: only against lawful targets. A lawful bearer is enfeebled 2. On a critical hit against a lawful target, roll 1d6: 1-2 double minimum damage, 3-4 normal critical damage, 5-6 double maximum damage.'
+        : source === 'Axiomatic' ? 'Legacy alignment rule: only against chaotic targets. A chaotic bearer is enfeebled 2. On a critical hit against a chaotic target, use rounded-up average for each weapon damage die instead of rolling.'
+        : source === 'Brilliant' || source === 'Brilliant (Greater)'
+        ? `Additional 1d4 spirit against fiends and 1d4 vitality against undead. Critical hit: DC ${source === 'Brilliant' ? 29 : 41} Fortitude or blinded for 1 round.${source === 'Brilliant (Greater)' ? ' Damage ignores fire, spirit, and vitality resistance.' : ''}`
+        : source === 'Holy' ? 'Holy: 2d4 spirit instead against unholy targets.'
         : source === 'Unholy' ? 'Unholy: 2d4 spirit instead against holy targets.'
           : source === 'Astral (Greater)' ? 'Greater Astral: spirit damage ignores spirit resistance.'
             : source === 'Flaming' ? '1d10 persistent fire damage on a critical hit.'
@@ -57,7 +65,12 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
                 : source === 'Ashen' ? 'On hit, target must attempt a DC 25 Will save or be confused for 1 round.'
                   : source === 'Ashen (Greater)' ? 'On hit, target must attempt a DC 35 Will save or be confused for 1 round; critical failure extends confusion to 1 minute.'
                     : undefined
-      const value = /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force'
+      const value = source === 'Anarchic' ? '1d6 chaotic vs. lawful targets'
+        : source === 'Axiomatic' ? '1d6 lawful vs. chaotic targets'
+        : source === 'Brilliant' || source === 'Brilliant (Greater)' ? '1d4 fire'
+        : source === 'Corrosive' || source === 'Corrosive (Greater)' ? '1d6 acid'
+          : source === 'Wounding' ? '1d6 persistent bleed'
+        : /^(?:Greater )?Impactful(?: \(Greater\))?$/.test(rune) ? '1d6 force'
         : /^Astral(?: \(Greater\))?$/.test(source) ? '1d6 spirit'
           : source === 'Holy' || source === 'Unholy' ? '1d4 spirit'
             : source === 'Flaming' || source === 'Flaming (Greater)' ? '1d6 fire'
@@ -414,6 +427,7 @@ function Material({ name, entries, equipment, onRemove, source }: {
   name: string; entries: ContentEntry[]; equipment: 'Weapon' | 'Armor'; onRemove?: () => void; source?: string
 }) {
   const base = name.replace(/\s*\([^)]+\)$/, '').replace('Grisantian Hide', 'Grisantian Pelt')
+    .replace(/^Cold Siccatite$/, 'Siccatite').replace(/^Dawnsilver$/, 'Silver')
   const grade = /\([^)]+\)$/.exec(name)?.[0]
   const items = entries.filter((entry) => entry.kind === 'item' && !entry.deleted)
   const entry = (grade ? items.find((entry) => entry.name === `${base} ${equipment} ${grade}`) : undefined)
@@ -968,6 +982,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const handLimit = totalHandCapacity(c)
   const handwraps = effectiveHandwraps(c, entries)
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
+  const arrowhead = hunterArrowheadBonus(c, entries)
   return (
     <div className="col gear-list">
       {displayOnly && <small>Hands used: {handsUsed}/{handLimit}{unknownHands ? ' (some weapon hands unknown)' : ''}</small>}
@@ -982,7 +997,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
-        const capacity = weaponCapacity(a.entry)
+        const capacity = a.entry?.data.named_weapon_no_ammunition ? 0 : weaponCapacity(a.entry)
         const savedLoaded = w.capacityLoaded
         const loaded = capacity > 0
           ? Math.max(0, Math.min(capacity, typeof savedLoaded === 'number' && Number.isInteger(savedLoaded) ? savedLoaded : capacity))
@@ -1031,7 +1046,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const canUseInnovation = !attachmentSource && canBeWeaponInnovation(c, entries, w)
         const innovation = canUseInnovation && !!w.inventorInnovation
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
-        const builtIn = namedBowEnhancements(a.entry)
+        const builtIn = namedWeaponEnhancements(a.entry)
+        const namedSource = String(a.entry?.data.named_weapon_source ?? '')
+        const namedBases = namedWeaponBases(a.entry)
         const automaticBase = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
         const automatic = { potency: Math.max(automaticBase.potency, builtIn?.potency ?? 0),
           striking: Math.max(automaticBase.striking, builtIn?.striking ?? 0) }
@@ -1039,7 +1056,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : w.runes })
-        const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_bow_source)}` })) ?? []),
+        const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
@@ -1053,7 +1070,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
           && c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
-        const attackSummaries = (forms.length
+        const attackSummaries = (namedSource === 'Coldstar Pistols' && (!w.coldstarForm || w.coldstarForm === 'Paired')
+          ? (['Flame', 'Frost'] as const).map(coldstarForm => {
+            const formWeapon = { ...w, coldstarForm }
+            return { form: `${coldstarForm} pistol`, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
+          })
+          : forms.length
           ? (['Melee', 'Ranged'] as const).map(form => {
             const formWeapon = { ...w, combinationForm: form }
             return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
@@ -1069,6 +1091,47 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         const equipControls = <>
+            {namedSource === 'Briar' && <label>Sharpness Points{' '}
+              <input aria-label="Briar Sharpness Points" type="number" min={0} step={1} value={w.briarSharpness ?? 0}
+                onChange={event => {
+                  const points = event.target.valueAsNumber
+                  if (Number.isSafeInteger(points) && points >= 0) update(w.id, { briarSharpness: points })
+                }} />
+            </label>}
+            {namedSource === 'Azlanti Diamond' && <label>Bond duration{' '}
+              <select aria-label="Azlanti Diamond bond duration" value={w.azlantiBond ?? 0}
+                onChange={event => {
+                  const value = Number(event.target.value)
+                  if (value === 0 || value === 1 || value === 2) update(w.id, { azlantiBond: value })
+                }}>
+                <option value={0}>Less than 1 year</option><option value={1}>1 year</option><option value={2}>2+ years</option>
+              </select>
+            </label>}
+            {namedBases.length > 1 && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
+              <select aria-label={`${namedSource} weapon type`} value={String(a.entry?.data.named_weapon_base)}
+                onChange={event => {
+                  const base = event.target.value
+                  if (!namedBases.includes(base)) return
+                  const name = `${namedSource} (${base})`
+                  const target = weaponEntry(entries, name)
+                  if (!target || equipped && (unknownHands || handsUsed - (hands ?? 0) + (weaponHands(entries, { ...w, name, handsHeld: undefined }, c) ?? handLimit + 1) > handLimit)) return
+                  update(w.id, { name, handsHeld: undefined })
+                }}>
+                {namedBases.map(base => <option key={base} value={base} disabled={equipped && (unknownHands
+                  || handsUsed - (hands ?? 0) + (weaponHands(entries, { ...w, name: `${namedSource} (${base})`, handsHeld: undefined }, c) ?? handLimit + 1) > handLimit)}>{base}</option>)}
+              </select>
+            </label>}
+            {namedSource === 'Coldstar Pistols' && <label>Form{' '}<ActionIcon actions="Single Action" />
+              <select aria-label="Coldstar Pistols form" value={w.coldstarForm ?? 'Paired'} onChange={event => {
+                const form = event.target.value
+                if (form !== 'Paired' && form !== 'Flame' && form !== 'Frost' && form !== 'Merged') return
+                if (equipped && (unknownHands || handsUsed - (hands ?? 0) + (form === 'Paired' ? 2 : 1) > handLimit)) return
+                update(w.id, { coldstarForm: form, handsHeld: undefined })
+              }}>
+                <option value="Paired" disabled={equipped && (unknownHands || handsUsed - (hands ?? 0) + 2 > handLimit)}>Paired pistols (2 hands)</option>
+                <option value="Flame">Flame pistol</option><option value="Frost">Frost pistol</option><option value="Merged">Merged (120 ft.)</option>
+              </select>
+            </label>}
             {a.entry?.weaponModes && a.entry.weaponModes.length > 1 && <label title="Changing modes uses an Interact action. Powered attacks still require ammunition or charges.">Mode{' '}
               <ActionIcon actions="Single Action" />
               <select aria-label={`Mode: ${displayName}`} value={w.weaponMode ?? a.entry.weaponModes[0].id} onChange={event => {
@@ -1106,17 +1169,20 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </select>
             </label>}
         </>
-        const activations = wintershotActivations(a.entry)
-        const namedBowNotes = <>
-          {a.entry?.data.named_bow_rules_missing && <small role="status">Named bow enhancement details unavailable. Configure its runes and consult the item rules.</small>}
-          {String(a.entry?.data.named_bow_source ?? '').startsWith('Wintershot') && <small>
-            Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_bow_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.
+        const abilities = namedWeaponAbilities(a.entry)
+        const namedWeaponNotes = <>
+          {namedSource === 'Serithtial' && w.stowed && <small>Stowed form: Bastard Sword. Selected blade form resumes when wielded.</small>}
+          {arrowhead && <small><SourceNote source={arrowhead.source}
+            note={`Against your Hunt Prey target: attack ${signed(a.attack + Math.max(0, arrowhead.value - a.item))}. +${arrowhead.value} item bonus replaces, rather than stacks with, weapon potency. Once per day, when a bow attack would miss, use a reaction to gain +2 circumstance to that roll; resolve manually.`} /></small>}
+          {a.entry?.data.named_weapon_rules_missing && <small role="status">Named weapon enhancement details unavailable. Configure its runes and consult the item rules.</small>}
+          {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <small>
+            Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.
           </small>}
-          {String(a.entry?.data.named_bow_source ?? '').startsWith('Wintershot') && activations.length === 0
+          {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.length === 0
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
-          {activations.map(activation => <details key={activation.name}>
-            <summary>{activation.name} <ActionIcon actions={activation.actions} /></summary>
-            {activation.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+          {abilities.map(ability => <details key={ability.name}>
+            <summary>{ability.name} <ActionIcon actions={ability.actions} /></summary>
+            {ability.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
           </details>)}
         </>
         if (displayOnly) return <div key={w.id} className="gear-card">
@@ -1140,7 +1206,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
           <AttackUpgrades attack={a} />
-          {namedBowNotes}
+          {namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
@@ -1223,7 +1289,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
             <AttackUpgrades attack={a} />
-            {namedBowNotes}
+            {namedWeaponNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
@@ -1264,8 +1330,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
                 && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}</span>
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
-                  source={plate ? `Inherited from ${plate.name}` : giantWeapon ? 'Granted by Giant Instinct' : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon' : 'Granted by Verdant Weapon'}
-                  onRemove={livingWeapon || plate || innovation || giantWeapon || w.verdantWeapon && canUseVerdantWeapon ? undefined : () =>
+                  source={plate ? `Inherited from ${plate.name}` : giantWeapon ? 'Granted by Giant Instinct' : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon'
+                    : builtIn?.material === enhanced.material ? `Built into ${namedSource}` : 'Granted by Verdant Weapon'}
+                  onRemove={livingWeapon || plate || innovation || giantWeapon || w.verdantWeapon && canUseVerdantWeapon || builtIn?.material === enhanced.material ? undefined : () =>
                     update(w.id, { material: undefined, ...(upgradeWeapon ? {} : { runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) }) })} />
               </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
                 <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
@@ -1423,7 +1490,7 @@ export function ShieldEquipment({ c, entries, save }: SectionProps) {
   if (!shields.length) return null
   return <div className="col">
     {shields.map(shield => <div className="row" key={shield.id}>
-      <strong><EntryDescription name={shield.name} entry={entries.find(entry => entry.kind === 'shield' && entry.name === shield.name)}
+      <strong><EntryDescription name={shield.name} entry={shieldEntry(entries, shield.name)}
         className="equipment-name" /></strong><ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
     </div>)}
   </div>
@@ -1500,7 +1567,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const runeLimit = (potency: number, material: OwnedArmor['material']) => maxPropertyRunes(potency, material, capacity > 0)
         const starfinder = granted && entry?.systems.includes('sf2e') ? entry : undefined
         const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
-        const automatic = granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 }
+        const named = namedArmorEnhancements(entry)
+        const automatic = named ?? (granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 })
         const strengthRequirement = Number(entry?.data.strength)
         const hasStrengthRequirement = entry?.data.strength !== undefined && entry.data.strength !== null
           && entry.data.strength !== '' && Number.isFinite(strengthRequirement) && strengthRequirement > 0
@@ -1559,6 +1627,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
             {entry?.description && <Info label="Summary">{entry.description}</Info>}
+            <NamedArmorAbilities entry={entry} />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
@@ -1585,7 +1654,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               </div>
             )}
             <div className="row">
-              {a.material ? <div className="gear-runes"><span>Material</span>
+              {entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span> : a.material ? <div className="gear-runes"><span>Material</span>
                 <Material name={a.material} entries={entries} equipment="Armor" source={body ? 'Attached to character' : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>
                     update(a.id, { material: undefined, runes: a.runes.slice(0, runeLimit(a.potency, undefined)) })} />
@@ -1600,12 +1669,16 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
-              {runesAllowed && !starfinder && <Level label="Potency" value={a.potency} options={POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
+              {runesAllowed && !starfinder && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
-            {runesAllowed ? <Runes runes={a.runes} entries={entries} options={propertyRunes(entries, 'Armor')} limit={runeLimit(runePotency, a.material)} onChange={(runes) => update(a.id, { runes })} />
+            {runesAllowed ? <Runes runes={a.runes.filter(rune => !named?.runes.includes(rune))} entries={entries}
+              freeRunes={named?.runes.map(name => ({ name, source: `Built into ${a.name}` }))}
+              options={propertyRunes(entries, 'Armor').filter(rune => !named?.runes.includes(rune.name))}
+              limit={runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
+              onChange={(runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} />
               : <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
               onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),
@@ -1617,7 +1690,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       {part !== 'armor' && <>{shield ? (
         <article className="gear-card">
           <header className="row">
-            <strong><EntryDescription name={shield.name} entry={entries.find(entry => entry.kind === 'shield' && entry.name === shield.name)}
+            <strong><EntryDescription name={shield.name} entry={shieldEntry(entries, shield.name)}
               className="equipment-name" /></strong>
             <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
             <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
@@ -1652,6 +1725,12 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
           </div>
           <ShieldDurability c={c} entries={entries} shield={shield} />
+          <NamedArmorAbilities entry={shieldEntry(entries, shield.name)} />
+          {shieldEntry(entries, shield.name)?.data.named_shield && <button type="button"
+            disabled={equipped?.id !== shield.id || shield.damage <= 0}
+            onClick={() => save({ shield: { ...shield, damage: Math.max(0, shield.damage - 4) } })}>
+            Recover 4 HP (start of wielder’s turn)
+          </button>}
           <button type="button" className="spell-remove" aria-label={`Remove ${shield.name}`} title="Remove"
             onClick={() => confirmRemoval(`shield "${shield.name}"`, () => save({ shield: undefined }))}>×</button>
         </article>

@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 import { isWeaponMode } from './weaponModes'
 
@@ -20,7 +20,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const level = typeof s.level === 'number' ? s.level : 0
   const data: Record<string, string | number | boolean> = {
     url: s.url ? AON_SITES[system] + text(s.url)
-      + (system === 'pf2e' && RETAINED_LEGACY_FEAT_IDS.some(id => id === hit._id) ? '&NoRedirect=1' : '') : '',
+      + (system === 'pf2e' && [...RETAINED_LEGACY_FEAT_IDS, ...RETAINED_LEGACY_EQUIPMENT_IDS].some(id => id === hit._id) ? '&NoRedirect=1' : '') : '',
     sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source),
   }
   for (const f of DATA_FIELDS) {
@@ -49,6 +49,11 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (kind === 'classFeature') data.class = text(s.class)
   if (kind === 'subclass') data.class = SUBCLASS_CLASSES[text(s.category).toLowerCase()]
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
+  if (traits.includes('Artifact')) {
+    data.artifact_activation_actions = text(s.markdown).split(/\n\s*\n/)
+      .filter(paragraph => /^\*\*Activate\b/.test(paragraph.trim()))
+      .map(paragraph => /<actions\s+string="([^"]*)"/.exec(paragraph)?.[1] ?? '').join(';')
+  }
   return {
     id: `aon:${system}:${hit._id ?? `${kind}:${name}`}`,
     systems: [system],

@@ -62,7 +62,7 @@ export type Effect =
 export interface OwnedWeapon {
   id: string
   name: string
-  // Weapon potency (0-3) and striking (0 none, 1 striking, 2 greater, 3 major)
+  // Weapon potency (0-4) and striking (0 none, 1 striking, 2 greater, 3 major, 4 mythic)
   potency: number
   striking: number
   runes: string[]
@@ -85,6 +85,9 @@ export interface OwnedWeapon {
   attachedWeapon?: 'Bayonet' | 'Reinforced Stock'
   attachedTo?: string
   capacityLoaded?: number
+  briarSharpness?: number
+  coldstarForm?: 'Paired' | 'Flame' | 'Frost' | 'Merged'
+  azlantiBond?: 0 | 1 | 2
 }
 export interface OwnedArmor {
   id: string

@@ -3,7 +3,7 @@ import { resistances,
   ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, INITIATE_TRAINING, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { droneCustomizationSlots, droneStats } from './drone'
@@ -17,6 +17,7 @@ import { getSettings } from './settings'
 import { skillRankAllocations, skillRankRequirements, skillTokenPayment, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
+import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const COMMON_LORES = [...new Set([
@@ -227,6 +228,17 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     .flatMap(weapon => installedWeaponUpgrades(c, entries, weapon))
     .filter(upgrade => /^(?:Truesight Sight|Sniper's Scope)(?:\s*\(|$)/i.test(upgrade.name))
     .map(upgrade => [upgrade.id, upgrade])).values()]
+  const shadowpiercer = part === 'defense' && ownedWeapons(c, entries).some(weapon => weaponHeld(c, entries, weapon)
+    && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Shadowpiercer')
+  const artifactSaves: Record<string, string> = {
+    Serithtial: '+4 status to saves against death and void effects created by followers of Zon-Kuthon; void resistance 10, suppressed doomed, and unfettered movement apply only against those followers.',
+    Ridill: '+2 circumstance to saves against fear; +4 instead if the effect is from a dragon. Does not stack with other circumstance bonuses.',
+    'Kortos Diamond': '+2 item to saves against mental effects; does not stack with resilient or other item bonuses.',
+  }
+  const heldArtifacts = part === 'defense' ? [...new Set(ownedWeapons(c, entries).filter(weapon => weaponHeld(c, entries, weapon))
+    .map(weapon => String(weaponEntry(entries, weapon.name)?.data.named_weapon_source ?? '')).filter(name => artifactSaves[name]))] : []
+  const dwarvenAxe = ownedWeapons(c, entries).some(weapon =>
+    weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Axe of the Dwarven Lords')
   const renderRows = (rows: typeof stats) => rows.map((s) => {
     const rank = ranks[s.name] ?? 0
     const permanentRank = permanentRanks[s.name] ?? 0
@@ -242,8 +254,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const belt = s.name === 'Intimidation' ? killerBeltBonus(c, entries) : undefined
     const ink = s.name === 'Stealth' ? wildwoodInkBonus(c, entries) : undefined
     const tattoo = s.name === 'Crafting' ? tradecraftTattooBonus(c, entries) : undefined
+    const artifact = artifactItemSkillBonus(c, entries, s.name)
+    const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0)
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0)
     const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
@@ -284,6 +298,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
+          {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
+          {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
+            note="+4 item to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe; item bonuses do not stack." />}
+          {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}
+            note={`Survival ${signed(total + Math.max(0, arrowhead.value - item))} against your Hunt Prey target (+${arrowhead.value} item bonus; item bonuses do not stack).`} />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
           {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
           {s.name === 'Perception' && sights.map(sight => {
@@ -327,6 +346,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
           {s.kind === 'save' && hasDivineIntercession(c, 'Cayden Cailean', 'moderate-boon') && <SourceNote inlineSource={false}
             source="Cayden Cailean (Moderate Boon)" note={`Against fear effects, a success becomes a critical success.${classFeatures(entries, c).some(feature => feature.name === 'Bravery') ? ' With fighter Bravery, a critical failure becomes a failure.' : ''}`} />}
+          {s.kind === 'save' && shadowpiercer && <SourceNote inlineSource={false} source="Shadowpiercer"
+            note="+2 status bonus against darkness and shadow effects while wielding Shadowpiercer. Also applies to allies within 60 feet; does not stack with other status bonuses." />}
+          {s.kind === 'save' && heldArtifacts.map(source => <SourceNote key={source} inlineSource={false} source={source} note={artifactSaves[source]} />)}
           {s.kind === 'skill' && hasDivineIntercession(c, 'Kazutal', 'major-boon') && <SourceNote inlineSource={false}
             source="Kazutal (Major Boon)" note="When you Aid, or another creature Aids you, the helper can automatically succeed. If rolling, a success becomes a critical success granting +4 circumstance, regardless of proficiency. Applies only to Aid, not ordinary checks." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}

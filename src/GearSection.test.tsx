@@ -1667,11 +1667,11 @@ it('shows only compatible inherited runes on buff attacks and no removal control
   }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Claws attack +14: show breakdown')
-  expect(markup).toContain('Damage 2d6 S + 1d6 force, Wounding')
+  expect(markup).toContain('Damage 2d6 S + 1d6 force, 1d6 persistent bleed')
   expect(markup).not.toContain('aria-haspopup="dialog">Jaws</button>')
   const jawsMarkup = renderToStaticMarkup(<WeaponList c={{ ...c, animalFeature: 'Jaws' }} entries={[]} save={() => {}} />)
   expect(jawsMarkup).toContain('Jaws attack +14: show breakdown')
-  expect(jawsMarkup).toContain('Damage 2d8 P + 1d6 force, Wounding')
+  expect(jawsMarkup).toContain('Damage 2d8 P + 1d6 force, 1d6 persistent bleed')
   expect(markup).not.toContain('Claws (Animal Feature)')
   expect(markup).not.toContain('Jaws (Animal Feature)')
   expect(markup).not.toContain('aria-label="Remove Claws"')

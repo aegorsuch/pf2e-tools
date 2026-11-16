@@ -2,6 +2,35 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('preserves artifact activation action costs even for unnamed abilities and variable spell costs', () => {
+  const entry = mapAonHit({ _id: 'artifact-actions', _source: {
+    name: 'Artifact actions', category: 'equipment', trait: ['Artifact'],
+    markdown: '**Activate** <actions string="Reaction" /> Trigger A hit.\n\n'
+      + '**Activate\u2014Spell** <actions string="" /> Effect Cast a Spell.\n\n'
+      + '**Activate** <actions string="Two Actions" /> Effect A power.',
+  } }, 'pf2e')
+  expect(entry?.data.artifact_activation_actions).toBe('Reaction;;Two Actions')
+  expect(entry?.description).toContain('Activate\u2014Spell')
+})
+
+it('retains the two legacy alignment runes referenced by artifacts without enabling unrelated legacy equipment', async () => {
+  const queries: Array<{ category?: string; mustNot: unknown[] }> = []
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      query: { bool: { filter: Array<{ term?: { category?: string } }>; must_not?: unknown[] } }
+    }
+    queries.push({ category: body.query.bool.filter.find(filter => filter.term)?.term?.category,
+      mustNot: body.query.bool.must_not ?? [] })
+    return new Response(JSON.stringify({ hits: { hits: [] } }), { status: 200 })
+  }
+  await fetchAonHits('pf2e', fetchFn)
+  expect(queries.find(query => query.category === 'equipment')?.mustNot).toContainEqual({
+    bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['equipment-290', 'equipment-291'] } }] },
+  })
+  expect(mapAonHit({ _id: 'equipment-290', _source: { name: 'Anarchic', category: 'equipment',
+    url: '/Equipment.aspx?ID=290' } }, 'pf2e')?.data.url).toBe('https://2e.aonprd.com/Equipment.aspx?ID=290&NoRedirect=1')
+})
+
 it('keeps full equipment rules for clickable item descriptions instead of truncated summaries', async () => {
   const fetchFn: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }

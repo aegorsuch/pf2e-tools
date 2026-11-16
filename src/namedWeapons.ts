@@ -1,0 +1,262 @@
+import type { ContentEntry, OwnedWeapon } from './types'
+
+const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club"
+const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
+const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
+const BASES: Record<string, string[]> = {
+  Shadowpiercer: ["Dancer's Spear", 'Spear'],
+  'Callooh Callay': ['Longsword', 'Shortsword', 'Bastard Sword'],
+  'Blade of Fallen Stars': ['Gun Sword (Melee)', 'Gun Sword (Ranged)'],
+  'Final Stand': ['Rapier'],
+  Briar: ['Bastard Sword'],
+  'Axe of the Dwarven Lords': ['Dwarven Waraxe'],
+  'Azlanti Diamond': ['Longsword'],
+  Blackaxe: ['Greataxe'],
+  'Cane of the Maelstrom': ['Club'],
+  "Cayden's Tankard": ['Light Hammer'],
+  'Coldstar Pistols': ['Dueling Pistol'],
+  "Freedom's Flame": ['Morningstar'],
+  "Ghosthand's Comet": ["Ghosthand's Comet"],
+  "Hunter's Dawn": ['Club', 'Dart', 'Javelin'],
+  'Kortos Diamond': ['Longsword'],
+  'Lamentation of the Faithless': ['Greatsword'],
+  "Meloth's Lifedrinker": ['Longsword'],
+  "Meloth's Lifedrinker (Improved)": ['Longsword'],
+  Ovinrbaane: ['Greatsword'],
+  'Phoenix Fighting Fan': ['Fighting Fan'],
+  Ridill: ['Greatsword'],
+  Serithtial: ['Bastard Sword', 'Dagger', 'Shortsword', 'Longsword', 'Scimitar', 'Falchion', 'Greatsword', 'Rapier'],
+  "Sorshen's Sinuous Guisarme": ['Guisarme'],
+  "Spear of the Destroyer's Flame": ['Longspear'],
+  'Whisperer of Souls': ['Glaive'],
+}
+const ACTIONS: Record<string, { name: string; actions: string }[]> = {
+  Wintershot: [{ name: 'Auroral Shine', actions: 'Single Action' }, { name: 'Signal Flare', actions: 'Single Action' }],
+  'Wintershot (Artifact)': [{ name: 'Auroral Shine', actions: 'Single Action' }, { name: 'Signal Flare', actions: 'Single Action' },
+    { name: 'Rimecrust', actions: 'Two Actions' }],
+  Shadowpiercer: [{ name: 'Absorb Shadows', actions: 'Two Actions' }, { name: 'Rebuff Gloom', actions: 'Reaction' }],
+  'Callooh Callay': [{ name: 'One, Two!', actions: 'Two Actions' }, { name: 'Rest Thee by the Tumtum', actions: 'Single Action' }],
+  'Blade of Fallen Stars': [{ name: 'Deploy bipod', actions: 'Single Action' }, { name: 'Starlight shot', actions: 'Two Actions' }],
+  Briar: [{ name: 'Barkskin', actions: 'Single Action' }, { name: 'Wither plant', actions: 'Reaction' },
+    { name: 'Save partner', actions: 'Reaction' }, { name: 'Strike Nyrissa', actions: 'Reaction' }],
+  'Coldstar Pistols': [{ name: 'Switch form and Feint', actions: 'Single Action' }, { name: 'Twin shots', actions: 'Single Action' }],
+}
+
+const MATERIALS: Record<string, string> = {
+  Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine',
+  'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
+  'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
+}
+
+export function namedWeaponBases(entry?: ContentEntry) {
+  const bases = BASES[String(entry?.data.named_weapon_source)] ?? []
+  return bases.length > 1 && !bases.some(base => /\((?:Melee|Ranged)\)$/.test(base)) ? bases : []
+}
+
+function sections(item: ContentEntry, family: ContentEntry[]) {
+  const marker = (name: string) => `\n\n${name}\n\n`
+  const boundaries = family.map(peer => item.description.indexOf(marker(peer.name))).filter(index => index >= 0)
+  const common = item.description.slice(0, boundaries.length ? Math.min(...boundaries) : undefined)
+  const start = item.description.lastIndexOf(marker(item.name))
+  const following = start < 0 ? [] : boundaries.filter(index => index > start)
+  const section = start < 0 ? '' : item.description.slice(start, following.length ? Math.min(...following) : undefined)
+  return { common, section }
+}
+
+export function namedWeaponBaseName(entry: ContentEntry) {
+  return String(entry.data.named_weapon_base ?? entry.name).replace(/ \((?:Melee|Ranged)\)$/, '')
+}
+
+function enhancements(item: ContentEntry, family: ContentEntry[], runes: { name: string }[]) {
+  const { common, section } = sections(item, family)
+  const match = enchantment.exec(section) ?? enchantment.exec(common)
+  let properties = ` ${match?.[2].toLowerCase() ?? ''} `
+  properties = properties.replace(/\bspeed\b/g, 'quickstrike').replace(/\bspell-storing\b/g, 'spell reservoir')
+  const fixed: string[] = []
+  for (const legacy of ['Anarchic', 'Axiomatic']) {
+    if (properties.includes(` ${legacy.toLowerCase()} `)) {
+      fixed.push(legacy)
+      properties = properties.replace(` ${legacy.toLowerCase()} `, ' ')
+    }
+  }
+  if (/\b(?:beast-bane|dragon bane)\b/.test(properties)) {
+    fixed.push('Bane')
+    properties = properties.replace(/\b(?:beast-bane|dragon bane)\b/g, ' ')
+  }
+  for (const rune of [...runes].sort((a, b) => b.name.length - a.name.length)) {
+    const phrase = rune.name.replace(/^(.+) \((Lesser|Greater|Major|True)\)$/, '$2 $1').toLowerCase()
+    if (!properties.includes(` ${phrase} `)) continue
+    fixed.push(rune.name)
+    properties = properties.replace(` ${phrase} `, ' ')
+  }
+  return {
+    named_weapon_potency: match ? Number(match[1]) : 0,
+    named_weapon_striking: /\bmythic striking\b/i.test(match?.[2] ?? '') ? 4 : /\bmajor striking\b/i.test(match?.[2] ?? '') ? 3
+      : /\bgreater striking\b/i.test(match?.[2] ?? '') ? 2 : /\bstriking\b/i.test(match?.[2] ?? '') ? 1 : 0,
+    named_weapon_runes: fixed.join(';'),
+    named_weapon_rules_missing: !match || !!properties.replace(/\b(?:(?:greater|major|mythic)\s+)?striking\b|\bmagic(?:al)?\b|\b(?:cold iron|silver|adamantine|obsidian|high-grade dawnsilver|beast-bane|dragon bane)\b/g, '').trim(),
+  }
+}
+
+export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: string }[]) {
+  const items = entries.filter(entry => entry.kind === 'item' && !entry.deleted
+    && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
+  return items.flatMap(item => {
+    const originalBase = weaponBase.exec(item.description)?.[1]?.replace(/Dwarven War Axe/i, 'Dwarven Waraxe')
+      ?? (item.name === 'Wintershot (Artifact)' && /\bcomposite shortbow\b/i.test(item.description) ? 'Composite Shortbow' : undefined)
+      ?? (item.name === "Ghosthand's Comet" ? item.name : undefined)
+    if (!originalBase || !BASES[item.name] && !/\b(?:shortbow|longbow)$/i.test(originalBase)) return []
+    const composite = /^composite /i.test(originalBase)
+    const family = items.filter(peer => peer.data.url && peer.data.url === item.data.url)
+    const fixed = enhancements(item, family, runes)
+    if (item.name === "Ghosthand's Comet") Object.assign(fixed, {
+      named_weapon_potency: 4, named_weapon_striking: 3, named_weapon_runes: 'Bane;Impactful (Greater)', named_weapon_rules_missing: false,
+    })
+    const choices = BASES[item.name] ?? ['Shortbow', 'Longbow'].map(type => `${composite ? 'Composite ' : ''}${type}`)
+    const { common, section } = sections(item, family)
+    let alias = false
+    return choices.flatMap(baseName => {
+      const base = item.name === "Ghosthand's Comet" ? item : entries.find(entry => entry.kind === 'weapon' && !entry.deleted
+        && entry.name.toLowerCase() === baseName.toLowerCase()
+        && entry.systems.some(system => item.systems.includes(system)))
+      if (!base) return []
+      const native = base.name.replace(/ \((?:Melee|Ranged)\)$/, '').toLowerCase() === originalBase.toLowerCase()
+      const custom = !native && !['Serithtial', "Hunter's Dawn"].includes(item.name)
+      const label = /\((Melee|Ranged)\)$/.exec(base.name)?.[1] ?? base.name.replace(/^Composite /i, '')
+      const traits = [...new Map([...base.traits.filter(trait => !/^(?:common|uncommon|rare|unique)$/i.test(trait)),
+        ...item.traits].map(trait => [trait.toLowerCase(), trait])).values()]
+      const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',
+        price: item.data.price ?? '', rarity: item.data.rarity ?? 'common', item_category: 'Weapons',
+        artifact_activation_actions: item.data.artifact_activation_actions ?? '',
+        item_subcategory: 'Specific Magic Weapons', named_weapon: true, named_weapon_source: item.name, named_weapon_base: base.name,
+        named_weapon_material: MATERIALS[item.name] ?? '', ...fixed }
+      if (item.data.bulk !== undefined) data.bulk = item.data.bulk
+      if (['Axe of the Dwarven Lords', "Spear of the Destroyer's Flame"].includes(item.name)) {
+        data.thrown_range = 30
+        data.hands = 2
+        traits.push('Thrown 30 ft.')
+      }
+      if (item.name === "Freedom's Flame") traits.push('Razing')
+      if (item.name === "Sorshen's Sinuous Guisarme") {
+        traits.push('Twin')
+      }
+      if (item.name === 'Coldstar Pistols') {
+        traits.push('Agile')
+        data.hands = 2
+        data.named_weapon_no_ammunition = true
+      }
+      if (item.name === "Hunter's Dawn" && base.name !== 'Club') {
+        const range = Number(base.data.thrown_range ?? base.data.range)
+        if (range > 0) {
+          if (Number(base.data.range) > 0) data.range = range * 2
+          data.thrown_range = range * 2
+          for (let i = 0; i < traits.length; i++) if (/^Thrown\b/i.test(traits[i])) traits[i] = `Thrown ${range * 2} ft.`
+        }
+      }
+      if (item.name === "Ghosthand's Comet") {
+        Object.assign(data, { damage: '1d8 force', weapon_type: 'Ranged', weapon_category: 'Advanced', weapon_group: 'Firearm',
+          range: 300, hands: 2, named_weapon_damage_dice: 5, named_weapon_no_ammunition: true })
+        traits.splice(0, traits.length, ...item.traits, 'Backstabber', 'Concussive', 'Kickback', 'Fatal d12')
+      }
+      const entry: ContentEntry = { ...item, id: choices.length === 1 ? item.id : `${item.id}:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, kind: 'weapon',
+        source: custom ? 'homebrew' : item.source, name: choices.length === 1 ? item.name : `${item.name} (${label})`, traits, data,
+        description: `${custom ? 'Custom weapon version' : 'Base weapon'}: ${base.name}. Named-item abilities are unchanged.\n\n${common}${section}` }
+      if (!native || alias || choices.length === 1) return [entry]
+      alias = true
+      return [{ ...entry, id: item.id, name: item.name, data: { ...data, named_weapon_resolver_only: true } }, entry]
+    })
+  })
+}
+
+export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: OwnedWeapon, level?: number) {
+  if (!entry?.data.named_weapon) return entry
+  const source = entry.data.named_weapon_source
+  if (source === 'Coldstar Pistols') {
+    const merged = weapon.coldstarForm === 'Merged'
+    return { ...entry, data: { ...entry.data, hands: !weapon.coldstarForm || weapon.coldstarForm === 'Paired' ? 2 : 1,
+      range: merged ? 120 : 60, named_weapon_potency: merged ? 4 : 3, named_weapon_striking: merged ? 3 : 2,
+      named_weapon_runes: merged ? 'Flaming (Greater);Frost (Greater)'
+        : weapon.coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)', named_weapon_rules_missing: false } }
+  }
+  if (source === 'Azlanti Diamond') {
+    const bond = [0, 1, 2].includes(weapon.azlantiBond ?? 0) ? weapon.azlantiBond ?? 0 : 0
+    return { ...entry, level: Math.max(entry.level, level ?? entry.level),
+      data: { ...entry.data, named_weapon_potency: bond + 1, named_weapon_striking: bond + 1 } }
+  }
+  if (source !== 'Briar') return entry
+  const saved = weapon.briarSharpness ?? 0
+  const points = Number.isSafeInteger(saved) && saved >= 0 ? saved : 0
+  const tiers = [...entry.description.matchAll(/(?:^|\n\n)(1|4|8|14|20) Sharpness Points?\b/g)]
+  const tier = tiers.filter(match => Number(match[1]) <= points).at(-1)
+  const next = tier && tiers[tiers.indexOf(tier) + 1]
+  const destruction = entry.description.search(/(?:^|\n\n)Destruction\b/)
+  const end = destruction < 0 ? entry.description.length : destruction
+  const intro = entry.description.slice(0, tiers[0]?.index ?? end)
+  const active = tier ? entry.description.slice(tier.index, next?.index ?? end) : ''
+  return { ...entry, description: [intro, active, destruction < 0 ? '' : entry.description.slice(destruction)].join('\n\n'),
+    traits: [...entry.traits.filter(trait => trait !== 'Intelligent'), ...(points >= 4 ? ['Intelligent'] : [])],
+    data: { ...entry.data, named_weapon_potency: points >= 8 ? 4 : 3, named_weapon_striking: points >= 4 ? 3 : 2,
+      named_weapon_runes: [points >= 1 ? 'Shifting' : '', points >= 20 ? 'Vorpal' : ''].filter(Boolean).join(';'),
+      artifact_activation_actions: ['Single Action', 'Reaction', 'Reaction', 'Reaction'].slice(0,
+        points >= 20 ? 4 : points >= 14 ? 3 : points >= 8 ? 2 : points >= 4 ? 1 : 0).join(';'),
+      named_weapon_rules_missing: tiers.length !== 5 } }
+}
+
+export function namedWeaponEnhancements(entry?: ContentEntry) {
+  if (!entry?.data.named_weapon) return undefined
+  return {
+    potency: Number(entry.data.named_weapon_potency),
+    striking: Number(entry.data.named_weapon_striking),
+    runes: String(entry.data.named_weapon_runes).split(';').filter(Boolean),
+    material: String(entry.data.named_weapon_material ?? '') || undefined,
+  }
+}
+
+export function namedWeaponDamage(entry?: ContentEntry) {
+  const source = entry?.data.named_weapon_source
+  if (source === 'Shadowpiercer') return [{
+    source, value: '2d6 precision vs. incorporeal or shadow creatures',
+    note: 'Against creatures with the incorporeal or shadow trait, this weapon ignores immunity and resistance to precision damage.',
+  }]
+  if (source === 'Callooh Callay') return [{
+    source, value: '2d6 persistent bleed vs. Tane or linnorms',
+    note: 'Applies only when Striking a Tane or linnorm, not other targets.',
+  }]
+  const conditional = source === 'Axe of the Dwarven Lords' ? '1d6 vs. orcs'
+    : source === 'Blackaxe' ? '2d6 vs. plants'
+      : source === 'Serithtial' ? '2d6 vs. worshippers of Zon-Kuthon'
+        : source === 'Ridill' ? '1d6 vs. dragons'
+          : source === "Ghosthand's Comet" ? '1d6 vs. beasts' : undefined
+  if (conditional) return [{ source: String(source), value: conditional, note: 'Additional damage applies only against the specified targets. See Properties for full rules.' }]
+  return []
+}
+
+export function namedWeaponAbilities(entry?: ContentEntry) {
+  if (!entry?.data.named_weapon) return []
+  const source = String(entry.data.named_weapon_source)
+  const definitions = ACTIONS[source] ?? []
+  const blocks = entry.description.split(/\n\n-{3,}\s*\n\n/)
+  const body = (blocks.length > 1 ? blocks.slice(1).join('\n\n') : blocks[0])
+    .replace(/^(?:Custom weapon version|Base weapon):[^\n]*\n\n/, '')
+    .replace(/(?:^|\n\n)Nethys Note:[^\n]*(?=\n\n|$)/g, '')
+    .replace(/(?:^|\n\n)-{3,}(?=\n\n|$)/g, '')
+  const costs = String(entry.data.artifact_activation_actions ?? '').split(';')
+  const starts = [...body.matchAll(/(?:^|\n\n)(Activate|Destruction)\b/g)]
+  const paragraphs = (text: string) => text.replace(/\b(Critical Success|Success|Critical Failure|Failure)\b/g, '\n\n$1')
+    .split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean)
+  const abilities = starts.map((match, index) => {
+    const section = body.slice(match.index + match[0].length, starts[index + 1]?.index).trim()
+    const named = /^[\u2014\u2013-]\s*(.+?)(?=\s+\(|\s*;|\s+(?:Cast a Spell|Frequency|Requirements|Trigger|Effect)\b)/.exec(section)
+    const definition = named ? definitions.find(definition => definition.name === named[1].trim()) : definitions[index]
+    return {
+      name: match[1] === 'Destruction' ? 'Destruction' : named?.[1].trim() ?? definition?.name ?? `Activation ${index + 1}`,
+      actions: match[1] === 'Destruction' ? undefined : costs[index] || definition?.actions,
+      paragraphs: paragraphs(named ? section.slice(named[0].length) : section),
+    }
+  })
+  if (BASES[source]) {
+    const properties = paragraphs(body.slice(0, starts[0]?.index))
+    if (properties.length) abilities.unshift({ name: 'Properties', actions: undefined, paragraphs: properties })
+  }
+  return abilities
+}

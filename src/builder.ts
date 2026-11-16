@@ -10,6 +10,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
+import { isNamedArmor, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -20,7 +21,7 @@ import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoice
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, elfAtavismOptions, isVersatileHeritage } from './heritages'
-import { makeNamedBowEntries, namedBowEnhancements } from './namedBows'
+import { makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
 
 export type Ability = keyof Character['abilities']
@@ -304,8 +305,9 @@ export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, ent
 }
 
 export function shieldStats(shield: ShieldStatsInput, c?: Character, entries: ContentEntry[] = []) {
-  const hardness = shield.material?.hardness ?? shield.hardness
-  const hp = shield.material?.hp ?? shield.hp
+  const named = shield.name ? makeNamedShieldEntry(entries, shield.name) : undefined
+  const hardness = Math.max(shield.material?.hardness ?? shield.hardness, num(named?.data.hardness))
+  const hp = Math.max(shield.material?.hp ?? shield.hp, num(named?.data.hp))
   const blessing = c && blessedShieldBenefit(c, shield, entries)
   const purchased = shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
   const granted = blessing?.rune && SHIELD_RUNES[blessing.rune]
@@ -2278,6 +2280,10 @@ export function senses(c: Character, entries: ContentEntry[]) {
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
   }
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
+  if (ancestryFeatTraits(c).includes('dwarf') && carriedWeapons(c, entries).some(weapon => weaponHeld(c, entries, weapon)
+    && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Axe of the Dwarven Lords')) {
+    addVision('Greater Darkvision', 'Axe of the Dwarven Lords')
+  }
   if (c.systems.includes('sf2e')) {
     const native: Record<string, string> = {
       Maraquoi: 'Dermal Hearing (imprecise) 30 feet',
@@ -2878,11 +2884,14 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
       && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Energy Neutralizer', 'Enhanced Energy Neutralizer'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
-    ...c.equipment.map((g) => byName(entries, 'item', g.name)),
+    ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  if ((c.weapons ?? []).some(weapon => weaponEntry(entries, weapon.name)?.data.named_weapon_source === "Spear of the Destroyer's Flame")) {
+    out.push({ damage: 'fire', value: 20, source: "Spear of the Destroyer's Flame" })
+  }
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) {
     out.push({ damage: 'Fire', value: 5, source: 'Asmodeus (Moderate Boon)' })
   }
@@ -3088,7 +3097,7 @@ export function clanDaggerFiligreeBonus(c: Character, entries: ContentEntry[]) {
 
 function carriedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   return c.weapons ?? c.equipment
-    .filter((g) => byName(entries, 'weapon', g.name))
+    .filter((g) => g.qty > 0 && weaponEntry(entries, g.name))
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, striking: 0, runes: [] }))
 }
 
@@ -3150,7 +3159,7 @@ export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
 
 export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Character): number | undefined {
   if (weapon.id === OVERSIZED_THROW.id) return 0
-  const original = weaponEntry(entries, weapon.name)
+  const original = withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)
   const entry = c ? weaponWithModifications(c, weapon, original) : original
   if (!entry) return undefined
   if (weaponCategory(entry) === 'Unarmed'
@@ -3208,6 +3217,14 @@ function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: str
 export const killerBeltBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Killer's Belt")
 export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
 export const tradecraftTattooBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Tradecraft Tattoo', 2)
+export const hunterArrowheadBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Hunter's Arrowhead")
+
+export function artifactItemSkillBonus(c: Character, entries: ContentEntry[], skill: string) {
+  if (!['Arcana', 'Crafting', 'Diplomacy'].includes(skill)) return undefined
+  const carried = carriedWeapons(c, entries).some(weapon => weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Azlanti Diamond')
+    || c.equipment.some(item => item.qty > 0 && item.name === 'Azlanti Diamond')
+  return carried ? { source: 'Azlanti Diamond', value: c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 } : undefined
+}
 
 export function ringCount(c: Character, entries: ContentEntry[]) {
   return c.equipment.reduce((count, item) =>
@@ -3509,19 +3526,19 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string) {
   const base = card && byName(entries, 'weapon', card.base)
   if (card && base) return { ...base, id: card.id, name: card.name }
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
-    ?? byName(entries, 'weapon', name) ?? namedBowEntries(entries).find(entry => entry.name === name)
+    ?? byName(entries, 'weapon', name) ?? namedWeaponEntries(entries).find(entry => entry.name === name)
     ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
     ?? [...ATTACHED_WEAPONS, SHIELD_BASH].find(entry => entry.name === name)
 }
 
-const namedBowCache = new WeakMap<ContentEntry[], ContentEntry[]>()
-function namedBowEntries(entries: ContentEntry[]) {
-  let bows = namedBowCache.get(entries)
-  if (!bows) {
-    bows = makeNamedBowEntries(entries, propertyRunes(entries, 'Weapon'))
-    namedBowCache.set(entries, bows)
+const namedWeaponCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+function namedWeaponEntries(entries: ContentEntry[]) {
+  let weapons = namedWeaponCache.get(entries)
+  if (!weapons) {
+    weapons = makeNamedWeaponEntries(entries, propertyRunes(entries, 'Weapon'))
+    namedWeaponCache.set(entries, weapons)
   }
-  return bows
+  return weapons
 }
 
 function hammerMultipistolEntries(entries: ContentEntry[]) {
@@ -3548,16 +3565,32 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>) {
 export function armorEntry(c: Character, entries: ContentEntry[], name: string) {
   return grantedArmorEntries(c, selectedSubclass(c, entries)).find(entry => entry.name === name)
     ?? byName(entries, 'armor', name)
+    ?? namedArmorEntries(entries).find(entry => entry.name === name)
+}
+
+const namedArmorCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+function namedArmorEntries(entries: ContentEntry[]) {
+  let armors = namedArmorCache.get(entries)
+  if (!armors) {
+    armors = makeNamedArmorEntries(entries, propertyRunes(entries, 'Armor'))
+    namedArmorCache.set(entries, armors)
+  }
+  return armors
+}
+
+export function shieldEntry(entries: ContentEntry[], name: string) {
+  return byName(entries, 'shield', name) ?? makeNamedShieldEntry(entries, name)
 }
 
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
   const grants = grantedArmorEntries(c, selectedSubclass(c, entries))
   const attached = grants.find(entry => entry.data.attached)
   const best = c.armors ? undefined : c.equipment
-    .map((g) => byName(entries, 'armor', g.name))
+    .map((g) => armorEntry(c, entries, g.name))
     .filter((e): e is ContentEntry => !!e)
-    .sort((a, b) => num(b.data.ac) - num(a.data.ac))[0]
-  const saved = c.armors ?? c.equipment.filter((g) => byName(entries, 'armor', g.name))
+    .sort((a, b) => num(b.data.ac) + (namedArmorEnhancements(b)?.potency ?? 0)
+      - num(a.data.ac) - (namedArmorEnhancements(a)?.potency ?? 0))[0]
+  const saved = c.armors ?? c.equipment.filter((g) => armorEntry(c, entries, g.name))
     .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
   const ordinary = saved.filter(armor => !isGrantedArmor(armor.id))
     .map(armor => effectiveArmor(c, entries, canWearWithAttachedArmor(armor, attached) ? armor : { ...armor, worn: false }))
@@ -3601,6 +3634,9 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
       runes: runesAllowed ? armor.runes : [] }
   }
   const material = scaledMaterial(isWoodArmor(entries, armor) ? 'Duskwood' : armor.material, c.level, 'Armor')
+  const named = namedArmorEnhancements(armorEntry(c, entries, armor.name))
+  if (named) return { ...armor, material, potency: Math.max(armor.potency, named.potency),
+    resilient: Math.max(armor.resilient, named.resilient), runes: [...new Set([...named.runes, ...armor.runes])] }
   return material === armor.material ? armor : { ...armor, material }
 }
 
@@ -3613,7 +3649,7 @@ export function armorGauntlet(c: Character, entries: ContentEntry[]) {
 
 // ---------- Weapons ----------
 
-export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking']
+export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking', 'Mythic Striking']
 export const WEAPON_PROPERTY_RUNES = [
   'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disarming', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
   'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Parrying', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
@@ -3762,7 +3798,9 @@ export function championBlessings(c: Character) {
 export function isFavoredWeapon(c: Character, entries: ContentEntry[], name: string) {
   const favored = tokens(byName(entries, 'deity', c.deity)?.data.favored_weapon)
     .flatMap((weapon) => weapon.split(/\s+or\s+/i)).map((weapon) => weapon.toLowerCase())
-  return favored.includes(name.replace(/ \(Animal Feature\)$/, '')
+  const entry = weaponEntry(entries, name)
+  const base = entry?.data.named_weapon ? namedWeaponBaseName(entry) : name
+  return favored.includes(base.replace(/ \(Animal Feature\)$/, '')
     .replace(/^(Shobhad Longrifle) \((?:Pathfinder|Starfinder)\)$/, '$1').toLowerCase())
 }
 
@@ -3902,9 +3940,13 @@ export function canBeGiantWeapon(c: Character, entries: ContentEntry[], weapon: 
 export const isGiantWeapon = (c: Character, entries: ContentEntry[], weapon: OwnedWeapon) =>
   c.giantWeaponId === weapon.id && canBeGiantWeapon(c, entries, weapon)
 
+const countsAsGiantWeapon = (c: Character, entries: ContentEntry[], weapon: OwnedWeapon) =>
+  isGiantWeapon(c, entries, weapon) || isGiantInstinct(c, entries)
+    && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Ridill'
+
 export function giantWeaponClumsy(c: Character, entries: ContentEntry[]) {
   return isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
-    isGiantWeapon(c, entries, weapon) && weaponEquipped(c, entries, weapon)) ? 1 : 0
+    countsAsGiantWeapon(c, entries, weapon) && weaponEquipped(c, entries, weapon)) ? 1 : 0
 }
 
 function giantWeaponSize(c: Character, entries: ContentEntry[]): NonNullable<OwnedWeapon['size']> {
@@ -3919,7 +3961,7 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
     || !activeFeatsNamed(c, 'Raging Thrower').length)) return 0
   const instinct = barbarianInstinct(c, entries)
   const stage = c.level >= 15 ? 2 : c.level >= 7 ? 1 : 0
-  const value = instinct === 'giant' && isGiantWeapon(c, entries, weapon) ? [6, 10, 18][stage]
+  const value = instinct === 'giant' && countsAsGiantWeapon(c, entries, weapon) ? [6, 10, 18][stage]
     : instinct === 'fury' ? [3, 7, 13][stage] : 2
   return traits.includes('agile') ? Math.floor(value / 2) : value
 }
@@ -3997,9 +4039,10 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
   const entry = weaponEntry(entries, weapon.name)
-  const builtIn = namedBowEnhancements(entry)
+  const builtIn = namedWeaponEnhancements(withNamedWeaponState(entry, weapon, c.level))
+  if (builtIn?.material) weapon = { ...weapon, material: builtIn.material }
   if (usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed') return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
-  const scaled = scaledMaterial(weapon.material, c.level, 'Weapon')
+  const scaled = builtIn?.material && weapon.material === builtIn.material ? weapon.material : scaledMaterial(weapon.material, c.level, 'Weapon')
   if (scaled !== weapon.material) weapon = { ...weapon, material: scaled }
   const favored = deityWeapon(c, entries)?.id === weapon.id
   const automatic = automaticWeaponFundamentals(c.level)
@@ -4058,7 +4101,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
 }
 
 export const maxPropertyRunes = (potency: number, material?: OwnedWeapon['material'], runeCapacity = false) => {
-  const slots = Math.max(0, Math.min(3, potency))
+  const slots = Math.max(0, Math.min(4, potency))
   const materialBonus = slots > 0 && material === 'Orichalcum' ? 1 : 0
   const modificationBonus = slots > 0 && runeCapacity ? 1 : 0
   return Math.min(4 + Number(materialBonus > 0 && modificationBonus > 0), slots + materialBonus + modificationBonus)
@@ -4092,7 +4135,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (combinationForms(entries, w.name).length || PLAYING_CARD_WEAPONS.some(card => card.id === w.id)) {
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
-  let entry = weaponEntry(entries, w.name)
+  let entry = withNamedWeaponState(weaponEntry(entries, w.name), w, c.level)
   if (w.id === OVERSIZED_THROW.id) {
     const specialization = classFeatures(entries, c).map((feature) => feature.name.toLowerCase())
     const dice = specialization.includes('greater weapon specialization') || c.className === 'Barbarian' && c.level >= 15 ? 3
@@ -4102,12 +4145,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   entry = weaponWithMode(w, entry)
   entry = weaponWithModifications(c, w, entry)
   if (entry && hasDivineIntercession(c, 'Erastil', 'moderate-boon')
-    && /\blongbow\b/i.test(String(entry.data.named_bow_base ?? entry.name))) {
+    && /\blongbow\b/i.test(namedWeaponBaseName(entry))) {
     entry = { ...entry, traits: entry.traits.map(trait => /^volley\b/i.test(trait) ? 'Volley (if beneficial)' : trait),
       data: { ...entry.data, range: num(entry.data.range) * 2 } }
   }
   if (entry && hasDivineIntercession(c, 'Gorum', 'moderate-boon')
-    && /^(?:bastard sword|greatsword)$/i.test(entry.name) && !entry.traits.some(trait => /^forceful$/i.test(trait))) {
+    && /^(?:bastard sword|greatsword)$/i.test(namedWeaponBaseName(entry)) && !entry.traits.some(trait => /^forceful$/i.test(trait))) {
     entry = { ...entry, traits: [...entry.traits, 'Forceful'] }
   }
   const hydraulicFist = !!entry && /^(?:iron )?fists?$/i.test(entry.name) && !!activeFeatsNamed(c, 'Hydraulic Pistons').length
@@ -4151,7 +4194,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const mod = ability === 'dex' ? dex : str
   const clumsy = ability === 'dex' ? giantWeaponClumsy(c, entries) : 0
   const divineAttackBonus = hasDivineIntercession(c, 'Iomedae', 'major-boon')
-    && /^longsword$/i.test(entry?.name ?? '') && weaponHeld(c, entries, w) ? 2 : 0
+    && !!entry && /^longsword$/i.test(namedWeaponBaseName(entry)) && weaponHeld(c, entries, w) ? 2 : 0
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
     .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
@@ -4189,7 +4232,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const modifiedDamageType = c.level >= 5 && chosenDamageType
     && (physicalTypes.includes(damageType ?? '') && physicalTypes.includes(chosenDamageType)
       || energyTypes.includes(damageType ?? '') && energyTypes.includes(chosenDamageType)) ? chosenDamageType : m?.[3]
-  const dice = m ? (+m[1]) * (1 + w.striking) : 0
+  const dice = m ? Math.max((+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
   const twoHandDie = weaponHands(entries, attachedSource ?? w, c) === 2
@@ -4223,7 +4266,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     upgrades,
     pristineLivingWeapon,
     rageDamage,
-    additionalDamage: divineAttackDamage(c),
+    additionalDamage: [...divineAttackDamage(c), ...namedWeaponDamage(entry)],
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
@@ -4531,8 +4574,9 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
   const seen = new Set<string>()
   // Saved gear resolves by name; picker Access and source must use that same first record.
   const pool = baseItems([...entries.filter(entry => entry.kind === kind && !entry.deleted && !entry.data.retired),
+    ...(kind === 'armor' ? namedArmorEntries(entries) : kind === 'shield' ? [makeNamedShieldEntry(entries, 'Scale of Igroon')].filter((entry): entry is ContentEntry => !!entry) : []),
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
-      ...namedBowEntries(entries).filter(entry => entry.name !== entry.data.named_bow_source)] : [])])
+      ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
   return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
@@ -4547,7 +4591,7 @@ export function combinationForms(entries: ContentEntry[], name: string) {
   if (!index) {
     index = new Map()
     const groups = new Map<string, ContentEntry[]>()
-    for (const entry of [...entries, ...hammerMultipistolEntries(entries)]) {
+    for (const entry of [...entries, ...hammerMultipistolEntries(entries), ...namedWeaponEntries(entries)]) {
       if (entry.kind !== 'weapon' || entry.deleted || !entry.traits.some(trait => trait.toLowerCase() === 'combination')) continue
       const match = /^(.*?) \((Melee|Ranged)\)$/.exec(entry.name)
       const url = String(entry.data.url ?? '')
@@ -4560,7 +4604,10 @@ export function combinationForms(entries: ContentEntry[], name: string) {
     for (const group of groups.values()) {
       const melee = group.find(entry => entry.name.endsWith('(Melee)'))
       const ranged = group.find(entry => entry.name.endsWith('(Ranged)'))
-      if (melee && ranged) for (const entry of [melee, ranged]) if (!index.has(entry.name)) index.set(entry.name, [melee, ranged])
+      if (melee && ranged) {
+        for (const entry of [melee, ranged]) if (!index.has(entry.name)) index.set(entry.name, [melee, ranged])
+        if (melee.data.named_weapon_source) index.set(String(melee.data.named_weapon_source), [melee, ranged])
+      }
     }
     combinationCache.set(entries, index)
   }
@@ -4573,7 +4620,8 @@ export function combinationName(entries: ContentEntry[], name: string) {
 
 // Specific magic weapons/armor (Fractal Hook, ...) are not bases; AoN marks them by trait, subcategory or level above 0
 export function isMagicItem(e: ContentEntry) {
-  if (e.data.named_bow) return true
+  if (e.data.named_armor || e.data.named_shield) return true
+  if (e.data.named_weapon) return true
   if (e.source === 'homebrew') return false
   const sub = String(e.data.item_subcategory ?? '')
   if (e.traits.some((t) => t.toLowerCase() === 'magical')) return true

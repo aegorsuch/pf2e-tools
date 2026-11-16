@@ -28,6 +28,7 @@ export const usesFullItemRules = (source: Record<string, unknown>) =>
 
 // Retain these legacy oaths because their remaster replacements have different mechanics.
 export const RETAINED_LEGACY_FEAT_IDS = ['feat-219', 'feat-1669']
+export const RETAINED_LEGACY_EQUIPMENT_IDS = ['equipment-290', 'equipment-291']
 
 // Old Ranger snare feats; keep the remastered Snarecrafter archetype instead.
 export const EXCLUDED_LEGACY_RANGER_FEAT_IDS = [
@@ -36,8 +37,8 @@ export const EXCLUDED_LEGACY_RANGER_FEAT_IDS = [
 
 const contentQuery = (category: string, system: GameSystem) => ({
   bool: { filter: [{ term: { category } }], must_not: [
-    category === 'feat' && system === 'pf2e'
-      ? { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: RETAINED_LEGACY_FEAT_IDS } }] } }
+    ['feat', 'equipment'].includes(category) && system === 'pf2e'
+      ? { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: category === 'feat' ? RETAINED_LEGACY_FEAT_IDS : RETAINED_LEGACY_EQUIPMENT_IDS } }] } }
       : { exists: { field: 'remaster_id' } },
     ...(category === 'feat' && system === 'pf2e' ? [{ ids: { values: EXCLUDED_LEGACY_RANGER_FEAT_IDS } }] : []),
   ] },
