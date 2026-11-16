@@ -51,6 +51,31 @@ function findSelectClear(node: ReactNode, label: string): (() => void) | undefin
   return found
 }
 
+it('explains Rider mounted support without granting full mount benefits or changing companions', () => {
+  const c: Character = {
+    id: 'rider', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'bird', type: 'Bird', name: '' }],
+  }
+  const bird: ContentEntry = {
+    id: 'bird', systems: ['pf2e'], name: 'Bird', kind: 'companion', source: 'official', level: 1,
+    traits: ['Animal'], description: '', effects: [], updatedAt: 0,
+    data: { size: 'Small', hp: 4, strength: 2, dexterity: 3, constitution: 1, intelligence: -4,
+      wisdom: 2, charisma: 0, speed_raw: '10 feet, fly 60 feet', companion_support: 'Distract your foes.' },
+  }
+  const before = JSON.stringify(c)
+  const render = (character = c, entry = bird) => renderToStaticMarkup(<MinionsContent c={character} entries={[entry]} save={() => {}} />)
+  expect(render()).toContain('it can move and Support you on the same turn')
+  expect(render()).toContain('must be at least one size larger than you and can use only its land Speed')
+  expect(render()).not.toContain('<span>Mount</span>')
+  expect(render({ ...c, feats: [] })).not.toContain('it can move and Support you on the same turn')
+  expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).toContain('<span>Mount</span>')
+  expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).not.toContain('it can move and Support you on the same turn')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
 it('shows one advancement choice and summarizes companion type and stage', () => {
   const c: Character = {
     id: 'companion', systems: ['pf2e'], name: 'Test', level: 10, className: 'Ranger',

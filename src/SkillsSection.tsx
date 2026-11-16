@@ -236,6 +236,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Radiation Resistant" note="+1 circumstance bonus to Fortitude saves against radiation effects." />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
             source="Tinkering Fingers" note="Repair without a toolkit without the penalty; +1 circumstance to Repair checks with a repair toolkit." />}
+          {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
+            source="Rider" note="+1 circumstance bonus to Command an Animal checks for your own animal companion, if a check is required. Does not apply to other Nature checks." />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
           {s.name === 'Diplomacy' && laborer && <SourceNote inlineSource={false}

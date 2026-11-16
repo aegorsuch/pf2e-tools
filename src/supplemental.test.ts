@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
-import { backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { FeatSlots } from './FeatSlots'
 import { MinionsContent } from './MinionsSection'
@@ -41,6 +41,24 @@ it('provides Direwolf Bonded boosts, training and restricted feat grants without
   const minions = renderToStaticMarkup(createElement(MinionsContent, { c, entries, save: () => {} }))
   expect(minions).not.toContain('Choose companion')
   expect(c.companions).toBeUndefined()
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('offers Rider as a level-one companion-class feat and grants Ride without creating a companion', () => {
+  const rider = homebrewCharacterOptions([]).find(entry => entry.name === 'Rider')!
+  const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  const entries = [rider]
+  for (const className of ['Champion', 'Commander', 'Druid', 'Ranger']) {
+    const c: Character = { ...base, level: 1, className }
+    expect(eligibleFeats(entries, c, slot)).toContain(rider)
+  }
+  expect(eligibleFeats(entries, { ...base, level: 1, className: 'Fighter' }, slot)).not.toContain(rider)
+  expect(eligibleFeats(entries, { ...base, level: 1 }, { ...slot, category: 'general' })).not.toContain(rider)
+  const c: Character = { ...base, level: 1, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
+  const before = JSON.stringify(c)
+  expect(automaticFeatGrants(c, entries)).toContainEqual({ name: 'Ride', source: 'Rider', level: 1 })
+  expect(automaticFeatGrants({ ...c, feats: [{ ...c.feats[0], takenLevel: 3 }] }, entries))
+    .not.toContainEqual(expect.objectContaining({ source: 'Rider' }))
   expect(JSON.stringify(c)).toBe(before)
 })
 

@@ -112,6 +112,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Hardwood Armor' && entry.traits.includes('Kineticist'))
   return [
     ...rangerCopies,
+    homebrewFeat('rider', 'Rider', 1, ['Champion', 'Commander', 'Druid', 'Ranger'],
+      "You are especially good at riding animal companions. You gain the Ride general feat. You gain a +1 circumstance bonus to Nature checks to Command an Animal when commanding your own animal companion, if a check is required.\n\nWhile you ride your animal companion, it can move and Support you on the same turn. It must be at least one size larger than you, and it can use only its land Speed while carrying a rider. This feat does not grant the mount special ability or remove these size and Speed restrictions; companions that already have the mount special ability retain its normal benefits.\n\nThis feat does not grant an animal companion and does not apply to construct companions, eidolons, or familiars.",
+      { class: 'Champion, Commander, Druid, Ranger' }),
     ...(hardwood ? [{
       ...hardwood, id: 'homebrew:hardwood-armor-ranger-druid', source: 'homebrew' as const,
       traits: hardwood.traits.filter(trait => !['Impulse', 'Kineticist'].includes(trait)).concat(['Ranger', 'Druid']),

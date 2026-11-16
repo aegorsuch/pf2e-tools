@@ -301,6 +301,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
                   {stats.weakness && <small>Weakness: {stats.weakness}</small>}
+                  {!isConstruct && !stats.mount && !!activeFeatsNamed(c, 'Rider').length && <div>
+                    <SourceNote source="Rider" note="While you ride this animal companion, it can move and Support you on the same turn. It must be at least one size larger than you and can use only its land Speed while carrying a rider." />
+                  </div>}
                   {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
                     Creatures touching or hitting the steed with an adjacent melee Strike take {stats.paleHorse.retaliation} {stats.paleHorse.damage.toLowerCase()} damage.</div>}
                   <div className="gear-stats">

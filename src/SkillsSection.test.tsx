@@ -26,6 +26,16 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows Rider as a conditional Nature bonus without increasing ordinary Nature checks', () => {
+  const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
+  const markup = render(c)
+  expect(markup).toContain('+1 circumstance bonus to Command an Animal checks for your own animal companion')
+  expect(markup).toContain('Does not apply to other Nature checks.')
+  expect(ranksAt(c, [ranger]).Nature).toBe(ranksAt(base, [ranger]).Nature)
+  expect(render(base)).not.toContain('Command an Animal checks for your own animal companion')
+})
+
 it('grants Underworld Investigator free trained Lore without Additional Lore progression', () => {
   const previous = getSettings().autoLores
   updateSettings({ autoLores: false })

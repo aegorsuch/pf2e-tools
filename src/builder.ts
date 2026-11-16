@@ -2206,7 +2206,7 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
   }
-  for (const [source, name] of [['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
+  for (const [source, name] of [['Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
     ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump']]) {
     for (const feat of activeFeatsNamed(c, source)) grants.push({ name, source, level: featTakenLevel(feat) })
   }
