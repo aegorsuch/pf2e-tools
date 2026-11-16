@@ -26,7 +26,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: "Feat skill prerequisites use actual skill ranks at your character's selected build level, even for earlier feat slots. Unassigned ranks do not qualify. Other prerequisites are unchanged." },
   { key: 'rangerSnarecrafter', label: 'Ranger Snarecrafter Dedication' },
   { key: 'skillTokenConversion', label: 'Skill Token Conversion',
-    description: 'Two unused Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. From Trained: 2 / 6 / 14 Trained choices total. Existing proficiencies, source restrictions and level caps remain. Full rules and refunds are in Skills > Skill token exchange.' },
+    description: 'Choose a higher skill rank to combine unused choices automatically. Two Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. From Trained: 2 / 6 / 14 Trained choices total. Existing proficiencies, source restrictions and level caps remain. Full rules and refunds are in Skills > Skill token rules.' },
   { key: 'unarmedCountsAsWeapons', label: 'Unarmed attacks count as weapons' },
 ]
 

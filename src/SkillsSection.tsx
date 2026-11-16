@@ -103,10 +103,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     ? skillTokenState(c, entries) : undefined
   const requirements = editingSkills ? skillRankRequirements(c, entries, [...skillNames]) : undefined
   const hasTokenPurchase = (name: string) => !!tokenState?.active.some(item => item.purchase.skill === name)
+  const canRefundTokens = (name: string, target: number) => !!tokenState?.active.some(item =>
+    item.purchase.skill === name && item.purchase.rank > target)
+  const refundTokens = (name: string, rank: number) => confirmRemoval(
+    `${name} ${RANKS[rank]} token upgrade and higher token upgrades for this skill`,
+    () => save({ skillTokenUpgrades: c.skillTokenUpgrades?.filter(item => item.skill !== name || item.rank < rank) }))
   const offense = stats.filter((stat) => stat.kind === 'perception')
   const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
-  const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined }
+  const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined, skillTokenUpgrades: undefined }
   const baseRanks = editingSkills ? ranksAt(noPaidIncreases, entries, 99, false) : ranks
   const rankGrants = (editingSkills ? ['Technomagical Scrapper', ...Object.keys(INITIATE_TRAINING), 'Ancestral Skills', ...new Set(trainedLores.map(grant => grant.source))] : []).flatMap(name => {
     const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
@@ -176,6 +181,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     }
     const target = currentRank === r ? r - 1 : r
     if (target < base || target > maxRank || (target > currentRank && !canReachRank(name, target))) return
+    if (target < currentRank && canRefundTokens(name, target)) {
+      refundTokens(name, target + 1)
+      return
+    }
 
     const next = assignRank(name, target)
     if (!next) {
@@ -301,7 +310,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             const disabled = s.kind !== 'skill' || i + 1 > maxRank || (!downloadAvailable && (i === 0
               ? trainedDisabled
               : target < baseRank || (target > permanentRank && !canReachRank(s.name, target))))
-              || hasTokenPurchase(s.name) && target < permanentRank
+              || hasTokenPurchase(s.name) && target < permanentRank && !canRefundTokens(s.name, target)
             const required = requirements?.get(s.name)?.get(i + 1)
             return (
               <span className="rank-choice" key={letter}>
@@ -501,39 +510,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         ))}
       </div>
       {(getSettings().skillTokenConversion || !!c.skillTokenUpgrades?.length) && <details className="skill-token-exchange">
-        <summary>Skill token exchange</summary>
+        <summary>Skill token rules</summary>
+        <p>Choose E, M or L on a skill above. Unused lower-tier choices combine automatically when needed;
+          no separate conversion step is required. Click a purchased rank again to refund it.</p>
         <p>Two unused Trained choices buy one Expert upgrade; two Expert tokens buy Master;
           two Master tokens buy Legendary. Lower tokens can be combined recursively.
           Starting from Trained, this costs 2 / 6 / 14 Trained choices in total.</p>
         <p>Existing proficiencies are never traded away. Expert requires level 3, Master 7, Legendary 15.
           Source restrictions still apply. Temporary Skill Download choices cannot be exchanged.
           Purchases take effect at the level where you make them. Disable the house rule to pause purchases without deleting them.</p>
-        {getSettings().skillTokenConversion && <form aria-label="Skill token exchange" onSubmit={event => {
-          event.preventDefault()
-          const control = event.currentTarget.elements.namedItem('skill')
-          if (!(control instanceof HTMLSelectElement)) return
-          const rank = permanentRanks[control.value] ?? 0
-          const purchases = tokenState && skillTokenPurchase(c, entries, control.value, rank + 1, true, tokenState)
-          if (!purchases) {
-            control.setCustomValidity('Choose an eligible trained skill with enough convertible tokens.')
-            control.reportValidity()
-            return
-          }
-          save({ skillTokenUpgrades: purchases })
-        }}>
-          <label>Convert tokens for <select name="skill" aria-label="Skill token upgrade" defaultValue="" required
-            onChange={event => event.currentTarget.setCustomValidity('')}>
-            <option value="" disabled>Choose upgrade</option>
-            {skills.flatMap(skill => {
-              const target = (permanentRanks[skill.name] ?? 0) + 1
-              const purchases = tokenState && skillTokenPurchase(c, entries, skill.name, target, true, tokenState)
-              const purchase = purchases?.at(-1)
-              return purchase ? [<option key={skill.name} value={skill.name}>{skill.name}: {RANKS[target]}
-                {' '}({skillTokenPayment(purchase.payment, c, entries)})</option>] : []
-            })}
-          </select></label>
-          <button type="submit">Convert and upgrade</button>
-        </form>}
         {!!c.skillTokenUpgrades?.length && <ul>
           {c.skillTokenUpgrades.map((purchase, index) => {
             const inactive = tokenState?.inactive.find(item => item.index === index)
@@ -542,9 +527,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               {inactive ? <span role="status"> — {inactive.reason}</span>
                 : <> — spent {skillTokenPayment(purchase.payment, c, entries)}</>}
               {' '}<button type="button" aria-label={`Refund ${purchase.skill} ${RANKS[purchase.rank]} token upgrade`}
-                onClick={() => confirmRemoval(`${purchase.skill} ${RANKS[purchase.rank]} token upgrade and higher token upgrades for this skill`,
-                  () => save({ skillTokenUpgrades: c.skillTokenUpgrades?.filter(item =>
-                    item.skill !== purchase.skill || item.rank < purchase.rank) }))}>Refund</button>
+                onClick={() => refundTokens(purchase.skill, purchase.rank)}>Refund</button>
             </li>
           })}
         </ul>}

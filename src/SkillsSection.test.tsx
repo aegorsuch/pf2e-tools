@@ -27,6 +27,28 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it.each<{ level: number; current: number; target: number; rank: string; increases: Record<string, string>; payment: string[] }>([
+  { level: 3, current: 1, target: 2, rank: 'Expert', increases: { 3: 'Nature' }, payment: ['trained:0', 'trained:1'] },
+  { level: 7, current: 2, target: 3, rank: 'Master', increases: { 7: 'Nature' }, payment: ['3', '5'] },
+  { level: 15, current: 3, target: 4, rank: 'Legendary',
+    increases: { 3: 'Nature', 5: 'Acrobatics', 11: 'Nature', 13: 'Acrobatics', 15: 'Nature' }, payment: ['7', '9'] },
+])('automatically combines tokens when clicking $rank without a separate conversion form', ({ level, current, target, rank, increases, payment }) => {
+  let c: Character = { ...base, level, rankOverrides: { Athletics: current }, skillPicks: ['Athletics', 'Acrobatics'],
+    skillIncreases: increases }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  const button = findButtons(tree()).get(`Athletics ${rank}`)!
+  expect(button.disabled).toBeFalsy()
+  ;(button.onClick as () => void)()
+  expect(ranksAt(c, [ranger]).Athletics).toBe(target)
+  expect(c.skillTokenUpgrades?.at(-1)?.payment).toEqual(payment)
+  expect(c.skillIncreases).toEqual(increases)
+  expect(c.skillPicks).toEqual(['Athletics', 'Acrobatics'])
+  const html = renderToStaticMarkup(tree())
+  expect(html).toContain('Skill token rules')
+  expect(html).not.toContain('Convert and upgrade')
+  expect(html).not.toContain('Skill token upgrade"')
+})
+
 it('converts training recursively at 2:1, persists purchases and refunds them without removing original ranks', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 20 plus your Intelligence modifier' } }
@@ -65,6 +87,39 @@ it('converts training recursively at 2:1, persists purchases and refunds them wi
     expect(ranksAt(c, entries).Athletics).toBe(1)
     expect(skillRankBudget(c, entries).trained).toBe(available)
     expect(c.skillPicks).toEqual(JSON.parse(before).skillPicks)
+  } finally { vi.unstubAllGlobals() }
+})
+
+it('refunds converted ranks through the rank buttons, keeping original allocations and honoring cancellation', () => {
+  const klass = { ...ranger, data: { ...ranger.data,
+    skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 20 plus your Intelligence modifier' } }
+  const entries = [klass]
+  let c: Character = { ...base, level: 7, skillPicks: ['Athletics', 'Acrobatics'],
+    skillIncreases: { 3: 'Nature', 5: 'Acrobatics', 7: 'Nature' } }
+  const original = JSON.parse(JSON.stringify(c)) as Character
+  const initialBudget = skillRankBudget(c, entries).trained
+  c = { ...c, skillTokenUpgrades: builder.skillTokenPurchase(c, entries, 'Athletics', 3, true) }
+  const confirm = vi.fn(() => false)
+  vi.stubGlobal('window', { confirm })
+  try {
+    const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+    const click = (rank: string) => {
+      const button = findButtons(tree()).get(`Athletics ${rank}`)!
+      expect(button.disabled).toBeFalsy()
+      ;(button.onClick as () => void)()
+    }
+    click('Master')
+    expect(ranksAt(c, entries).Athletics).toBe(3)
+    confirm.mockReturnValue(true)
+    click('Master')
+    expect(ranksAt(c, entries).Athletics).toBe(2)
+    expect(skillRankBudget(c, entries).trained).toBe(initialBudget - 2)
+    click('Expert')
+    expect(ranksAt(c, entries).Athletics).toBe(1)
+    expect(c.skillTokenUpgrades).toEqual([])
+    expect(skillRankBudget(c, entries).trained).toBe(initialBudget)
+    expect(c.skillPicks).toEqual(original.skillPicks)
+    expect(c.skillIncreases).toEqual(original.skillIncreases)
   } finally { vi.unstubAllGlobals() }
 })
 

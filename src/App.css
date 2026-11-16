@@ -505,13 +505,11 @@
 .skill-rank-budget { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-block: 0.5rem; }
 .skill-rank-budget span { display: inline-flex; gap: 0.3rem; padding: 0.15rem 0.5rem; border: 1px solid var(--border); border-radius: 5px; }
 .skill-rank-budget b { color: var(--text-h); }
-.rank-choice { display: inline-flex; align-items: center; }
+.rank-choice { display: inline-grid; grid-template-columns: 44px 24px; align-items: center; }
 .rank-dots .rank-choice .source-note-trigger { min-width: 24px; width: auto; padding: 0; background: none; border: 0; }
 .skill-token-exchange { margin-block: 0.5rem; }
 .skill-token-exchange summary { cursor: pointer; }
 .skill-token-exchange p { max-width: 70ch; font-size: 0.85em; }
-.skill-token-exchange form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.5rem; }
-.skill-token-exchange label, .skill-token-exchange select { max-width: 100%; min-width: 0; }
 .skill-token-exchange li { margin-block: 0.4rem; overflow-wrap: anywhere; }
 .lore-add > summary { display: inline-grid; place-items: center; cursor: pointer; list-style: none; width: 2rem; height: 2rem; border: 1px solid var(--border); border-radius: 5px; }
 .lore-add > summary::-webkit-details-marker { display: none; }
