@@ -688,6 +688,92 @@ it('omits section search bars and ignores their stale queries while preserving p
   expect(save).not.toHaveBeenCalled()
 })
 
+it('filters skill feats by declared skill, combines search, and keeps filters separate from saved selections', () => {
+  const feat = (name: string, data: ContentEntry['data']): ContentEntry => ({
+    id: name, name, data, kind: 'feat', systems: ['pf2e'], level: 1, traits: ['General', 'Skill'],
+    source: 'official', description: '', effects: [], updatedAt: 0,
+  })
+  const entries = [
+    feat('Titan Wrestler', { skill: 'Athletics, Athletics', prerequisite: 'Trained in Athletics' }),
+    feat('Shared Technique', { skill: 'Acrobatics, Athletics' }),
+    feat('Battle Medicine', { skill: 'Medicine', prerequisite: 'Trained in Medicine' }),
+    feat('Acrobatic Performer', { skill: 'Acrobatics' }),
+    feat('Homebrew Climber', { prerequisite: 'trained in Athletics' }),
+    feat('Assurance', { prerequisite: 'trained in at least one skill' }),
+  ]
+  const c: Character = { ...emptyRanger(), level: 2, skillPicks: ['Athletics'] }
+  const before = JSON.stringify(c)
+  const save = vi.fn()
+  const search: Record<string, string> = { 'skill:2:0:open': '1', 'skill:2:0:skill': 'Athletics', 'skill:2:0:limit': '200' }
+  const tree = () => FeatSlots({ c, entries, categories: ['skill'], save, search,
+    onSearch: (key, value) => { search[key] = value } })
+  const html = renderToStaticMarkup(tree())
+  for (const name of ['Titan Wrestler', 'Shared Technique', 'Homebrew Climber', 'Assurance']) {
+    expect(html).toContain(`aria-label="L02 Skill: ${name}`)
+  }
+  expect(html).not.toContain('aria-label="L02 Skill: Battle Medicine')
+  expect(html).not.toContain('aria-label="L02 Skill: Acrobatic Performer')
+  expect(html).not.toContain('<option>Computers</option>')
+  expect(html).toContain('<option>Lore</option>')
+  search['skill:2:0:query'] = 'wrestler'
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="L02 Skill: Titan Wrestler"')
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-label="L02 Skill: Shared Technique')
+  findSelect(tree(), 'Filter L02 Skill feats by skill')!({ target: { value: 'Medicine' } })
+  expect(search['skill:2:0:limit']).toBe('')
+  expect(renderToStaticMarkup(tree())).toContain('No matching feats.')
+  search['skill:2:0:query'] = ''
+  expect(renderToStaticMarkup(tree())).toContain('L02 Skill: Battle Medicine * Missing Trained in Medicine')
+  expect(save).not.toHaveBeenCalled()
+  expect(JSON.stringify(c)).toBe(before)
+  findSelect(tree(), 'Filter L02 Skill feats by skill')!({ target: { value: '' } })
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="L02 Skill: Shared Technique')
+  findButton(tree(), 'L02 Skill: Titan Wrestler')!()
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({
+    feats: [expect.objectContaining({ name: 'Titan Wrestler', slot: 'skill:2:0' })],
+  }))
+})
+
+it('filters Lore, knowledge skills and prerequisite feat chains without leaking filters between slots', () => {
+  const feat = (name: string, data: ContentEntry['data'] = {}): ContentEntry => ({
+    id: name, name, data, kind: 'feat', systems: ['sf2e'], level: 1, traits: ['General', 'Skill'],
+    source: 'official', description: '', effects: [], updatedAt: 0,
+  })
+  const entries = [
+    feat('Additional Lore'), feat('Dubious Knowledge', { prerequisite: 'trained in a skill with the Recall Knowledge action' }),
+    feat('Battle Medicine', { skill: 'Medicine' }), feat('Godless Healing', { prerequisite: 'Battle Medicine' }),
+    feat('Computer Trick', { skill: 'Computers' }), feat('Piloting Trick', { skill: 'Piloting' }),
+    feat('Cycle One', { prerequisite: 'Cycle Two' }), feat('Cycle Two', { prerequisite: 'Cycle One' }),
+  ]
+  const c: Character = { ...emptyRanger(), systems: ['pf2e', 'sf2e'], level: 4 }
+  const search: Record<string, string> = { 'skill:2:0:open': '1', 'skill:2:0:skill': 'Lore', 'skill:4:0:skill': 'Piloting' }
+  const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['skill']} save={() => {}} search={search} onSearch={() => {}} />)
+  expect(render()).toContain('aria-label="L02 Skill: Additional Lore')
+  expect(render()).toContain('aria-label="L02 Skill: Dubious Knowledge')
+  expect(render()).not.toContain('aria-label="L02 Skill: Computer Trick')
+  expect(render()).toContain('<option>Computers</option>')
+  expect(render()).toContain('<option>Piloting</option>')
+  search['skill:2:0:skill'] = 'Medicine'
+  expect(render()).toContain('aria-label="L02 Skill: Godless Healing')
+  expect(render()).not.toContain('aria-label="L02 Skill: Additional Lore')
+  search['skill:2:0:open'] = ''
+  search['skill:4:0:open'] = '1'
+  expect(render()).toContain('aria-label="L04 Skill: Piloting Trick')
+  expect(render()).not.toContain('aria-label="L04 Skill: Battle Medicine')
+})
+
+it('limits Skill Training variants to the filtered untrained skill', () => {
+  const training: ContentEntry = {
+    id: 'training', name: 'Skill Training', data: {}, kind: 'feat', systems: ['pf2e'], level: 1,
+    traits: ['General', 'Skill'], source: 'official', description: '', effects: [], updatedAt: 0,
+  }
+  const c: Character = { ...emptyRanger(), level: 2 }
+  const render = (character = c) => renderToStaticMarkup(<FeatSlots c={character} entries={[training]} categories={['skill']}
+    save={() => {}} search={{ 'skill:2:0:open': '1', 'skill:2:0:skill': 'Medicine' }} onSearch={() => {}} />)
+  expect(render()).toContain('aria-label="L02 Skill: Skill Training (Medicine)"')
+  expect(render()).not.toContain('Skill Training (Athletics)')
+  expect(render({ ...c, skillPicks: ['Medicine'] })).toContain('No matching feats.')
+})
+
 it('keeps Favored Terrain editable in class feats and displays the same restored selection as Offense', () => {
   let c: Character = { ...emptyRanger(), level: 11, favoredTerrain: 'Forest', feats: [
     { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },

@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -24,6 +24,25 @@ interface FeatSlotsProps extends SectionProps {
 }
 
 const PAGE = 100
+
+function matchesSkill(entry: ContentEntry, skill: string, feats: ReadonlyMap<string, ContentEntry>, seen = new Set<string>()): boolean {
+  if (!skill) return true
+  if (seen.has(entry.id)) return false
+  seen.add(entry.id)
+  const declared = String(entry.data.skill ?? '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
+  if (declared.length) return declared.includes(skill.toLowerCase())
+  if (entry.name === 'Additional Lore') return skill === 'Lore'
+  if (entry.name === 'Assurance') return true
+  if (entry.name === 'Skill Training') return skill !== 'Lore'
+  const prerequisite = String(entry.data.prerequisite ?? '')
+  if (/\bRecall Knowledge\b/i.test(prerequisite)
+    && ['Arcana', 'Computers', 'Crafting', 'Lore', 'Medicine', 'Nature', 'Occultism', 'Religion', 'Society'].includes(skill)) return true
+  if (new RegExp(`\\b${skill}\\b`, 'i').test(prerequisite)) return true
+  return prerequisite.split(/[;,]|\s+(?:and|or)\s+/i).some(name => {
+    const required = feats.get(name.trim())
+    return !!required?.traits.some(trait => trait.toLowerCase() === 'skill') && matchesSkill(required, skill, feats, seen)
+  })
+}
 
 const selectedCheckCaches = new WeakMap<ContentEntry[], { context: string; checks: Map<string, PrerequisiteCheck> }>()
 function selectedChecks(c: Character, entries: ContentEntry[]) {
@@ -153,7 +172,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     }
     return check(entry)
   }
-  const optionsFor = (entry: ContentEntry, slot: PlannedSlot): FeatOption[] => {
+  const optionsFor = (entry: ContentEntry, slot: PlannedSlot, skill = ''): FeatOption[] => {
     const prerequisites = prerequisitesFor(entry, slot)
     const unmet = prerequisites.missing.length > 0
     const access = featAccess(c, entry)
@@ -164,11 +183,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const fixed = fixedLabel(entry.name, entry.id)
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
-    const choices = entry.name === 'Ancestral Magic' || entry.name === 'Ancestral Cantrip' && !fixed
+    const allChoices = entry.name === 'Ancestral Magic' || entry.name === 'Ancestral Cantrip' && !fixed
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
         slot: slot.key, takenLevel: slot.level, sourceId: entry.id }) ?? []).map(spell => spell.name))]
       : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
       ? undefined : featChoiceOptions(entry.name, c, entries, slot.key)
+    const choices = skill && entry.name === 'Skill Training' ? allChoices?.filter(choice => choice === skill) : allChoices
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
       ? choices.flatMap((choice) => {
@@ -342,10 +362,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const open = search[`${s.key}:open`] === '1'
           const lazy = !!onSearch && !open
           const slotQuery = (open ? search[`${s.key}:query`] ?? '' : '').trim().toLowerCase()
+          const skill = s.category === 'skill' && open ? search[`${s.key}:skill`] ?? '' : ''
           const suggestible = ['general', 'skill'].includes(s.category)
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
             (matches(o, slotQuery, suggestible ? [...(suggestions.get(o.name) ?? []), ...(synergies.get(o.name) ?? [])] : undefined)
               || o.name === 'Versatile Rogue' && optionsFor(o, s).some(option => option.label.toLowerCase().includes(slotQuery)))
+            && matchesSkill(o, skill, featsByName)
+            && (!skill || o.name !== 'Skill Training' || optionsFor(o, s, skill).length > 0)
             && (!picksType || (type === 'dedication') === isDedication(o)))
           if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name) || synergies.has(b.name))
             - Number(suggestions.has(a.name) || synergies.has(a.name))
@@ -359,7 +382,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const pairedValues = new Set<string>()
           for (const option of shown) {
             if (suggestible && synergies.has(option.name)) {
-              for (const variant of optionsFor(option, s)) {
+              for (const variant of optionsFor(option, s, skill)) {
                 const key = JSON.stringify([variant.value, variant.label, variant.disabled])
                 if (pairedValues.has(key)) continue
                 pairedValues.add(key)
@@ -368,7 +391,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               continue
             }
             if (suggestible && suggestions.has(option.name)) {
-              for (const variant of optionsFor(option, s)) {
+              for (const variant of optionsFor(option, s, skill)) {
                 const key = JSON.stringify([variant.value, variant.label, variant.disabled])
                 if (suggestedValues.has(key)) continue
                 suggestedValues.add(key)
@@ -377,7 +400,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               continue
             }
             const level = featSelectionLevel(option, c, entries, s.category, s)
-            const variants = optionsFor(option, s).filter(variant => option.name !== 'Versatile Rogue'
+            const variants = optionsFor(option, s, skill).filter(variant => option.name !== 'Versatile Rogue'
               || matches(option, slotQuery) || variant.label.toLowerCase().includes(slotQuery))
             optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
           }
@@ -450,6 +473,16 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                           onSearch?.(`${s.key}:query`, query)
                           onSearch?.(`${s.key}:limit`, '')
                         }}>
+                    {s.category === 'skill' && <label>Skill{' '}
+                      <select aria-label={`Filter ${label} feats by skill`} value={skill} onChange={event => {
+                        onSearch?.(`${s.key}:skill`, event.target.value)
+                        onSearch?.(`${s.key}:limit`, '')
+                      }}>
+                        <option value="">All skills</option>
+                        {[...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), 'Lore']
+                          .sort((a, b) => a.localeCompare(b)).map(name => <option key={name}>{name}</option>)}
+                      </select>
+                    </label>}
                     {picksType && !multiclassOnly && <div className="feat-type-tabs" role="tablist">
                       {([['archetype', 'Archetype'], ['dedication', 'Dedication']] as const).map(([value, text]) => (
                         <button key={value} type="button" role="tab" aria-selected={type === value} className={type === value ? 'active' : undefined}
