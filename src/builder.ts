@@ -1574,10 +1574,18 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
     const entry = weaponEntry(entries, weapon.name)
     const melee = /melee/i.test(String(entry?.data.weapon_type ?? '')) || !isRanged(entry)
-    return weaponEquipped(c, entries, weapon) && !!entry && weaponCategory(entry) !== 'Unarmed' && melee && weaponHands(entries, weapon, c) === 1
+    return weaponEquipped(c, entries, weapon) && !!entry && weaponCategory(entry) !== 'Unarmed' && melee
   })
-  const twinParry = activeFeatsNamed(c, 'Twin Parry').length > 0 && meleeWeapons.length >= 2
-    && meleeWeapons.some(weapon => weaponHasParry(c, entries, weapon))
+  const oneHanded = meleeWeapons.filter(weapon => weaponHands(entries, weapon, c) === 1)
+  const freeHandWeapons = meleeWeapons.filter(weapon => {
+    const entry = weaponEntry(entries, weapon.name)
+    return [...(entry?.traits ?? []), ...tokens(entry?.data.trait)].some(trait => /^free[- ]hand$/i.test(trait))
+  })
+  const freeHands = Math.max(0, totalHandCapacity(c) - equippedHands(c, entries))
+  const twinParry = activeFeatsNamed(c, 'Twin Parry').length > 0
+    && oneHanded.length + Math.min(freeHands, freeHandWeapons.length) >= 2
+    && (oneHanded.some(weapon => weaponHasParry(c, entries, weapon))
+      || freeHands > 0 && freeHandWeapons.some(weapon => weaponHasParry(c, entries, weapon)))
   const tacticalGrid = ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
     && installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
   return Math.max(1, featBonus, twinParry ? 2 : 0, tacticalGrid ? 2 : 0)
