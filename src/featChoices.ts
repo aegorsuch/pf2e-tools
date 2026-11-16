@@ -32,8 +32,10 @@ export function selectedFeatEntry(c: Character, entries: ContentEntry[], name: s
     selectedFeatCache.set(entries, names)
   }
   const sources = (names.get(name) ?? []).filter(entry => entry.systems.some(system => c.systems.includes(system)))
+  if (!sources.length) return undefined
   const id = sourceId ?? c.feats.find(feat => feat.name === name && featTakenLevel(feat) <= c.level)?.sourceId
   if (id) return sources.find(entry => entry.id === id)
+  if (sources.length === 1) return sources[0]
   // Older saves retain content IDs without a per-feat source ID.
   const saved = sources.filter(entry => c.entryIds.includes(entry.id))
   if (saved.length === 1) return saved[0]

@@ -966,11 +966,12 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat: string }> = {
 const SKILLS_TAB_ANCESTRY_GRANTS = ['Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
-  if (!c.systems.includes('sf2e')) return undefined
+  const grant = ANCESTRY_SKILL_GRANTS[name]
+  if (!grant || !c.systems.includes('sf2e')) return undefined
   const source = selectedFeatEntry(c, entries, name)
   if (source && !source.systems.includes('sf2e')) return undefined
   if (name === 'Spelunker' && !ancestryFeatTraits(c).includes('orc')) return undefined
-  return ANCESTRY_SKILL_GRANTS[name]
+  return grant
 }
 
 function ancestrySkillBefore(c: Character, entries: ContentEntry[], index: number) {

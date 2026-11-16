@@ -1,6 +1,6 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { FeatChoice } from './FeatChoice'
@@ -8,7 +8,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { FeatSlots } from './FeatSlots'
 import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
-import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, spellWardenLabel, wardenSpellOptions } from './featChoices'
+import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats, languageAllowance, migrateAncestralLinguistics } from './builder'
 import { classSpellcasting, ranksAt, researchedSpellResistanceChoices, weaponAttack } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -23,6 +23,21 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('skips ancestry resolution for missing and unambiguous feat sources without ignoring saved source IDs', () => {
+  const ancestry = vi.fn(() => 'Human')
+  const c: Character = { ...base, get ancestry() { return ancestry() } }
+  const source: ContentEntry = { ...entries[0], kind: 'feat', name: 'Initiate Warden' }
+  const catalog = [source]
+  expect(selectedFeatEntry(c, catalog, source.name)).toBe(source)
+  expect(selectedFeatEntry(c, catalog, 'Missing feat')).toBeUndefined()
+  expect(selectedFeatEntry({ ...base, systems: ['sf2e'] }, catalog, source.name)).toBeUndefined()
+  expect(selectedFeatEntry(c, catalog, source.name, 'missing-source')).toBeUndefined()
+  c.feats = [{ name: source.name, type: 'Class Feat', level: 1, sourceId: 'missing-source' }]
+  expect(selectedFeatEntry(c, catalog, source.name)).toBeUndefined()
+  expect(selectedFeatEntry(c, catalog, source.name, source.id)).toBe(source)
+  expect(ancestry).not.toHaveBeenCalled()
+})
 
 it('saves and restores a valid feat spell choice without accepting another tradition', () => {
   const source: ContentEntry = {

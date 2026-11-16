@@ -3,6 +3,7 @@ import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, champion
 import { featPrerequisiteSources, featPrerequisiteSuggestions } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
+import * as featChoices from './featChoices'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
@@ -381,6 +382,28 @@ it('suggests exact General and Skill feat prerequisites for this class and ances
 })
 
 describe('shared prerequisite enforcement', () => {
+  it('does not resolve ancestry skill sources for unrelated selected feats', () => {
+    const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
+      feats: Array.from({ length: 100 }, (_, index) => selected(`Unrelated feat ${index}`)) }
+    const source = vi.spyOn(featChoices, 'selectedFeatEntry')
+    try {
+      automaticFeatGrants(character, [])
+      expect(source.mock.calls.filter(([, , name]) => name.startsWith('Unrelated feat'))).toHaveLength(0)
+    } finally { source.mockRestore() }
+  })
+  it.each(['Orc', 'Human'])('resolves the legacy selected Orc Rugged Survivalist in a mixed catalog for %s', ancestry => {
+    const pathfinder = entry('feat', 'Rugged Survivalist', { archetype: 'Swordmaster' }, 7, ['Archetype', 'Skill'])
+    const starfinder: ContentEntry = { ...pathfinder, id: 'sf-rugged', systems: ['sf2e'], traits: ['Orc'], level: 9 }
+    const character: Character = { ...base, systems: ['pf2e', 'sf2e'], ancestry, entryIds: [starfinder.id],
+      feats: [
+        ...(ancestry === 'Human' ? [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' }] : []),
+        { name: 'Rugged Survivalist', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' },
+      ] }
+    expect(automaticFeatGrants(character, [pathfinder, starfinder]))
+      .toContainEqual({ name: 'Forager', source: 'Rugged Survivalist', level: 9 })
+    expect(automaticFeatGrants({ ...character, entryIds: [pathfinder.id] }, [pathfinder, starfinder])
+      .some(grant => grant.name === 'Forager')).toBe(false)
+  })
   it.each([
     ['Cite the Deep Lore', 'Society', 'Blend In', 'Elf'],
     ["Diplomat's Facade", 'Deception', 'Lie to Me', 'Elf'],
