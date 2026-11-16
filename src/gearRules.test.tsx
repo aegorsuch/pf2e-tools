@@ -1638,8 +1638,14 @@ it.each([false, true])('uses free-hand weapons and available fists for Twin Parr
     expect(parryValue({ ...holdingBow, level: 3 }, [...entries, bow])).toBe(1)
     expect(twinnedDefenseActive(holdingBow, [...entries, bow])).toBe(false)
     expect(parryBonus({ ...holdingBow, parrying: false }, [...entries, bow])).toBe(0)
-    expect(parryValue({ ...holdingBow, weapons: holdingBow.weapons.map(weapon => weapon.id === 'bow'
-      ? { ...weapon, handsHeld: 2 as const } : weapon) }, [...entries, bow])).not.toBe(2)
+    const shootingBow = { ...holdingBow, weapons: holdingBow.weapons.map(weapon => weapon.id === 'bow'
+      ? { ...weapon, handsHeld: 2 as const } : weapon) }
+    expect(parryValue(shootingBow, [...entries, bow])).toBe(unarmed ? 2 : 1)
+    expect(armorClass(shootingBow, [...entries, bow]) - armorClass({ ...shootingBow, parrying: false }, [...entries, bow]))
+      .toBe(unarmed ? 2 : 1)
+    expect(parryValue({ ...shootingBow, feats: [] }, [...entries, bow])).toBe(1)
+    expect(parryBonus({ ...shootingBow, parrying: false }, [...entries, bow])).toBe(0)
+    expect(parryValue({ ...shootingBow, weapons: shootingBow.weapons.filter(weapon => weapon.id === 'bow') }, [...entries, bow])).toBe(0)
   } finally {
     updateSettings(previous)
   }

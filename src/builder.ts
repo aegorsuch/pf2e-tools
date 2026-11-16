@@ -1613,13 +1613,14 @@ function twinParryValue(c: Character, entries: ContentEntry[]) {
     return [...(entry?.traits ?? []), ...tokens(entry?.data.trait)].some(trait => /^free[- ]hand$/i.test(trait))
   })
   const freeHands = Math.max(0, totalHandCapacity(c) - equippedHands(c, entries))
-  // The house rule lets a usable free-hand weapon pair with a separate unarmed attack.
-  const freeHandCount = getSettings().unarmedCountsAsWeapons
-    ? Math.max(freeHands, freeHands > 0 && freeHandWeapons.length > 0 ? 2 : 0)
+  // The house rule lets a worn free-hand weapon pair with an unarmed attack even with occupied hands.
+  const unarmed = getSettings().unarmedCountsAsWeapons
+  const freeHandCount = unarmed
+    ? Math.max(freeHands, freeHandWeapons.length > 0 ? 2 : 0)
     : Math.min(freeHands, freeHandWeapons.length)
   if (oneHanded.length + freeHandCount < 2) return 0
   return oneHanded.some(weapon => weaponHasParry(c, entries, weapon))
-    || freeHands > 0 && freeHandWeapons.some(weapon => weaponHasParry(c, entries, weapon)) ? 2 : 1
+    || (unarmed || freeHands > 0) && freeHandWeapons.some(weapon => weaponHasParry(c, entries, weapon)) ? 2 : 1
 }
 
 export function hasParryWeapon(c: Character, entries: ContentEntry[]) {

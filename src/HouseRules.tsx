@@ -34,7 +34,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'skillTokenConversion', label: 'Skill Token Conversion',
     description: 'Choose a higher skill rank to combine unused choices automatically. Two Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. From Trained: 2 / 6 / 14 Trained choices total. Expert requires level 3, Master 7, Legendary 15. Existing proficiencies and source restrictions remain. Click a purchased rank again to refund it. Disabling preserves purchases.' },
   { key: 'unarmedCountsAsWeapons', label: 'Unarmed attacks count as weapons',
-    description: 'For Twin Parry, a usable free-hand weapon can pair with a separate unarmed attack, including while holding a bow in one hand.' },
+    description: 'For Twin Parry, a worn free-hand weapon can pair with a separate unarmed attack even while both hands hold another weapon, such as a bow in its shooting grip.' },
   { key: 'warmaskScaling', label: 'Warmask Skill Bonus Scales',
     description: 'Warmask grants a +1 item bonus to its associated skill, increasing to +2 at level 9 and +3 at level 17. Does not change proficiency or stack with other item bonuses.' },
 ]

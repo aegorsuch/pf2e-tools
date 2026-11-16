@@ -10,12 +10,14 @@ const trait = (name: string, description: string, systems: ContentEntry['systems
 
 it('opens definitions for exact and parameterized gear traits, preferring the longest matching trait name', () => {
   const entries = [trait('Fatal', 'Fatal rules.'), trait('Fatal Aim', 'Fatal Aim rules.'),
-    trait('Agile', 'Agile rules.'), trait('Versatile', 'Versatile rules.'), trait('Jousting', 'Jousting rules.')]
-  const markup = renderToStaticMarkup(<GearTraits entries={entries} traits={['Agile', 'Fatal Aim d12', 'Versatile P', 'Jousting']} />)
-  for (const name of ['Agile', 'Fatal Aim d12', 'Versatile P', 'Jousting']) {
+    trait('Agile', 'Agile rules.'), trait('Versatile', 'Versatile rules.'), trait('Jousting', 'Jousting rules.'),
+    trait('Volley', 'Volley rules.')]
+  const markup = renderToStaticMarkup(<GearTraits entries={entries} traits={['Agile', 'Fatal Aim d12', 'Versatile P', 'Jousting', 'Volley (if beneficial)']} />)
+  for (const name of ['Agile', 'Fatal Aim d12', 'Versatile P', 'Jousting', 'Volley (if beneficial)']) {
     expect(markup).toContain(`class="gear-trait" aria-haspopup="dialog">${name}</button>`)
   }
   expect(markup).toContain('Fatal Aim rules.')
+  expect(markup).toContain('Volley rules.')
   expect(markup).not.toContain('Fatal rules.')
   expect(markup).not.toContain('Level 0')
 })

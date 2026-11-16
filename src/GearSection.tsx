@@ -1128,7 +1128,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}</small>
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
-          {attackSummaries.map(summary => summary.attack.traits.length > 0 && <small key={summary.form ?? 'weapon'}>{summary.form ? `${summary.form}: ` : ''}{summary.attack.traits.join(', ')}</small>)}
+          {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
+            {summary.form && <small>{summary.form}:</small>}
+            <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
+          </div>)}
           <AttackUpgrades attack={a} />
           {namedBowNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
@@ -1316,7 +1319,8 @@ function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displa
     <small>Attack <TotalBreakdown label="Mechanic Turret attack" breakdown={attack.breakdown} signedTotal />;
       Damage {attack.damage}{damageUpgrades.map(upgrade => <Fragment key={upgrade.source}> + {upgrade.value}
         <SourceNote source={upgrade.source} note={upgrade.note} inlineSource={false} /></Fragment>)}; range {attack.range} feet.</small>
-    <small>{attack.traits.join(', ')}; {entry.data.weapon_group as string}.</small>
+    {attack.traits.length > 0 && <GearTraits traits={attack.traits} entries={entries} system={entry.systems[0]} />}
+    <small>{entry.data.weapon_group as string}.</small>
     <AttackUpgrades attack={attack} />
     <MechanicWeaponMods c={c} weapon={weapon} attack={attack} save={save} />
     {!displayOnly && <>

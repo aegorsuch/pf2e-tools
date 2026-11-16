@@ -29,6 +29,21 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it.each([false, true])('opens parameterized weapon trait definitions in both views (displayOnly=%s)', displayOnly => {
+  const bow: ContentEntry = { ...weapon, id: 'longbow', name: 'Longbow', traits: ['Deadly d10', 'Volley 30 ft.'],
+    data: { ...weapon.data, weapon_type: 'Ranged', range: 100, hands: '1+' } }
+  const traits: ContentEntry[] = ['Deadly', 'Volley'].map(name => ({
+    ...weapon, id: `trait-${name}`, name, kind: 'trait', description: `${name} trait rules.`, data: {},
+  }))
+  const c: Character = { ...character([]), deity: 'Erastil', divineIntercessions: { Erastil: ['moderate-boon'] },
+    weapons: [{ id: 'bow', name: bow.name, potency: 0, striking: 0, runes: [] }] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[bow, ...traits]} save={() => {}} displayOnly={displayOnly} />)
+  for (const name of ['Deadly d10', 'Volley (if beneficial)'])
+    expect(markup).toContain(`class="gear-trait" aria-haspopup="dialog">${name}</button>`)
+  expect(markup).toContain('Deadly trait rules.')
+  expect(markup).toContain('Volley trait rules.')
+})
+
 function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search>[0] & { tab?: 'Standard' | 'Magic' | 'Custom' | 'All' }) {
   const tree = Search(props)
   if (tree.type === 'button' && isValidElement<{ onClick?: () => void }>(tree)) tree.props.onClick?.()
