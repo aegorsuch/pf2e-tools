@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { CharacterBuilder as Builder } from './CharacterBuilder'
-import type { ReactNode } from 'react'
+import { CharacterBuilder as Builder, EquipmentSearch } from './CharacterBuilder'
+import { Children, isValidElement, type ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { getSettings, updateSettings } from './settings'
@@ -357,6 +357,48 @@ it('keeps empty Equipment categories available with accessible plus controls and
   expect(markup).toContain('do not impose body-slot limits')
   expect(markup).not.toContain('<h4>Worn Items</h4>')
   expect(c.equipment).toEqual([])
+})
+
+it('shows existing equipment stacks without quantity controls', () => {
+  content.entries = []
+  const c: Character = { id: 'equipment-counts', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: 'Rope', qty: 1 }, { name: 'Arrows', qty: 20 }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const before = JSON.stringify(c)
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const equipment = markup.split('<strong>Equipment</strong>')[1].split('<strong>Formulas</strong>')[0]
+  expect(equipment).not.toContain('type="number"')
+  expect(equipment).toContain('x20')
+  expect(equipment).not.toContain('x1')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it.each([false, true])('closes equipment search after adding an item (existing stack: %s)', existing => {
+  const item: ContentEntry = { id: 'boots', name: 'Azure Boots', systems: ['pf2e'], kind: 'item', source: 'official',
+    level: 1, traits: [], description: '', data: { item_category: 'Worn Items' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'equipment-add', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: existing ? [{ name: item.name, qty: 1 }] : [],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = vi.fn()
+  const close = vi.fn()
+  function InspectSearch() {
+    const tree = EquipmentSearch({ c, entries: [item], save, category: 'Boots', onClose: close })
+    const clickAdd = (node: ReactNode): void => {
+      Children.forEach(node, child => {
+        if (!isValidElement<{ children?: ReactNode; 'aria-label'?: string; onClick?: () => void }>(child)) return
+        if (child.props['aria-label'] === 'Add Azure Boots') child.props.onClick!()
+        else clickAdd(child.props.children)
+      })
+    }
+    clickAdd(tree)
+    return tree
+  }
+  renderToStaticMarkup(<InspectSearch />)
+  expect(save).toHaveBeenCalledWith({ equipment: [{ name: item.name, qty: existing ? 2 : 1 }] })
+  expect(close).toHaveBeenCalledOnce()
+  expect(save.mock.invocationCallOrder[0]).toBeLessThan(close.mock.invocationCallOrder[0])
 })
 
 it.each([

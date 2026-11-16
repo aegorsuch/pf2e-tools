@@ -119,7 +119,7 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
-function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
+export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -141,6 +141,7 @@ function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps &
         <button aria-label={`Add ${g.name}`} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name)
           save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item) : [...c.equipment, { name: g.name, qty: 1 }] })
+          onClose?.()
         }}>Add</button>
       </li>)}
       {(query.trim() || category) && !matches.length && <li><small>No matching {category?.toLowerCase() ?? 'equipment'}.</small></li>}
@@ -171,14 +172,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       if (display.kind === 'simple-poisons') return <li key="simple-poisons"><SimplePoisons c={c} entries={entries} save={save} /></li>
       const { item, index, entry } = display.row
       return <li key={`${item.name}-${index}`}>
-      {item.name} <ActionIcon entry={entry} /> x<input type="number" min={1} style={{ width: '4em' }} value={item.qty}
-        onChange={event => save({ equipment: c.equipment.map((existing, i) => {
-          if (i !== index) return existing
-          const qty = Math.max(1, Math.floor(+event.target.value || 1))
-          return { ...existing, qty, ...(existing.cheekQty !== undefined ? { cheekQty: Math.min(existing.cheekQty, qty) } : {}),
-            ...(existing.cheekPreparedQty !== undefined ? { cheekPreparedQty: Math.min(existing.cheekPreparedQty, qty) } : {}),
-            ...(existing.mechanicRigQty !== undefined ? { mechanicRigQty: Math.min(existing.mechanicRigQty, qty) } : {}) }
-        }) })} />{' '}
+      {item.name} <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
       <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }
         delete nextMods[`equipment:${item.name}`]
