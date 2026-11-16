@@ -6,7 +6,7 @@ import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, GAUNTLET, GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 
@@ -29,17 +29,47 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search>[0] & { tab?: 'Standard' | 'Magic' | 'Custom' | 'All' }) {
+  const tree = Search(props)
+  if (tree.type === 'button' && isValidElement<{ onClick?: () => void }>(tree)) tree.props.onClick?.()
+  const control = findElement(tree, element => element.props.role === 'tab' && element.props.children === tab)
+  if (control?.props['aria-selected'] === false && typeof control.props.onClick === 'function') control.props.onClick()
+  return tree
+}
+
+it.each([
+  { tab: 'Standard', visible: ['Longsword', 'Custom Longsword', 'Enchanted Custom Longsword'] },
+  { tab: 'Magic', visible: ['Magic Longsword'] },
+  { tab: 'All', visible: ['Longsword', 'Custom Longsword', 'Enchanted Custom Longsword', 'Magic Longsword'] },
+] as const)('includes homebrew weapons in $tab without a separate Custom tab', ({ tab, visible }) => {
+  const custom: ContentEntry = { ...weapon, id: 'custom-sword', name: 'Custom Longsword', source: 'homebrew' }
+  const magical: ContentEntry = { ...custom, id: 'custom-magic-sword', name: 'Enchanted Custom Longsword', traits: ['Magical'] }
+  const officialMagic: ContentEntry = { ...weapon, id: 'magic-sword', name: 'Magic Longsword', traits: ['Magical'] }
+  const entries = [weapon, custom, magical, officialMagic]
+  const markup = renderToStaticMarkup(<OpenGearSearch c={character([])} entries={entries} save={() => {}}
+    kind="weapon" label="Add Weapon" onPick={() => {}} tab={tab} />)
+  expect(markup).not.toContain('>Custom</button>')
+  for (const entry of entries) expect(markup.includes(`aria-haspopup="dialog">${entry.name}</button>`))
+    .toBe(visible.some(name => name === entry.name))
+})
+
+it.each(['armor', 'shield'] as const)('retains existing Custom filtering for %s', kind => {
+  const custom: ContentEntry = { ...weapon, id: 'custom-gear', name: 'Custom Gear', kind, source: 'homebrew',
+    data: kind === 'armor' ? { armor_category: 'Light', ac: 1 } : {} }
+  const render = (tab: 'Standard' | 'Custom') => renderToStaticMarkup(<OpenGearSearch c={character([])}
+    entries={[custom]} save={() => {}} kind={kind} label="Add Gear" onPick={() => {}} tab={tab} />)
+  expect(render('Standard')).toContain('>Custom</button>')
+  expect(render('Standard')).not.toContain('aria-haspopup="dialog">Custom Gear</button>')
+  expect(render('Custom')).toContain('aria-haspopup="dialog">Custom Gear</button>')
+})
+
 it.each(['unmet', 'automatic', 'approved'])('only shows unmet gear access helper text (%s)', state => {
   const restricted: ContentEntry = { ...weapon, name: 'Restricted Longsword', traits: ['Uncommon'],
     data: { ...weapon.data, access: 'Kellid ethnicity' } }
   const c: Character = { ...character([]), ethnicity: state === 'automatic' ? 'Kellid' : undefined,
     gearAccessOverrides: state === 'approved' ? [restricted.id] : [] }
-  function OpenSearch() {
-    const tree = Search({ c, entries: [restricted], save: () => {}, kind: 'weapon', label: 'Add Weapon', onPick: () => {} })
-    if (tree.type === 'button' && isValidElement<{ onClick?: () => void }>(tree)) tree.props.onClick?.()
-    return tree
-  }
-  const markup = renderToStaticMarkup(<OpenSearch />)
+  const markup = renderToStaticMarkup(<OpenGearSearch c={c} entries={[restricted]} save={() => {}} kind="weapon"
+    label="Add Weapon" onPick={() => {}} />)
   expect(markup).toContain(restricted.name)
   expect(markup.includes('Access: Kellid ethnicity (not met)')).toBe(state === 'unmet')
   expect(markup.includes('Meet Access or obtain GM approval before adding.')).toBe(state === 'unmet')
@@ -1333,7 +1363,7 @@ it('omits rune names from multiple damage notes in editable and display-only vie
   }
 })
 
-it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple']])('adds %s %s trait without extra damage or duplicating a natural trait', (rune, trait) => {
+it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple'], ['Disarming', 'Disarm']])('adds %s %s trait without extra damage or duplicating a natural trait', (rune, trait) => {
   const c = character([])
   c.weapons![0].runes = [rune]
   for (const traits of [[], [trait]]) {
@@ -1346,19 +1376,24 @@ it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple']])('adds %s %s trait withou
   }
 })
 
-it('offers Grappling only for melee weapons and shows its homebrew rules', () => {
+it.each([
+  { rune: GRAPPLING_RUNE, trait: 'Grapple', note: 'you can attempt to Grapple the target as a reaction' },
+  { rune: DISARMING_RUNE, trait: 'Disarm', note: 'The weapon gains the disarm trait.' },
+])('offers $rune.name only for melee weapons and shows its homebrew rules', ({ rune, trait, note }) => {
   const c = character([])
   c.weapons![0].runes = []
-  const entries = [weapon, GRAPPLING_RUNE]
+  const entries = [weapon, rune]
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('>Grappling (Level 5)</option>')
-  c.weapons![0].runes = ['Grappling']
+  expect(markup).toContain(`>${rune.name} (Level 5)</option>`)
+  c.weapons![0].runes = [rune.name]
   expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />))
-    .toContain('you can attempt to Grapple the target as a reaction')
+    .toContain(note)
   const ranged = { ...weapon, data: { ...weapon.data, weapon_type: 'Ranged', range: 60 } }
   c.weapons![0].runes = []
-  expect(renderToStaticMarkup(<WeaponList c={c} entries={[ranged, GRAPPLING_RUNE]} save={() => {}} />))
-    .not.toContain('>Grappling (Level 5)</option>')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[ranged, rune]} save={() => {}} />))
+    .not.toContain(`>${rune.name} (Level 5)</option>`)
+  c.weapons![0].runes = [rune.name]
+  expect(weaponAttack(c, [ranged, rune], c.weapons![0]).traits).not.toContain(trait)
 })
 
 it.each([['Fighter', 'pf2e', HANDWRAPS.name], ['Mechanic', 'sf2e', HARDLIGHT_HANDWRAPS.name]] as const)(

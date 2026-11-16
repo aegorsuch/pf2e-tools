@@ -3586,7 +3586,7 @@ export function armorGauntlet(c: Character, entries: ContentEntry[]) {
 
 export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking']
 export const WEAPON_PROPERTY_RUNES = [
-  'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
+  'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disarming', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
   'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
   'Unholy', 'Vorpal', 'Wounding',
 ]
@@ -3636,6 +3636,7 @@ export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon')
 }
 
 const FALLBACK_RUNE_USAGE: Record<string, string> = {
+  Disarming: 'etched onto a melee weapon',
   Grappling: 'etched onto a melee weapon',
   Wounding: 'etched onto a piercing or slashing melee weapon',
   Returning: 'etched onto a thrown weapon',
@@ -4132,6 +4133,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),
       ...(w.runes.some((rune) => runeName(rune) === 'Grappling') && weaponRuneApplies(entries, w, 'Grappling')
         && !traits.includes('grapple') ? ['Grapple'] : []),
+      ...(w.runes.some((rune) => runeName(rune) === 'Disarming') && weaponRuneApplies(entries, w, 'Disarming')
+        && !traits.includes('disarm') ? ['Disarm'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
     ability,

@@ -15,6 +15,11 @@ export const GRAPPLING_RUNE: ContentEntry = {
   effects: [], updatedAt: 1,
 }
 
+export const DISARMING_RUNE: ContentEntry = {
+  ...GRAPPLING_RUNE, id: 'homebrew:disarming-rune', name: 'Disarming',
+  description: "Curved markings guide this weapon around an opponent's grip. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the disarm trait. Attempt Disarm with the weapon's reach without needing a free hand, and add its item bonus to attack rolls to the Athletics check. On a critical failure, you may drop the weapon to take a failure instead.",
+}
+
 export const KILLERS_BELT_MAJOR: ContentEntry = {
   id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],

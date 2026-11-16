@@ -43,7 +43,7 @@ const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[]
 const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
-    && !['Animated', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
+    && !['Animated', 'Disarming', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Crushing', 'Crushing (Greater)'].includes(runeName(rune))
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {
       const source = runeName(rune)
@@ -278,7 +278,7 @@ const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
 }
 const TABS = ['Standard', 'Magic', 'Custom', 'All'] as const
 const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
-  tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? isMagicItem(e) : e.source !== 'homebrew' && !isMagicItem(e))
+  tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? isMagicItem(e) : (e.kind === 'weapon' || e.source !== 'homebrew') && !isMagicItem(e))
 
 function GearAccess({ c, entries, entry, save }: SectionProps & { entry: ContentEntry }) {
   const access = gearAccess(c, entries, entry)
@@ -318,7 +318,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   return (
     <div className="col gear-picker">
       <div className="gear-tabs" role="tablist">
-        {TABS.map((t) => (
+        {TABS.filter(t => kind !== 'weapon' || t !== 'Custom').map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
         ))}
       </div>
