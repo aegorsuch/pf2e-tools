@@ -36,19 +36,25 @@ it('offers Nidalese Horselords training as the achievement for Born In The Saddl
   expect(featAccess(character, source)?.automatic).toBe(false)
 })
 
-it('offers Dongun Hold or Alkenstar as a reusable achievement', () => {
+it('shows Alkenstar or Dongun Hold travel for achievements and feat access while preserving saved origin selections', () => {
   const source = { ...feat, name: 'Alkenstar Agent', data: { access: 'You are from Dongun Hold or Alkenstar.' } }
   const [option] = achievementOptions([source])
   expect(option).toEqual({
     key: 'from dongun hold or alkenstar',
-    requirement: 'From Dongun Hold or Alkenstar',
+    requirement: 'Travelled through Alkenstar or Dongun Hold',
     feats: ['Alkenstar Agent'],
   })
   expect(featAccess({ ...character, achievements: [option.key] }, source)).toMatchObject({
     automatic: true,
     source: 'achievement',
+    requirement: 'Travelled through Alkenstar or Dongun Hold',
   })
-  expect(featAccess({ ...character, achievements: [option.requirement] }, source)?.automatic).toBe(true)
+  for (const saved of [option.requirement, 'From Dongun Hold or Alkenstar', 'You are from Dongun Hold or Alkenstar.']) {
+    expect(featAccess({ ...character, achievements: [saved] }, source)?.automatic).toBe(true)
+  }
+  const updatedSource = { ...source, data: { access: option.requirement } }
+  expect(achievementOptions([updatedSource])).toEqual([option])
+  expect(featAccess({ ...character, achievements: [option.key] }, updatedSource)?.automatic).toBe(true)
   expect(featAccess(character, source)?.automatic).toBe(false)
 })
 

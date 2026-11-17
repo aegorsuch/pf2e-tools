@@ -100,6 +100,21 @@ it('shows conditional stonework Perception total without a toggle or changing or
   expect(stackedHtml).toContain(`${builder.signed(total + 2)} to notice unusual stonework and stonework traps`)
 })
 
+it.each([false, true])('shows Eye for Treasure as a conditional Crafting total despite saved active state %s', active => {
+  const c: Character = { ...base, abilities: { ...base.abilities, int: 14 },
+    feats: [{ name: 'Eye for Treasure', type: 'Ancestry Feat', level: 1 }],
+    activeFeatEffects: active ? ['Eye for Treasure'] : [] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toContain('Crafting <b>+5<button')
+  expect(markup).toContain('aria-label="Eye for Treasure note"')
+  expect(markup).toContain('+6 to Recall Knowledge using Crafting (+1 circumstance; circumstance bonuses do not stack).')
+  expect(markup).not.toContain('<small>Circumstance</small>+1')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
+    .not.toContain('Crafting Recall Knowledge active')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [{ ...c.feats[0], level: 2 }] }}
+    entries={[ranger]} save={() => {}} />)).not.toContain('aria-label="Eye for Treasure note"')
+})
+
 it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 5 plus your Intelligence modifier' } }

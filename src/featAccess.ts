@@ -29,6 +29,7 @@ const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
 const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
 const OLD_CHELIAX = 'From Old Cheliax'
 const DONGUN_HOLD_OR_ALKENSTAR = 'From Dongun Hold or Alkenstar'
+const ALKENSTAR_OR_DONGUN_TRAVEL = 'Travelled through Alkenstar or Dongun Hold'
 const ALKENSTAR = 'From Alkenstar'
 const MANA_WASTES = 'From Mana Wastes'
 const ALKENSTAR_OR_MANA_WASTES = 'from alkenstar or the mana wastes'
@@ -58,7 +59,8 @@ export function achievementKey(access: string) {
     || key === TIAN_ELEMENTALISM_TRAINING.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
   if (/^rivethun adherent background or (?:you are )?(?:a )?member of the rivethun$/.test(key)) return RIVETHUN_MEMBERSHIP.toLowerCase()
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
-  if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return key
+  if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
+    || key === ALKENSTAR_OR_DONGUN_TRAVEL.toLowerCase()) return DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
   if (key === 'from the mana wastes') return MANA_WASTES.toLowerCase()
   if (key === 'from the shackles' || key === SHACKLES_TRAVEL.toLowerCase()) return SHACKLES_TRAVEL.toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
@@ -93,6 +95,7 @@ function isAchievementRequirement(requirement: string) {
 }
 
 function trainingLabel(requirement: string, key: string) {
+  if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return ALKENSTAR_OR_DONGUN_TRAVEL
   const label = achievementLabels.get(key) ?? achievementLabel(requirement)
   if (achievementLabels.has(key) && /^trained (?:with|in) /i.test(label)) return label
   return /^(?:member of|trained by) /i.test(label)

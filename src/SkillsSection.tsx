@@ -316,15 +316,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
       && armorModifications(c).some(mod => mod.name === modification)
       ? { source: modification, value: (ranks.Crafting ?? 0) >= 3 ? 2 : 1 } : undefined
-    const craftingRecall = s.name === 'Crafting' && isFeatEffectActive(c, 'Eye for Treasure')
-      ? { source: 'Eye for Treasure', value: 1 } : undefined
     const assistant = assistantSkill === s.name && rank > 0 && (droneSkillRanks?.[s.name] ?? 0) > 0
       ? { source: 'Drone Assistant', value: 1 } : undefined
     const preferment = s.name === 'Intimidation' && activeFeatsNamed(c, 'Hellknight Preferment').length && hellknightArmorWorn(c, entries)
       ? { source: 'Hellknight Preferment', value: 1 } : undefined
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
       : s.kind === 'save' ? saveCircumstance
-        : [craftingRecall, armorSkill, assistant, preferment].filter((bonus): bonus is { source: string; value: number } => !!bonus)
+        : [armorSkill, assistant, preferment].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const total = abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0) - clumsyPenalty
@@ -376,6 +374,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Radiation Resistant" note={`${conditionalTotal(1)} against radiation effects (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
             source="Tinkering Fingers" note={`Repair without a toolkit without the penalty; ${conditionalTotal(1)} to Repair checks with a repair toolkit (+1 circumstance).`} />}
+          {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Eye for Treasure').length && <SourceNote inlineSource={false}
+            source="Eye for Treasure" note={`${conditionalTotal(1)} to Recall Knowledge using Crafting (+1 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
@@ -479,8 +479,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   if (part === 'offense') {
     return (
       <>
-        <FeatEffectToggle c={c} save={save} name='Eye for Treasure' label="Crafting Recall Knowledge active"
-          title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         {testSubjectAdaptation(c) === 'Radioactive' && <label>
           <input type="checkbox" checked={!!c.ysokiDailyUses?.contaminate}
