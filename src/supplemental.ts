@@ -96,6 +96,12 @@ export const IRON_FIST: ContentEntry = {
   description: 'Iron Fists removes the nonlethal trait from your fist attacks and adds the shove trait.',
 }
 
+export const CAIRN_FIST: ContentEntry = {
+  ...FIST, id: 'supplemental:cairn-fist', name: 'Fist (Cairn Form)',
+  description: 'Cairn Form grants stone fists. On a critical hit, the target must succeed at a Fortitude save against your class DC or become stunned 1 for 1 round.',
+  data: { ...FIST.data, damage: '2d6 bludgeoning' },
+}
+
 export const ORC_TUSKS: ContentEntry = {
   ...FIST, id: 'supplemental:orc-tusks', name: 'Tusks',
   traits: ['Finesse', 'Unarmed'],
@@ -346,7 +352,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
   Paragon: { potency: 3, striking: 3, upgrades: 4 },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, ORC_TUSKS,
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, ORC_TUSKS,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {

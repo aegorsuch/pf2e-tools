@@ -354,9 +354,9 @@ it('shows sight bonuses only as conditional Perception notes while wielded', () 
   } }
   const without = { ...c, handwraps: undefined }
   expect(defenseSummary(c, [sight]).perception).toBe(defenseSummary(without, [sight]).perception)
-  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[sight]} save={() => {}} part="offense" />)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[sight]} save={() => {}} part="senses" />)
   expect(markup).toContain('to visual Seek checks through the sight (+2 item bonus')
-  expect(renderToStaticMarkup(<SkillsSection c={without} entries={[sight]} save={() => {}} part="offense" />))
+  expect(renderToStaticMarkup(<SkillsSection c={without} entries={[sight]} save={() => {}} part="senses" />))
     .not.toContain('Truesight Sight (Tactical) note')
 })
 
@@ -1400,7 +1400,7 @@ it('applies Superior Sight to Perception and initiative without stacking circums
   expect(initiativeBonus(c, [])).toBe(normal + 2)
   expect(initiativeBonus({ ...c, feats: [...c.feats, feat('Incredible Initiative')] }, [])).toBe(normal + 2)
   expect(defenseSummary({ ...c, level: 19 }, []).perception).toBe(defenseSummary({ ...c, level: 19, feats: [] }, []).perception)
-  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="senses" />)
   expect(markup).toContain(`Perception <b>${normal + 2 >= 0 ? '+' : ''}${normal + 2}</b>`)
   expect(markup).toContain('<small>Circumstance</small>+2')
 })
@@ -1755,7 +1755,7 @@ it('applies researched resistance only in its matching-effect context and never 
 
 it('exposes persisted defensive contexts and shows conditional bonuses without changing ordinary saves', () => {
   const c: Character = { ...base, className: 'Ranger', feats: [feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
-  for (const part of ['offense', 'defense'] as const) {
+  for (const part of ['senses', 'defense'] as const) {
     const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part={part} />)
     expect(markup).not.toContain('Hazard checks active')
     expect(markup).toContain('aria-label="Hazard Finder note"')

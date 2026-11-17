@@ -79,15 +79,18 @@ it('includes every saved rule in its own searchable category even without homebr
   expect(render().match(/type="checkbox"/g)).toHaveLength(Object.keys(getSettings()).length)
   expect(render()).toContain('id="homebrew-rules"')
   expect(render('Rules')).toContain('Inventor Armor Innovation Gauntlets')
+  expect(getSettings().innateAutoHeighten).toBe(true)
+  expect(render('Auto-Heighten Innate Spells')).toContain('checked=""')
+  expect(render('Auto-Heighten Innate Spells')).toContain('Auto-Heighten Innate Spells')
   expect(render('highest mental')).toContain('open=""')
   expect(render('highest mental')).toContain('Innate Spells Use Highest Mental Attribute')
   expect(render('highest mental')).not.toContain('Free Archetype')
   const previous = getSettings().innateHighestMental
   try {
     updateSettings({ innateHighestMental: false })
-    expect(render('innate')).not.toContain('checked=""')
+    expect(render('highest mental')).not.toContain('checked=""')
     updateSettings({ innateHighestMental: true })
-    expect(render('innate')).toContain('checked=""')
+    expect(render('highest mental')).toContain('checked=""')
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 

@@ -85,15 +85,15 @@ it('shows conditional stonework Perception total without a toggle or changing or
     activeFeatEffects: ["Stonemason's Eye"] }
   const plain = { ...c, feats: [], activeFeatEffects: [] }
   const total = defenseSummary(plain, [ranger]).perception
-  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="senses" />)
   expect(html).not.toContain('Stonework Perception active')
   expect(html).toContain(`${builder.signed(total + 2)} to notice unusual stonework and stonework traps`)
   expect(defenseSummary(c, [ranger]).perception).toBe(total)
   expect(initiativeBonus(c, [ranger])).toBe(initiativeBonus(plain, [ranger]))
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [{ ...c.feats[0], level: 2 }] }}
-    entries={[ranger]} save={() => {}} part="offense" />)).not.toContain('to notice unusual stonework')
+    entries={[ranger]} save={() => {}} part="senses" />)).not.toContain('to notice unusual stonework')
   const stacked = { ...c, feats: [...c.feats, { name: 'Superior Sight', type: 'Ancestry Feat', level: 1 }] }
-  const stackedHtml = renderToStaticMarkup(<SkillsSection c={stacked} entries={[ranger]} save={() => {}} part="offense" />)
+  const stackedHtml = renderToStaticMarkup(<SkillsSection c={stacked} entries={[ranger]} save={() => {}} part="senses" />)
   expect(stackedHtml).toContain(`${builder.signed(total + 2)} to notice unusual stonework and stonework traps`)
 })
 
@@ -603,7 +603,7 @@ it('shows situational feat bonuses with totals without changing ordinary totals'
   const plain = defenseSummary({ ...c, feats: [] }, [ranger])
   expect(defense).toContain('against magic (+1 status).')
   expect(defense).toContain('immobilized, paralyzed, or slowed conditions (+1 circumstance).')
-  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)).toContain('on Perception checks attempted as initiative rolls (+2 circumstance).')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="senses" />)).toContain('on Perception checks attempted as initiative rolls (+2 circumstance).')
   expect(defenseSummary(c, [ranger])).toEqual(plain)
 })
 
@@ -679,7 +679,7 @@ it('applies clan dagger filigree skill bonuses and marks conditional bonuses sep
   expect(markup).toMatch(/skill-name">Diplomacy <b>\+2/)
   expect(markup).toMatch(/skill-name">Society <b>\+2/)
   expect(markup).toContain('to Coerce (+2 item bonus).')
-  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="senses" />))
     .toContain('to Sense Motive (+2 item bonus).')
   expect(render({ ...c, level: 4 })).not.toContain('Clan dagger filigree')
   expect(render({ ...c, weapons: [] })).not.toContain('Clan dagger filigree')
@@ -688,7 +688,7 @@ it('applies clan dagger filigree skill bonuses and marks conditional bonuses sep
 it('skips skill allocation calculations in offense and defense', () => {
   const budget = vi.spyOn(builder, 'skillRankBudget')
   try {
-    for (const part of ['offense', 'defense'] as const) {
+    for (const part of ['offense', 'defense', 'senses'] as const) {
       renderToStaticMarkup(<SkillsSection c={base} entries={[ranger]} save={() => {}} part={part} />)
     }
     expect(budget).not.toHaveBeenCalled()
@@ -1012,7 +1012,7 @@ it('applies Clever Improviser only to untrained skills while leaving ranks, trai
   expect(markup).not.toContain('your proficiency rank remains untrained')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />))
     .toContain('Fortitude +9: show breakdown')
-  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />))
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="senses" />))
     .toContain('Perception <b>+7</b>')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 4 }} entries={[ranger]} save={() => {}} />))
     .toContain('Deception <b>+0</b>')
@@ -1190,7 +1190,7 @@ it.each([
   ['Major Sunweave', 3], ['Sunweave (Major)', 3], ['Moonweave', 0],
 ])('applies %s to worn-armor Perception, item breakdown, and initiative', (rune, bonus) => {
   const c: Character = { ...base, armors: [{ id: 'armor', name: 'Armor', worn: true, potency: 0, resilient: 1, runes: [rune] }] }
-  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="senses" />)
   expect(markup).toContain(`Perception <b>+${3 + bonus}</b>`)
   expect(markup).toContain(`<small>Item</small>+${bonus}`)
   expect(defenseSummary(c, [ranger]).perception).toBe(3 + bonus)
@@ -1483,7 +1483,7 @@ it('locks class/background grants and derives defense proficiency without overri
     expect(trained.disabled).toBe(true)
     ;(trained.onClick as () => void)()
   }
-  for (const [part, names] of [['offense', ['Perception']], ['defense', ['Fortitude', 'Reflex']]] as const) {
+  for (const [part, names] of [['senses', ['Perception']], ['defense', ['Fortitude', 'Reflex']]] as const) {
     const partButtons = findButtons(SkillsSection({ ...props(), part }))
     for (const name of names) expect(partButtons.get(`${name} Expert`)?.disabled).toBe(true)
   }
@@ -1515,7 +1515,8 @@ it('sorts all skills with Lore and allows trained and Lore rank increases', () =
   expect(markup).not.toContain('Perception')
   expect(markup).not.toContain('Fortitude')
   const offense = renderToStaticMarkup(<SkillsSection {...props()} part="offense" />)
-  expect(offense).toContain('Perception')
+  expect(offense).not.toContain('skill-name">Perception')
+  expect(renderToStaticMarkup(<SkillsSection {...props()} part="senses" />)).toContain('skill-name">Perception')
   const defense = renderToStaticMarkup(<SkillsSection {...props()} part="defense" />)
   expect(defense.indexOf('Fortitude')).toBeLessThan(defense.indexOf('Reflex'))
   expect(defense.indexOf('Reflex')).toBeLessThan(defense.indexOf('Will'))

@@ -93,6 +93,7 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   const terrain = favoredTerrainBenefits(c, entries)
   const characterSenses = senses(c, entries)
   return <>
+    <SkillsSection c={c} entries={entries} save={save} part="senses" />
     <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}
       {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
         note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}</small>
@@ -131,7 +132,7 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   </>
 }
 
-export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
+export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' | 'senses' }) {
   const editingSkills = part === 'skills'
   const c = editingSkills ? normalizeGrantedSkillSpending(normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries), entries) : original
   const save: SectionProps['save'] = patch => saveOriginal(c === original ? patch : {
@@ -178,7 +179,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const refundTokens = (name: string, rank: number) => confirmRemoval(
     `${name} ${RANKS[rank]} token upgrade and higher token upgrades for this skill`,
     () => save({ skillTokenUpgrades: c.skillTokenUpgrades?.filter(item => item.skill !== name || item.rank < rank) }))
-  const offense = stats.filter((stat) => stat.kind === 'perception')
+  const perception = stats.filter((stat) => stat.kind === 'perception')
   const defense = stats.filter((stat) => stat.kind === 'save').sort((a, b) => a.name.localeCompare(b.name))
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined, skillTokenUpgrades: undefined }
@@ -472,12 +473,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     )
   })
 
+  if (part === 'senses') return <div className="skill-grid" role="table" aria-label="Perception">
+    {renderRows(perception)}
+  </div>
   if (part === 'offense') {
     return (
       <>
-        <div className="skill-grid" role="table" aria-label="Offense">
-          {renderRows(offense)}
-        </div>
         <FeatEffectToggle c={c} save={save} name='Eye for Treasure' label="Crafting Recall Knowledge active"
           title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />

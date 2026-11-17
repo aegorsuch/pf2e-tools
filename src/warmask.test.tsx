@@ -84,9 +84,9 @@ it('uses the adopted-Orc Warmask label consistently without renaming the saved f
   expect(c.feats[0].name).toBe('Orc Warmask')
 })
 
-it('grants the chosen daily spell at rank 1 with the warmask tradition and shared daily use', () => {
+it('auto-heightens the chosen daily spell with the warmask tradition and shared daily use', () => {
   const grant = grantedFeatSpells(base, [spell])[0]
-  expect(grant).toMatchObject({ entry: { name: 'Fear' }, rank: 1,
+  expect(grant).toMatchObject({ entry: { name: 'Fear' }, rank: 3,
     rule: { tradition: 'Divine', frequency: 'once per day', condition: 'Must be wearing your warmask' } })
   expect(dailyInnateUses(base, grant)?.limit).toBe(1)
   expect(renderToStaticMarkup(<SpellsSection c={base} entries={[spell]} save={() => {}} />))

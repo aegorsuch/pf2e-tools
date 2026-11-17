@@ -22,7 +22,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+const AUTOMATED_SPELL_EFFECTS = ['Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
 
 const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
   && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
@@ -379,7 +379,8 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       || tracks && range === '—' ? 'Self'
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
-    targets: name === 'Pummeling Rubble' ? '15-foot cone'
+    targets: name === 'Magic Passage' ? `5-foot-wide, 10-foot-tall, ${rank >= 7 ? 20 : 10}-foot-deep section of wooden, plaster, or stone wall`
+      : name === 'Pummeling Rubble' ? '15-foot cone'
       : name === 'Pulverizing Wake' ? '1 creature within reach'
       : name === 'Warning Stripes' ? 'Yourself or your animal companion'
       : name === 'Canopy Crawler' && rank >= 5 ? 'Yourself and your animal companion'

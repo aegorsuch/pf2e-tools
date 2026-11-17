@@ -1,6 +1,6 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
@@ -13,6 +13,43 @@ import { MinionsSection } from './MinionsSection'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
 import { getSettings, updateSettings } from './settings'
+
+let previousAutoHeighten: boolean
+beforeEach(() => {
+  previousAutoHeighten = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+})
+afterEach(() => updateSettings({ innateAutoHeighten: previousAutoHeighten }))
+
+it('auto-heightens innate grants without changing uses, selections, focus spells, or higher granted ranks', () => {
+  const passage = { ...entry('Magic Passage', 'spell'), level: 5 }
+  const cairn = { ...entry('Cairn Form', 'spell'), level: 4 }
+  const focus = { ...entry('Test Focus', 'spell', {}, ['Focus']), level: 1 }
+  const source: ContentEntry = { ...entry('Test Innate Magic', 'feat'), spellGrants: [
+    { kind: 'innate', spells: [passage.name], rank: 7, frequency: 'once per day' },
+    { kind: 'innate', spells: [cairn.name], rank: 6, frequency: 'twice per day' },
+    { kind: 'focus', spells: [focus.name] },
+  ] }
+  const entries = [passage, cairn, focus, source]
+  let c: Character = { ...base, level: 19, feats: [taken(source.name)], activeSpells: [cairn.name] }
+  const original = grantedFeatSpells(c, entries)
+  const use = dailyInnateUses(c, original.find(grant => grant.entry.name === cairn.name)!)!
+  c = { ...c, innateSpellUses: { [use.key]: [0] } }
+  const saved = JSON.stringify(c)
+  updateSettings({ innateAutoHeighten: true })
+  const heightened = grantedFeatSpells(c, entries)
+  expect(heightened.filter(grant => grant.rule.kind === 'innate').map(grant => grant.rank)).toEqual([10, 10])
+  expect(heightened.find(grant => grant.rule.kind === 'focus')?.rank).toBe(original.find(grant => grant.rule.kind === 'focus')?.rank)
+  expect(dailyInnateUses(c, heightened.find(grant => grant.entry.name === cairn.name)!)).toMatchObject({ key: use.key, remaining: 1 })
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 20, source: cairn.name })
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Spell Rank 10')
+  expect(grantedFeatSpells({ ...c, level: 9 }, entries).find(grant => grant.entry.name === passage.name)?.rank).toBe(7)
+  updateSettings({ innateAutoHeighten: false })
+  expect(grantedFeatSpells(c, entries).map(grant => grant.rank)).toEqual(original.map(grant => grant.rank))
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 10, source: cairn.name })
+  expect(JSON.stringify(c)).toBe(saved)
+})
 
 it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and DCs and restores source rules when disabled', highest => {
   const grant = feat('Mental Magic', 'You can cast [fear](/Spells.aspx?ID=1) and [ignition](/Spells.aspx?ID=2) as occult innate spells at will.', 5)
@@ -871,8 +908,47 @@ it.each([[7, 5], [9, 5], [11, 10], [13, 10], [15, 15], [17, 15], [19, 20]] as co
       .toContainEqual({ damage: 'Physical (except adamantine)', value: 5, source: spell.name })
   })
 
+it.each([[7, 5, 2], [11, 10, 3], [15, 10, 3], [19, 20, 4]] as const)(
+  'applies Cairn Form resistance and fists at level %i', (level, resistance, dice) => {
+    const spell = { ...entry('Cairn Form', 'spell'), level: 4 }
+    const fighter = entry('Fighter', 'class', { attack_proficiency: 'Master in martial weapons, Trained in unarmed attacks' })
+    const specialization = { ...entry('Weapon Specialization', 'classFeature', { class: 'Fighter' }), level: 7 }
+    const entries = [spell, fighter, specialization]
+    const c: Character = { ...base, level, handwraps: { potency: 2, striking: 2, runes: [] },
+      spells: [{ name: spell.name, rank: 4, cantrip: false }], activeSpells: [spell.name] }
+    expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: resistance, source: spell.name })
+    const fist = ownedWeapons(c, entries).find(weapon => weapon.name === 'Fist (Cairn Form)')!
+    expect(fist).toBeDefined()
+    const attack = weaponAttack(c, entries, fist)
+    expect(attack.rank).toBe(3)
+    expect(attack.damage).toBe(`${Math.max(dice, 3)}d6+3 bludgeoning`)
+    expect(attack.criticalNote).toContain('stunned 1 for 1 round')
+    for (const displayOnly of [false, true]) {
+      const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+      expect(html).toContain('Fist (Cairn Form)')
+      expect(html).toContain('stunned 1 for 1 round')
+    }
+    for (const inactive of [{ ...c, activeSpells: [] }, { ...c, spells: [] }]) {
+      expect(resistances(inactive, entries)).not.toContainEqual(expect.objectContaining({ source: spell.name }))
+      expect(ownedWeapons(inactive, entries).some(weapon => weapon.name === fist.name)).toBe(false)
+    }
+  })
+
+it('keeps Clan Crystal Form at its fixed sixth rank at higher character levels', () => {
+  const spell = { ...entry('Cairn Form', 'spell'), level: 4 }
+  const grant: ContentEntry = { ...entry('Clan Crystal Form', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [spell.name], rank: 6, frequency: 'twice per day' }] }
+  const c: Character = { ...base, level: 20, feats: [taken(grant.name)], activeSpells: [spell.name] }
+  const entries = [spell, grant]
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 10, source: spell.name })
+  const fist = ownedWeapons(c, entries).find(weapon => weapon.name === 'Fist (Cairn Form)')!
+  expect(weaponAttack(c, entries, fist).damage).toMatch(/^[34]d6/)
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
+    .toContain('aria-label="Cairn Form active" checked=""')
+})
+
 it('keeps all buff Active toggles on the spell-name line without duplicates', () => {
-  const names = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+  const names = ['Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
   const c: Character = { ...base, className: 'Ranger',
     spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Imitate Fauna', 'Keen Smell'] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell',
@@ -1116,6 +1192,41 @@ it.each([[9, '1 hour'], [11, '8 hours'], [17, '8 hours']] as const)('heightens S
   expect(markup).toContain(`<small>Duration</small>${duration}`)
   expect(markup).toContain('<small>Range</small>Self')
   expect(markup).toContain('<small>Area/Targets</small>Self')
+})
+
+it.each([[5, 10], [6, 10], [7, 20], [9, 20]] as const)(
+  'shows Magic Passage wall dimensions at spell rank %i', (rank, depth) => {
+    const spell = { ...entry('Magic Passage', 'spell'), level: 5 }
+    const grant: ContentEntry = { ...entry('Passage Magic', 'feat'),
+      spellGrants: [{ kind: 'innate', spells: [spell.name], rank, frequency: 'once per day' }] }
+    const c: Character = { ...base, level: 19, feats: [taken(grant.name)] }
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
+    expect(markup).toContain(`<small>Area/Targets</small>5-foot-wide, 10-foot-tall, ${depth}-foot-deep section of wooden, plaster, or stone wall`)
+  })
+
+it('adds Stonegate as an independent seventh-rank Magic Passage use without replacing existing uses', () => {
+  const spell = { ...entry('Magic Passage', 'spell'), level: 5 }
+  const other: ContentEntry = { ...entry('Passage Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [spell.name], rank: 5, frequency: 'once per day' }] }
+  const stonegate = feat('Stonegate', 'You gain [_magic passage_](Spells.aspx?ID=1591) as a 7th-rank divine innate spell that you can cast once per day.', 17)
+  let c: Character = { ...base, level: 19, feats: [taken(other.name), taken(stonegate.name, 17)] }
+  const entries = [spell, other, stonegate]
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants).toHaveLength(2)
+  const existing = grants.find(grant => grant.source === other.name)!
+  const added = grants.find(grant => grant.source === stonegate.name)!
+  expect(added.rank).toBe(7)
+  expect(added.rule.condition).toBe('Only through barriers of earth or stone')
+  const uses = dailyInnateUses(c, added)!
+  c = { ...c, innateSpellUses: { [uses.key]: [0] } }
+  expect(dailyInnateUses(c, added)?.remaining).toBe(0)
+  expect(dailyInnateUses(c, existing)?.remaining).toBe(1)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup.match(/aria-haspopup="dialog">Magic Passage<\/button>/g)).toHaveLength(2)
+  expect(markup).toContain('Divine Spell Rank 7')
+  expect(markup).toContain('20-foot-deep')
+  expect(markup).toContain('Only through barriers of earth or stone')
+  expect(unresolvedFeatSpells(c, entries)).toEqual([])
 })
 
 it('shows Pummeling Rubble as a 15-foot cone when the source area is only numeric', () => {

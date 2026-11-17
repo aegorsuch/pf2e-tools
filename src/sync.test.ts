@@ -109,8 +109,9 @@ describe('settings sync', () => {
     expect(settings.getSettings().adoptedDwarfClanDagger).toBe(true)
     expect(settings.getSettings().singleAdditionalArms).toBe(true)
     expect(settings.getSettings().exclusiveCyborgHearts).toBe(true)
+    expect(settings.getSettings().innateAutoHeighten).toBe(true)
     settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false, unarmedCountsAsWeapons: false, barbarianIgnoreAgile: false, adoptedDwarfClanDagger: false, singleAdditionalArms: false, exclusiveCyborgHearts: false })
-    settings.updateSettings({ bucklerMeleeFinesse: false, rangerCavalier: false })
+    settings.updateSettings({ bucklerMeleeFinesse: false, rangerCavalier: false, innateAutoHeighten: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
     if (!saved) throw new Error('Settings were not persisted')
     vi.mocked(localStorage.getItem).mockReturnValue(saved)
@@ -122,6 +123,7 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().orderExplorerSkills).toBe(false)
     expect(reloaded.getSettings().gauntletFinesse).toBe(false)
     expect(reloaded.getSettings().bucklerMeleeFinesse).toBe(false)
+    expect(reloaded.getSettings().innateAutoHeighten).toBe(false)
     expect(reloaded.getSettings().unarmedCountsAsWeapons).toBe(false)
     expect(reloaded.getSettings().barbarianIgnoreAgile).toBe(false)
     expect(reloaded.getSettings().adoptedDwarfClanDagger).toBe(false)

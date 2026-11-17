@@ -8,7 +8,7 @@ import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isNamedArmor, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements } from './namedArmor'
@@ -3100,6 +3100,8 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
   const oaken = oakenResilience(c, entries)
   if (oaken) for (const damage of ['bludgeoning', 'piercing']) out.push({ damage, value: oaken.resistance, source: 'Oaken Resilience' })
+  const cairn = cairnForm(c, entries)
+  if (cairn) out.push({ damage: 'physical (except adamantine)', value: cairn.resistance, source: 'Cairn Form' })
   if (isSpellActive(c, entries, 'Mountain Resilience')) {
     const rank = grantedFeatSpells(c, entries).find(grant => grant.entry.name === 'Mountain Resilience')?.rank
       ?? Math.ceil(c.level / 2)
@@ -3167,6 +3169,14 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     if (m) out.push({ damage: m[2], value: m[1] ? 10 : 5, source: `${rune} rune` })
   }
   return out.map((r) => ({ ...r, damage: cap(r.damage) }))
+}
+
+export function cairnForm(c: Character, entries: ContentEntry[]) {
+  if (!isSpellActive(c, entries, 'Cairn Form')) return undefined
+  const rank = grantedFeatSpells(c, entries).find(grant => grant.entry.name === 'Cairn Form')?.rank
+    ?? Math.ceil(c.level / 2)
+  if (rank < 4) return undefined
+  return { rank, resistance: rank >= 10 ? 20 : rank >= 6 ? 10 : 5, dice: rank >= 10 ? 4 : rank >= 6 ? 3 : 2 }
 }
 
 export function oakenResilience(c: Character, entries: ContentEntry[], target: 'character' | 'familiar' = 'character') {
@@ -3530,10 +3540,12 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const selectedAttacks = animalAttacks.filter((attack) => features.some((feature) => attack.name === `${feature} (Animal Feature)`))
   const shift = activeUntamedShiftEffects(c, entries)
   const untamedAttacks = [UNTAMED_CLAWS, UNTAMED_JAWS].filter(attack => shift.includes(attack === UNTAMED_CLAWS ? 'Claws' : 'Jaws'))
+  const cairnAttacks = cairnForm(c, entries) ? [CAIRN_FIST] : []
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
+    && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
@@ -3541,7 +3553,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...selectedAttacks, ...untamedAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -3681,7 +3693,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
   return [...new Set(c.untamedShiftEffects ?? [])].filter(choice => available.includes(choice)).slice(0, max)
 }
 
-export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
+export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -4367,6 +4379,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
   let entry = withNamedWeaponState(weaponEntry(entries, w.name), w, c.level)
+  const cairn = w.name === CAIRN_FIST.name ? cairnForm(c, entries) : undefined
+  if (cairn) entry = { ...CAIRN_FIST, data: { ...CAIRN_FIST.data, damage: `${cairn.dice}d6 bludgeoning` } }
   if (w.id === OVERSIZED_THROW.id) {
     const specialization = classFeatures(entries, c).map((feature) => feature.name.toLowerCase())
     const dice = specialization.includes('greater weapon specialization') || c.className === 'Barbarian' && c.level >= 15 ? 3
@@ -4442,7 +4456,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank)
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, cairn ? Math.max(...Object.values(ranks)) : 0)
   const prof = rank === 0 && martialExperience ? c.level : proficiencyBonus(rank, c.level)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
@@ -4453,6 +4467,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
     ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
     ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
+    ...(cairn ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
     ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
   ].filter(source => source.rank === rank).map(source => source.name)
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
@@ -4463,7 +4478,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const modifiedDamageType = c.level >= 5 && chosenDamageType
     && (physicalTypes.includes(damageType ?? '') && physicalTypes.includes(chosenDamageType)
       || energyTypes.includes(damageType ?? '') && energyTypes.includes(chosenDamageType)) ? chosenDamageType : m?.[3]
-  const dice = m ? Math.max((+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
+  const dice = m ? Math.max(cairn ? Math.max(+m[1], 1 + w.striking) : (+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
   const twoHandDie = weaponHands(entries, attachedSource ?? w, c) === 2
@@ -4479,8 +4494,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? (c.level >= 15 ? 2 : 1) * rank : 0
   const barbarianSpecialization = c.className === 'Barbarian' && c.systems.includes('pf2e') && c.level >= 7 && rank >= 2
     ? (c.level >= 15 ? 2 : 1) * rank : 0
+  const cairnSpecialization = cairn && rank >= 2
+    ? classFeatures(entries, c).some(feature => /^greater weapon specialization$/i.test(feature.name)) ? rank * 2
+      : classFeatures(entries, c).some(feature => /^weapon specialization$/i.test(feature.name)) ? rank : 0 : 0
   const rageDamage = rageDamageBonus(c, entries, w, traits, ranged)
-  const damageBonus = flat + mechanicSpecialization + barbarianSpecialization + rageDamage
+  const damageBonus = flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization) + rageDamage
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -4509,6 +4527,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
+    criticalNote: cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
     ability,
     mod,
     prof,

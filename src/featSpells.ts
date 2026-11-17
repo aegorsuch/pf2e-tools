@@ -3,6 +3,7 @@ import type { Character, ContentEntry, SpellGrant } from './types'
 import { warmaskSource } from './warmask'
 import { characterHeritages } from './heritages'
 import { divineBoonSpells } from './divineIntercessions'
+import { getSettings } from './settings'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
@@ -296,7 +297,8 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         if (entry) out.push({ entry, source: feat.name,
           rule: feat.name === 'Empathetic Connection'
             ? { ...rule, condition: rule.condition ?? 'The target is temporarily immune for 24 hours' }
-            : feat.name === 'Imperious Nature' ? { ...rule, condition: rule.condition ?? 'This effect loses the linguistic trait' } : rule,
+            : feat.name === 'Imperious Nature' ? { ...rule, condition: rule.condition ?? 'This effect loses the linguistic trait' }
+            : feat.name === 'Stonegate' ? { ...rule, condition: rule.condition ?? 'Only through barriers of earth or stone' } : rule,
           rank: rule.heightened || entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
           ? Math.ceil(c.level / 2) : rule.rank ?? entry.level,
           usageKey: JSON.stringify([selection, feat.name, baseRule.spells.map(spell => spell.toLowerCase()).sort(),
@@ -304,7 +306,9 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       }
     }
   }
-  return out
+  return getSettings().innateAutoHeighten
+    ? out.map(grant => grant.rule.kind === 'innate' ? { ...grant, rank: Math.max(grant.rank, Math.ceil(c.level / 2)) } : grant)
+    : out
 }
 
 export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFeatSpells>[number]) {

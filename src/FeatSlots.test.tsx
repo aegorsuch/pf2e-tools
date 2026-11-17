@@ -772,7 +772,7 @@ it('offers Ancestral Magic variants at the slot rank and saves their spell grant
   findSelect(tree(), 'L09 Ancestry feat')!({ target: { value: JSON.stringify([magic.name, 'Verdant Code']) } })
   expect(c.feats.find(feat => feat.slot === 'ancestry:9:0')).toMatchObject({ name: magic.name, choice: 'Verdant Code' })
   expect(grantedFeatSpells(c, entries).map(grant => [grant.entry.name, grant.rank]))
-    .toEqual([['Wisp Ally', 1], ['Verdant Code', 3]])
+    .toEqual([['Wisp Ally', 7], ['Verdant Code', 7]])
   expect(renderToStaticMarkup(tree())).toContain('Ancestral Magic (Verdant Code)')
 })
 

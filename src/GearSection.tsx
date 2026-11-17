@@ -1214,7 +1214,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
-          </Fragment>)}</small>
+          </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}</small>
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
             {summary.form && <small>{summary.form}:</small>}
@@ -1243,7 +1243,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
-            </Fragment>)}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
+            </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
             <div className="row">{equipControls}</div>
             {!attachmentSource && canAttachWeapon(entries, w) && <label>Attached weapon{' '}
               <select aria-label={`Attached weapon: ${displayName}`} value={w.attachedWeapon ?? ''}
