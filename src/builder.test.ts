@@ -1415,7 +1415,7 @@ describe('defenses', () => {
     onTestFinished(() => updateSettings(previous))
     updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
     const ranger = { ...base, className: 'Ranger', level: 2, extraSlots: [{ category: 'archetype' as const, level: 2, count: 1 }] }
-    expect(plannedSlots(ranger).filter((s) => s.category === 'archetype').map((s) => s.key)).toEqual(['archetype:2:0', 'archetype:2:g99', 'archetype:2:g96'])
+    expect(plannedSlots(ranger).filter((s) => s.category === 'archetype').map((s) => s.key)).toEqual(['archetype:2:0', 'archetype:2:g99', 'archetype:2:g96', 'archetype:2:g95'])
   })
 
   it('gives druids focus spells from their order and Order Magic', () => {
