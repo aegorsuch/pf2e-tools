@@ -3427,7 +3427,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const selectedAttacks = animalAttacks.filter((attack) => features.some((feature) => attack.name === `${feature} (Animal Feature)`))
   const shift = activeUntamedShiftEffects(c, entries)
   const untamedAttacks = [UNTAMED_CLAWS, UNTAMED_JAWS].filter(attack => shift.includes(attack === UNTAMED_CLAWS ? 'Claws' : 'Jaws'))
-  const cards = activeFeatsNamed(c, "Fane's Fourberie").length
+  const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)

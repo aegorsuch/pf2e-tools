@@ -543,7 +543,7 @@ it('keeps Alloyed properties and normal tusks without the retired Cold Iron mate
 it('provides both playing-card usages with one shared deck and automatic fundamentals', () => {
   const dagger = content('weapon', 'Dagger', { damage: '1d4 piercing', weapon_category: 'Simple' }, 0)
   const dart = content('weapon', 'Dart', { damage: '1d4 piercing', weapon_category: 'Simple', weapon_type: 'Ranged', range: 20 }, 0)
-  const c: Character = { ...base, level: 10, feats: [feat("Fane's Fourberie", 2)],
+  const c: Character = { ...base, level: 10, feats: [feat("Fane's Fourberie", 2)], activeStance: "Fane's Fourberie",
     playingCardEnhancements: { potency: 0, striking: 0, runes: ['Shifting'] } }
   const weapons = ownedWeapons(c, [dagger, dart]).filter(weapon => weapon.id.startsWith('playing-card:'))
   expect(weapons.map(weapon => weapon.name)).toEqual(['Dagger (Playing Card)', 'Dart (Playing Card)'])
@@ -572,7 +572,7 @@ it('imports thrown range and applies Strong Arm to playing card daggers', async 
   expect(hit._source?.markdown).toContain('Thrown 10 ft.')
   const dagger = mapAonHit(hit, 'pf2e')!
   expect(dagger.data.thrown_range).toBe(10)
-  const c: Character = { ...base, feats: [feat("Fane's Fourberie", 2), feat('Strong Arm', 2)] }
+  const c: Character = { ...base, feats: [feat("Fane's Fourberie", 2), feat('Strong Arm', 2)], activeStance: "Fane's Fourberie" }
   const card = ownedWeapons(c, [dagger]).find(weapon => weapon.name === 'Dagger (Playing Card)')!
   expect(weaponAttack(c, [dagger], card)).toMatchObject({ thrownRange: 20, range: 0, ability: 'dex' })
   expect(weaponAttack({ ...c, feats: [c.feats[0]] }, [dagger], card).thrownRange).toBe(10)
