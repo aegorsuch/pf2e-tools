@@ -7,6 +7,7 @@ import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
@@ -788,12 +789,17 @@ it('grants a Beastmaster Dedication companion and extra companions only with Add
     traits: [], description: '', data: { size: 'Medium' }, effects: [], updatedAt: 1,
   }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(getSettings().singleAnimalCompanion).toBe(true)
+  updateSettings({ singleAnimalCompanion: false })
   findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose Faithful Steed')?.({ target: { value: 'Wolf' } })
   expect(c.companions).toMatchObject([{ type: 'Wolf' }])
   expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
   c = { ...c, feats: [...c.feats, { name: 'Additional Companion', type: 'Archetype Feat', level: 4 }] }
   findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')?.({ target: { value: 'Wolf' } })
   expect(c.companions).toHaveLength(2)
+  expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
+  updateSettings({ singleAnimalCompanion: true })
+  c = { ...c, companions: c.companions!.slice(0, 1), feats: [...c.feats, { name: 'Additional Companion', type: 'Archetype Feat', level: 6 }] }
   expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
 })
 

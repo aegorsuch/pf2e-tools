@@ -7,6 +7,7 @@ import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll } from './SpellDamage'
 import { newId } from './db'
+import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
 import { isCompanionEquipmentItem } from './companions'
 import { DroneFeatures } from './DroneFeatures'
@@ -189,7 +190,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const companionGrant = faithfulSteed ? 'Faithful Steed'
     : activeFeatsNamed(c, "Commander's Companion").length > 0 ? "Commander's Companion"
       : animalCompanionGrant ? 'Animal Companion' : beastmaster ? 'Beastmaster Dedication' : undefined
-  const companionLimit = beastmaster ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
+  const companionLimit = beastmaster && !getSettings().singleAnimalCompanion ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
     + activeFeatsNamed(c, 'Additional Companion').length) : 1
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + (c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0)
