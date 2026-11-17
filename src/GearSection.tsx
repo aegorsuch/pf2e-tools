@@ -1642,7 +1642,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               && c.systems.includes('sf2e') && <small>Land Speed gains hover; Fly Speed 10 feet while worn. Turn off when the mod expires.</small>}
             <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
-            {entry?.description && <Info label="Summary">{entry.description}</Info>}
+            {entry?.description && !/^Slithermaw's Bane/.test(entry.name) && <Info label="Summary">{entry.description}</Info>}
             <NamedArmorAbilities entry={entry} />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
