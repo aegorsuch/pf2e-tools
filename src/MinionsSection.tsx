@@ -51,13 +51,10 @@ function MinionFerocity({ c, ferocity }: { c: Character; ferocity: ReturnType<ty
     <div className="companion-action">
       <div className="companion-action-title">
         <ActionIcon actions="Reaction" /><b>{name}</b>
-        <SourceNote source="Ferocious Beasts" note={`Grants ${name} and one reaction per round usable only for ${name}.`} />
       </div>
-      <p className="companion-action-description">Once per day, when reduced to 0 HP but not immediately killed, remain at 1 HP instead of being knocked out; wounded increases by 1. One reaction per round, usable only for {name}.</p>
-      {ferocity.temporaryHp > 0 && <p className="companion-action-description">
-        Gain {ferocity.temporaryHp} temporary HP when using {name}.
-        <SourceNote source="Undying Ferocity" note="Ferocious Beasts also grants your Undying Ferocity benefit: temporary HP equal to this minion's level." />
-      </p>}
+      <p className="companion-action-description">Once per day, when reduced to 0 HP but not immediately killed, remain at 1 HP instead of being knocked out; wounded increases by 1. One reaction per round, usable only for {name}.
+        {ferocity.temporaryHp > 0 && <> Gain {ferocity.temporaryHp} temporary HP when using {name}.</>}
+      </p>
     </div>
   </section>
 }
@@ -283,7 +280,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <article key={comp.id} className="gear-card">
                 <header className="row">
                   {comp.name && comp.name !== comp.type && <strong>{comp.name}</strong>}
-                  <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value })}>
+                  <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value, supportActive: false })}>
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
                 </header>
@@ -395,11 +392,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   </section>
                   {stats.skills.length > 0 && <section className="companion-actions">
                     <h5>Skills</h5>
-                    <div>{stats.skills.map((s, index) => <span key={s.name}>
-                      {index > 0 && ', '}{s.name} {signed(s.bonus)}{s.clumsy && clumsyNote
+                    {stats.skills.map(s => <div key={s.name}>
+                      {s.name} {signed(s.bonus)}{s.clumsy && clumsyNote
                         && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
                       {s.note && s.noteSource && <SourceNote source={s.noteSource} note={s.note} inlineSource={false} />} ({RANK_LETTER[s.rank]})
-                    </span>)}</div>
+                    </div>)}
                   </section>}
                   <section className="companion-actions">
                     <h5>Speed</h5>
@@ -411,7 +408,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   </section>
                   {stats.support && <section className="companion-actions">
                     <div className="companion-action">
-                      <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Support Benefit</b></div>
+                      <div className="companion-action-title">
+                        <ActionIcon actions="Single Action" /><b>Support Benefit</b>
+                        <label><input type="checkbox" aria-label={`Support Benefit on ${comp.name || comp.type}`}
+                          checked={!!comp.supportActive} onChange={event => update(comp.id, { supportActive: event.target.checked })} /> Active</label>
+                      </div>
                       <p className="companion-action-description">{spellDCText(c, entries, stats.support)}</p>
                     </div>
                   </section>}

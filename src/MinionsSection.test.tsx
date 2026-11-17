@@ -116,11 +116,15 @@ it('shows granted Ferocity on each eligible minion without consuming familiar or
   const render = (character = c) => renderToStaticMarkup(<MinionsContent c={character} entries={entries} save={() => {}} />)
   const html = render()
   expect(html.match(/aria-label="Orc Ferocity"/g)).toHaveLength(4)
-  expect(html.match(/aria-label="Ferocious Beasts note"/g)).toHaveLength(4)
+  expect(html).not.toContain('aria-label="Ferocious Beasts note"')
+  expect(html).not.toContain('aria-label="Undying Ferocity note"')
+  expect(html).not.toContain('Ferocious Beasts also grants')
+  expect(html).not.toContain('Grants Orc Ferocity and one reaction')
   expect(html.match(/Gain 13 temporary HP when using Orc Ferocity/g)).toHaveLength(4)
   expect(html).toContain('Once per day, when reduced to 0 HP but not immediately killed, remain at 1 HP')
   expect(html).toContain('wounded increases by 1')
   expect(html).toContain('One reaction per round, usable only for Orc Ferocity')
+  expect(html.match(/One reaction per round, usable only for Orc Ferocity\. Gain 13 temporary HP when using Orc Ferocity\.<\/p>/g)).toHaveLength(4)
   expect(html).toContain('aria-label="Reaction"')
   expect(html).toContain('Daily familiar or master abilities (1/2)')
   expect(html).toContain('<option selected="">Climber</option>')
@@ -130,6 +134,10 @@ it('shows granted Ferocity on each eligible minion without consuming familiar or
   expect(adopted.match(/aria-label="Ferocity"/g)).toHaveLength(4)
   expect(adopted).toContain('Gain 13 temporary HP when using Ferocity')
   expect(adopted).not.toContain('Orc Ferocity')
+  const level20 = render({ ...c, level: 20, ancestry: 'Human', feats: [
+    ...c.feats, { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
+  ] })
+  expect(level20.match(/One reaction per round, usable only for Ferocity\. Gain 20 temporary HP when using Ferocity\.<\/p>/g)).toHaveLength(4)
   expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Undying Ferocity') })).not.toContain('temporary HP')
   expect(render({ ...c, level: 12 })).not.toContain('aria-label="Orc Ferocity"')
   expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Ferocious Beasts') })).not.toContain('aria-label="Orc Ferocity"')
@@ -442,6 +450,9 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   const senses = markup.slice(markup.indexOf('<h5>Senses</h5>'), markup.indexOf('<h5>Skills</h5>'))
   expect(senses).toContain('<small>Perception</small>')
   expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<b>Support Benefit</b>'))
+  const skills = markup.slice(markup.indexOf('<h5>Skills</h5>'), markup.indexOf('<h5>Speed</h5>'))
+  expect(skills).toContain('<div>Acrobatics +18 (T)</div>')
+  expect(skills).toContain('<div>Athletics +18 (T)</div>')
   expect(markup).toContain('aria-label="Single Action"')
   expect(markup).toContain('aria-label="Two Actions"')
   expect(markup).not.toContain('class="companion-maneuver-card"')
@@ -512,6 +523,34 @@ it('shows horseshoe rules in the Athletics source note instead of beneath Speed'
   expect(markup).toContain('+3 circumstance bonus to Athletics checks to High Jump and Long Jump')
   expect(markup).toContain('when Leaping, move 5 feet farther horizontally or 3 feet higher vertically')
   expect(markup).not.toContain('<small>Alacritous Horseshoes (Greater):')
+})
+
+it('persists Support Benefit activation separately for each companion and resets it when its type changes', () => {
+  const cat: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'cat', name: 'Cat', traits: ['Animal'],
+    data: { size: 'Small', hp: 6, companion_support: 'Distracts nearby foes.' } }
+  const wolf: ContentEntry = { ...cat, id: 'wolf', name: 'Wolf', data: { ...cat.data, companion_support: 'Tears at a foe.' } }
+  const entries = [cat, wolf]
+  let c: Character = { id: 'support', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Wolf', name: 'B' }] }
+  const original = JSON.stringify(c)
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const content = () => MinionsContent({ c, entries, save })
+  expect(renderToStaticMarkup(content())).toContain('aria-label="Support Benefit on A"')
+  expect(JSON.stringify(c)).toBe(original)
+  findToggle(content(), 'Support Benefit on A')!({ target: { checked: true } })
+  expect(c.companions).toEqual([
+    { id: 'a', type: 'Cat', name: 'A', supportActive: true }, { id: 'b', type: 'Wolf', name: 'B' },
+  ])
+  expect(renderToStaticMarkup(content())).toContain('aria-label="Support Benefit on A" checked=""')
+  expect(renderToStaticMarkup(content())).not.toContain('aria-label="Support Benefit on B" checked=""')
+  findToggle(content(), 'Support Benefit on A')!({ target: { checked: false } })
+  expect(c.companions?.[0].supportActive).toBe(false)
+  findToggle(content(), 'Support Benefit on A')!({ target: { checked: true } })
+  findSelect(content(), 'Companion type')!({ target: { value: 'Wolf' } })
+  expect(c.companions?.[0]).toMatchObject({ type: 'Wolf', supportActive: false })
+  expect(renderToStaticMarkup(content())).toContain('Tears at a foe.')
 })
 
 it('syncs companion spell toggles in both directions, persists targets, and gates heightened choices', () => {

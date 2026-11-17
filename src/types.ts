@@ -350,7 +350,7 @@ export interface Character {
   enlargeCompanionId?: string
   apexCompanionId?: string
   // Companions and their equipped gear
-  companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet;
+  companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
