@@ -105,11 +105,13 @@ const ACTIONS: Record<string, string[]> = {
 
 export function namedArmorAbilities(entry?: ContentEntry) {
   if (!entry || !entry.data.named_armor && !entry.data.named_shield && entry.name !== 'Shadowed Scale, the Jungle Secret') return []
-  const body = entry.description.split('\n\nElven chain construction:')[0].split(BODY).at(-1)!
-    .replace(/\n\nNethys Note:[\s\S]*$/, '')
+  const sections = entry.description.split('\n\nElven chain construction:')[0].split(BODY)
+  const body = sections.at(-1)!.replace(/\n\nNethys Note:[\s\S]*$/, '')
+  const statBlock = sections.length > 2 && /^Perception\b/.test(sections.at(-2)!.trim()) ? sections.at(-2)! : ''
   const starts = [...body.matchAll(/(?:^|\n\n)(Activate|Destruction)\b/g)]
   const paragraphs = (text: string) => text.split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean)
   const abilities = [
+    { name: 'Senses', paragraphs: paragraphs(statBlock), actions: undefined as string | undefined },
     { name: 'Summary', paragraphs: paragraphs(body.slice(0, starts[0]?.index)), actions: undefined as string | undefined },
     ...starts.map((match, index) => {
       const section = body.slice(match.index + match[0].length, starts[index + 1]?.index).trim()
@@ -121,6 +123,6 @@ export function namedArmorAbilities(entry?: ContentEntry) {
       }
     }),
   ].filter(ability => ability.paragraphs.length)
-  const rank = (name: string) => name === 'Summary' ? 0 : name === 'Destruction' ? 2 : 1
+  const rank = (name: string) => name === 'Senses' ? 0 : name === 'Summary' ? 1 : name === 'Destruction' ? 3 : 2
   return abilities.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name))
 }

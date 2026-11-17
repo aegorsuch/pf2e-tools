@@ -34,7 +34,8 @@ const bane = item("Slithermaw's Bane", [
   '**Activate—Terrain Adaptation** 10 minutes (concentrate, divine) **Frequency** once per day; **Effect** You ignore non-magical difficult terrain in the chosen environment.',
 ].join('\n\n'), { resistances: 'poison=10', bulk: 0.1 })
 const artifact = item("Slithermaw's Bane (Artifact)", [
-  '---',
+  '**Usage** worn armor', '---',
+  '**Perception** +34; precise low-light vision and hearing within 30 feet', '**Will** +34', '---',
   '_Slithermaw’s Bane_ is a suit of _[+3 major resilient ](/Equipment.aspx?ID=2804) [greater fortification](/Equipment.aspx?ID=2789) high-grade [elven chain](/Equipment.aspx?ID=2801)_ that grants poison resistance 15.',
   '**Activate—Calistria’s Sting** <actions string="Reaction" /> (concentrate, poison) **Frequency** once per day; **Effect** 7d6 persistent poison damage.',
   '**Activate—Purge Toxins** <actions string="Two Actions" /> (concentrate) **Frequency** once per minute; **Effect** Counteract rank 9th, +25 modifier (+30 against fiend sources).',
@@ -186,4 +187,10 @@ it("gives Slithermaw's Bane the major weave runes and Orichalcum", () => {
   const generated = armorEntry(character, entries, bane.name)!
   expect(String(generated.data.named_armor_runes).split(';')).toEqual(expect.arrayContaining(['Moonweave (Major)', 'Sunweave (Major)']))
   expect(generated.data.named_armor_material).toBe('Orichalcum')
+})
+
+it("orders Slithermaw's Bane artifact sections as senses, summary, then alphabetized activations", () => {
+  const abilities = namedArmorAbilities({ ...artifact, data: { ...artifact.data, named_armor: true } })
+  expect(abilities.map(ability => ability.name)).toEqual(['Senses', 'Summary', 'Adaptation', "Calistria’s Sting", 'Purge Toxins'])
+  expect(abilities[0].paragraphs).toEqual(['Perception +34; precise low-light vision and hearing within 30 feet', 'Will +34'])
 })
