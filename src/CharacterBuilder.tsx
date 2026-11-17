@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { confirmRemoval } from './confirmRemoval'
+import { confirmRemoval, REMOVAL_EVENT } from './confirmRemoval'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
@@ -282,6 +282,19 @@ function characterCatalog(catalog: ContentEntry[], systemsKey: string) {
 export function CharacterBuilder({ character: c, catalog, onClose }: { character: Character; catalog: ContentEntry[]; onClose: () => void }) {
   const systemsKey = c.systems.join()
   const entries = characterCatalog(catalog, systemsKey)
+  const latest = useRef(c)
+  latest.current = c
+  const [undo, setUndo] = useState<{ label: string; snapshot: Character } | null>(null)
+  useEffect(() => {
+    let timer: number | undefined
+    const onRemoval = (event: Event) => {
+      window.clearTimeout(timer)
+      setUndo({ label: String((event as CustomEvent).detail), snapshot: latest.current })
+      timer = window.setTimeout(() => setUndo(null), 10000)
+    }
+    window.addEventListener(REMOVAL_EVENT, onRemoval)
+    return () => { window.removeEventListener(REMOVAL_EVENT, onRemoval); window.clearTimeout(timer) }
+  }, [])
   const save = (patch: Partial<Character>) => {
     return db.transaction('rw', db.characters, async () => {
       const current = await db.characters.get(c.id)
@@ -422,6 +435,12 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         <h2>{c.name}</h2>
         <button onClick={onClose}>Close</button>
       </div>
+      {undo && <div role="status" className="row">
+        <span>Removed {undo.label}.</span>
+        <button type="button" onClick={() => {
+          void db.characters.put({ ...undo.snapshot, updatedAt: Date.now() }).then(() => setUndo(null))
+        }}>Undo</button>
+      </div>}
       {!entries.some((e) => e.kind === 'class') && <p>No class data yet. Official content is still loading.</p>}
 
       <div className="row">
