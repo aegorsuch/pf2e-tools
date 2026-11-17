@@ -72,8 +72,10 @@ it('prepares common primal spells without a manually populated spellbook or slot
   for (const name of ['Cantrip', 'Rare Magic', 'Arcane Only', 'Higher Rank']) expect(rankOne).not.toContain(`value="${name}"`)
   expect(cantrip).toContain('value="Cantrip"')
   expect(cantrip).not.toContain('value="Heal"')
-  expect(html).toContain('Cantrips: 5')
-  expect(html).toContain('Rank 1: 2')
+  expect(html).not.toContain('Spell slots:')
+  expect(html).not.toContain('Slots follow your Druid level')
+  expect(html).toContain('Spell Rank 1 slot 2')
+  expect(html).not.toContain('Spell Rank 1 slot 3')
   expect(html).not.toContain('type="number"')
   expect(html).not.toContain('Filter spells by tradition')
   expect(html).toContain('<span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>')
@@ -84,6 +86,28 @@ it('retains explicit learned access to uncommon spells', () => {
   const c = { ...base, spells: [{ name: rare.name, entryId: rare.id, rank: 1, cantrip: false }] }
   expect(choices(render(c, [rare]), 'Spell Rank 1 slot 1')).toContain('value="Rare Magic"')
   expect(render(c, [rare])).toContain('aria-label="Remove Rare Magic"')
+})
+
+it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choices while preserving saved preparation %j', selected => {
+  const entries = [
+    { ...spell('Heal'), id: 'aon:sf2e:heal', systems: ['sf2e'] as Character['systems'] },
+    { ...spell('Guidance', 1, 'Primal', ['Cantrip']), id: 'aon:sf2e:guidance', systems: ['sf2e'] as Character['systems'] },
+    { ...spell('Heal'), id: 'aon:pf2e:heal' },
+    { ...spell('Guidance', 1, 'Primal', ['Cantrip']), id: 'aon:pf2e:guidance' },
+  ]
+  const c: Character = { ...base, systems: ['pf2e', 'sf2e'],
+    spells: [{ name: 'Heal', rank: 1, cantrip: false }],
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': selected } } }
+  const before = JSON.stringify(c)
+  const html = render(c, entries)
+  expect(choices(html, 'Spell Rank 1 slot 1').match(/>Heal<\/option>/g)).toHaveLength(1)
+  expect(choices(html, 'Cantrip slot 1').match(/>Guidance<\/option>/g)).toHaveLength(1)
+  if (selected) {
+    expect(choices(html, 'Spell Rank 1 slot 1')).toContain(`value="${selected}" selected=""`)
+    expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
+  }
+  expect(html).not.toContain('(unavailable)')
+  expect(JSON.stringify(c)).toBe(before)
 })
 
 it('retains saved preparations and spent slots while deriving valid current-level capacity', () => {

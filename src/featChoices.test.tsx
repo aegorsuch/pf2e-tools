@@ -482,7 +482,7 @@ it('shows action icons beside selected spells', () => {
   expect(markup).toContain('aria-label="Single Action"')
 })
 
-it('shows persisted Active toggles for granted buffs and timed spells, not instantaneous spells', () => {
+it('preserves selected Animal Feature effects without tracker-only or instantaneous spell toggles', () => {
   const c: Character = {
     ...base, level: 8, activeSpells: ['Animal Feature'], feats: [
       { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
@@ -493,7 +493,7 @@ it('shows persisted Active toggles for granted buffs and timed spells, not insta
   const spells = entries.map((entry) => entry.name === 'Gravity Weapon' ? { ...entry, data: { ...entry.data, duration: 60 } } : entry)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(markup).toContain('aria-label="Animal Feature: Claws" checked=""')
-  expect(markup).toContain('aria-label="Gravity Weapon active"')
+  expect(markup).not.toContain('aria-label="Gravity Weapon active"')
   expect(markup).not.toContain('aria-label="Heal Companion active"')
   expect(renderToStaticMarkup(<SpellsSection c={{ ...c, activeSpells: [] }} entries={spells} save={() => {}} />))
     .not.toContain('aria-label="Animal Feature: Claws" checked=""')
@@ -522,7 +522,7 @@ it('combines all Warden tiers without changing ordinary spell rank groups', () =
   ]
   const c: Character = { ...base, spells: spells.map((s) => ({ name: s.name, rank: 5, cantrip: false, entryId: s.id })) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup.match(/<h5>Focus 1<\/h5>/g)).toHaveLength(1)
+  expect(markup.match(/<h5>Primal Focus Spells Rank 1<\/h5>/g)).toHaveLength(1)
   expect(markup).not.toMatch(/<h5>(?:Initiate|Advanced|Master|Peerless) Warden<\/h5>/)
   const focus = markup.slice(markup.indexOf('<b>Focus Spells</b>'), markup.indexOf('<h5>Rank 5</h5>'))
   for (const spell of spells.slice(0, -1)) expect(focus).toContain(`aria-haspopup="dialog">${spell.name}</button>`)
@@ -580,9 +580,9 @@ it('retains spell slots for slotted casters such as Druids', () => {
     traits: [], description: '', data: { tradition: 'Primal' }, effects: [], updatedAt: 1,
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid]} save={() => {}} />)
-  expect(markup).toContain('Spell slots:')
-  expect(markup).toContain('Rank 1: 2')
-  expect(markup).toContain('Cantrips: 5')
+  expect(markup).toContain('aria-label="Spell Rank 1 slot 2"')
+  expect(markup).toContain('aria-label="Cantrip slot 5"')
+  expect(markup).not.toContain('Spell slots:')
 })
 
 it('opens prepared Druid spells in description dialogs without duplicating common spellbook entries', () => {

@@ -13,7 +13,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, RageToggle, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
@@ -690,6 +690,12 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />
+        </div>
+      </DeferredDetails>
+      <DeferredDetails>
+        <summary className="character-section-summary"><strong>Senses and Speed</strong></summary>
+        <div className="character-section-content">
+          <SensesAndSpeed {...section} />
         </div>
       </DeferredDetails>
       {featSection('skill')}

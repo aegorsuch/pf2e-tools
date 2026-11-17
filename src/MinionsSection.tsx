@@ -1,4 +1,4 @@
-import { Info, SourceNote } from './Info'
+import { SourceNote } from './Info'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
@@ -115,22 +115,20 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
         const selectedIds = selectedOther.map(item => item.entryId)
         const slotOptions = bySlot(slot, selectedIds)
         const unavailable = selectedOther.filter(item => !slotOptions.some(entry => entry.id === item.entryId))
-        return <div key={slot} className="row companion-equipment-slot" role="group"
+        return <div key={slot} className="row companion-equipment-slot companion-other-equipment" role="group"
           aria-label={`${companion.name || companion.type} Other equipment`}>
           <strong>Other</strong>
-          <div className="col">
-            {slotOptions.map(entry => <label key={entry.id}>
-              <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${entry.name}`}
-                checked={selectedIds.includes(entry.id)}
-                onChange={event => updateOther({ entryId: entry.id, name: entry.name }, event.target.checked)} />
-              {entry.name}
-            </label>)}
-            {unavailable.map(item => <label key={item.entryId}>
-              <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${item.name}`}
-                checked onChange={() => updateOther(item, false)} />
-              {item.name} (unavailable)
-            </label>)}
-          </div>
+          {slotOptions.map(entry => <label key={entry.id}>
+            <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${entry.name}`}
+              checked={selectedIds.includes(entry.id)}
+              onChange={event => updateOther({ entryId: entry.id, name: entry.name }, event.target.checked)} />
+            {entry.name}
+          </label>)}
+          {unavailable.map(item => <label key={item.entryId}>
+            <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${item.name}`}
+              checked onChange={() => updateOther(item, false)} />
+            {item.name} (unavailable)
+          </label>)}
         </div>
       }
       const selected = companion.equipment?.[slot]
@@ -252,6 +250,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
               const acSource = [stats?.magicHide ? 'Magic Hide' : undefined,
                 stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
+              const maneuvers = [
+                ...(stats?.maneuver ? [{ name: stats.maneuver, actions: stats.maneuverActions, traits: stats.maneuverTraits,
+                  requirements: stats.maneuverRequirements,
+                  description: stats.maneuverDescription || 'Description unavailable from Archives of Nethys.' }] : []),
+                ...(stats?.primalHowl ? [{ name: 'Primal Howl', actions: 'Two Actions', traits: 'Primal, sonic',
+                  requirements: undefined,
+                  description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
+              ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
                   aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
@@ -278,6 +284,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
                 </header>
+                {stats?.entry.description && <p className="companion-description">{stats.entry.description}</p>}
                 {statusControls.length > 0 && <div className="companion-status-toggles" role="group" aria-label="Companion status toggles">
                   {statusControls.map(({ name, element }) => <div key={name}>{element}</div>)}
                 </div>}
@@ -352,7 +359,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     <h5>Actions and maneuvers</h5>
                     {stats.attacks.length > 0 && <div className="companion-action-group">
                       <h6>Attacks</h6>
-                      {stats.attacks.map(a => <div key={a.name} className="companion-action">
+                      {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => <div key={a.name} className="companion-action">
                         <div className="companion-action-title">
                           <ActionIcon actions="Single Action" />
                           <b>{a.name}</b>{a.traits && <small>({a.traits})</small>}
@@ -365,38 +372,25 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     </div>}
                     {(stats.support || stats.maneuver || stats.primalHowl) && <div className="companion-action-group">
                       <h6>Maneuvers</h6>
+                      {maneuvers.map(maneuver => <div key={maneuver.name} className="companion-action">
+                        <div className="companion-action-title">
+                          {maneuver.actions ? <ActionIcon actions={maneuver.actions} showOther />
+                            : <small>Action cost unavailable</small>}
+                          <b>{maneuver.name}</b>{maneuver.traits && <small>({maneuver.traits})</small>}
+                        </div>
+                        {maneuver.requirements && <p className="companion-action-requirements">
+                          <strong>Requirements:</strong> {maneuver.requirements}
+                        </p>}
+                        <p className="companion-action-description">{maneuver.description}</p>
+                      </div>)}
                       {stats.support && <div className="companion-action">
                         <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Support Benefit</b></div>
                         <p className="companion-action-description">{stats.support}</p>
-                      </div>}
-                      {stats.maneuver && <article className="companion-maneuver-card">
-                        <div className="companion-maneuver-heading">
-                          <strong>{stats.maneuver}</strong>
-                          {stats.maneuverActions
-                            ? <ActionIcon actions={stats.maneuverActions} showOther />
-                            : <small>Action cost unavailable</small>}
-                        </div>
-                        {stats.maneuverTraits && <div className="gear-traits companion-maneuver-traits">
-                          {stats.maneuverTraits.split(',').map(trait => trait.trim()).filter(Boolean)
-                            .map(trait => <span className="gear-trait" key={trait}>{trait}</span>)}
-                        </div>}
-                        {stats.maneuverRequirements && <p className="companion-action-requirements">
-                          <strong>Requirements:</strong> {stats.maneuverRequirements}
-                        </p>}
-                        <p className="companion-action-description">
-                          {stats.maneuverDescription || 'Description unavailable from Archives of Nethys.'}
-                        </p>
-                      </article>}
-                      {stats.primalHowl && <div className="companion-action">
-                        <div className="companion-action-title"><ActionIcon actions="Two Actions" /><b>Primal Howl</b></div>
-                        <p className="companion-action-description">Primal, sonic; once per hour: 30-foot cone, {stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.</p>
                       </div>}
                     </div>}
                   </section>}
                   <MinionFerocity c={c} ferocity={stats.ferocity} />
                   {stats.stealthyCompanion && <div><small>Camouflage</small> In natural terrain, your companion can Hide and Sneak without cover or concealment.</div>}
-                  {stats.primalHowl && <div><small>Advanced maneuver</small> <b>Primal Howl</b> (2 actions, primal, sonic; once per hour): 30-foot cone, {stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.</div>}
-                  {stats.entry.description && <Info label="About">{stats.entry.description}</Info>}
                 </> : <small>Companion data is still loading.</small>}
                 <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
               </article>

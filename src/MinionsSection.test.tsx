@@ -272,6 +272,10 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   expect(markup).toContain('<option value="" selected="">None</option>')
   expect(markup).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
   expect(markup).toContain('aria-label="Buddy Other: Hosteling Statuette"')
+  const other = markup.match(/aria-label="Buddy Other equipment">([\s\S]*?)<\/div>/)?.[1]
+  expect(other).toMatch(/^<strong>Other<\/strong><label>/)
+  expect(other).toContain('aria-label="Buddy Other: Hosteling Statuette"')
+  expect(other).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
   expect(markup).not.toContain('Buddy Harness equipment')
   expect(markup).not.toContain('Buddy Head equipment')
   expect(markup.match(/<option value="anti-dragon">Anti-Dragon Barding<\/option>/g)).toHaveLength(1)
@@ -402,15 +406,16 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
     id: 'actions', systems: ['pf2e'], name: 'Test', level: 16, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: 'Faithful Steed', type: 'Class Feat', level: 1 },
-      { name: 'Pale Horse', type: 'Class Feat', level: 12 }],
+      { name: 'Pale Horse', type: 'Class Feat', level: 12 },
+      { name: 'Primal Howl', type: 'Class Feat', level: 8 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     companions: [{ id: 'cat', type: 'Cat', name: '' }],
     spells: ['Canopy Crawler', 'Enlarge Companion', 'Magic Hide'].map(name => ({ name, rank: 2, cantrip: false })),
   }
   const cat: ContentEntry = {
     id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat', level: 1,
-    traits: [], description: '', data: {
-      size: 'Medium', hp: 6, companion_attacks: 'Jaws|1d8 piercing|',
+    traits: [], description: 'A pale-furred mountain cat. Starts Small.', data: {
+      size: 'Medium', hp: 6, companion_attacks: 'Jaws|1d8 piercing|;Claws|1d6 slashing|agile',
       companion_support: 'The cat distracts its target.',
       companion_maneuver: 'Bear Hug', companion_maneuver_actions: 'Two Actions',
       companion_maneuver_traits: 'Flourish',
@@ -429,11 +434,17 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   expect(markup).toContain('<h6>Maneuvers</h6>')
   expect(markup).toContain('aria-label="Single Action"')
   expect(markup).toContain('aria-label="Two Actions"')
-  expect(markup).toContain('class="companion-maneuver-card"')
-  expect(markup).toContain('<strong>Bear Hug</strong>')
-  expect(markup).toContain('class="gear-trait">Flourish</span>')
+  expect(markup).not.toContain('class="companion-maneuver-card"')
+  expect(markup).toContain('<b>Bear Hug</b><small>(Flourish)</small>')
   expect(markup).toContain('Requirements:</strong> The cat has a creature grabbed.')
   expect(markup).toContain('The cat crushes a grabbed creature.')
+  expect(markup.indexOf('<b>Claws</b>')).toBeLessThan(markup.indexOf('<b>Jaws</b>'))
+  expect(markup.indexOf('<b>Bear Hug</b>')).toBeLessThan(markup.indexOf('<b>Primal Howl</b>'))
+  expect(markup.indexOf('<b>Primal Howl</b>')).toBeLessThan(markup.indexOf('<b>Support Benefit</b>'))
+  expect(markup.match(/<b>Primal Howl<\/b>/g)).toHaveLength(1)
+  expect(markup).not.toContain('Advanced maneuver')
+  expect(markup).toContain('</header><p class="companion-description">A pale-furred mountain cat. Starts Small.</p>')
+  expect(markup).not.toContain('<summary>About</summary>')
 })
 
 it('shows horseshoe rules in the Athletics source note instead of beneath Speed', () => {

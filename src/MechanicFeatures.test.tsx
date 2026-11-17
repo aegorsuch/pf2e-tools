@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { MechanicFeatures, mechanicMineDamage, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
 import { MinionsSection } from './MinionsSection'
-import { SkillsSection } from './SkillsSection'
+import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { magneticLevitatorsActive, movementSpeeds, resistances, subclassOptions } from './builder'
 import { droneCustomizationSlots, droneForceField, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
@@ -424,7 +424,7 @@ it('applies Magnetic Levitators only while its armor is worn', () => {
     mechanicArmorMods: { armor: { magneticLevitators: true } } }
   expect(magneticLevitatorsActive(c, [])).toBe(true)
   expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 10, source: 'Magnetic Levitators' })
-  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />))
+  expect(renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />))
     .toContain('hover; Magnetic Levitators')
   expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).not.toContainEqual(
     expect.objectContaining({ source: 'Magnetic Levitators' }))

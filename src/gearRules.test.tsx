@@ -7,7 +7,7 @@ import {
 import { companionStats } from './companions'
 import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
 import { ClassFeatures } from './ClassFeatures'
-import { SkillsSection } from './SkillsSection'
+import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
@@ -1374,7 +1374,7 @@ it.each([[14, undefined], [15, 15], [29, 15], [30, 20]])('uses actual Speed %i f
   expect(ragingAthleteBenefits(c, [ancestry])).toEqual({ jumpDCAdjustment: -10, longJumpExtra: 10, verticalLeap: 5, horizontalLeap })
   expect(ragingAthleteBenefits({ ...c, raging: false }, [ancestry])).toBeUndefined()
   expect(ragingAthleteBenefits({ ...c, level: 3 }, [ancestry])).toBeUndefined()
-  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ancestry]} save={() => {}} part="offense" />)
+  const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[ancestry]} save={() => {}} />)
   expect(markup).toContain('Jump DCs -10')
   if (horizontalLeap) expect(markup).toContain(`${horizontalLeap} ft. horizontal`)
 })
@@ -1773,9 +1773,9 @@ it('shows movement sources inline and alphabetizes alternate speeds after land S
     feats: [feat('Persistent Animal Feature', 8), feat('Fleet'), feat('Primal Nimbleness')],
     spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }, { name: 'Canopy Crawler', rank: 2, cantrip: false }],
     activeSpells: ['Animal Feature', 'Canopy Crawler'], animalFeatures: ['Fish Tail', 'Wings'] }
-  const text = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />).replace(/<[^>]*>/g, '')
+  const text = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />).replace(/<[^>]*>/g, '')
   expect(text).toContain('Speed: 35 ft. (+5 Fleet, +5 Primal Nimbleness); Climbing 35 ft. (Canopy Crawler); Fly 35 ft. (Animal Feature); Swim 35 ft. (Animal Feature)')
-  const inactive = renderToStaticMarkup(<SkillsSection c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} part="offense" />)
+  const inactive = renderToStaticMarkup(<SensesAndSpeed c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} />)
   expect(inactive).not.toContain('Climbing')
   expect(inactive).not.toContain('(Animal Feature)')
 })
@@ -1788,7 +1788,7 @@ it.each([[1, 30], [4, 30], [5, 60], [20, 60]])('adds active Keen Smell scent at 
   expect(senses(JSON.parse(JSON.stringify(c)) as Character, [])).toContainEqual(expected)
   expect(senses({ ...c, activeSpells: [] }, [])).not.toContainEqual(expected)
   expect(senses({ ...c, feats: [] }, [])).not.toContainEqual(expected)
-  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain(`Scent (imprecise) ${range} feet (Keen Smell)`)
 })
 

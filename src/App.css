@@ -499,6 +499,8 @@
 .equipment-group-heading .icon-button { flex: none; width: 2.75rem; height: 2.75rem; }
 .equipment-group > ul { margin-block: 0.5rem 0; }
 .equipment-search > .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.companion-other-equipment { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.companion-other-equipment > label { display: inline-flex; align-items: center; gap: 0.3rem; }
 .equipment-search input { flex: 1; min-width: 0; }
 .action-cost { display: inline-flex; align-items: center; gap: 0.1em; white-space: nowrap; vertical-align: middle; }
 .action-icon { width: 1em; height: 1em; flex: none; }
@@ -583,11 +585,7 @@
 .companion-actions h5, .companion-action-group h6 { margin: 0; }
 .companion-action-group, .companion-action { display: grid; gap: 0.25rem; }
 .companion-action-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
-.companion-action-description, .companion-action-requirements { margin: 0; text-align: left; }
-.companion-maneuver-card { display: grid; gap: 0.4rem; padding: 0.6rem; border: 1px solid var(--border); border-radius: 6px; background: var(--code-bg); text-align: left; }
-.companion-maneuver-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
-.companion-maneuver-heading strong { font-size: 1.05em; }
-.companion-maneuver-traits { margin: 0; }
+.companion-description, .companion-action-description, .companion-action-requirements { margin: 0; text-align: left; }
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .rune { display: inline-flex; align-items: center; }

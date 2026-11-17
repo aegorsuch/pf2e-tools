@@ -62,15 +62,15 @@ it('provides Direwolf Bonded boosts, training and Titan Wrestler without adding 
   expect(JSON.stringify(c)).toBe(before)
 })
 
-it('offers Persistent Gravity Weapon only in eligible Ranger class slots from level 14', () => {
-  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Persistent Gravity Weapon')!
-  const slot = { key: 'class:14:0', category: 'class' as const, level: 14 }
-  const c: Character = { ...base, level: 14, className: 'Ranger' }
+it.each([['Gravity Weapon', 14], ['Enlarge Companion', 18]] as const)('offers Persistent %s only in eligible Ranger class slots from level %i', (name, level) => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === `Persistent ${name}`)!
+  const slot = { key: `class:${level}:0`, category: 'class' as const, level }
+  const c: Character = { ...base, level, className: 'Ranger' }
   expect(eligibleFeats([feat], c, slot)).toContain(feat)
-  expect(eligibleFeats([feat], { ...c, level: 13 }, { ...slot, key: 'class:12:0', level: 12 })).not.toContain(feat)
+  expect(eligibleFeats([feat], { ...c, level: level - 1 }, { ...slot, key: `class:${level - 2}:0`, level: level - 2 })).not.toContain(feat)
   expect(eligibleFeats([feat], { ...c, className: 'Fighter' }, slot)).not.toContain(feat)
   expect(eligibleFeats([feat], c, { ...slot, category: 'skill' })).not.toContain(feat)
-  expect(feat.description).toContain('When you cast Gravity Weapon')
+  expect(feat.description).toContain(`When you cast ${name}`)
   expect(feat.description).toContain('until the next time you make your daily preparations')
 })
 

@@ -256,7 +256,7 @@ it('gives champions a focus point before choosing their devotion spell and saves
   findSelect(tree)!({ target: { value: 'Lay on Hands' } })
   expect(c.devotionSpell).toBe('Lay on Hands')
   expect(focusSpells(c, entries)).toEqual({ spells: [{ name: 'Lay on Hands', source: 'Devotion Spells' }], points: 1 })
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Focus 1')
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Divine Focus Spells Rank 1')
   expect(JSON.parse(JSON.stringify(c)).devotionSpell).toBe('Lay on Hands')
 })
 
@@ -522,6 +522,9 @@ it('applies Untamed Shift selected effects, attack runes, heightening, and form 
   expect(resistances(shifted, [])).toEqual([])
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Untamed Shift: Claws')
+  expect(html).toContain('aria-label="Choose Untamed Shift effects"')
+  expect(html).toContain('aria-label="Single Action to Two Actions"')
+  expect(html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).not.toContain('Untamed Shift: choose')
   expect(html).not.toContain('Wings require casting with two actions')
   for (const displayOnly of [false, true]) {
     const weapons = renderToStaticMarkup(<WeaponList c={{ ...c, level: 19 }} entries={[]} save={() => {}} displayOnly={displayOnly} />)
@@ -529,6 +532,26 @@ it('applies Untamed Shift selected effects, attack runes, heightening, and form 
     expect(weapons).toContain(' + 4d6 persistent bleed')
     expect(weapons).not.toContain('on a hit (Untamed Shift)')
   }
+})
+
+it('shows the class spell attack modifier for Impaling Briars without an Attack trait', () => {
+  const feat = entry('Impaling Briars', 'feat', { grants_focus_spells: 'Impaling Briars' })
+  const spell = { ...entry('Impaling Briars', 'spell', { saving_throw: 'Reflex' }, ['Druid', 'Focus']),
+    description: 'A foe must attempt a Reflex save. Make a spell attack roll.' }
+  const c: Character = { ...base, className: 'Druid', level: 19, abilities: { ...base.abilities, wis: 22 },
+    feats: [taken(feat.name, 16)] }
+  expect(grantedFeatSpells(c, [feat, spell])).toHaveLength(0)
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[feat, spell]} save={() => {}} />)
+  expect(html).toContain('<small>Wisdom Attack +33</small>')
+  expect(html).toContain('Reflex DC 43')
+})
+
+it('shows Combustion as Instant even with incorrect imported duration', () => {
+  const spell = entry('Combustion', 'spell', { duration: 60 }, ['Druid', 'Focus', 'Uncommon'])
+  const c = { ...base, className: 'Druid', level: 19, spells: [{ name: spell.name, rank: 8, cantrip: false }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('<small>Duration</small>Instant')
+  expect(html).not.toContain('<small>Duration</small>1 minute')
 })
 
 it('grants Life Preserver and A Different Sort of Fey innate spells', () => {
@@ -721,18 +744,16 @@ it('places Warden focus spells before innate spells without showing granting-sou
   expect(markup).not.toContain('>Refocus</button>')
 })
 
-it.each(['Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck"])('shows %s range as Self with missing or zero imported range', name => {
-  const selfTargets = ['Animal Feature', "Hunter's Luck"].includes(name)
-  const tier = selfTargets ? 'Advanced' : 'Initiate'
-  const c: Character = { ...base, className: 'Ranger', feats: [taken(`${tier} Warden`, selfTargets ? 4 : 1, name)] }
+it.each(['Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck"])('shows %s range and targets as Self with missing or zero imported range', name => {
+  const tier = ['Animal Feature', "Hunter's Luck"].includes(name) ? 'Advanced' : 'Initiate'
+  const c: Character = { ...base, className: 'Ranger', feats: [taken(`${tier} Warden`, tier === 'Advanced' ? 4 : 1, name)] }
   for (const range of [undefined, 0]) {
-    const data: ContentEntry['data'] = { warden_spell_tier: tier }
+    const data: ContentEntry['data'] = { warden_spell_tier: tier, targets: 'you' }
     if (range !== undefined) data.range = range
-    if (selfTargets) data.targets = 'you'
     const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry(name, 'spell', data)]} save={() => {}} />)
     expect(html).toContain('<small>Range</small>Self')
     expect(html).not.toContain('<small>Range</small>Touch')
-    if (selfTargets) expect(html).toContain('<small>Area/Targets</small>Self')
+    expect(html).toContain('<small>Area/Targets</small>Self')
   }
 })
 
@@ -742,25 +763,84 @@ it('shows Pulverizing Wake range as a 15-foot cone', () => {
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
   expect(html).toContain('<small>Range</small>15-foot cone')
   expect(html).toContain('<small>Area/Targets</small>1 creature within reach')
+  expect(html).toContain('<small>Duration</small>Instant')
 })
 
-it('keeps requested buff Active toggles on the spell-name line without duplicates', () => {
-  const names = ['Imitate Fauna', 'Gravity Weapon', 'Keen Smell', 'Magic Hide']
+it.each([
+  [8, false, '10 minutes', 'Yourself or your animal companion'],
+  [9, false, '1 hour', 'Yourself and your animal companion'],
+  [14, false, '1 hour', 'Yourself and your animal companion'],
+  [9, true, 'Until next daily preparations', 'Yourself and your animal companion'],
+] as const)('heightens Canopy Crawler targets and duration at level %i with Persistent %s', (level, persistent, duration, targets) => {
+  const spell = entry('Canopy Crawler', 'spell', { duration: 600, range: 0, target: 'yourself or your animal companion' }, ['Focus', 'Ranger'])
+  const c: Character = { ...base, level, className: 'Ranger',
+    spells: [{ name: spell.name, rank: 2, cantrip: false }],
+    feats: persistent ? [taken('Persistent Canopy Crawler', 8)] : [] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain(`<small>Duration</small>${duration}`)
+  expect(html).toContain(`<small>Area/Targets</small>${targets}`)
+  expect(html).toContain('<small>Range</small>Touch')
+})
+
+it.each(['focus', 'innate', 'prepared'] as const)('hides Animal Feature choices in an action-icon dialog for %s spells', kind => {
+  const spell = entry('Animal Feature', 'spell', { duration: 60, actions: 'Single Action', tradition: 'Arcane' }, ['Focus', 'Ranger'])
+  const source: ContentEntry = { ...entry('Animal Gift', 'feat'),
+    spellGrants: [{ kind: kind === 'innate' ? 'innate' : 'focus', spells: [spell.name], tradition: 'primal', rank: 2 }] }
+  const c: Character = { ...base, className: kind === 'prepared' ? 'Wizard' : 'Ranger', level: 8,
+    feats: [taken(source.name), taken('Persistent Animal Feature', 8)], activeSpells: ['Animal Feature'], animalFeatures: ['Claws', 'Jaws'],
+    ...(kind === 'prepared' ? { spells: [{ name: spell.name, rank: 2, cantrip: false, entryId: spell.id }],
+      spellcasting: { ability: 'int' as const, rank: 1, tradition: 'Arcane', slots: { 2: 1 }, prepared: { '2:0': spell.id } } } : {}) }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell,
+    entry('Wizard', 'class', { tradition: 'Arcane' })]} save={() => {}} />)
+  const buttons = [...html.matchAll(/aria-label="Choose Animal Feature effects" aria-haspopup="dialog" aria-controls="([^"]+)"/g)]
+  expect(buttons).toHaveLength(kind === 'prepared' ? 2 : 1)
+  for (const button of buttons) {
+    const dialog = html.match(new RegExp(`<dialog[^>]*id="${button[1]}"[\\s\\S]*?</dialog>`))?.[0]
+    expect(dialog).toBeDefined()
+    expect(dialog).not.toMatch(/<dialog[^>]*\bopen(?:=|\s|>)/)
+    expect(dialog).toContain('aria-label="Animal Feature: Claws" checked=""')
+    expect(dialog).toContain('aria-label="Animal Feature: Jaws" checked=""')
+    expect(dialog).toContain('aria-label="Animal Feature: Wings"')
+  }
+  const visible = html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')
+  expect(visible).not.toContain('Animal Feature: choose')
+  expect(visible).not.toContain('aria-label="Animal Feature: Claws"')
+  expect(visible).toContain('aria-label="Single Action"')
+})
+
+it('keeps all buff Active toggles on the spell-name line without duplicates', () => {
+  const names = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
   const c: Character = { ...base, className: 'Ranger',
-    spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Gravity Weapon', 'Keen Smell'] }
-  const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell'))} save={() => {}} />)
+    spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Imitate Fauna', 'Keen Smell'] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell',
+    name === 'Oaken Resilience' ? { duration: 60 } : {}))} save={() => {}} />)
   const titles = html.match(/<div class="spell-title">[\s\S]*?<\/div>/g) ?? []
   for (const name of names) {
     const title = titles.find(title => title.includes(`aria-haspopup="dialog">${name}</button>`))
     expect(title).toContain(`aria-label="${name} active"`)
     expect(html.match(new RegExp(`aria-label="${name} active"`, 'g'))).toHaveLength(1)
   }
-  expect(html).toContain('aria-label="Gravity Weapon active" checked=""')
+  expect(html).toContain('aria-label="Imitate Fauna active" checked=""')
   expect(html).toContain('aria-label="Keen Smell active" checked=""')
+})
+
+it('omits Active trackers for spells without automated character effects, regardless of duration or saved state', () => {
+  const names = ['Gravity Weapon', 'Warning Stripes', 'Impaling Briars', 'Combustion', 'Unimplemented Buff']
+  const c: Character = { ...base, className: 'Ranger', activeSpells: names,
+    spells: names.map(name => ({ name, rank: 1, cantrip: false })) }
+  const before = JSON.stringify(c)
+  const html = renderToStaticMarkup(<SpellsSection c={c}
+    entries={names.map(name => entry(name, 'spell', { duration: 'Sustained up to 1 minute' }))}
+    save={() => { throw Error('Rendering must preserve saved spell state') }} />)
+  for (const name of names) expect(html).not.toContain(`aria-label="${name} active"`)
+  expect(JSON.stringify(c)).toBe(before)
+  expect(html).toContain('<small>Area/Targets</small>Yourself or your animal companion')
+  expect(html).toContain('<small>Range</small>Self or 30 feet')
 })
 
 it.each([
   ['Keen Smell', 6], ['Canopy Crawler', 8], ['Animal Feature', 8], ['Magic Hide', 10], ['Gravity Weapon', 14],
+  ['Enlarge Companion', 18],
 ] as const)('shows %s lasting until daily preparations only with its current Persistent feat', (name, level) => {
   const spell = entry(name, 'spell', { duration: 60 }, ['Focus', 'Ranger'])
   const c: Character = { ...base, className: 'Ranger', level,
@@ -884,14 +964,14 @@ it('grants Imperious Nature Command at rank 7 with its actual DC rule', () => {
   const c: Character = { ...base, level: 17, boosts: { class: 'str' }, abilities: { ...base.abilities, str: 26 },
     feats: [taken(grant.name, 17)] }
   expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Command' }, rank: 7,
-    rule: { tradition: 'occult', frequency: 'once per day', dc: 'higher-class-or-spell' } }])
+    rule: { tradition: 'occult', frequency: 'once per day', dc: 'higher-class-or-spell', condition: 'This effect loses the linguistic trait' } }])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('DC 39')
   expect(markup).not.toContain('rank 7 occult; once per day')
   expect(markup).not.toContain('use higher of class DC or spell DC')
   expect(markup).not.toContain('Attack +')
   expect(markup).toContain('aria-label="1 of 1 uses remaining"')
-  expect(markup).toContain('loses the linguistic trait')
+  expect(markup).not.toContain('loses the linguistic trait')
   expect(classDifficultyClass(c, entries)).toBe(39)
   expect(classDifficultyClass({ ...c, level: 10 }, entries)).toBe(30)
   expect(classDifficultyClass({ ...c, level: 19 }, entries)).toBe(43)
@@ -1037,6 +1117,7 @@ it('shows Warden and other focus metadata with class proficiency and source-spec
     feats: [taken('Initiate Warden', 1, 'Warden Test'), taken(source.name)] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('<small>Save</small>Will DC 42')
+  expect(html).toContain('<h5>Primal Focus Spells Rank 10</h5>')
   expect(html).toContain('<small>Save</small>Will DC 38')
   expect(html.match(/<small>Duration<\/small>1 minute/g)).toHaveLength(2)
   expect(html.match(/<small>Range<\/small>30 feet/g)).toHaveLength(2)
@@ -1045,6 +1126,19 @@ it('shows Warden and other focus metadata with class proficiency and source-spec
   expect(html).toContain('<span>Spell</span><span>Duration</span>')
   expect(html.indexOf('aria-haspopup="dialog">Other Focus</button>'))
     .toBeLessThan(html.indexOf('aria-haspopup="dialog">Warden Test</button>'))
+})
+
+it.each([
+  ['Ranger', 19, undefined, 'Primal Focus Spells Rank 10'],
+  ['Champion', 9, undefined, 'Divine Focus Spells Rank 5'],
+  ['Wizard', 9, 'occult', 'Occult Focus Spells Rank 5'],
+] as const)('labels %s focus spells with their tradition and automatic rank', (className, level, tradition, heading) => {
+  const source: ContentEntry = { ...entry('Focus Gift', 'feat'),
+    spellGrants: [{ kind: 'focus', spells: ['Focus Test'], tradition }] }
+  const c: Character = { ...base, className, level, feats: [taken(source.name)] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source,
+    entry('Wizard', 'class', { tradition: 'Arcane' }), entry('Focus Test', 'spell', {}, ['Focus'])]} save={() => {}} />)
+  expect(html).toContain(`<h5>${heading}</h5>`)
 })
 
 it('uses class DC and selected slot rank for prepared spell metadata', () => {

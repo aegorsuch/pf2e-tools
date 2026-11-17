@@ -84,6 +84,45 @@ export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' 
     : toggle
 }
 
+export function SensesAndSpeed({ c, entries, save }: SectionProps) {
+  const athlete = ragingAthleteBenefits(c, entries)
+  const terrain = favoredTerrainBenefits(c, entries)
+  const characterSenses = senses(c, entries)
+  return <>
+    <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}</small>
+    <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
+      const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
+      return <span key={movement.name}>
+        {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
+        {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover; Magnetic Levitators)'}
+        {movement.source && ` (${movement.source})`}
+        {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
+      </span>
+    })}{hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
+      source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
+    <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
+      title="Apply favored terrain benefits only while you are in that terrain." />
+    {!!activeFeatsNamed(c, 'Gg-os Frame').length && <FeatEffectToggle c={c} save={save} name="Uncanny Dash" label="Uncanny Dash active"
+      title="Apply the speed bonus only during Uncanny Dash." />}
+    {isFeatEffectActive(c, 'Favored Terrain') && !terrain
+      && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
+    {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Favored Terrain{' '}
+      <select aria-label="Favored Terrain" value={selectedFavoredTerrain(c) ?? ''} onChange={event => {
+        if (!FAVORED_TERRAINS.includes(event.target.value)) return
+        save(favoredTerrainChange(c, event.target.value))
+      }}>
+        {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
+      </select>
+    </label>}
+    {terrain && <small>Favored Terrain ({terrain.terrain}): ignore non-magical difficult terrain.
+      {terrain.enhanced && (['Arctic', 'Desert'].includes(terrain.terrain)
+        ? ` Eat and drink one-tenth as much; ignore severe/extreme ${terrain.terrain === 'Arctic' ? 'cold' : 'heat'}; cross ${terrain.terrain === 'Arctic' ? 'ice and snow' : 'sand'} at full Speed without Balance.`
+        : terrain.terrain === 'Swamp' ? ' Cross bogs at full Speed, including deep bogs normally requiring Swim or causing greater difficult terrain.' : '')}
+    </small>}
+    {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
+  </>
+}
+
 export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const editingSkills = part === 'skills'
   const c = editingSkills ? normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries) : original
@@ -407,48 +446,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     title="Only for Perception checks to find traps and hazards, AC against their attacks, and saves against their effects. Does not affect initiative." />
 
   if (part === 'offense') {
-    const athlete = ragingAthleteBenefits(c, entries)
-    const terrain = favoredTerrainBenefits(c, entries)
-    const characterSenses = senses(c, entries)
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
-        <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}</small>
         {hazardToggle}
         <FeatEffectToggle c={c} save={save} name='Eye for Treasure' label="Crafting Recall Knowledge active"
           title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
-        <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
-          title="Apply favored terrain benefits only while you are in that terrain." />
-        {!!activeFeatsNamed(c, 'Gg-os Frame').length && <FeatEffectToggle c={c} save={save} name="Uncanny Dash" label="Uncanny Dash active"
-          title="Apply the speed bonus only during Uncanny Dash." />}
-        {isFeatEffectActive(c, 'Favored Terrain') && !terrain
-          && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
-        {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Favored Terrain{' '}
-          <select aria-label="Favored Terrain" value={selectedFavoredTerrain(c) ?? ''} onChange={event => {
-            if (!FAVORED_TERRAINS.includes(event.target.value)) return
-            save(favoredTerrainChange(c, event.target.value))
-          }}>
-            {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
-          </select>
-        </label>}
-        {terrain && <small>Favored Terrain ({terrain.terrain}): ignore non-magical difficult terrain.
-          {terrain.enhanced && (['Arctic', 'Desert'].includes(terrain.terrain)
-            ? ` Eat and drink one-tenth as much; ignore severe/extreme ${terrain.terrain === 'Arctic' ? 'cold' : 'heat'}; cross ${terrain.terrain === 'Arctic' ? 'ice and snow' : 'sand'} at full Speed without Balance.`
-            : terrain.terrain === 'Swamp' ? ' Cross bogs at full Speed, including deep bogs normally requiring Swim or causing greater difficult terrain.' : '')}
-        </small>}
-        <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
-          const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
-          return <span key={movement.name}>
-            {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
-            {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover; Magnetic Levitators)'}
-            {movement.source && ` (${movement.source})`}
-            {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
-          </span>
-        })}{hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
-          source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
-        {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
         {testSubjectAdaptation(c) === 'Radioactive' && <label>
           <input type="checkbox" checked={!!c.ysokiDailyUses?.contaminate}

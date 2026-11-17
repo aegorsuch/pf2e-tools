@@ -3,7 +3,7 @@ import { expect, it } from 'vitest'
 import { activeFeatsNamed, eligibleFeats, maxHp, plannedSlots, resistances, savingThrowBreakdown, senses, weaponAttack } from './builder'
 import { DIVINE_INTERCESSIONS, divineIntercessionWeaknesses, hasDivineIntercession, syncDivineBoonFeats, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { DivineIntercessions } from './intercessionPicker'
-import { SkillsSection } from './SkillsSection'
+import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import { SpellsSection } from './SpellsSection'
 import { FeatSlots } from './FeatSlots'
@@ -195,7 +195,7 @@ it('adds Cayden fear-save guidance and upgrades critical failures only with acqu
 
 it('shows Cayden major boon on movement without claiming immunity or changing speed', () => {
   const c = character('Cayden Cailean', { 'Cayden Cailean': ['major-boon'] })
-  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />))
+  expect(renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />))
     .toContain('end one effect making you immobilized as a free action')
 })
 

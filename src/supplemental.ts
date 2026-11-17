@@ -146,6 +146,7 @@ export const PERSISTENT_SPELLS = [
   { name: 'Animal Feature', level: 8 },
   { name: 'Magic Hide', level: 10 },
   { name: 'Gravity Weapon', level: 14 },
+  { name: 'Enlarge Companion', level: 18 },
 ] as const
 
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {

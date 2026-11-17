@@ -742,11 +742,17 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
     .map((match) => match[1])
   expect(headings).toEqual([
     'Ability Scores', 'Ancestry', 'Background', 'Class', 'Dedications', 'Defense', 'Deity', 'Equipment', 'Formulas',
-    'General Feats', 'Languages', 'Minions', 'Offense', 'Skill Feats', 'Skills', 'Spells', 'Stances',
+    'General Feats', 'Languages', 'Minions', 'Offense', 'Senses and Speed', 'Skill Feats', 'Skills', 'Spells', 'Stances',
   ])
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
   expect(markup).not.toContain('Other Feat Slots')
   expect(markup).not.toContain('Skills &amp; proficiencies')
+  const offense = markup.slice(markup.indexOf('<strong>Offense</strong>'), markup.indexOf('<strong>Senses and Speed</strong>'))
+  const senses = markup.slice(markup.indexOf('<strong>Senses and Speed</strong>'), markup.indexOf('<strong>Skill Feats</strong>'))
+  expect(offense).not.toContain('Senses:')
+  expect(offense).not.toContain('Speed:')
+  expect(senses).toContain('Senses: No special senses')
+  expect(senses).toContain('Speed:')
   const classSection = markup.slice(markup.indexOf('<strong>Class</strong>'), markup.indexOf('<strong>Dedications</strong>'))
   expect(classSection).toContain('aria-label="Character level"')
   expect(markup.slice(0, markup.indexOf('<strong>Class</strong>'))).not.toContain('aria-label="Character level"')

@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { ArmorProficiency, RageToggle, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
 import * as builder from './builder'
@@ -50,8 +50,8 @@ it('summarizes used/total skill allocations, including exchanged tokens and temp
 
 it.each([undefined, 'Darkvision'])('always shows Senses, including when ancestry vision is %s', vision => {
   const ancestry: ContentEntry = { ...ranger, id: 'ancestry', kind: 'ancestry', name: 'Test ancestry', data: vision ? { vision } : {} }
-  const html = renderToStaticMarkup(<SkillsSection c={{ ...base, ancestry: ancestry.name }} entries={[ancestry]}
-    save={() => {}} part="offense" />)
+  const html = renderToStaticMarkup(<SensesAndSpeed c={{ ...base, ancestry: ancestry.name }} entries={[ancestry]}
+    save={() => {}} />)
   expect(html).toContain(vision ? 'Senses: Darkvision (Test ancestry)' : 'Senses: No special senses')
   if (vision) expect(html).not.toContain('No special senses')
 })
@@ -925,12 +925,12 @@ it('keeps Ancestral Skills training fixed, refunds redundant picks and spends on
   expect(c.skillIncreases).toEqual({ 7: 'Diplomacy' })
 })
 
-it('keeps Offense terrain synchronized without a redundant feat selector and applies Terrain Master automatically', () => {
+it('keeps movement terrain synchronized without a redundant feat selector and applies Terrain Master automatically', () => {
   let c: Character = { ...base, level: 11, feats: [
     { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' },
     { name: 'Terrain Master', type: 'Class Feat', level: 8, slot: 'class:8:0' },
   ] }
-  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } }, part: 'offense' })
+  const tree = () => SensesAndSpeed({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
   const controls = new Map<string, Record<string, unknown>>()
   const walk = (node: ReactNode) => {
     Children.forEach(node, child => {
@@ -969,7 +969,7 @@ it('keeps Offense terrain synchronized without a redundant feat selector and app
   ;(controls.get('Favored Terrain')!.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Desert' } })
   expect(c.feats[0].choice).toBe('Desert')
   expect(c.favoredTerrain).toBeUndefined()
-  const beforeMaster = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} part="offense" />)
+  const beforeMaster = renderToStaticMarkup(<SensesAndSpeed c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} />)
   expect(beforeMaster).not.toContain('aria-label="Favored Terrain"')
   expect(beforeMaster).toContain('aria-label="In favored terrain"')
   expect(beforeMaster).not.toContain('ignore non-magical difficult terrain')
@@ -1041,7 +1041,7 @@ it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () =>
 it('shows speed bonus sources but omits redundant Initiative helper', () => {
   const c: Character = { ...base, feats: ['Fleet', 'Primal Nimbleness', 'Incredible Initiative']
     .map((name) => ({ name, type: 'General Feat', level: 1 })) }
-  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)
+  const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[ranger]} save={() => {}} />)
   expect(markup).toContain('35 ft. (+5 Fleet, +5 Primal Nimbleness)')
   expect(markup).not.toContain('Initiative:')
   expect(initiativeBonus(c, [ranger])).toBe(5)
