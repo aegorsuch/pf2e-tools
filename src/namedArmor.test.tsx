@@ -160,12 +160,14 @@ it('uses source shield durability and preserves saved base stats without materia
 })
 
 it('keeps Ancestral Embrace names fixed, made of Grisantian Hide, with a Hide Armor variant', () => {
-  const armors = makeNamedArmorEntries(entries, [])
+  const armors = makeNamedArmorEntries(entries, [fortification, greaterFortification])
   const leatherEmbrace = armors.find(a => a.name === 'Ancestral Embrace')!
   const hideEmbrace = armors.find(a => a.name === 'Ancestral Embrace Hide Armor')!
   expect(leatherEmbrace.data.named_armor_base).toBe('Leather Armor')
   expect(hideEmbrace.data.named_armor_base).toBe('Hide Armor')
   expect(hideEmbrace.data.named_armor_material).toBe('Grisantian Hide')
+  expect(String(hideEmbrace.data.named_armor_runes).split(';')).toContain('Fortification (Greater)')
+  expect(String(leatherEmbrace.data.named_armor_runes)).not.toContain('Fortification')
   expect(leatherEmbrace.description).not.toMatch(/brightly colored/i)
   expect(hideEmbrace.description).not.toMatch(/leather armor|brightly colored/i)
   const c = { ...character, armors: [{ ...owned('Ancestral Embrace Hide Armor'), material: 'Grisantian Hide' as const }] }

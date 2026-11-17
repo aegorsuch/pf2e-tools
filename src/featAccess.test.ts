@@ -13,7 +13,7 @@ const feat: ContentEntry = {
   traits: ['Human', 'Uncommon'], data: { access: 'Kellid ethnicity' }, description: '', effects: [], updatedAt: 1,
 }
 
-it('offers Old Cheliax access for Hellknight Dedication without removing its training prerequisite', () => {
+it('offers Old Cheliax access for Hellknight Dedication', () => {
   const hellknight: ContentEntry = { ...feat, name: 'Hellknight Dedication', level: 2, traits: ['Archetype', 'Dedication', 'Uncommon'],
     data: { archetype: 'Hellknight', access: "You're from Old Cheliax.", prerequisite: 'trained by a Hellknight Order' } }
   const [option] = achievementOptions([hellknight])
@@ -21,7 +21,7 @@ it('offers Old Cheliax access for Hellknight Dedication without removing its tra
   const saved: Character = JSON.parse(JSON.stringify({ ...character, level: 2, achievements: [option.key] }))
   expect(featAccess(saved, hellknight)).toMatchObject({ automatic: true, source: 'achievement' })
   expect(featSelectionPrerequisiteChecker(saved, [hellknight], { key: 'archetype:2:0', category: 'archetype', level: 2 })(hellknight))
-    .toEqual({ missing: [], manual: ['trained by a Hellknight Order'] })
+    .toEqual({ missing: [], manual: [] })
   expect(featAccess(saved, { ...hellknight, data: { ...hellknight.data, access: 'You’re from Old Cheliax.' } })?.automatic).toBe(true)
   expect(featAccess(character, hellknight)?.automatic).toBe(false)
   expect(featAccess(saved, { ...hellknight, data: { access: "You're from New Cheliax." } })?.automatic).toBe(false)

@@ -15,7 +15,7 @@ function ancestralEmbraceVariants(item: ContentEntry): (ContentEntry & { baseOve
   const hide = {
     ...leather, id: `${item.id}:hide`, name: ANCESTRAL_HIDE, baseOverride: 'Hide Armor',
     description: leather.description.replace(/\bleather armor\b/gi, 'hide armor').replace(/\bBase Armor\s+Leather Armor/i, 'Base Armor Hide Armor')
-      .replace(/^This /, 'Fashioned from thick hide, this '),
+      .replace(/^This /, 'Fashioned from thick hide, this ').replace(/\+4 (?=\[?major resilient)/i, '+4 greater fortification '),
   }
   return [leather, hide]
 }

@@ -1182,3 +1182,14 @@ describe('shared prerequisite enforcement', () => {
     expect(check('First', { ...c, entryIds: ['variant'] }, [a, variant, entry('feat', 'Third')]).missing).toEqual(['Third'])
   })
 })
+
+it('treats Hellknight plate proficiency prerequisites as heavy armor', () => {
+  const c = { ...base, className: 'Fighter' }
+  for (const text of ['trained in Hellknight plate', 'expert in Hellknight half plate or Hellknight plate']) {
+    expect(check(text, c).manual).toEqual([])
+  }
+})
+
+it('does not ask to verify Hellknight Test membership prerequisites', () => {
+  expect(check('passed the Hellknight Test', base).manual).toEqual([])
+})

@@ -335,6 +335,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const rank = RANKS.indexOf(ranked?.[1] ?? inheritedRank!)
       const subject = name.replace(rankPrefix, '').replace(/^(?:your choice of|at least one of|one of)\s+/, '').replace(/\s+saves?$/, '')
       const armor = /^(light|medium|heavy) armor$|^(unarmored) defense$/.exec(subject)
+        ?? (/^hellknight (?:half )?plate$/.test(subject) ? [subject, 'heavy'] as unknown as RegExpExecArray : null)
       const weapon = /^(simple|martial|advanced) weapons?$|^(unarmed) attacks?$/.exec(subject)
       const skill = armor || weapon || /^clan daggers?$/.test(subject) ? undefined
         : Object.keys(facts.buildSkillRanks ?? facts.ranks).find((skill) => key(skill) === subject)
@@ -368,6 +369,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         return weaponRank === undefined ? manual(text) : resultFor(rankSatisfied(weaponRank, rank), text)
       }
     }
+    if (/^(?:passed the hellknight test|member of a hellknight order|trained by a hellknight order|lawful alignment|you've refused to take or have failed the hellknight test)\.?$/.test(name)) return met()
     const role = ROLE_PATTERN.exec(name)
     if (role) {
       const choices = role[2] === 'order' ? facts.orders : [facts.subclass ?? '', ...facts.additionalSubclasses]
