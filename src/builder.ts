@@ -304,7 +304,8 @@ export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, ent
   const sturdy = /^Sturdy Shield(?: \((Minor|Lesser|Moderate|Greater|Major|Supreme)\))?$/i.exec(shield.name ?? '')
   const sturdyRank = sturdy && ranks.find(rank => rank.toLowerCase() === (sturdy[1] ?? 'Minor').toLowerCase())
   const sturdyLevel = sturdy ? byName(entries, 'item', shield.name)?.level ?? (sturdyRank && SHIELD_RUNES[sturdyRank].level) : undefined
-  const overlap = shieldAllowsUpgrades(shield) && shield.reinforcingRune === appropriate || sturdyLevel === SHIELD_RUNES[appropriate].level
+  // Scale of Igroon matches a Supreme sturdy shield (20/160), so it always overlaps the blessing's rune.
+  const overlap = !shieldAllowsUpgrades(shield) || shield.reinforcingRune === appropriate || sturdyLevel === SHIELD_RUNES[appropriate].level
   return { rune: overlap ? undefined : appropriate, hardness: overlap ? 1 : 0 }
 }
 
@@ -317,8 +318,6 @@ export function shieldStats(shield: ShieldStatsInput, c?: Character, entries: Co
   const purchased = shieldAllowsUpgrades(shield) && shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
   const granted = blessing?.rune && SHIELD_RUNES[blessing.rune]
   const rune = granted && (!purchased || granted.level > purchased.level) ? granted : purchased
-  // Named shields can't take upgrades, so Blessed Shield stacks on top of their stats instead of being capped.
-  if (!shieldAllowsUpgrades(shield) && granted) return { hardness: hardness + granted.hardness, hp: hp + granted.hp }
   return {
     hardness: (rune ? Math.max(hardness, Math.min(hardness + rune.hardness, rune.maxHardness)) : hardness) + (blessing?.hardness ?? 0),
     hp: rune ? Math.max(hp, Math.min(hp + rune.hp, rune.maxHp)) : hp,

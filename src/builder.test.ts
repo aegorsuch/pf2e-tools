@@ -2070,10 +2070,10 @@ describe('homebrew feat rules', () => {
   })
 })
 
-it('stacks Blessed Shield on top of Scale of Igroon stats', () => {
+it('adds only +1 Hardness from Blessed Shield to Scale of Igroon', () => {
   const shield = { id: 'scale', name: 'Scale of Igroon', hardness: 20, hp: 160, damage: 0, raised: false }
   const c: Character = { ...base, className: 'Champion', level: 10, blessing: 'Blessed Shield', shield }
-  expect(shieldStats(shield, c)).toEqual({ hardness: 23, hp: 224 })
+  expect(shieldStats(shield, c)).toEqual({ hardness: 21, hp: 160 })
   expect(shieldStats(shield, { ...c, blessing: 'Blessed Swiftness' })).toEqual({ hardness: 20, hp: 160 })
 })
 
