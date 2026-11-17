@@ -1,4 +1,5 @@
 import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, proficiencyBonus, signed, type Ability } from './builder'
+import { beastmasterAbilities } from './beastmasterFeats'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 import { getSettings } from './settings'
@@ -210,7 +211,13 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     && SIZES.indexOf(size) > riderSize
   const flat = (advanced === 'Savage' ? 3 : advanced === 'Nimble' ? 2 : 0)
 
-  const attacks = String(d.companion_attacks ?? '').split(';').filter(Boolean).map((a) => {
+  const rawAttacks = String(d.companion_attacks ?? '').split(';').filter(Boolean)
+  const beastmaster = beastmasterAbilities(c, level, mods.str, specializations.length > 0, {
+    attacks: rawAttacks.map(attack => { const [name, , traits = ''] = attack.split('|'); return { name, traits } }),
+    size: naturalSize, speed: String(d.speed_raw ?? (d.speed ? `${d.speed} feet` : '')),
+  })
+  if (beastmaster.gust) rawAttacks.push('gust|1d4 bludgeoning|air, propulsive, range 30 feet')
+  const attacks = rawAttacks.map((a) => {
     const [name, damage = '', traits = ''] = a.split('|')
     const m = /^(\d+)d(\d+)\s*(.*)$/.exec(damage)
     const finesse = /agile|finesse/.test(traits)
@@ -304,6 +311,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     maneuverTraits: String(d.companion_maneuver_traits ?? ''),
     maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
     maneuverDescription: String(d.companion_maneuver_description ?? ''),
+    beastmasterManeuvers: beastmaster.maneuvers, beastmasterSpecial: beastmaster.special,
     mount: d.mount === true || riderMount, riderMount,
   }
 

@@ -270,6 +270,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   requirements: stats.maneuverRequirements,
                   damage: undefined,
                   description: stats.maneuverDescription || 'Description unavailable from Archives of Nethys.' }] : []),
+                ...(stats?.beastmasterManeuvers ?? []).map(maneuver => ({ ...maneuver, traits: maneuver.traits ?? '', requirements: maneuver.requirements,
+                  damage: undefined })),
                 ...(stats?.primalHowl ? [{ name: 'Primal Howl', actions: 'Two Actions', traits: 'Primal, sonic',
                   requirements: undefined,
                   damage: { label: 'Damage', dice: parseInt(stats.primalHowl, 10), sides: 6, type: 'sonic' },
@@ -426,7 +428,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     </div>)}
                   </section>}
                   <section className="companion-actions">
-                    <h5>Special: {stats.mount ? 'Mount' : 'None'}</h5>
+                    <h5>Special: {[...(stats.mount ? ['Mount'] : []), ...stats.beastmasterSpecial.map(special => special.name)].join(', ') || 'None'}</h5>
+                    {stats.beastmasterSpecial.map(special => <SourceNote key={special.name} source={special.name} note={special.note} />)}
                   </section>
                   <section className="companion-actions">
                     <h5>Speed</h5>

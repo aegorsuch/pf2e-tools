@@ -5,6 +5,7 @@ import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './w
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import { getSettings } from './settings'
+import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
@@ -857,6 +858,8 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    const companionRequirement = beastmasterRequirementMissing(character, entries, entry.name)
+    if (companionRequirement) missing.push(companionRequirement)
     if (getSettings().singleAnimalCompanion && entry.name === 'Specialized Beastmaster Companion'
       && character.feats.some(feat => /^Incredible (?:Animal )?Companion\b/.test(feat.name))) {
       for (let i = missing.length - 1; i >= 0; i--) if (/^Incredible Beastmaster Companion$/i.test(missing[i])) missing.splice(i, 1)
@@ -877,6 +880,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     if (multitalented && entry.name === `${character.className} Dedication`) missing.push("a multiclass dedication outside your current class")
     let manual = result.manual.filter((requirement) => !(requirements[entry.name] ?? [])
       .some((name) => name.toLowerCase() === requirement.toLowerCase()))
+    if (BEASTMASTER_FEATS[entry.name]) manual = manual.filter(requirement => !/^animal companion\b/i.test(requirement))
     if (['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)) {
       if (!character.companions?.some((companion) => companion.type === 'Horse')) missing.push('horse animal companion')
       manual = manual.filter((requirement) => !/^horse animal companion$/i.test(requirement))
@@ -980,8 +984,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
-      && !(/^(?:Animal Empathy|Heal Animal)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
-      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Mature Beastmaster Companion|Incredible Beastmaster Companion)\b/.test(e.name))
+      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Mature Animal Companion|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
+      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call|Mature Beastmaster Companion|Incredible Beastmaster Companion)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))

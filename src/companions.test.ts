@@ -441,6 +441,14 @@ describe('animal companions', () => {
     expect(eligibleFeats([dedication, heal], owned, slot)).not.toContain(heal)
   })
 
+  it('hides the Ranger or Druid copy of Side by Side once either is owned', () => {
+    const ranger = entry('feat', 'Side by Side (Ranger)', {}, 12, ['Ranger'])
+    const druid = entry('feat', 'Side by Side (Druid)', {}, 10, ['Druid'])
+    const c = { ...base, level: 12, className: 'Ranger', feats: [feat('Side by Side (Druid)', undefined, 'class:10:0')] }
+    expect(eligibleFeats([ranger, druid], c, { key: 'class:12:0', category: 'class' as const, level: 12 })).not.toContain(ranger)
+    expect(eligibleFeats([ranger], { ...c, feats: [] }, { key: 'class:12:0', category: 'class' as const, level: 12 })).toContain(ranger)
+  })
+
   it('hides Beastmaster Animal Empathy when the class already provided it', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const ranger = entry('feat', 'Animal Empathy (Ranger)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Ranger'])
@@ -455,12 +463,30 @@ describe('animal companions', () => {
   })
 
   it('hides Additional Companion and Swift Guardian under the single companion rule', () => {
+    const call = entry('feat', "Beastmaster's Call", {}, 12, ['Archetype'])
+    expect(eligibleFeats([call], { ...base, level: 12 }, { key: 'archetype:12:0', category: 'archetype' as const, level: 12 })).not.toContain(call)
     const extra = entry('feat', 'Additional Companion', {}, 4, ['Archetype'])
     const swift = entry('feat', 'Swift Guardian', {}, 4, ['Archetype'])
     const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
     const out = eligibleFeats([extra, swift], { ...base, level: 4 }, slot)
     expect(out).not.toContain(extra)
     expect(out).not.toContain(swift)
+  })
+
+  it('gates attack-specific Beastmaster feats by the companion and grants their maneuvers', () => {
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const sinking = entry('feat', 'Sinking Jaws', { archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication; animal companion with a jaws or fangs unarmed attack' }, 10, ['Archetype'])
+    const tail = entry('feat', 'Sweeping Tail', { archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication; animal companion with a tail unarmed attack' }, 10, ['Archetype'])
+    const slot = { key: 'archetype:10:0', category: 'archetype' as const, level: 10 }
+    const c: Character = { ...base, level: 10, feats: [feat(dedication.name, undefined, 'archetype:2:0')],
+      companions: [{ id: 'a', name: '', type: 'Bear' }] }
+    const out = eligibleFeats([dedication, sinking, tail, bear], c, slot)
+    expect(out).toContain(sinking)
+    expect(out).not.toContain(tail)
+    const owned = { ...c, feats: [...c.feats, feat('Sinking Jaws', undefined, 'archetype:10:0')] }
+    const stats = companionStats(owned, [bear], 'Bear', undefined, 'a')!
+    expect(stats.beastmasterManeuvers.map(m => m.name)).toEqual(['Sinking Jaws'])
+    expect(stats.beastmasterManeuvers[0].description).toContain(`${10 + stats.mods.str} piercing`)
   })
 
   it('hides Mature and Incredible Beastmaster Companion but lets class advancement unlock Specialized', () => {
