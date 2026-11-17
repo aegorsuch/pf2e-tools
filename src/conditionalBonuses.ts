@@ -22,6 +22,7 @@ export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
   save('Emotionless', 1, 'emotion and fear effects'),
   save('Goloma Courage', 1, 'fear effects', ['Will']),
   save('I Will Return', 2, 'death effects', SAVES, 'status'),
+  save('Orc Superstition', 1, 'the triggering spell or magical effect (reaction)'),
   save('Pervasive Superstition', 1, 'spells and magical effects'),
   save('Noble Resolve', 1, 'effects with the mental trait', ['Will']),
   save('Rakshasa Ravaged', 1, 'occult spells'),

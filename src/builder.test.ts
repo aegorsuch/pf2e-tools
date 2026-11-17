@@ -884,6 +884,13 @@ describe('official passive feat mechanics', () => {
   const attack = (c: Character, name: string, data: ContentEntry[]) =>
     weaponAttack(c, data, { id: name, name, potency: 0, striking: 0, runes: [] })
 
+  it('doubles ranged weapon range increments with Far Shot', () => {
+    const bow = entry('weapon', 'Longbow', { weapon_category: 'Martial', weapon_type: 'Ranged', damage: '1d8 piercing', range: 100 })
+    const c = { ...base, level: 4, feats: [{ name: 'Far Shot', type: 'Class Feat', level: 4 }] }
+    expect(attack(c, 'Longbow', [wizard, bow]).range).toBe(200)
+    expect(attack({ ...c, feats: [] }, 'Longbow', [wizard, bow]).range).toBe(100)
+  })
+
   it('grants successive armor types, scales only those types, and restores saved benefits after leveling back up', () => {
     const feats = [selected('Armor Proficiency'), selected('Armor Proficiency', 3)]
     const c = { ...base, level: 13, feats }

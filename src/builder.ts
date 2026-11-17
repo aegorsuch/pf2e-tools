@@ -4499,7 +4499,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
     } satisfies TotalBreakdown,
     range: ranged && num(entry?.data.range) > 0
-      ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
+      ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
+        * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0,
     thrownRange: !ranged && thrown && thrownRange > 0
       ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,
