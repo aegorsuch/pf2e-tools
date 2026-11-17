@@ -1,27 +1,41 @@
 import type { ContentEntry } from './types'
 
-const ARMORS = new Set(['Ancestral Embrace', "Slithermaw's Bane", "Slithermaw's Bane (Artifact)"])
+const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
+const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)"])
 const BODY = /\n\n-{3,}\s*\n\n/
 
 export function isNamedArmor(name: string) {
   return ARMORS.has(name)
 }
 
+const isAncestralEmbrace = (name: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
+
+function ancestralEmbraceVariants(item: ContentEntry): (ContentEntry & { baseOverride?: string })[] {
+  const leather = { ...item, description: item.description.replace(/\bThis brightly colored\b/, 'This') }
+  const hide = {
+    ...leather, id: `${item.id}:hide`, name: ANCESTRAL_HIDE, baseOverride: 'Hide Armor',
+    description: leather.description.replace(/\bleather armor\b/gi, 'hide armor').replace(/\bBase Armor\s+Leather Armor/i, 'Base Armor Hide Armor')
+      .replace(/^This /, 'Fashioned from thick hide, this '),
+  }
+  return [leather, hide]
+}
+
 export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: string }[]) {
   return entries.filter(item => item.kind === 'item' && !item.deleted && item.systems.includes('pf2e') && ARMORS.has(item.name))
-    .flatMap(item => {
+    .flatMap(item => item.name === 'Ancestral Embrace' ? ancestralEmbraceVariants(item) : [item])
+    .flatMap((item: ContentEntry & { baseOverride?: string }) => {
       const elven = /\belven chain\b/i.test(item.description)
         ? entries.find(entry => entry.kind === 'item' && !entry.deleted && entry.name === 'Elven Chain'
           && entry.systems.includes('pf2e')) : undefined
-      const baseName = /\bBase Armor\s+([^\n.]+)/i.exec(item.description)?.[1].trim()
+      const baseName = item.baseOverride ?? /\bBase Armor\s+([^\n.]+)/i.exec(item.description)?.[1].trim()
         ?? (elven ? /\bis a ([^.]+?) made of/i.exec(elven.description)?.[1] : undefined)
       const base = baseName && entries.find(entry => entry.kind === 'armor' && !entry.deleted
         && entry.systems.includes('pf2e') && entry.name.toLowerCase() === baseName.toLowerCase())
       if (!base || /\belven chain\b/i.test(item.description) && !elven) return []
-      const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|elven chain)\b/i.exec(item.description)
+      const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|hide armor|elven chain)\b/i.exec(item.description)
       if (!enchantment) return []
       let properties = ` ${enchantment[2].toLowerCase()} `
-      const fixed: string[] = item.name === 'Ancestral Embrace' ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
+      const fixed: string[] = isAncestralEmbrace(item.name) ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
       const candidates = [...runes, ...(/\bgreater fortification\b/i.test(enchantment[2])
         && !runes.some(rune => rune.name === 'Fortification (Greater)') ? [{ name: 'Fortification (Greater)' }] : [])]
       for (const rune of candidates.sort((a, b) => b.name.length - a.name.length)) {
@@ -49,6 +63,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
           ...(quiet ? { check_penalty: 0 } : {}),
           ...(thickening ? { bulk: Number(item.data.bulk ?? base.data.bulk) + Number(thickening[1]),
             strength: Number(base.data.strength) + Number(thickening[2]) } : {}),
+          ...(isAncestralEmbrace(item.name) ? { named_armor_material: 'Grisantian Hide' } : {}),
           ...(elven ? { named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
@@ -81,6 +96,7 @@ export function makeNamedShieldEntry(entries: ContentEntry[], name: string): Con
 
 const ACTIONS: Record<string, string[]> = {
   'Ancestral Embrace': ['Free Action', 'Free Action', 'Two Actions'],
+  [ANCESTRAL_HIDE]: ['Free Action', 'Free Action', 'Two Actions'],
   "Slithermaw's Bane": ['Reaction', ''],
   "Slithermaw's Bane (Artifact)": ['Reaction', 'Two Actions', 'Two Actions'],
   'Scale of Igroon': ['Single Action', 'Single Action', 'Free Action'],

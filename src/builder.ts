@@ -3680,6 +3680,7 @@ function hammerMultipistolEntries(entries: ContentEntry[]) {
   }))
 }
 export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>) {
+  if (isNamedArmor(armor.name)) return armor.name
   const material = armor.material?.replace(/\s+\([^)]*\)$/, '')
   if (!material || armor.name.toLowerCase().startsWith(material.toLowerCase())) return armor.name
   const base = material === 'Grisantian Hide' ? armor.name.replace(/^Hide(?:\s+|$)/i, '')

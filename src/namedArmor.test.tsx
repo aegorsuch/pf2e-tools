@@ -12,6 +12,8 @@ const item = (name: string, markdown: string, extra: Record<string, unknown> = {
 }, 'pf2e')!
 const leather = mapAonHit({ _id: 'armor-41', _source: { category: 'armor', name: 'Leather Armor',
   ac: 1, dex_cap: 4, strength: 0, armor_category: 'Light', armor_group: 'Leather', bulk: 1, check_penalty: -1 } }, 'pf2e')!
+const hide = mapAonHit({ _id: 'armor-42', _source: { category: 'armor', name: 'Hide Armor',
+  ac: 3, dex_cap: 2, strength: 2, armor_category: 'Medium', armor_group: 'Composite', bulk: 2, check_penalty: -2, speed_penalty: -5 } }, 'pf2e')!
 const chain = mapAonHit({ _id: 'armor-43', _source: { category: 'armor', name: 'Chain Shirt',
   ac: 2, dex_cap: 3, strength: 1, armor_category: 'Light', armor_group: 'Chain', bulk: 1,
   check_penalty: -1, trait: ['Flexible', 'Noisy'] } }, 'pf2e')!
@@ -55,7 +57,7 @@ const mask = item('Shadowed Scale, the Jungle Secret', [
   '**Activate** <actions string="Single Action" /> Interact; **Frequency** once per hour; **Requirements** Adjacent to the body of a creature you killed that decomposed into soil; **Effect** Cast summon plant or fungus at half the slain creature’s level, rounded up.',
   '**Destruction** Stomped by the progenitor of all mokele-mbembes.',
 ].join('\n\n'), { usage: 'worn mask', url: '/Equipment.aspx?ID=1530' })
-const entries = [leather, chain, elven, embrace, bane, artifact, fortification, greaterFortification, scale, mask]
+const entries = [leather, hide, chain, elven, embrace, bane, artifact, fortification, greaterFortification, scale, mask]
 const character: Character = {
   id: 'armor-test', systems: ['pf2e'], name: 'Armor test', level: 20,
   abilities: { str: 14, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
@@ -82,7 +84,7 @@ it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Per
 it('derives named armor bases, fundamental runes, elven construction, and immutable source metadata', () => {
   const before = JSON.stringify(entries)
   expect(gearPickerEntries(entries, 'armor').filter(entry => entry.data.named_armor).map(entry => entry.name))
-    .toEqual([embrace.name, bane.name, artifact.name])
+    .toEqual([embrace.name, 'Ancestral Embrace Hide Armor', bane.name, artifact.name])
   expect(armorEntry(character, entries, embrace.name)?.data).toMatchObject({
     ac: 1, dex_cap: 4, named_armor_potency: 4, named_armor_resilient: 3, url: embrace.data.url, price: '',
   })
@@ -155,4 +157,18 @@ it('uses source shield durability and preserves saved base stats without materia
   expect(makeNamedArmorEntries([chain, elven, artifact], [{ name: 'Fortification' }])[0].data.named_armor_runes)
     .toBe('Fortification (Greater)')
   expect(makeNamedShieldEntry([{ ...scale, description: 'Unavailable rules.' }], scale.name)).toBeUndefined()
+})
+
+it('keeps Ancestral Embrace names fixed, made of Grisantian Hide, with a Hide Armor variant', () => {
+  const armors = makeNamedArmorEntries(entries, [])
+  const leatherEmbrace = armors.find(a => a.name === 'Ancestral Embrace')!
+  const hideEmbrace = armors.find(a => a.name === 'Ancestral Embrace Hide Armor')!
+  expect(leatherEmbrace.data.named_armor_base).toBe('Leather Armor')
+  expect(hideEmbrace.data.named_armor_base).toBe('Hide Armor')
+  expect(hideEmbrace.data.named_armor_material).toBe('Grisantian Hide')
+  expect(leatherEmbrace.description).not.toMatch(/brightly colored/i)
+  expect(hideEmbrace.description).not.toMatch(/leather armor|brightly colored/i)
+  const c = { ...character, armors: [{ ...owned('Ancestral Embrace Hide Armor'), material: 'Grisantian Hide' as const }] }
+  const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
+  expect(html).toContain('>Ancestral Embrace Hide Armor</button>')
 })

@@ -14,7 +14,7 @@ export function NamedArmorAbilities({ entry }: { entry?: ContentEntry }) {
       Terrain adaptation bonuses apply only in the chosen environment.
       {entry.name.endsWith('(Artifact)') && ' The armor’s own senses, skills, attributes, and actions are not the wearer’s statistics. Track heroic legacy choices separately.'}
     </small>}
-    {entry?.name === 'Ancestral Embrace' && <small>Choose the ancestry feat when investing the armor and track it separately; meet all prerequisites other than level. The feat is lost when investment ends.</small>}
+    {entry?.name.startsWith('Ancestral Embrace') && <small>Choose the ancestry feat when investing the armor and track it separately; meet all prerequisites other than level. The feat is lost when investment ends.</small>}
     {entry?.name === 'Shadowed Scale, the Jungle Secret' && <small>Concealment applies only while wearing the mask in a jungle, not everywhere.</small>}
     {abilities.map(ability => <details key={ability.name}>
       <summary>{ability.name} <ActionIcon actions={ability.actions} /></summary>
