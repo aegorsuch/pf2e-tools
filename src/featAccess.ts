@@ -23,6 +23,7 @@ const SHACKLES_TRAVEL = 'Traveled through the Shackles'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
+const NIDALESE_HORSELORDS = 'Trained with the Nidalese Horselords'
 const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
 const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
 const OLD_CHELIAX = 'From Old Cheliax'
@@ -73,6 +74,7 @@ function achievementLabel(requirement: string) {
 
 function narrativeRequirement(entry: ContentEntry, access: string) {
   return entry.name === 'Wukong Extension' ? WUKONG_EXTENSION_ACCESS
+    : entry.name.toLowerCase() === 'born in the saddle' ? NIDALESE_HORSELORDS
     : achievementKey(access) === SHACKLES_TRAVEL.toLowerCase() ? SHACKLES_TRAVEL
     : ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)
     && (achievementKey(access) === 'from nidal' || /^you\ufffdre from nidal[.!?]*$/i.test(access))

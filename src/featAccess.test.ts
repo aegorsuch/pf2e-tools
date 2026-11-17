@@ -27,6 +27,15 @@ it('offers Old Cheliax access for Hellknight Dedication without removing its tra
   expect(featAccess(saved, { ...hellknight, data: { access: "You're from New Cheliax." } })?.automatic).toBe(false)
 })
 
+it('offers Nidalese Horselords training as the achievement for Born In The Saddle', () => {
+  const source = { ...feat, name: 'Born In The Saddle', data: { access: 'You’re from Nidal.' } }
+  const [option] = achievementOptions([source])
+  expect(option.requirement).toBe('Trained with the Nidalese Horselords')
+  const saved = { ...character, achievements: [option.key] }
+  expect(featAccess(saved, source)).toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess(character, source)?.automatic).toBe(false)
+})
+
 it('offers Dongun Hold or Alkenstar as a reusable achievement', () => {
   const source = { ...feat, name: 'Alkenstar Agent', data: { access: 'You are from Dongun Hold or Alkenstar.' } }
   const [option] = achievementOptions([source])
