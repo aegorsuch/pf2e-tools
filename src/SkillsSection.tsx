@@ -391,6 +391,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Seer Elf" note={`${conditionalTotal(1)} to Identify Magic and Decipher Writing of a magical nature (+1 circumstance).`} />}
           {s.name === 'Perception' && heritages.has('Whisper Elf') && <SourceNote inlineSource={false}
             source="Whisper Elf" note={`${conditionalTotal(2)} to Seek hidden or undetected creatures within 30 feet (+2 circumstance). When you can hear a creature capable of making sound, targeting it uses flat DC 3 if concealed or 9 if hidden.`} />}
+          {s.kind === 'perception' && !!activeFeatsNamed(c, "Stonemason's Eye").length && <SourceNote inlineSource={false}
+            source="Stonemason's Eye" note={`${conditionalTotal(2)} to notice unusual stonework and stonework traps (+2 circumstance; circumstance bonuses do not stack).`} />}
           {hazardFinder && (s.kind === 'perception' || s.kind === 'save') && <SourceNote inlineSource={false}
             source="Hazard Finder" note={`${conditionalTotal(1)} ${s.kind === 'perception'
               ? 'to find traps and hazards; does not affect initiative' : 'against hazard effects'} (+1 circumstance; circumstance bonuses do not stack).`} />}
@@ -552,8 +554,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </label>}
         <RageToggle c={c} save={save} />
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
-        <FeatEffectToggle c={c} save={save} name="Stonemason's Eye" label="Stonework Perception active"
-          title="Apply the +2 circumstance bonus only to notice unusual stonework and stonework traps." />
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
           && <small>Pioneer Human: {c.pioneerEnvironment.toLowerCase()} environmental effects are one step less extreme. This is not damage resistance.</small>}
         {researched && <>

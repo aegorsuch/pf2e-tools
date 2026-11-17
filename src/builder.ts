@@ -1819,7 +1819,6 @@ export function savingThrowCircumstance(c: Character, entries: ContentEntry[]) {
 }
 
 export function perceptionCircumstance(c: Character) {
-  if (isFeatEffectActive(c, "Stonemason's Eye")) return { value: 2, source: "Stonemason's Eye" }
   if (activeFeatsNamed(c, 'Superior Sight').length) return { value: 2, source: 'Superior Sight' }
 }
 
@@ -3101,6 +3100,13 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
   const oaken = oakenResilience(c, entries)
   if (oaken) for (const damage of ['bludgeoning', 'piercing']) out.push({ damage, value: oaken.resistance, source: 'Oaken Resilience' })
+  if (isSpellActive(c, entries, 'Mountain Resilience')) {
+    const rank = grantedFeatSpells(c, entries).find(grant => grant.entry.name === 'Mountain Resilience')?.rank
+      ?? Math.ceil(c.level / 2)
+    if (rank >= 4) out.push({
+      damage: 'physical (except adamantine)', value: Math.min(20, 5 * Math.floor((rank - 2) / 2)), source: 'Mountain Resilience',
+    })
+  }
   if (activeUntamedShiftEffects(c, entries).includes('Elemental')) {
     for (const damage of ['critical hits', 'precision']) out.push({ damage, value: 5, source: 'Untamed Shift' })
   }

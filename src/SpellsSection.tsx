@@ -22,7 +22,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+const AUTOMATED_SPELL_EFFECTS = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
 
 const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
   && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
@@ -369,12 +369,13 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
     duration: persistent ? 'Until next daily preparations'
       : instant ? 'Instant' : tracks && rank >= 2 || name === 'Speak with Plants' && rank >= 4 ? '8 hours'
       : name === 'Canopy Crawler' && rank >= 5 ? '1 hour'
+      : name === 'Speak with Stones' && rank >= 6 ? '8 hours'
       : unit && seconds !== undefined ? `${seconds / unit[0]} ${unit[1]}${seconds / unit[0] === 1 ? '' : 's'}`
       : seconds === 0 ? '—' : duration,
     durationNote: persistent && name === 'Animal Feature' && !getSettings().championFormNoFlight ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : name === 'Warning Stripes' ? 'Self or 30 feet'
-      : ['Speak with Plants', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || tracks && range === '—' ? 'Self'
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
@@ -382,7 +383,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       : name === 'Pulverizing Wake' ? '1 creature within reach'
       : name === 'Warning Stripes' ? 'Yourself or your animal companion'
       : name === 'Canopy Crawler' && rank >= 5 ? 'Yourself and your animal companion'
-      : ['Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || targets === '—' && ['Sure Strike', 'True Strike', 'Vanishing Tracks'].includes(name) ? 'Self' : targets,
   }
 }

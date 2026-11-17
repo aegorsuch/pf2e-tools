@@ -857,8 +857,22 @@ it.each(['focus', 'innate', 'prepared'] as const)('hides Animal Feature choices 
   expect(visible).toContain('aria-label="Single Action"')
 })
 
+it.each([[7, 5], [9, 5], [11, 10], [13, 10], [15, 15], [17, 15], [19, 20]] as const)(
+  'scales active Mountain Resilience at level %i to resistance %i', (level, value) => {
+    const spell = { ...entry('Mountain Resilience', 'spell'), level: 4 }
+    const c: Character = { ...base, level, spells: [{ name: spell.name, rank: 4, cantrip: false }],
+      activeSpells: [spell.name] }
+    expect(resistances(c, [spell])).toContainEqual({ damage: 'Physical (except adamantine)', value, source: spell.name })
+    expect(resistances({ ...c, activeSpells: [] }, [spell])).not.toContainEqual(expect.objectContaining({ source: spell.name }))
+    expect(resistances({ ...c, spells: [] }, [spell])).not.toContainEqual(expect.objectContaining({ source: spell.name }))
+    const grant: ContentEntry = { ...entry('Mountain Magic', 'feat'),
+      spellGrants: [{ kind: 'innate', spells: [spell.name] }] }
+    expect(resistances({ ...c, spells: [], feats: [taken(grant.name)] }, [spell, grant]))
+      .toContainEqual({ damage: 'Physical (except adamantine)', value: 5, source: spell.name })
+  })
+
 it('keeps all buff Active toggles on the spell-name line without duplicates', () => {
-  const names = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+  const names = ['Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
   const c: Character = { ...base, className: 'Ranger',
     spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Imitate Fauna', 'Keen Smell'] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell',
@@ -1091,6 +1105,17 @@ it.each(['One with Stone', 'Seek the Stars', 'Seek The Stars'])('shows %s range 
   expect(markup).toContain('<small>Range</small>Self')
   expect(markup).toContain('<small>Area/Targets</small>Self')
   if (name.toLowerCase() === 'seek the stars') expect(markup).toContain('<small>Duration</small>Instant')
+})
+
+it.each([[9, '1 hour'], [11, '8 hours'], [17, '8 hours']] as const)('heightens Speak with Stones at character level %i', (level, duration) => {
+  const spell = { ...entry('Speak with Stones', 'spell', { duration: 3600 }), level: 5 }
+  const grant: ContentEntry = { ...entry('Stone Speaker', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [spell.name], frequency: 'once per day', heightened: true }] }
+  const c: Character = { ...base, level, feats: [taken(grant.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
+  expect(markup).toContain(`<small>Duration</small>${duration}`)
+  expect(markup).toContain('<small>Range</small>Self')
+  expect(markup).toContain('<small>Area/Targets</small>Self')
 })
 
 it('shows Pummeling Rubble as a 15-foot cone when the source area is only numeric', () => {

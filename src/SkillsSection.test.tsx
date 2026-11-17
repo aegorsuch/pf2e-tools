@@ -80,6 +80,23 @@ it('offers terrain Lore for other matching backgrounds without treating fixed Lo
   expect(ranksAt({ ...base, background: fixed.name }, [ranger, fixed])['Magical Terrain Lore']).toBe(1)
 })
 
+it('shows conditional stonework Perception total without a toggle or changing ordinary Perception', () => {
+  const c: Character = { ...base, feats: [{ name: "Stonemason's Eye", type: 'Ancestry Feat', level: 1 }],
+    activeFeatEffects: ["Stonemason's Eye"] }
+  const plain = { ...c, feats: [], activeFeatEffects: [] }
+  const total = defenseSummary(plain, [ranger]).perception
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)
+  expect(html).not.toContain('Stonework Perception active')
+  expect(html).toContain(`${builder.signed(total + 2)} to notice unusual stonework and stonework traps`)
+  expect(defenseSummary(c, [ranger]).perception).toBe(total)
+  expect(initiativeBonus(c, [ranger])).toBe(initiativeBonus(plain, [ranger]))
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [{ ...c.feats[0], level: 2 }] }}
+    entries={[ranger]} save={() => {}} part="offense" />)).not.toContain('to notice unusual stonework')
+  const stacked = { ...c, feats: [...c.feats, { name: 'Superior Sight', type: 'Ancestry Feat', level: 1 }] }
+  const stackedHtml = renderToStaticMarkup(<SkillsSection c={stacked} entries={[ranger]} save={() => {}} part="offense" />)
+  expect(stackedHtml).toContain(`${builder.signed(total + 2)} to notice unusual stonework and stonework traps`)
+})
+
 it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 5 plus your Intelligence modifier' } }

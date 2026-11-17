@@ -627,7 +627,7 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt(stonemason, entries).Crafting).toBe(1)
     expect(automaticFeatGrants(stonemason, entries)).not.toContainEqual(expect.objectContaining({ name: 'Specialty Crafting' }))
     expect(perceptionCircumstance({ ...stonemason, activeFeatEffects: ["Stonemason's Eye"] }))
-      .toEqual({ value: 2, source: "Stonemason's Eye" })
+      .toBeUndefined()
     const trainedStonemason = { ...stonemason, skillPicks: ['Crafting'] }
     expect(automaticFeatGrants(trainedStonemason, entries)).toContainEqual({
       name: 'Specialty Crafting', choice: 'Stonemasonry', source: "Stonemason's Eye", level: 1,
