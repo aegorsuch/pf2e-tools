@@ -243,6 +243,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ? `${stats.enlarge.size}; +${stats.enlarge.damage} status melee damage; +${stats.enlarge.reachIncrease} feet reach; clumsy 1.`
                 : undefined
               const enlargeModifierNote = enlargeNote
+              const reach = stats?.reach ?? (stats?.enlarge
+                ? (stats.naturalSize === 'Tiny' ? 0 : 5) + stats.enlarge.reachIncrease : undefined)
               const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1)' : undefined
               const acNote = [stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
@@ -333,11 +335,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {ABILITIES.map(k => <span key={k}><small>{ABILITY_LABEL[k]}</small>{signed(stats.mods[k])}</span>)}
                   </div>
                   {(stats.attacks.length > 0 || stats.enlarge) && <section className="companion-actions">
-                      <h5>Attacks</h5>
-                      {stats.apex && <div><small>Reach</small> {stats.reach} feet
-                        <SourceNote source="Apex Companion" note="Attacks have 15-foot reach; damage dice increase one step and gain Deadly d12." inlineSource={false} /></div>}
-                      {stats.enlarge && enlargeNote && <div><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet
-                        <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} /></div>}
+                      <h5>Attacks{reach !== undefined && <> (Reach {reach} feet)
+                        {stats.apex ? <SourceNote source="Apex Companion" note="Attacks have 15-foot reach; damage dice increase one step and gain Deadly d12." inlineSource={false} />
+                          : enlargeNote && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}</>}</h5>
                       {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => <div key={a.name} className="companion-action">
                         <div className="companion-action-title">
                           <ActionIcon actions="Single Action" />

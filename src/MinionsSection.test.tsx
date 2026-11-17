@@ -404,9 +404,18 @@ it('uses full companion stat names, omits redundant level, and keeps AC adjustme
   expect(markup).toContain('+1 Status (Magic Hide); -1 Status (clumsy 1; Enlarge Companion)')
   const skillsStart = markup.indexOf('<h5>Skills</h5>')
   expect(markup.slice(skillsStart)).not.toContain('</button> (Enlarge Companion)')
-  const attacksStart = markup.indexOf('<h5>Attacks</h5>')
+  const attacksStart = markup.indexOf('<h5>Attacks')
   const defensesStart = markup.indexOf('<h5>Defenses</h5>')
   expect(markup.slice(attacksStart, defensesStart)).not.toContain('</button> (Enlarge Companion)')
+  expect(markup).toContain('<h5>Attacks (Reach 15 feet)')
+  expect(markup).not.toContain('<small>Reach bonus</small>')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, level: 6 }} entries={[cat]} save={() => {}} />))
+    .toContain('<h5>Attacks (Reach 10 feet)')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, level: 6 }} entries={[{
+    ...cat, data: { ...cat.data, size: 'Tiny' },
+  }]} save={() => {}} />)).toContain('<h5>Attacks (Reach 10 feet)')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, activeSpells: [] }} entries={[cat]} save={() => {}} />))
+    .toContain('<h5>Attacks</h5>')
 })
 
 it('shows alphabetical companion status controls and groups action costs, maneuver rules, and descriptions', () => {
@@ -628,7 +637,7 @@ it('syncs Apex Companion activation with the chosen companion and exposes its ac
   expect(c.activeSpells).toEqual(['Keen Smell', 'Apex Companion'])
   expect(renderToStaticMarkup(control('a'))).not.toContain('checked=""')
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)
-  for (const text of ['<small>Temporary Hit Points</small><b>30</b>', '<small>Reach</small> 15 feet',
+  for (const text of ['<small>Temporary Hit Points</small><b>30</b>', '<h5>Attacks (Reach 15 feet)',
     'Deadly d12', 'Darkvision', 'greater difficult terrain', '40 feet']) expect(markup).toContain(text)
   const spells = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
   expect(spells).toContain('aria-label="Apex Companion active" checked=""')
