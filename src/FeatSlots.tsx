@@ -369,8 +369,16 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const suggestible = ['general', 'skill'].includes(s.category)
           const matchesEntry = (entry: ContentEntry) => matches(entry, slotQuery,
             suggestible ? [...(suggestions.get(entry.name) ?? []), ...(synergies.get(entry.name) ?? [])] : undefined)
-          const variantsFor = (entry: ContentEntry) => optionsFor(entry, s, skill)
-            .filter(variant => matchesEntry(entry) || variant.label.toLowerCase().includes(slotQuery))
+          const variantCache = new Map<string, FeatOption[]>()
+          const variantsFor = (entry: ContentEntry) => {
+            let variants = variantCache.get(entry.id)
+            if (!variants) {
+              variants = optionsFor(entry, s, skill)
+                .filter(variant => matchesEntry(entry) || variant.label.toLowerCase().includes(slotQuery))
+              variantCache.set(entry.id, variants)
+            }
+            return variants
+          }
           const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
             (matchesEntry(o) || variantsFor(o).length > 0)
             && matchesSkill(o, skill, featsByName)
@@ -413,7 +421,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             }
             const level = featSelectionLevel(option, c, entries, s.category, s)
             const variants = variantsFor(option)
-            optionsByLevel.set(level, [...(optionsByLevel.get(level) ?? []), ...variants])
+            const bucket = optionsByLevel.get(level)
+            if (bucket) bucket.push(...variants)
+            else optionsByLevel.set(level, [...variants])
           }
           const granted = isGrantedSlot(s.key)
           const sameLevel = (slot: PlannedSlot) => slot.category === s.category && slot.level === s.level
