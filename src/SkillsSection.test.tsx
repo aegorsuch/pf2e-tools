@@ -57,6 +57,49 @@ it.each([undefined, 'Darkvision'])('always shows Senses, including when ancestry
   if (vision) expect(html).not.toContain('No special senses')
 })
 
+it('shows situational ancestry effects only while their feats are active without changing ordinary defenses', () => {
+  const feats = [
+    { name: 'Scar-Thick Skin', type: 'Ancestry Feat', level: 5 },
+    { name: 'Athletic Might', type: 'Ancestry Feat', level: 5 },
+    { name: 'Haughty Obstinacy', type: 'Ancestry Feat', level: 1 },
+    { name: 'Sense Allies', type: 'Ancestry Feat', level: 5 },
+    { name: 'Stubborn Persistence', type: 'Ancestry Feat', level: 13 },
+  ]
+  const c: Character = { ...base, level: 13, feats }
+  const before = JSON.stringify(c)
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  const senses = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[ranger]} save={() => {}} />)
+  expect(defense).toContain('DC 10, or DC 5 with especially appropriate assistance')
+  expect(defense).toContain('DC 17 flat check')
+  expect(defense).toContain('mental effects that directly control your actions')
+  expect(skills).toContain('check to Climb or Swim, a success becomes a critical success')
+  expect(skills).toContain('failure to Coerce you becomes a critical failure')
+  expect(senses).toContain('DC 5 flat check to target a hidden willing ally within 60 feet')
+  expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
+  expect(JSON.stringify(c)).toBe(before)
+  const disabled = { ...c, level: 4 }
+  expect(renderToStaticMarkup(<SkillsSection c={disabled} entries={[ranger]} save={() => {}} part="defense" />))
+    .not.toContain('Scar-Thick Skin note')
+  expect(renderToStaticMarkup(<SkillsSection c={disabled} entries={[ranger]} save={() => {}} />))
+    .not.toContain('Athletic Might note')
+  expect(renderToStaticMarkup(<SensesAndSpeed c={disabled} entries={[ranger]} save={() => {}} />))
+    .not.toContain('Sense Allies note')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [] }} entries={[ranger]} save={() => {}} part="defense" />))
+    .not.toContain('Stubborn Persistence note')
+})
+
+it("shows Cavalier's Banner's conditional Will save and DC without changing ordinary defenses", () => {
+  const c: Character = { ...base, level: 4, feats: [{ name: "Cavalier's Banner", type: 'Archetype Feat', level: 4 }] }
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(html).toContain("Cavalier&#x27;s Banner note")
+  expect(html).toContain('DC 17 against fear while within 30 feet')
+  expect(html).toContain('applies to allies too')
+  expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
+  const future = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 3 }} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(future).not.toContain("Cavalier&#x27;s Banner note")
+})
+
 it('saves Rage state through the shared toggle and isolates summary clicks', () => {
   let c: Character = { ...base, className: 'Barbarian' }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }

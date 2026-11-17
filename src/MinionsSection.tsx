@@ -428,8 +428,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     </div>)}
                   </section>}
                   <section className="companion-actions">
-                    <h5>Special: {[...(stats.mount ? ['Mount'] : []), ...stats.beastmasterSpecial.map(special => special.name)].join(', ') || 'None'}</h5>
+                    <h5>Special: {[...(stats.mount ? ['Mount'] : []), ...stats.beastmasterSpecial.map(special => special.name),
+                      ...(!isConstruct && activeFeatsNamed(c, 'Beastmaster Bond').length ? ['Beastmaster Bond'] : [])]
+                      .sort((a, b) => a.localeCompare(b)).join(', ') || 'None'}</h5>
                     {stats.beastmasterSpecial.map(special => <SourceNote key={special.name} source={special.name} note={special.note} />)}
+                    {!isConstruct && !!activeFeatsNamed(c, 'Beastmaster Bond').length && <SourceNote source="Beastmaster Bond" inlineSource={false}
+                      note={`Communicate telepathically with this animal companion ${ranksAt(c, entries).Nature >= 4 ? 'anywhere on the planet' : 'within 100 feet'}.`} />}
                   </section>
                   <section className="companion-actions">
                     <h5>Speed</h5>

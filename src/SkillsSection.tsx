@@ -90,7 +90,9 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   const terrain = favoredTerrainBenefits(c, entries)
   const characterSenses = senses(c, entries)
   return <>
-    <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}</small>
+    <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}
+      {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
+        note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}</small>
     <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
       const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
@@ -390,6 +392,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               ? 'to find traps and hazards; does not affect initiative' : 'against hazard effects'} (+1 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Athletics' && heritages.has('Woodland Elf') && <SourceNote inlineSource={false}
             source="Woodland Elf" note="Climb trees, vines, or foliage at half your Speed on a success and full Speed on a critical success; Quick Climb allows full Speed on a success. No effect on a climb Speed. You can always Take Cover in forest terrain." />}
+          {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Athletic Might').length && <SourceNote source="Athletic Might"
+            note="On an Athletics check to Climb or Swim, a success becomes a critical success." />}
+          {s.kind === 'save' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
+            note="Against mental effects that directly control your actions, a successful save becomes a critical success." />}
+          {s.name === 'Will' && !!activeFeatsNamed(c, "Cavalier's Banner").length && <SourceNote source="Cavalier's Banner"
+            note={`${conditionalTotal(1)}, DC ${10 + total + Math.max(0, 1 - (circumstance?.value ?? 0))} against fear while within 30 feet of your mount's banner (+1 circumstance; applies to allies too). If the banner is destroyed or removed, allies within 30 feet become frightened 1.`} />}
+          {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
+            note="A creature's failure to Coerce you becomes a critical failure; it cannot Coerce you again for 1 week." />}
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
             source={grant.source} note="Free trained Lore; does not use a skill training pick." />)}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}
@@ -511,7 +521,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
-            && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}</b></span>
+            && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}
+            {!!activeFeatsNamed(c, 'Scar-Thick Skin').length && <SourceNote source="Scar-Thick Skin"
+              note="Flat check to end persistent bleed: DC 10, or DC 5 with especially appropriate assistance." />}
+            {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
+              note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>
         <ShieldEquipment c={c} entries={entries} save={save} />
         {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <label>

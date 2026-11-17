@@ -98,6 +98,28 @@ it('shows a plain Mount label only when eligible, without Rider helper text or c
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('shows Beastmaster Bond range based on Nature proficiency only for animal companions', () => {
+  const c: Character = {
+    id: 'bond', systems: ['pf2e'], name: 'Test', level: 15, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Beastmaster Bond', type: 'Archetype Feat', level: 8 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'bird', type: 'Bird', name: '' }],
+  }
+  const bird: ContentEntry = {
+    id: 'bird', systems: ['pf2e'], name: 'Bird', kind: 'companion', source: 'official', level: 1,
+    traits: ['Animal'], description: '', effects: [], updatedAt: 0, data: { size: 'Small' },
+  }
+  const render = (character: Character) => renderToStaticMarkup(<MinionsContent c={character} entries={[bird]} save={() => {}} />)
+  expect(render(c)).toContain('telepathically with this animal companion within 100 feet')
+  expect(render({ ...c, rankOverrides: { Nature: 4 } })).toContain('telepathically with this animal companion anywhere on the planet')
+  expect(render({ ...c, level: 7 })).not.toContain('Beastmaster Bond note')
+  expect(render({ ...c, feats: [] })).not.toContain('Beastmaster Bond note')
+  const construct = { ...c, companions: [{ id: 'construct', type: CONSTRUCT_COMPANION_NAME, name: '' }] }
+  const constructHtml = renderToStaticMarkup(<MinionsContent c={construct} entries={[CONSTRUCT_COMPANION_ENTRY]} save={() => {}} />)
+  expect(constructHtml).not.toContain('Beastmaster Bond note')
+})
+
 it.each(['Small', 'Medium'])('hides legacy homebrew starting-size prose without modifying saved entries: %s', size => {
   const c: Character = {
     id: 'legacy-companion', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
