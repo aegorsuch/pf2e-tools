@@ -1148,8 +1148,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))
     return ['Ambusher', 'Bully', 'Daredevil', 'Racer', 'Tracker', 'Wrecker'].filter(option => !used.has(option))
   }
-  if (name === 'Hellknight Dedication' && c.systems.includes('sf2e')
-    && entries.some(entry => entry.kind === 'feat' && entry.name === name && entry.systems.includes('sf2e'))) return Object.keys(INFERNAL_BULWARK_ORDERS)
+  if (name === 'Hellknight Dedication') return HELLKNIGHT_ORDERS
   if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, entries, name)
   if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
@@ -2894,6 +2893,9 @@ const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
 export const INFERNAL_BULWARK_ORDERS: Record<string, string> = {
   'Order of the Chain': 'electricity', 'Order of the Crucible': 'cold', 'Order of the Eclipse': 'void', 'Order of the Pyre': 'fire',
 }
+
+const HELLKNIGHT_ORDERS = [...new Set([...Object.keys(INFERNAL_BULWARK_ORDERS),
+  'Order of the Gate', 'Order of the Godclaw', 'Order of the Nail', 'Order of the Rack', 'Order of the Scourge'])].sort()
 
 const ARMOR_SPECIALIZATIONS: Record<string, {
   kind: 'damage' | 'resistance' | 'reduction'; damage?: string; label: string; medium: number; heavy: number
