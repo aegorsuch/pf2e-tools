@@ -815,6 +815,7 @@ describe('shared prerequisite enforcement', () => {
     ['Ranger', 'Snarecrafter Dedication', 'Snarecrafter', 'rangerSnarecrafter', 'archetype:2:g99'],
     ['Champion', 'Cavalier Dedication', 'Cavalier', 'championCavalier', 'archetype:2:g98'],
     ['Druid', 'Cavalier Dedication', 'Cavalier', 'druidCavalier', 'archetype:2:g97'],
+    ['Ranger', 'Cavalier Dedication', 'Cavalier', 'rangerCavalier', 'archetype:2:g96'],
   ] as const)('exempts only the active locked %s dedication from the dedication lock', (className, name, archetype, setting, lockedSlot) => {
     const previous = getSettings()[setting]
     const dedication = entry('feat', name, { archetype }, 2, ['Archetype', 'Dedication'])

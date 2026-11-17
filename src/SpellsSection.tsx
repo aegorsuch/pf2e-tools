@@ -8,7 +8,7 @@ import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
-import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { featTakenLevel } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
@@ -17,7 +17,7 @@ import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './bu
 import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility, spellDifficultyClass } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
-import { itemSpells } from './itemSpells'
+import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 
@@ -119,9 +119,21 @@ export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'sa
 }) {
   const uses = dailyInnateUses(c, grant)
   if (!uses) return null
-  const label = `${grant.entry.name} (${grant.source})`
+  return spellUseTracker(`${grant.entry.name} (${grant.source})`, uses,
+    spent => save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: spent } }), grant.rule.shared)
+}
+
+export function ItemSpellUses({ c, save, spell }: Pick<SectionProps, 'c' | 'save'> & { spell: ItemSpell }) {
+  const uses = itemSpellUses(c, spell)
+  if (!uses) return null
+  return spellUseTracker(`${spell.name} (${specificMagicItemName(spell.source)})`, uses,
+    spent => save({ itemSpellUses: { ...c.itemSpellUses, [uses.key]: spent } }))
+}
+
+function spellUseTracker(label: string, uses: NonNullable<ReturnType<typeof limitedSpellUses>>,
+  onChange: (spent: number[]) => void, shared = false) {
   return <span className="focus-tracker" role="group"
-    aria-label={`${uses.remaining} of ${uses.limit} uses remaining${grant.rule.shared ? ' (shared)' : ''}`}>
+    aria-label={`${uses.remaining} of ${uses.limit} uses remaining${shared ? ' (shared)' : ''}`}>
     {Array.from({ length: uses.limit }, (_, index) => {
       const spent = uses.spent.includes(index)
       const action = `${spent ? 'Restore' : 'Spend'} ${label} use ${index + 1}`
@@ -130,7 +142,7 @@ export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'sa
           const next = new Set(uses.spent)
           if (next.has(index)) next.delete(index)
           else next.add(index)
-          save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: [...next] } })
+          onChange([...next])
         }} />
     })}
   </span>
@@ -841,15 +853,20 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {items.length > 0 && <section className="innate-spell-group">
         <h5>Item Spells</h5>
         <SpellColumns />
-        <ul>{items.map((spell, index) => <SpellItem c={c} key={`${spell.source.id}:${index}`}
+        <ul>{items.map((spell, index) => {
+          const uses = itemSpellUses(c, spell)
+          const note = [(!uses || !/\bper day\b/i.test(spell.frequency ?? '')) && spell.frequency, spell.condition]
+            .filter(Boolean).join('; ')
+          return <SpellItem c={c} key={`${spell.source.id}:${index}`}
           name={spell.name} entry={spell.entry} rank={spell.rank} rankLabel={`Rank ${spell.rank}`}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
+          inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
           actionControls={spell.actions ? <ActionIcon actions={spell.actions} showOther />
-            : spell.usesSpellcasting ? <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} /> : <></>}
-          note={<><EntryDescription name={specificMagicItemName(spell.source)} entry={spell.source} entries={entries} />
-            {spell.frequency && `; ${spell.frequency}`}{spell.condition && `; ${spell.condition}`}
-            {spell.entry === undefined && <span role="status">; Spell data unavailable. Sync Archives of Nethys content to load it.</span>}
-          </>} />)}</ul>
+            : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} />}
+          note={spell.entry ? note || undefined : <>{note && `${note}; `}
+            <span role="status">Spell data unavailable. Sync Archives of Nethys content to load it.</span>
+          </>} />
+        })}</ul>
       </section>}
       {unresolved.map((grant, index) => <p key={`${grant.source?.id}:${grant.name}:${index}`} className="feat-prerequisite-note" role="status">
         Spell data unavailable: {grant.name} (<EntryDescription name={grant.sourceName ?? grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).

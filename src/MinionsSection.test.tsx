@@ -82,14 +82,41 @@ it('shows a plain Mount label only when eligible, without Rider helper text or c
   const render = (character = c, entry = bird) => renderToStaticMarkup(<MinionsContent c={character} entries={[entry]} save={() => {}} />)
   expect(render()).not.toContain('full mount special ability')
   expect(render()).not.toContain('move and Support you on the same turn')
-  expect(render()).not.toContain('<span>Mount</span>')
+  expect(render()).toContain('<h5>Special: None</h5>')
+  expect(render()).toContain('<span>Animal</span><span>Minion</span>')
+  const plant = render(c, { ...bird, traits: ['Plant', 'Minion'] })
+  expect(plant).toContain('<span>Plant</span><span>Minion</span>')
+  expect(plant).not.toContain('<span>Animal</span>')
   const large = render(c, { ...bird, data: { ...bird.data, size: 'Large' } })
-  expect(large).toContain('<span>Mount</span>')
+  expect(large).toContain('<h5>Special: Mount</h5>')
+  expect(large).not.toContain('<span>Mount</span>')
   expect(large).not.toContain('full mount special ability')
   expect(render({ ...c, feats: [] })).not.toContain('it can move and Support you on the same turn')
-  expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).toContain('<span>Mount</span>')
+  expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).toContain('<h5>Special: Mount</h5>')
   expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).not.toContain('it can move and Support you on the same turn')
   expect(JSON.stringify(c)).toBe(before)
+})
+
+it.each(['Small', 'Medium'])('hides legacy homebrew starting-size prose without modifying saved entries: %s', size => {
+  const c: Character = {
+    id: 'legacy-companion', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Snow Leopard', name: '' }],
+  }
+  const entry: ContentEntry = {
+    id: 'homebrew:snow-leopard', systems: ['pf2e'], name: 'Snow Leopard', kind: 'companion',
+    source: 'homebrew', level: 1, traits: [], description: `Custom companion description.\n\nStarts ${size}.`,
+    effects: [], updatedAt: 10, data: { size },
+  }
+  const before = JSON.stringify(entry)
+  const render = (companion = entry) => renderToStaticMarkup(<MinionsContent c={c} entries={[companion]} save={() => {}} />)
+  const markup = render()
+  expect(markup).toContain('Custom companion description.')
+  expect(markup).not.toContain(`Starts ${size}.`)
+  expect(markup).toContain(`<span>${size}</span>`)
+  expect(render({ ...entry, source: 'official' })).toContain(`Starts ${size}.`)
+  expect(JSON.stringify(entry)).toBe(before)
 })
 
 it('shows granted Ferocity on each eligible minion without consuming familiar or pet choices', () => {
@@ -459,6 +486,9 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   const senses = markup.slice(markup.indexOf('<h5>Senses</h5>'), markup.indexOf('<h5>Skills</h5>'))
   expect(senses).toContain('<small>Perception</small>')
   expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<b>Support Benefit</b>'))
+  expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<h5>Special: None</h5>'))
+  expect(markup.indexOf('<h5>Special: None</h5>')).toBeLessThan(markup.indexOf('<h5>Speed</h5>'))
+  expect(markup).toContain('<span>Animal</span><span>Minion</span>')
   const skills = markup.slice(markup.indexOf('<h5>Skills</h5>'), markup.indexOf('<h5>Speed</h5>'))
   expect(skills).toContain('<div>Acrobatics +18 (T)</div>')
   expect(skills).toContain('<div>Athletics +18 (T)</div>')

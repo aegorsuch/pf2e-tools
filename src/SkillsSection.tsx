@@ -186,6 +186,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const armorBonus = part === 'defense' ? armorSaveBonus(c, entries) : 0
   const armorCheck = starfinderArmorPenalties(c, entries).check
   const saveCircumstance = part === 'defense' ? savingThrowCircumstance(c, entries) : undefined
+  const hazardFinder = activeFeatsNamed(c, 'Hazard Finder').length > 0
   const assignRank = (name: string, target: number) => {
     if (hasTokenPurchase(name)) return undefined
     let rank = baseRanks[name] ?? 0
@@ -374,6 +375,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Seer Elf" note={`${conditionalTotal(1)} to Identify Magic and Decipher Writing of a magical nature (+1 circumstance).`} />}
           {s.name === 'Perception' && heritages.has('Whisper Elf') && <SourceNote inlineSource={false}
             source="Whisper Elf" note={`${conditionalTotal(2)} to Seek hidden or undetected creatures within 30 feet (+2 circumstance). When you can hear a creature capable of making sound, targeting it uses flat DC 3 if concealed or 9 if hidden.`} />}
+          {hazardFinder && (s.kind === 'perception' || s.kind === 'save') && <SourceNote inlineSource={false}
+            source="Hazard Finder" note={`${conditionalTotal(1)} ${s.kind === 'perception'
+              ? 'to find traps and hazards; does not affect initiative' : 'against hazard effects'} (+1 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Athletics' && heritages.has('Woodland Elf') && <SourceNote inlineSource={false}
             source="Woodland Elf" note="Climb trees, vines, or foliage at half your Speed on a success and full Speed on a critical success; Quick Climb allows full Speed on a success. No effect on a climb Speed. You can always Take Cover in forest terrain." />}
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
@@ -442,17 +446,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     )
   })
 
-  const hazardToggle = <FeatEffectToggle c={c} save={save} name="Hazard Finder" label="Hazard checks active"
-    ariaLabel={`Hazard checks active (${part})`}
-    title="Only for Perception checks to find traps and hazards, AC against their attacks, and saves against their effects. Does not affect initiative." />
-
   if (part === 'offense') {
     return (
       <>
         <div className="skill-grid" role="table" aria-label="Offense">
           {renderRows(offense)}
         </div>
-        {hazardToggle}
         <FeatEffectToggle c={c} save={save} name='Eye for Treasure' label="Crafting Recall Knowledge active"
           title="Apply Eye for Treasure's +1 circumstance bonus only to Crafting Recall Knowledge checks." />
         <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
@@ -498,7 +497,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     return (
       <>
         <div className="defense-summary">
-          <span><small>Armor Class</small><b><TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} /></b></span>
+          <span><small>Armor Class</small><b><TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />
+            {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
+              note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
             && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}</b></span>
         </div>
@@ -523,7 +524,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </label>}
         <RageToggle c={c} save={save} />
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
-        {hazardToggle}
         <FeatEffectToggle c={c} save={save} name="Stonemason's Eye" label="Stonework Perception active"
           title="Apply the +2 circumstance bonus only to notice unusual stonework and stonework traps." />
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')

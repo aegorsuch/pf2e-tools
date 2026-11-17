@@ -308,11 +308,16 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
 }
 
 export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFeatSpells>[number]) {
-  if (grant.rule.kind !== 'innate') return undefined
-  const frequency = /^(once|twice|(\d+) times) per day(?: each)?$/i.exec(grant.rule.frequency ?? '')
+  if (grant.rule.kind !== 'innate' || !/\bper day(?: each)?$/i.test(grant.rule.frequency ?? '')) return undefined
+  const uses = limitedSpellUses(grant.rule.frequency, c.innateSpellUses?.[grant.usageKey])
+  return uses && { key: grant.usageKey, ...uses }
+}
+
+export function limitedSpellUses(frequencyText?: string, saved: number | number[] = 0) {
+  const frequency = /^(once|twice|(\d+) times) per (?:minute|hour|day|week|month)(?: each)?$/i.exec(frequencyText ?? '')
   if (!frequency) return undefined
   const limit = frequency[1].toLowerCase() === 'once' ? 1 : frequency[1].toLowerCase() === 'twice' ? 2 : Number(frequency[2])
-  const saved = c.innateSpellUses?.[grant.usageKey] ?? 0
+  if (!Number.isSafeInteger(limit) || limit < 1) return undefined
   const savedIndices = Array.isArray(saved) ? [...new Set(saved.filter(index => Number.isInteger(index) && index >= 0))] : undefined
   const spent = savedIndices
     ? savedIndices.filter(index => index < limit)
@@ -320,7 +325,7 @@ export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFe
   for (let index = 0; spent.length < Math.min(limit, savedIndices?.length ?? 0); index++) {
     if (!spent.includes(index)) spent.push(index)
   }
-  return { key: grant.usageKey, limit, spent, used: spent.length, remaining: limit - spent.length }
+  return { limit, spent, used: spent.length, remaining: limit - spent.length }
 }
 
 export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { name: string; source?: ContentEntry; sourceName?: string }[] {

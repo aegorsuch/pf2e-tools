@@ -239,6 +239,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const isConstruct = comp.type === CONSTRUCT_COMPANION_NAME
               const companionAdvances = isConstruct ? constructAdvancement : index === 0 ? advancement : undefined
               const stats = companionStats(c, companionEntries, comp.type, companionAdvances, comp.id)
+              const description = stats?.entry.source === 'homebrew'
+                ? stats.entry.description.replace(/\s*\bStarts (?:Small|Medium)\.\s*$/i, '') : stats?.entry.description
               const enlargeNote = stats?.enlarge
                 ? `${stats.enlarge.size}; +${stats.enlarge.damage} status melee damage; +${stats.enlarge.reachIncrease} feet reach; clumsy 1.`
                 : undefined
@@ -286,7 +288,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
                 </header>
-                {stats?.entry.description && <p className="companion-description">{spellDCText(c, entries, stats.entry.description)}</p>}
+                {description && <p className="companion-description">{spellDCText(c, entries, description)}</p>}
                 {statusControls.length > 0 && <div className="companion-status-toggles" role="group" aria-label="Companion status toggles">
                   {statusControls.map(({ name, element }) => <div key={name}>{element}</div>)}
                 </div>}
@@ -328,8 +330,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}
                         {stats.apex && <SourceNote source="Apex Companion" note="Huge for 1 minute; requires room to expand." inlineSource={false} />}</span>
                     {!isConstruct && index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
-                    {stats.mount && <span>Mount</span>}
-                    {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
+                    {stats.traits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
                   <div className="gear-stats">
                     {ABILITIES.map(k => <span key={k}><small>{ABILITY_LABEL[k]}</small>{signed(stats.mods[k])}</span>)}
@@ -398,6 +399,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       {s.note && s.noteSource && <SourceNote source={s.noteSource} note={s.note} inlineSource={false} />} ({RANK_LETTER[s.rank]})
                     </div>)}
                   </section>}
+                  <section className="companion-actions">
+                    <h5>Special: {stats.mount ? 'Mount' : 'None'}</h5>
+                  </section>
                   <section className="companion-actions">
                     <h5>Speed</h5>
                     <div><span>{stats.speed}{stats.canopyCrawler

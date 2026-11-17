@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
-import { itemSpells } from './itemSpells'
-import { SpellsSection } from './SpellsSection'
+import { itemSpells, itemSpellUses } from './itemSpells'
+import { ItemSpellUses, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -20,6 +21,16 @@ const official = (name: string) => {
   const hit = hits.find(hit => hit._source?.name === name)
   expect(hit, name).toBeDefined()
   return mapAonHit(hit!, 'pf2e')!
+}
+
+function findUseButton(node: ReactNode, label: string): (() => void) | undefined {
+  let click: (() => void) | undefined
+  Children.forEach(node, child => {
+    if (click || !isValidElement<Record<string, unknown>>(child)) return
+    click = child.type === 'button' && child.props['aria-label'] === label
+      ? child.props.onClick as () => void : findUseButton(child.props.children as ReactNode, label)
+  })
+  return click
 }
 
 it('derives castable equipment spells without changing learned spells or retaining removed sources', () => {
@@ -75,18 +86,72 @@ it('uses current Briar sharpness instead of granting spells from future artifact
   expect(itemSpells({ ...c, weapons: [{ ...c.weapons![0], briarSharpness: 0 }] }, entries)).toEqual([])
 })
 
-it('renders item sources and fixed ranks without focus points or removable learned-spell controls', () => {
+it('renders innate-style item rows with actions, fixed ranks and usage dots instead of source text', () => {
   const source = make('Spark Charm', 'item', 'Activate Reaction; Frequency once per day; Effect You cast a 2nd-rank fear spell (DC 25).')
-  const spell = { ...make('Fear', 'spell'), data: { saving_throw: 'Will' } }
+  const spell = { ...make('Fear', 'spell'), data: { saving_throw: 'Will', actions: 'Two Actions' } }
   const c = { ...base, equipment: [{ name: source.name, qty: 1 }] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />)
   expect(html).toContain('Item Spells')
-  expect(html).toContain('Spark Charm')
+  expect(html).not.toContain('>Spark Charm</button>')
+  expect(html).not.toContain('once per day')
+  expect(html).toContain('aria-label="Spend Fear (Spark Charm) use 1"')
+  expect(html).toContain('class="action-cost" aria-label="Reaction"')
+  expect(html).not.toContain('class="action-cost" aria-label="Two Actions"')
   expect(html).toContain('Rank 2')
   expect(html).toContain('Will DC 25')
   expect(html).not.toContain('Focus Points')
   expect(html).not.toContain('Remove Fear')
   expect(html).not.toContain('Fear active')
+})
+
+it('saves and restores item uses separately from innate uses, sharing alternatives but not other activations or items', () => {
+  const source = make('Choice Charm', 'item',
+    'Activate Two Actions; Frequency once per day; Effect You cast fear or heal.\n\nActivate Single Action; Frequency twice per day; Effect You cast light.')
+  const other = { ...source, id: 'Other Charm', name: 'Other Charm' }
+  const entries = [source, other, ...['Fear', 'Heal', 'Light'].map(name => make(name, 'spell'))]
+  let c: Character = { ...base, equipment: [{ name: source.name, qty: 1 }, { name: other.name, qty: 1 }],
+    innateSpellUses: { existing: [0] }, activeSpells: ['Oaken Resilience'] }
+  const spells = itemSpells(c, entries)
+  const fear = spells.find(spell => spell.source.id === source.id && spell.name === 'Fear')!
+  const heal = spells.find(spell => spell.source.id === source.id && spell.name === 'Heal')!
+  const light = spells.find(spell => spell.source.id === source.id && spell.name === 'Light')!
+  const independent = spells.find(spell => spell.source.id === other.id && spell.name === 'Fear')!
+  expect(fear.usageKey).toBe(heal.usageKey)
+  expect(fear.usageKey).not.toBe(light.usageKey)
+  expect(fear.usageKey).not.toBe(independent.usageKey)
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const click = (spell: typeof fear, action: 'Spend' | 'Restore', index = 1) => {
+    const handler = findUseButton(ItemSpellUses({ c, save, spell }), `${action} ${spell.name} (${spell.source.name}) use ${index}`)
+    if (!handler) throw new Error('Missing item use dot')
+    handler()
+  }
+  click(fear, 'Spend')
+  expect(itemSpellUses(c, heal)).toMatchObject({ remaining: 0, spent: [0] })
+  expect(itemSpellUses(c, independent)).toMatchObject({ remaining: 1 })
+  expect(itemSpellUses(c, light)).toMatchObject({ remaining: 2 })
+  click(light, 'Spend', 2)
+  expect(itemSpellUses(c, light)).toMatchObject({ remaining: 1, spent: [1] })
+  click(heal, 'Restore')
+  expect(itemSpellUses(c, fear)).toMatchObject({ remaining: 1, spent: [] })
+  expect(itemSpellUses(c, light)).toMatchObject({ remaining: 1, spent: [1] })
+  expect(c.innateSpellUses).toEqual({ existing: [0] })
+  expect(c.activeSpells).toEqual(['Oaken Resilience'])
+  const reloaded = itemSpells(c, [...entries].reverse()).find(spell => spell.source.id === source.id && spell.name === 'Light')!
+  expect(itemSpellUses(c, reloaded)).toMatchObject({ remaining: 1, spent: [1] })
+})
+
+it.each(['At will', 'Staff charges', 'once per hour'])('retains %s notes and falls back to spell action icons', frequency => {
+  const source: ContentEntry = { ...make('Spell Charm', 'item'),
+    spellGrants: [{ kind: 'innate', spells: ['Fear'], frequency }] }
+  const spell = { ...make('Fear', 'spell'), data: { actions: 'Two Actions' } }
+  const c = { ...base, equipment: [{ name: source.name, qty: 1 }] }
+  const grant = itemSpells(c, [source, spell])[0]
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />)
+  expect(html).toContain(frequency)
+  expect(html).toContain('class="action-cost" aria-label="Two Actions"')
+  expect(html).not.toContain('>Spell Charm</button>')
+  expect(!!itemSpellUses(c, grant)).toBe(frequency === 'once per hour')
+  if (frequency !== 'once per hour') expect(html).not.toContain('class="focus-point"')
 })
 
 it('includes spells from worn armor runes and removes them when armor is taken off', () => {

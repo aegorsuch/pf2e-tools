@@ -1150,7 +1150,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             </label>}
             {!fixedEquipped && <label title={legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
-              ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : 'Unequip another weapon first.'
+              ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : undefined
               : undefined}>
               <input type="checkbox" aria-label={`Equipped ${displayName}`} checked={equipped}
                 disabled={cannotEquip}
@@ -1200,8 +1200,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
           </div>
-          {cannotEquip && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.'
-            : hands === undefined || unknownHands ? 'Weapon hands unavailable.' : 'Unequip another weapon first.'}</small>}
+          {cannotEquip && (legacyPouchWeapon || hands === undefined || unknownHands)
+            && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
             {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>

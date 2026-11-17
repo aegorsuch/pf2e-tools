@@ -4,6 +4,10 @@ import type { Character, ContentEntry } from './types'
 import { getSettings } from './settings'
 
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
+const CREATURE_TYPES = new Set([
+  'aberration', 'animal', 'beast', 'celestial', 'construct', 'dragon', 'elemental', 'fey',
+  'fiend', 'fungus', 'giant', 'humanoid', 'monitor', 'ooze', 'plant', 'undead',
+])
 export const MAX_SPECIALIZATIONS = 3
 
 export const CONSTRUCT_COMPANION_NAME = 'Construct Companion'
@@ -141,6 +145,10 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const sanctification = c.className === 'Champion' && has('Faithful Steed') ? deitySanctification(c, entries).selected : undefined
   const steedTraits = sanctification ? [sanctification] : []
   const grantedTraits = [...new Set([...auspiceTraits, ...steedTraits, ...(celestialMount ? ['Celestial'] : []), ...(fiendishMount ? ['Fiend'] : [])])]
+  const listedTraits = entry.traits.filter(trait => trait.toLowerCase() !== 'mount')
+  const creatureTraits = listedTraits.filter(trait => CREATURE_TYPES.has(trait.toLowerCase()))
+  const traits = [...(creatureTraits.length ? creatureTraits : ['Animal']), 'Minion', ...listedTraits, ...grantedTraits]
+    .filter((trait, index, all) => all.findIndex(other => other.toLowerCase() === trait.toLowerCase()) === index)
   const weaknesses = [
     ...(celestialMount ? ['Unholy 10'] : servitor === 'Celestial' ? ['Unholy 5'] : []),
     ...(fiendishMount ? ['Holy 10'] : servitor === 'Fiend' ? ['Holy 5'] : []),
@@ -259,7 +267,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   return {
     entry, level, size, naturalSize, mods, hp, speed,
     speedBonuses: [...speedBonuses, ...(apex ? [{ source: 'Apex Companion (status)', feet: 10 }] : [])],
-    skills: companionSkills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
+    skills: companionSkills, attacks, traits, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
     apex, temporaryHp: apex ? 30 : 0, reach: apex ? 15 : undefined, ignoreAllDifficultTerrain: apex,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,

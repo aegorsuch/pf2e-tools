@@ -371,11 +371,12 @@ export const isFeatEffectActive = (c: Character, name: string) =>
 export function featEffectChange(c: Character, name: string, active: boolean) {
   return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])] }
 }
-// House rule: Rangers get Snarecrafter Dedication at level 2 in a locked Dedications slot
+// House rules grant level-2 dedications in locked slots.
 export const HOMEBREW_DEDICATIONS = [
-  { setting: 'rangerSnarecrafter', className: 'Ranger', name: 'Snarecrafter Dedication', slot: 'archetype:2:g99' },
-  { setting: 'championCavalier', className: 'Champion', name: 'Cavalier Dedication', slot: 'archetype:2:g98' },
-  { setting: 'druidCavalier', className: 'Druid', name: 'Cavalier Dedication', slot: 'archetype:2:g97' },
+  { setting: 'rangerSnarecrafter', className: 'Ranger', name: 'Snarecrafter Dedication', slot: 'archetype:2:g99', replacesFreeArchetype: true },
+  { setting: 'championCavalier', className: 'Champion', name: 'Cavalier Dedication', slot: 'archetype:2:g98', replacesFreeArchetype: true },
+  { setting: 'druidCavalier', className: 'Druid', name: 'Cavalier Dedication', slot: 'archetype:2:g97', replacesFreeArchetype: true },
+  { setting: 'rangerCavalier', className: 'Ranger', name: 'Cavalier Dedication', slot: 'archetype:2:g96', replacesFreeArchetype: false },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
@@ -395,7 +396,7 @@ export const mechanicIngenuitySlots = (c: Character) =>
 export function plannedSlots(c: Character, entries: ContentEntry[] = []): PlannedSlot[] {
   const base: FeatSlot[] = [
     ...SLOT_RULES.flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: 1 }))),
-    ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).length ? 0 : 1 }))) : []),
+    ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).some(rule => rule.replacesFreeArchetype) ? 0 : 1 }))) : []),
     ...c.extraSlots,
   ]
   const slots: PlannedSlot[] = []
@@ -1595,8 +1596,6 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     .sort((a, b) => a.name.localeCompare(b.name)).map(({ name, feet, source }) => ({ name, feet, source }))]
 }
 
-export const hazardFinderBonus = (c: Character) => isFeatEffectActive(c, 'Hazard Finder') ? 1 : 0
-
 function parryBonusFromText(text: string) {
   if (!/\bparry\b/i.test(text)) return 0
   let bonus = 0
@@ -1728,7 +1727,6 @@ export function researchedSpellResistance(c: Character, entries: ContentEntry[])
 
 export function savingThrowCircumstance(c: Character, entries: ContentEntry[]) {
   const sources = [
-    ...(hazardFinderBonus(c) ? ['Hazard Finder'] : []),
     ...(researchedSpellResistance(c, entries)?.bonus ? ['Researched Spell Resistance'] : []),
   ]
   return sources.length ? { value: 1, source: sources.join(', ') } : undefined
@@ -1737,7 +1735,6 @@ export function savingThrowCircumstance(c: Character, entries: ContentEntry[]) {
 export function perceptionCircumstance(c: Character) {
   if (isFeatEffectActive(c, "Stonemason's Eye")) return { value: 2, source: "Stonemason's Eye" }
   if (activeFeatsNamed(c, 'Superior Sight').length) return { value: 2, source: 'Superior Sight' }
-  if (hazardFinderBonus(c)) return { value: 1, source: 'Hazard Finder' }
 }
 
 export const perceptionCircumstanceBonus = (c: Character) => perceptionCircumstance(c)?.value ?? 0
@@ -2858,8 +2855,12 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   if (circumstance) parts.push({ label: `${circumstance.source} (circumstance)`, value: circumstance.value })
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
-  return { total: parts.reduce((sum, part) => sum + part.value, 0), parts,
-    notes: circumstance ? ['Circumstance bonuses do not stack; apply only against the matching hazard or effect.'] : undefined }
+  const notes = [
+    ...(circumstance ? ['Circumstance bonuses do not stack; apply only against the matching effect.'] : []),
+    ...(activeFeatsNamed(c, 'Hazard Finder').length
+      ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),
+  ]
+  return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes: notes.length ? notes : undefined }
 }
 
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
@@ -3091,7 +3092,6 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
       && c.dermalPlating?.raised && !c.dermalPlating.damaged ? 1 : 0 },
     { label: 'Raise Shield cantrip', value: raisedCantrip },
     { label: 'Parry', value: parry },
-    { label: 'Hazard Finder', value: hazardFinderBonus(c) },
   ].filter(candidate => candidate.value > 0)
   const best = Math.max(0, ...candidates.map(candidate => candidate.value))
   const parts: TotalPart[] = [
@@ -3108,7 +3108,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
   const notes = candidates.length > 1 ? ['Circumstance bonuses do not stack: '
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
-  if (hazardFinderBonus(c)) notes.push('Hazard Finder applies only against hazard attacks.')
+  if (activeFeatsNamed(c, 'Hazard Finder').length)
+    notes.push('Hazard Finder +1 circumstance against hazard attacks; circumstance bonuses do not stack.')
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }
 }
 

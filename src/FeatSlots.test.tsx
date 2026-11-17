@@ -2204,7 +2204,7 @@ it('removes only the Natural Ambition-dependent selection when the feat is remov
 })
 
 it('clears N/A without removing the final dedication slot', () => {
-  let c: Character = { ...emptyRanger(), level: 2, skippedFeatSlots: ['archetype:2:0'] }
+  let c: Character = { ...emptyRanger(), className: 'Wizard', level: 2, skippedFeatSlots: ['archetype:2:0'] }
   const tree = () => FeatSlots({ c, entries: [], save: (patch) => { c = { ...c, ...patch } }, categories: ['archetype'] })
   const clear = findButton(tree(), 'Clear L02 Dedication feat selection')
   if (!clear) throw new Error('Missing dedication minus')

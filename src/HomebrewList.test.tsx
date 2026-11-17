@@ -6,7 +6,7 @@ import { homebrewCharacterOptions } from './supplemental'
 import type { ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import * as settings from './settings'
-import { HouseRules } from './HouseRules'
+import { HouseRules, matchingHouseRules } from './HouseRules'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -91,17 +91,31 @@ it('includes every saved rule in its own searchable category even without homebr
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
+it('alphabetizes clarified rule labels and keeps renamed rules searchable', () => {
+  const labels = matchingHouseRules('').map(rule => rule.label)
+  expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
+  for (const label of [
+    'Advanced General Training and General Training: Once Each',
+    'Animal Feature, Auspice, and Celestial / Fiendish Form: No Flight',
+    'Cyborg Machine Heart or Mortal Heart Exclusive',
+    'Druid Order Explorer Grants Skills',
+    'Inventor Access: Bladed Gauntlet and Firearms',
+    'Orc Warmask Item Bonus Scaling',
+    'Ranger Cavalier Dedication',
+  ]) expect(matchingHouseRules(label).map(rule => rule.label)).toContain(label)
+})
+
 it.each([
   { enabled: false, accepted: false },
   { enabled: false, accepted: true },
   { enabled: true, accepted: false },
-])('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted }) => {
+].flatMap(test => (['freeArchetype', 'rangerCavalier'] as const).map(key => ({ ...test, key }))))('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted, key }) => {
   const previous = getSettings()
   const confirm = vi.fn(() => accepted)
   vi.stubGlobal('window', { confirm })
   const hook = vi.spyOn(settings, 'useSettings').mockImplementation(getSettings)
   try {
-    updateSettings({ freeArchetype: !enabled })
+    updateSettings({ [key]: !enabled })
     const before = getSettings()
     const timestamp = settings.getSettingsUpdatedAt()
     let change: ((event: { target: { checked: boolean } }) => void) | undefined
@@ -110,12 +124,13 @@ it.each([
       if (child.type === 'input' && child.props.type === 'checkbox') change = child.props.onChange as typeof change
       visit(child.props.children as ReactNode)
     })
-    visit(HouseRules({ search: 'Free Archetype' }))
+    const label = matchingHouseRules('').find(rule => rule.key === key)!.label
+    visit(HouseRules({ search: label }))
     if (!change) throw new Error('Missing rule checkbox')
     change({ target: { checked: enabled } })
     if (enabled) expect(confirm).not.toHaveBeenCalled()
-    else expect(confirm).toHaveBeenCalledWith('Disable rule "Free Archetype"?')
-    expect(getSettings()).toEqual({ ...before, freeArchetype: enabled || !accepted })
+    else expect(confirm).toHaveBeenCalledWith(`Disable rule "${label}"?`)
+    expect(getSettings()).toEqual({ ...before, [key]: enabled || !accepted })
     if (!enabled && !accepted) expect(settings.getSettingsUpdatedAt()).toBe(timestamp)
   } finally {
     hook.mockRestore()

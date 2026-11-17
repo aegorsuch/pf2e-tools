@@ -21,6 +21,22 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it.each([
+    { native: [], expected: ['Animal', 'Minion'] },
+    { native: ['Uncommon'], expected: ['Animal', 'Minion', 'Uncommon'] },
+    { native: ['Animal', 'Minion', 'animal', 'Mount'], expected: ['Animal', 'Minion'] },
+    { native: ['Minion', 'Plant', 'Uncommon'], expected: ['Plant', 'Minion', 'Uncommon'] },
+    { native: ['Fungus', 'Minion'], expected: ['Fungus', 'Minion'] },
+    { native: ['Dragon', 'Minion', 'Uncommon'], expected: ['Dragon', 'Minion', 'Uncommon'] },
+    { native: ['Incorporeal', 'Minion', 'Undead'], expected: ['Undead', 'Minion', 'Incorporeal'] },
+    { native: ['Construct', 'Minion'], expected: ['Construct', 'Minion'] },
+  ])('defaults missing creature traits but preserves native exceptions: $native', ({ native, expected }) => {
+    const companion = { ...bear, traits: native }
+    const before = JSON.stringify(companion)
+    expect(companionStats(base, [companion], bear.name)?.traits).toEqual(expected)
+    expect(JSON.stringify(companion)).toBe(before)
+  })
+
   it('applies Apex Companion only to its chosen animal and restores normal statistics when unavailable', () => {
     const apex = entry('feat', 'Apex Companion', { grants_focus_spells: 'Apex Companion' }, 20)
     const spell = entry('spell', 'Apex Companion', {}, 10, ['Focus'])
@@ -205,6 +221,7 @@ describe('animal companions', () => {
       const character = { ...c, sanctification }
       const stats = companionStats(character, [bear, deity], bear.name)!
       expect(stats.grantedTraits).toContain(sanctification)
+      expect(stats.traits).toEqual(expect.arrayContaining(['Animal', 'Minion', sanctification]))
       expect(stats.attacks.every((attack) => attack.traits.includes(sanctification))).toBe(true)
       expect(companionStats(character, [bear, deity], bear.name, undefined, 'second')!.grantedTraits).toEqual([])
       expect(companionStats({ ...character, feats: [] }, [bear, deity], bear.name)!.grantedTraits).toEqual([])
@@ -259,6 +276,7 @@ describe('animal companions', () => {
     const variants = homebrewCompanions(originals)
     expect(variants[0].description).toContain('direwolf raised among Sarkoris')
     expect(variants[1].description).toContain('pale-furred mountain cat')
+    expect(variants.every(variant => !/Starts (?:Small|Medium)/i.test(variant.description))).toBe(true)
     expect(variants.every(variant => !/copy|using .*statistics|Isgeri|big cat, such as/i.test(variant.description))).toBe(true)
     expect(variants.map((variant) => variant.name)).toEqual(['Sarkorian Direwolf', 'Snow Leopard'])
     for (const [index, variant] of variants.entries()) {
@@ -323,6 +341,7 @@ describe('animal companions', () => {
       const saved: Character = JSON.parse(JSON.stringify({ ...c, companions: [{ ...c.companions![0], auspiceServitor }] }))
       const changed = companionStats(saved, [bear], 'Bear', companionAdvancement(saved), 'mount')!
       expect(changed).toMatchObject({ auspiceTraits: [...traits], weakness, hp: normal.hp + extraHP + (weakness ? 5 : 0) })
+      expect(changed.traits).toEqual(expect.arrayContaining(['Animal', 'Minion', ...traits]))
     }
     expect(companionStats(c, [bear], 'Bear', undefined, 'other')!.auspice).toBe(false)
     expect(companionAdvancement({ ...c, level: 15 }).specializations).not.toContain('Auspice')

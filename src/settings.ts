@@ -14,10 +14,11 @@ export interface Settings {
   freeArchetype: boolean
   // House rule: Rangers get Snarecrafter Dedication for free at level 2, locked in the Dedications section
   rangerSnarecrafter: boolean
-  // House rules: Champions and Druids get Cavalier Dedication for free at level 2
+  // House rules: Champions, Druids, and Rangers get Cavalier Dedication for free at level 2
   championCavalier: boolean
   druidCavalier: boolean
-  // House rule: Celestial Form, Fiendish Form, Animal Feature, and Auspice do not grant flight
+  rangerCavalier: boolean
+  // House rule: Animal Feature, Auspice, Celestial Form, and Fiendish Form do not grant flight
   championFormNoFlight: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
@@ -41,7 +42,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

@@ -1,9 +1,11 @@
 import type { Character, ContentEntry } from './types'
 import { armorEntry, ownedArmors, ownedShields, runeName, shieldEntry, weaponEntry } from './builder'
 import { withNamedWeaponState } from './namedWeapons'
+import { limitedSpellUses } from './featSpells'
 
 export interface ItemSpell {
   source: ContentEntry
+  usageKey: string
   name: string
   entry?: ContentEntry
   rank: number
@@ -12,6 +14,11 @@ export interface ItemSpell {
   condition?: string
   dc?: number
   usesSpellcasting: boolean
+}
+
+export function itemSpellUses(c: Character, spell: ItemSpell) {
+  const uses = limitedSpellUses(spell.frequency, c.itemSpellUses?.[spell.usageKey])
+  return uses && { key: spell.usageKey, ...uses }
 }
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -94,6 +101,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
       const gradeRank = new RegExp(`${escape(name)}(?: spell)? is (\\d+)(?:st|nd|rd|th)[- ]rank`, 'i').exec(text)?.[1]
       const cantrip = entry?.traits.some(trait => /^cantrip$/i.test(trait))
       out.push({ source, name: entry?.name ?? name, entry,
+        usageKey: JSON.stringify([source.id, 'spell', normalized(entry?.name ?? name)]),
         rank: gradeRank ? Number(gradeRank) : rank === 0 || rank === undefined && cantrip ? Math.ceil(c.level / 2) : rank ?? entry?.level ?? 1,
         usesSpellcasting: staff || source.traits.some(trait => /^(?:wand|scroll|spellheart)$/i.test(trait))
           || /(?:your|wielder's) spell (?:DC|attack)|your spellcasting/i.test(text),
@@ -102,7 +110,8 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         ...(costOverride ? { actions: ['', 'Single Action', 'Two Actions', 'Three Actions'][Number(costOverride)] } : {}) })
     }
     for (const rule of source.spellGrants ?? []) for (const name of rule.spells) addSpell(name,
-      rule.heightened ? Math.ceil(c.level / 2) : rule.rank, { frequency: rule.frequency, condition: rule.condition })
+      rule.heightened ? Math.ceil(c.level / 2) : rule.rank, { frequency: rule.frequency, condition: rule.condition,
+        usageKey: JSON.stringify([source.id, 'grant', rule.spells.map(normalized).sort(), rule.shared || rule.choice ? 'shared' : normalized(name)]) })
     const blocks = text.split(/(?:^|\n\n)(?=Activate\b)/)
     let activation = 0
     for (const block of blocks) {
@@ -130,6 +139,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
             : !/^(?:(?:a|an|the|rank|level|heightened|version|of)\s+|\d+(?:st|nd|rd|th)?(?:[- ](?:rank|level))?\s*)*$/i.test(between)) break
           addSpell(match[0], rankIn(between) ?? rankIn(cast[1].slice(match.index + match[0].length)), {
             actions: action, frequency, condition, ...(dc ? { dc: Number(dc) } : {}),
+            usageKey: JSON.stringify([source.id, activated ? 'activation' : 'description', activation]),
           })
           previous = match.index + match[0].length
         }

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
-import { hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
+import { activeHomebrewDedications, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -1410,11 +1410,12 @@ describe('defenses', () => {
     }
   })
 
-  it('lets a house-rule Dedication level keep an extra level 2 Dedication slot', () => {
+  it('lets a house-rule Dedication level keep an extra level 2 Dedication slot', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
     updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
     const ranger = { ...base, className: 'Ranger', level: 2, extraSlots: [{ category: 'archetype' as const, level: 2, count: 1 }] }
-    expect(plannedSlots(ranger).filter((s) => s.category === 'archetype').map((s) => s.key)).toEqual(['archetype:2:0', 'archetype:2:g99'])
-    updateSettings({ rangerSnarecrafter: false })
+    expect(plannedSlots(ranger).filter((s) => s.category === 'archetype').map((s) => s.key)).toEqual(['archetype:2:0', 'archetype:2:g99', 'archetype:2:g96'])
   })
 
   it('gives druids focus spells from their order and Order Magic', () => {
@@ -2008,6 +2009,32 @@ describe('armor specialization from feats', () => {
 })
 
 describe('homebrew feat rules', () => {
+  it('grants Rangers a separate Cavalier slot without displacing saved choices or requiring Free Archetype', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ rangerCavalier: true, rangerSnarecrafter: false, freeArchetype: true })
+    const ranger: Character = { ...base, className: 'Ranger', level: 2,
+      feats: [{ name: 'Medic Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+    const before = JSON.stringify(ranger)
+    expect(activeHomebrewDedications(ranger)).toContainEqual(expect.objectContaining({
+      name: 'Cavalier Dedication', slot: 'archetype:2:g96',
+    }))
+    const keys = (c = ranger) => plannedSlots(c).map(slot => slot.key)
+    expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g96', 'archetype:2:0']))
+    expect(unslottedFeats(ranger)).toEqual([])
+    expect(keys({ ...ranger, level: 1 })).not.toContain('archetype:2:g96')
+    expect(keys({ ...ranger, className: 'Wizard' })).not.toContain('archetype:2:g96')
+    updateSettings({ rangerCavalier: false })
+    expect(keys()).not.toContain('archetype:2:g96')
+    expect(unslottedFeats(ranger)).toEqual([])
+    updateSettings({ rangerCavalier: true, freeArchetype: false })
+    expect(keys()).toContain('archetype:2:g96')
+    expect(keys()).not.toContain('archetype:2:0')
+    updateSettings({ rangerSnarecrafter: true })
+    expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g96', 'archetype:2:g99']))
+    expect(JSON.stringify(ranger)).toBe(before)
+  })
+
   it('adds a locked Snarecrafter Dedication slot for Rangers at level 2 when enabled', () => {
     const ranger = { ...base, className: 'Ranger', level: 2 }
     updateSettings({ rangerSnarecrafter: true })

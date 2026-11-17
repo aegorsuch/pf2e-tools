@@ -163,6 +163,7 @@ it.each([false, true])('syncs weapon equip controls and hand limits across both 
   const toggle = (name: string, checked: boolean) => (input(name).props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked } })
   expect(equippedWeaponHands(c, entries)).toBe(2)
   expect(input('Arbalest').props.disabled).toBe(true)
+  expect(renderToStaticMarkup(WeaponList({ c, entries, save, displayOnly }))).not.toContain('Unequip another weapon first.')
   expect(input('Fist')).toBeUndefined()
   expect(input('Longsword', !displayOnly).props.checked).toBe(true)
   toggle('Longsword', false)

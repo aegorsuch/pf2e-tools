@@ -1484,15 +1484,11 @@ it('never treats kaiju form resistance or future feat resistance metadata as per
   expect(c.activeFeatEffects).toBeUndefined()
 })
 
-it('limits Hazard Finder to hazard checks, does not stack it with shields, and never boosts initiative', () => {
+it('keeps Hazard Finder conditional and ignores its legacy toggle for ordinary defenses and initiative', () => {
   const c: Character = { ...base, className: 'Ranger', level: 8, feats: [feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
   const normal = defenseSummary({ ...c, activeFeatEffects: [] }, [])
   const hazard = defenseSummary(c, [])
-  expect(hazard.perception).toBe(normal.perception + 1)
-  expect(hazard.ac).toBe(normal.ac + 1)
-  expect(hazard.fortitude).toBe(normal.fortitude + 1)
-  expect(hazard.reflex).toBe(normal.reflex + 1)
-  expect(hazard.will).toBe(normal.will + 1)
+  expect(hazard).toEqual(normal)
   expect(initiativeBonus(c, [])).toBe(normal.perception)
   expect(initiativeBonus({ ...c, feats: [...c.feats, feat('Incredible Initiative')] }, [])).toBe(normal.perception + 2)
   const shield = { id: 's', name: 'Shield', hardness: 5, hp: 20, damage: 0, raised: true }
@@ -1516,7 +1512,7 @@ it('applies parry AC context without stacking with shield or hazard finder, and 
   expect(armorClass({ ...c, shield }, [rapier, improved])).toBe(normal + 2)
   const hazard = { ...c, feats: [...c.feats, feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
   expect(armorClass(hazard, [rapier, improved])).toBe(normal + 2)
-  expect(armorClass({ ...hazard, parrying: false }, [rapier, improved])).toBe(normal + 1)
+  expect(armorClass({ ...hazard, parrying: false }, [rapier, improved])).toBe(normal)
   expect(parryValue({ ...c, weapons: [] }, [improved])).toBe(0)
 })
 
@@ -1723,7 +1719,8 @@ it('explains calculated AC, saves and attacks with capped Dexterity and non-stac
   const save = savingThrowBreakdown(c, entries, 'Reflex')
   expect(save.total).toBe(defenseSummary(c, entries).reflex)
   expect(save.parts).toContainEqual({ label: 'Plate (resilient or grade)', value: 1 })
-  expect(save.parts).toContainEqual({ label: 'Hazard Finder (circumstance)', value: 1 })
+  expect(save.parts).not.toContainEqual({ label: 'Hazard Finder (circumstance)', value: 1 })
+  expect(save.notes?.join(' ')).toContain('Hazard Finder +1 circumstance against hazard effects')
   const strike = weaponAttack(c, entries, { id: 'r', name: 'Rapier', potency: 2, striking: 0, runes: [] })
   expect(strike.breakdown.total).toBe(strike.attack)
   expect(strike.breakdown.parts).toContainEqual({ label: 'Dexterity', value: 4 })
@@ -1760,9 +1757,10 @@ it('exposes persisted defensive contexts and shows conditional bonuses without c
   const c: Character = { ...base, className: 'Ranger', feats: [feat('Hazard Finder', 8)], activeFeatEffects: ['Hazard Finder'] }
   for (const part of ['offense', 'defense'] as const) {
     const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part={part} />)
-    expect(markup).toContain(`aria-label="Hazard checks active (${part})"`)
+    expect(markup).not.toContain('Hazard checks active')
+    expect(markup).toContain('aria-label="Hazard Finder note"')
     expect(markup).toContain('(Hazard Finder)')
-    expect(markup).toContain('<small>Circumstance</small>+1')
+    expect(markup).not.toContain('<small>Circumstance</small>+1')
   }
   const druid: Character = { ...base, className: 'Druid', feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
   const markup = renderToStaticMarkup(<SkillsSection c={druid} entries={[]} save={() => {}} part="defense" />)

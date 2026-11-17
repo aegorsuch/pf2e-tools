@@ -367,7 +367,7 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
     return [{
       ...base, id: variant.id, name: variant.name, source: 'homebrew',
       traits: base.traits.filter(trait => trait.toLowerCase() !== 'mount'),
-      description: `${variant.description}\n\nStarts ${variant.size}.`,
+      description: variant.description,
       data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: false, fixed_size: false })
         .map(([key, value]) => [key, typeof value === 'string' ? rename(value) : value])),
       // Fresh-device defaults must not supersede synced user edits or deletions.
