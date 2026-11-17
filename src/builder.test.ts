@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
-import { shieldStats, activeHomebrewDedications, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
+import { shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -2045,6 +2045,21 @@ describe('homebrew feat rules', () => {
     updateSettings({ rangerSnarecrafter: true })
     expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g96', 'archetype:2:g99']))
     expect(JSON.stringify(ranger)).toBe(before)
+  })
+
+  it('adds locked Beastmaster Dedication slots for Ranger, Champion, Commander and Druid', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ rangerBeastmaster: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true })
+    const slot = (className: string, level = 2) => plannedSlots({ ...base, className, level }).find(s => s.key.startsWith('archetype:2:g9') && homebrewDedication(s.key)?.name === 'Beastmaster Dedication')?.key
+    expect(slot('Ranger')).toBe('archetype:2:g95')
+    expect(slot('Champion')).toBe('archetype:2:g94')
+    expect(slot('Commander')).toBe('archetype:2:g93')
+    expect(slot('Druid')).toBe('archetype:2:g92')
+    expect(slot('Wizard')).toBeUndefined()
+    expect(slot('Druid', 1)).toBeUndefined()
+    updateSettings({ druidBeastmaster: false })
+    expect(slot('Druid')).toBeUndefined()
   })
 
   it('adds a locked Snarecrafter Dedication slot for Rangers at level 2 when enabled', () => {
