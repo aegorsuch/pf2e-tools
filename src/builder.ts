@@ -894,11 +894,8 @@ function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: Co
   const owned = [...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= level),
     ...automaticFeatGrants({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)]
   if (owned.some(feat => base(feat.name) === base(entry.name))) return true
-  // Heal Companion is the Ranger equivalent of Heal Animal, so either makes the other redundant
-  if (base(entry.name) !== 'Heal Animal') return false
-  return owned.some(feat => feat.name === 'Heal Companion')
-    || focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
-      .spells.some(spell => spell.name === 'Heal Animal' || spell.name === 'Heal Companion')
+  return base(entry.name) === 'Heal Animal' && focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
+    .spells.some(spell => spell.name === 'Heal Animal')
 }
 
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot,
@@ -1971,6 +1968,8 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   }
   for (const grant of grantedFeatSpells(c, entries)) if (grant.rule.kind === 'focus') add(grant.entry.name, grant.source)
   if (activeFeatsNamed(c, 'Untamed Form').length) add('Untamed Form', 'Untamed Form')
+  // Heal Animal works on any animal, so it replaces the companion-only Heal Companion
+  if (out.has('heal animal')) out.delete('heal companion')
   const spells = [...out.values()].sort((a, b) => a.name.localeCompare(b.name))
   const pool = new Set([...spells.map(spell => spell.name), ...grantedWardenSpells(c, entries).map(spell => spell.name)])
   const nonCantrips = [...pool].filter(name => !byName(entries, 'spell', name)?.traits.some(trait => trait.toLowerCase() === 'cantrip')).length

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
-import { eligibleFeats } from './builder'
+import { eligibleFeats, focusSpells } from './builder'
 import { companionAdvancement, companionStats, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -431,14 +431,12 @@ describe('animal companions', () => {
     expect(at(1, 'Insight').perceptionNote).toContain('Seek')
   })
 
-  it('hides Beastmaster Heal Animal when the character has Heal Companion', () => {
-    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
-    const heal = entry('feat', 'Heal Animal', { archetype: 'Beastmaster' }, 4, ['Archetype'])
-    const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
-    const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
-    expect(eligibleFeats([dedication, heal], c, slot)).toContain(heal)
-    const owned = { ...c, feats: [...c.feats, feat('Heal Companion', undefined, 'class:2:0')] }
-    expect(eligibleFeats([dedication, heal], owned, slot)).not.toContain(heal)
+  it('replaces Heal Companion with Heal Animal in the focus spells', () => {
+    const heal = (name: string, spell: string) => entry('feat', name, { grants_focus_spells: spell, grants_focus_point: true }, 4, ['Ranger'])
+    const entries = [heal('Heal Companion', 'Heal Companion'), heal('Heal Animal', 'Heal Animal')]
+    const names = (feats: string[]) => focusSpells({ ...base, level: 4, feats: feats.map(name => feat(name)) }, entries).spells.map(spell => spell.name)
+    expect(names(['Heal Companion'])).toEqual(['Heal Companion'])
+    expect(names(['Heal Companion', 'Heal Animal'])).toEqual(['Heal Animal'])
   })
 
   it('hides Beastmaster Animal Empathy when the class already provided it', () => {
