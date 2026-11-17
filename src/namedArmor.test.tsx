@@ -4,6 +4,7 @@ import { mapAonHit } from './aon'
 import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, perceptionItemBonus, resistances, savingThrowBreakdown, shieldEntry, shieldMaterialOptions, shieldStats } from './builder'
 import { ArmorList } from './GearSection'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities } from './namedArmor'
+import { specificMagicItemName } from './equipmentGroups'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import type { Character, OwnedArmor, OwnedShield } from './types'
 
@@ -127,7 +128,8 @@ it('keeps situational effects manual and exposes source activations in expandabl
   expect(html).toContain('<summary>Calistria’s Sting ')
   expect(html).toContain('<summary>Purge Toxins ')
   expect(html).toContain('Counteract rank 9th')
-  expect(html).toContain('additional +1 item bonus only on saves versus poison')
+  expect(html).not.toContain('additional +1 item bonus only on saves versus poison')
+  expect(html).not.toContain('tracked manually')
   expect(html).toContain('Hardness 20; Hit Points 160; Broken Threshold 80')
   expect(html).toContain('Recover 4 HP (start of wielder’s turn)')
   expect(namedArmorAbilities(armorEntry(c, entries, embrace.name)).map(ability => ability.actions))
@@ -165,7 +167,7 @@ it('keeps Ancestral Embrace names fixed, made of Grisantian Hide, with a Hide Ar
   const hideEmbrace = armors.find(a => a.name === 'Ancestral Embrace Hide Armor')!
   expect(leatherEmbrace.data.named_armor_base).toBe('Leather Armor')
   expect(hideEmbrace.data.named_armor_base).toBe('Hide Armor')
-  expect(hideEmbrace.data.named_armor_material).toBe('Grisantian Hide')
+  expect(hideEmbrace.data.named_armor_material).toBe('Orichalcum')
   expect(String(hideEmbrace.data.named_armor_runes).split(';')).toContain('Fortification (Greater)')
   expect(String(leatherEmbrace.data.named_armor_runes)).not.toContain('Fortification')
   expect(leatherEmbrace.description).not.toMatch(/brightly colored/i)
@@ -173,4 +175,15 @@ it('keeps Ancestral Embrace names fixed, made of Grisantian Hide, with a Hide Ar
   const c = { ...character, armors: [{ ...owned('Ancestral Embrace Hide Armor'), material: 'Grisantian Hide' as const }] }
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
   expect(html).toContain('>Ancestral Embrace Hide Armor</button>')
+})
+
+it("labels Slithermaw's Bane as an Elven Chain Shirt", () => {
+  const generated = armorEntry(character, entries, bane.name)!
+  expect(specificMagicItemName(generated)).toBe("Slithermaw's Bane Elven Chain Shirt")
+})
+
+it("gives Slithermaw's Bane the major weave runes and Orichalcum", () => {
+  const generated = armorEntry(character, entries, bane.name)!
+  expect(String(generated.data.named_armor_runes).split(';')).toEqual(expect.arrayContaining(['Moonweave (Major)', 'Sunweave (Major)']))
+  expect(generated.data.named_armor_material).toBe('Orichalcum')
 })

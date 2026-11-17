@@ -8,7 +8,7 @@ export function isNamedArmor(name: string) {
   return ARMORS.has(name)
 }
 
-const isAncestralEmbrace = (name: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
+const WEAVE_ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane"])
 
 function ancestralEmbraceVariants(item: ContentEntry): (ContentEntry & { baseOverride?: string })[] {
   const leather = { ...item, description: item.description.replace(/\bThis brightly colored\b/, 'This') }
@@ -35,7 +35,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|hide armor|elven chain)\b/i.exec(item.description)
       if (!enchantment) return []
       let properties = ` ${enchantment[2].toLowerCase()} `
-      const fixed: string[] = isAncestralEmbrace(item.name) ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
+      const fixed: string[] = WEAVE_ARMORS.has(item.name) ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
       const candidates = [...runes, ...(/\bgreater fortification\b/i.test(enchantment[2])
         && !runes.some(rune => rune.name === 'Fortification (Greater)') ? [{ name: 'Fortification (Greater)' }] : [])]
       for (const rune of candidates.sort((a, b) => b.name.length - a.name.length)) {
@@ -63,8 +63,8 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
           ...(quiet ? { check_penalty: 0 } : {}),
           ...(thickening ? { bulk: Number(item.data.bulk ?? base.data.bulk) + Number(thickening[1]),
             strength: Number(base.data.strength) + Number(thickening[2]) } : {}),
-          ...(isAncestralEmbrace(item.name) ? { named_armor_material: 'Grisantian Hide' } : {}),
-          ...(elven ? { named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
+          ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
+          ...(WEAVE_ARMORS.has(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
       }]
