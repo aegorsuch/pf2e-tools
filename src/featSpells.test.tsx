@@ -630,7 +630,7 @@ it('allows listed ancestral cantrips when the source omits a tradition without i
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Urog', feats: [taken(source.name, 1, 'Guidance')] }
   expect(featSpellOptions(c, [source, guidance], c.feats[0])).toEqual([guidance])
   expect(grantedFeatSpells({ ...c, feats: [taken(source.name)] }, [source, guidance])).toEqual([])
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, guidance]} save={() => {}} />)).toContain('Ancestral Cantrip spell')
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, guidance]} save={() => {}} />)).not.toContain('Ancestral Cantrip spell')
   expect(grantedFeatSpells(c, [source, guidance])[0].rule).toMatchObject({
     tradition: undefined, condition: 'Tradition not specified in ancestry source; verify with GM',
   })

@@ -11,7 +11,7 @@ import { companionAdvancement, companionStats } from './companions'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { featTakenLevel } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
-import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
+import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
 import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility, spellDifficultyClass } from './builder'
@@ -761,8 +761,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>}
       </>}
       {c.feats.map((feat, index) => {
-        if (!['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip'].includes(feat.name) || featTakenLevel(feat) > c.level) return null
-        if (feat.name === 'Ancestral Cantrip' && fixedAncestralCantrip(c, entries)) return null
+        if (!['First World Magic', 'Ancestral Magic'].includes(feat.name) || featTakenLevel(feat) > c.level) return null
         const options = featSpellOptions(c, entries, feat) ?? []
         return <span className="feat-choice" key={feat.slot ?? `${feat.name}:${index}`}>
           <SearchableSelect label={`${feat.name} spell`} aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
