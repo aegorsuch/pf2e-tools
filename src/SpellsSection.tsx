@@ -362,6 +362,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
   const instant = [
     'Distracting Decoy', 'Heal Companion', 'Slime Spit', 'Snare Hopping',
     "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry', 'Mindlink', 'Pulverizing Wake', 'Combustion', 'Terrain Transposition',
+    'Seek the Stars', 'Seek The Stars',
   ].includes(name)
   if (tracks && rank >= 4) return { duration: '8 hours', range: '20 feet', save, targets: 'Up to 10 creatures' }
   return {
@@ -373,14 +374,15 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
     durationNote: persistent && name === 'Animal Feature' && !getSettings().championFormNoFlight ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : name === 'Warning Stripes' ? 'Self or 30 feet'
-      : ['Speak with Plants', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck"].includes(name)
+      : ['Speak with Plants', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || tracks && range === '—' ? 'Self'
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
-    targets: name === 'Pulverizing Wake' ? '1 creature within reach'
+    targets: name === 'Pummeling Rubble' ? '15-foot cone'
+      : name === 'Pulverizing Wake' ? '1 creature within reach'
       : name === 'Warning Stripes' ? 'Yourself or your animal companion'
       : name === 'Canopy Crawler' && rank >= 5 ? 'Yourself and your animal companion'
-      : ['Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants'].includes(name)
+      : ['Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || targets === '—' && ['Sure Strike', 'True Strike', 'Vanishing Tracks'].includes(name) ? 'Self' : targets,
   }
 }
@@ -510,7 +512,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const proficiency = grant.rule.kind === 'innate' ? spellRank : casting?.rank ?? 1
     const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, proficiency), c.level) : undefined
     const resolution = spellResolution(grant.entry)
-    const frequency = dailyInnateUses(c, grant) ? undefined : grant.rule.frequency
+    const frequency = dailyInnateUses(c, grant) || /^at[- ]will$/i.test(grant.rule.frequency?.trim() ?? '') ? undefined : grant.rule.frequency
     const higherDC = grant.rule.dc === 'higher-class-or-spell'
     const classDC = higherDC && resolution.save ? classDifficultyClass(c, entries) : undefined
     const castingAbility = casting?.ability ?? sc?.ability
@@ -779,7 +781,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>}
       </>}
       {c.feats.map((feat, index) => {
-        if (!['First World Magic', 'Ancestral Magic'].includes(feat.name) || featTakenLevel(feat) > c.level) return null
+        if (feat.name !== 'First World Magic' || featTakenLevel(feat) > c.level) return null
         const options = featSpellOptions(c, entries, feat) ?? []
         return <span className="feat-choice" key={feat.slot ?? `${feat.name}:${index}`}>
           <SearchableSelect label={`${feat.name} spell`} aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {

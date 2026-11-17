@@ -655,7 +655,7 @@ it('selects only unused ancestry spells at the feat slot rank and grants the cor
     { ...second, choice: 'Veil of Privacy', slot: 'ancestry:13:0' }], level: 17 }
   expect(eligibleFeats([magic, ...spells], allUsed, { ...slot, key: 'ancestry:17:0', level: 17 })).not.toContain(magic)
   const markup = renderToStaticMarkup(<SpellsSection c={two} entries={[magic, ...spells]} save={() => {}} />)
-  expect(markup).toContain('Ancestral Magic spell')
+  expect(markup).not.toContain('Ancestral Magic spell')
 })
 
 it('offers Elf Ancestral Magic spells by feat slot and grants them as daily primal innate spells', () => {
@@ -687,7 +687,7 @@ it('offers Elf Ancestral Magic spells by feat slot and grants them as daily prim
   expect(grantedFeatSpells(c, entries).map(grant => [grant.entry.name, grant.rank]))
     .toEqual([['Wisp Ally', 1], ['Verdant Code', 3]])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Ancestral Magic spell')
+  expect(markup).not.toContain('Ancestral Magic spell')
   expect(markup).toContain('Verdant Code')
 })
 
@@ -1082,12 +1082,33 @@ it.each<{ data: ContentEntry['data']; traits: string[]; description: string; dc:
   expect(markup.includes('Attack +11')).toBe(attack)
 })
 
-it.each(['once per day', 'twice per day', 'at will', 'once per hour'])('deduplicates %s only when daily uses are tracked', frequency => {
+it.each(['One with Stone', 'Seek the Stars', 'Seek The Stars'])('shows %s range and targets as Self', name => {
+  const spell = entry(name, 'spell')
+  const grant: ContentEntry = { ...entry('Stonewalker', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [spell.name], frequency: 'once per day' }] }
+  const c: Character = { ...base, feats: [taken(grant.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
+  expect(markup).toContain('<small>Range</small>Self')
+  expect(markup).toContain('<small>Area/Targets</small>Self')
+  if (name.toLowerCase() === 'seek the stars') expect(markup).toContain('<small>Duration</small>Instant')
+})
+
+it('shows Pummeling Rubble as a 15-foot cone when the source area is only numeric', () => {
+  const spell = entry('Pummeling Rubble', 'spell', { area: '15' })
+  const grant: ContentEntry = { ...entry('Rubble Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: [spell.name], frequency: 'once per day' }] }
+  const c: Character = { ...base, feats: [taken(grant.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
+  expect(markup).toContain('<small>Area/Targets</small>15-foot cone')
+})
+
+it.each(['once per day', 'twice per day', 'at will', 'once per hour'])('omits redundant %s labels while retaining other limits', frequency => {
   const grant: ContentEntry = { ...entry('Test Magic', 'feat'),
     spellGrants: [{ kind: 'innate', spells: ['Test Spell'], frequency }] }
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Test Spell', 'spell')]} save={() => {}} />)
-  expect(markup.includes(frequency)).toBe(!frequency.endsWith('per day'))
+  expect(markup.includes(frequency)).toBe(frequency === 'once per hour')
+  if (frequency === 'at will') expect(markup).not.toContain('uses remaining')
   if (frequency.endsWith('per day')) {
     const limit = frequency.startsWith('twice') ? 2 : 1
     expect(markup).toContain(`aria-label="${limit} of ${limit} uses remaining"`)
