@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -88,7 +88,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         }}>
         <option value="">Choose clan</option>
         {feat.choice && !clans.includes(feat.choice) && <option disabled>{feat.choice}</option>}
-        {clans.map(clan => <option key={clan}>{clan}</option>)}
+        {clans.map(clan => <option key={clan} value={clan}>{clanLoreLabel(clan)}</option>)}
       </SearchableSelect>}
     </span>
   }

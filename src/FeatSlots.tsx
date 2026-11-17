@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -151,7 +151,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return option && (source?.traits.some(trait => trait.toLowerCase() === 'ysoki') && option.toLowerCase() === 'rodents'
       ? 'Rats' : option.replace(/^[a-z]/, char => char.toUpperCase()))
   }
-  const choiceLabel = (name: string, choice: string) => name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
+  const choiceLabel = (name: string, choice: string) => name === 'Clan Lore' ? clanLoreLabel(choice)
+    : name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const subclassDescription = (name: string, choice?: string) => {
     const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Multifarious Muse': 'Bard',
       'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }

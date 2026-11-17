@@ -2208,6 +2208,11 @@ const CLAN_LORE_OPTIONS: Record<string, { skills: [string, string]; lore: string
   Vanderholl: { skills: ['Athletics', 'Crafting'], lore: 'Labor' },
 }
 
+export function clanLoreLabel(clan: string) {
+  const grant = CLAN_LORE_OPTIONS[clan]
+  return grant ? [clan, ...grant.skills, `${grant.lore} Lore`].join(', ') : clan
+}
+
 export function loreReplacementChoices(c: Character, entries: ContentEntry[], index: number) {
   const feat = c.feats[index]
   if (!feat || !['Clan Lore', 'Dwarven Lore'].includes(feat.name)) return []

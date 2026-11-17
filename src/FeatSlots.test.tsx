@@ -498,6 +498,34 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
   } finally { updateSettings(settings) }
 })
 
+it.each([
+  ['Aringeld', 'Diplomacy, Society, Mercantile Lore'],
+  ['Breakiron', 'Crafting, Survival, Alchemy Lore'],
+  ['Firecask', 'Crafting, Nature, Alcohol Lore'],
+  ['Gelderon', 'Athletics, Nature, Farming Lore'],
+  ['Grimmark', 'Crafting, Society, Architecture Lore'],
+  ['Ironfist', 'Crafting, Medicine, Smelting Lore'],
+  ['Molgrade', 'Crafting, Thievery, Smithing Lore'],
+  ['Oriddus', 'Religion, Society, Dwarven Pantheon Lore'],
+  ['Runebinder', 'Arcana, Occultism, Academia Lore'],
+  ['Stonefist', 'Athletics, Intimidation, Warfare Lore'],
+  ['Tolorr', 'Diplomacy, Society, Library Lore'],
+  ['Vanderholl', 'Athletics, Crafting, Labor Lore'],
+])('shows %s Clan Lore training in variants and saved selections', (clan, training) => {
+  const feat: ContentEntry = { id: 'clan-lore', name: 'Clan Lore', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Dwarf', level: 1 }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
+    search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
+  const label = `Clan Lore (${clan}, ${training})`
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  findButton(tree(), `L01 Ancestry: ${label}`)!()
+  expect(c.feats[0].choice).toBe(clan)
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />))
+    .toContain(`<option value="${clan}" selected="">${clan}, ${training}</option>`)
+})
+
 it('offers and saves every Favored Prey variant', () => {
   const prey: ContentEntry = { id: 'prey', name: 'Favored Prey', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 4, traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 0 }
