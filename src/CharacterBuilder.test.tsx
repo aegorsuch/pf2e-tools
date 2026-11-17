@@ -15,6 +15,24 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
+it('shows saved Scout Lore as a background variant without a separate skill picker', () => {
+  content.entries = [{
+    id: 'scout', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Scout', level: 1,
+    traits: [], description: '', effects: [], updatedAt: 0,
+    data: { skill: 'Survival, Lore related to one terrain you scouted in (such as Forest Lore or Cavern Lore).' },
+  }]
+  const c: Character = { id: 'scout', systems: ['pf2e'], name: 'Test', level: 1, background: 'Scout',
+    backgroundTerrainLore: { Scout: 'Forest' },
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('<span>Scout (Forest Lore)</span>')
+  expect(markup).toContain('<option value="Scout (Forest Lore)" selected="">Scout (Forest Lore)</option>')
+  expect(markup).not.toContain('aria-label="Scout terrain Lore"')
+  expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, backgroundTerrainLore: undefined }} onClose={() => {}} />))
+    .toContain('<option value="Scout" selected="">Scout</option>')
+})
+
 it('shows Test-Subject adaptation options only for the matching heritage', () => {
   content.entries = []
   const c: Character = { id: 'ysoki', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',

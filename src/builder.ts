@@ -2113,6 +2113,12 @@ export const backgroundHasTerrainLore = (bg?: ContentEntry) =>
   typeof bg?.data.skill === 'string' && bg.data.skill.split(/,\s*(?![^()]*\))/).some(skill =>
     /\blore\b/i.test(skill) && /\bterrain\b/i.test(skill) && !/^[\w' -]+ Lore$/i.test(skill.trim()))
 
+export function backgroundVariants(options: ContentEntry[]) {
+  return options.flatMap<{ value: string; background: ContentEntry; terrain?: string }>(background => background.name === 'Scout' && backgroundHasTerrainLore(background)
+    ? FAVORED_TERRAINS.map(terrain => ({ value: `${background.name} (${terrain} Lore)`, background, terrain }))
+    : [{ value: background.name, background, terrain: undefined }])
+}
+
 export function backgroundSkills(bg?: ContentEntry, c?: Character) {
   const skills = typeof bg?.data.skill === 'string' ? bg.data.skill.split(/,\s*(?![^()]*\))/).map(skill => skill.trim()).filter(Boolean) : []
   const terrain = bg && c?.backgroundTerrainLore?.[bg.name]

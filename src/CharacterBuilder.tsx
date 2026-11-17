@@ -35,6 +35,7 @@ import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipm
 import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
+import { backgroundVariants } from './builder'
 
 const NONE: ContentEntry[] = []
 
@@ -45,17 +46,22 @@ const deityLabel = (deity: ContentEntry) => {
     : deity.name
 }
 
-function Pick({ label, kind, value, options, onChange, ancestry }: {
+function Pick({ label, kind, value, options, onChange, ancestry, terrainLore }: {
   label: string
   kind: string
   value?: string
   options: ContentEntry[]
-  onChange: (v: string | undefined) => void
+  onChange: (v: string | undefined, terrain?: string) => void
   ancestry?: string
+  terrainLore?: Character['backgroundTerrainLore']
 }) {
   const [ready, setReady] = useState(false)
-  const byName = useMemo(() => new Map(options.map(entry => [entry.name, entry])), [options])
-  const labels = useMemo(() => new Map(options.map((entry) => [entry.name, kind === 'deity' ? deityLabel(entry) : entry.name])), [options, kind])
+  const variants = useMemo(() => kind === 'background' ? backgroundVariants(options)
+    : options.map(background => ({ value: background.name, background, terrain: undefined })), [options, kind])
+  const selectedValue = variants.find(option => option.background.name === value && option.terrain === terrainLore?.[value ?? ''])?.value ?? value
+  const byName = useMemo(() => new Map(variants.map(option => [option.value, option.background])), [variants])
+  const labels = useMemo(() => new Map(variants.map(option =>
+    [option.value, kind === 'deity' ? deityLabel(option.background) : option.value])), [variants, kind])
   const choices = useMemo(() => {
     if (!ready) return null
     const option = (name: string) => <option key={name} value={name}>{labels.get(name)}</option>
@@ -74,16 +80,19 @@ function Pick({ label, kind, value, options, onChange, ancestry }: {
   }
   const unavailable = kind === 'heritage' && !!value && !labels.has(value)
   return (
-      <SearchableSelect label={label} aria-label={label} value={value ?? ''} onPrepare={prepare} optionCount={labels.size}
+      <SearchableSelect label={label} aria-label={label} value={selectedValue ?? ''} onPrepare={prepare} optionCount={labels.size}
         searchText={kind === 'background' ? name => String(byName.get(name)?.data.feat ?? '') : undefined}
         renderDetails={name => {
           const entry = byName.get(name)
           return entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" className="picker-details" /> : null
         }}
-        onFocus={prepare} onPointerDown={prepare} onChange={(e) => onChange(e.target.value || undefined)}>
+        onFocus={prepare} onPointerDown={prepare} onChange={(e) => {
+          const option = variants.find(option => option.value === e.target.value)
+          onChange(option?.background.name ?? (e.target.value || undefined), option?.terrain)
+        }}>
         <option value="">No {kind}</option>
-        {value && (!ready || !labels.has(value)) && <option value={value} disabled={unavailable}>
-          {labels.get(value) ?? (unavailable ? `${value} (not available for this ancestry)` : value)}
+        {selectedValue && (!ready || !labels.has(selectedValue)) && <option value={selectedValue} disabled={unavailable}>
+          {labels.get(selectedValue) ?? (unavailable ? `${value} (not available for this ancestry)` : selectedValue)}
         </option>}
         {choices}
       </SearchableSelect>
@@ -512,14 +521,19 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Background</strong>
-          <span>{c.background || 'Choose background'}</span>
+          <span>{c.background === 'Scout' && c.backgroundTerrainLore?.Scout
+            ? `Scout (${c.backgroundTerrainLore.Scout} Lore)` : c.background || 'Choose background'}</span>
         </summary>
         <div className="character-section-content">
-          <Pick label="Background" kind="background" value={c.background} options={of('background')} onChange={(v) => save({ background: v })} />
+          <Pick label="Background" kind="background" value={c.background} options={of('background')} terrainLore={c.backgroundTerrainLore}
+            onChange={(background, terrain) => save({ background, ...(background && terrain
+              ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [background]: terrain } } : {}) })} />
           {background && <Info label={background.name}>{detail(background)}</Info>}
           {freeHeart && <Pick label="Free Heart background" kind="background" value={freeHeart.choice}
             options={of('background').filter(entry => freeHeartOptions?.has(entry.name))}
-            onChange={(choice) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat) })} />}
+            terrainLore={c.backgroundTerrainLore}
+            onChange={(choice, terrain) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat),
+              ...(choice && terrain ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [choice]: terrain } } : {}) })} />}
           {extraBackground && <Info label={`Free Heart: ${extraBackground.name}`}>{detail(extraBackground)}</Info>}
           {freeHeart && <small>Free Heart grants the background's trained skill and skill feat, but not its attribute boosts.</small>}
           <AbilityBoostChoices {...section} groups={['background']} />

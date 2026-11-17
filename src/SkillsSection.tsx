@@ -607,7 +607,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
-      {[bg, extraBackground].filter((background): background is ContentEntry => !!background && backgroundHasTerrainLore(background)).map(background =>
+      {[bg, extraBackground].filter((background): background is ContentEntry =>
+        !!background && background.name !== 'Scout' && backgroundHasTerrainLore(background)).map(background =>
         <label key={background.id}>{background.name} Lore{' '}
           <select aria-label={`${background.name} terrain Lore`} value={c.backgroundTerrainLore?.[background.name] ?? ''} onChange={event => {
             const terrain = event.target.value
