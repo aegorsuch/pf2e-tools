@@ -222,3 +222,18 @@ it('preserves weapon versatile damage labels from full AoN traits', async () => 
   expect(hits.find(hit => hit._id === 'katana')?._source?.trait).toEqual(['Two-Hand d10'])
   expect(hits.find(hit => hit._id === 'critical')?._source?.trait).toEqual(['Deadly d8', 'Fatal d12', 'Fatal Aim d10'])
 })
+
+it('drops the Hellknight order training prerequisite and splits Mortification by damage type', () => {
+  const dedication = { _id: 'feat-8812', _source: { category: 'feat', name: 'Hellknight Dedication', archetype: ['Hellknight'],
+    prerequisite: 'trained by a Hellknight Order', markdown: '**Prerequisites** trained by a Hellknight Order\n\nRules.' } }
+  const mortification = { _id: 'feat-910', _source: { category: 'feat', name: 'Mortification', archetype: ['Hellknight Armiger'],
+    prerequisite: 'Hellknight Armiger Dedication' } }
+  const entries = mapAonHits([dedication, mortification], 'pf2e')
+  expect(entries[0].data.prerequisite).toBeUndefined()
+  expect(entries[0].description).not.toMatch(/trained by a Hellknight Order/)
+  expect(entries.slice(1).map(entry => [entry.name, entry.data.resistances])).toEqual([
+    ['Mortification (Bludgeoning)', 'bludgeoning=hellknight'],
+    ['Mortification (Piercing)', 'piercing=hellknight'],
+    ['Mortification (Slashing)', 'slashing=hellknight'],
+  ])
+})

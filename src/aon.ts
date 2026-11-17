@@ -109,9 +109,30 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
     if (hasUpdatedJuggernaut && h._id === 'feat-1167') continue
     if (hasUpdatedFlexibility && h._id === 'feat-1171') continue
     const e = mapAonHit(h, system)
-    if (e) entries.push(e)
+    if (!e) continue
+    const adjusted = dropHellknightTrainingPrerequisite(e)
+    if (system === 'pf2e' && adjusted.kind === 'feat' && adjusted.name === 'Mortification' && /\bHellknight\b/.test(String(adjusted.data.archetype ?? ''))) {
+      entries.push(...MORTIFICATION_DAMAGE.map(damage => ({
+        ...adjusted, id: `${adjusted.id}:${damage}`, name: `Mortification (${damage[0].toUpperCase()}${damage.slice(1)})`,
+        data: { ...adjusted.data, resistances: `${damage}=hellknight` },
+      })))
+    } else entries.push(adjusted)
   }
   return entries
+}
+
+const MORTIFICATION_DAMAGE = ['bludgeoning', 'piercing', 'slashing']
+
+function dropHellknightTrainingPrerequisite(entry: ContentEntry): ContentEntry {
+  if (entry.kind !== 'feat' || !/\bHellknight\b/.test(String(entry.data.archetype ?? ''))) return entry
+  const phrase = /trained by a Hellknight Order/i
+  if (!phrase.test(String(entry.data.prerequisite ?? '')) && !phrase.test(entry.description)) return entry
+  const { prerequisite, ...data } = entry.data
+  const remaining = String(prerequisite ?? '').split(/;\s*/).filter(part => part && !phrase.test(part)).join('; ')
+  return {
+    ...entry, data: remaining ? { ...data, prerequisite: remaining } : data,
+    description: entry.description.replace(/^Prerequisites?:?[ \t]*trained by a Hellknight Order\.?[ \t]*\n*/im, '').replace(phrase, ''),
+  }
 }
 
 // Store every AoN entry as official content (replaces prior AoN copies).

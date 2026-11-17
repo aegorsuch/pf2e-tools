@@ -2923,6 +2923,11 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
 }
 
 // Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
+function hellknightFeatCount(c: Character, entries: ContentEntry[]) {
+  return c.feats.filter(feat => featTakenLevel(feat) <= c.level
+    && /\bHellknight\b/.test(String(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.archetype ?? ''))).length
+}
+
 export function resistances(c: Character, entries: ContentEntry[]) {
   const sources = [
     ...characterHeritages(c, entries),
@@ -2974,7 +2979,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     for (const f of e.effects) if (f.type === 'resistance') out.push({ damage: f.damage, value: f.value, source: e.name })
     for (const part of String(e.data.resistances ?? '').split(',').filter(Boolean)) {
       const [damage, v] = part.split('=')
-      out.push({ damage, value: v === 'half' ? half : +v, source: e.name })
+      out.push({ damage, value: v === 'half' ? half : v === 'hellknight' ? hellknightFeatCount(c, entries) : +v, source: e.name })
     }
   }
   if (activeFeatsNamed(c, 'Pain Tolerance').length
