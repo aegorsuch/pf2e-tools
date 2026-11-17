@@ -109,8 +109,8 @@ export function namedArmorAbilities(entry?: ContentEntry) {
     .replace(/\n\nNethys Note:[\s\S]*$/, '')
   const starts = [...body.matchAll(/(?:^|\n\n)(Activate|Destruction)\b/g)]
   const paragraphs = (text: string) => text.split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean)
-  return [
-    { name: 'Properties', paragraphs: paragraphs(body.slice(0, starts[0]?.index)), actions: undefined as string | undefined },
+  const abilities = [
+    { name: 'Summary', paragraphs: paragraphs(body.slice(0, starts[0]?.index)), actions: undefined as string | undefined },
     ...starts.map((match, index) => {
       const section = body.slice(match.index + match[0].length, starts[index + 1]?.index).trim()
       const named = /^[—–-]\s*(.+?)(?=\s+\(|\s+(?:Frequency|Requirements|Trigger|Effect)\b|\s+\d+\s+(?:minutes?|hours?|rounds?)\b)/.exec(section)
@@ -121,4 +121,6 @@ export function namedArmorAbilities(entry?: ContentEntry) {
       }
     }),
   ].filter(ability => ability.paragraphs.length)
+  const rank = (name: string) => name === 'Summary' ? 0 : name === 'Destruction' ? 2 : 1
+  return abilities.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name))
 }
