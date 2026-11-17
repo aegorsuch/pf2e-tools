@@ -364,6 +364,8 @@ export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST,
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [
+    { id: 'homebrew:riding-badger', name: 'Riding Badger', base: 'Badger', size: 'Small', mount: true,
+      description: 'A stocky, sure-footed badger trained to carry a rider. Its strong digging claws and fierce temper serve it above and below ground.' },
     { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium',
       description: "A powerful, keen-nosed direwolf raised among Sarkoris's hunting traditions. It tracks quarry over rough ground and fights alongside its bonded partner." },
     { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Small',
@@ -381,7 +383,7 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
       ...base, id: variant.id, name: variant.name, source: 'homebrew',
       traits: base.traits.filter(trait => trait.toLowerCase() !== 'mount'),
       description: variant.description,
-      data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: false, fixed_size: false })
+      data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: variant.mount ?? false, fixed_size: false })
         .map(([key, value]) => [key, typeof value === 'string' ? rename(value) : value])),
       // Fresh-device defaults must not supersede synced user edits or deletions.
       updatedAt: 1,

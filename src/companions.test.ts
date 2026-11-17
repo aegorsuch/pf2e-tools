@@ -320,6 +320,31 @@ describe('animal companions', () => {
     expect(original.description).toContain('Boarhounds')
   })
 
+  it('seeds a Small Riding Badger with Mount and otherwise identical Badger rules and growth', () => {
+    const badger = entry('companion', 'Badger', { ...bear.data, strength: 2, wisdom: 2,
+      mount: false, speed_raw: '25 feet, burrow 10 feet, climb 10 feet', skill: 'Survival',
+      companion_support: "Your badger digs around your foe's position.",
+      companion_maneuver: 'Badger Rage', companion_maneuver_actions: 'Single Action',
+      companion_maneuver_traits: 'Concentrate, Emotion, Mental',
+      companion_maneuver_requirements: "The badger isn't fatigued or raging.",
+      companion_maneuver_description: 'The badger enters a state of pure rage that lasts for 1 minute.',
+    }, 1, ['Animal', 'Minion'])
+    const before = JSON.stringify(badger)
+    const [riding] = homebrewCompanions([badger])
+    expect(riding).toMatchObject({ id: 'homebrew:riding-badger', name: 'Riding Badger', source: 'homebrew', updatedAt: 1 })
+    expect(riding.traits).toEqual(badger.traits)
+    expect(riding.data).toEqual({ ...badger.data, size: 'Small', mount: true, fixed_size: false })
+    for (const feats of [[], [feat('Mature Animal Companion')], [feat('Incredible Companion', 'Savage'), feat('Specialized Companion', 'Racer')]]) {
+      const c = { ...base, level: 16, feats }
+      const advancement = companionAdvancement(c)
+      const original = companionStats(c, [badger], badger.name, advancement)!
+      const mounted = companionStats(c, [riding], riding.name, advancement)
+      expect(mounted).toEqual({ ...original, entry: riding, mount: true })
+      expect(mounted?.size).toBe(advancement.mature ? 'Medium' : 'Small')
+    }
+    expect(JSON.stringify(badger)).toBe(before)
+  })
+
   it.each([[16, 20], [18, 25], [20, 30]])('applies Auspice benefits at level %i without granting them to other companions', (level, extraHP) => {
     const c: Character = { ...base, level, className: 'Champion',
       companions: [{ id: 'mount', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }],

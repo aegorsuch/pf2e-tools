@@ -307,7 +307,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return (
               <article key={comp.id} className="gear-card">
                 <header className="row">
-                  {comp.name && comp.name !== comp.type && <strong>{comp.name}</strong>}
+                  <label>Name <input aria-label="Companion name" value={comp.name}
+                    onChange={event => update(comp.id, { name: event.target.value })} /></label>
                   <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value, supportActive: false })}>
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>

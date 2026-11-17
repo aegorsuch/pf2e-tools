@@ -98,6 +98,29 @@ it('shows a plain Mount label only when eligible, without Rider helper text or c
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('saves companion names independently, preserves them when changing type, and allows clearing them', () => {
+  let c: Character = {
+    id: 'named-companions', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'first', type: 'Badger', name: '', supportActive: true },
+      { id: 'second', type: 'Cat', name: 'Whiskers' }],
+  }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const tree = () => MinionsContent({ c, entries: [], save })
+  findInput(tree(), 'Companion name')!({ target: { value: 'Bramble' } })
+  expect(c.companions).toEqual([{ id: 'first', type: 'Badger', name: 'Bramble', supportActive: true },
+    { id: 'second', type: 'Cat', name: 'Whiskers' }])
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Companion name" value="Bramble"')
+  findSelect(tree(), 'Companion type')!({ target: { value: 'Riding Badger' } })
+  expect(c.companions?.[0]).toMatchObject({ id: 'first', type: 'Riding Badger', name: 'Bramble', supportActive: false })
+  c = { ...c, companions: [...c.companions!].reverse() }
+  findInput(tree(), 'Companion name')!({ target: { value: 'Mittens' } })
+  expect(c.companions?.find(companion => companion.id === 'first')?.name).toBe('Bramble')
+  findInput(tree(), 'Companion name')!({ target: { value: '' } })
+  expect(c.companions?.find(companion => companion.id === 'second')?.name).toBe('')
+})
+
 it('shows Beastmaster Bond range based on Nature proficiency only for animal companions', () => {
   const c: Character = {
     id: 'bond', systems: ['pf2e'], name: 'Test', level: 15, className: 'Ranger',
@@ -738,7 +761,7 @@ it.each([
   expect(markup).not.toContain('Add animal companion')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('aria-label="Remove Wolf"')
-  expect(markup).not.toContain('aria-label="Companion name"')
+  expect(markup).toContain('aria-label="Companion name" value="Wolf"')
   expect(markup).not.toContain('<strong>Wolf</strong>')
   expect(markup).not.toContain('Wolf (Wolf)')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
@@ -774,7 +797,7 @@ it.each([
   expect(c.feats[0]).toMatchObject({ name: specialized, choice: 'Racer' })
 })
 
-it('lets a Champion choose or replace Faithful Steed without a rename field', () => {
+it('lets a Champion choose or replace Faithful Steed and edit its name', () => {
   let c: Character = {
     id: 'champion', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -797,7 +820,9 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
   expect(markup).toContain('<h4>Animal Companion</h4>')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('Choose Faithful Steed')
-  expect(markup).not.toContain('aria-label="Companion name"')
+  expect(markup).toContain('aria-label="Companion name" value=""')
+  findInput(MinionsContent({ c, entries: [horse], save }), 'Companion name')!({ target: { value: 'Dawn' } })
+  expect(c.companions).toMatchObject([{ type: 'Horse', name: 'Dawn' }])
 })
 
 it('adds Beastmaster specialization slots beside existing companion specializations without replacing them', () => {
