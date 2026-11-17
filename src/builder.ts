@@ -8,7 +8,7 @@ import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isNamedArmor, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements } from './namedArmor'
@@ -1206,6 +1206,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   const familiarityOptions = familiarityChoiceOptions(name, c, entries)
   if (familiarityOptions) return familiarityOptions
   if (name === 'Clan Lore') return Object.keys(CLAN_LORE_OPTIONS).sort((a, b) => clanLoreLabel(a).localeCompare(clanLoreLabel(b)))
+  if (name === 'Dongun Education') return Object.keys(DONGUN_EDUCATION_LORES)
   if (name === 'Eye for Treasure' && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if ((ranks.Crafting ?? 0) < 1) return undefined
@@ -2176,8 +2177,19 @@ const featData = (c: Character, entries: ContentEntry[], field: string) => {
   })
 }
 
-// Lore skills taught through Additional Lore, including ancestry-specific grants.
+const DONGUN_EDUCATION_LORES: Record<string, string[]> = {
+  'Engineering Lore, Explosive Lore': ['Engineering Lore', 'Explosive Lore'],
+  'Engineering Lore, Firearm Lore': ['Engineering Lore', 'Firearm Lore'],
+  'Explosive Lore, Firearm Lore': ['Explosive Lore', 'Firearm Lore'],
+}
+
+function dongunEducationLores(c: Character) {
+  return activeFeatsNamed(c, 'Dongun Education').flatMap(feat => DONGUN_EDUCATION_LORES[feat.choice ?? ''] ?? [])
+}
+
+// Automatically advancing Lore skills, including ancestry-specific grants.
 export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set([
+  ...dongunEducationLores(c),
   ...featData({ ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level) }, entries, 'grants_lore').map((g) => g.value),
   ...ancestralSkillLores(c, entries),
   ...(c.feats.some(feat => feat.name === 'Dwarven Lore' && featTakenLevel(feat) <= c.level) ? ['Dwarven Lore'] : []),
@@ -2638,6 +2650,10 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   if (isPioneerHuman(c)) bump('Survival')
   c.skillPicks?.forEach(bump)
   featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
+  const educationLevel = Math.min(c.level, beforeLevel - 1)
+  for (const name of dongunEducationLores({ ...c, level: educationLevel })) {
+    ranks[name] = Math.max(ranks[name] ?? 0, educationLevel >= 15 ? 4 : educationLevel >= 7 ? 3 : educationLevel >= 2 ? 2 : 1)
+  }
   trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).forEach(grant => bump(grant.name))
   skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
@@ -3545,11 +3561,13 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const shift = activeUntamedShiftEffects(c, entries)
   const untamedAttacks = [UNTAMED_CLAWS, UNTAMED_JAWS].filter(attack => shift.includes(attack === UNTAMED_CLAWS ? 'Claws' : 'Jaws'))
   const cairnAttacks = cairnForm(c, entries) ? [CAIRN_FIST] : []
+  const sparkAttacks = activeFeatsNamed(c, 'Spark Fist').length ? [SPARK_FIST] : []
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
+    && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
@@ -3557,7 +3575,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []), ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -3583,7 +3601,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
   }
-  const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name
+  const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name && weapon.name !== SPARK_FIST.name
     && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
   if (hasOtherUnarmed) return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name)
   if (!available.some((weapon) => weapon.name === FIST.name)) {
@@ -3697,7 +3715,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
   return [...new Set(c.untamedShiftEffects ?? [])].filter(choice => available.includes(choice)).slice(0, max)
 }
 
-export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
+export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -4383,8 +4401,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
   let entry = withNamedWeaponState(weaponEntry(entries, w.name), w, c.level)
-  const cairn = w.name === CAIRN_FIST.name ? cairnForm(c, entries) : undefined
-  if (cairn) entry = { ...CAIRN_FIST, data: { ...CAIRN_FIST.data, damage: `${cairn.dice}d6 bludgeoning` } }
+  const sparkFist = w.name === SPARK_FIST.name && activeFeatsNamed(c, 'Spark Fist').length > 0
+  const cairn = w.name === CAIRN_FIST.name || sparkFist ? cairnForm(c, entries) : undefined
+  if (cairn) {
+    const fist = sparkFist ? SPARK_FIST : CAIRN_FIST
+    entry = { ...fist, data: { ...fist.data, damage: `${cairn.dice}d6 bludgeoning` } }
+  }
+  if (sparkFist && (activeFeatsNamed(c, 'Iron Fists').length || activeFeatsNamed(c, 'Iron Fist').length) && entry) {
+    entry = { ...entry, traits: [...new Set([...entry.traits, 'Shove'])] }
+  }
   if (w.id === OVERSIZED_THROW.id) {
     const specialization = classFeatures(entries, c).map((feature) => feature.name.toLowerCase())
     const dice = specialization.includes('greater weapon specialization') || c.className === 'Barbarian' && c.level >= 15 ? 3
@@ -4519,7 +4544,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     upgrades,
     pristineLivingWeapon,
     rageDamage,
-    additionalDamage: [...divineAttackDamage(c), ...namedWeaponDamage(entry)],
+    additionalDamage: [...divineAttackDamage(c), ...namedWeaponDamage(entry),
+      ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
+        note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])],
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),

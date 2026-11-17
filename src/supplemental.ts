@@ -102,6 +102,13 @@ export const CAIRN_FIST: ContentEntry = {
   data: { ...FIST.data, damage: '2d6 bludgeoning' },
 }
 
+export const SPARK_FIST: ContentEntry = {
+  ...FIST, id: 'supplemental:spark-fist', name: 'Spark Fist',
+  traits: ['Agile', 'Finesse', 'Unarmed'],
+  description: 'Activate with one action, once per minute, until the end of your next turn. Your fist loses nonlethal and deals extra fire damage equal to its weapon damage dice on a successful Strike. Each successful Strike also deals that much fire damage to you.',
+  data: { ...FIST.data, actions: 'Single Action', url: 'https://2e.aonprd.com/Feats.aspx?ID=3286' },
+}
+
 export const ORC_TUSKS: ContentEntry = {
   ...FIST, id: 'supplemental:orc-tusks', name: 'Tusks',
   traits: ['Finesse', 'Unarmed'],
@@ -352,7 +359,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
   Paragon: { potency: 3, striking: 3, upgrades: 4 },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, ORC_TUSKS,
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {

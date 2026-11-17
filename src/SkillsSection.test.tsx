@@ -136,6 +136,23 @@ it('summarizes used/total skill allocations, including exchanged tokens and temp
   expect(render()).toContain('4/6 Trained')
 })
 
+it('shows Blast Resistance save upgrades alongside fire and sonic resistance only after acquisition', () => {
+  const c: Character = { ...base, level: 5, feats: [{ name: 'Blast Resistance', type: 'Ancestry Feat', level: 5 }] }
+  const note = 'Against an effect that causes dazzled or deafened, a successful saving throw becomes a critical success.'
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(html.match(/aria-label="Blast Resistance note"/g)).toHaveLength(3)
+  expect(html).toContain(note)
+  expect(builder.resistances(c, [ranger])).toEqual([
+    { damage: 'Fire', value: 3, source: 'Blast Resistance' },
+    { damage: 'Sonic', value: 3, source: 'Blast Resistance' },
+  ])
+  for (const inactive of [{ ...c, level: 4 }, { ...c, feats: [] }]) {
+    expect(builder.resistances(inactive, [ranger])).toEqual([])
+    expect(renderToStaticMarkup(<SkillsSection c={inactive} entries={[ranger]} save={() => {}} part="defense" />))
+      .not.toContain(note)
+  }
+})
+
 it.each([undefined, 'Darkvision'])('always shows Senses, including when ancestry vision is %s', vision => {
   const ancestry: ContentEntry = { ...ranger, id: 'ancestry', kind: 'ancestry', name: 'Test ancestry', data: vision ? { vision } : {} }
   const html = renderToStaticMarkup(<SensesAndSpeed c={{ ...base, ancestry: ancestry.name }} entries={[ancestry]}

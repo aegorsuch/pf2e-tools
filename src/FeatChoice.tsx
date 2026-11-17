@@ -43,7 +43,8 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (feat.name === 'Carry Their Memories' || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
+  if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
+    || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (c.systems.includes('sf2e') && feat.name === 'Exocortex Experimenter') return null
   if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone', 'Convertible Chassis'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []

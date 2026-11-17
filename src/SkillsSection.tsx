@@ -415,6 +415,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Enhanced Olfactory System" note={`${conditionalTotal(2)} to Seek a creature or object within scent range (+2 circumstance).`} />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note={`${conditionalTotal(1)} against effects that would make you clumsy, drained, or enfeebled (+1 circumstance).`} />}
+          {s.kind === 'save' && !!activeFeatsNamed(c, 'Blast Resistance').length && <SourceNote inlineSource={false}
+            source="Blast Resistance" note="Against an effect that causes dazzled or deafened, a successful saving throw becomes a critical success." />}
           {s.kind === 'save' && hasDivineIntercession(c, 'Cayden Cailean', 'moderate-boon') && <SourceNote inlineSource={false}
             source="Cayden Cailean (Moderate Boon)" note={`Against fear effects, a success becomes a critical success.${classFeatures(entries, c).some(feature => feature.name === 'Bravery') ? ' With fighter Bravery, a critical failure becomes a failure.' : ''}`} />}
           {s.kind === 'save' && shadowpiercer && <SourceNote inlineSource={false} source="Shadowpiercer"

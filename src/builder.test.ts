@@ -957,6 +957,28 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt({ ...c, feats: [] }, entries)['Sailing Lore']).toBeUndefined()
   })
 
+  it.each([
+    ['Engineering Lore, Explosive Lore', ['Engineering Lore', 'Explosive Lore']],
+    ['Engineering Lore, Firearm Lore', ['Engineering Lore', 'Firearm Lore']],
+    ['Explosive Lore, Firearm Lore', ['Explosive Lore', 'Firearm Lore']],
+  ])('grants and advances Dongun Education variant %s without spending skill increases', (choice, lores) => {
+    updateSettings({ autoLores: false })
+    const c = { ...base, background: undefined, feats: [selected('Dongun Education', 1, choice)] }
+    expect(featChoiceOptions('Dongun Education', c, entries, 'ancestry:1:0')).toContain(choice)
+    for (const [level, rank] of [[1, 1], [2, 2], [6, 2], [7, 3], [14, 3], [15, 4], [20, 4]]) {
+      const character = { ...c, level }
+      expect(featLores(character, entries)).toEqual(lores)
+      for (const lore of lores) expect(ranksAt(character, entries)[lore]).toBe(rank)
+      expect(skillRankBudget(character, entries)).toEqual(skillRankBudget({ ...character, feats: [] }, entries))
+    }
+    expect(ranksAt({ ...c, level: 20 }, entries, 2)[lores[0]]).toBe(1)
+    expect(ranksAt({ ...c, level: 20 }, entries, 3)[lores[0]]).toBe(2)
+    expect(featLores({ ...c, feats: [selected('Dongun Education', 5, choice)], level: 4 }, entries)).toEqual([])
+    expect(ranksAt({ ...c, feats: [selected('Dongun Education', 5, choice)], level: 5 }, entries)[lores[0]]).toBe(2)
+    expect(ranksAt({ ...c, feats: [] }, entries)[lores[0]]).toBeUndefined()
+    expect(featLores({ ...c, feats: [selected('Dongun Education', 1, 'Engineering Lore')] }, entries)).toEqual([])
+  })
+
   it('scales Additional Lore granted by another feat without scaling ordinary background Lore', () => {
     updateSettings({ autoLores: false })
     const dedication = entry('feat', 'Wild Hunter Dedication', { grants_lore: 'Hunting Lore' }, 2)

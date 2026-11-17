@@ -531,6 +531,26 @@ it.each([
     .toContain(`<option value="${clan}" selected="">${hilt}, ${clan}: ${training}</option>`)
 })
 
+it.each([
+  'Engineering Lore, Explosive Lore',
+  'Engineering Lore, Firearm Lore',
+  'Explosive Lore, Firearm Lore',
+])('selects and persists Dongun Education (%s) without separate choice controls', choice => {
+  const feat: ContentEntry = { id: 'dongun-education', name: 'Dongun Education', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Dwarf', level: 1 }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
+    search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
+  const label = `Dongun Education (${choice})`
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  findButton(tree(), `L01 Ancestry: ${label}`)!()
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats[0]).toMatchObject({ name: feat.name, choice })
+  for (const lore of choice.split(', ')) expect(ranksAt(c, [feat])[lore]).toBe(1)
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />)).toBe('')
+})
+
 it('offers and saves every Favored Prey variant', () => {
   const prey: ContentEntry = { id: 'prey', name: 'Favored Prey', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 4, traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 0 }

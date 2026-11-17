@@ -88,6 +88,13 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
   let criticalSpecialization = false
   for (const feat of c.feats) {
     if (featTakenLevel(feat) > c.level) continue
+    if (feat.name === 'Explosive Savant') {
+      const group = String(weapon.data.weapon_group).toLowerCase()
+      if (group === 'bomb' || weapon.traits.some(trait => trait.toLowerCase() === 'bomb')
+        || group === 'firearm' && category === 'Martial') proficiency = 'Simple'
+      else if (group === 'firearm' && category === 'Advanced' && proficiency !== 'Simple') proficiency = 'Martial'
+      continue
+    }
     if (feat.name === 'Ancestral Weapon Familiarity' && c.systems.includes('sf2e')) {
       const source = ancestralFamiliaritySource(c, entries, feat)
       if (!source || !isFixedAncestralWeaponFamiliarity(c, entries, feat)) continue

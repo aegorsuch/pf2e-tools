@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { featChoiceOptions, gearPickerEntries, weaponAccessSources, weaponAttack } from './builder'
 import { gearAccess } from './gearAccess'
 import { getSettings, updateSettings } from './settings'
+import { weaponFamiliarity } from './weaponFamiliarity'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -33,6 +34,25 @@ it('remaps Dwarven weapons to scaling category proficiency without changing unre
   expect(attack({ ...c, level: 4 }, martial, entries).criticalSpecialization).toBe(false)
   expect(attack({ ...c, feats: [selected('Dwarven Weapon Familiarity', undefined, 9)] }, martial, entries).rank).toBe(1)
   expect(attack({ ...c, className: undefined }, advanced, entries).rank).toBe(0)
+})
+
+it('applies Explosive Savant proficiency to bombs and firearms without granting Access or critical specialization', () => {
+  const bomb = content('Alchemical Bomb', 'weapon', { weapon_category: 'Martial', weapon_group: 'Bomb', damage: '1d6 F' })
+  const firearm = content('Arquebus', 'weapon', { weapon_category: 'Martial', weapon_group: 'Firearm', damage: '1d8 P', rarity: 'uncommon' })
+  const advanced = content('Advanced Firearm', 'weapon', { weapon_category: 'Advanced', weapon_group: 'Firearm', damage: '1d8 P' })
+  const unrelated = weapon('Longsword', 'Martial')
+  const entries = [wizard, bomb, firearm, advanced, unrelated]
+  const c = { ...character, feats: [selected('Explosive Savant')] }
+  for (const entry of [bomb, firearm]) expect(attack(c, entry, entries)).toMatchObject({ rank: 2, prof: 9, criticalSpecialization: false })
+  expect(attack(c, advanced, entries).rank).toBe(1)
+  expect(attack(c, unrelated, entries).rank).toBe(1)
+  expect(attack({ ...c, feats: [] }, firearm, entries).rank).toBe(1)
+  expect(attack({ ...c, feats: [selected('Explosive Savant', undefined, 9)] }, firearm, entries).rank).toBe(1)
+  expect(attack({ ...c, className: undefined }, bomb, entries).rank).toBe(0)
+  expect(weaponAccessSources(c, entries, firearm)).not.toContain('Explosive Savant')
+  const equipmentBomb = content("Alchemist's Fire (Lesser)", 'item', {}, ['Alchemical', 'Bomb', 'Consumable'])
+  expect(weaponFamiliarity(c, equipmentBomb, 'Martial', entries).proficiency).toBe('Simple')
+  expect(weaponFamiliarity({ ...c, feats: [] }, equipmentBomb, 'Martial', entries).proficiency).toBeUndefined()
 })
 
 it('applies Starfinder ancestral weapon familiarity to elf bows, rapier, and elf-trait weapons', () => {

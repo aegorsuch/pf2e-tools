@@ -26,6 +26,55 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it.each([
+  [undefined, 1],
+  [{ potency: 0, striking: 0, runes: [] }, 2],
+  [{ potency: 2, striking: 2, runes: [] }, 3],
+  [{ potency: 3, striking: 3, runes: [] }, 4],
+] as const)('adds Spark Fist with handwraps %j and %i fire damage', (handwraps, dice) => {
+  const c: Character = { ...base, className: undefined, level: 5,
+    handwraps: handwraps ? { ...handwraps, runes: [...handwraps.runes] } : undefined,
+    feats: [{ name: 'Spark Fist', type: 'Ancestry Feat', level: 5 }] }
+  const before = JSON.stringify(c)
+  const spark = ownedWeapons(c, []).find(weapon => weapon.name === 'Spark Fist')!
+  const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
+  expect(spark).toBeDefined()
+  expect(fist).toBeDefined()
+  const attack = weaponAttack(c, [], spark)
+  expect(attack.damage).toBe(`${dice}d4+1 bludgeoning`)
+  expect(attack.damage).toBe(weaponAttack(c, [], fist).damage)
+  expect(attack.traits).not.toContain('Nonlethal')
+  expect(weaponAttack(c, [], fist).traits).toContain('Nonlethal')
+  expect(attack.additionalDamage).toContainEqual({ source: 'Spark Fist', value: `${dice} fire`,
+    note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` })
+  expect(isLockedWeapon(c, spark.name)).toBe(true)
+  for (const displayOnly of [true, false]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('Spark Fist')
+    expect(markup).toContain(`${dice} fire`)
+    expect(markup).toContain(`also deals ${dice} fire damage to you`)
+    expect(markup).toContain('once per minute')
+  }
+  expect(ownedWeapons({ ...c, level: 4, weapons: [spark] }, []).some(weapon => weapon.name === spark.name)).toBe(false)
+  expect(ownedWeapons({ ...c, feats: [], weapons: [spark] }, []).some(weapon => weapon.name === spark.name)).toBe(false)
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('retains Iron Fists traits and Cairn Form dice for Spark Fist', () => {
+  const cairn: ContentEntry = { id: 'cairn', name: 'Cairn Form', kind: 'spell', systems: ['pf2e'], source: 'official',
+    level: 4, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...base, level: 19, feats: [
+    { name: 'Spark Fist', type: 'Ancestry Feat', level: 5 }, { name: 'Iron Fists', type: 'Ancestry Feat', level: 1 }],
+    spells: [{ name: cairn.name, rank: 4, cantrip: false }], activeSpells: [cairn.name] }
+  const spark = ownedWeapons(c, [cairn]).find(weapon => weapon.name === 'Spark Fist')!
+  const attack = weaponAttack(c, [cairn], spark)
+  expect(attack.damage).toBe('4d6+1 bludgeoning')
+  expect(attack.traits).toContain('Shove')
+  expect(attack.traits).not.toContain('Nonlethal')
+  expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Spark Fist', value: '4 fire' }))
+  expect(attack.criticalNote).toContain('stunned 1')
+})
+
 it.each(['Buckler', 'Gauntlet Buckler'])('optionally adds Finesse only to melee attachments on a %s', name => {
   const previous = getSettings().bucklerMeleeFinesse
   const entry: ContentEntry = { id: 'spikes', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Shield Spikes',
