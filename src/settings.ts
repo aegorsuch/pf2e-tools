@@ -17,7 +17,7 @@ export interface Settings {
   // House rules: Champions and Druids get Cavalier Dedication for free at level 2
   championCavalier: boolean
   druidCavalier: boolean
-  // House rule: Celestial Form and Fiendish Form do not grant flight
+  // House rule: Celestial Form, Fiendish Form, Animal Feature, and Auspice do not grant flight
   championFormNoFlight: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean

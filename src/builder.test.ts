@@ -715,7 +715,10 @@ describe('official passive feat mechanics', () => {
     expect(ancestralSkills(c, updated.map(entry => entry.id === feat.id ? { ...entry, deleted: true } : entry))).toEqual([])
   })
 
-  it('applies favored-terrain movement only in that terrain with Unimpeded Journey and preserves Terrain Master overrides', () => {
+  it('applies favored-terrain movement only in that terrain with Unimpeded Journey and preserves Terrain Master overrides', ({ onTestFinished }) => {
+    const previous = getSettings().championFormNoFlight
+    onTestFinished(() => updateSettings({ championFormNoFlight: previous }))
+    updateSettings({ championFormNoFlight: false })
     const favored = { name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' }
     const c: Character = { ...base, className: 'Ranger', level: 11,
       feats: [favored, { name: 'Fleet', type: 'General Feat', level: 1, slot: 'general:3:0' }],
@@ -757,6 +760,9 @@ describe('official passive feat mechanics', () => {
   it.each([
     { source: 'Greenwatch Initiate', skill: 'Survival', grants: ['Experienced Tracker', 'Survey Wildlife'] },
     { source: 'Greywatch Initiate', skill: 'Deception', grants: ['Face in the Crowd', 'Lengthy Diversion'] },
+    { source: 'Blackwatch Initiate', skill: 'Occultism', grants: ['Oddity Identification', 'Reveal True Name'] },
+    { source: 'Palewatch Initiate', skill: 'Religion', grants: ["Pilgrim's Token", 'Student of the Canon'] },
+    { source: 'Magewatch Initiate', skill: 'Arcana', grants: ['Arcane Sense', 'Quick Identification'] },
   ])('applies $source expert $skill at acquisition and preserves later increases and feat grants', ({ source, skill, grants }) => {
     const initiate = { name: source, type: 'Class Feat', level: 4, slot: 'class:4:0' }
     const c: Character = { ...base, level: 7, skillPicks: [skill], feats: [initiate] }

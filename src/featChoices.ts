@@ -25,6 +25,9 @@ export function featDisplayName(entry: ContentEntry | undefined, name = entry?.n
 export const INITIATE_TRAINING = {
   'Greenwatch Initiate': { skill: 'Survival', feats: ['Experienced Tracker', 'Survey Wildlife'] },
   'Greywatch Initiate': { skill: 'Deception', feats: ['Face in the Crowd', 'Lengthy Diversion'] },
+  'Blackwatch Initiate': { skill: 'Occultism', feats: ['Oddity Identification', 'Reveal True Name'] },
+  'Palewatch Initiate': { skill: 'Religion', feats: ["Pilgrim's Token", 'Student of the Canon'] },
+  'Magewatch Initiate': { skill: 'Arcana', feats: ['Arcane Sense', 'Quick Identification'] },
 } as const
 
 const ANCESTRAL_UNARMED_FEATS: Record<string, string[]> = {

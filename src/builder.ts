@@ -3482,7 +3482,8 @@ export function activeAnimalFeatures(c: Character, entries: ContentEntry[]) {
   const selected = hasFeat(c, 'Persistent Animal Feature')
     ? c.animalFeatures ?? [c.animalFeature ?? 'Claws']
     : [c.animalFeature ?? c.animalFeatures?.[0] ?? 'Claws']
-  return ANIMAL_FEATURES.filter((feature) => selected.includes(feature.name) && feature.rank <= Math.ceil(c.level / 2))
+  return ANIMAL_FEATURES.filter((feature) => selected.includes(feature.name) && feature.rank <= Math.ceil(c.level / 2)
+    && (feature.name !== 'Wings' || !getSettings().championFormNoFlight))
     .map((feature) => feature.name)
 }
 

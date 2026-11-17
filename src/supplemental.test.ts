@@ -92,10 +92,10 @@ it('offers Rider as a level-one companion-class feat and grants Ride without cre
   expect(JSON.stringify(c)).toBe(before)
 })
 
-it('offers Greywatch Initiate at level four to its three classes with trained Deception required', () => {
-  const greywatch = homebrewCharacterOptions([]).find(entry => entry.name === 'Greywatch Initiate')!
+it.each([['Greywatch', 'Deception'], ['Blackwatch', 'Occultism'], ['Palewatch', 'Religion'], ['Magewatch', 'Arcana']])('offers %s Initiate at level four to its three classes with trained %s required', (watch, skill) => {
+  const greywatch = homebrewCharacterOptions([]).find(entry => entry.name === `${watch} Initiate`)!
   const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
-  const c: Character = { ...base, level: 4, skillPicks: ['Deception'] }
+  const c: Character = { ...base, level: 4, skillPicks: [skill] }
   for (const className of ['Gunslinger', 'Investigator', 'Ranger']) {
     expect(eligibleFeats([greywatch], { ...c, className }, slot)).toContain(greywatch)
   }
@@ -103,7 +103,7 @@ it('offers Greywatch Initiate at level four to its three classes with trained De
   expect(eligibleFeats([greywatch], { ...c, skillPicks: [] }, slot)).toEqual([])
   expect(eligibleFeats([greywatch], { ...c, level: 3 }, { ...slot, key: 'class:2:0', level: 2 })).toEqual([])
   expect(eligibleFeats([greywatch], c, { ...slot, category: 'skill' })).toEqual([])
-  expect(greywatch).toMatchObject({ source: 'homebrew', data: { prerequisite: 'Trained in Deception' } })
+  expect(greywatch).toMatchObject({ source: 'homebrew', data: { prerequisite: `Trained in ${skill}` } })
 })
 
 it('offers Weapon Innovation Jousting to Inventors with an acquired weapon innovation', () => {

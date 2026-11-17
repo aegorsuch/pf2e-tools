@@ -113,13 +113,13 @@ it.each([
   expect(JSON.stringify(c)).toBe(before)
 })
 
-it('does not let a selected feat qualify through its own skill grant', () => {
-  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Greywatch Initiate')!
+it.each([['Greywatch', 'Deception'], ['Blackwatch', 'Occultism'], ['Palewatch', 'Religion'], ['Magewatch', 'Arcana']])('does not let %s Initiate qualify through its own skill grant', (watch, skill) => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === `${watch} Initiate`)!
   const c: Character = { ...base, className: 'Ranger',
     feats: [{ name: feat.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
   const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
-  expect(ranksAt(c, [feat]).Deception).toBe(2)
-  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat).missing).toContain('Trained in Deception')
+  expect(ranksAt(c, [feat])[skill]).toBe(2)
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat).missing).toContain(`Trained in ${skill}`)
 })
 
 it('uses later allocated skills only in planning mode and leaves other prerequisites strict', () => {

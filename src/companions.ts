@@ -1,6 +1,7 @@
 import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
+import { getSettings } from './settings'
 
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
 export const MAX_SPECIALIZATIONS = 3
@@ -218,7 +219,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
-  if (auspice || celestialMount || fiendishMount) {
+  if (auspice && !getSettings().championFormNoFlight || celestialMount || fiendishMount) {
     const land = Number(/^\d+/.exec(speed)?.[0])
     if (land > 0) {
       const fly = /\bfly\s+(\d+)\s*(?:feet|ft)\b/i.exec(speed)

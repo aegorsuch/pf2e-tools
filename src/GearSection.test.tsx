@@ -1164,7 +1164,10 @@ it('confirms removal of a favored longsword and does not recreate it after reloa
   expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)).not.toContain('Favored weapon unavailable')
 })
 
-it('alphabetizes Animal Feature effects, greys out rank-four choices until level seven, and switches a single persisted effect', () => {
+it('alphabetizes Animal Feature effects, greys out rank-four choices until level seven, and switches a single persisted effect', ({ onTestFinished }) => {
+  const previous = getSettings().championFormNoFlight
+  onTestFinished(() => updateSettings({ championFormNoFlight: previous }))
+  updateSettings({ championFormNoFlight: false })
   let c: Character = { ...character([{ name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }]), level: 6, activeSpells: ['Gravity Weapon'] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const tree = () => AnimalFeatureOptions({ c, entries: [], save })
@@ -1193,7 +1196,10 @@ it('alphabetizes Animal Feature effects, greys out rank-four choices until level
   expect(c.activeSpells).toEqual(['Gravity Weapon'])
 })
 
-it('persists independent Animal Features with the homebrew feat, including attacks, senses and movement', () => {
+it('persists independent Animal Features with the homebrew feat, including attacks, senses and movement', ({ onTestFinished }) => {
+  const previous = getSettings().championFormNoFlight
+  onTestFinished(() => updateSettings({ championFormNoFlight: previous }))
+  updateSettings({ championFormNoFlight: false })
   const warden = { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' }
   const persistent = { name: 'Persistent Animal Feature', type: 'Class Feat', level: 1 }
   let c: Character = { ...character([warden, persistent]), weapons: [], level: 7, activeSpells: ['Gravity Weapon'] }

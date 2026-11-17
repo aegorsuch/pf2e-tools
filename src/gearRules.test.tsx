@@ -672,7 +672,10 @@ it.each(['Celestial Form', 'Fiendish Form'])('gates %s flight on the house rule 
     expect(movementSpeeds(c, [])).toEqual([{ name: 'Land', feet: 25 }])
     const wings: Character = { ...c, activeSpells: ['Animal Feature'], animalFeature: 'Wings',
       feats: [...c.feats, feat('Advanced Warden', 4, 'Animal Feature')] }
-    expect(movementSpeeds(wings, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Animal Feature' })
+    expect(movementSpeeds(wings, [])).toEqual([{ name: 'Land', feet: 25 }])
+    const stormwind: Character = { ...wings, spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }],
+      activeSpells: ['Animal Feature', 'Stormwind Flight'] }
+    expect(movementSpeeds(stormwind, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Stormwind Flight' })
     updateSettings({ championFormNoFlight: false })
     expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 25, source: name })
     expect(movementSpeeds({ ...c, level: 17 }, [])).toEqual([{ name: 'Land', feet: 25 }])
@@ -1302,7 +1305,7 @@ it('applies Animal Feature senses, movement, and level gates without changing la
   expect(senses(c, []).map((sense) => sense.value)).toContain('Low-Light Vision')
   expect(senses({ ...c, animalFeature: 'Owl Eyes' }, []).map((sense) => sense.value)).toContain('Darkvision')
   expect(movementSpeeds({ ...c, animalFeature: 'Fish Tail' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Swim', feet: 35, source: 'Animal Feature' }])
-  expect(movementSpeeds({ ...c, animalFeature: 'Wings' }, [])).toEqual([{ name: 'Land', feet: 35 }, { name: 'Fly', feet: 35, source: 'Animal Feature' }])
+  expect(movementSpeeds({ ...c, animalFeature: 'Wings' }, [])).toEqual([{ name: 'Land', feet: 35 }])
   expect(activeAnimalFeatures({ ...c, animalFeature: 'Wings', level: 6 }, [])).toEqual([])
   expect(senses({ ...c, activeSpells: [] }, [])).toEqual([])
   expect(movementSpeeds({ ...c, animalFeature: 'Wings', feats: [] }, [])).toEqual([{ name: 'Land', feet: 25 }])
@@ -1771,10 +1774,11 @@ it('exposes persisted defensive contexts and shows conditional bonuses without c
 it('shows movement sources inline and alphabetizes alternate speeds after land Speed', () => {
   const c: Character = { ...base, level: 9, className: 'Ranger',
     feats: [feat('Persistent Animal Feature', 8), feat('Fleet'), feat('Primal Nimbleness')],
-    spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }, { name: 'Canopy Crawler', rank: 2, cantrip: false }],
-    activeSpells: ['Animal Feature', 'Canopy Crawler'], animalFeatures: ['Fish Tail', 'Wings'] }
+    spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }, { name: 'Canopy Crawler', rank: 2, cantrip: false },
+      { name: 'Stormwind Flight', rank: 4, cantrip: false }],
+    activeSpells: ['Animal Feature', 'Canopy Crawler', 'Stormwind Flight'], animalFeatures: ['Fish Tail', 'Wings'] }
   const text = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />).replace(/<[^>]*>/g, '')
-  expect(text).toContain('Speed: 35 ft. (+5 Fleet, +5 Primal Nimbleness); Climbing 35 ft. (Canopy Crawler); Fly 35 ft. (Animal Feature); Swim 35 ft. (Animal Feature)')
+  expect(text).toContain('Speed: 35 ft. (+5 Fleet, +5 Primal Nimbleness); Climbing 35 ft. (Canopy Crawler); Fly 35 ft. (Stormwind Flight); Swim 35 ft. (Animal Feature)')
   const inactive = renderToStaticMarkup(<SensesAndSpeed c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} />)
   expect(inactive).not.toContain('Climbing')
   expect(inactive).not.toContain('(Animal Feature)')

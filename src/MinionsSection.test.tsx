@@ -644,7 +644,7 @@ it('saves Auspice specialization and servitor choices only when Auspicious Mount
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('<span>Holy</span>')
   expect(markup).toContain('Weakness: Unholy 5')
-  expect(markup).toContain('fly 40 feet')
+  expect(markup).not.toContain('fly 40 feet')
   c = { ...c, level: 15 }
   expect(renderToStaticMarkup(tree())).not.toContain('Companion specialization')
   expect(renderToStaticMarkup(tree())).not.toContain('Auspice servitor')

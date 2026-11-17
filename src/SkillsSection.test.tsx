@@ -91,7 +91,7 @@ it.each<{ level: number; current: number; target: number; rank: string; increase
   const html = renderToStaticMarkup(tree())
   expect(html).not.toContain('Skill token rules')
   expect(html).not.toContain('Two unused Trained choices')
-  expect(html).toContain('Converted skill upgrades')
+  expect(html).not.toContain('Converted skill upgrades')
   expect(html).not.toContain('Convert and upgrade')
   expect(html).not.toContain('Skill token upgrade"')
 })
@@ -125,7 +125,7 @@ it('converts training recursively at 2:1, persists purchases and refunds them wi
   vi.stubGlobal('window', { confirm })
   try {
     const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
-    const refund = () => (findButtons(tree()).get('Refund Athletics Expert token upgrade')!.onClick as () => void)()
+    const refund = () => (findButtons(tree()).get('Athletics Trained')!.onClick as () => void)()
     refund()
     expect(ranksAt(c, entries).Athletics).toBe(4)
     confirm.mockReturnValue(true)
@@ -897,6 +897,9 @@ it('applies Clever Improviser only to untrained skills while leaving ranks, trai
 it.each([
   { source: 'Greenwatch Initiate', skill: 'Survival' },
   { source: 'Greywatch Initiate', skill: 'Deception' },
+  { source: 'Blackwatch Initiate', skill: 'Occultism' },
+  { source: 'Palewatch Initiate', skill: 'Religion' },
+  { source: 'Magewatch Initiate', skill: 'Arcana' },
 ])('spends later skill increases after $source without using earlier increases', ({ source, skill }) => {
   let c: Character = { ...base, level: 7, skillPicks: [skill],
     feats: [{ name: source, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }

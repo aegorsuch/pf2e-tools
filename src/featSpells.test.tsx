@@ -6,7 +6,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { DevotionSpellChoice, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, DevotionSpellChoice, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -759,11 +759,20 @@ it.each(['Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck"])('sh
 
 it('shows Pulverizing Wake range as a 15-foot cone', () => {
   const c: Character = { ...base, level: 20, className: 'Ranger', feats: [taken('Peerless Warden', 16, 'Pulverizing Wake')] }
-  const spell = entry('Pulverizing Wake', 'spell', { warden_spell_tier: 'Peerless', range: 0, area: '15-foot cone' })
+  const spell = entry('Pulverizing Wake', 'spell', { warden_spell_tier: 'Peerless', range: 0, area: '15-foot cone', saving_throw: 'AC' }, ['Attack'])
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
   expect(html).toContain('<small>Range</small>15-foot cone')
   expect(html).toContain('<small>Area/Targets</small>1 creature within reach')
   expect(html).toContain('<small>Duration</small>Instant')
+  expect(html).not.toContain('Wisdom Attack')
+})
+
+it('shows Terrain Transposition as instantaneous rather than copying catalog duration', () => {
+  const spell = entry('Terrain Transposition', 'spell', { duration: '1 minute' })
+  const html = renderToStaticMarkup(<SpellsSection c={{ ...base, spells: [{ name: spell.name, rank: 5, cantrip: false, entryId: spell.id }] }}
+    entries={[spell]} save={() => {}} />)
+  expect(html).toContain('<small>Duration</small>Instant')
+  expect(html).not.toContain('<small>Duration</small>1 minute')
 })
 
 it.each([
@@ -859,9 +868,27 @@ it.each([
     expect(render(other)).toContain('<small>Duration</small>1 minute')
     expect(render(other)).not.toContain(persistentDuration)
   }
-  if (name === 'Animal Feature') expect(render(c)).toContain('normal duration.')
+  if (name === 'Animal Feature') expect(render(c)).not.toContain('normal duration.')
   expect(JSON.stringify(c)).toBe(before)
   expect(spell.data.duration).toBe(60)
+})
+
+it('disables Animal Feature wings through existing No Flight setting without clearing saved selections', () => {
+  const previous = getSettings().championFormNoFlight
+  const c: Character = { ...base, level: 20, activeSpells: ['Animal Feature'], animalFeatures: ['Wings', 'Fish Tail'],
+    feats: [taken('Persistent Animal Feature', 8)], spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }] }
+  const before = JSON.stringify(c)
+  const render = () => renderToStaticMarkup(<AnimalFeatureOptions c={c} entries={[]} save={() => {}} />)
+  try {
+    updateSettings({ championFormNoFlight: true })
+    expect(render()).toContain('aria-label="Animal Feature: Wings" disabled=""')
+    expect(movementSpeeds(c, []).some(speed => speed.name === 'Fly')).toBe(false)
+    expect(movementSpeeds(c, [])).toContainEqual({ name: 'Swim', feet: 25, source: 'Animal Feature' })
+    updateSettings({ championFormNoFlight: false })
+    expect(render()).toContain('aria-label="Animal Feature: Wings" checked=""')
+    expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Animal Feature' })
+    expect(JSON.stringify(c)).toBe(before)
+  } finally { updateSettings({ championFormNoFlight: previous }) }
 })
 
 it('uses Persistent durations in prepared and innate spell tables too', () => {

@@ -57,10 +57,12 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (kind === 'classFeature') data.class = text(s.class)
   if (kind === 'subclass') data.class = SUBCLASS_CLASSES[text(s.category).toLowerCase()]
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
-  if (traits.includes('Artifact')) {
-    data.artifact_activation_actions = text(s.markdown).split(/\n\s*\n/)
+  if (usesFullItemRules(s)) {
+    const actions = text(s.markdown).split(/\n\s*\n/)
       .filter(paragraph => /^\*\*Activate\b/.test(paragraph.trim()))
       .map(paragraph => /<actions\s+string="([^"]*)"/.exec(paragraph)?.[1] ?? '').join(';')
+    data.item_activation_actions = actions
+    if (traits.includes('Artifact')) data.artifact_activation_actions = actions
   }
   return {
     id: `aon:${system}:${hit._id ?? `${kind}:${name}`}`,

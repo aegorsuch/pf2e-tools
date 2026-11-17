@@ -14,7 +14,7 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
-import { skillRankAllocations, skillRankRequirements, skillTokenPayment, skillTokenPurchase, skillTokenState } from './builder'
+import { skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
@@ -577,21 +577,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
-      {!!c.skillTokenUpgrades?.length && <details className="skill-token-exchange">
-        <summary>Converted skill upgrades</summary>
-        <ul>
-          {c.skillTokenUpgrades.map((purchase, index) => {
-            const inactive = tokenState?.inactive.find(item => item.index === index)
-            return <li key={`${purchase.skill}:${purchase.rank}:${index}`}>
-              {purchase.skill}: {RANKS[purchase.rank]} (level {purchase.level})
-              {inactive ? <span role="status"> — {inactive.reason}</span>
-                : <> — spent {skillTokenPayment(purchase.payment, c, entries)}</>}
+      {!!tokenState?.inactive.length && <div className="skill-token-exchange">
+          {tokenState.inactive.map(({ purchase, index, reason }) => {
+            return <div key={`${purchase.skill}:${purchase.rank}:${index}`}>
+              <span role="status">{purchase.skill}: {reason}</span>
               {' '}<button type="button" aria-label={`Refund ${purchase.skill} ${RANKS[purchase.rank]} token upgrade`}
                 onClick={() => refundTokens(purchase.skill, purchase.rank)}>Refund</button>
-            </li>
+            </div>
           })}
-        </ul>
-      </details>}
+      </div>}
       <details className="lore-add">
         <summary aria-label="Add Lore skill" title="Add Lore skill">+</summary>
         <form aria-label="Add Lore" onSubmit={event => {

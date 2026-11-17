@@ -4,6 +4,7 @@ import { eligibleFeats } from './builder'
 import { companionAdvancement, companionStats, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
@@ -283,7 +284,7 @@ describe('animal companions', () => {
     expect(stats.mods.wis).toBe(normal.mods.wis + 1)
     expect(stats.skills).toContainEqual({ name: 'Religion', rank: 2, bonus: stats.mods.wis + level + 4, clumsy: false })
     expect(stats.hp).toBe(normal.hp + extraHP)
-    expect(stats.speed).toBe('35 feet, fly 35 feet')
+    expect(stats.speed).toBe('35 feet')
     for (const [auspiceServitor, traits, weakness] of [
       ['Celestial', ['Celestial', 'Holy'], 'Unholy 5'],
       ['Fiend', ['Fiend', 'Unholy'], 'Holy 5'],
@@ -312,6 +313,23 @@ describe('animal companions', () => {
     const taken = { ...c, className: 'Champion', feats: [{ ...c.feats[0], slot: 'class:16:0' }] }
     expect(eligibleFeats([content], taken, { key: 'bonus:16:1', category: 'bonus', level: 16 })).not.toContain(content)
     expect(eligibleFeats([content], { ...taken, feats: [] }, { key: 'class:16:0', category: 'class', level: 16 })).toContain(content)
+  })
+
+  it.each([true, false])('applies No Flight %s to Auspice grants without removing natural flight or other benefits', noFlight => {
+    const previous = getSettings().championFormNoFlight
+    const c: Character = { ...base, level: 20, className: 'Champion', companions: [{ id: 'mount', type: 'Bear', name: '' }],
+      feats: [feat('Loyal Warhorse'), feat('Imposing Destrier', 'Nimble'), { ...feat('Auspicious Mount', 'Auspice'), level: 16 }] }
+    const before = JSON.stringify(c)
+    try {
+      updateSettings({ championFormNoFlight: noFlight })
+      const stats = companionStats(c, [bear], 'Bear', companionAdvancement(c), 'mount')!
+      expect(stats.speed).toBe(noFlight ? '35 feet' : '35 feet, fly 35 feet')
+      expect(stats.auspice).toBe(true)
+      expect(stats.skills).toContainEqual(expect.objectContaining({ name: 'Religion', rank: 2 }))
+      const bird = { ...bear, data: { ...bear.data, speed_raw: '35 feet, fly 60 feet' } }
+      expect(companionStats(c, [bird], 'Bear', companionAdvancement(c), 'mount')!.speed).toContain('fly 60 feet')
+      expect(JSON.stringify(c)).toBe(before)
+    } finally { updateSettings({ championFormNoFlight: previous }) }
   })
 
   it('parses attacks, support benefit and maneuver from AoN markdown', () => {
