@@ -232,6 +232,11 @@ export function officerEducationSlots(c: Character) {
     level: featTakenLevel(feat),
   }))
 }
+export const SIGNIFER_SKILLS = ['Arcana', 'Nature', 'Occultism', 'Religion']
+export function signiferExpertSlots(c: Character) {
+  const feat = activeFeatsNamed(c, 'Hellknight Signifer Preferment')[0]
+  return feat ? [{ key: `signifer-preferment:${feat.slot ?? 'unslotted'}`, level: featTakenLevel(feat), skills: SIGNIFER_SKILLS }] : []
+}
 export function augmentationLimit(c: Character) {
   const count = (name: string) => activeFeatsNamed(c, name).length
   return 4 + 4 * Number(hasCyborgHeritage(c)) + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
@@ -1474,7 +1479,14 @@ export function favoredTerrainBenefits(c: Character, entries: ContentEntry[]) {
 export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
   const armor = worn && armorEntry(c, entries, worn.name)
-  if (!armor?.systems.includes('sf2e')) return { check: 0, speed: 0 }
+  if (armor && !armor.systems.includes('sf2e')) {
+    const base = Math.min(0, num(armor.data.speed_penalty))
+    const meets = num(armor.data.strength) > 0 && c.abilities.str >= num(armor.data.strength)
+    const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
+    const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
+    return { check: 0, speed: Math.min(0, base + iron + (meets ? mobility ? 10 : 5 : 0)) }
+  }
+  if (!armor) return { check: 0, speed: 0 }
   const threshold = num(armor.data.strength)
   const meets = threshold > 0 && abilityMod(c.abilities.str)
     + 2 * Number(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length > 0) >= threshold
@@ -1505,7 +1517,10 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
     ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
     ...(status.feet > 0 ? [status] : []),
-    ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : [])]
+    ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : []),
+    ...(activeFeatsNamed(c, 'Hellknight Mobility').length && activeFeatsNamed(c, 'Unburdened Iron').length
+      && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '')) === 'Heavy' && wornArmor(c, entries)
+      ? [{ source: 'Hellknight Mobility', feet: 5 }] : [])]
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
@@ -2610,12 +2625,13 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const longevityLevel = longevityExpertLevel({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const educationSlots = officerEducationSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const ingenuitySlots = mechanicIngenuitySlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
+  const signiferSlots = signiferExpertSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
     ...initiateGrants.map(grant => grant.level), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
     ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
-    ...ingenuitySlots.map(slot => slot.level)])].sort((a, b) => a - b)
+    ...ingenuitySlots.map(slot => slot.level), ...signiferSlots.map(slot => slot.level)])].sort((a, b) => a - b)
   for (const l of levels) {
     if (l === longevityLevel) {
       const skill = c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]
@@ -2625,6 +2641,10 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       const skill = c.skillIncreases?.[slot.key]
       if (skill && ranks[skill] === 1 && (statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
         || /.+\s+lore$/i.test(skill))) ranks[skill] = 2
+    }
+    for (const slot of signiferSlots.filter(slot => slot.level === l)) {
+      const skill = c.skillIncreases?.[slot.key]
+      if (skill && slot.skills.includes(skill) && ranks[skill] === 1) ranks[skill] = 2
     }
     if (increases.has(l)) {
       const skill = c.skillIncreases?.[l]
@@ -4508,6 +4528,7 @@ function skillIncreaseTokens(c: Character): SkillToken[] {
   return [
     ...(longevityExpertLevel(c) !== undefined ? [{ key: LONGEVITY_EXPERT_SLOT, rank: 2 }] : []),
     ...officerEducationSlots(c).map(slot => ({ key: slot.key, rank: 2 })),
+    ...signiferExpertSlots(c).map(slot => ({ key: slot.key, rank: 2, skills: slot.skills })),
     ...mechanicIngenuitySlots(c).map(slot => ({ key: slot.key, rank: rankCap(slot.level), skills: ['Computers', 'Crafting'] })),
     ...skillIncreaseLevels(c).map(level => ({ key: String(level), rank: rankCap(level) })),
   ]

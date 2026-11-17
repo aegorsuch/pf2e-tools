@@ -1,6 +1,6 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
-  ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
+  ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
@@ -194,25 +194,27 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     if (target <= rank) return next
     if (rank < 1) return undefined
     const expertLevel = longevityExpertLevel(c)
-    const expertSlots = [
+    const expertSlots: { key: string; level: number; skills?: string[] }[] = [
       ...(expertLevel === undefined ? [] : [{ key: LONGEVITY_EXPERT_SLOT, level: expertLevel }]),
       ...officerEducationSlots(c),
+      ...signiferExpertSlots(c),
     ].sort((a, b) => a.level - b.level)
     const canUseExpertSlot = (level: number) => canSpendAt(name, level)
       && (ranksAt({ ...c, level, skillIncreases: next, rankOverrides: undefined }, entries, level + 1, false)[name] ?? 0) === 1
     const expert = target === 2 && rank === 1
-      ? expertSlots.find(slot => !next[slot.key] && !tokenState?.used.has(slot.key) && canUseExpertSlot(slot.level)) : undefined
+      ? expertSlots.find(slot => (!slot.skills || slot.skills.includes(name)) && !next[slot.key] && !tokenState?.used.has(slot.key) && canUseExpertSlot(slot.level)) : undefined
     if (expert) {
       next[expert.key] = name
       return next
     }
-    const slots = skillIncreaseLevels(c).map(level => ({ key: String(level), level, expertOnly: false, restricted: false }))
+    const slots: { key: string; level: number; expertOnly: boolean; restricted: boolean; skills?: string[] }[] = skillIncreaseLevels(c).map(level => ({ key: String(level), level, expertOnly: false, restricted: false }))
     slots.push(...expertSlots.map(slot => ({ ...slot, expertOnly: true, restricted: true })))
     if (name === 'Computers' || name === 'Crafting')
       slots.push(...mechanicIngenuitySlots(c).map(slot => ({ ...slot, expertOnly: false, restricted: true })))
     slots.sort((a, b) => a.level - b.level || Number(b.restricted) - Number(a.restricted))
     for (const slot of slots) {
       if (next[slot.key] || tokenState?.used.has(slot.key) || !canSpendAt(name, slot.level)
+        || !!slot.skills && !slot.skills.includes(name)
         || (slot.expertOnly ? rank !== 1 || !canUseExpertSlot(slot.level) : !canIncreaseTo(slot.level, rank))) continue
       next[slot.key] = name
       if (++rank >= target) return next
