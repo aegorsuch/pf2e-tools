@@ -282,6 +282,15 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ...(['Apex Companion', 'Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
+                ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element: <label>Spirit of the Beast{' '}
+                  <select aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
+                    const choice = (['Might', 'Swiftness', 'Insight'] as const).find(aspect => aspect === event.target.value)
+                    update(comp.id, { spiritAspect: choice })
+                  }}>
+                    <option value="">Inactive</option>
+                    {['Insight', 'Might', 'Swiftness'].map(aspect => <option key={aspect} value={aspect}>Aspect of {aspect}</option>)}
+                  </select>
+                </label> }] : []),
                 ...(index === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && activeFeatsNamed(c, 'Pale Horse').length > 0
                   ? [{ name: 'Pale Horse', element: <label>Pale Horse{' '}
                     <select aria-label="Pale Horse mounted damage type" value={comp.paleHorse ?? ''} onChange={event => {
@@ -372,10 +381,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       {stats.temporaryHp > 0 && <span><small>Temporary Hit Points</small><b>{stats.temporaryHp}</b>
                         <SourceNote source="Apex Companion" note="Gain 30 temporary Hit Points when cast; not added to maximum Hit Points." inlineSource={false} /></span>}
                       <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
-                      <span><small>Fortitude</small>{signed(stats.fortitude)}</span>
+                      <span><small>Fortitude</small>{signed(stats.fortitude)}{stats.aspect?.save === 'Fortitude'
+                        && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Might).`} inlineSource={false} />}</span>
                       <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote
-                        && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
-                      <span><small>Will</small>{signed(stats.will)}</span>
+                        && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
+                        {stats.aspect?.save === 'Reflex' && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Swiftness).`} inlineSource={false} />}</span>
+                      <span><small>Will</small>{signed(stats.will)}{stats.aspect?.save === 'Will'
+                        && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Insight).`} inlineSource={false} />}</span>
                     </div>
                     {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                     {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
@@ -402,7 +414,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   <section className="companion-actions">
                     <h5>Senses</h5>
                     <div><small>Perception</small> <b>{signed(stats.perception)}</b>{stats.senses && <> · {stats.senses}</>}
-                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}</div>
+                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}
+                      {stats.perceptionNote && <SourceNote source="Spirit of the Beast" note={stats.perceptionNote} inlineSource={false} />}</div>
                   </section>
                   {stats.skills.length > 0 && <section className="companion-actions">
                     <h5>Skills</h5>

@@ -415,6 +415,22 @@ describe('animal companions', () => {
     expect(eligibleFeats([spec], take(3), slot)).toHaveLength(0)
   })
 
+  it('applies Spirit of the Beast aspects scaled by spell rank', () => {
+    const companion = (spiritAspect?: 'Might' | 'Swiftness' | 'Insight') => ({ id: 'a', name: '', type: 'Bear', spiritAspect })
+    const at = (level: number, spiritAspect?: 'Might' | 'Swiftness' | 'Insight') => {
+      const c = { ...base, level, spells: [{ name: 'Spirit of the Beast', rank: 1, level: 1 }] as never, companions: [companion(spiritAspect)] }
+      return companionStats(c, [bear], 'Bear', undefined, 'a')!
+    }
+    const none = at(9)
+    const might = at(9, 'Might')
+    expect(might.fortitude).toBe(none.fortitude + 2)
+    expect(might.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 2)
+    expect(might.reflex).toBe(none.reflex)
+    expect(at(15, 'Swiftness').reflex).toBe(at(15).reflex + 3)
+    expect(at(1, 'Insight').will).toBe(at(1).will + 1)
+    expect(at(1, 'Insight').perceptionNote).toContain('Seek')
+  })
+
   it('hides Beastmaster Animal Empathy when the class already provided it', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const ranger = entry('feat', 'Animal Empathy (Ranger)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Ranger'])

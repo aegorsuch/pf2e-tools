@@ -1,4 +1,4 @@
-import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, proficiencyBonus, signed, type Ability } from './builder'
+import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, proficiencyBonus, signed, type Ability } from './builder'
 import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 import { getSettings } from './settings'
@@ -127,6 +127,14 @@ function growSize(size: string) {
   return i >= 0 && i <= 2 ? SIZES[i + 1] : size
 }
 
+type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[]; conditional: Record<string, string> }
+const SPIRIT_ASPECTS: Record<'Might' | 'Swiftness' | 'Insight', SpiritAspect> = {
+  Might: { save: 'Fortitude', skills: ['Athletics'], conditional: { Intimidation: 'Intimidation checks to Demoralize' } },
+  Swiftness: { save: 'Reflex', skills: ['Acrobatics'], conditional: { Stealth: 'Stealth checks to Hide or Sneak' } },
+  Insight: { save: 'Will', skills: [], conditional: { Perception: 'Perception checks to Seek',
+    Survival: 'Survival checks to Sense Direction or Track' } },
+}
+
 export function companionStats(c: Character, entries: ContentEntry[], type: string, advancement = { mature: false, advanced: undefined as string | undefined, specializations: [] as string[] }, companionId = c.companions?.[0]?.id) {
   const entry = byName(entries, 'companion', type)
   if (!entry) return undefined
@@ -249,16 +257,25 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
       ? speed.replace(/\bclimb\s+\d+\s*(?:feet|ft)\b/i, `climb ${highest} feet`) : `${speed}${speed ? ', ' : ''}climb ${highest} feet`
   }
 
+  const aspectName = companion?.spiritAspect && knowsSpell(c, entries, 'Spirit of the Beast') ? companion.spiritAspect : undefined
+  const aspectRank = Math.ceil(level / 2)
+  const aspect = aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
+    ...SPIRIT_ASPECTS[aspectName] } : undefined
+  const aspectNote = (skill: string) => aspect?.conditional[skill]
+    ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus to ${aspect.conditional[skill]}.` : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
-    .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis'),
+    .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0),
+      note: aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.` : aspectNote(k),
+      noteSource: aspect?.skills.includes(k) || aspectNote(k) ? 'Spirit of the Beast' : undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const horseshoeNote = horseshoes && shoesEntry
     ? `${shoesEntry.name}: +${horseshoes.athletics} circumstance bonus to Athletics checks to High Jump and Long Jump; when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
     : undefined
   const companionSkills = skills.map(skill => skill.name === 'Athletics' && horseshoeNote && shoesEntry
-    ? { ...skill, note: horseshoeNote, noteSource: shoesEntry.name } : skill)
+    ? { ...skill, note: [skill.note, horseshoeNote].filter(Boolean).join(' '),
+      noteSource: [skill.noteSource, shoesEntry.name].filter(Boolean).join(', ') } : skill)
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const senses = String(d.sense ?? '')
@@ -275,10 +292,11 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ferocity: type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
       ? minionFerocity(c) : undefined,
     primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,
+    aspect, perceptionNote: aspectNote('Perception'),
     perception: total('Perception', 'wis'),
-    fortitude: total('Fortitude', 'con'),
-    reflex: total('Reflex', 'dex'),
-    will: total('Will', 'wis'),
+    fortitude: total('Fortitude', 'con') + (aspect?.save === 'Fortitude' ? aspect.bonus : 0),
+    reflex: total('Reflex', 'dex') + (aspect?.save === 'Reflex' ? aspect.bonus : 0),
+    will: total('Will', 'wis') + (aspect?.save === 'Will' ? aspect.bonus : 0),
     senses: mountSenses,
     support: String(d.companion_support ?? ''),
     maneuver: String(d.companion_maneuver ?? ''),
