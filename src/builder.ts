@@ -4693,16 +4693,33 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
   return keys.map((key, index) => ({ rank: RANKS[index + 1], used: Math.max(0, total[key] - remaining[key]), total: total[key] }))
 }
 
+const eligibleSourceCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+function skillRequirementSources(c: Character, entries: ContentEntry[]) {
+  const cache = eligibleSourceCache.get(entries) ?? new Map<string, ContentEntry[]>()
+  eligibleSourceCache.set(entries, cache)
+  const { updatedAt: _u, equipment: _e, armors: _a, weapons: _w, spentFocusPoints: _f, innateSpellUses: _i, itemSpellUses: _s, ...stable } = c
+  const { feats: _feats, entryIds: _ids, ...withoutFeats } = stable
+  const sources = new Map<string, ContentEntry>()
+  for (const category of ['class', 'ancestry', 'archetype'] as const) {
+    const key = JSON.stringify([category, category === 'archetype' ? stable : withoutFeats])
+    let found = cache.get(key)
+    if (!found) {
+      found = eligibleFeats(entries, c, { category, level: c.level, key: `${category}:${c.level}:skill-requirements` },
+        { includeUnmetPrerequisites: true })
+      if (cache.size >= 8) cache.delete(cache.keys().next().value!)
+      cache.set(key, found)
+    }
+    for (const source of found) sources.set(source.id, source)
+  }
+  return [...sources.values()]
+}
+
 export function skillRankRequirements(c: Character, entries: ContentEntry[], skills: string[]) {
   const result = new Map<string, Map<number, string[]>>()
   if (!skills.length) return result
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const skillPattern = new RegExp(`\\b(?:${[...skills].sort((a, b) => b.length - a.length).map(escape).join('|')})\\b`, 'gi')
-  const sources = new Map<string, ContentEntry>()
-  for (const category of ['class', 'ancestry', 'archetype'] as const) {
-    for (const source of eligibleFeats(entries, c, { category, level: c.level, key: `${category}:${c.level}:skill-requirements` },
-      { includeUnmetPrerequisites: true })) sources.set(source.id, source)
-  }
+  const sources = new Map<string, ContentEntry>(skillRequirementSources(c, entries).map(source => [source.id, source]))
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
     const category = feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase()
     if (!['class', 'ancestry', 'archetype'].includes(category) || /\bdedication$/i.test(feat.name)) continue
