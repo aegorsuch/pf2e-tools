@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Suspense, lazy, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
+import { db, ensureSupplementalContent, exportCharacter, importCharacter, newId, removeEntry, saveEntry } from './db'
 import { characterSummary } from './builder'
 import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
@@ -241,7 +241,20 @@ export default function App() {
       {!editingId && <>
       <div className="home-section-heading">
         <h2>Characters</h2>
-        <button type="button" onClick={newCharacter}>New character</button>
+        <span className="character-actions">
+          <button type="button" onClick={() => {
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.accept = 'application/json,.json'
+            input.onchange = () => {
+              const file = input.files?.[0]
+              if (file) void file.text().then(importCharacter).then(() => setStatus('Character imported')).catch((error: unknown) =>
+                setStatus(`Could not import character: ${error instanceof Error ? error.message : String(error)}`))
+            }
+            input.click()
+          }}>Import</button>
+          <button type="button" onClick={newCharacter}>New character</button>
+        </span>
       </div>
       <ul className="character-list">
         {sortedCharacters.map((c) => (
@@ -250,6 +263,14 @@ export default function App() {
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
                 onClick={() => { setCatalogRetry(value => value + 1); setEditingId(c.id) }}><EditIcon /></button>
+              <button type="button" className="icon-button" title="Export character" aria-label={`Export ${c.name}`}
+                onClick={() => void exportCharacter(c.id).then(json => {
+                  const link = document.createElement('a')
+                  link.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+                  link.download = `${c.name || 'character'}.json`
+                  link.click()
+                  URL.revokeObjectURL(link.href)
+                }).catch((error: unknown) => setStatus(`Could not export character: ${error instanceof Error ? error.message : String(error)}`))}>⭳</button>
               <button type="button" className="icon-button" title="Delete character" aria-label={`Delete ${c.name}`}
                 onClick={() => confirmRemoval(`character "${c.name}" and all its saved options`, () => {
                   void db.characters.put({ ...c, deleted: true, updatedAt: Date.now() }).catch((error: unknown) =>
