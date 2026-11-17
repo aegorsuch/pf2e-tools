@@ -123,16 +123,19 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
 
 const MORTIFICATION_DAMAGE = ['bludgeoning', 'piercing', 'slashing']
 
+const HELLKNIGHT_MANUAL = /trained by a Hellknight Order|member of a Hellknight Order|passed the Hellknight Test|refused to take or have failed the Hellknight Test|^lawful alignment$/i
+
 function dropHellknightTrainingPrerequisite(entry: ContentEntry): ContentEntry {
   if (entry.kind !== 'feat' || !/\bHellknight\b/.test(String(entry.data.archetype ?? ''))) return entry
-  const phrase = /trained by a Hellknight Order/i
-  if (!phrase.test(String(entry.data.prerequisite ?? '')) && !phrase.test(entry.description)) return entry
-  const { prerequisite, ...data } = entry.data
-  const remaining = String(prerequisite ?? '').split(/;\s*/).filter(part => part && !phrase.test(part)).join('; ')
-  return {
-    ...entry, data: remaining ? { ...data, prerequisite: remaining } : data,
-    description: entry.description.replace(/^Prerequisites?:?[ \t]*trained by a Hellknight Order\.?[ \t]*\n*/im, '').replace(phrase, ''),
-  }
+  const strip = (text: string) => text.split(/;\s*/).filter(part => part && !HELLKNIGHT_MANUAL.test(part.trim().replace(/\.$/, ''))).join('; ')
+  const prerequisite = entry.data.prerequisite === undefined ? undefined : strip(String(entry.data.prerequisite))
+  const description = entry.description.replace(/^(Prerequisites?:?[ \t]*)(.*)$/im, (_, label, rest) => {
+    const remaining = strip(rest)
+    return remaining ? `${label}${remaining}` : ''
+  })
+  if (prerequisite === entry.data.prerequisite && description === entry.description) return entry
+  const { prerequisite: _old, ...data } = entry.data
+  return { ...entry, data: prerequisite ? { ...data, prerequisite } : data, description }
 }
 
 // Store every AoN entry as official content (replaces prior AoN copies).
