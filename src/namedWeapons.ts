@@ -248,7 +248,8 @@ export function namedWeaponAbilities(entry?: ContentEntry) {
   const source = String(entry.data.named_weapon_source)
   const definitions = ACTIONS[source] ?? []
   const blocks = entry.description.split(/\n\n-{3,}\s*\n\n/)
-  const body = (blocks.length > 1 ? blocks.slice(1).join('\n\n') : blocks[0])
+  const statBlock = blocks.length > 2 && /^Perception\b/.test(blocks[1].trim()) ? blocks[1] : ''
+  const body = (statBlock ? blocks.slice(2).join('\n\n') : blocks.length > 1 ? blocks.slice(1).join('\n\n') : blocks[0])
     .replace(/^(?:Custom weapon version|Base weapon):[^\n]*\n\n/, '')
     .replace(/(?:^|\n\n)Nethys Note:[^\n]*(?=\n\n|$)/g, '')
     .replace(/(?:^|\n\n)-{3,}(?=\n\n|$)/g, '')
@@ -266,9 +267,10 @@ export function namedWeaponAbilities(entry?: ContentEntry) {
       paragraphs: paragraphs(named ? section.slice(named[0].length) : section),
     }
   })
-  if (BASES[source]) {
-    const properties = paragraphs(body.slice(0, starts[0]?.index))
-    if (properties.length) abilities.unshift({ name: 'Properties', actions: undefined, paragraphs: properties })
-  }
-  return abilities
+  const summary = paragraphs(body.slice(0, starts[0]?.index))
+  if (summary.length) abilities.unshift({ name: 'Summary', actions: undefined, paragraphs: summary })
+  const senses = paragraphs(statBlock)
+  if (senses.length) abilities.unshift({ name: 'Senses', actions: undefined, paragraphs: senses })
+  const rank = (name: string) => name === 'Senses' ? 0 : name === 'Summary' ? 1 : name === 'Destruction' ? 3 : 2
+  return abilities.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name))
 }

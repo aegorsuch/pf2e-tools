@@ -1188,7 +1188,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <small>
             Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.
           </small>}
-          {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.length === 0
+          {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.every(ability => ability.name === 'Summary' || ability.name === 'Senses')
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
           {abilities.map(ability => <details key={ability.name}>
             <summary>{ability.name} <ActionIcon actions={ability.actions} />
@@ -1278,9 +1278,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </select>
             </label>}
             {forms.length > 0
-              ? attackSummaries.map(summary => summary.attack.entry?.description
+              ? attackSummaries.map(summary => summary.attack.entry?.description && !summary.attack.entry.data.named_weapon
                 && <Info key={summary.form} label={`${summary.form} summary`}>{summary.attack.entry.description}</Info>)
-              : a.entry?.description && <Info label="Summary">{a.entry.description}</Info>}
+              : a.entry?.description && !a.entry.data.named_weapon && <Info label="Summary">{a.entry.description}</Info>}
             {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {upgradeWeapon && gradeOptions.length > 1 && <label>Weapon grade{' '}
               <select aria-label={`Weapon grade: ${displayName}`} value={w.name} onChange={event => {
@@ -1642,7 +1642,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               && c.systems.includes('sf2e') && <small>Land Speed gains hover; Fly Speed 10 feet while worn. Turn off when the mod expires.</small>}
             <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
-            {entry?.description && !/^Slithermaw's Bane/.test(entry.name) && <Info label="Summary">{entry.description}</Info>}
+            {entry?.description && !entry.data.named_armor && <Info label="Summary">{entry.description}</Info>}
             <NamedArmorAbilities entry={entry} />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
