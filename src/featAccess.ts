@@ -16,7 +16,7 @@ interface AchievementOption {
 const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
 const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall|tian xia origin)\b/i
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
-const LASTWALL_TRAINING = 'Trained with Knights of Lastwall'
+const LASTWALL_TRAINING = 'Trained with the Knights of Lastwall'
 const PATHFINDER_MEMBERSHIP = 'Member of the Pathfinder Society'
 const PATHFINDER_TRAINING = 'Trained with the Pathfinder Society'
 const SHACKLES_TRAVEL = 'Traveled through the Shackles'

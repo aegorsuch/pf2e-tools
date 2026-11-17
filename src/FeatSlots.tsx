@@ -182,9 +182,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
     const pairs = ['general', 'skill'].includes(slot.category) ? synergies.get(entry.name) : undefined
     const fixed = fixedLabel(entry.name, entry.id)
-    const optionName = slot.category === 'archetype' && /^Animal Empathy \((?:Druid|Ranger)\)$/.test(entry.name)
-      ? entry.name : displayName(entry.name)
-    const label = `${actionOptionLabel(optionName, entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
+    const label = `${actionOptionLabel(displayName(entry.name), entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
     const allChoices = entry.name === 'Ancestral Magic' || entry.name === 'Ancestral Cantrip' && !fixed
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,

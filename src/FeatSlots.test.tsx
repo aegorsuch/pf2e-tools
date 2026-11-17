@@ -24,23 +24,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('distinguishes the different Animal Empathy rules in archetype selections', () => {
-  const feat = (name: string, traits: string[], level: number): ContentEntry => ({
-    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level, traits,
-    description: '', data: { archetype: 'Beastmaster' }, effects: [], updatedAt: 0,
-  })
-  const dedication = feat('Beastmaster Dedication', ['Archetype', 'Dedication'], 2)
-  const entries = [dedication, feat('Animal Empathy (Druid)', ['Druid'], 1),
-    feat('Animal Empathy (Ranger)', ['Ranger'], 2)]
-  const c: Character = { ...emptyRanger(), level: 4,
-    feats: [{ name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }],
-    extraSlots: [{ category: 'archetype', level: 4, count: 1 }] }
-  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['archetype']} save={() => {}}
-    search={{ 'archetype:4:0:open': '1', 'archetype:4:0:type': 'archetype' }} onSearch={() => {}} />)
-  expect(markup).toContain('L04 Dedication: Animal Empathy (Druid)')
-  expect(markup).toContain('L04 Dedication: Animal Empathy (Ranger)')
-})
-
 it('clears selected skill prerequisite warnings while planning without changing character skills', () => {
   const c: Character = { ...emptyRanger(), level: 20,
     skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' },
