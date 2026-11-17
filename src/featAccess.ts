@@ -16,9 +16,9 @@ interface AchievementOption {
 const achievementCache = new WeakMap<ContentEntry[], AchievementOption[]>()
 const narrativeAccess = /\b(?:defeat(?:ed)?|befriend|initiated|trained (?:by|with)|defender training|attended|encountered|invited|executed|mission|help|side with|permission|exposure to|members?|attendant rank|knights of lastwall|tian xia origin)\b/i
 const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
-const LASTWALL_TRAINING = 'Trained by Knights of Lastwall'
+const LASTWALL_TRAINING = 'Trained with Knights of Lastwall'
 const PATHFINDER_MEMBERSHIP = 'Member of the Pathfinder Society'
-const PATHFINDER_TRAINING = 'Trained by the Pathfinder Society'
+const PATHFINDER_TRAINING = 'Trained with the Pathfinder Society'
 const SHACKLES_TRAVEL = 'Traveled through the Shackles'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
@@ -50,7 +50,7 @@ const lastwallAccess = new Set([
 
 export function achievementKey(access: string) {
   const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
-    .replace(/^(?:member of or trained by|trained by) /, 'member of ')
+    .replace(/^(?:member of or trained by|trained by|trained with(?= the | knights)) /, 'member of ')
   if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
   if (/^rivethun adherent background or (?:you are )?(?:a )?member of the rivethun$/.test(key)) return RIVETHUN_MEMBERSHIP.toLowerCase()
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
@@ -89,8 +89,9 @@ function isAchievementRequirement(requirement: string) {
 
 function trainingLabel(requirement: string, key: string) {
   const label = achievementLabels.get(key) ?? achievementLabel(requirement)
+  if (achievementLabels.has(key) && /^trained with /i.test(label)) return label
   return /^(?:member of|trained by) /i.test(label)
-    ? label.replace(/^member of(?: or trained by)? /i, 'Trained by ') : requirement
+    ? label.replace(/^(?:member of(?: or trained by)?|trained by) /i, 'Trained with ') : requirement
 }
 
 function blackPowderFeat(entry: ContentEntry) {
