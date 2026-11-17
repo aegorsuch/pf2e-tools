@@ -1035,7 +1035,7 @@ it('uses Persistent durations in prepared and innate spell tables too', () => {
   expect(html.match(/<small>Duration<\/small>Until next daily preparations/g)).toHaveLength(3)
 })
 
-it.each(['Distracting Decoy', 'Heal Companion', 'Slime Spit', 'Snare Hopping', "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry'])('shows %s duration as Instant', name => {
+it.each(['Distracting Decoy', 'Heal Animal', 'Heal Companion', 'Slime Spit', 'Snare Hopping', "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry'])('shows %s duration as Instant', name => {
   const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, name)] }
   for (const duration of [undefined, 0]) {
     const data: ContentEntry['data'] = { warden_spell_tier: 'Initiate' }

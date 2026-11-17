@@ -916,11 +916,9 @@ function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: Co
   const owned = [...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= level),
     ...automaticFeatGrants({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)]
   if (owned.some(feat => base(feat.name) === base(entry.name))) return true
-  // Heal Companion is the Ranger equivalent of Heal Animal, so either makes the other redundant
   if (base(entry.name) !== 'Heal Animal') return false
-  return owned.some(feat => feat.name === 'Heal Companion')
-    || focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
-      .spells.some(spell => spell.name === 'Heal Animal' || spell.name === 'Heal Companion')
+  return focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
+    .spells.some(spell => spell.name === 'Heal Animal')
 }
 
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot,

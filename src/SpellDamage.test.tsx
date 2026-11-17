@@ -33,18 +33,18 @@ it('rolls and rerolls all ten Primal Howl dice when its two-action button is cli
   expect(html).toContain('<output aria-live="polite" aria-label="Primal Howl: Damage result"> 10 sonic</output>')
 })
 
-it('maps Heal Companion action icons to their own heightened healing formulas', () => {
-  const rolls = spellActionRolls('Heal Companion', 5)
+it.each([['Heal Companion', 10], ['Heal Animal', 8]] as const)('maps %s action icons to their own heightened healing formulas', (name, sides) => {
+  const rolls = spellActionRolls(name, 5)
   expect(rolls.map(roll => roll.actions)).toEqual(['One Action', 'Two Actions'])
   vi.spyOn(Math, 'random').mockReturnValue(0)
   expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([5, 45])
   vi.mocked(Math.random).mockReturnValue(0.999999)
-  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([50, 90])
-  const markup = renderToStaticMarkup(<SpellActions name="Heal Companion" rank={5} />)
-  expect(markup).toContain('aria-label="Roll Heal Companion: 1-action healing"')
-  expect(markup).toContain('aria-label="Roll Heal Companion: 2-action healing"')
-  expect(markup).toContain('title="One Action; 1-action healing: 5d10 HP"')
-  expect(markup).toContain('title="Two Actions; 2-action healing: 5d10+40 HP"')
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([5 * sides, 5 * sides + 40])
+  const markup = renderToStaticMarkup(<SpellActions name={name} rank={5} />)
+  expect(markup).toContain(`aria-label="Roll ${name}: 1-action healing"`)
+  expect(markup).toContain(`aria-label="Roll ${name}: 2-action healing"`)
+  expect(markup).toContain(`title="One Action; 1-action healing: 5d${sides} HP"`)
+  expect(markup).toContain(`title="Two Actions; 2-action healing: 5d${sides}+40 HP"`)
   expect(markup.match(/<button /g)).toHaveLength(2)
 })
 
@@ -95,19 +95,19 @@ it('rolls every damage die, includes endpoints, and returns only the total', () 
   expect(rollSpellDamage(damage)).toBe(7)
 })
 
-it('scales both Heal Companion action versions and includes the two-action flat healing', () => {
+it.each([['Heal Companion', 10], ['Heal Animal', 8]] as const)('scales both %s action versions and includes the two-action flat healing', (name, sides) => {
   vi.spyOn(Math, 'random').mockReturnValue(0)
   for (const rank of [1, 5, 10]) {
-    const healing = spellDamage('Heal Companion', rank)
+    const healing = spellDamage(name, rank)
     expect(healing).toEqual([
-      { label: '1-action healing', dice: rank, sides: 10, type: 'HP' },
-      { label: '2-action healing', dice: rank, sides: 10, bonus: 8 * rank, type: 'HP' },
+      { label: '1-action healing', dice: rank, sides, type: 'HP' },
+      { label: '2-action healing', dice: rank, sides, bonus: 8 * rank, type: 'HP' },
     ])
     expect(rollSpellDamage(healing[0])).toBe(rank)
     expect(rollSpellDamage(healing[1])).toBe(9 * rank)
-    const markup = renderToStaticMarkup(<SpellDamageRolls name="Heal Companion" rank={rank} />)
-    expect(markup).toContain(`1-action healing: ${rank}d10 HP`)
-    expect(markup).toContain(`2-action healing: ${rank}d10+${8 * rank} HP`)
+    const markup = renderToStaticMarkup(<SpellDamageRolls name={name} rank={rank} />)
+    expect(markup).toContain(`1-action healing: ${rank}d${sides} HP`)
+    expect(markup).toContain(`2-action healing: ${rank}d${sides}+${8 * rank} HP`)
   }
 })
 
@@ -116,7 +116,7 @@ it('renders rank-scaled rollers beside owned spells and omits unavailable spell 
     id: 'c', systems: ['pf2e'], name: 'Test', level: 19, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
-    spells: ['Slime Spit', 'Warning Stripes', "Ranger's Bramble", 'Gluttonous Growth', 'Pulverizing Wake']
+    spells: ['Heal Animal', 'Slime Spit', 'Warning Stripes', "Ranger's Bramble", 'Gluttonous Growth', 'Pulverizing Wake']
       .map((name) => ({ name, rank: 1, cantrip: false })),
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
@@ -125,6 +125,8 @@ it('renders rank-scaled rollers beside owned spells and omits unavailable spell 
   expect(markup).toContain('Critical failure: 9d4 persistent bleed')
   expect(markup).toContain('Sustain damage: 14d6 piercing')
   expect(markup).toContain('Cone: 11d8 sonic')
+  expect(markup).toContain('aria-label="Roll Heal Animal: 1-action healing"')
+  expect(markup).toContain('title="Two Actions; 2-action healing: 10d8+80 HP"')
   expect(renderToStaticMarkup(<SpellsSection c={{ ...c, spells: [] }} entries={[]} save={() => {}} />)).not.toContain('aria-label="Roll ')
   for (const name of ['Warning Stripes', "Ranger's Bramble", 'Gluttonous Growth', 'Pulverizing Wake'])
     expect(spellDamage(name, 2)).toEqual([])

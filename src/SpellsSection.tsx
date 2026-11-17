@@ -360,7 +360,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
   const save = value('saving_throw', 'save', 'saving_throw_dc')
   const tracks = name === 'Vanishing Tracks'
   const instant = [
-    'Distracting Decoy', 'Heal Companion', 'Slime Spit', 'Snare Hopping',
+    'Distracting Decoy', 'Heal Animal', 'Heal Companion', 'Slime Spit', 'Snare Hopping',
     "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry', 'Mindlink', 'Pulverizing Wake', 'Combustion', 'Terrain Transposition',
     'Seek the Stars', 'Seek The Stars',
   ].includes(name)

@@ -6,10 +6,11 @@ type Damage = { label: string; dice: number; sides: number; type: string; bonus?
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
+    case 'Heal Animal':
     case 'Heal Companion':
       return rank >= 1 ? [
-        { label: '1-action healing', dice: rank, sides: 10, type: 'HP' },
-        { label: '2-action healing', dice: rank, sides: 10, bonus: 8 * rank, type: 'HP' },
+        { label: '1-action healing', dice: rank, sides: name === 'Heal Animal' ? 8 : 10, type: 'HP' },
+        { label: '2-action healing', dice: rank, sides: name === 'Heal Animal' ? 8 : 10, bonus: 8 * rank, type: 'HP' },
       ] : []
     case 'Slime Spit':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'poison' }] : []
@@ -36,7 +37,7 @@ export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
 
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry) {
   const rolls = spellDamage(name, rank)
-  if (name === 'Heal Companion') return rolls.map((damage, index) => ({
+  if (name === 'Heal Animal' || name === 'Heal Companion') return rolls.map((damage, index) => ({
     damage, actions: index === 0 ? 'One Action' : 'Two Actions',
   }))
   const actions = entry?.data.actions
@@ -63,7 +64,7 @@ export function SpellActions({ name, rank, entry }: { name: string; rank: number
   const rolls = spellActionRolls(name, rank, entry)
   return rolls.length ? <>{rolls.map(({ damage, actions }) =>
     <DamageRoll key={`${damage.label}:${damage.dice}`} name={name} damage={damage} actions={actions}
-      showLabel={rolls.length > 1 && name !== 'Heal Companion'} />)}</>
+      showLabel={rolls.length > 1 && name !== 'Heal Animal' && name !== 'Heal Companion'} />)}</>
     : <ActionIcon entry={entry} />
 }
 

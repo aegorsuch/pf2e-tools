@@ -431,14 +431,19 @@ describe('animal companions', () => {
     expect(at(1, 'Insight').perceptionNote).toContain('Seek')
   })
 
-  it('hides Beastmaster Heal Animal when the character has Heal Companion', () => {
+  it('allows Beastmaster Heal Animal alongside Heal Companion but not another Heal Animal feat', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const heal = entry('feat', 'Heal Animal', { archetype: 'Beastmaster' }, 4, ['Archetype'])
     const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
     const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
     expect(eligibleFeats([dedication, heal], c, slot)).toContain(heal)
     const owned = { ...c, feats: [...c.feats, feat('Heal Companion', undefined, 'class:2:0')] }
-    expect(eligibleFeats([dedication, heal], owned, slot)).not.toContain(heal)
+    expect(eligibleFeats([dedication, heal], owned, slot)).toContain(heal)
+    const companionSpell = entry('spell', 'Heal Companion', { warden_spell_tier: 'Initiate' }, 1, ['Focus', 'Ranger'])
+    const warden = { ...c, className: 'Ranger', feats: [...c.feats, feat('Initiate Warden', 'Heal Companion', 'class:2:0')] }
+    expect(eligibleFeats([dedication, heal, companionSpell], warden, slot)).toContain(heal)
+    const duplicate = { ...owned, feats: [...owned.feats, feat('Heal Animal', undefined, 'class:2:1')] }
+    expect(eligibleFeats([dedication, heal], duplicate, slot)).not.toContain(heal)
   })
 
   it('hides the Ranger or Druid copy of Side by Side once either is owned', () => {
