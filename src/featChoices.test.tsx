@@ -14,6 +14,7 @@ import { eligibleFeats, languageAllowance, migrateAncestralLinguistics } from '.
 import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
 
 const spell = (name: string, tier: string): ContentEntry => ({
   id: name, systems: ['pf2e'], kind: 'spell', source: 'official', name, level: tier === 'Initiate' ? 1 : 2,
@@ -25,6 +26,23 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each([false, true])('uses singular Tenacious Endurance wording only with the one-companion rule enabled (%s)', enabled => {
+  const previous = getSettings().singleAnimalCompanion
+  const description = "You encourage your companion to refuse to yield, against even the mightiest of foes. When one of your animal companions is reduced to 0 Hit Points, if it isn't wounded, it can remain standing with 1 Hit Point and become wounded 1."
+  const feat: ContentEntry = { ...entries[0], kind: 'feat', name: 'Tenacious Endurance', description }
+  try {
+    updateSettings({ singleAnimalCompanion: enabled })
+    const render = (entry = feat) => renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} />)
+    const markup = render()
+    expect(markup).toContain(enabled ? 'When your animal companion is reduced to 0 Hit Points'
+      : 'When one of your animal companions is reduced to 0 Hit Points')
+    if (enabled) expect(markup).not.toContain('one of your animal companions')
+    expect(markup).toContain('remain standing with 1 Hit Point and become wounded 1')
+    expect(render({ ...feat, name: 'Other Feat' })).toContain('one of your animal companions')
+    expect(feat.description).toBe(description)
+  } finally { updateSettings({ singleAnimalCompanion: previous }) }
+})
 
 it.each(['Elf Atavism', 'Elven Atavism'])('adds a separate Elf heritage selection for %s without replacing primary heritage', name => {
   const heritage = (name: string, ancestry: string): ContentEntry => ({ ...entries[0], id: name, name,

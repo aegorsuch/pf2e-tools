@@ -7,6 +7,7 @@ import { ActionIcon } from './ActionIcon'
 import { adoptedAncestryText, alloyedAttackChoice, featDisplayName } from './featChoices'
 import { equipmentDisplayName } from './equipmentGroups'
 import { spellDCText } from './builder'
+import { getSettings } from './settings'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 function featIndex(entries: ContentEntry[]) {
@@ -49,7 +50,9 @@ export function EntryDescription({ name, entry, className, prerequisites, access
     ...link, target: index.urls.get(link.url)
       ?? active.systems.map(system => index.names.get(`${system}:${link.name.toLowerCase()}`)).find(Boolean),
   }))
-  const description = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  const originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  const description = active?.kind === 'feat' && active.name === 'Tenacious Endurance' && getSettings().singleAnimalCompanion
+    ? originalDescription?.replace(/\bone of your animal companions\b/gi, 'your animal companion') : originalDescription
   return (
     <>
       <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${title(name, entry)}` : undefined}
