@@ -28,7 +28,13 @@ export default defineConfig(({ mode }) => {
             { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
           ],
         },
-        workbox: { globPatterns: ['**/*.{js,css,html,json,svg}'], globIgnores: ['data/**'] },
+        workbox: { globPatterns: ['**/*.{js,css,html,json,svg}'], globIgnores: ['data/**'],
+          runtimeCaching: [{
+            urlPattern: ({ url }: { url: URL }) => url.pathname.includes('/data/'),
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'catalog-data', expiration: { maxEntries: 30 } },
+          }],
+        },
       }),
     ],
   }

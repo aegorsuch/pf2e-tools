@@ -758,3 +758,10 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 }
 details.info > summary { list-style: none; font-weight: 600; font-size: 1em; }
 details.info > summary::-webkit-details-marker { display: none; }
+
+@media (max-width: 600px) {
+  button, select, input { min-height: 2.5rem; }
+  main, .col { padding-left: max(0.5rem, env(safe-area-inset-left)); padding-right: max(0.5rem, env(safe-area-inset-right)); }
+  .row { flex-wrap: wrap; }
+  .character-row { flex-wrap: wrap; gap: 0.5rem; }
+}
