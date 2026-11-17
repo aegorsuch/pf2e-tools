@@ -1635,6 +1635,9 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     if (!activeFeatsNamed(c, feat).length) continue
     for (const [name, feet] of Object.entries(speeds)) movement.push(fixed(name, feet, feat))
   }
+  if (activeFeatsNamed(c, 'Flamboyant Athlete').length) {
+    for (const name of ['Climb', 'Swim']) movement.push({ name, feet: Math.floor(land / 2 / 5) * 5, source: 'Flamboyant Athlete', status: 0 })
+  }
   if (ragingAthleteBenefits(c, entries)) {
     for (const name of ['Climb', 'Swim']) movement.push(atLandSpeed(name, 'Raging Athlete'))
   }

@@ -626,6 +626,11 @@ describe('shared prerequisite enforcement', () => {
       expect.objectContaining({ name: 'Fly', feet: 25 }),
     ]))
   })
+  it('grants half-Speed climb and swim from Flamboyant Athlete', () => {
+    const character: Character = { ...base, level: 2, feats: [{ name: 'Flamboyant Athlete', type: 'Class Feat', level: 2 }] }
+    const speeds = movementSpeeds(character, [])
+    expect(speeds.filter(s => s.source === 'Flamboyant Athlete').map(s => s.name)).toEqual(['Climb', 'Swim'])
+  })
   it.each(['Adopted Ancestry', 'Dromaar'])('grants Orc Spelunker benefits through %s', access => {
     const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
       heritage: access === 'Dromaar' ? 'Dromaar' : undefined,
