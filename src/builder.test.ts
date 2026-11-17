@@ -2092,3 +2092,13 @@ it('grants Infernal Bulwark order resistance and heavy armor training', () => {
   expect(featChoiceOptions('Infernal Bulwark', c, [], '')).toContain('Order of the Crucible')
   expect(armorRanks(c, []).Heavy).toBeGreaterThanOrEqual(1)
 })
+
+it('gives Hellknight Dedication mental resistance of 1 plus its archetype feats', () => {
+  const dedication = entry('feat', 'Hellknight Dedication', { archetype: 'Hellknight' }, 2, ['Archetype', 'Dedication'])
+  dedication.description = 'You gain resistance to mental damage equal to 1 + your number of archetype class feats.'
+  const other = entry('feat', 'Diabolic Certitude', { archetype: 'Hellknight' }, 4, ['Archetype'])
+  const feats = [{ name: dedication.name, type: 'Archetype Feat', level: 2 }, { name: other.name, type: 'Archetype Feat', level: 4 }]
+  const c: Character = { ...base, level: 4, feats: feats.slice(0, 1) }
+  expect(resistances(c, [dedication, other]).find(r => r.damage === 'Mental')?.value).toBe(1)
+  expect(resistances({ ...c, feats }, [dedication, other]).find(r => r.damage === 'Mental')?.value).toBe(2)
+})

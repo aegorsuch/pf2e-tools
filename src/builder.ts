@@ -3000,6 +3000,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (armor && bulwark && INFERNAL_BULWARK_ORDERS[bulwark]) {
     out.push({ damage: INFERNAL_BULWARK_ORDERS[bulwark], value: half, source: `Infernal Bulwark (${bulwark})` })
   }
+  const dedication = activeFeatsNamed(c, 'Hellknight Dedication')
+    .find(feat => /resistance to mental damage/i.test(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.description ?? ''))
+  if (dedication) {
+    out.push({ damage: 'mental', value: 1 + Math.max(0, hellknightFeatCount(c, entries) - 1), source: 'Hellknight Dedication' })
+  }
   const plating = activeFeatsNamed(c, 'Deflective Plating')[0]?.choice
   if (plating && featChoiceOptions('Deflective Plating', c, entries, '')?.includes(plating)) {
     out.push({ damage: plating, value: Math.floor(c.level / 2), source: 'Deflective Plating' })
