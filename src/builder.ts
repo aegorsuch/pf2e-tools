@@ -60,9 +60,20 @@ export const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name
 }
 
 // Level 1 HP = ancestry HP + class HP + Con; each later level adds class HP + Con
+// Heritages that replace the ancestry's Hit Points
+const HERITAGE_HP: Record<string, number> = {
+  'Defensive Automaton': 10, 'Dragonscaled Kobold': 10, 'Great Kholo': 10, 'Mightyfall Kobold': 10, 'Mitflit Gremlin': 8,
+  'New Moon Sarangay': 10, 'Root Leshy': 10, 'Stoutheart Centaur': 10, 'Thickskin Tripkee': 8, 'Unbreakable Goblin': 10,
+}
+
+// Feats that increase maximum Hit Points by your level
+const LEVEL_HP_FEATS = ['Fey Skin', 'Golem Grafter Dedication', 'Gremlin Hide', "Jotun's Heart", "Mountain's Stoutness", 'Scion Transformation',
+  'Stonebound Dedication', 'Strength of Eight Legions', 'Thick Skin', 'Toughness']
+
 export function maxHp(c: Character, entries: ContentEntry[]) {
+  const heritageHp = c.heritage ? HERITAGE_HP[c.heritage] : undefined
   const ancestry = c.ancestry === 'Orc' && c.heritage === 'Hold-Scarred Orc'
-    ? 12 : num(byName(entries, 'ancestry', c.ancestry)?.data.hp)
+    ? 12 : heritageHp ?? num(byName(entries, 'ancestry', c.ancestry)?.data.hp)
   const cls = num(byName(entries, 'class', c.className)?.data.hp)
   return ancestry + (cls + abilityMod(c.abilities.con)) * c.level
     + hitPointBonuses(c).reduce((total, bonus) => total + bonus.value, 0)
@@ -70,8 +81,11 @@ export function maxHp(c: Character, entries: ContentEntry[]) {
 }
 
 export function hitPointBonuses(c: Character) {
-  return c.feats.some(feat => feat.name.toLowerCase() === 'toughness' && featTakenLevel(feat) <= c.level)
-    ? [{ source: 'Toughness', value: c.level }] : []
+  const owned = (name: string) => c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)
+  return [
+    ...LEVEL_HP_FEATS.filter(owned).map(source => ({ source, value: c.level })),
+    ...(owned('Unbreakable-er Goblin') ? [{ source: 'Unbreakable-er Goblin', value: 10 }] : []),
+  ]
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')

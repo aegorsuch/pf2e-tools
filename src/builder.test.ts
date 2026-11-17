@@ -1377,6 +1377,11 @@ describe('defenses', () => {
     expect(maxHp({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(61)
     expect(hitPointBonuses({ ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1 }] }))
       .toEqual([{ source: 'Toughness', value: c.level }])
+    expect(maxHp({ ...c, feats: [{ name: 'Thick Skin', type: 'Class Feat', level: 1 }, { name: 'Toughness', type: 'General Feat', level: 1 }] }, data)).toBe(66)
+    const goblin = [...data, entry('ancestry', 'Goblin', { hp: 6 })]
+    const plain = maxHp({ ...c, ancestry: 'Goblin' }, goblin)
+    expect(maxHp({ ...c, ancestry: 'Goblin', heritage: 'Unbreakable Goblin' }, goblin)).toBe(plain + 4)
+    expect(maxHp({ ...c, ancestry: 'Goblin', heritage: 'Unbreakable Goblin', feats: [{ name: 'Unbreakable-er Goblin', type: 'Ancestry Feat', level: 1 }] }, goblin)).toBe(plain + 14)
     const future = { ...c, feats: [{ name: 'Toughness', type: 'General Feat', level: 1, slot: 'general:7:0' }] }
     expect(maxHp(future, data)).toBe(56)
     expect(hitPointBonuses(future)).toEqual([])
