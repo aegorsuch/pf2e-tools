@@ -517,8 +517,8 @@ it('shows Shadowpiercer conditional save bonus only while held without adding it
   const weapon = owned('Shadowpiercer (Spear)')
   const character = { ...c, weapons: [weapon] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={namedCatalog} save={() => {}} part="defense" />)
-  expect(render(character)).toContain('+2 status bonus against darkness and shadow effects')
-  expect(render({ ...character, weapons: [{ ...weapon, stowed: true }] })).not.toContain('+2 status bonus against darkness and shadow effects')
+  expect(render(character)).toContain('against darkness and shadow effects while wielding Shadowpiercer (+2 status)')
+  expect(render({ ...character, weapons: [{ ...weapon, stowed: true }] })).not.toContain('against darkness and shadow effects while wielding Shadowpiercer (+2 status)')
   for (const save of ['Fortitude', 'Reflex', 'Will'] as const)
     expect(savingThrowBreakdown(character, namedCatalog, save).total).toBe(savingThrowBreakdown(c, namedCatalog, save).total)
 })

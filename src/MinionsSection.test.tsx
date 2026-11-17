@@ -560,7 +560,7 @@ it('shows horseshoe rules in the Athletics source note instead of beneath Speed'
   }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[horse, shoes]} save={() => {}} />)
   expect(markup).toContain('aria-label="Alacritous Horseshoes (Greater) note"')
-  expect(markup).toContain('+3 circumstance bonus to Athletics checks to High Jump and Long Jump')
+  expect(markup).toContain('to Athletics checks to High Jump and Long Jump (+3 circumstance bonus)')
   expect(markup).toContain('when Leaping, move 5 feet farther horizontally or 3 feet higher vertically')
   expect(markup).not.toContain('<small>Alacritous Horseshoes (Greater):')
 })

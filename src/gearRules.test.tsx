@@ -355,7 +355,7 @@ it('shows sight bonuses only as conditional Perception notes while wielded', () 
   const without = { ...c, handwraps: undefined }
   expect(defenseSummary(c, [sight]).perception).toBe(defenseSummary(without, [sight]).perception)
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[sight]} save={() => {}} part="offense" />)
-  expect(markup).toContain('+2 item bonus to visual Seek checks through the sight')
+  expect(markup).toContain('to visual Seek checks through the sight (+2 item bonus')
   expect(renderToStaticMarkup(<SkillsSection c={without} entries={[sight]} save={() => {}} part="offense" />))
     .not.toContain('Truesight Sight (Tactical) note')
 })

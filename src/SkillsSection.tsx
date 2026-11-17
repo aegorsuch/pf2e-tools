@@ -319,6 +319,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const total = abil + prof + item + status + armorPenalty + (circumstance?.value ?? 0) - clumsyPenalty
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
+    const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
@@ -345,30 +346,30 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
-            note="+4 item to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe; item bonuses do not stack." />}
+            note={`${itemTotal(4)} to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe (+4 item; item bonuses do not stack).`} />}
           {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}
             note={`Survival ${signed(total + Math.max(0, arrowhead.value - item))} against your Hunt Prey target (+${arrowhead.value} item bonus; item bonuses do not stack).`} />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
-          {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`+${filigree} item bonus to Sense Motive.`} />}
+          {!!filigree && s.name === 'Perception' && <SourceNote inlineSource={false} source="Bolka's Blessing" note={`${itemTotal(filigree)} to Sense Motive (+${filigree} item bonus).`} />}
           {s.name === 'Perception' && sights.map(sight => {
             const grade = /\(([^)]+)\)$/.exec(sight.name)?.[1]?.toLowerCase()
             const bonus = sight.name.startsWith('Truesight') ? grade === 'tactical' ? 2 : 1
               : grade === 'superior' ? 3 : grade === 'advanced' ? 2 : grade === 'tactical' ? 1 : 0
             return bonus > 0 && <SourceNote key={sight.id} inlineSource={false} source={sight.name}
-              note={`+${bonus} item bonus to visual Seek checks through the sight; item bonuses do not stack.`} />
+              note={`${itemTotal(bonus)} to visual Seek checks through the sight (+${bonus} item bonus; item bonuses do not stack).`} />
           })}
-          {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`+${filigree} item bonus to Coerce.`} />}
+          {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`${itemTotal(filigree)} to Coerce (+${filigree} item bonus).`} />}
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
           {downloaded?.skill === s.name && downloaded.rank > permanentRank && <SourceNote inlineSource={false}
             source="Skill Download" note="Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options." />}
           {s.name === 'Fortitude' && !!activeFeatsNamed(c, 'Radiation Resistant').length && <SourceNote inlineSource={false}
-            source="Radiation Resistant" note="+1 circumstance bonus to Fortitude saves against radiation effects." />}
+            source="Radiation Resistant" note={`${conditionalTotal(1)} against radiation effects (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
-            source="Tinkering Fingers" note="Repair without a toolkit without the penalty; +1 circumstance to Repair checks with a repair toolkit." />}
+            source="Tinkering Fingers" note={`Repair without a toolkit without the penalty; ${conditionalTotal(1)} to Repair checks with a repair toolkit (+1 circumstance).`} />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
-            source="Extended Family" note="+1 circumstance to Make an Impression or Request against ysoki." />}
+            source="Extended Family" note={`${conditionalTotal(1)} to Make an Impression or Request against ysoki (+1 circumstance).`} />}
           {s.name === 'Diplomacy' && hasDivineIntercession(c, 'Sarenrae', 'major-boon') && <SourceNote inlineSource={false}
             source="Sarenrae (Major Boon)" note="Request: a success becomes a critical success. Creatures other than fiends, undead, and mindless creatures allow one chance to speak and request before combat. Exploiting this for a combat advantage revokes the boon." />}
           {s.name === 'Deception' && !!activeFeatsNamed(c, 'Round Ears').length && <SourceNote inlineSource={false}
@@ -387,15 +388,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
             source={grant.source} note="Free trained Lore; does not use a skill training pick." />)}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}
-            source="Pick On Someone My Size" note="+1 circumstance to Demoralize a larger creature that attacked an ally since the start of your last turn." />}
+            source="Pick On Someone My Size" note={`${conditionalTotal(1)} to Demoralize a larger creature that attacked an ally since the start of your last turn (+1 circumstance).`} />}
           {s.name === 'Perception' && !!activeFeatsNamed(c, 'Enhanced Olfactory System').length && <SourceNote inlineSource={false}
-            source="Enhanced Olfactory System" note="+2 circumstance to Seek a creature or object within scent range." />}
+            source="Enhanced Olfactory System" note={`${conditionalTotal(2)} to Seek a creature or object within scent range (+2 circumstance).`} />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
-            source="Pain Tolerance" note="+1 circumstance bonus against effects that would make you clumsy, drained, or enfeebled." />}
+            source="Pain Tolerance" note={`${conditionalTotal(1)} against effects that would make you clumsy, drained, or enfeebled (+1 circumstance).`} />}
           {s.kind === 'save' && hasDivineIntercession(c, 'Cayden Cailean', 'moderate-boon') && <SourceNote inlineSource={false}
             source="Cayden Cailean (Moderate Boon)" note={`Against fear effects, a success becomes a critical success.${classFeatures(entries, c).some(feature => feature.name === 'Bravery') ? ' With fighter Bravery, a critical failure becomes a failure.' : ''}`} />}
           {s.kind === 'save' && shadowpiercer && <SourceNote inlineSource={false} source="Shadowpiercer"
-            note="+2 status bonus against darkness and shadow effects while wielding Shadowpiercer. Also applies to allies within 60 feet; does not stack with other status bonuses." />}
+            note={`${signed(total + 2)} against darkness and shadow effects while wielding Shadowpiercer (+2 status). Also applies to allies within 60 feet; does not stack with other status bonuses.`} />}
           {s.kind === 'save' && heldArtifacts.map(source => <SourceNote key={source} inlineSource={false} source={source} note={artifactSaves[source]} />)}
           {s.kind === 'skill' && hasDivineIntercession(c, 'Kazutal', 'major-boon') && <SourceNote inlineSource={false}
             source="Kazutal (Major Boon)" note="When you Aid, or another creature Aids you, the helper can automatically succeed. If rolling, a success becomes a critical success granting +4 circumstance, regardless of proficiency. Applies only to Aid, not ordinary checks." />}

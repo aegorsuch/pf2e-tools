@@ -207,7 +207,7 @@ describe('animal companions', () => {
     expect(stats.speedBonuses).toContainEqual({ source: name, feet: speed })
     const athleticsSkill = stats.skills.find(skill => skill.name === 'Athletics')
     expect(athleticsSkill?.bonus).toBe(9)
-    expect(athleticsSkill?.note).toContain(`+${athletics} circumstance bonus to Athletics checks`)
+    expect(athleticsSkill?.note).toContain(`+${9 + athletics} to Athletics checks to High Jump and Long Jump (+${athletics} circumstance bonus)`)
     expect(athleticsSkill?.note).toContain('when Leaping, move 5 feet farther horizontally or 3 feet higher vertically')
     expect(athleticsSkill?.noteSource).toBe(name)
   })
