@@ -857,6 +857,10 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    if (getSettings().singleAnimalCompanion && entry.name === 'Specialized Beastmaster Companion'
+      && character.feats.some(feat => /^Incredible (?:Animal )?Companion\b/.test(feat.name))) {
+      for (let i = missing.length - 1; i >= 0; i--) if (/^Incredible Beastmaster Companion$/i.test(missing[i])) missing.splice(i, 1)
+    }
     if (getSettings().singleAdditionalArms && entry.name === 'Additional Arms'
       && character.feats.some(feat => feat.name === entry.name)) {
       missing.push('Additional Arms can only be selected once (house rule)')
@@ -977,7 +981,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && !(/^(?:Animal Empathy|Heal Animal)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
-      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian)\b/.test(e.name))
+      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Mature Beastmaster Companion|Incredible Beastmaster Companion)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))

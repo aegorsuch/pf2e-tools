@@ -463,6 +463,19 @@ describe('animal companions', () => {
     expect(out).not.toContain(swift)
   })
 
+  it('hides Mature and Incredible Beastmaster Companion but lets class advancement unlock Specialized', () => {
+    const mature = entry('feat', 'Mature Beastmaster Companion', {}, 4, ['Archetype'])
+    const incredible = entry('feat', 'Incredible Beastmaster Companion', {}, 10, ['Archetype'])
+    const specialized = entry('feat', 'Specialized Beastmaster Companion', { prerequisite: 'Incredible Beastmaster Companion' }, 14, ['Archetype'])
+    const slot = { key: 'archetype:14:0', category: 'archetype' as const, level: 14 }
+    const c = { ...base, level: 14, feats: [feat('Incredible Companion (Druid)', 'Nimble', 'class:10:0')] }
+    const out = eligibleFeats([mature, incredible, specialized], c, slot)
+    expect(out).not.toContain(mature)
+    expect(out).not.toContain(incredible)
+    expect(out).toContain(specialized)
+    expect(eligibleFeats([incredible, specialized], { ...c, feats: [] }, slot)).not.toContain(specialized)
+  })
+
   it('lets Specialized Mount be taken three times only, including unassigned specialization choices', () => {
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const spec = entry('feat', 'Specialized Mount', { archetype: 'Cavalier', repeatable: true }, 14, ['Archetype'])
