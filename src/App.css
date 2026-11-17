@@ -758,11 +758,3 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 }
 details.info > summary { list-style: none; font-weight: 600; font-size: 1em; }
 details.info > summary::-webkit-details-marker { display: none; }
-
-@media print {
-  body { background: #fff; color: #000; }
-  .no-print, .icon-button { display: none !important; }
-  details { display: block; }
-  details > summary { font-weight: bold; }
-  section, li, .row { break-inside: avoid; }
-}
