@@ -2895,7 +2895,7 @@ export const INFERNAL_BULWARK_ORDERS: Record<string, string> = {
 }
 
 const HELLKNIGHT_ORDERS = [...new Set([...Object.keys(INFERNAL_BULWARK_ORDERS),
-  'Order of the Gate', 'Order of the Godclaw', 'Order of the Nail', 'Order of the Rack', 'Order of the Scourge'])].sort()
+  'Order of the Gate', 'Order of the Godclaw', 'Order of the Nail', 'Order of the Pike', 'Order of the Rack', 'Order of the Scourge', 'Order of the Torrent'])].sort()
 
 const ARMOR_SPECIALIZATIONS: Record<string, {
   kind: 'damage' | 'resistance' | 'reduction'; damage?: string; label: string; medium: number; heavy: number
