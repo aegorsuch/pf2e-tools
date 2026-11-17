@@ -50,10 +50,14 @@ export function alloyedAttackChoice(c: Character) {
   return choice === 'Cold Iron' || choice === 'Silver' || choice === 'Adamantine' && c.level >= 13 ? choice : undefined
 }
 
+function adoptedAncestry(c: Character, pattern: RegExp) {
+  return ![c.ancestry, c.heritage].some(name => pattern.test(name?.trim() ?? ''))
+    && c.feats.some(feat => feat.name === 'Adopted Ancestry' && pattern.test(feat.choice?.trim() ?? '') && featTakenLevel(feat) <= c.level)
+}
+
 export function adoptedAncestryText(c: Character, text: string) {
-  if ([c.ancestry, c.heritage].some(name => /^(orc|dromaar|half-orc)$/i.test(name?.trim() ?? ''))
-    || !c.feats.some(feat => feat.name === 'Adopted Ancestry' && feat.choice?.trim().toLowerCase() === 'orc'
-      && featTakenLevel(feat) <= c.level)) return text
+  if (adoptedAncestry(c, /^dwarf$/i)) text = text.replace(/\bDwarven (Doughtiness|Reinforcement|Honor|Gravity Hammer|Zero-G Familiarity)\b/g, '$1')
+  if (!adoptedAncestry(c, /^orc$/i) || [c.ancestry, c.heritage].some(name => /^(orc|dromaar|half-orc)$/i.test(name?.trim() ?? ''))) return text
   return text.replace(/\bOrc (Ferocity|Superstition|Warmask)\b/g, '$1').replace(/\btusks?\b/gi, word => {
     const replacement = word.toLowerCase() === 'tusk' ? 'tooth' : 'teeth'
     return word === word.toUpperCase() ? replacement.toUpperCase()

@@ -341,3 +341,13 @@ it('offers the listed Human ethnicities without catalog data and deduplicates ca
   const duplicate = { ...feat, traits: ['Human'], data: { access: 'varisian ethnicity' } }
   expect(ethnicityOptions([duplicate], 'Human')).toEqual(listed)
 })
+
+it('uses generic names for dwarven feats taken through Adopted Ancestry (Dwarf)', async () => {
+  const { adoptedAncestryText } = await import('./featChoices')
+  const adopted = { ...character, ancestry: 'Human', feats: [{ name: 'Adopted Ancestry', type: 'Ancestry Feat', level: 1, choice: 'Dwarf' }] }
+  expect(adoptedAncestryText(adopted, 'Dwarven Doughtiness')).toBe('Doughtiness')
+  expect(adoptedAncestryText(adopted, 'Dwarven Zero-G Familiarity')).toBe('Zero-G Familiarity')
+  expect(adoptedAncestryText(adopted, 'Dwarven Weapon Familiarity')).toBe('Dwarven Weapon Familiarity')
+  expect(adoptedAncestryText(adopted, 'Dwarven Lore')).toBe('Dwarven Lore')
+  expect(adoptedAncestryText({ ...adopted, ancestry: 'Dwarf' }, 'Dwarven Doughtiness')).toBe('Dwarven Doughtiness')
+})
