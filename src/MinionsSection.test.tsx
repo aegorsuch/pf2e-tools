@@ -5,6 +5,7 @@ import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './Minio
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
+import { EntryDescription } from './EntryDescription'
 import { CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import type { Character, ContentEntry } from './types'
 
@@ -454,6 +455,39 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   expect(markup).not.toContain('Advanced maneuver')
   expect(markup).toContain('</header><p class="companion-description">A pale-furred mountain cat. Starts Small.</p>')
   expect(markup).not.toContain('<summary>About</summary>')
+})
+
+it.each([
+  { className: 'Druid', level: 20, dc: 44, dice: 10 },
+  { className: 'Druid', level: 19, dc: 43, dice: 9 },
+  { className: 'Ranger', level: 20, dc: 42, dice: 10 },
+])('resolves $className spell DC $dc and rolls $dice dice from Primal Howl at level $level', ({ className, level, dc, dice }) => {
+  const c: Character = { id: 'howl', systems: ['pf2e'], name: 'Test', className, level,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 22, cha: 10 },
+    feats: [{ name: 'Primal Howl', type: 'Class Feat', level: 8 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: '' }] }
+  const cat: ContentEntry = { id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat', level: 1,
+    traits: ['Animal'], description: 'Uses your spell DC.', effects: [], updatedAt: 0,
+    data: { size: 'Small', hp: 6, companion_maneuver: 'Test Maneuver',
+      companion_maneuver_actions: 'One Action', companion_maneuver_description: 'Save against your spellcasting DC.',
+      companion_support: 'Uses your spell DC.' } }
+  const mastery: ContentEntry = { ...cat, id: 'ranger-mastery', kind: 'classFeature', name: 'Master Warden', level: 17,
+    data: { class: 'Ranger' }, description: 'Your proficiency rank in spell DCs increases to master.' }
+  const entries = [cat, mastery]
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain(`basic Fortitude save against DC ${dc}`)
+  expect(html).toContain(`Save against DC ${dc}`)
+  expect(html).not.toMatch(/your spell(?:casting)? DC/i)
+  expect(html).toContain('aria-label="Roll Primal Howl: Damage"')
+  expect(html).toContain(`title="Two Actions; Damage: ${dice}d6 sonic"`)
+  expect(html.match(/aria-label="Roll Primal Howl: Damage"/g)).toHaveLength(1)
+  expect(html).not.toContain('Roll Test Maneuver')
+  const details = renderToStaticMarkup(<EntryDescription character={c} entries={entries} name={cat.name} entry={cat} />)
+  expect(details).toContain(`Uses DC ${dc}.`)
+  expect(details).not.toContain('your spell DC')
+  const unknown = renderToStaticMarkup(<MinionsSection c={{ ...c, className: undefined }} entries={entries} save={() => {}} />)
+  expect(unknown).toContain('basic Fortitude save against spell DC (unavailable)')
 })
 
 it('shows horseshoe rules in the Athletics source note instead of beneath Speed', () => {

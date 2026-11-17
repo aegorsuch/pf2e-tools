@@ -44,7 +44,7 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
     ? rolls.map(damage => ({ damage, actions })) : []
 }
 
-function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
+export function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
   const [result, setResult] = useState<ReturnType<typeof rollSpellDamage>>()
   const formula = `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
   return <span>

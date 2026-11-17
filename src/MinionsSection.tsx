@@ -1,10 +1,11 @@
 import { SourceNote } from './Info'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
+import { DamageRoll } from './SpellDamage'
 import { newId } from './db'
 import { SearchableSelect } from './SearchableSelect'
 import { isCompanionEquipmentItem } from './companions'
@@ -253,9 +254,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const maneuvers = [
                 ...(stats?.maneuver ? [{ name: stats.maneuver, actions: stats.maneuverActions, traits: stats.maneuverTraits,
                   requirements: stats.maneuverRequirements,
+                  damage: undefined,
                   description: stats.maneuverDescription || 'Description unavailable from Archives of Nethys.' }] : []),
                 ...(stats?.primalHowl ? [{ name: 'Primal Howl', actions: 'Two Actions', traits: 'Primal, sonic',
                   requirements: undefined,
+                  damage: { label: 'Damage', dice: parseInt(stats.primalHowl, 10), sides: 6, type: 'sonic' },
                   description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
@@ -284,7 +287,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
                 </header>
-                {stats?.entry.description && <p className="companion-description">{stats.entry.description}</p>}
+                {stats?.entry.description && <p className="companion-description">{spellDCText(c, entries, stats.entry.description)}</p>}
                 {statusControls.length > 0 && <div className="companion-status-toggles" role="group" aria-label="Companion status toggles">
                   {statusControls.map(({ name, element }) => <div key={name}>{element}</div>)}
                 </div>}
@@ -372,14 +375,16 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       <h5>Maneuvers</h5>
                       {maneuvers.map(maneuver => <div key={maneuver.name} className="companion-action">
                         <div className="companion-action-title">
-                          {maneuver.actions ? <ActionIcon actions={maneuver.actions} showOther />
+                          {maneuver.damage ? <DamageRoll key={`${maneuver.damage.dice}d${maneuver.damage.sides}`}
+                            name={maneuver.name} damage={maneuver.damage} actions={maneuver.actions} />
+                            : maneuver.actions ? <ActionIcon actions={maneuver.actions} showOther />
                             : <small>Action cost unavailable</small>}
                           <b>{maneuver.name}</b>{maneuver.traits && <small>({maneuver.traits})</small>}
                         </div>
                         {maneuver.requirements && <p className="companion-action-requirements">
-                          <strong>Requirements:</strong> {maneuver.requirements}
+                          <strong>Requirements:</strong> {spellDCText(c, entries, maneuver.requirements)}
                         </p>}
-                        <p className="companion-action-description">{maneuver.description}</p>
+                        <p className="companion-action-description">{spellDCText(c, entries, maneuver.description)}</p>
                       </div>)}
                   </section>}
                   <MinionFerocity c={c} ferocity={stats.ferocity} />
@@ -407,7 +412,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   {stats.support && <section className="companion-actions">
                     <div className="companion-action">
                       <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Support Benefit</b></div>
-                      <p className="companion-action-description">{stats.support}</p>
+                      <p className="companion-action-description">{spellDCText(c, entries, stats.support)}</p>
                     </div>
                   </section>}
                 </> : <><small>Companion data is still loading.</small>

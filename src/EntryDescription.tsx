@@ -6,6 +6,7 @@ import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
 import { adoptedAncestryText, alloyedAttackChoice, featDisplayName } from './featChoices'
 import { equipmentDisplayName } from './equipmentGroups'
+import { spellDCText } from './builder'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 function featIndex(entries: ContentEntry[]) {
@@ -32,7 +33,11 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   const titleId = useId()
   const [history, setHistory] = useState<ContentEntry[]>([])
   const active = history.at(-1) ?? entry
-  const text = (value: string) => character ? adoptedAncestryText(character, value) : value
+  const text = (value: string) => {
+    if (!character) return value
+    const adopted = adoptedAncestryText(character, value)
+    return entries ? spellDCText(character, entries, adopted) : adopted
+  }
   const title = (value: string, source = active) => text(source && ['item', 'weapon', 'armor', 'shield'].includes(source.kind)
     ? equipmentDisplayName(value) : featDisplayName(source, value))
   const material = character && active?.kind === 'feat' && /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(active.name)

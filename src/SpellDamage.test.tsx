@@ -1,10 +1,37 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement, useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { rollSpellDamage, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls } from './SpellDamage'
+import { DamageRoll, rollSpellDamage, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
+vi.mock('react', async importOriginal => {
+  const react = await importOriginal<typeof import('react')>()
+  return { ...react, useState: vi.fn(react.useState) }
+})
+
 afterEach(() => vi.restoreAllMocks())
+
+it('rolls and rerolls all ten Primal Howl dice when its two-action button is clicked and announces the total', () => {
+  const damage = { label: 'Damage', dice: 10, sides: 6, type: 'sonic' }
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const tree = DamageRoll({ name: 'Primal Howl', damage, actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing damage roll button')
+  vi.spyOn(Math, 'random').mockReturnValue(0.999999)
+  button.props.onClick()
+  expect(Math.random).toHaveBeenCalledTimes(10)
+  expect(setResult).toHaveBeenLastCalledWith(60)
+  vi.mocked(Math.random).mockReturnValue(0)
+  button.props.onClick()
+  expect(Math.random).toHaveBeenCalledTimes(20)
+  expect(setResult).toHaveBeenLastCalledWith(10)
+  vi.mocked(useState).mockReturnValueOnce([10, setResult])
+  const html = renderToStaticMarkup(<DamageRoll name="Primal Howl" damage={damage} actions="Two Actions" />)
+  expect(html).toContain('title="Two Actions; Damage: 10d6 sonic"')
+  expect(html).toContain('<output aria-live="polite" aria-label="Primal Howl: Damage result"> 10 sonic</output>')
+})
 
 it('maps Heal Companion action icons to their own heightened healing formulas', () => {
   const rolls = spellActionRolls('Heal Companion', 5)

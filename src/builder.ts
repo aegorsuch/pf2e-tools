@@ -1353,6 +1353,19 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
 }
 
+export function spellDifficultyClass(c: Character, entries: ContentEntry[]) {
+  const casting = classSpellcasting(c, entries)
+  const ability = casting?.ability ?? c.spellcasting?.ability
+  return casting && ability ? 10 + abilityMod(c.abilities[ability]) + proficiencyBonus(casting.rank, c.level) : undefined
+}
+
+export function spellDCText(c: Character, entries: ContentEntry[], text: string) {
+  return text.replace(/\byour spell(?:casting)? DC\b/gi, () => {
+    const dc = spellDifficultyClass(c, entries)
+    return dc === undefined ? 'spell DC (unavailable)' : `DC ${dc}`
+  })
+}
+
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className !== 'Druid' || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   const slots: Record<number, number> = {}

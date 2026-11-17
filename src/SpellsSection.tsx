@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions, fixedAncestralCantrip } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility } from './builder'
+import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility, spellDifficultyClass } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells } from './itemSpells'
@@ -557,7 +557,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
 
   const castAbility = casting?.ability ?? sc?.ability
   const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
-  const classSpellDC = casting && castAbility ? 10 + mod : undefined
+  const classSpellDC = spellDifficultyClass(c, entries)
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
     const entry = spellEntry(name, entryId)
     return spellWardenLabel(entry?.data.warden_spell_tier) || entry?.traits.some(trait => trait.toLowerCase() === 'focus')
