@@ -324,7 +324,22 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
   )
 }
 
+// Heightened entries that raise a spell's range and duration, e.g. Beastmaster Trance
+function heightenedRangeDuration(entry: ContentEntry | undefined, rank: number) {
+  let result: { range: string; duration: string } | undefined
+  const pattern = /Heightened \((\d+)(?:st|nd|rd|th)\)\s+Increase the range to (.+?) and the duration (?:of|to) (.+?)\.(?=\s|$)/g
+  for (const match of entry?.description.matchAll(pattern) ?? [])
+    if (rank >= Number(match[1])) result = { range: match[2], duration: match[3] }
+  return result && { range: result.range.replace(/^[a-z]/, initial => initial.toUpperCase()),
+    duration: result.duration.replace(/^[a-z]/, initial => initial.toUpperCase()) }
+}
+
 function spellMetadata(entry?: ContentEntry, rank = entry?.level ?? 0, c?: Character) {
+  const base = spellMetadataBase(entry, rank, c)
+  return { ...base, ...heightenedRangeDuration(entry, rank) }
+}
+
+function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: Character) {
   const value = (...keys: string[]) => {
     for (const key of keys) {
       const current = entry?.data[key]

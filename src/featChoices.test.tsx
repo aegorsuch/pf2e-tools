@@ -512,6 +512,20 @@ it('keeps Warden tier labels for feat choices but combines their spell listings'
   expect(markup).not.toContain('<h5>Rank 1</h5>')
 })
 
+it('raises Beastmaster Trance range and duration when heightened', () => {
+  const trance: ContentEntry = { ...spell('Beastmaster Trance', ''), data: { range_text: '1 mile', duration_text: 'sustained up to 1 minute' },
+    traits: ['Focus'], level: 3,
+    description: 'You enter a trance.\n\nHeightened (6th) Increase the range to 100 miles and the duration of sustained up to 10 minutes. The target can hear you.\n\nHeightened (8th) Increase the range to planetary and the duration of sustained up to 1 hour.' }
+  const render = (level: number) => renderToStaticMarkup(<SpellsSection c={{ ...base, level, spells: [{ name: trance.name, rank: 3, cantrip: false, entryId: trance.id }] }}
+    entries={[trance]} save={() => {}} />)
+  expect(render(9)).toContain('<small>Range</small>1 mile')
+  expect(render(11)).toContain('<small>Range</small>100 miles')
+  expect(render(11)).toContain('Sustained up to 10 minutes')
+  expect(render(13)).toContain('<small>Range</small>100 miles')
+  expect(render(15)).toContain('<small>Range</small>Planetary')
+  expect(render(15)).toContain('Sustained up to 1 hour')
+})
+
 it('combines all Warden tiers without changing ordinary spell rank groups', () => {
   const spells = [
     spell('Gluttonous Growth', 'Peerless'),
