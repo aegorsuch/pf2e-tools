@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
-import { activeHomebrewDedications, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
+import { shieldStats, activeHomebrewDedications, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -2068,4 +2068,11 @@ describe('homebrew feat rules', () => {
     updateSettings({ generalFeatsOnly: false })
     expect(eligibleFeats(list, base, slot).map((e) => e.name)).toEqual(['Assurance', 'Toughness'])
   })
+})
+
+it('stacks Blessed Shield on top of Scale of Igroon stats', () => {
+  const shield = { id: 'scale', name: 'Scale of Igroon', hardness: 20, hp: 160, damage: 0, raised: false }
+  const c: Character = { ...base, className: 'Champion', level: 10, blessing: 'Blessed Shield', shield }
+  expect(shieldStats(shield, c)).toEqual({ hardness: 23, hp: 224 })
+  expect(shieldStats(shield, { ...c, blessing: 'Blessed Swiftness' })).toEqual({ hardness: 20, hp: 160 })
 })

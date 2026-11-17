@@ -317,6 +317,8 @@ export function shieldStats(shield: ShieldStatsInput, c?: Character, entries: Co
   const purchased = shieldAllowsUpgrades(shield) && shield.reinforcingRune && SHIELD_RUNES[shield.reinforcingRune]
   const granted = blessing?.rune && SHIELD_RUNES[blessing.rune]
   const rune = granted && (!purchased || granted.level > purchased.level) ? granted : purchased
+  // Named shields can't take upgrades, so Blessed Shield stacks on top of their stats instead of being capped.
+  if (!shieldAllowsUpgrades(shield) && granted) return { hardness: hardness + granted.hardness, hp: hp + granted.hp }
   return {
     hardness: (rune ? Math.max(hardness, Math.min(hardness + rune.hardness, rune.maxHardness)) : hardness) + (blessing?.hardness ?? 0),
     hp: rune ? Math.max(hp, Math.min(hp + rune.hp, rune.maxHp)) : hp,
