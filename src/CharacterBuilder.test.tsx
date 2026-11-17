@@ -33,6 +33,35 @@ it('shows saved Scout Lore as a background variant without a separate skill pick
     .toContain('<option value="Scout" selected="">Scout</option>')
 })
 
+it('shows background rules inline and keeps ancestry and background boost choices in Ability Scores', () => {
+  content.entries = [
+    { id: 'human', systems: ['pf2e'], kind: 'ancestry', source: 'official', name: 'Human', level: 1,
+      traits: [], description: '', data: { attribute: 'Two free ability boosts' }, effects: [], updatedAt: 0 },
+    { id: 'acrobat', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Acrobat', level: 1,
+      traits: [], description: 'You earned your pay by performing as an acrobat.', data: {
+        attribute: 'Strength or Dexterity, Free', skill: 'Acrobatics, Circus Lore', feat: 'Steady Balance', sourceBook: 'Player Core',
+      }, effects: [], updatedAt: 0 },
+  ]
+  const c: Character = { id: 'background-rules', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Human', background: 'Acrobat',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, boosts: {},
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    const ability = markup.slice(markup.indexOf('<strong>Ability Scores</strong>'), markup.indexOf('<strong>Ancestry</strong>'))
+    const ancestry = markup.slice(markup.indexOf('<strong>Ancestry</strong>'), markup.indexOf('<strong>Background</strong>'))
+    const background = markup.slice(markup.indexOf('<strong>Background</strong>'), markup.indexOf('<strong>Class</strong>'))
+    expect(ability).toContain('Ancestry Boosts')
+    expect(ability).toContain('Background Boosts')
+    expect(ancestry).not.toContain('Ancestry Boosts')
+    expect(background).not.toContain('Background Boosts')
+    expect(background).toContain('You earned your pay by performing as an acrobat.')
+    expect(background).toContain('Attribute boosts: Strength or Dexterity, Free.')
+    expect(background).toContain('Trained skills: Acrobatics, Circus Lore.')
+    expect(background).toContain('Granted skill feat: Steady Balance.')
+    expect(background).toContain('<small>Player Core</small>')
+  } finally { content.entries = [] }
+})
+
 it('shows Test-Subject adaptation options only for the matching heritage', () => {
   content.entries = []
   const c: Character = { id: 'ysoki', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',

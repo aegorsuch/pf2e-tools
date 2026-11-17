@@ -135,6 +135,21 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
 const detail = (e?: ContentEntry) =>
   e ? Object.entries(e.data).filter(([k]) => k !== 'url' && k !== 'sourceBook').map(([k, v]) => `${k}: ${v}`).join(' | ') : ''
 
+function BackgroundDetails({ entry, label = entry.name }: { entry: ContentEntry; label?: string }) {
+  const facts = [
+    entry.data.attribute && `Attribute boosts: ${entry.data.attribute}`,
+    entry.data.skill && `Trained skills: ${entry.data.skill}`,
+    entry.data.feat && `Granted skill feat: ${entry.data.feat}`,
+  ].filter((fact): fact is string => typeof fact === 'string')
+  const source = entry.data.sourceBook
+  return <article className="background-entry">
+    <h4>{label}</h4>
+    {entry.description && <p>{entry.description}</p>}
+    {facts.length > 0 && <p>{facts.join('. ')}.</p>}
+    {typeof source === 'string' && source && <small>{source}</small>}
+  </article>
+}
+
 export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
@@ -514,7 +529,6 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
-          <AbilityBoostChoices {...section} groups={['ancestry']} />
           <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
         </div>
       </DeferredDetails>
@@ -529,17 +543,14 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <Pick label="Background" kind="background" value={c.background} options={of('background')} terrainLore={c.backgroundTerrainLore}
             onChange={(background, terrain) => save({ background, ...(background && terrain
               ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [background]: terrain } } : {}) })} />
-          {background && <Info label={background.name}>{detail(background)}</Info>}
+          {background && <BackgroundDetails entry={background} />}
           {freeHeart && <Pick label="Free Heart background" kind="background" value={freeHeart.choice}
             options={of('background').filter(entry => freeHeartOptions?.has(entry.name))}
             terrainLore={c.backgroundTerrainLore}
             onChange={(choice, terrain) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat),
               ...(choice && terrain ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [choice]: terrain } } : {}) })} />}
-          {extraBackground && <Info label={`Free Heart: ${extraBackground.name}`}>{detail(extraBackground)}</Info>}
+          {extraBackground && <BackgroundDetails entry={extraBackground} label={`Free Heart: ${extraBackground.name}`} />}
           {freeHeart && <small>Free Heart grants the background's trained skill and skill feat, but not its attribute boosts.</small>}
-          <AbilityBoostChoices {...section} groups={['background']} />
-          {background?.data.skill && <small>Trained skills: <b>{String(background.data.skill)}</b></small>}
-          {background?.data.feat && <small>Background grants: <b>{String(background.data.feat)}</b></small>}
           <Achievements {...section} />
         </div>
       </DeferredDetails>
