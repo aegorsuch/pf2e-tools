@@ -882,6 +882,18 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
   }
 }
 
+// Beastmaster offers Druid and Ranger feats the character may already have from their class
+function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: ContentEntry, slot: PlannedSlot) {
+  if (c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
+  const base = (name: string) => name.replace(/\s*\([^)]*\)$/, '')
+  const level = Math.min(c.level, slot.level)
+  const owned = [...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= level),
+    ...automaticFeatGrants({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)]
+  if (owned.some(feat => base(feat.name) === base(entry.name))) return true
+  return base(entry.name) === 'Heal Animal' && focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
+    .spells.some(spell => spell.name === 'Heal Animal')
+}
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot,
   options: { includeUnmetPrerequisites?: boolean } = {}) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
@@ -957,6 +969,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
+      && !(/^(?:Animal Empathy|Heal Animal)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))

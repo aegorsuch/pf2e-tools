@@ -415,6 +415,19 @@ describe('animal companions', () => {
     expect(eligibleFeats([spec], take(3), slot)).toHaveLength(0)
   })
 
+  it('hides Beastmaster Animal Empathy when the class already provided it', () => {
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const ranger = entry('feat', 'Animal Empathy (Ranger)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Ranger'])
+    const druid = entry('feat', 'Animal Empathy (Druid)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Druid'])
+    const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+    const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
+    expect(eligibleFeats([dedication, ranger, druid], c, slot)).toEqual(expect.arrayContaining([ranger, druid]))
+    const owned = { ...c, feats: [...c.feats, feat('Animal Empathy (Ranger)', undefined, 'class:2:0')] }
+    const options = eligibleFeats([dedication, ranger, druid], owned, slot)
+    expect(options).not.toContain(ranger)
+    expect(options).not.toContain(druid)
+  })
+
   it('lets Specialized Mount be taken three times only, including unassigned specialization choices', () => {
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const spec = entry('feat', 'Specialized Mount', { archetype: 'Cavalier', repeatable: true }, 14, ['Archetype'])
