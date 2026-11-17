@@ -96,7 +96,7 @@ export function companionAdvancement(c: Character) {
   const advanced = active.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
   const specializations = [...new Set(active.filter((feat) => isCompanionSpecialization(feat.name))
     .flatMap((f) => (f.choice && (f.choice !== 'Auspice' || f.name === 'Auspicious Mount') ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
-  return { mature: has('Mature Animal Companion').length > 0 || has('Impressive Mount').length > 0
+  return { mature: has('Mature Animal Companion').length > 0 || has('Mature Beastmaster Companion').length > 0 || has('Impressive Mount').length > 0
     || has('Loyal Warhorse').length > 0 || !!advanced, advanced, specializations }
 }
 

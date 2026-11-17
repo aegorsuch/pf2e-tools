@@ -776,6 +776,27 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
   expect(markup).not.toContain('aria-label="Companion name"')
 })
 
+it('grants a Beastmaster Dedication companion and extra companions only with Additional Companion', () => {
+  let c: Character = {
+    id: 'beastmaster', systems: ['pf2e'], name: 'Test', level: 4, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Beastmaster Dedication', type: 'Archetype Feat', level: 2 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, companions: [],
+  }
+  const wolf: ContentEntry = {
+    id: 'wolf', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Wolf', level: 1,
+    traits: [], description: '', data: { size: 'Medium' }, effects: [], updatedAt: 1,
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose Faithful Steed')?.({ target: { value: 'Wolf' } })
+  expect(c.companions).toMatchObject([{ type: 'Wolf' }])
+  expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
+  c = { ...c, feats: [...c.feats, { name: 'Additional Companion', type: 'Archetype Feat', level: 4 }] }
+  findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')?.({ target: { value: 'Wolf' } })
+  expect(c.companions).toHaveLength(2)
+  expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
+})
+
 it('saves Auspice specialization and servitor choices only when Auspicious Mount is available', () => {
   let c: Character = {
     id: 'champion', systems: ['pf2e'], name: 'Test', level: 16, className: 'Champion',

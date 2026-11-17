@@ -185,9 +185,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
     || activeFeatsNamed(c, 'Animal Companion').length > 0
     || activeFeatsNamed(c, "Commander's Companion").length > 0
+  const beastmaster = activeFeatsNamed(c, 'Beastmaster Dedication').length > 0
   const companionGrant = faithfulSteed ? 'Faithful Steed'
     : activeFeatsNamed(c, "Commander's Companion").length > 0 ? "Commander's Companion"
-      : animalCompanionGrant ? 'Animal Companion' : undefined
+      : animalCompanionGrant ? 'Animal Companion' : beastmaster ? 'Beastmaster Dedication' : undefined
+  const companionLimit = beastmaster ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
+    + activeFeatsNamed(c, 'Additional Companion').length) : 1
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + (c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0)
   const familiarDefense = familiar || wasp ? (() => {
@@ -229,6 +232,15 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const type = types.find((type) => type.name === e.target.value)
                 if (type) save({ ...(faithfulSteed ? { faithfulSteedGranted: true } : {}),
                   companions: [{ id: newId(), type: type.name, name: '' }] })
+            }}>
+              <option value="">Choose companion...</option>
+              {types.map((type) => <option key={type.id}>{type.name}</option>)}
+            </SearchableSelect>
+          </span>}
+          {companions.length > 0 && companions.length < companionLimit && <span>Beastmaster companion{' '}
+            <SearchableSelect aria-label="Choose additional companion" value="" onChange={(e) => {
+              const type = types.find((type) => type.name === e.target.value)
+              if (type) save({ companions: [...companions, { id: newId(), type: type.name, name: '' }] })
             }}>
               <option value="">Choose companion...</option>
               {types.map((type) => <option key={type.id}>{type.name}</option>)}
