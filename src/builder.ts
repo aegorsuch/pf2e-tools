@@ -2548,6 +2548,12 @@ const rankCaches = new WeakMap<ContentEntry[], {
 }>()
 
 // Ranks from class/background/picks plus skill increases below `beforeLevel`; legacy overrides apply only to skills.
+export const EXPERT_GRANT_FEATS: Record<string, { skill: string }> = {
+  ...INITIATE_TRAINING,
+  'Hellknight Preferment': { skill: 'Intimidation' },
+  'Hellknight Signifer Preferment': { skill: 'Intimidation' },
+}
+
 export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99, withOverrides = true) {
   const settings = getSettings()
   let cache = rankCaches.get(entries)
@@ -2591,7 +2597,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const scrapperGrants: Record<string, number> = prior ? { Crafting: Math.min(2, (prior.Crafting ?? 0) + 1) } : {}
   const variant = prior && scrapperVariants(prior).find(option => option.label === scrapper?.feat.choice || option.skill === scrapper?.feat.choice)
   if (variant) scrapperGrants[variant.skill] = variant.rank
-  const initiateGrants = Object.entries(INITIATE_TRAINING).flatMap(([name, training]) => {
+  const initiateGrants = Object.entries(EXPERT_GRANT_FEATS).flatMap(([name, training]) => {
     const level = Math.min(...activeFeatsNamed(c, name).map(featTakenLevel).filter(level => level < beforeLevel))
     return Number.isFinite(level) ? [{ skill: training.skill, level }] : []
   })
@@ -2890,6 +2896,13 @@ const ARMOR_SPECIALIZATIONS: Record<string, {
 }
 
 // Armor specialization comes from class features and feats that mention it; its effect depends on the worn armor's group
+export const isHellknightArmor = (armor?: ContentEntry) => /^Hellknight (?:Breastplate|Half Plate|Plate)\b/i.test(armor?.name ?? '')
+
+export function hellknightArmorWorn(c: Character, entries: ContentEntry[]) {
+  const worn = wornArmor(c, entries)
+  return !!worn && isHellknightArmor(armorEntry(c, entries, worn.name))
+}
+
 export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
   if (!worn) return undefined
@@ -2902,32 +2915,34 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const fromFeat = c.feats.find((f) => {
     if (featTakenLevel(f) > c.level) return false
     const e = selectedFeatEntry(c, entries, f.name, f.sourceId)
+    if (f.name === 'Hellknight Preferment') return false
     if (!e?.data.grants_armor_specialization && !/armor specialization/i.test(f.name)) return false
     const allowed = tokens(e?.data.grants_armor_groups).map((g) => g.toLowerCase())
     const categories = tokens(e?.data.grants_armor_categories).map((g) => g.toLowerCase())
     return (!allowed.length || groups.some((g) => allowed.includes(g))) && (!categories.length || categories.includes(category))
   })
-  if (!fromClass && !fromFeat) return undefined
+  const preferment = isHellknightArmor(armor) ? activeFeatsNamed(c, 'Hellknight Preferment')[0] : undefined
+  if (!fromClass && !fromFeat && !preferment) return undefined
   const group = groups.map((g) => entries.find((e) => e.kind === 'armorGroup' && !e.deleted && e.name.toLowerCase() === g)).find(Boolean)
   if (!group) return undefined
   const rule = ARMOR_SPECIALIZATIONS[group.name.toLowerCase()]
   const base = category === 'medium' ? rule?.medium : category === 'heavy' ? rule?.heavy : undefined
   const improvement = armor?.data.armor_grade ? num(armor.data.grade_save_bonus) : worn.potency
-  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage, value: base + improvement } : undefined
+  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage, value: base + improvement + (preferment && rule.kind === 'resistance' ? 1 : 0) } : undefined
   const summary = benefit ? `${benefit.value} ${rule.label}`
     : rule ? `Value not specified for ${category || 'unknown-category'} armor` : undefined
   return {
-    group: group.name, armor: worn.name, feat: fromClass ? undefined : fromFeat?.name, feature: fromClass?.name,
+    group: group.name, armor: worn.name, feat: fromClass ? undefined : fromFeat?.name ?? preferment?.name, feature: fromClass?.name,
     effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, ''), benefit, summary,
   }
 }
 
-// Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
 function hellknightFeatCount(c: Character, entries: ContentEntry[]) {
   return c.feats.filter(feat => featTakenLevel(feat) <= c.level
     && /\bHellknight\b/.test(String(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.archetype ?? ''))).length
 }
 
+// Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
 export function resistances(c: Character, entries: ContentEntry[]) {
   const sources = [
     ...characterHeritages(c, entries),

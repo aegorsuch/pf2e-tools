@@ -1711,6 +1711,18 @@ describe('feat grants', () => {
     const withFeat = { ...worn, feats: [{ name: 'Armor Trick', type: 'General Feat', level: 1 }] }
     expect(armorSpecialization(withFeat, [wood, armor, feat])).toMatchObject({ group: 'Wood', effect: 'Wood armor splinters.' })
   })
+  it('applies Hellknight Preferment only to Hellknight armor, with +1 resistance, expert Intimidation and a circumstance bonus', () => {
+    const plate = { ...entry('armorGroup', 'Plate'), description: 'Plate armor.' }
+    const hellknight = entry('armor', 'Hellknight Plate', { armor_group: 'Plate', armor_category: 'Heavy' })
+    const full = entry('armor', 'Full Plate', { armor_group: 'Plate', armor_category: 'Heavy' })
+    const preferment = entry('feat', 'Hellknight Preferment', { grants_armor_specialization: 'yes' })
+    const wear = (name: string) => ({ ...base, level: 7, feats: [{ name: 'Hellknight Preferment', type: 'Archetype Feat', level: 6 }],
+      armors: [{ id: 'a', name, worn: true, potency: 0, resilient: 0, runes: [] }] } as Character)
+    const all = [plate, hellknight, full, preferment]
+    expect(armorSpecialization(wear('Hellknight Plate'), all)?.benefit).toEqual({ kind: 'resistance', damage: 'Slashing', value: 3 })
+    expect(armorSpecialization(wear('Full Plate'), all)).toBeUndefined()
+    expect(ranksAt(wear('Full Plate'), all).Intimidation).toBe(2)
+  })
 })
 
 describe('feat-granted slots', () => {
