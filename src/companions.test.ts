@@ -431,6 +431,16 @@ describe('animal companions', () => {
     expect(at(1, 'Insight').perceptionNote).toContain('Seek')
   })
 
+  it('hides Beastmaster Heal Animal when the character has Heal Companion', () => {
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const heal = entry('feat', 'Heal Animal', { archetype: 'Beastmaster' }, 4, ['Archetype'])
+    const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+    const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
+    expect(eligibleFeats([dedication, heal], c, slot)).toContain(heal)
+    const owned = { ...c, feats: [...c.feats, feat('Heal Companion', undefined, 'class:2:0')] }
+    expect(eligibleFeats([dedication, heal], owned, slot)).not.toContain(heal)
+  })
+
   it('hides Beastmaster Animal Empathy when the class already provided it', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const ranger = entry('feat', 'Animal Empathy (Ranger)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Ranger'])
