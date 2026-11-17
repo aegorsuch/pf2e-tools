@@ -137,7 +137,7 @@ it('keeps situational effects manual and exposes source activations in expandabl
   expect(namedArmorAbilities(armorEntry(c, entries, bane.name)).find(ability => ability.name === 'Terrain Adaptation')?.paragraphs.join(' '))
     .toContain('10 minutes')
   const maskHtml = renderToStaticMarkup(<NamedArmorAbilities entry={mask} />)
-  expect(maskHtml).toContain('Concealment applies only while wearing the mask in a jungle')
+  expect(maskHtml).not.toContain('Concealment applies only while wearing the mask in a jungle, not everywhere')
   expect(maskHtml).toContain('once per hour')
   expect(maskHtml).toContain('rounded up')
   expect(maskHtml).toContain('aria-label="Single Action"')
