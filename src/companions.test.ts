@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
-import { eligibleFeats } from './builder'
+import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
 import { companionAdvancement, companionStats, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -467,7 +467,7 @@ describe('animal companions', () => {
     expect(options).not.toContain(druid)
   })
 
-  it('hides Additional Companion and Swift Guardian under the single companion rule', () => {
+  it('hides multi-companion-only Beastmaster feats under the single companion rule', () => {
     const call = entry('feat', "Beastmaster's Call", {}, 12, ['Archetype'])
     expect(eligibleFeats([call], { ...base, level: 12 }, { key: 'archetype:12:0', category: 'archetype' as const, level: 12 })).not.toContain(call)
     const extra = entry('feat', 'Additional Companion', {}, 4, ['Archetype'])
@@ -476,6 +476,15 @@ describe('animal companions', () => {
     const out = eligibleFeats([extra, swift], { ...base, level: 4 }, slot)
     expect(out).not.toContain(extra)
     expect(out).not.toContain(swift)
+    for (const name of ['Lead the Pack', 'Pack Takedown']) {
+      const pack = entry('feat', name, {}, 16, ['Archetype'])
+      const character = { ...base, level: 20 }
+      const packSlot = { key: 'archetype:20:0', category: 'archetype' as const, level: 20 }
+      expect(eligibleFeats([pack], character, packSlot)).not.toContain(pack)
+      expect(eligibleFeats([pack], character, packSlot, { includeUnmetPrerequisites: true })).toContain(pack)
+      expect(featSelectionPrerequisiteChecker(character, [pack], packSlot)(pack).missing)
+        .toContain('Limit 1 Animal Companion must be disabled')
+    }
   })
 
   it('gates attack-specific Beastmaster feats by the companion and grants their maneuvers', () => {
@@ -514,6 +523,45 @@ describe('animal companions', () => {
     expect(eligibleFeats([incredible, specialized], { ...c, feats: [] }, slot)).not.toContain(specialized)
   })
 
+  it('retains needed Beastmaster advancement and recognizes equivalent class and mount training', () => {
+    const previous = getSettings().singleAnimalCompanion
+    const dedication = entry('feat', 'Beastmaster Dedication', {}, 2, ['Archetype', 'Dedication'])
+    const mature = entry('feat', 'Mature Beastmaster Companion', { prerequisite: dedication.name }, 4, ['Archetype'])
+    const incredible = entry('feat', 'Incredible Beastmaster Companion', { prerequisite: mature.name }, 8, ['Archetype'])
+    const specialized = entry('feat', 'Specialized Beastmaster Companion', { prerequisite: incredible.name }, 14, ['Archetype'])
+    const entries = [dedication, mature, incredible, specialized]
+    const slot = { key: 'archetype:14:0', category: 'archetype' as const, level: 14 }
+    const young = { ...base, level: 14, feats: [feat(dedication.name, undefined, 'archetype:2:0')],
+      companions: [{ id: 'bear', type: 'Bear', name: '' }] }
+    try {
+      updateSettings({ singleAnimalCompanion: true })
+      expect(eligibleFeats(entries, young, slot)).toContain(mature)
+      expect(eligibleFeats(entries, young, slot)).not.toContain(incredible)
+      for (const name of ['Mature Animal Companion (Ranger)', 'Impressive Mount']) {
+        const c = { ...young, feats: [...young.feats, feat(name, undefined, 'class:4:0')] }
+        expect(eligibleFeats(entries, c, slot)).not.toContain(mature)
+        expect(eligibleFeats(entries, c, slot)).toContain(incredible)
+        expect(eligibleFeats(entries, c, slot)).not.toContain(specialized)
+      }
+      const advanced = { ...young, feats: [...young.feats, feat('Incredible Mount', 'Savage', 'archetype:8:0')] }
+      expect(eligibleFeats(entries, advanced, slot)).not.toContain(mature)
+      expect(eligibleFeats(entries, advanced, slot)).not.toContain(incredible)
+      expect(eligibleFeats(entries, advanced, slot)).toContain(specialized)
+      const before = JSON.stringify(advanced)
+      const saved = { ...advanced, feats: [...advanced.feats, feat(incredible.name, 'Nimble', slot.key)] }
+      expect(eligibleFeats(entries, saved, slot)).toContain(incredible)
+      expect(JSON.stringify(advanced)).toBe(before)
+      const future = { ...young, feats: [...young.feats, feat('Incredible Mount', 'Savage', 'archetype:16:0')] }
+      expect(eligibleFeats(entries, future, slot)).toContain(mature)
+      expect(eligibleFeats(entries, future, slot)).not.toContain(specialized)
+      updateSettings({ singleAnimalCompanion: false })
+      expect(eligibleFeats(entries, advanced, slot)).toContain(mature)
+      expect(eligibleFeats(entries, advanced, slot)).not.toContain(specialized)
+      const pack = entry('feat', 'Lead the Pack', {}, 16, ['Archetype'])
+      expect(eligibleFeats([pack], { ...young, level: 20 }, { ...slot, level: 20 })).toContain(pack)
+    } finally { updateSettings({ singleAnimalCompanion: previous }) }
+  })
+
   it('lets Specialized Mount be taken three times only, including unassigned specialization choices', () => {
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const spec = entry('feat', 'Specialized Mount', { archetype: 'Cavalier', repeatable: true }, 14, ['Archetype'])
@@ -525,6 +573,45 @@ describe('animal companions', () => {
     expect(eligibleFeats([dedication, spec], take(2), slot)).toContain(spec)
     expect(eligibleFeats([dedication, spec], take(3), slot)).not.toContain(spec)
   })
+
+  it('shares the three-specialization cap across class, mount, and Beastmaster feats', () => {
+    const specialized = entry('feat', 'Specialized Beastmaster Companion', {}, 14, ['Archetype'])
+    const slot = { key: 'archetype:16:0', category: 'archetype' as const, level: 16 }
+    const c = { ...base, level: 16, feats: [feat('Specialized Companion', 'Ambusher', 'class:14:0'),
+      feat('Specialized Mount', 'Racer', 'archetype:14:0')] }
+    expect(eligibleFeats([specialized], c, slot)).toContain(specialized)
+    expect(eligibleFeats([specialized], { ...c, feats: [...c.feats,
+      feat(specialized.name, undefined, 'archetype:14:1')] }, slot)).not.toContain(specialized)
+  })
+
+  it.each(['Incredible Companion (Ranger)', 'Incredible Companion (Druid)', 'Incredible Beastmaster Companion', 'Imposing Destrier'])(
+    'hides duplicate Incredible Mount after %s but retains access to Specialized Mount', name => {
+      const previous = getSettings().singleAnimalCompanion
+      const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+      const impressive = entry('feat', 'Impressive Mount', { archetype: 'Cavalier', prerequisite: dedication.name }, 4, ['Archetype'])
+      const incredible = entry('feat', 'Incredible Mount', { archetype: 'Cavalier', prerequisite: impressive.name }, 8, ['Archetype'])
+      const specialized = entry('feat', 'Specialized Mount', { archetype: 'Cavalier', prerequisite: incredible.name }, 14, ['Archetype'])
+      const entries = [dedication, impressive, incredible, specialized]
+      const slot = { key: 'archetype:14:0', category: 'archetype' as const, level: 14 }
+      const c = { ...base, level: 14, feats: [feat(dedication.name, undefined, 'archetype:2:0'),
+        feat(impressive.name, undefined, 'archetype:4:0'), feat(name, 'Nimble', 'class:6:0')] }
+      try {
+        updateSettings({ singleAnimalCompanion: true })
+        expect(eligibleFeats(entries, c, slot)).not.toContain(incredible)
+        expect(eligibleFeats(entries, c, slot)).toContain(specialized)
+        const selected = { ...c, feats: [...c.feats, feat(incredible.name, 'Savage', slot.key)] }
+        expect(eligibleFeats(entries, selected, slot)).toContain(incredible)
+        const young = { ...c, companions: [{ id: 'bear', type: 'Bear', name: '' }], feats: [c.feats[0], c.feats[1]] }
+        expect(eligibleFeats(entries, young, slot)).toContain(incredible)
+        expect(eligibleFeats(entries, young, slot)).not.toContain(specialized)
+        const future = { ...c, feats: [...c.feats.slice(0, 2), feat(name, 'Nimble', 'class:16:0')] }
+        expect(eligibleFeats(entries, future, slot)).toContain(incredible)
+        expect(eligibleFeats(entries, future, slot)).not.toContain(specialized)
+        updateSettings({ singleAnimalCompanion: false })
+        expect(eligibleFeats(entries, c, slot)).toContain(incredible)
+        expect(eligibleFeats(entries, c, slot)).not.toContain(specialized)
+      } finally { updateSettings({ singleAnimalCompanion: previous }) }
+    })
 
   it('applies mount advancement and specialization through the companion calculator', () => {
     const mount = { ...base, feats: [feat('Impressive Mount'), feat('Incredible Mount', 'Nimble'), feat('Specialized Mount', 'Ambusher')] }

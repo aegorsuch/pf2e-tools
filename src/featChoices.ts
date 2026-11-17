@@ -101,8 +101,8 @@ export function selectedFeatEntry(c: Character, entries: ContentEntry[], name: s
   return c.systems.map(system => sources.find(entry => entry.systems.includes(system))).find(Boolean)
 }
 
-export const isCompanionAdvancement = (name: string) => /^Incredible (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Imposing Destrier'
-export const isCompanionSpecialization = (name: string) => /^Specialized (?:Companion|Mount)(?: \(|$)/.test(name) || name === 'Auspicious Mount'
+export const isCompanionAdvancement = (name: string) => /^Incredible (?:(?:Animal |Beastmaster )?Companion|Mount)(?: \(|$)/.test(name) || name === 'Imposing Destrier'
+export const isCompanionSpecialization = (name: string) => /^Specialized (?:(?:Animal |Beastmaster )?Companion|Mount)(?: \(|$)/.test(name) || name === 'Auspicious Mount'
 
 export function compareFeatSelections(a: Pick<Character['feats'][number], 'name' | 'choice'>, b: Pick<Character['feats'][number], 'name' | 'choice'>) {
   return a.name.localeCompare(b.name)

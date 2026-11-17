@@ -51,8 +51,10 @@ export function EntryDescription({ name, entry, className, prerequisites, access
       ?? active.systems.map(system => index.names.get(`${system}:${link.name.toLowerCase()}`)).find(Boolean),
   }))
   const originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
-  const description = active?.kind === 'feat' && active.name === 'Tenacious Endurance' && getSettings().singleAnimalCompanion
-    ? originalDescription?.replace(/\bone of your animal companions\b/gi, 'your animal companion') : originalDescription
+  const description = active?.kind === 'feat' && ['Tenacious Endurance', 'Heightened Instincts'].includes(active.name)
+    && getSettings().singleAnimalCompanion
+    ? originalDescription?.replace(/\bone of your (animal )?companions\b/gi, 'your $1companion')
+      .replace(/\byour companions['\u2019]/gi, "your companion's") : originalDescription
   return (
     <>
       <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${title(name, entry)}` : undefined}

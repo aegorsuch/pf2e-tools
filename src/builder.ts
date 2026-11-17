@@ -1,11 +1,12 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
+import { companionAdvancement } from './companions'
 import { featAccess, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
@@ -874,9 +875,18 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
     const companionRequirement = beastmasterRequirementMissing(character, entries, entry.name)
     if (companionRequirement) missing.push(companionRequirement)
-    if (getSettings().singleAnimalCompanion && entry.name === 'Specialized Beastmaster Companion'
-      && character.feats.some(feat => /^Incredible (?:Animal )?Companion\b/.test(feat.name))) {
-      for (let i = missing.length - 1; i >= 0; i--) if (/^Incredible Beastmaster Companion$/i.test(missing[i])) missing.splice(i, 1)
+    if (getSettings().singleAnimalCompanion && ['Lead the Pack', 'Pack Takedown'].includes(entry.name)) {
+      missing.push('Limit 1 Animal Companion must be disabled')
+    }
+    if (getSettings().singleAnimalCompanion
+      && ['Incredible Beastmaster Companion', 'Incredible Mount', 'Specialized Beastmaster Companion', 'Specialized Mount'].includes(entry.name)) {
+      const advancement = companionAdvancement(character)
+      const required = entry.name === 'Incredible Beastmaster Companion' ? 'Mature Beastmaster Companion'
+        : entry.name === 'Incredible Mount' ? 'Impressive Mount'
+          : entry.name === 'Specialized Beastmaster Companion' ? 'Incredible Beastmaster Companion' : 'Incredible Mount'
+      if (entry.name.startsWith('Incredible') ? advancement.mature : advancement.advanced) {
+        for (let i = missing.length - 1; i >= 0; i--) if (missing[i] === required) missing.splice(i, 1)
+      }
     }
     if (getSettings().singleAdditionalArms && entry.name === 'Additional Arms'
       && character.feats.some(feat => feat.name === entry.name)) {
@@ -908,7 +918,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
   }
 }
 
-// Beastmaster offers Druid and Ranger feats the character may already have from their class
+// Companion archetypes offer abilities the character may already have from another source.
 function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: ContentEntry, slot: PlannedSlot) {
   if (c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
   const base = (name: string) => name.replace(/\s*\([^)]*\)$/, '')
@@ -916,6 +926,11 @@ function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: Co
   const owned = [...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= level),
     ...automaticFeatGrants({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)]
   if (owned.some(feat => base(feat.name) === base(entry.name))) return true
+  if (getSettings().singleAnimalCompanion) {
+    const advancement = companionAdvancement({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) })
+    if (isCompanionAdvancement(entry.name) && advancement.advanced) return true
+    if (/^(?:Mature (?:Animal|Beastmaster) Companion|Impressive Mount)\b/.test(entry.name) && advancement.mature) return true
+  }
   if (base(entry.name) !== 'Heal Animal') return false
   return focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
     .spells.some(spell => spell.name === 'Heal Animal')
@@ -996,8 +1011,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
-      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Mature Animal Companion|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
-      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call|Mature Beastmaster Companion|Incredible Beastmaster Companion)\b/.test(e.name))
+      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Incredible Mount|Incredible Beastmaster Companion|Mature Animal Companion|Mature Beastmaster Companion|Impressive Mount|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
+      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))

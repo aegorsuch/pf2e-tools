@@ -43,6 +43,26 @@ it('clears selected skill prerequisite warnings while planning without changing 
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('disables Lead the Pack in the feat picker while the single companion rule is enabled', () => {
+  const previous = getSettings().singleAnimalCompanion
+  const feat: ContentEntry = { id: 'lead-the-pack', name: 'Lead the Pack', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 16, traits: ['Archetype'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), level: 16 }
+  const save = vi.fn()
+  const tree = () => FeatSlots({ c, entries: [feat], save, categories: ['archetype'],
+    search: { 'archetype:16:0:open': '1' } })
+  const label = 'L16 Dedication: Lead the Pack'
+  try {
+    updateSettings({ singleAnimalCompanion: true })
+    const disabledLabel = `${label} * Missing Limit 1 Animal Companion must be disabled`
+    expect(renderToStaticMarkup(tree())).toContain(`aria-label="${disabledLabel}" disabled=""`)
+    findButton(tree(), disabledLabel)!()
+    expect(save).not.toHaveBeenCalled()
+    updateSettings({ singleAnimalCompanion: false })
+    expect(renderToStaticMarkup(tree())).toContain(`aria-label="${label}">`)
+  } finally { updateSettings({ singleAnimalCompanion: previous }) }
+})
+
 it.each([undefined, 'Dermal Plating'])('uses Augmented Body only as extra implant capacity, ignoring legacy choice %s', choice => {
   const entry: ContentEntry = { id: 'augmented-body', name: 'Augmented Body', kind: 'feat', systems: ['sf2e'],
     source: 'official', level: 1, traits: ['General'], data: { repeatable: true }, description: '', effects: [], updatedAt: 1 }

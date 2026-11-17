@@ -6,7 +6,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
 import { EntryDescription } from './EntryDescription'
-import { CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
+import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -709,6 +709,7 @@ it.each([
   ['Incredible Companion', 'Specialized Companion'],
   ['Incredible Mount', 'Specialized Mount'],
   ['Imposing Destrier', 'Specialized Mount'],
+  ['Incredible Beastmaster Companion', 'Specialized Beastmaster Companion'],
 ])('places %s and %s choices on the companion card', (advanced, specialized) => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Druid',
@@ -797,6 +798,38 @@ it('lets a Champion choose or replace Faithful Steed without a rename field', ()
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('Choose Faithful Steed')
   expect(markup).not.toContain('aria-label="Companion name"')
+})
+
+it('adds Beastmaster specialization slots beside existing companion specializations without replacing them', () => {
+  const wolf: ContentEntry = {
+    id: 'wolf', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Wolf', level: 1,
+    traits: [], description: '', data: { strength: 2, dexterity: 2, constitution: 2, intelligence: -4, wisdom: 1,
+      charisma: 0, hp: 8, size: 'Medium', speed: 35, companion_attacks: 'Jaws|1d8 piercing|' }, effects: [], updatedAt: 0,
+  }
+  let c: Character = {
+    id: 'beastmaster-specializations', systems: ['pf2e'], name: 'Test', level: 16, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Incredible Companion', type: 'Class Feat', level: 6, choice: 'Nimble' },
+      { name: 'Specialized Companion', type: 'Class Feat', level: 14, choice: 'Ambusher' },
+      { name: 'Specialized Beastmaster Companion', type: 'Archetype Feat', level: 14 },
+      { name: 'Specialized Beastmaster Companion', type: 'Archetype Feat', level: 14, takenLevel: 16 },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'wolf', type: 'Wolf', name: '' }],
+  }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const tree = () => MinionsContent({ c, entries: [wolf], save })
+  for (const index of [2, 3, 4]) expect(findSelect(tree(), `Companion specialization ${index}`)).toBeTypeOf('function')
+  expect(findSelect(tree(), 'Companion specialization 5')).toBeUndefined()
+  findSelect(tree(), 'Companion specialization 3')!({ target: { value: 'Racer' } })
+  findSelect(tree(), 'Companion specialization 4')!({ target: { value: 'Wrecker' } })
+  expect(c.feats.map(feat => feat.choice)).toEqual(['Nimble', 'Ambusher', 'Racer', 'Wrecker'])
+  expect(companionAdvancement(c).specializations).toEqual(['Ambusher', 'Racer', 'Wrecker'])
+  expect(c.companions).toHaveLength(1)
+  const earlier = MinionsContent({ c: { ...c, level: 15 }, entries: [wolf], save })
+  expect(findSelect(earlier, 'Companion specialization 3')).toBeTypeOf('function')
+  expect(findSelect(earlier, 'Companion specialization 4')).toBeUndefined()
 })
 
 it('grants a Beastmaster Dedication companion and extra companions only with Additional Companion', () => {

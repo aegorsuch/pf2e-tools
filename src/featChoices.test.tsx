@@ -44,6 +44,20 @@ it.each([false, true])('uses singular Tenacious Endurance wording only with the 
   } finally { updateSettings({ singleAnimalCompanion: previous }) }
 })
 
+it.each([false, true])('uses singular Heightened Instincts wording only with the one-companion rule enabled (%s)', enabled => {
+  const previous = getSettings().singleAnimalCompanion
+  const description = "You've worked to sharpen your companions' instincts to supernatural levels. When one of your companions rolls a success on a saving throw, it gets a critical success instead."
+  const feat: ContentEntry = { ...entries[0], kind: 'feat', name: 'Heightened Instincts', description }
+  try {
+    updateSettings({ singleAnimalCompanion: enabled })
+    const markup = renderToStaticMarkup(<EntryDescription name={feat.name} entry={feat} />)
+    expect(markup).toContain(enabled ? 'When your companion rolls a success' : 'When one of your companions rolls a success')
+    expect(markup).toContain(enabled ? 'your companion&#x27;s instincts' : 'your companions&#x27; instincts')
+    expect(markup).toContain('on a saving throw, it gets a critical success instead.')
+    expect(feat.description).toBe(description)
+  } finally { updateSettings({ singleAnimalCompanion: previous }) }
+})
+
 it.each(['Elf Atavism', 'Elven Atavism'])('adds a separate Elf heritage selection for %s without replacing primary heritage', name => {
   const heritage = (name: string, ancestry: string): ContentEntry => ({ ...entries[0], id: name, name,
     kind: 'heritage', traits: [], data: { ancestry } })
@@ -638,7 +652,8 @@ it('opens prepared Druid spells in description dialogs without duplicating commo
 })
 
 it('keeps companion and granted general-feat choices out of feat rows', () => {
-  for (const name of ['Incredible Companion', 'Specialized Companion', 'Incredible Mount', 'Specialized Mount', 'General Training', 'Advanced General Training']) {
+  for (const name of ['Incredible Companion', 'Specialized Companion', 'Incredible Mount', 'Specialized Mount',
+    'Incredible Beastmaster Companion', 'Specialized Beastmaster Companion', 'General Training', 'Advanced General Training']) {
     const c = { ...base, feats: [{ name, type: 'Class Feat', level: 1 }] }
     const entry: ContentEntry = {
       id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
