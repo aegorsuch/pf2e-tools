@@ -433,7 +433,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
     <section className="col">
       <div className="row">
         <h2>{c.name}</h2>
-        <button onClick={onClose}>Close</button>
+        <button type="button" className="no-print" onClick={() => window.print()}>Print</button>
+        <button className="no-print" onClick={onClose}>Close</button>
       </div>
       {undo && <div role="status" className="row">
         <span>Removed {undo.label}.</span>
