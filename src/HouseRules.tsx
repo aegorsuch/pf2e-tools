@@ -56,7 +56,11 @@ export function HouseRules({ search, open, onToggle }: {
     <section className="col settings-panel" aria-label="House rules">
       {rules.map(rule => <label key={rule.key} title={rule.description}>
         <input type="checkbox" checked={settings[rule.key]}
-          onChange={event => updateSettings({ [rule.key]: event.target.checked })} />{' '}{rule.label}
+          onChange={event => {
+            const enabled = event.target.checked
+            if (!enabled && !window.confirm(`Disable rule "${rule.label}"?`)) return
+            updateSettings({ [rule.key]: enabled })
+          }} />{' '}{rule.label}
       </label>)}
     </section>
   </details>

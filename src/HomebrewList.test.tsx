@@ -5,6 +5,8 @@ import { groupHomebrew, HomebrewList } from './HomebrewList'
 import { homebrewCharacterOptions } from './supplemental'
 import type { ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
+import * as settings from './settings'
+import { HouseRules } from './HouseRules'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -87,4 +89,36 @@ it('includes every saved rule in its own searchable category even without homebr
     updateSettings({ innateHighestMental: true })
     expect(render('innate')).toContain('checked=""')
   } finally { updateSettings({ innateHighestMental: previous }) }
+})
+
+it.each([
+  { enabled: false, accepted: false },
+  { enabled: false, accepted: true },
+  { enabled: true, accepted: false },
+])('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted }) => {
+  const previous = getSettings()
+  const confirm = vi.fn(() => accepted)
+  vi.stubGlobal('window', { confirm })
+  const hook = vi.spyOn(settings, 'useSettings').mockImplementation(getSettings)
+  try {
+    updateSettings({ freeArchetype: !enabled })
+    const before = getSettings()
+    const timestamp = settings.getSettingsUpdatedAt()
+    let change: ((event: { target: { checked: boolean } }) => void) | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input' && child.props.type === 'checkbox') change = child.props.onChange as typeof change
+      visit(child.props.children as ReactNode)
+    })
+    visit(HouseRules({ search: 'Free Archetype' }))
+    if (!change) throw new Error('Missing rule checkbox')
+    change({ target: { checked: enabled } })
+    if (enabled) expect(confirm).not.toHaveBeenCalled()
+    else expect(confirm).toHaveBeenCalledWith('Disable rule "Free Archetype"?')
+    expect(getSettings()).toEqual({ ...before, freeArchetype: enabled || !accepted })
+    if (!enabled && !accepted) expect(settings.getSettingsUpdatedAt()).toBe(timestamp)
+  } finally {
+    hook.mockRestore()
+    updateSettings(previous)
+  }
 })
