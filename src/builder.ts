@@ -1207,7 +1207,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   }
   const familiarityOptions = familiarityChoiceOptions(name, c, entries)
   if (familiarityOptions) return familiarityOptions
-  if (name === 'Clan Lore') return Object.keys(CLAN_LORE_OPTIONS).sort((a, b) => a.localeCompare(b))
+  if (name === 'Clan Lore') return Object.keys(CLAN_LORE_OPTIONS).sort((a, b) => clanLoreLabel(a).localeCompare(clanLoreLabel(b)))
   if (name === 'Eye for Treasure' && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if ((ranks.Crafting ?? 0) < 1) return undefined
@@ -2193,24 +2193,30 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   }),
 ])]
 
-const CLAN_LORE_OPTIONS: Record<string, { skills: [string, string]; lore: string }> = {
-  Aringeld: { skills: ['Diplomacy', 'Society'], lore: 'Mercantile' },
-  Breakiron: { skills: ['Crafting', 'Survival'], lore: 'Alchemy' },
-  Firecask: { skills: ['Crafting', 'Nature'], lore: 'Alcohol' },
-  Gelderon: { skills: ['Athletics', 'Nature'], lore: 'Farming' },
-  Grimmark: { skills: ['Crafting', 'Society'], lore: 'Architecture' },
-  Ironfist: { skills: ['Crafting', 'Medicine'], lore: 'Smelting' },
-  Molgrade: { skills: ['Crafting', 'Thievery'], lore: 'Smithing' },
-  Oriddus: { skills: ['Religion', 'Society'], lore: 'Dwarven Pantheon' },
-  Runebinder: { skills: ['Arcana', 'Occultism'], lore: 'Academia' },
-  Stonefist: { skills: ['Athletics', 'Intimidation'], lore: 'Warfare' },
-  Tolorr: { skills: ['Diplomacy', 'Society'], lore: 'Library' },
-  Vanderholl: { skills: ['Athletics', 'Crafting'], lore: 'Labor' },
+const CLAN_LORE_OPTIONS: Record<string, { hilt: 'Goldhilt' | 'Steelhilt' | 'Ironhilt'; skills: [string, string]; lore: string }> = {
+  Aringeld: { hilt: 'Steelhilt', skills: ['Diplomacy', 'Society'], lore: 'Mercantile' },
+  Breakiron: { hilt: 'Steelhilt', skills: ['Crafting', 'Survival'], lore: 'Alchemy' },
+  Ertubur: { hilt: 'Steelhilt', skills: ['Medicine', 'Religion'], lore: 'Mortuary' },
+  Felltree: { hilt: 'Ironhilt', skills: ['Athletics', 'Survival'], lore: 'Lumber' },
+  Firecask: { hilt: 'Goldhilt', skills: ['Crafting', 'Nature'], lore: 'Alcohol' },
+  Gelderon: { hilt: 'Ironhilt', skills: ['Athletics', 'Nature'], lore: 'Farming' },
+  Grimmark: { hilt: 'Steelhilt', skills: ['Crafting', 'Society'], lore: 'Architecture' },
+  Ironfist: { hilt: 'Steelhilt', skills: ['Crafting', 'Medicine'], lore: 'Smelting' },
+  Lasthall: { hilt: 'Ironhilt', skills: ['Society', 'Survival'], lore: 'Highhelm' },
+  Molgrade: { hilt: 'Goldhilt', skills: ['Crafting', 'Thievery'], lore: 'Smithing' },
+  Oriddus: { hilt: 'Goldhilt', skills: ['Religion', 'Society'], lore: 'Dwarven Pantheon' },
+  Pearlcask: { hilt: 'Steelhilt', skills: ['Crafting', 'Nature'], lore: 'Aquaculture' },
+  Runebinder: { hilt: 'Goldhilt', skills: ['Arcana', 'Occultism'], lore: 'Academia' },
+  Stonefist: { hilt: 'Steelhilt', skills: ['Athletics', 'Intimidation'], lore: 'Warfare' },
+  Tolorr: { hilt: 'Goldhilt', skills: ['Diplomacy', 'Society'], lore: 'Library' },
+  Vanderholl: { hilt: 'Ironhilt', skills: ['Athletics', 'Crafting'], lore: 'Labor' },
 }
+
+export const CLAN_LORES = [...new Set(Object.values(CLAN_LORE_OPTIONS).map(grant => `${grant.lore} Lore`))]
 
 export function clanLoreLabel(clan: string) {
   const grant = CLAN_LORE_OPTIONS[clan]
-  return grant ? [clan, ...grant.skills, `${grant.lore} Lore`].join(', ') : clan
+  return grant ? `${grant.hilt}, ${clan}: ${[...grant.skills, `${grant.lore} Lore`].join(', ')}` : clan
 }
 
 export function loreReplacementChoices(c: Character, entries: ContentEntry[], index: number) {

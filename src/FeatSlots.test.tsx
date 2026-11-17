@@ -499,31 +499,36 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
 })
 
 it.each([
-  ['Aringeld', 'Diplomacy, Society, Mercantile Lore'],
-  ['Breakiron', 'Crafting, Survival, Alchemy Lore'],
-  ['Firecask', 'Crafting, Nature, Alcohol Lore'],
-  ['Gelderon', 'Athletics, Nature, Farming Lore'],
-  ['Grimmark', 'Crafting, Society, Architecture Lore'],
-  ['Ironfist', 'Crafting, Medicine, Smelting Lore'],
-  ['Molgrade', 'Crafting, Thievery, Smithing Lore'],
-  ['Oriddus', 'Religion, Society, Dwarven Pantheon Lore'],
-  ['Runebinder', 'Arcana, Occultism, Academia Lore'],
-  ['Stonefist', 'Athletics, Intimidation, Warfare Lore'],
-  ['Tolorr', 'Diplomacy, Society, Library Lore'],
-  ['Vanderholl', 'Athletics, Crafting, Labor Lore'],
-])('shows %s Clan Lore training in variants and saved selections', (clan, training) => {
+  ['Aringeld', 'Steelhilt', 'Diplomacy, Society, Mercantile Lore'],
+  ['Breakiron', 'Steelhilt', 'Crafting, Survival, Alchemy Lore'],
+  ['Ertubur', 'Steelhilt', 'Medicine, Religion, Mortuary Lore'],
+  ['Felltree', 'Ironhilt', 'Athletics, Survival, Lumber Lore'],
+  ['Firecask', 'Goldhilt', 'Crafting, Nature, Alcohol Lore'],
+  ['Gelderon', 'Ironhilt', 'Athletics, Nature, Farming Lore'],
+  ['Grimmark', 'Steelhilt', 'Crafting, Society, Architecture Lore'],
+  ['Ironfist', 'Steelhilt', 'Crafting, Medicine, Smelting Lore'],
+  ['Lasthall', 'Ironhilt', 'Society, Survival, Highhelm Lore'],
+  ['Molgrade', 'Goldhilt', 'Crafting, Thievery, Smithing Lore'],
+  ['Oriddus', 'Goldhilt', 'Religion, Society, Dwarven Pantheon Lore'],
+  ['Pearlcask', 'Steelhilt', 'Crafting, Nature, Aquaculture Lore'],
+  ['Runebinder', 'Goldhilt', 'Arcana, Occultism, Academia Lore'],
+  ['Stonefist', 'Steelhilt', 'Athletics, Intimidation, Warfare Lore'],
+  ['Tolorr', 'Goldhilt', 'Diplomacy, Society, Library Lore'],
+  ['Vanderholl', 'Ironhilt', 'Athletics, Crafting, Labor Lore'],
+])('shows %s Clan Lore training in variants and saved selections', (clan, hilt, training) => {
   const feat: ContentEntry = { id: 'clan-lore', name: 'Clan Lore', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
   let c: Character = { ...emptyRanger(), ancestry: 'Dwarf', level: 1 }
   const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
     search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
-  const label = `Clan Lore (${clan}, ${training})`
+  const label = `Clan Lore (${hilt}, ${clan}: ${training})`
   expect(renderToStaticMarkup(tree())).toContain(label)
   findButton(tree(), `L01 Ancestry: ${label}`)!()
   expect(c.feats[0].choice).toBe(clan)
+  for (const skill of training.split(', ')) expect(ranksAt(c, [feat])[skill]).toBe(1)
   expect(renderToStaticMarkup(tree())).toContain(label)
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />))
-    .toContain(`<option value="${clan}" selected="">${clan}, ${training}</option>`)
+    .toContain(`<option value="${clan}" selected="">${hilt}, ${clan}: ${training}</option>`)
 })
 
 it('offers and saves every Favored Prey variant', () => {

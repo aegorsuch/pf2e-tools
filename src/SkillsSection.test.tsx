@@ -57,6 +57,18 @@ it('grants a replacement skill and chosen terrain Lore for Scout', () => {
   expect(renderToStaticMarkup(tree())).toContain('Forest Lore')
 })
 
+it('offers clan trades in the general Lore picker in alphabetical order', () => {
+  const html = renderToStaticMarkup(<SkillsSection c={base} entries={[ranger]} save={() => {}} />)
+  const picker = html.match(/<select aria-label="Common Lore"[\s\S]*?<\/select>/)?.[0] ?? ''
+  for (const lore of [...builder.CLAN_LORES, 'Brewing Lore', 'Distilling Lore', 'Traps Lore', 'Locks Lore',
+    'Runes Lore', 'Highhelm Lore', 'Mortuary Lore', 'Metallurgy Lore', 'Water Filtration Lore',
+    'Aquaculture Lore', 'Lumber Lore', 'Ranching Lore']) {
+    expect(picker).toContain(`>${lore}</option>`)
+  }
+  const labels = [...picker.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match => match[1]).slice(1)
+  expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
+})
+
 it('offers terrain Lore for other matching backgrounds without treating fixed Lore as a choice', () => {
   const nomad = { ...feyBound, name: 'Nomad',
     data: { skill: 'Survival, Lore related to one terrain you traveled in (such as Desert Lore or Swamp Lore).' } }

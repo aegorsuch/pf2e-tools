@@ -18,7 +18,7 @@ import { getSettings } from './settings'
 import { normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
-import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
+import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './builder'
 import type { ContentEntry } from './types'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
@@ -32,10 +32,11 @@ const COMMON_LORES = [...new Set([
   ...FAVORED_TERRAINS,
   'Alcohol', 'Baking', 'Butchering', 'Cooking', 'Tea', 'Mercantile', 'Midwifery', 'Milling',
   'Mining', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
-  'Underworld', 'Warfare',
+  'Underworld', 'Warfare', 'Brewing', 'Distilling', 'Traps', 'Locks', 'Runes', 'Highhelm',
+  'Mortuary', 'Metallurgy', 'Water Filtration', 'Aquaculture', 'Lumber', 'Ranching',
   // https://2e.aonsrd.com/skills/9-lore
   'Corporate', 'Piracy', 'Necrovite', 'Apostae', 'Heaven',
-].map(topic => `${topic} Lore`))].sort((a, b) => a.localeCompare(b))
+].map(topic => `${topic} Lore`).concat(CLAN_LORES))].sort((a, b) => a.localeCompare(b))
 
 const RESISTANCE_NOTES: Record<string, string> = {
   'Poison Resistance': '+1 status bonus to saving throws against poisons.',
