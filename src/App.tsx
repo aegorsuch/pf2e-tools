@@ -8,7 +8,7 @@ import { EffectsEditor } from './EffectsEditor'
 import { HomebrewList } from './HomebrewList'
 import { confirmRemoval } from './confirmRemoval'
 import { loadRequiredCatalogs } from './catalogLoading'
-import { onAuthChange, signInWithEmail, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
+import { onAuthChange, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import { useSettings } from './settings'
 import { refreshApp } from './refresh'
@@ -167,12 +167,6 @@ export default function App() {
                           setShowAccount(false); setAuthError('')
                           try { await signInWithGitHub() } catch (e) { setAuthError(String(e)) }
                         }}>Sign in with GitHub</button>
-                        <button onClick={async () => {
-                          setShowAccount(false)
-                          const addr = window.prompt('Email address for a sign-in link?')?.trim()
-                          if (!addr) return
-                          try { await signInWithEmail(addr); setStatus('Check your email for the sign-in link') } catch (e) { setStatus(String(e)) }
-                        }}>Email me a sign-in link</button>
                       </>
                     )}
                 </div>

@@ -16,12 +16,6 @@ export async function signInWithGitHub() {
   if (error) throw error
 }
 
-// Emails a one-time sign-in link; no password or third-party app registration needed.
-export async function signInWithEmail(email: string) {
-  const { error } = (await supabase?.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo() } })) ?? {}
-  if (error) throw error
-}
-
 export async function signOut() {
   if (!supabase) throw new Error('Supabase is not configured')
   const { error } = await supabase.auth.signOut()
