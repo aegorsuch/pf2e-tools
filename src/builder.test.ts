@@ -2087,9 +2087,11 @@ it('allows only one Mortification damage-type variant', () => {
 })
 
 it('grants Infernal Bulwark order resistance and heavy armor training', () => {
-  const feat = { name: 'Infernal Bulwark', type: 'Archetype Feat', level: 10, choice: 'Order of the Pyre' }
-  const c: Character = { ...base, systems: ['sf2e'], level: 12, feats: [feat] }
-  expect(featChoiceOptions('Infernal Bulwark', c, [], '')).toContain('Order of the Crucible')
+  const dedication = { ...entry('feat', 'Hellknight Dedication', {}, 2, ['Archetype']), systems: ['sf2e' as const] }
+  const feats = [{ name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Pyre' },
+    { name: 'Infernal Bulwark', type: 'Archetype Feat', level: 10 }]
+  const c: Character = { ...base, systems: ['sf2e'], level: 12, feats }
+  expect(featChoiceOptions('Hellknight Dedication', c, [dedication], '')).toContain('Order of the Crucible')
   expect(armorRanks(c, []).Heavy).toBeGreaterThanOrEqual(1)
 })
 

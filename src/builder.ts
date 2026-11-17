@@ -1148,7 +1148,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))
     return ['Ambusher', 'Bully', 'Daredevil', 'Racer', 'Tracker', 'Wrecker'].filter(option => !used.has(option))
   }
-  if (name === 'Infernal Bulwark') return Object.keys(INFERNAL_BULWARK_ORDERS)
+  if (name === 'Hellknight Dedication' && c.systems.includes('sf2e')
+    && entries.some(entry => entry.kind === 'feat' && entry.name === name && entry.systems.includes('sf2e'))) return Object.keys(INFERNAL_BULWARK_ORDERS)
   if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, entries, name)
   if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
@@ -2996,7 +2997,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (activeFeatsNamed(c, 'Radiation Resistant').length) {
     out.push({ damage: 'poison (radiation only)', value: c.level, source: 'Radiation Resistant' })
   }
-  const bulwark = activeFeatsNamed(c, 'Infernal Bulwark')[0]?.choice
+  const bulwark = activeFeatsNamed(c, 'Infernal Bulwark').length ? activeFeatsNamed(c, 'Hellknight Dedication')[0]?.choice : undefined
   if (armor && bulwark && INFERNAL_BULWARK_ORDERS[bulwark]) {
     out.push({ damage: INFERNAL_BULWARK_ORDERS[bulwark], value: half, source: `Infernal Bulwark (${bulwark})` })
   }
