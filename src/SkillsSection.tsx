@@ -103,6 +103,8 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
     <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
       title="Apply favored terrain benefits only while you are in that terrain." />
+    {!!activeFeatsNamed(c, "Implement's Flight").length && <FeatEffectToggle c={c} save={save} name="Implement's Flight" label="Implement's Flight active"
+      title="Fly while holding your implement." />}
     {!!activeFeatsNamed(c, 'Gg-os Frame').length && <FeatEffectToggle c={c} save={save} name="Uncanny Dash" label="Uncanny Dash active"
       title="Apply the speed bonus only during Uncanny Dash." />}
     {isFeatEffectActive(c, 'Favored Terrain') && !terrain
