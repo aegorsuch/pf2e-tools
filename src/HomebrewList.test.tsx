@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { groupHomebrew, HomebrewList } from './HomebrewList'
-import { homebrewCharacterOptions } from './supplemental'
+import { DISARMING_RUNE, GRAPPLING_RUNE, homebrewCharacterOptions, KILLERS_BELT_MAJOR, PARRYING_RUNE } from './supplemental'
 import type { ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import * as settings from './settings'
@@ -70,6 +70,24 @@ it('filters homebrew by entry or category and expands matching groups', () => {
   expect(render('wOlF')).not.toContain('Edit Cat')
   expect(render('companions')).toContain('Edit Cat')
   expect(render('missing')).toContain('No homebrew matches your search.')
+})
+
+it('groups homebrew runes separately from gear and makes the category searchable', () => {
+  const entries = [PARRYING_RUNE, KILLERS_BELT_MAJOR, GRAPPLING_RUNE, DISARMING_RUNE]
+  const before = JSON.stringify(entries)
+  const groups = groupHomebrew(entries)
+  expect(groups.map(group => group.name)).toEqual(['Gear', 'Runes'])
+  expect(groups[0].entries).toEqual([KILLERS_BELT_MAJOR])
+  expect(groups[1].entries).toEqual([DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE])
+  const markup = renderToStaticMarkup(<HomebrewList entries={entries} search="runes" onEdit={() => {}} onDelete={() => {}} />)
+  expect(markup).toContain('<h3>Runes (3)</h3>')
+  expect(markup).toContain('open=""')
+  for (const rune of groups[1].entries) {
+    expect(markup).toContain(`aria-label="Edit ${rune.name}"`)
+    expect(markup).toContain(`aria-label="Delete ${rune.name}"`)
+  }
+  expect(markup).not.toContain(KILLERS_BELT_MAJOR.name)
+  expect(JSON.stringify(entries)).toBe(before)
 })
 
 it('includes every saved rule in its own searchable category even without homebrew entries', () => {

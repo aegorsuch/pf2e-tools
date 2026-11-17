@@ -26,7 +26,7 @@ export function groupHomebrew(entries: ContentEntry[]) {
     ])].map((name) => `${name} Feats`) : []
     if (!names.length) names.push(entry.kind === 'feat'
       ? entry.traits.includes('Skill') ? 'Skill Feats' : entry.traits.includes('General') ? 'General Feats' : entry.traits.includes('Archetype') ? 'Archetype Feats' : 'Other Feats'
-      : LABELS[entry.kind] ?? entry.kind)
+      : entry.kind === 'item' && entry.data.item_category === 'Runes' ? 'Runes' : LABELS[entry.kind] ?? entry.kind)
     for (const name of names) {
       const group = groups.get(name) ?? []
       group.push(entry)
