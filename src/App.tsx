@@ -1,8 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
-import { CharacterBuilder } from './CharacterBuilder'
 import { characterSummary } from './builder'
 import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
@@ -15,6 +14,8 @@ import { useSettings } from './settings'
 import { refreshApp } from './refresh'
 import './App.css'
 
+const loadCharacterBuilder = () => import('./CharacterBuilder').then(m => ({ default: m.CharacterBuilder }))
+const CharacterBuilder = lazy(loadCharacterBuilder)
 const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'familiar', 'subclass']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
@@ -51,6 +52,7 @@ function AccountIcon() {
 export default function App() {
   const enabled = ALL_SYSTEMS
   useSettings()
+  useEffect(() => { const id = setTimeout(() => void loadCharacterBuilder(), 1500); return () => clearTimeout(id) }, [])
   const [rulesOpen, setRulesOpen] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
@@ -229,7 +231,7 @@ export default function App() {
       )}
 
       {editingCharacter && ((!neededKey || catalogReady === requestKey) && catalog?.key === catalogReady && catalog.full
-        ? <CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} onClose={() => setEditingId(null)} />
+        ? <Suspense fallback={null}><CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} onClose={() => setEditingId(null)} /></Suspense>
         : <div role="status">
           {catalogError ? <><p>{catalogError}</p><button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></>
             : <p>Loading character content...</p>}

@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/pf2e-tools/',
     define: { __BUILD_ID__: JSON.stringify(String(Date.now())) },
+    build: { rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'vendor', test: /node_modules/ }] } } } },
     plugins: [
       react(),
       VitePWA({
