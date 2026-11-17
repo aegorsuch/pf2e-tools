@@ -1275,6 +1275,17 @@ it('shows speed bonus sources but omits redundant Initiative helper', () => {
   expect(initiativeBonus(c, [ranger])).toBe(5)
 })
 
+it('shows Uncanny Dash speeds in a source note instead of a temporary active toggle', () => {
+  const c: Character = { ...base, level: 13, systems: ['sf2e'], feats: [
+    { name: 'Gg-os Frame', type: 'Ancestry Feat', level: 1 },
+    { name: 'Uncanny Dash', type: 'Ancestry Feat', level: 9 },
+  ], activeFeatEffects: ['Uncanny Dash'] }
+  const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  expect(markup).not.toContain('aria-label="Uncanny Dash active"')
+  expect(markup).toContain('aria-label="Uncanny Dash note"')
+  expect(markup).toContain('During Uncanny Dash, your conditional Speeds are Land 40 feet')
+})
+
 it('shows calculated armor specialization with its source and clickable full rules', () => {
   const armor: ContentEntry = {
     ...ranger, id: 'wooden-breastplate', kind: 'armor', name: 'Wooden Breastplate',

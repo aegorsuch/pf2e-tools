@@ -425,16 +425,18 @@ it('applies Starfinder armor penalties and Thresher strength relief to skills an
     .not.toContain('Armor check penalty')
 })
 
-it('applies Uncanny Dash once to fixed and land-derived speeds', () => {
+it('shows Uncanny Dash as conditional speed totals without persisting an active toggle', () => {
   const c: Character = { ...base, level: 11, className: 'Ranger', systems: ['sf2e'],
     feats: [feat('Gg-os Frame'), feat('Uncanny Dash', 9), feat('Natural Swimmer'), { ...feat('Favored Terrain'), choice: 'Plains' }],
     activeFeatEffects: ['Uncanny Dash', 'Favored Terrain'] }
   expect(speed(c, [])).toBe(40)
-  expect(movementSpeeds(c, []).find(move => move.name === 'Swim')?.feet).toBe(25)
+  expect(movementSpeeds(c, []).find(move => move.name === 'Swim')?.feet).toBe(15)
   expect(speed({ ...c, activeFeatEffects: ['Favored Terrain'] }, [])).toBe(40)
   expect(movementSpeeds({ ...c, activeFeatEffects: ['Favored Terrain'] }, []).find(move => move.name === 'Swim')?.feet).toBe(15)
+  expect(speed(c, [], { includeUncannyDash: true })).toBe(40)
+  expect(movementSpeeds(c, [], { includeUncannyDash: true }).find(move => move.name === 'Swim')?.feet).toBe(25)
   const aquatic = { ...c, feats: c.feats.map(f => f.name === 'Favored Terrain' ? { ...f, choice: 'Aquatic' } : f) }
-  expect(movementSpeeds(aquatic, []).find(move => move.name === 'Swim')?.feet).toBe(25)
+  expect(movementSpeeds(aquatic, [], { includeUncannyDash: true }).find(move => move.name === 'Swim')?.feet).toBe(25)
   expect(movementSpeeds({ ...aquatic, activeFeatEffects: ['Favored Terrain'] }, []).find(move => move.name === 'Swim')?.feet).toBe(25)
 })
 
@@ -1509,12 +1511,16 @@ it('alphabetizes resistance types in the Defense display', () => {
   expect(markup.indexOf('Acid 3')).toBeLessThan(markup.indexOf('Fire 5'))
 })
 
-it.each([[10, 3], [11, 3], [12, 4], [15, 4], [16, 5], [19, 5], [20, 6]])('activates Harden Flesh resistance %i -> %i with its adamantine exception', (level, value) => {
+it.each([[10, 3], [11, 3], [12, 4], [15, 4], [16, 5], [19, 5], [20, 6]])('shows Harden Flesh resistance %i -> %i as an action note', (level, value) => {
   const c: Character = { ...base, className: 'Druid', level, feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
-  expect(resistances(c, [])).toEqual([{ damage: 'Physical (except adamantine)', value, source: 'Harden Flesh' }])
+  expect(resistances(c, [])).toEqual([])
   expect(resistances({ ...c, activeFeatEffects: [] }, [])).toEqual([])
   expect(resistances({ ...c, level: 9 }, [])).toEqual([])
   expect(resistances({ ...c, feats: [] }, [])).toEqual([])
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(markup).toContain('aria-label="Harden Flesh note"')
+  expect(markup).toContain(`resistance ${value} to physical damage except adamantine`)
+  expect(markup).not.toContain('Harden Flesh active')
 })
 
 it('never treats kaiju form resistance or future feat resistance metadata as permanent', () => {
@@ -1813,9 +1819,10 @@ it('exposes persisted defensive contexts and shows conditional bonuses without c
   }
   const druid: Character = { ...base, className: 'Druid', feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
   const markup = renderToStaticMarkup(<SkillsSection c={druid} entries={[]} save={() => {}} part="defense" />)
-  expect(markup).toContain('aria-label="Harden Flesh active"')
-  expect(markup).toMatch(/Physical \(except adamantine\) 3<button[^>]*>\*<\/button> \(Harden Flesh\)/)
-  expect(renderToStaticMarkup(<SkillsSection c={{ ...druid, feats: [] }} entries={[]} save={() => {}} part="defense" />)).not.toContain('Harden Flesh active')
+  expect(markup).not.toContain('Harden Flesh active')
+  expect(markup).toContain('aria-label="Harden Flesh note"')
+  expect(markup).toContain('Resistances: None')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...druid, feats: [] }} entries={[]} save={() => {}} part="defense" />)).not.toContain('Harden Flesh note')
 })
 
 it('shows movement sources inline and alphabetizes alternate speeds after land Speed', () => {
@@ -2046,10 +2053,10 @@ it('keeps other poison resistance sources visible without borrowing the feat sav
 })
 
 it.each([
-  ['Harden Flesh', 'Physical (except adamantine)', 'Lasts until the beginning of your next turn'],
+  ['Harden Flesh', 'Resistances: None', 'until the beginning of your next turn'],
   ['Heart of the Kaiju', 'Physical', 'Physical resistance applies only while in kaiju form'],
   ['Primal Aegis', 'Acid', 'Resistance equals your positive Wisdom modifier'],
-])('keeps %s visible beside its resistance with a clickable condition note', (name, damage, note) => {
+])('keeps %s condition visible with a clickable note', (name, damage, note) => {
   const c: Character = { ...base, level: 20, abilities: { ...base.abilities, wis: 18 },
     feats: [feat(name)], activeFeatEffects: [name] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)

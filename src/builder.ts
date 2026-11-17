@@ -1554,7 +1554,9 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   return { check, speed: meets ? heavyConstruction ? 0 : Math.min(0, penalty + 5) : penalty }
 }
 
-export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
+type MovementSpeedOptions = { includeUncannyDash?: boolean }
+
+export function speedBonuses(c: Character, entries: ContentEntry[] = [], options: MovementSpeedOptions = {}) {
   const terrain = favoredTerrainBenefits(c, entries)
   const mods = wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
   const names = new Set(mods.map(mod => mod.name))
@@ -1563,7 +1565,8 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
     ? (ranksAt(c, entries).Crafting ?? 0) >= 4 ? 30 : 20 : 10
     : names.has('Speed Boosters') ? overdrive ? 10 : 5 : 0
   const terrainSpeed = terrain?.enhanced && terrain.terrain === 'Plains' ? 10 : 0
-  const dashSpeed = isFeatEffectActive(c, 'Uncanny Dash') && activeFeatsNamed(c, 'Gg-os Frame').length ? 10 : 0
+  const dashSpeed = options.includeUncannyDash && activeFeatsNamed(c, 'Uncanny Dash').length
+    && activeFeatsNamed(c, 'Gg-os Frame').length ? 10 : 0
   const fleet = activeFeatsNamed(c, 'Fleet').length ? 'Fleet'
     : activeFeatsNamed(c, 'Gg-os Frame').length ? 'Gg-os Frame (Fleet)' : undefined
   const status = [
@@ -1582,8 +1585,9 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = []) {
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
-export const speed = (c: Character, entries: ContentEntry[]) =>
-  Math.max(5, (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25) + speedBonuses(c, entries).reduce((sum, bonus) => sum + bonus.feet, 0))
+export const speed = (c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) =>
+  Math.max(5, (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25)
+    + speedBonuses(c, entries, options).reduce((sum, bonus) => sum + bonus.feet, 0))
 
 export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
   if (!c.raging || !activeFeatsNamed(c, 'Raging Athlete').length) return undefined
@@ -1611,11 +1615,12 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
   'Tree Climber (Goblin)': { Climb: 10 }, "True Dragon's Flight": { Fly: 20 }, 'Warren Digger': { Burrow: 15 },
 }
 
-export function movementSpeeds(c: Character, entries: ContentEntry[]) {
-  const land = speed(c, entries)
-  const dash = isFeatEffectActive(c, 'Uncanny Dash') && activeFeatsNamed(c, 'Gg-os Frame').length > 0
+export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
+  const land = speed(c, entries, options)
+  const dash = !!options.includeUncannyDash && activeFeatsNamed(c, 'Uncanny Dash').length > 0
+    && activeFeatsNamed(c, 'Gg-os Frame').length > 0
   const armorPenalty = starfinderArmorPenalties(c, entries).speed
-  const landStatus = speedBonuses(c, entries).find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
+  const landStatus = speedBonuses(c, entries, options).find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
   const fixed = (name: string, feet: number, source: string) => ({
     name, feet: Math.max(5, feet + (dash ? 10 : 0) + armorPenalty), status: dash ? 10 : 0,
     source: `${source}${dash ? ', Uncanny Dash (+10 status)' : ''}${armorPenalty ? `, armor (${armorPenalty})` : ''}`,
@@ -3194,10 +3199,6 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value: aegis, source: 'Primal Aegis' })
     }
   }
-  if (isFeatEffectActive(c, 'Harden Flesh')) out.push({
-    damage: 'physical (except adamantine)',
-    value: Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4))), source: 'Harden Flesh',
-  })
   if (isFeatEffectActive(c, 'Heart of the Kaiju')) out.push({ damage: 'physical', value: 5, source: 'Heart of the Kaiju' })
   for (const rune of wornArmor(c)?.runes ?? []) {
     const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune.replace(/^Greater Energy-Resistant/, 'Energy-Resistant (Greater)')) ?? /^()(\w+) Resistant$/.exec(rune)

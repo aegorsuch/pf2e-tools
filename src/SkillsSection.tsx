@@ -40,7 +40,6 @@ const COMMON_LORES = [...new Set([
 
 const RESISTANCE_NOTES: Record<string, string> = {
   'Poison Resistance': '+1 status bonus to saving throws against poisons.',
-  'Harden Flesh': 'Physical resistance except against adamantine. Lasts until the beginning of your next turn; clear the active toggle when it ends.',
   'Heart of the Kaiju': "Physical resistance applies only while in kaiju form. This toggle does not apply the form's other statistics.",
   'Primal Aegis': 'Resistance equals your positive Wisdom modifier.',
   'Radiation Resistant': 'Poison resistance applies only to damage from radiation effects.',
@@ -92,12 +91,15 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   const athlete = ragingAthleteBenefits(c, entries)
   const terrain = favoredTerrainBenefits(c, entries)
   const characterSenses = senses(c, entries)
+  const speeds = movementSpeeds(c, entries)
+  const dashSpeeds = activeFeatsNamed(c, 'Uncanny Dash').length && activeFeatsNamed(c, 'Gg-os Frame').length
+    ? movementSpeeds(c, entries, { includeUncannyDash: true }) : undefined
   return <>
     <SkillsSection c={c} entries={entries} save={save} part="senses" />
     <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}
       {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
         note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}</small>
-    <small>Speed: {movementSpeeds(c, entries).map((movement, index) => {
+    <small>Speed: {speeds.map((movement, index) => {
       const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
         {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
@@ -105,14 +107,14 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
         {movement.source && ` (${movement.source})`}
         {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
       </span>
-    })}{hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
+    })}{dashSpeeds && <SourceNote source="Uncanny Dash"
+      note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
+      {hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
       source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
     <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
       title="Apply favored terrain benefits only while you are in that terrain." />
     {!!activeFeatsNamed(c, "Implement's Flight").length && <FeatEffectToggle c={c} save={save} name="Implement's Flight" label="Implement's Flight active"
       title="Fly while holding your implement." />}
-    {!!activeFeatsNamed(c, 'Gg-os Frame').length && <FeatEffectToggle c={c} save={save} name="Uncanny Dash" label="Uncanny Dash active"
-      title="Apply the speed bonus only during Uncanny Dash." />}
     {isFeatEffectActive(c, 'Favored Terrain') && !terrain
       && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
     {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Favored Terrain{' '}
@@ -562,8 +564,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             title={`Only against spells and effects with these tradition traits: ${researched.traditions.join(', ')}.`} />
           <small>Researched Spell Resistance: +1 circumstance to saves only against {researched.traditions.join(', ')} spells and effects. Enable only for a matching effect.</small>
         </>}
-        <FeatEffectToggle c={c} save={save} name="Harden Flesh" label="Harden Flesh active"
-          title="Until the beginning of your next turn. Clear this when the effect ends." />
         <FeatEffectToggle c={c} save={save} name="Heart of the Kaiju" label="Kaiju form resistance active"
           title="Physical resistance 5 only while in kaiju form. This control does not apply the form's other statistics." />
         <div className="skill-grid" role="table" aria-label="Defense">
@@ -578,7 +578,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             : activeFeatsNamed(c, r.source).length ? RESISTANCE_NOTES[r.source] : undefined
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
-        }) : 'None'}</small>
+        }) : 'None'}
+          {activeFeatsNamed(c, 'Harden Flesh').length > 0 && <>
+            {' '}<SourceNote source="Harden Flesh"
+              note={`After using its one-action activity while standing on earthen or stone ground, you gain resistance ${Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4)))} to physical damage except adamantine until the beginning of your next turn.`} />
+          </>}
+        </small>
         {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map(weakness =>
           `${weakness.damage} ${weakness.value} (${weakness.source})`).join(', ')}. Weaknesses to the same damage type don’t stack; apply only the highest.</small>}
         {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness (Test-Subject Ysoki)</small>}
