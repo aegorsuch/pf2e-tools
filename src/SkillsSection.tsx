@@ -14,7 +14,7 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
-import { skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
+import { normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
@@ -125,9 +125,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
 
 export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' }) {
   const editingSkills = part === 'skills'
-  const c = editingSkills ? normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries) : original
+  const c = editingSkills ? normalizeGrantedSkillSpending(normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries), entries) : original
   const save: SectionProps['save'] = patch => saveOriginal(c === original ? patch : {
-    feats: c.feats, skillPicks: c.skillPicks, skillIncreases: c.skillIncreases, warmask: c.warmask, lores: c.lores, ...patch,
+    feats: c.feats, skillPicks: c.skillPicks, skillIncreases: c.skillIncreases, skillTokenUpgrades: c.skillTokenUpgrades,
+    warmask: c.warmask, lores: c.lores, ...patch,
   })
   const stats = statDefs(c)
   const klass = editingSkills ? entries.find((e) => e.kind === 'class' && e.name === c.className) : undefined

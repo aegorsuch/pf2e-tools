@@ -1420,10 +1420,10 @@ describe('defenses', () => {
   it('gives druids focus spells from their order and Order Magic', () => {
     const feat = (name: string, choice?: string) => ({ name, type: 'Class Feat', level: 4, choice })
     const druid = { ...base, level: 4, className: 'Druid', order: 'Leaf', feats: [feat('Order Explorer', 'Storm'), feat('Order Magic')] }
-    expect(focusSpells(druid, []).spells.map((s) => s.name)).toEqual(['Goodberry'])
+    expect(focusSpells(druid, []).spells.map((s) => s.name)).toEqual(['Cornucopia'])
     expect(orderMagicOptions(druid)).toEqual(['Storm'])
     const chosen = { ...druid, feats: [feat('Order Explorer', 'Storm'), feat('Order Magic', 'Storm')] }
-    expect(focusSpells(chosen, []).spells.map((s) => s.name)).toEqual(['Goodberry', 'Tempest Surge'])
+    expect(focusSpells(chosen, []).spells.map((s) => s.name)).toEqual(['Cornucopia', 'Tempest Surge'])
     expect(focusSpells({ ...chosen, className: 'Ranger' }, []).spells).toEqual([])
   })
 

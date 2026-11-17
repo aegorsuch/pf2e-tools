@@ -8,6 +8,7 @@ import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { KILLERS_BELT_MAJOR } from './supplemental'
+import { INITIATE_TRAINING } from './featChoices'
 
 const ranger: ContentEntry = {
   id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
@@ -909,6 +910,72 @@ it.each([
   ;(findButtons(tree()).get(`${skill} Master`)!.onClick as () => void)()
   expect(c.skillIncreases).toEqual({ 7: skill })
   expect(ranksAt(c, [ranger])[skill]).toBe(3)
+})
+
+it.each(Object.entries(INITIATE_TRAINING))('returns redundant Expert spending from %s while preserving Master and allowing reuse', (source, training) => {
+  const skill = training.skill
+  let c: Character = { ...base, level: 7, skillPicks: [skill, 'Athletics'],
+    skillIncreases: { 3: skill, 5: 'Nature', 7: skill },
+    feats: [{ name: source, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const before = JSON.stringify(c)
+  expect(skillRankBudget(c, [ranger]).expert).toBe(1)
+  expect(ranksAt(c, [ranger])[skill]).toBe(3)
+  expect(builder.normalizeGrantedSkillSpending(c, [ranger]).skillIncreases).toEqual({ 5: 'Nature', 7: skill })
+  expect(JSON.stringify(c)).toBe(before)
+  expect(skillRankBudget({ ...c, feats: [] }, [ranger]).expert).toBe(0)
+  expect(skillRankBudget({ ...c, level: 3 }, [ranger]).expert).toBe(0)
+  const tree = SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  ;(findButtons(tree).get('Athletics Expert')!.onClick as () => void)()
+  expect(c.skillIncreases).toEqual({ 3: 'Athletics', 5: 'Nature', 7: skill })
+  expect(ranksAt(c, [ranger])).toMatchObject({ [skill]: 3, Athletics: 2 })
+  expect(skillRankBudget(c, [ranger]).expert).toBe(0)
+})
+
+it('returns converted Expert payments without refunding Master, preserves saved intent and reuses the actual tokens', () => {
+  const klass = { ...ranger, data: { ...ranger.data,
+    skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 20 plus your Intelligence modifier' } }
+  const entries = [klass]
+  let c: Character = { ...base, level: 3, skillPicks: ['Occultism', 'Athletics', 'Survival'], skillIncreases: { 3: 'Nature' } }
+  c = { ...c, skillTokenUpgrades: builder.skillTokenPurchase(c, entries, 'Occultism', 2, true) }
+  const payment = c.skillTokenUpgrades![0].payment
+  c = { ...c, level: 7, skillIncreases: { ...c.skillIncreases, 5: 'Survival', 7: 'Nature' } }
+  c = { ...c, skillTokenUpgrades: builder.skillTokenPurchase(c, entries, 'Occultism', 3, true) }
+  const paid = c
+  c = { ...c, feats: [{ name: 'Blackwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const before = JSON.stringify(c)
+  const normalized = builder.normalizeGrantedSkillSpending(c, entries)
+  expect(normalized.skillTokenUpgrades?.map(purchase => purchase.rank)).toEqual([3])
+  expect(builder.skillTokenState(c, entries).inactive).toEqual([])
+  expect(ranksAt(c, entries).Occultism).toBe(3)
+  expect(skillRankBudget(c, entries).trained).toBe(skillRankBudget({ ...c, skillTokenUpgrades: [] }, entries).trained - 4)
+  expect(JSON.stringify(c)).toBe(before)
+  expect(builder.normalizeGrantedSkillSpending({ ...c, feats: [] }, entries).skillTokenUpgrades).toEqual(paid.skillTokenUpgrades)
+  expect(builder.normalizeGrantedSkillSpending({ ...c, level: 8, feats: [{ ...c.feats[0], takenLevel: 8 }] }, entries).skillTokenUpgrades)
+    .toEqual(paid.skillTokenUpgrades)
+  const conversion = getSettings().skillTokenConversion
+  try {
+    updateSettings({ skillTokenConversion: false })
+    expect(builder.normalizeGrantedSkillSpending(c, entries).skillTokenUpgrades).toEqual(paid.skillTokenUpgrades)
+  } finally { updateSettings({ skillTokenConversion: conversion }) }
+  const tree = SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  ;(findButtons(tree).get('Athletics Expert')!.onClick as () => void)()
+  expect(c.skillTokenUpgrades?.find(purchase => purchase.skill === 'Athletics')?.payment).toEqual(payment)
+  expect(c.skillTokenUpgrades?.some(purchase => purchase.skill === 'Occultism' && purchase.rank === 2)).toBe(false)
+  expect(ranksAt(c, entries)).toMatchObject({ Occultism: 3, Athletics: 2 })
+})
+
+it.each([false, true])('preserves earlier skill prerequisites when final-rank planning is %s', finalRanks => {
+  const previous = getSettings().planSkillPrerequisites
+  const prerequisite: ContentEntry = { ...ranger, id: 'expert-feat', kind: 'feat', name: 'Expert Test',
+    data: { prerequisite: 'Expert in Occultism' } }
+  const c: Character = { ...base, level: 8, skillPicks: ['Occultism'], skillIncreases: { 3: 'Occultism' },
+    feats: [{ name: prerequisite.name, type: 'Skill Feat', level: 6 },
+      { name: 'Blackwatch Initiate', type: 'Class Feat', level: 8, takenLevel: 8 }] }
+  try {
+    updateSettings({ planSkillPrerequisites: finalRanks })
+    expect(builder.normalizeGrantedSkillSpending(c, [ranger, prerequisite]).skillIncreases)
+      .toEqual(finalRanks ? {} : { 3: 'Occultism' })
+  } finally { updateSettings({ planSkillPrerequisites: previous }) }
 })
 
 it('keeps Ancestral Skills training fixed, refunds redundant picks and spends only later increases', () => {

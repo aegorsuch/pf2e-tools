@@ -21,6 +21,36 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('applies Apex Companion only to its chosen animal and restores normal statistics when unavailable', () => {
+    const apex = entry('feat', 'Apex Companion', { grants_focus_spells: 'Apex Companion' }, 20)
+    const spell = entry('spell', 'Apex Companion', {}, 10, ['Focus'])
+    const animal = { ...bear, data: { ...bear.data, speed_raw: '35 feet, swim 20 feet',
+      companion_attacks: 'jaws|1d8 piercing|deadly d8;claw|1d6 slashing|agile;tail|1d12 bludgeoning|' } }
+    const entries = [animal, apex, spell]
+    const c: Character = { ...base, level: 20, feats: [{ name: apex.name, type: 'Class Feat', level: 20 }],
+      companions: [{ id: 'a', type: 'Bear', name: '' }, { id: 'b', type: 'Bear', name: '' }],
+      activeSpells: ['Apex Companion', 'Enlarge Companion'], apexCompanionId: 'b', enlargeCompanionId: 'b' }
+    const advancement = { mature: true, advanced: 'Nimble', specializations: [] }
+    const before = JSON.stringify(c)
+    const normal = companionStats({ ...c, activeSpells: [] }, entries, 'Bear', advancement, 'b')!
+    const stats = companionStats(c, entries, 'Bear', advancement, 'b')!
+    expect(stats).toMatchObject({ apex: true, size: 'Huge', reach: 15, temporaryHp: 30,
+      ignoreAllDifficultTerrain: true, speed: '45 feet, swim 30 feet', senses: 'Darkvision', clumsy: 0 })
+    expect(stats.hp).toBe(normal.hp)
+    expect(stats.ac).toBe(normal.ac)
+    expect(stats.attacks.map(attack => attack.damage)).toEqual(['2d10+7 piercing', '2d8+7 slashing', '2d12+7 bludgeoning'])
+    expect(stats.attacks.map(attack => attack.attack)).toEqual(normal.attacks.map(attack => attack.attack))
+    for (const attack of stats.attacks) expect(attack.traits.match(/deadly d12/gi)).toHaveLength(1)
+    expect(stats.enlarge).toBeUndefined()
+    expect(companionStats(c, entries, 'Bear', advancement, 'a')?.apex).toBe(false)
+    expect(companionStats({ ...c, activeSpells: [] }, entries, 'Bear', advancement, 'b')).toEqual(normal)
+    expect(companionStats({ ...c, feats: [], activeSpells: ['Apex Companion'] }, entries, 'Bear', advancement, 'b')).toEqual(normal)
+    expect(companionStats({ ...c, level: 19 }, entries, 'Bear', advancement, 'b')?.apex).toBe(false)
+    for (const trait of ['Construct', 'Eidolon'])
+      expect(companionStats(c, [{ ...animal, traits: [trait] }, apex, spell], 'Bear', advancement, 'b')?.apex).toBe(false)
+    expect(JSON.stringify(c)).toBe(before)
+  })
+
   it('grants Ferocious Beasts to every animal companion, but not constructs or eidolons', () => {
     const c: Character = { ...base, level: 13,
       companions: [{ id: 'first', type: 'Bear', name: '' }, { id: 'second', type: 'Bear', name: '' }],

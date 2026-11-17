@@ -393,12 +393,11 @@ it('uses full companion stat names, omits redundant level, and keeps AC adjustme
   expect(markup).not.toContain('</button> (Magic Hide, Enlarge Companion)')
   expect(markup).not.toContain('</button> (Enlarge Companion)')
   expect(markup).toContain('+1 Status (Magic Hide); -1 Status (clumsy 1; Enlarge Companion)')
-  const skillsStart = markup.indexOf('<small>Skills</small>')
-  const actionsStart = markup.indexOf('<section class="companion-actions">')
-  expect(markup.slice(skillsStart, actionsStart)).not.toContain('</button> (Enlarge Companion)')
-  const attacksStart = markup.indexOf('<h6>Attacks</h6>')
-  const maneuversStart = markup.indexOf('<h6>Maneuvers</h6>')
-  expect(markup.slice(attacksStart, maneuversStart)).not.toContain('</button> (Enlarge Companion)')
+  const skillsStart = markup.indexOf('<h5>Skills</h5>')
+  expect(markup.slice(skillsStart)).not.toContain('</button> (Enlarge Companion)')
+  const attacksStart = markup.indexOf('<h5>Attacks</h5>')
+  const defensesStart = markup.indexOf('<h5>Defenses</h5>')
+  expect(markup.slice(attacksStart, defensesStart)).not.toContain('</button> (Enlarge Companion)')
 })
 
 it('shows alphabetical companion status controls and groups action costs, maneuver rules, and descriptions', () => {
@@ -429,9 +428,19 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   expect(markup.indexOf('Canopy Crawler')).toBeLessThan(markup.indexOf('Enlarge Companion'))
   expect(markup.indexOf('Enlarge Companion')).toBeLessThan(markup.indexOf('Magic Hide'))
   expect(markup.indexOf('Magic Hide')).toBeLessThan(markup.indexOf('Pale Horse'))
-  expect(markup).toContain('<h5>Actions and maneuvers</h5>')
-  expect(markup).toContain('<h6>Attacks</h6>')
-  expect(markup).toContain('<h6>Maneuvers</h6>')
+  expect(markup).not.toContain('Actions and maneuvers')
+  expect(markup).toContain('<h5>Attacks</h5>')
+  expect(markup).toContain('<h5>Maneuvers</h5>')
+  const headings = [...markup.matchAll(/<h5>([^<]+)<\/h5>/g)].map(match => match[1])
+  expect(headings).toEqual([...headings].sort((a, b) => a.localeCompare(b)))
+  expect(headings).toContain('Equipment')
+  expect(markup).not.toContain('<strong>Cat</strong>')
+  const defenses = markup.slice(markup.indexOf('<h5>Defenses</h5>'), markup.indexOf('<h5>Equipment</h5>'))
+  for (const name of ['Armor Class', 'Fortitude', 'Reflex', 'Will']) expect(defenses).toContain(`<small>${name}</small>`)
+  expect(defenses).not.toContain('Perception')
+  const senses = markup.slice(markup.indexOf('<h5>Senses</h5>'), markup.indexOf('<h5>Skills</h5>'))
+  expect(senses).toContain('<small>Perception</small>')
+  expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<b>Support Benefit</b>'))
   expect(markup).toContain('aria-label="Single Action"')
   expect(markup).toContain('aria-label="Two Actions"')
   expect(markup).not.toContain('class="companion-maneuver-card"')
@@ -527,6 +536,40 @@ it('syncs companion spell toggles in both directions, persists targets, and gate
   expect(c.enlargeCompanionSize).toBe('Huge')
 })
 
+it('syncs Apex Companion activation with the chosen companion and exposes its actual effects', () => {
+  const animal: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'cat', name: 'Cat', traits: ['Animal'],
+    data: { size: 'Small', hp: 8, strength: 3, speed_raw: '30 feet', companion_attacks: 'claw|1d6 slashing|agile' } }
+  const spell: ContentEntry = { ...animal, id: 'apex-spell', kind: 'spell', name: 'Apex Companion', level: 10, traits: ['Focus'], data: {} }
+  const feat: ContentEntry = { ...spell, id: 'apex-feat', kind: 'feat', level: 20, data: { grants_focus_spells: 'Apex Companion' } }
+  const entries = [animal, spell, feat, CONSTRUCT_COMPANION_ENTRY]
+  let c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 20, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: feat.name, type: 'Class Feat', level: 20 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    activeSpells: ['Enlarge Companion', 'Keen Smell'],
+    enlargeCompanionId: 'b',
+    companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }] }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const control = (companionId?: string) => CompanionSpellOptions({ c, entries, save, name: 'Apex Companion', companionId })
+  findToggle(control('b'), 'Apex Companion on B')!({ target: { checked: true } })
+  expect(c.apexCompanionId).toBe('b')
+  expect(c.activeSpells).toEqual(['Keen Smell', 'Apex Companion'])
+  expect(renderToStaticMarkup(control('a'))).not.toContain('checked=""')
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)
+  for (const text of ['<small>Temporary Hit Points</small><b>30</b>', '<small>Reach</small> 15 feet',
+    'Deadly d12', 'Darkvision', 'greater difficult terrain', '40 feet']) expect(markup).toContain(text)
+  const spells = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(spells).toContain('aria-label="Apex Companion active" checked=""')
+  findToggle(control(), 'Apex Companion active')!({ target: { checked: false } })
+  expect(c.activeSpells).toEqual(['Keen Smell'])
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).not.toContain('Temporary Hit Points')
+  c = { ...c, level: 18 }
+  findToggle(control('b'), 'Apex Companion on B')!({ target: { checked: true } })
+  expect(c.activeSpells).not.toContain('Apex Companion')
+  c = { ...c, level: 20, companions: [{ id: 'b', type: CONSTRUCT_COMPANION_NAME, name: 'B' }] }
+  findToggle(control('b'), 'Apex Companion on B')!({ target: { checked: true } })
+  expect(c.activeSpells).not.toContain('Apex Companion')
+})
+
 it.each([
   ['Incredible Companion', 'Specialized Companion'],
   ['Incredible Mount', 'Specialized Mount'],
@@ -560,7 +603,8 @@ it.each([
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('aria-label="Remove Wolf"')
   expect(markup).not.toContain('aria-label="Companion name"')
-  expect(markup).toContain('<strong>Wolf</strong>')
+  expect(markup).not.toContain('<strong>Wolf</strong>')
+  expect(markup).not.toContain('Wolf (Wolf)')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
     .not.toContain('Add animal companion')
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }

@@ -1855,7 +1855,7 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
 
 // The initial order spell (a focus spell) each druidic order grants
 export const ORDER_SPELLS: Record<string, string> = {
-  Animal: 'Heal Animal', Flame: 'Wildfire', Leaf: 'Goodberry', Stone: 'Crushing Ground', Storm: 'Tempest Surge', Wave: 'Rising Surf', Wild: 'Untamed Shift',
+  Animal: 'Heal Animal', Flame: 'Wildfire', Leaf: 'Cornucopia', Stone: 'Crushing Ground', Storm: 'Tempest Surge', Wave: 'Rising Surf', Wild: 'Untamed Shift',
 }
 
 // Orders picked with Order Explorer that an Order Magic feat can still take the spell of
@@ -1869,6 +1869,7 @@ export const orderMagicOptions = (c: Character, exceptIndex = -1) => {
 
 const spellNameCache = new WeakMap<ContentEntry[], Map<string, string>>()
 const spellName = (entries: ContentEntry[], name: string) => {
+  if (name.toLowerCase() === 'goodberry') name = 'Cornucopia'
   let map = spellNameCache.get(entries)
   if (!map) {
     map = new Map()
@@ -1881,7 +1882,10 @@ const spellName = (entries: ContentEntry[], name: string) => {
 // Focus spells from the druid's order, Order Magic and feats that grant one; plus the resulting Focus Points
 export function focusSpells(c: Character, entries: ContentEntry[]) {
   const out = new Map<string, { name: string; source: string }>()
-  const add = (name: string, source: string) => { if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name: spellName(entries, name), source }) }
+  const add = (name: string, source: string) => {
+    name = spellName(entries, name)
+    if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
+  }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const champion = c.className === 'Champion' && c.level >= 1
   const devotionAvailable = c.devotionSpell && (championDevotionOptions(c, entries).includes(c.devotionSpell)
@@ -4470,7 +4474,54 @@ function takeSkillToken(tokens: SkillToken[], rank: number): string[] | undefine
   return first && second ? [...first, ...second] : undefined
 }
 
+export function normalizeGrantedSkillSpending(c: Character, entries: ContentEntry[]): Character {
+  const spending = [...Object.values(c.skillIncreases ?? {}), ...(c.skillTokenUpgrades ?? []).map(purchase => purchase.skill)]
+  if (!spending.length) return c
+  const free = ranksAt({ ...c, skillIncreases: {}, rankOverrides: undefined, skillTokenUpgrades: undefined }, entries)
+  const skills = [...new Set(spending.filter(skill => (free[skill] ?? 0) >= 2))]
+  if (!skills.length) return c
+  const historical = getSettings().planSkillPrerequisites ? [] : c.feats.flatMap(feat => {
+    const level = featTakenLevel(feat)
+    if (level > c.level) return []
+    const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+    return [...String(source?.data.prerequisite ?? '').matchAll(/\b(trained|expert|master|legendary)\s+(?:in|with)\s+([^.;]+)/gi)]
+      .flatMap(match => skills.filter(skill => new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(match[2]))
+        .map(skill => ({ level, skill, rank: RANKS.findIndex(rank => rank.toLowerCase() === match[1].toLowerCase()) })))
+  })
+  let next = c
+  let state = calculateSkillTokenState(c, entries)
+  const accept = (candidate: Character, removed?: SkillTokenUpgrade) => {
+    const after = calculateSkillTokenState(candidate, entries)
+    if (Object.entries(state.ranks).some(([skill, rank]) => (after.ranks[skill] ?? 0) < rank)
+      || state.active.some(item => item.purchase !== removed && !after.active.some(other => other.purchase === item.purchase))) return
+    for (const requirement of historical) {
+      const before = calculateSkillTokenState({ ...next, level: requirement.level }, entries).ranks[requirement.skill] ?? 0
+      if (before >= requirement.rank && (calculateSkillTokenState({ ...candidate, level: requirement.level }, entries)
+        .ranks[requirement.skill] ?? 0) < requirement.rank) return
+    }
+    next = candidate
+    state = after
+  }
+  for (const purchase of c.skillTokenUpgrades ?? []) {
+    if ((free[purchase.skill] ?? 0) >= purchase.rank && state.active.some(item => item.purchase === purchase)) {
+      accept({ ...next, skillTokenUpgrades: next.skillTokenUpgrades?.filter(item => item !== purchase) }, purchase)
+    }
+  }
+  for (const token of skillIncreaseTokens(c)) {
+    const skill = next.skillIncreases?.[token.key]
+    if (!skill || !skills.includes(skill)) continue
+    const skillIncreases = { ...next.skillIncreases }
+    delete skillIncreases[token.key]
+    accept({ ...next, skillIncreases })
+  }
+  return next
+}
+
 export function skillTokenState(c: Character, entries: ContentEntry[]) {
+  return calculateSkillTokenState(normalizeGrantedSkillSpending(c, entries), entries)
+}
+
+function calculateSkillTokenState(c: Character, entries: ContentEntry[]) {
   const raw = { ...c, skillTokenUpgrades: undefined }
   const ranks = ranksAt(raw, entries)
   const available = unusedSkillTokens(raw, entries)
@@ -4512,6 +4563,7 @@ export function skillTokenState(c: Character, entries: ContentEntry[]) {
 
 export function skillTokenPurchase(c: Character, entries: ContentEntry[], skill: string, target: number,
   convertOnly = false, state = skillTokenState(c, entries)) {
+  c = normalizeGrantedSkillSpending(c, entries)
   if (!getSettings().skillTokenConversion || !Number.isInteger(target)
     || target < 2 || target > (c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1)) return undefined
   const current = state.ranks[skill] ?? 0
@@ -4539,6 +4591,7 @@ export function skillTokenPayment(payment: string[], c: Character, entries: Cont
 }
 
 export function skillRankBudget(c: Character, entries: ContentEntry[]) {
+  c = normalizeGrantedSkillSpending(c, entries)
   const raw = { ...c, skillTokenUpgrades: undefined }
   const remaining = baseSkillRankBudget(raw, entries)
   if (!getSettings().skillTokenConversion || !c.skillTokenUpgrades?.length) return remaining
@@ -4550,7 +4603,7 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
 }
 
 export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
-  c = normalizeConditionalSkillChoices(normalizeLongevitySkills(c), entries)
+  c = normalizeGrantedSkillSpending(normalizeConditionalSkillChoices(normalizeLongevitySkills(c), entries), entries)
   const keys = ['trained', 'expert', 'master', 'legendary'] as const
   const remaining = skillRankBudget(c, entries)
   const total = { trained: additionalSkillCount(c, entries), expert: 0, master: 0, legendary: 0 }

@@ -348,6 +348,7 @@ export interface Character {
   canopyCrawlerCompanionId?: string
   enlargeCompanionSize?: 'Large' | 'Huge'
   enlargeCompanionId?: string
+  apexCompanionId?: string
   // Companions and their equipped gear
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void' }[]

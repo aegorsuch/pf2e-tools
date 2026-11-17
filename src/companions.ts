@@ -174,15 +174,18 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     + (servitor === 'Celestial' || servitor === 'Fiend' ? 5 : 0) : 0) + (celestialMount || fiendishMount ? 40 : 0)
   const baseSize = String(d.size ?? '').split(',')[0].trim()
   const naturalSize = mature && baseSize && d.fixed_size !== true ? growSize(baseSize) : baseSize
+  const apex = c.level >= 19 && companionId !== undefined
+    && companionId === companionSpellTarget(c, c.apexCompanionId) && isSpellActive(c, entries, 'Apex Companion')
+    && type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
   const enlargedSize = enlargeCompanionSize(c, naturalSize)
-  const enlarge = c.level >= 3 && companionId !== undefined
+  const enlarge = !apex && c.level >= 3 && companionId !== undefined
     && companionId === companionSpellTarget(c, c.enlargeCompanionId) && isSpellActive(c, entries, 'Enlarge Companion')
     && SIZES.indexOf(naturalSize) >= 0 && SIZES.indexOf(naturalSize) < SIZES.indexOf(enlargedSize)
     ? { size: enlargedSize, damage: enlargedSize === 'Huge' ? 4 : 2,
       reachIncrease: (enlargedSize === 'Huge' ? 10 : 5) + (naturalSize === 'Tiny' ? 5 : 0) } : undefined
   const clumsy = enlarge ? 1 : 0
   const total = (k: string, ability: Ability) => mods[ability] + prof(k) - (ability === 'dex' ? clumsy : 0)
-  const size = enlarge?.size ?? naturalSize
+  const size = apex ? 'Huge' : enlarge?.size ?? naturalSize
   const riderSizes = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
     .match(/tiny|small|medium|large|huge|gargantuan/gi) ?? ['Medium']
   const riderSize = Math.max(...riderSizes.map(value => SIZES.findIndex(candidate => candidate.toLowerCase() === value.toLowerCase())))
@@ -198,8 +201,11 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     const ability: Ability = finesse && mods.dex > mods.str ? 'dex' : 'str'
     const ranged = /\branged\b|\brange(?: increment)?\s+\d+/i.test(traits)
     const bonus = mods[ability] + flat + (!ranged ? enlarge?.damage ?? 0 : 0)
-    const text = m ? `${mature ? +m[1] * 2 : m[1]}d${m[2]}${bonus ? signed(bonus) : ''} ${m[3]}`.trim() : damage
-    const strikeTraits = [traits, ...steedTraits.filter((trait) => !traits.split(',').some((value) => value.trim().toLowerCase() === trait.toLowerCase()))]
+    const die = m && apex ? [4, 6, 8, 10, 12].find(die => die > +m[2]) ?? +m[2] : m?.[2]
+    const text = m ? `${mature ? +m[1] * 2 : m[1]}d${die}${bonus ? signed(bonus) : ''} ${m[3]}`.trim() : damage
+    const apexTraits = apex ? /\bdeadly\s+d\d+\b/i.test(traits)
+      ? traits.replace(/\bdeadly\s+d\d+\b/gi, 'Deadly d12') : [traits, 'Deadly d12'].filter(Boolean).join(', ') : traits
+    const strikeTraits = [apexTraits, ...steedTraits.filter((trait) => !traits.split(',').some((value) => value.trim().toLowerCase() === trait.toLowerCase()))]
       .filter(Boolean).join(', ')
     return { name, traits: strikeTraits, attack: mods[ability] + proficiencyBonus(1, level) - (ability === 'dex' ? clumsy : 0),
       damage: text, dexterityBased: ability === 'dex', ranged }
@@ -219,6 +225,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
+  if (apex) speed = speed.replace(/(\d+)\s*(feet|ft)\b/gi, (_, feet: string, unit: string) => `${+feet + 10} ${unit}`)
   if (auspice && !getSettings().championFormNoFlight || celestialMount || fiendishMount) {
     const land = Number(/^\d+/.exec(speed)?.[0])
     if (land > 0) {
@@ -247,10 +254,13 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const senses = String(d.sense ?? '')
-  const mountSenses = (celestialMount || fiendishMount) && !/\bdarkvision\b/i.test(senses)
+  const mountSenses = (apex || celestialMount || fiendishMount) && !/\bdarkvision\b/i.test(senses)
     ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
   return {
-    entry, level, size, naturalSize, mods, hp, speed, speedBonuses, skills: companionSkills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
+    entry, level, size, naturalSize, mods, hp, speed,
+    speedBonuses: [...speedBonuses, ...(apex ? [{ source: 'Apex Companion (status)', feet: 10 }] : [])],
+    skills: companionSkills, attacks, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
+    apex, temporaryHp: apex ? 30 : 0, reach: apex ? 15 : undefined, ignoreAllDifficultTerrain: apex,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
     magicHide, canopyCrawler, enlarge, clumsy, stealthyCompanion,

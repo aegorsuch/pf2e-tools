@@ -161,7 +161,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
       const compStage = comp.type === CONSTRUCT_COMPANION_NAME
         ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
         : index === 0 ? stage : 'Young'
-      return `${compStage} ${comp.type}${comp.name ? ` (${comp.name})` : ''}`
+      return `${compStage} ${comp.type}${comp.name && comp.name !== comp.type ? ` (${comp.name})` : ''}`
     }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
@@ -262,7 +262,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
                   aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
                   onChange={event => save(magicHideChange(c, event.target.checked, comp.id))} /> Magic Hide</label> }] : []),
-                ...(['Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
+                ...(['Apex Companion', 'Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
                 ...(index === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && activeFeatsNamed(c, 'Pale Horse').length > 0
@@ -279,7 +279,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return (
               <article key={comp.id} className="gear-card">
                 <header className="row">
-                  <strong>{comp.name || comp.type}</strong>
+                  {comp.name && comp.name !== comp.type && <strong>{comp.name}</strong>}
                   <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value })}>
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
@@ -323,42 +323,21 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   <div className="gear-traits">
                     <span>{isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
                       : index === 0 ? stage : 'Young'}</span>                      <span>{stats.size}{enlargeNote
-                        && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}</span>
+                        && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}
+                        {stats.apex && <SourceNote source="Apex Companion" note="Huge for 1 minute; requires room to expand." inlineSource={false} />}</span>
                     {!isConstruct && index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
                     {stats.mount && <span>Mount</span>}
                     {stats.grantedTraits.map((trait) => <span key={trait}>{trait}</span>)}
                   </div>
-                  {stats.weakness && <small>Weakness: {stats.weakness}</small>}
-                  {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
-                    Creatures touching or hitting the steed with an adjacent melee Strike take {stats.paleHorse.retaliation} {stats.paleHorse.damage.toLowerCase()} damage.</div>}
-                  <div className="gear-stats">
-                    <span><small>Hit Points</small><b>{stats.hp}</b></span>
-                    <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
-                    <span><small>Perception</small><b>{signed(stats.perception)}</b></span>
-                    <span><small>Fortitude</small>{signed(stats.fortitude)}</span>
-                    <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote
-                      && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
-                    <span><small>Will</small>{signed(stats.will)}</span>
-                    {stats.enlarge && enlargeNote && <span><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet
-                      <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} /></span>}
-                  </div>
                   <div className="gear-stats">
                     {ABILITIES.map(k => <span key={k}><small>{ABILITY_LABEL[k]}</small>{signed(stats.mods[k])}</span>)}
                   </div>
-                  <div><small>Speed</small> <span>{stats.speed}{stats.canopyCrawler
-                    && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>
-                    {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
-                    {stats.senses && <> · <small>Senses</small> {stats.senses}</>}</div>
-                  {stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
-                  {stats.skills.length > 0 && <div><small>Skills</small> {stats.skills.map((s, index) => <span key={s.name}>
-                    {index > 0 && ', '}{s.name} {signed(s.bonus)}{s.clumsy && clumsyNote
-                      && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
-                    {s.note && s.noteSource && <SourceNote source={s.noteSource} note={s.note} inlineSource={false} />} ({RANK_LETTER[s.rank]})
-                  </span>)}</div>}
-                  {(stats.attacks.length > 0 || stats.support || stats.maneuver || stats.primalHowl) && <section className="companion-actions">
-                    <h5>Actions and maneuvers</h5>
-                    {stats.attacks.length > 0 && <div className="companion-action-group">
-                      <h6>Attacks</h6>
+                  {(stats.attacks.length > 0 || stats.enlarge) && <section className="companion-actions">
+                      <h5>Attacks</h5>
+                      {stats.apex && <div><small>Reach</small> {stats.reach} feet
+                        <SourceNote source="Apex Companion" note="Attacks have 15-foot reach; damage dice increase one step and gain Deadly d12." inlineSource={false} /></div>}
+                      {stats.enlarge && enlargeNote && <div><small>Reach bonus</small>+{stats.enlarge.reachIncrease} feet
+                        <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} /></div>}
                       {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => <div key={a.name} className="companion-action">
                         <div className="companion-action-title">
                           <ActionIcon actions="Single Action" />
@@ -366,12 +345,31 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                           <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
                             && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
                           <span>— {a.damage}{!a.ranged && enlargeModifierNote
-                            && <SourceNote source="Enlarge Companion" note={enlargeModifierNote} inlineSource={false} />}</span>
+                            && <SourceNote source="Enlarge Companion" note={enlargeModifierNote} inlineSource={false} />}
+                            {stats.apex && <SourceNote source="Apex Companion" note="Damage dice increase one step; Deadly d12." inlineSource={false} />}</span>
                         </div>
                       </div>)}
-                    </div>}
-                    {(stats.support || stats.maneuver || stats.primalHowl) && <div className="companion-action-group">
-                      <h6>Maneuvers</h6>
+                  </section>}
+                  {stats.stealthyCompanion && <div><small>Camouflage</small> In natural terrain, your companion can Hide and Sneak without cover or concealment.</div>}
+                  <section className="companion-actions">
+                    <h5>Defenses</h5>
+                    <div className="gear-stats">
+                      <span><small>Hit Points</small><b>{stats.hp}</b></span>
+                      {stats.temporaryHp > 0 && <span><small>Temporary Hit Points</small><b>{stats.temporaryHp}</b>
+                        <SourceNote source="Apex Companion" note="Gain 30 temporary Hit Points when cast; not added to maximum Hit Points." inlineSource={false} /></span>}
+                      <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
+                      <span><small>Fortitude</small>{signed(stats.fortitude)}</span>
+                      <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote
+                        && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
+                      <span><small>Will</small>{signed(stats.will)}</span>
+                    </div>
+                    {stats.weakness && <small>Weakness: {stats.weakness}</small>}
+                    {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
+                      Creatures touching or hitting the steed with an adjacent melee Strike take {stats.paleHorse.retaliation} {stats.paleHorse.damage.toLowerCase()} damage.</div>}
+                  </section>
+                  <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
+                  {maneuvers.length > 0 && <section className="companion-actions">
+                      <h5>Maneuvers</h5>
                       {maneuvers.map(maneuver => <div key={maneuver.name} className="companion-action">
                         <div className="companion-action-title">
                           {maneuver.actions ? <ActionIcon actions={maneuver.actions} showOther />
@@ -383,16 +381,38 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         </p>}
                         <p className="companion-action-description">{maneuver.description}</p>
                       </div>)}
-                      {stats.support && <div className="companion-action">
-                        <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Support Benefit</b></div>
-                        <p className="companion-action-description">{stats.support}</p>
-                      </div>}
-                    </div>}
                   </section>}
                   <MinionFerocity c={c} ferocity={stats.ferocity} />
-                  {stats.stealthyCompanion && <div><small>Camouflage</small> In natural terrain, your companion can Hide and Sneak without cover or concealment.</div>}
-                </> : <small>Companion data is still loading.</small>}
-                <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
+                  <section className="companion-actions">
+                    <h5>Senses</h5>
+                    <div><small>Perception</small> <b>{signed(stats.perception)}</b>{stats.senses && <> · {stats.senses}</>}
+                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}</div>
+                  </section>
+                  {stats.skills.length > 0 && <section className="companion-actions">
+                    <h5>Skills</h5>
+                    <div>{stats.skills.map((s, index) => <span key={s.name}>
+                      {index > 0 && ', '}{s.name} {signed(s.bonus)}{s.clumsy && clumsyNote
+                        && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
+                      {s.note && s.noteSource && <SourceNote source={s.noteSource} note={s.note} inlineSource={false} />} ({RANK_LETTER[s.rank]})
+                    </span>)}</div>
+                  </section>}
+                  <section className="companion-actions">
+                    <h5>Speed</h5>
+                    <div><span>{stats.speed}{stats.canopyCrawler
+                      && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>
+                      {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}</div>
+                    {stats.ignoreAllDifficultTerrain ? <small>Ignores difficult terrain and greater difficult terrain (Apex Companion).</small>
+                      : stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
+                  </section>
+                  {stats.support && <section className="companion-actions">
+                    <div className="companion-action">
+                      <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Support Benefit</b></div>
+                      <p className="companion-action-description">{stats.support}</p>
+                    </div>
+                  </section>}
+                </> : <><small>Companion data is still loading.</small>
+                  <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
+                </>}
               </article>
             )
           })}

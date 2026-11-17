@@ -464,13 +464,53 @@ it('heightens Grown of Oak automatically for the character and leshy familiar', 
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('Cast rank 4 (Grown of Oak)')
   expect(html).not.toContain('Oaken Resilience cast rank')
-  expect(html).toContain('Active on you')
+  expect(html).not.toContain('Active on you')
+  expect(html).not.toContain('at will;')
+  expect(html).not.toContain('Targets you and your leshy familiar')
+  expect(html).toContain('aria-label="Oaken Resilience active"')
   const minions = (character: Character) => renderToStaticMarkup(<MinionsSection c={character} entries={entries} save={() => {}} />)
   expect(minions(c)).toContain('Bludgeoning and piercing resistance 4; fire weakness 6')
   expect(minions({ ...c, level: 18 })).toContain('Bludgeoning and piercing resistance 8; fire weakness 12')
   expect(minions({ ...c, activeSpells: [] })).not.toContain('Bludgeoning and piercing resistance')
   expect(minions(c)).not.toContain('Oaken Resilience active on leshy familiar')
   expect(unresolvedFeatSpells(c, [grown])).toMatchObject([{ name: 'Oaken Resilience' }])
+})
+
+it('uses Cornucopia for Leaf order and legacy Goodberry grants and saved selections', () => {
+  const cornucopia = { ...entry('Cornucopia', 'spell', { duration: '10 minutes' }, ['Focus', 'Druid']), level: 1 }
+  const legacy = feat('Legacy Leaf Magic', 'You learn the [goodberry](/Spells.aspx?ID=473) order spell.')
+  const entries = [cornucopia, legacy]
+  const c: Character = { ...base, level: 3, className: 'Druid', order: 'Leaf',
+    spells: [{ name: 'Goodberry', entryId: 'legacy-goodberry', rank: 1, cantrip: false }] }
+  const before = JSON.stringify(c)
+  expect(focusSpells(c, entries).spells).toEqual([{ name: 'Cornucopia', source: 'Leaf Order' }])
+  expect(grantedFeatSpells({ ...c, feats: [taken(legacy.name)] }, entries)).toMatchObject([{ entry: cornucopia }])
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Cornucopia')
+  expect(html).not.toContain('Goodberry')
+  expect(html).toContain('10 minutes')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('learns Apex Companion from its order-spell feat and removes access when the source becomes unavailable', () => {
+  const apex = feat('Apex Companion', 'You learn the [_apex companion_](/Spells.aspx?ID=562) order spell. Increase the number of Focus Points in your focus pool by 1.', 20)
+  const spell = { ...entry('Apex Companion', 'spell', {}, ['Druid', 'Focus', 'Uncommon']), level: 10 }
+  const entries = [apex, spell]
+  const c: Character = { ...base, level: 20, className: 'Druid', feats: [taken(apex.name, 20)] }
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: spell, rule: { kind: 'focus' } }])
+  expect(focusSpells(c, entries)).toMatchObject({ points: 1, spells: [{ name: spell.name }] })
+  expect(knowsSpell(c, entries, spell.name)).toBe(true)
+  expect(knowsSpell({ ...c, level: 19 }, entries, spell.name)).toBe(false)
+  expect(knowsSpell({ ...c, feats: [] }, entries, spell.name)).toBe(false)
+})
+
+it('removes bottom spell search without removing prepared spell selectors', () => {
+  const c: Character = { ...base, className: 'Druid', level: 3 }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).not.toContain('Search spells')
+  expect(html).not.toContain('Filter spells by tradition')
+  expect(html).toContain('aria-label="Cantrip slot 1"')
+  expect(html).toContain('aria-label="Spell Rank 1 slot 1"')
 })
 
 it('keeps manual cast rank for Oaken Resilience without Grown of Oak', () => {

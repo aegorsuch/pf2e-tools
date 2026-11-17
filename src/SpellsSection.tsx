@@ -210,39 +210,53 @@ function SpellEffectActions({ c, entries, save, entry, name }: SectionProps & {
 }
 
 export function CompanionSpellOptions({ c, entries, save, name, companionId, toggleOnly = false, hideToggle = false }: SectionProps & {
-  name: 'Canopy Crawler' | 'Enlarge Companion'
+  name: 'Canopy Crawler' | 'Enlarge Companion' | 'Apex Companion'
   companionId?: string
   toggleOnly?: boolean
   hideToggle?: boolean
 }) {
   const canopy = name === 'Canopy Crawler'
-  const targetId = companionSpellTarget(c, canopy ? c.canopyCrawlerCompanionId : c.enlargeCompanionId)
+  const apex = name === 'Apex Companion'
+  const targetKey = canopy ? 'canopyCrawlerCompanionId' : apex ? 'apexCompanionId' : 'enlargeCompanionId'
+  const targetId = companionSpellTarget(c, c[targetKey])
   const companion = c.companions?.find((companion) => companion.id === companionId)
   const selectedCompanion = c.companions?.find((companion) => companion.id === (companionId ?? targetId))
-  const naturalSize = !canopy && selectedCompanion ? companionStats(c, entries, selectedCompanion.type,
-    selectedCompanion.id === c.companions?.[0]?.id ? companionAdvancement(c) : undefined, selectedCompanion.id)?.naturalSize : undefined
+  const selectedStats = !canopy && selectedCompanion ? companionStats(c, entries, selectedCompanion.type,
+    selectedCompanion.id === c.companions?.[0]?.id ? companionAdvancement(c) : undefined, selectedCompanion.id) : undefined
+  const naturalSize = selectedStats?.naturalSize
   const tooLarge = naturalSize === 'Huge' || naturalSize === 'Gargantuan'
   const needsHuge = naturalSize === 'Large'
-  const enlargeUnavailable = !canopy && (tooLarge || needsHuge && c.level < 7)
+  const enlargeUnavailable = !canopy && !apex && (tooLarge || needsHuge && c.level < 7)
+  const invalidAnimal = apex && (!selectedCompanion || selectedCompanion.type === 'Construct Companion'
+    || selectedStats?.entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase())))
+  const unavailable = c.level < (apex ? 19 : 3) || enlargeUnavailable || invalidAnimal
   const active = companionId === undefined ? isSpellActive(c, entries, name)
     : canopy ? canopyCrawlerAffects(c, entries, companionId) : isSpellActive(c, entries, name) && companionId === targetId
   const target = canopyCrawlerTarget(c)
   return <div className="row">
-    {!hideToggle && <label title={tooLarge ? 'Enlarge Companion has no effect on Huge or larger companions.'
+    {!hideToggle && <label title={apex ? 'Requires an animal companion with room to expand to Huge size.'
+      : tooLarge ? 'Enlarge Companion has no effect on Huge or larger companions.'
       : needsHuge && c.level < 7 ? 'Requires rank 4 (character level 7) to enlarge a Large companion.' : undefined}>
       <input type="checkbox" aria-label={`${name}${companionId ? ` on ${companion?.name || companion?.type || companionId}` : ' active'}`}
-      disabled={c.level < 3 || enlargeUnavailable || canopy && !!companionId && target === 'Self'} checked={active && !enlargeUnavailable} onChange={(e) => {
-        if (c.level < 3 || enlargeUnavailable || canopy && !!companionId && target === 'Self') return
+      disabled={unavailable || canopy && !!companionId && target === 'Self'} checked={active && !unavailable} onChange={(e) => {
+        if (unavailable || canopy && !!companionId && target === 'Self') return
+        const change = spellActiveChange(c, name, e.target.checked)
+        const other = apex ? 'Enlarge Companion' : 'Apex Companion'
+        if (!canopy && e.target.checked && (companionId ?? targetId) === companionSpellTarget(c, apex ? c.enlargeCompanionId : c.apexCompanionId))
+          change.activeSpells = change.activeSpells?.filter(spell => spell !== other)
         save({
-          ...spellActiveChange(c, name, e.target.checked),
-          ...(canopy ? { canopyCrawlerCompanionId: companionId ?? targetId }
-            : { enlargeCompanionId: companionId ?? targetId }),
+          ...change,
+          [targetKey]: companionId ?? targetId,
         })
       }} /> {companionId ? name : 'Active'}</label>}
     {!toggleOnly && (c.companions?.length ?? 0) > 1 && (!canopy || target !== 'Self') && <label>Companion{' '}
       <select aria-label={`${name} companion`} value={targetId ?? ''} onChange={(e) => {
-        if (c.companions?.some((companion) => companion.id === e.target.value))
-          save(canopy ? { canopyCrawlerCompanionId: e.target.value } : { enlargeCompanionId: e.target.value })
+        if (!c.companions?.some((companion) => companion.id === e.target.value)) return
+        const other = apex ? 'Enlarge Companion' : 'Apex Companion'
+        save({ [targetKey]: e.target.value,
+          ...(!canopy && c.activeSpells?.includes(name)
+            && e.target.value === companionSpellTarget(c, apex ? c.enlargeCompanionId : c.apexCompanionId)
+            ? { activeSpells: c.activeSpells.filter(spell => spell !== other) } : {}) })
       }}>
         {[...(c.companions ?? [])].sort((a, b) => (a.name || a.type).localeCompare(b.name || b.type))
           .map((companion) => <option key={companion.id} value={companion.id}>{companion.name || companion.type}</option>)}
@@ -275,7 +289,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
 }) {
   const metadata = spellMetadata(entry, rank, c)
   const activeToggle = onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
-    onChange={(e) => onToggle(e.target.checked)} /> {activeLabel ?? (name === 'Oaken Resilience' ? 'Active on you' : 'Active')}</label>
+    onChange={(e) => onToggle(e.target.checked)} /> {activeLabel ?? 'Active'}</label>
   return (
     <li className="innate-spell-row">
       <div className="innate-spell-name">
@@ -395,7 +409,9 @@ export function DevotionSpellChoice({ c, entries, save }: SectionProps) {
 }
 
 function spellSummaryData(c: Character, entries: ContentEntry[]) {
-  const spells = c.spells ?? []
+  const spells = (c.spells ?? []).map(spell => spell.name.toLowerCase() === 'goodberry'
+    ? { ...spell, name: 'Cornucopia', entryId: entries.find(entry => entry.kind === 'spell' && !entry.deleted
+      && entry.name === 'Cornucopia' && entry.systems.some(system => c.systems.includes(system)))?.id ?? spell.entryId } : spell)
   const granted = grantedWardenSpells(c, entries)
   const featSpells = grantedFeatSpells(c, entries)
   const innate = featSpells.filter(grant => grant.rule.kind === 'innate')
@@ -431,7 +447,6 @@ export function SpellsSection(props: SectionProps) {
 
 export function SpellsContent({ c, entries, save, data }: SectionProps & { data?: ReturnType<typeof spellSummaryData> }) {
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
-  const [query, setQuery] = useState('')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const casting = classSpellcasting(c, entries)
   const automaticSlots = classSpellSlots(c)
@@ -477,7 +492,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const dc = higherDC ? classDC === undefined || spellDC === undefined ? undefined : Math.max(classDC, spellDC)
       : mod === undefined ? undefined : 10 + mod
     const stats = resolution.attack && mod !== undefined ? `Attack ${signed(mod)}` : undefined
-    const notes = grant.source === 'Empathetic Connection' && grant.entry.name === 'Mindlink' ? [] : [
+    const notes = grant.source === 'Empathetic Connection' && grant.entry.name === 'Mindlink'
+      || grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience' ? [] : [
       frequency && `${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`,
       grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask')
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
@@ -493,8 +509,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     if (!AUTOMATED_SPELL_EFFECTS.includes(name)) return {}
     return {
       active: name === 'Magic Hide' ? isMagicHideActive(c, entries) : c.activeSpells?.includes(name),
-      activeLabel: name === 'Oaken Resilience' && grownOfOakSpell && activeFeatsNamed(c, 'Leshy Familiar').length
-        ? 'Active on you and leshy familiar' : undefined,
       onToggle: (active: boolean) => save(name === 'Magic Hide' ? magicHideChange(c, active) : {
         activeSpells: [...(c.activeSpells ?? []).filter((spell) => spell !== name), ...(active ? [name] : [])],
       }),
@@ -506,7 +520,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       && entry.systems.some(system => c.systems.includes(system)) && spellResolution(entry).attack)
       && attackDamage.map(damage => <small key={damage.source}>+{damage.value} <SourceNote inlineSource={false}
         source={damage.source} note={damage.note} /></small>)}
-    {(name === 'Canopy Crawler' || name === 'Enlarge Companion')
+    {(name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion')
       && <CompanionSpellOptions c={c} entries={entries} save={save} name={name} hideToggle />}
     {name === 'Untamed Form' && <UntamedFormOptions c={c} entries={entries} save={save} />}
     {name === 'Oaken Resilience' && (grownOfOakSpell
@@ -531,7 +545,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)
     </label>
-    : name === 'Canopy Crawler' || name === 'Enlarge Companion'
+    : name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion'
       ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} toggleOnly /> : undefined
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
@@ -540,17 +554,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const selectedTradition = traditions.length === 1
     ? traditions[0]
     : traditions.includes(tradition) ? tradition : ''
-
-  const matches = useMemo(() => {
-    if (!selectedTradition) return []
-    const q = query.trim().toLowerCase()
-    if (druid && !q) return []
-    const results = (druidList ?? spellIndex.spells)
-      .filter((e) => druid || String(e.data.tradition ?? '').toLowerCase().includes(selectedTradition.toLowerCase()))
-      .filter((e) => !q || e.name.toLowerCase().includes(q) || e.traits.some(trait => trait.toLowerCase().includes(q)))
-      .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-    return (druid ? uniqueSpellNames(results) : results).slice(0, 40)
-  }, [spellIndex, selectedTradition, query, druid, druidList])
 
   const castAbility = casting?.ability ?? sc?.ability
   const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
@@ -854,33 +857,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </p>)}
       {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
       {groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
-      <div className="row">
-        {casting && traditions.length > 0 && !druid && <select aria-label="Filter spells by tradition" value={tradition} onChange={(e) => setTradition(e.target.value)}>
-          <option value="">Any tradition</option>
-          {traditions.map((t) => <option key={t}>{t}</option>)}
-        </select>}
-        {casting && traditions.length > 0 && <label>Search spells{' '}
-          <input type="search" aria-label="Search spells" value={query} onChange={event => setQuery(event.target.value)} />
-        </label>}
-      </div>
-      <ul>
-        {matches.map((m) => {
-          const cantrip = m.traits.some((t) => t.toLowerCase() === 'cantrip')
-          const have = spells.some((s) => s.entryId === m.id) || granted.some((s) => s.id === m.id)
-            || !!druidAvailable?.some(entry => entry.id === m.id)
-          return (
-            <li key={m.id}>
-              <EntryDescription name={m.name} entry={m} /> <ActionIcon entry={m} showOther /> ({cantrip ? 'cantrip' : `rank ${m.level}`}) {spellWardenLabel(m.data.warden_spell_tier) && (
-                <small>({spellWardenLabel(m.data.warden_spell_tier)})</small>
-              )} {druid ? 'Primal' : m.data.tradition ?? ''}{' '}
-              <button disabled={have} onClick={() => save({ spells: [...spells, { name: m.name, rank: m.level, cantrip, entryId: m.id }] })}>
-                {have ? druid ? 'Available' : 'Added' : druid ? 'Learn' : 'Add'}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      {query.trim() && selectedTradition && !matches.length && <small role="status">No matching spells.</small>}
       </div>
   )
 }

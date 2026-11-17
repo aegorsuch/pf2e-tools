@@ -41,7 +41,8 @@ export function refocusRecovery(c: Character, entries: ContentEntry[], capacity:
   return Math.min(capacity, recovery)
 }
 
-const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace' ? 'vanishing tracks' : name.toLowerCase()
+const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace' ? 'vanishing tracks'
+  : name.toLowerCase() === 'goodberry' ? 'cornucopia' : name.toLowerCase()
 const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
   || spell.name.toLowerCase() === spellAlias(name)
 
