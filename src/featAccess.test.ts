@@ -114,16 +114,24 @@ it('capitalizes membership labels and shares equipment membership with feat achi
   })
 })
 it('shares Tian elementalism access with Intensified Element Stance without bypassing Medicine training', () => {
-  const label = 'Tian Xia origin or exposure to Tian elementalism'
+  const legacy = 'Tian Xia origin or exposure to Tian elementalism'
+  const label = 'Trained in Tian Xia elementalism'
   const intensified: ContentEntry = { ...feat, name: 'Intensified Element Stance', level: 6, traits: ['Ranger'],
     data: { access: 'Tian Xia origin', prerequisite: 'Trained in Medicine' } }
-  const dedication = { ...feat, id: 'vanguard', name: 'Five-breath Vanguard Dedication', data: { access: label } }
+  const dedication = { ...feat, id: 'vanguard', name: 'Five-breath Vanguard Dedication', data: { access: legacy } }
   expect(achievementOptions([intensified, dedication])).toEqual([{
-    key: label.toLowerCase(), requirement: label, feats: ['Five-breath Vanguard Dedication', 'Intensified Element Stance'],
+    key: legacy.toLowerCase(), requirement: label, feats: ['Five-breath Vanguard Dedication', 'Intensified Element Stance'],
   }])
   const c: Character = { ...character, className: 'Ranger', level: 6, achievements: [label], skillPicks: ['Medicine'] }
   const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
   expect(featAccess(c, intensified)).toMatchObject({ requirement: label, automatic: true, source: 'achievement' })
+  expect(featAccess(c, dedication)).toMatchObject({ requirement: label, automatic: true, source: 'achievement' })
+  for (const previous of [legacy, 'Tian Xia origin or exposure to Tian Xia elementalism']) {
+    expect(featAccess({ ...c, achievements: [previous] }, dedication))
+      .toMatchObject({ requirement: label, automatic: true, source: 'achievement' })
+  }
+  expect(achievementOptions([{ ...dedication, data: { access: label } }])[0])
+    .toMatchObject({ key: legacy.toLowerCase(), requirement: label })
   expect(featAccess({ ...c, achievements: ['Tian Xia origin'] }, intensified)?.automatic).toBe(true)
   expect(eligibleFeats([intensified], c, slot)).toContain(intensified)
   expect(eligibleFeats([intensified], { ...c, skillPicks: [] }, slot)).not.toContain(intensified)

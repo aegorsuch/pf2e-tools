@@ -21,6 +21,7 @@ const PATHFINDER_MEMBERSHIP = 'Member of the Pathfinder Society'
 const PATHFINDER_TRAINING = 'Trained with the Pathfinder Society'
 const SHACKLES_TRAVEL = 'Traveled through the Shackles'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
+const TIAN_ELEMENTALISM_TRAINING = 'Trained in Tian Xia elementalism'
 const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
 const NIDALESE_HORSELORDS = 'Trained with the Nidalese Horselords'
@@ -38,6 +39,7 @@ const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKON
   .map(label => [label.toLowerCase(), label]))
 achievementLabels.set(LASTWALL_MEMBERSHIP.toLowerCase(), LASTWALL_TRAINING)
 achievementLabels.set(PATHFINDER_MEMBERSHIP.toLowerCase(), PATHFINDER_TRAINING)
+achievementLabels.set(TIAN_ELEMENTALISM.toLowerCase(), TIAN_ELEMENTALISM_TRAINING)
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
   'member of knights of lastwall',
@@ -51,7 +53,9 @@ const lastwallAccess = new Set([
 export function achievementKey(access: string) {
   const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
     .replace(/^(?:member of or trained by|trained by|trained with(?= the | knights)) /, 'member of ')
-  if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
+  if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()
+    || key === 'tian xia origin or exposure to tian xia elementalism'
+    || key === TIAN_ELEMENTALISM_TRAINING.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
   if (/^rivethun adherent background or (?:you are )?(?:a )?member of the rivethun$/.test(key)) return RIVETHUN_MEMBERSHIP.toLowerCase()
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
   if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return key
@@ -83,13 +87,14 @@ function narrativeRequirement(entry: ContentEntry, access: string) {
 
 function isAchievementRequirement(requirement: string) {
   const key = achievementKey(requirement)
-  return narrativeAccess.test(requirement) || key === OLD_CHELIAX.toLowerCase() || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
+  return narrativeAccess.test(requirement) || key === TIAN_ELEMENTALISM.toLowerCase()
+    || key === OLD_CHELIAX.toLowerCase() || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
     || key === SHACKLES_TRAVEL.toLowerCase()
 }
 
 function trainingLabel(requirement: string, key: string) {
   const label = achievementLabels.get(key) ?? achievementLabel(requirement)
-  if (achievementLabels.has(key) && /^trained with /i.test(label)) return label
+  if (achievementLabels.has(key) && /^trained (?:with|in) /i.test(label)) return label
   return /^(?:member of|trained by) /i.test(label)
     ? label.replace(/^(?:member of(?: or trained by)?|trained by) /i, 'Trained with ') : requirement
 }
