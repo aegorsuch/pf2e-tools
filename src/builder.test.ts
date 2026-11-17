@@ -2085,3 +2085,10 @@ it('allows only one Mortification damage-type variant', () => {
   expect(eligibleFeats(variants, { ...c, feats: [] }, slot, { includeUnmetPrerequisites: true }).map(feat => feat.name))
     .toEqual(['Mortification (Bludgeoning)', 'Mortification (Piercing)'])
 })
+
+it('grants Infernal Bulwark order resistance and heavy armor training', () => {
+  const feat = { name: 'Infernal Bulwark', type: 'Archetype Feat', level: 10, choice: 'Order of the Pyre' }
+  const c: Character = { ...base, systems: ['sf2e'], level: 12, feats: [feat] }
+  expect(featChoiceOptions('Infernal Bulwark', c, [], '')).toContain('Order of the Crucible')
+  expect(armorRanks(c, []).Heavy).toBeGreaterThanOrEqual(1)
+})

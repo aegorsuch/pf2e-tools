@@ -1148,6 +1148,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set(c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice))
     return ['Ambusher', 'Bully', 'Daredevil', 'Racer', 'Tracker', 'Wrecker'].filter(option => !used.has(option))
   }
+  if (name === 'Infernal Bulwark') return Object.keys(INFERNAL_BULWARK_ORDERS)
   if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, entries, name)
   if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
@@ -2826,6 +2827,7 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
   if (rogueRackets(c, entries).some(racket => racket === 'Ruffian' || racket === 'Avenger')) ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
   if (activeFeatsNamed(c, 'Animal Skin').length) ranks.Unarmored = Math.max(ranks.Unarmored, 2)
+  if (activeFeatsNamed(c, 'Infernal Bulwark').length) ranks.Heavy = Math.max(ranks.Heavy + (ranks.Heavy ? 1 : 0), 1)
   const granted = new Set<typeof ARMOR_GROUPS[number]>()
   for (const { feat } of proficiencyFeats(c, 'Armor Proficiency')) {
     const prior = baseArmorRanks({ ...c, level: featTakenLevel(feat) }, entries)
@@ -2864,6 +2866,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
   const notes = [
+    ...(name === 'Reflex' && armor && activeFeatsNamed(c, 'Infernal Bulwark').length
+      ? ['Infernal Bulwark gives your armor the bulwark trait: +3 instead of Dexterity on damaging Reflex saves.'] : []),
     ...(circumstance ? ['Circumstance bonuses do not stack; apply only against the matching effect.'] : []),
     ...(activeFeatsNamed(c, 'Hazard Finder').length
       ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),
@@ -2885,6 +2889,10 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
 }
 
 const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
+
+export const INFERNAL_BULWARK_ORDERS: Record<string, string> = {
+  'Order of the Chain': 'electricity', 'Order of the Crucible': 'cold', 'Order of the Eclipse': 'void', 'Order of the Pyre': 'fire',
+}
 
 const ARMOR_SPECIALIZATIONS: Record<string, {
   kind: 'damage' | 'resistance' | 'reduction'; damage?: string; label: string; medium: number; heavy: number
@@ -2952,7 +2960,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Energy Neutralizer', 'Enhanced Energy Neutralizer'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
     ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
@@ -2987,6 +2995,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Radiation Resistant').length) {
     out.push({ damage: 'poison (radiation only)', value: c.level, source: 'Radiation Resistant' })
+  }
+  const bulwark = activeFeatsNamed(c, 'Infernal Bulwark')[0]?.choice
+  if (armor && bulwark && INFERNAL_BULWARK_ORDERS[bulwark]) {
+    out.push({ damage: INFERNAL_BULWARK_ORDERS[bulwark], value: half, source: `Infernal Bulwark (${bulwark})` })
   }
   const plating = activeFeatsNamed(c, 'Deflective Plating')[0]?.choice
   if (plating && featChoiceOptions('Deflective Plating', c, entries, '')?.includes(plating)) {
