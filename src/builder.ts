@@ -3022,6 +3022,12 @@ function hellknightFeatCount(c: Character, entries: ContentEntry[]) {
 }
 
 // Resistances from heritage, ancestry, background, class features, feats, carried items and worn armor (structured effects or synced "damage=value" data)
+const FEAT_RESISTANCES: Record<string, Record<string, number | 'half'>> = {
+  'Blast Resistance': { fire: 3, sonic: 3 }, 'Favor of Heaven': { good: 5, evil: 5 }, 'Inured to the Heat': { fire: 4 },
+  'Nothing but Fluff': { precision: 'half' },
+  'Skeletal Resistance': { cold: 2, electricity: 2, fire: 2, piercing: 2, slashing: 2 },
+}
+
 export function resistances(c: Character, entries: ContentEntry[]) {
   const sources = [
     ...characterHeritages(c, entries),
@@ -3084,6 +3090,9 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       const [damage, v] = part.split('=')
       out.push({ damage, value: v === 'half' ? half : v === 'hellknight' ? hellknightFeatCount(c, entries) : +v, source: e.name })
     }
+  }
+  for (const [feat, grants] of Object.entries(FEAT_RESISTANCES)) {
+    if (activeFeatsNamed(c, feat).length) for (const [damage, value] of Object.entries(grants)) out.push({ damage, value: value === 'half' ? half : value, source: feat })
   }
   if (activeFeatsNamed(c, 'Pain Tolerance').length
     && !out.some(resistance => resistance.source === 'Pain Tolerance' && resistance.damage.toLowerCase() === 'mental')) {

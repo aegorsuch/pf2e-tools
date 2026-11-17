@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, senses, syncOrderExplorerFeats } from './builder'
+import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncOrderExplorerFeats } from './builder'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -609,6 +609,12 @@ describe('shared prerequisite enforcement', () => {
       expect.objectContaining({ name: 'Burrow', feet: 25, source: 'Burrowing Specialist' }),
     ]))
     expect(senses({ ...character, feats: character.feats.slice(0, 2) }, [])).toEqual([])
+  })
+  it('grants fixed resistances from ancestry feats', () => {
+    const character: Character = { ...base, level: 10, feats: [{ name: 'Skeletal Resistance', type: 'Ancestry Feat', level: 9 }] }
+    expect(resistances(character, [])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ damage: 'Slashing', value: 2, source: 'Skeletal Resistance' }),
+    ]))
   })
   it('grants passive ancestry movement Speeds', () => {
     const character: Character = { ...base, feats: [
