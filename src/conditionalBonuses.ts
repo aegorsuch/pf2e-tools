@@ -1,0 +1,42 @@
+const SAVES = ['Fortitude', 'Reflex', 'Will']
+
+export interface ConditionalBonus { feat: string; stats: string[]; bonus: number; type: 'circumstance' | 'status'; text: string }
+
+const save = (feat: string, bonus: number, text: string, stats = SAVES, type: ConditionalBonus['type'] = 'circumstance'): ConditionalBonus =>
+  ({ feat, stats, bonus, type, text: `against ${text}` })
+const check = (feat: string, stat: string, bonus: number, text: string): ConditionalBonus =>
+  ({ feat, stats: [stat], bonus, type: 'circumstance', text })
+
+// Situational bonuses granted by feats, shown as asterisked notes with the resulting total
+export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
+  save('Adaptive Vision', 1, 'visual effects'),
+  save('Aegis of the Dissolution', 1, 'effects with the darkness or shadow traits'),
+  save('Animalistic Resistance', 2, 'diseases and poisons'),
+  save('Cel Rau', 1, 'effects with the darkness, light, or shadow traits'),
+  save('Cold Iron Stomach', 2, 'olfactory and poison effects created by demons or environmental hazards in the Worldwound'),
+  save('Conceited Mindset', 2, 'mental effects'),
+  save('Diamond Soul', 1, 'magic', SAVES, 'status'),
+  save('Elven Verve', 1, 'effects that would impose the immobilized, paralyzed, or slowed conditions'),
+  save('Emberkin', 1, 'fire effects'),
+  save('Emotional Partitions', 1, 'emotion effects'),
+  save('Emotionless', 1, 'emotion and fear effects'),
+  save('Goloma Courage', 1, 'fear effects', ['Will']),
+  save('I Will Return', 2, 'death effects', SAVES, 'status'),
+  save('Noble Resolve', 1, 'effects with the mental trait', ['Will']),
+  save('Rakshasa Ravaged', 1, 'occult spells'),
+  save('Resilient Mind', 1, 'mental effects'),
+  save('Shaped Contaminant', 3, 'inhaled poisons that you activate', SAVES, 'status'),
+  save('Tide-Hardened', 1, 'cold and water effects'),
+  save('Twitchy', 1, 'hazards'),
+  save('Wind Tempered', 1, 'air and electricity effects'),
+  check('Ambush Awareness', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
+  check('Elven Instincts', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
+  check('Climbing Tail', 'Athletics', 2, 'to Climb'),
+  check('Folk Healer', 'Medicine', 1, 'to Treat Wounds and Treat Disease'),
+  check('Handy with Your Paws', 'Crafting', 1, 'to Repair non-magical items'),
+  check('Larger than Life (Kitsune)', 'Intimidation', 1, 'to Intimidation checks'),
+  check('Reptile Rider', 'Nature', 1, 'to Handle an Animal that is a reptile, dinosaur, or similar'),
+  check('Scamper Underfoot', 'Acrobatics', 1, 'to Tumble Through the spaces of Medium or larger enemies'),
+  check('Shory Aerialist', 'Acrobatics', 2, 'to Maneuver in Flight'),
+  check('Wilderness Born', 'Stealth', 1, 'to Hide and Sneak in natural terrain'),
+]

@@ -484,6 +484,17 @@ it('shows Ysoki conditional bonuses without applying them to ordinary totals', (
   expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
 })
 
+it('shows situational feat bonuses with totals without changing ordinary totals', () => {
+  const c: Character = { ...base, level: 7, feats: ['Diamond Soul', 'Elven Verve', 'Elven Instincts']
+    .map(name => ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  const plain = defenseSummary({ ...c, feats: [] }, [ranger])
+  expect(defense).toContain('against magic (+1 status).')
+  expect(defense).toContain('immobilized, paralyzed, or slowed conditions (+1 circumstance).')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="offense" />)).toContain('on Perception checks attempted as initiative rolls (+2 circumstance).')
+  expect(defenseSummary(c, [ranger])).toEqual(plain)
+})
+
 it('displays Skill Download temporarily without changing permanent proficiency', () => {
   const c: Character = { ...base, level: 17, feats: [{ name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Acrobatics' }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)

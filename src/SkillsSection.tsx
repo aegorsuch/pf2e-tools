@@ -6,6 +6,7 @@ import { resistances,
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
+import { CONDITIONAL_BONUSES } from './conditionalBonuses'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
@@ -368,6 +369,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Tinkering Fingers" note={`Repair without a toolkit without the penalty; ${conditionalTotal(1)} to Repair checks with a repair toolkit (+1 circumstance).`} />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
+          {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
+            source={b.feat} note={`${b.type === 'status' ? signed(total + b.bonus) : conditionalTotal(b.bonus)} ${b.text} (+${b.bonus} ${b.type}).`} />)}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note={`${conditionalTotal(1)} to Make an Impression or Request against ysoki (+1 circumstance).`} />}
           {s.name === 'Diplomacy' && hasDivineIntercession(c, 'Sarenrae', 'major-boon') && <SourceNote inlineSource={false}
