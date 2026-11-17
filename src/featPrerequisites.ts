@@ -1,5 +1,6 @@
 import type { Character, ContentEntry } from './types'
 import { ancestralUnarmedFeatNames } from './featChoices'
+import { ethnicityKey } from './featAccess'
 
 export interface PrerequisiteCheck {
   missing: string[]
@@ -316,9 +317,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const qualified = /^\[([^\]]+)\]\s*(.+)$/.exec(name)
     if (qualified) return key(facts.className ?? '') === qualified[1]
       ? evaluate(qualified[2], level, trail, inheritedRank, survivalForCrafting) : met()
-    const ethnicity = /^([a-z][a-z' -]*?) ethnicity$/.exec(name)
+    const ethnicity = /^([a-z][a-z' ()-]*?) ethnicity$/.exec(name)
     if (ethnicity && !/\b(?:and|or|any|you|your|must)\b/.test(ethnicity[1])) {
-      return resultFor(key(facts.ethnicity ?? '') === ethnicity[1], text)
+      return resultFor(ethnicityKey(facts.ethnicity ?? '') === ethnicityKey(ethnicity[1]), text)
     }
     const ability = /^(strength|dexterity|constitution|intelligence|wisdom|charisma)\s*(\+?\d+)$/.exec(name)
     const minimumLevel = /^(?:level (\d+)|(?:at least )?(\d+)(?:st|nd|rd|th) level)$/.exec(name)

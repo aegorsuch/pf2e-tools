@@ -983,6 +983,16 @@ describe('shared prerequisite enforcement', () => {
     expect(check(`${ethnicity} ethnicity or Kellid ethnicity`, { ...c, ethnicity: 'Kellid' })).toEqual({ missing: [], manual: [] })
   })
 
+  it.each([
+    ['Grondaksen (Underground)', 'underground dwarf'],
+    ['Holtaksen (Mountain)', 'mountain dwarf'],
+    ['Ergaksen (Surface)', 'surface dwarf'],
+  ])('retains existing dwarf ethnicity prerequisites for %s', (ethnicity, legacy) => {
+    expect(check(`${legacy} ethnicity`, { ...base, ancestry: 'Dwarf', ethnicity })).toEqual({ missing: [], manual: [] })
+    expect(check(`${ethnicity} ethnicity`, { ...base, ancestry: 'Dwarf', ethnicity: legacy })).toEqual({ missing: [], manual: [] })
+    expect(check(`${legacy} ethnicity`, { ...base, ancestry: 'Dwarf', ethnicity: 'Kellid' }).missing).toEqual([`${legacy} ethnicity`])
+  })
+
   it('combines ethnicity alternatives with other required prerequisites', () => {
     const alternatives = 'Garundi ethnicity, Mauxi ethnicity, or Tian-Yae ethnicity'
     expect(check(alternatives, { ...base, ethnicity: 'Mauxi' })).toEqual({ missing: [], manual: [] })

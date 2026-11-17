@@ -134,15 +134,30 @@ export function achievementOptions(entries: ContentEntry[]) {
   return result
 }
 
+const DWARF_ETHNICITIES: Record<string, string[]> = {
+  'Ergaksen (Surface)': ['Ergaksen', 'Surface Dwarf'],
+  'Grondaksen (Underground)': ['Grondaksen', 'Underground Dwarf'],
+  'Holtaksen (Mountain)': ['Holtaksen', 'Mountain Dwarf'],
+}
+
+export function ethnicityLabel(name: string) {
+  const key = name.trim().toLowerCase()
+  return Object.entries(DWARF_ETHNICITIES).find(([label, aliases]) =>
+    [label, ...aliases].some(alias => alias.toLowerCase() === key))?.[0] ?? name
+}
+
+export const ethnicityKey = (name: string) => ethnicityLabel(name).trim().toLowerCase()
+
 function accessEthnicities(access: string) {
   return access.split(/\s+or\s+/i).flatMap((clause) => {
-    const name = /^([a-z][a-z' -]*?) ethnicity$/i.exec(clause.trim())?.[1]
+    const name = /^([a-z][a-z' ()-]*?) ethnicity$/i.exec(clause.trim().replace(/^any (?=surface dwarf ethnicity$)/i, ''))?.[1]
     return name && !/\b(?:any|and|you|your|must)\b/i.test(name) ? [name] : []
   })
 }
 
 export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
   const target = ancestry?.trim().toLowerCase()
+  if (target === 'dwarf') return Object.keys(DWARF_ETHNICITIES)
   const additional = target === 'human' ? [
     'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
   ] : target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []
@@ -150,7 +165,7 @@ export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
     && (!target || entry.traits.some(trait => trait.toLowerCase() === target)))
     .flatMap(entry => [entry.data.access, entry.data.prerequisite]
       .flatMap(requirement => String(requirement ?? '').split(/[,;]|\s+and\s+/i).flatMap(accessEthnicities)))
-    .map(name => name.replace(/\b[a-z]/g, letter => letter.toUpperCase()))]
+    .map(name => ethnicityLabel(name.replace(/\b[a-z]/g, letter => letter.toUpperCase())))]
   const unique = new Map<string, string>()
   for (const name of names) if (!unique.has(name.toLowerCase())) unique.set(name.toLowerCase(), name)
   return [...unique.values()].sort((a, b) => a.localeCompare(b))
@@ -168,7 +183,7 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
   if ((!access && entry.name !== 'Wukong Extension')
     || entry.name !== 'Wukong Extension'
       && /^(?:(?:rarity|access)\s*:\s*)?(?:uncommon|rare|unique)(?:\s+(?:feat|option))?[.!?]?$/i.test(access)) return undefined
-  const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => name.toLowerCase() === c.ethnicity!.trim().toLowerCase())
+  const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => ethnicityKey(name) === ethnicityKey(c.ethnicity!))
   const key = achievementKey(narrative)
   const background = key === RIVETHUN_MEMBERSHIP.toLowerCase() && c.background?.toLowerCase() === 'rivethun adherent'
   const ancestry = key === DWARVEN_DEFENDER.toLowerCase() && c.ancestry?.toLowerCase() === 'dwarf'

@@ -720,12 +720,27 @@ it('retains official access metadata and shows saved ethnicity without changing 
     expect(saved).toMatchObject({ ancestry: 'Human', heritage: 'Versatile Human', ethnicity: 'Kellid' })
     const changed = renderToStaticMarkup(<CharacterBuilder character={{ ...saved, ancestry: 'Dwarf' }} onClose={() => {}} />)
     const dwarfEthnicity = changed.match(/<select[^>]*aria-label="Ethnicity"[^>]*>[\s\S]*?<\/select>/)?.[0]
-    expect(dwarfEthnicity).toContain('Mountain Dwarf')
+    expect(dwarfEthnicity).toContain('Holtaksen (Mountain)')
     expect(dwarfEthnicity).toContain('disabled=""')
     expect(dwarfEthnicity).toContain('Kellid (not available for Dwarf)')
     expect(renderToStaticMarkup(<CharacterBuilder character={{ ...saved, ancestry: undefined }} onClose={() => {}} />))
       .toContain('aria-label="Ethnicity" disabled=""')
   } finally { content.entries = [] }
+})
+
+it.each([
+  ['Mountain Dwarf', 'Holtaksen (Mountain)'],
+  ['Underground Dwarf', 'Grondaksen (Underground)'],
+  ['Surface Dwarf', 'Ergaksen (Surface)'],
+])('displays saved dwarf ethnicity %s as %s without rewriting character', (ethnicity, label) => {
+  const c: Character = { id: 'dwarf-ethnicity', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Dwarf', ethnicity,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const picker = markup.match(/<select[^>]*aria-label="Ethnicity"[^>]*>[\s\S]*?<\/select>/)?.[0]
+  expect(picker).toContain(`<option selected="">${label}</option>`)
+  expect(picker).not.toContain('not available')
+  expect(c.ethnicity).toBe(ethnicity)
 })
 
 it('retains full material, rune and ordinary equipment rules through snapshot fetching and mapping', async () => {

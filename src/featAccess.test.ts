@@ -325,7 +325,7 @@ it('derives ethnicity choices without interpreting nationalities or complex cond
   const prerequisites = ['Nidalese ethnicity', 'Tian-Dan ethnicity; trained in Arcana'].map((prerequisite, i) => ({
     ...feat, id: `prerequisite:${i}`, data: { prerequisite },
   }))
-  expect(ethnicityOptions([feat, ...entries, ...prerequisites])).toEqual(['Kellid', 'Mountain Dwarf', 'Nidalese', 'Tian-Dan', 'Varisian'])
+  expect(ethnicityOptions([feat, ...entries, ...prerequisites])).toEqual(['Ergaksen (Surface)', 'Holtaksen (Mountain)', 'Kellid', 'Nidalese', 'Tian-Dan', 'Varisian'])
   expect(featAccess({ ...character, ethnicity: 'Varisian' }, entries[0])?.automatic).toBe(true)
   expect(featAccess(character, entries[3])?.automatic).toBe(false)
 })
@@ -342,7 +342,7 @@ it('offers only ethnicities associated with the selected ancestry', () => {
   expect(ethnicityOptions(entries, 'Human')).toEqual([
     'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Kellid', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
   ])
-  expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Mountain Dwarf'])
+  expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Ergaksen (Surface)', 'Grondaksen (Underground)', 'Holtaksen (Mountain)'])
   expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ekujae', 'Ilverani', 'Mualijae', 'Spiresworn', 'Vourinoi'])
   expect(ethnicityOptions(entries, 'Orc')).toEqual(['Belkzen', 'Matanji'])
   expect(ethnicityOptions(entries, 'Halfling')).toEqual(['Jaric'])
@@ -354,6 +354,25 @@ it('offers the listed Human ethnicities without catalog data and deduplicates ca
   expect(listed).toEqual(['Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani'])
   const duplicate = { ...feat, traits: ['Human'], data: { access: 'varisian ethnicity' } }
   expect(ethnicityOptions([duplicate], 'Human')).toEqual(listed)
+})
+
+it.each([
+  ['Grondaksen (Underground)', 'Grondaksen', 'underground dwarf'],
+  ['Holtaksen (Mountain)', 'Holtaksen', 'mountain dwarf'],
+  ['Ergaksen (Surface)', 'Ergaksen', 'surface dwarf'],
+])('matches %s to existing ethnicity access without changing saved values', (label, name, legacy) => {
+  expect(ethnicityOptions([], 'Dwarf')).toContain(label)
+  const access = { ...feat, traits: ['Dwarf'], data: { access: `${legacy} ethnicity` } }
+  for (const ethnicity of [label, name, legacy, label.toLowerCase()]) {
+    const c = { ...character, ancestry: 'Dwarf', ethnicity }
+    expect(featAccess(c, access)).toMatchObject({ automatic: true, source: 'ethnicity' })
+    expect(c.ethnicity).toBe(ethnicity)
+  }
+  const other = ethnicityOptions([], 'Dwarf').find(option => option !== label)!
+  expect(featAccess({ ...character, ethnicity: other }, access)?.automatic).toBe(false)
+  if (name === 'Ergaksen') {
+    expect(featAccess({ ...character, ethnicity: label }, { ...access, data: { access: 'any surface dwarf ethnicity' } })?.automatic).toBe(true)
+  }
 })
 
 it('uses generic names for dwarven feats taken through Adopted Ancestry (Dwarf)', async () => {

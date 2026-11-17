@@ -21,7 +21,7 @@ import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
 import { equippedHands, totalHandCapacity } from './builder'
-import { ethnicityOptions } from './featAccess'
+import { ethnicityLabel, ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredDetails } from './DeferredDetails'
@@ -349,7 +349,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   })
   const section = { c, entries, save }
   const ethnicities = useMemo(() => c.ancestry ? ethnicityOptions(entries, c.ancestry) : [], [entries, c.ancestry])
-  const savedEthnicity = c.ethnicity?.trim().toLowerCase()
+  const selectedEthnicity = ethnicityLabel(c.ethnicity ?? '')
+  const savedEthnicity = selectedEthnicity.trim().toLowerCase()
   const unavailableEthnicity = !!savedEthnicity && !ethnicities.some(name => name.toLowerCase() === savedEthnicity)
   const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...(migrateAncestralLinguistics(c)?.languages ?? c.languages)].map((l) => [l.toLowerCase(), l])).values()]
@@ -468,10 +469,10 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           <div className="row">
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined })} />
             <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
-              <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={c.ethnicity ?? ''} disabled={!c.ancestry} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
+              <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={selectedEthnicity} disabled={!c.ancestry} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
-                {c.ethnicity && !ethnicities.includes(c.ethnicity) && <option value={c.ethnicity} disabled={unavailableEthnicity}>
-                  {c.ethnicity}{unavailableEthnicity ? ` (not available for ${c.ancestry ?? 'this ancestry'})` : ''}
+                {selectedEthnicity && !ethnicities.includes(selectedEthnicity) && <option value={selectedEthnicity} disabled={unavailableEthnicity}>
+                  {selectedEthnicity}{unavailableEthnicity ? ` (not available for ${c.ancestry ?? 'this ancestry'})` : ''}
                 </option>}
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
               </SearchableSelect>
