@@ -103,6 +103,13 @@ export const upgradeDamageSummary = (attack: ReturnType<typeof weaponAttack>) =>
 }
 
 export const mechanicDamageSummary = (c: Character, weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>) => {
+  const bladeSpirit = c.level >= 18 ? '2d8' : '1d8'
+  const blade = activeFeatsNamed(c, 'Blade of Law').length
+    ? [{ source: 'Blade of Law', value: `${bladeSpirit} spirit`, note: `One extra weapon damage die and ${bladeSpirit} spirit damage against a target that has attempted a hostile action against you.` }] : []
+  return [...blade, ...explosiveShotSummary(c, weapon, attack)]
+}
+
+const explosiveShotSummary = (c: Character, weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>) => {
   if (c.className !== 'Mechanic' || !c.systems.includes('sf2e') || !activeFeatsNamed(c, 'Explosive Shot').length
     || !c.mechanicWeaponMods?.[weapon.id]?.explosiveShot) return []
   const dice = Number(/^(\d+)d/.exec(attack.damage)?.[1])
