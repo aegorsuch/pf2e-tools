@@ -71,18 +71,3 @@ export async function importHomebrew(json: string) {
     entries.map((e) => ({ ...e, effects: e.effects ?? [], source: 'homebrew' as const, id: e.id || newId(), updatedAt: Date.now() })),
   )
 }
-
-export async function exportCharacter(id: string): Promise<string> {
-  const c = await db.characters.get(id)
-  if (!c || c.deleted) throw new Error('Character not found')
-  return JSON.stringify({ pf2eToolsCharacter: 1, character: c }, null, 2)
-}
-
-export async function importCharacter(json: string): Promise<string> {
-  const parsed = JSON.parse(json) as { pf2eToolsCharacter?: number; character?: Character }
-  const c = parsed.character
-  if (parsed.pf2eToolsCharacter !== 1 || !c || typeof c.name !== 'string' || !Array.isArray(c.feats)) throw new Error('Not a character export')
-  const id = (await db.characters.get(c.id)) ? newId() : c.id || newId()
-  await db.characters.put({ ...c, id, deleted: false, updatedAt: Date.now() })
-  return id
-}
