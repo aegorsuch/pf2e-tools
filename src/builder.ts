@@ -963,6 +963,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
       && (!getSettings().exclusiveCyborgHearts || !CYBORG_HEART_FEATS.includes(e.name)
         || !CYBORG_HEART_FEATS.some(name => name !== e.name && taken.has(name)))
+      && (!/^Mortification \(/.test(e.name) || ![...taken].some(name => /^Mortification \(/.test(name)))
       && (!taken.has(e.name) || e.name === 'Ubiquitous Gadgets' && slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Plentiful Grenades' && slot.level >= 14

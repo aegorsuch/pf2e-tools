@@ -2076,3 +2076,12 @@ it('stacks Blessed Shield on top of Scale of Igroon stats', () => {
   expect(shieldStats(shield, c)).toEqual({ hardness: 23, hp: 224 })
   expect(shieldStats(shield, { ...c, blessing: 'Blessed Swiftness' })).toEqual({ hardness: 20, hp: 160 })
 })
+
+it('allows only one Mortification damage-type variant', () => {
+  const variants = ['Bludgeoning', 'Piercing'].map(type => entry('feat', `Mortification (${type})`, { archetype: 'Hellknight' }, 4, ['Archetype']))
+  const slot = { key: 'bonus:6:0', category: 'bonus' as const, level: 6 }
+  const c: Character = { ...base, level: 6, feats: [{ name: 'Mortification (Bludgeoning)', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }] }
+  expect(eligibleFeats(variants, c, slot, { includeUnmetPrerequisites: true }).map(feat => feat.name)).toEqual([])
+  expect(eligibleFeats(variants, { ...c, feats: [] }, slot, { includeUnmetPrerequisites: true }).map(feat => feat.name))
+    .toEqual(['Mortification (Bludgeoning)', 'Mortification (Piercing)'])
+})
