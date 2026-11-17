@@ -29,6 +29,13 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('marks homebrew Watch Initiate feats rare', () => {
+  const entries = homebrewCharacterOptions([])
+  for (const name of ['Blackwatch Initiate', 'Greywatch Initiate', 'Magewatch Initiate', 'Palewatch Initiate']) {
+    expect(entries.find(entry => entry.name === name)?.traits).toContain('Rare')
+  }
+})
+
 it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Caravan Contortionist')!
   const c = { ...base, background: background.name }

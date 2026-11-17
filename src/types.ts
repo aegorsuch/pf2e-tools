@@ -194,6 +194,7 @@ export interface Character {
   subclassSkillChoices?: Record<string, string>
   rogueRacketSkills?: Record<string, string>
   background?: string
+  backgroundTerrainLore?: Record<string, string>
   deity?: string
   divineIntercessions?: Record<string, string[]>
   inactiveDivineBoonFeats?: Character['feats']

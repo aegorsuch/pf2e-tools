@@ -1,5 +1,5 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundHasTerrainLore, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
@@ -19,6 +19,7 @@ import { normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequireme
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
+import type { ContentEntry } from './types'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const COMMON_LORES = [...new Set([
@@ -28,6 +29,7 @@ const COMMON_LORES = [...new Set([
   'Guild', 'Heraldry', 'Herbalism', 'Hunting', 'Labor', 'Legal', 'Library', 'Military',
   'Abadar', 'Erastil', 'Iomedae', 'Demon', 'Giant', 'Vampire', 'Astral Plane', 'Heaven', 'Outer Rifts',
   'Hellknights', 'Pathfinder Society', 'Absalom', 'Magnimar', 'Mountain', 'River',
+  ...FAVORED_TERRAINS,
   'Alcohol', 'Baking', 'Butchering', 'Cooking', 'Tea', 'Mercantile', 'Midwifery', 'Milling',
   'Mining', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
   'Underworld', 'Warfare',
@@ -138,13 +140,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const stats = statDefs(c)
   const klass = editingSkills ? entries.find((e) => e.kind === 'class' && e.name === c.className) : undefined
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
-  const extraBackgroundSkills = editingSkills ? backgroundSkills(freeHeartBackground(c, entries)) : []
+  const extraBackground = editingSkills ? freeHeartBackground(c, entries) : undefined
+  const extraBackgroundSkills = backgroundSkills(extraBackground, c)
   const permanentRanks = ranksAt(c, entries)
   const heritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
   const downloaded = skillDownload(c, entries)
   const ranks = downloaded ? { ...permanentRanks, [downloaded.skill]: Math.max(permanentRanks[downloaded.skill] ?? 0, downloaded.rank) } : permanentRanks
   const trainedLores = trainedFeatLores(c)
-  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
+  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg, c).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
@@ -153,7 +156,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const ancestrySkills = editingSkills ? ancestralSkills(c, entries) : []
   const heritageSkills = editingSkills && isPioneerHuman(c) ? ['Survival'] : []
   const grantedTraining = [...ancestrySkills, ...heritageSkills]
-  const fixed = new Set(editingSkills ? [...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills, ...grantedTraining] : [])
+  const fixed = new Set(editingSkills ? [...autoClassSkills(c, entries), ...backgroundSkills(bg, c), ...extraBackgroundSkills, ...grantedTraining] : [])
   const terrainExpertise = terrainExpertiseBenefits(c)
   const wasteland = activeFeatsNamed(c, 'Wasteland Warrior').length > 0
   const hazardNote = 'Disable environmental hazards using Survival instead of Athletics or Thievery. '
@@ -335,7 +338,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             delete rankOverrides[s.name]
             const withoutLore = { ...c, lores: c.lores.filter(lore => lore.name !== s.name),
               skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides }
-            const stillGranted = [...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries), ...backgroundSkills(bg), ...extraBackgroundSkills].includes(s.name)
+            const stillGranted = [...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries), ...backgroundSkills(bg, c), ...extraBackgroundSkills].includes(s.name)
               || activeFeatsNamed(c, "Officer's Medical Training").some(feat => feat.choice === s.name)
                 && (ranksAt(withoutLore, entries)[s.name] ?? 0) > 0
             save({ lores: c.lores.filter(lore => lore.name !== s.name),
@@ -602,6 +605,17 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
+      {[bg, extraBackground].filter((background): background is ContentEntry => !!background && backgroundHasTerrainLore(background)).map(background =>
+        <label key={background.id}>{background.name} Lore{' '}
+          <select aria-label={`${background.name} terrain Lore`} value={c.backgroundTerrainLore?.[background.name] ?? ''} onChange={event => {
+            const terrain = event.target.value
+            if (terrain && !FAVORED_TERRAINS.includes(terrain)) return
+            save({ backgroundTerrainLore: { ...c.backgroundTerrainLore, [background.name]: terrain } })
+          }}>
+            <option value="">Choose terrain</option>
+            {FAVORED_TERRAINS.map(terrain => <option key={terrain} value={terrain}>{terrain} Lore</option>)}
+          </select>
+        </label>)}
       {!!tokenState?.inactive.length && <div className="skill-token-exchange">
           {tokenState.inactive.map(({ purchase, index, reason }) => {
             return <div key={`${purchase.skill}:${purchase.rank}:${index}`}>

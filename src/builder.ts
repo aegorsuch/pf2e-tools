@@ -1290,6 +1290,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
   if (name === 'Alloyed Attacks') return ['Cold Iron', 'Silver', ...(c.level >= 13 ? ['Adamantine'] : [])]
+  if (name === 'Favored Prey') return ['Animals', 'Beasts', 'Dragons', 'Fungi and Plants']
   if (name === 'Favored Terrain') return [...FAVORED_TERRAINS]
   if (name === 'Terrain Expertise') return terrainExpertiseOptions(c, index)
   if (DOMAIN_FEATS.includes(name)) {
@@ -2109,7 +2110,16 @@ export function subclassOptions(c: Character, entries: ContentEntry[]) {
   return result
 }
 
-export const backgroundSkills = (bg?: ContentEntry) => tokens(bg?.data.skill)
+export const backgroundHasTerrainLore = (bg?: ContentEntry) =>
+  typeof bg?.data.skill === 'string' && bg.data.skill.split(/,\s*(?![^()]*\))/).some(skill =>
+    /\blore\b/i.test(skill) && /\bterrain\b/i.test(skill) && !/^[\w' -]+ Lore$/i.test(skill.trim()))
+
+export function backgroundSkills(bg?: ContentEntry, c?: Character) {
+  const skills = typeof bg?.data.skill === 'string' ? bg.data.skill.split(/,\s*(?![^()]*\))/).map(skill => skill.trim()).filter(Boolean) : []
+  const terrain = bg && c?.backgroundTerrainLore?.[bg.name]
+  return skills.flatMap(skill => /\blore\b/i.test(skill) && /\bterrain\b/i.test(skill) && !/^[\w' -]+ Lore$/i.test(skill)
+    ? terrain && FAVORED_TERRAINS.includes(terrain) ? [`${terrain} Lore`] : [] : [skill])
+}
 export function freeHeartBackground(c: Character, entries: ContentEntry[]) {
   const choice = activeFeatsNamed(c, 'Free Heart')[0]?.choice
   return choice && choice !== c.background ? entries.find(entry => entry.kind === 'background' && !entry.deleted
@@ -2609,8 +2619,8 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
   if (testSubjectAdaptation(c) === 'Cybernetic Augmentation' && beforeLevel > 1) bump('Computers')
   autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
-  backgroundSkills(byName(entries, 'background', c.background)).forEach(bump)
-  backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)).forEach(bump)
+  backgroundSkills(byName(entries, 'background', c.background), c).forEach(bump)
+  backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries), c).forEach(bump)
   if (isPioneerHuman(c)) bump('Survival')
   c.skillPicks?.forEach(bump)
   featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
@@ -2669,11 +2679,11 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
-  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background)).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
+  const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background), c).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
   if (loreUp) lores.push(...trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).map(grant => grant.name))
   if (loreUp) lores.push(...activeFeatsNamed({ ...c, level: Math.min(c.level, beforeLevel - 1) }, "Officer's Medical Training")
     .flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) ? [feat.choice] : []))
-  if (loreUp) lores.push(...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries))
+  if (loreUp) lores.push(...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries), c)
     .filter(name => /lore$/i.test(name)))
   const additionalLores = featLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const scrapper = proficiencyFeats(c, 'Technomagical Scrapper').find(({ feat }) => featTakenLevel(feat) < beforeLevel)
@@ -2745,8 +2755,8 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
     ...autoSkills,
-    ...backgroundSkills(byName(entries, 'background', c.background)),
-    ...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)),
+    ...backgroundSkills(byName(entries, 'background', c.background), c),
+    ...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries), c),
     ...(isPioneerHuman(c) ? ['Survival'] : []),
     ...skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
@@ -2769,8 +2779,8 @@ export function skillDownload(c: Character, entries: ContentEntry[]) {
   const valid = statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
     || c.lores.some(lore => lore.name === skill) || featLores(c, entries).includes(skill ?? '')
     || trainedFeatLores(c).some(grant => grant.name === skill)
-    || backgroundSkills(byName(entries, 'background', c.background)).includes(skill ?? '')
-    || backgroundSkills(freeHeartBackground(c, entries)).includes(skill ?? '') || autoClassSkills(c, entries).includes(skill ?? '')
+    || backgroundSkills(byName(entries, 'background', c.background), c).includes(skill ?? '')
+    || backgroundSkills(freeHeartBackground(c, entries), c).includes(skill ?? '') || autoClassSkills(c, entries).includes(skill ?? '')
   return skill && valid ? { skill, rank: c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 } : undefined
 }
 
@@ -4512,6 +4522,11 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
   Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
     + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries)
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
+    + (() => {
+      const klass = classSkills(byName(entries, 'class', c.className))
+      const classTraining = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : [])])
+      return backgroundSkills(byName(entries, 'background', c.background), c).filter(skill => classTraining.has(skill)).length
+    })()
     + backgroundSkills(freeHeartBackground(c, entries)).filter(skill => autoClassSkills(c, entries).includes(skill)).length
     + c.feats.reduce((total, feat, index) => {
       if (featTakenLevel(feat) > c.level) return total

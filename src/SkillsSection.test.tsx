@@ -28,6 +28,46 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('grants a replacement skill and chosen terrain Lore for Scout', () => {
+  const klass: ContentEntry = { ...ranger, data: { ...ranger.data,
+    skill_proficiency: 'Trained in Nature, Trained in Survival, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' } }
+  const scout: ContentEntry = { ...feyBound, name: 'Scout', data: {
+    skill: 'Survival, Lore related to one terrain you scouted in (such as Forest Lore or Cavern Lore).',
+  } }
+  let c: Character = { ...base, background: 'Scout', skillPicks: [] }
+  const entries = [klass, scout]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  expect(skillRankBudget(c, entries).trained).toBe(5)
+  expect(skillRankBudget({ ...c, background: undefined }, entries).trained).toBe(4)
+  expect(ranksAt(c, entries).Survival).toBe(1)
+  const html = renderToStaticMarkup(tree())
+  const commonLore = html.match(/<select aria-label="Common Lore"[\s\S]*?<\/select>/)?.[0] ?? ''
+  for (const terrain of builder.FAVORED_TERRAINS) {
+    expect(html).toContain(`>${terrain} Lore</option>`)
+    expect(commonLore).toContain(`>${terrain} Lore</option>`)
+  }
+  const select = findSelect(tree(), 'Scout terrain Lore')!
+  ;(select.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Forest' } })
+  expect(c.backgroundTerrainLore).toEqual({ Scout: 'Forest' })
+  expect(ranksAt(c, entries)['Forest Lore']).toBe(1)
+  expect(skillRankBudget(c, entries).trained).toBe(5)
+  const restored = JSON.parse(JSON.stringify(c)) as Character
+  expect(ranksAt(restored, entries)['Forest Lore']).toBe(1)
+  expect(ranksAt({ ...restored, background: undefined }, entries)['Forest Lore']).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).toContain('Forest Lore')
+})
+
+it('offers terrain Lore for other matching backgrounds without treating fixed Lore as a choice', () => {
+  const nomad = { ...feyBound, name: 'Nomad',
+    data: { skill: 'Survival, Lore related to one terrain you traveled in (such as Desert Lore or Swamp Lore).' } }
+  const fixed = { ...feyBound, name: 'Surge Investigator', data: { skill: 'Nature, Occultism, Magical Terrain Lore' } }
+  const nomadHtml = renderToStaticMarkup(<SkillsSection c={{ ...base, background: nomad.name }} entries={[ranger, nomad]} save={() => {}} />)
+  expect(nomadHtml).toContain('aria-label="Nomad terrain Lore"')
+  const fixedHtml = renderToStaticMarkup(<SkillsSection c={{ ...base, background: fixed.name }} entries={[ranger, fixed]} save={() => {}} />)
+  expect(fixedHtml).not.toContain('terrain Lore"')
+  expect(ranksAt({ ...base, background: fixed.name }, [ranger, fixed])['Magical Terrain Lore']).toBe(1)
+})
+
 it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 5 plus your Intelligence modifier' } }

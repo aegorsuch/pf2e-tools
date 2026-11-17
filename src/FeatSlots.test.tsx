@@ -498,6 +498,21 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
   } finally { updateSettings(settings) }
 })
 
+it('offers and saves every Favored Prey variant', () => {
+  const prey: ContentEntry = { id: 'prey', name: 'Favored Prey', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 4, traits: ['Ranger'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), level: 4 }
+  const tree = () => FeatSlots({ c, entries: [prey], categories: ['class'], save: patch => { c = { ...c, ...patch } },
+    search: { 'class:4:0:open': '1' }, onSearch: () => {} })
+  for (const choice of ['Animals', 'Beasts', 'Dragons', 'Fungi and Plants']) {
+    c = { ...c, feats: [] }
+    expect(renderToStaticMarkup(tree())).toContain(`L04 Class: Favored Prey (${choice})`)
+    findButton(tree(), `L04 Class: Favored Prey (${choice})`)!()
+    expect(c.feats).toContainEqual(expect.objectContaining({ name: 'Favored Prey', choice }))
+    expect(renderToStaticMarkup(tree())).toContain(`Favored Prey (${choice})`)
+  }
+})
+
 it('keeps Torag boon slot and source tag when clearing its selected feat, including stale slot dismissals', () => {
   const dwarf: ContentEntry = { id: 'dwarf-feat', name: 'Unburdened Iron', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
