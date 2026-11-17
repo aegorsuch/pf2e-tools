@@ -970,6 +970,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && !(/^(?:Animal Empathy|Heal Animal)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
+      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))

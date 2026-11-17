@@ -428,6 +428,15 @@ describe('animal companions', () => {
     expect(options).not.toContain(druid)
   })
 
+  it('hides Additional Companion and Swift Guardian under the single companion rule', () => {
+    const extra = entry('feat', 'Additional Companion', {}, 4, ['Archetype'])
+    const swift = entry('feat', 'Swift Guardian', {}, 4, ['Archetype'])
+    const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+    const out = eligibleFeats([extra, swift], { ...base, level: 4 }, slot)
+    expect(out).not.toContain(extra)
+    expect(out).not.toContain(swift)
+  })
+
   it('lets Specialized Mount be taken three times only, including unassigned specialization choices', () => {
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const spec = entry('feat', 'Specialized Mount', { archetype: 'Cavalier', repeatable: true }, 14, ['Archetype'])
