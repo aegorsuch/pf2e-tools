@@ -489,6 +489,13 @@ describe('animal companions', () => {
     expect(stats.beastmasterManeuvers[0].description).toContain(`${10 + stats.mods.str} piercing`)
   })
 
+  it('adds Pack Movement, Heightened Instincts and Call Companion notes', () => {
+    const c: Character = { ...base, level: 10, feats: [feat('Pack Movement', undefined, 'archetype:8:0'), feat('Heightened Instincts', undefined, 'archetype:10:0')],
+      companions: [{ id: 'a', name: '', type: 'Bear' }, { id: 'b', name: '', type: 'Bear' }] }
+    const stats = companionStats(c, [bear], 'Bear', undefined, 'a')!
+    expect(stats.beastmasterSpecial.map(x => x.name)).toEqual(['Pack Movement', 'Heightened Instincts', 'Call Companion'])
+  })
+
   it('hides Mature and Incredible Beastmaster Companion but lets class advancement unlock Specialized', () => {
     const mature = entry('feat', 'Mature Beastmaster Companion', {}, 4, ['Archetype'])
     const incredible = entry('feat', 'Incredible Beastmaster Companion', {}, 10, ['Archetype'])

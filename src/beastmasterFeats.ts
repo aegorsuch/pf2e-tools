@@ -69,6 +69,12 @@ export function beastmasterAbilities(c: Character, level: number, strength: numb
     `When the companion strikes an off-guard creature with an agile or finesse unarmed attack, it deals an additional ${specialized ? '2d4' : '1d4'} precision damage. If it already deals precision damage, combine the precision damage.` })
   if (has('Bestial Protection')) special.push({ name: 'Bestial Protection', note:
     "When a creature adjacent to the companion that's smaller than it targets you with an attack, that creature becomes frightened 1." })
+  if (owned('Pack Movement')) special.push({ name: 'Pack Movement', note:
+    'Two Actions (flourish): you and your companion both Stride (or Burrow, Climb, Fly, or Swim if you both have that Speed). If you both end within reach of the same creature, each of you makes a melee Strike against it.' })
+  if (owned('Heightened Instincts')) special.push({ name: 'Heightened Instincts', note:
+    'When a companion succeeds at a saving throw, it gets a critical success instead.' })
+  if ((c.companions?.length ?? 0) > 1) special.push({ name: 'Call Companion', note:
+    'Exploration, 1 minute: switch your active companion for another of your animal companions.' })
   if (owned('Tenacious Endurance')) special.push({ name: 'Tenacious Endurance', note:
     "When the companion is reduced to 0 Hit Points and isn't wounded, it can remain standing with 1 Hit Point and become wounded 1." })
   return { maneuvers, special, gust: has('Billowing Wings') }

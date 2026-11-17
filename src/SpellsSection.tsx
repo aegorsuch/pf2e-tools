@@ -585,6 +585,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const castAbility = casting?.ability ?? sc?.ability
   const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
   const classSpellDC = spellDifficultyClass(c, entries)
+  const ownsFeat = (name: string) => c.feats.some(feat => feat.name === name && featTakenLevel(feat) <= c.level)
+  const beastmasterCasting = ownsFeat('Beastmaster Dedication')
+    ? ownsFeat('Master Beastmaster Spellcasting') ? 3 : ownsFeat('Expert Beastmaster Spellcasting') ? 2 : 1 : 0
   const groupLabel = (name: string, entryId: string | undefined, rank: number, cantrip: boolean) => {
     const entry = spellEntry(name, entryId)
     return spellWardenLabel(entry?.data.warden_spell_tier) || entry?.traits.some(trait => trait.toLowerCase() === 'focus')
@@ -834,11 +837,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
               const details = grant ? grantDetails(grant) : undefined
               const note = details ? details.note : entry && spellResolution(entry).attack
-                ? casting && castAbility ? `${ABILITY_LABEL[castAbility]} Attack ${signed(mod)}`
+                ? !casting && beastmasterCasting ? `Wis Attack ${signed(abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level))}`
+                : casting && castAbility ? `${ABILITY_LABEL[castAbility]} Attack ${signed(mod)}`
                   : <span role="status">Check the granting rules for this spell's spellcasting attribute and proficiency.</span>
                 : undefined
               return <SpellItem c={c} key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
-                note={note} saveDC={details ? details.dc : classSpellDC} {...buffProps(s.name)}
+                note={note} saveDC={details ? details.dc : !casting && beastmasterCasting ? 10 + abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) : classSpellDC} {...buffProps(s.name)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== s.index),
                   activeSpells: c.activeSpells?.filter(name => name !== s.name) }) : undefined}>
                 {controls(s.name)}
