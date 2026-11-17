@@ -1569,6 +1569,19 @@ export function magneticLevitatorsActive(c: Character, entries: ContentEntry[]) 
     && !!armor && !!c.mechanicArmorMods?.[armor.id]?.magneticLevitators
 }
 
+// Unconditional movement Speeds granted by ancestry and class feats
+const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
+  'Aqueous Dragonblood': { Swim: 15 }, 'Burrowing Tripkee': { Burrow: 15 }, 'Cave Climber': { Climb: 10 }, 'Climbing Claws': { Climb: 10 },
+  'Climbing Gremlin': { Climb: 20 }, 'Cunning Climber': { Climb: 10 }, 'Delver': { Burrow: 15 }, 'Digger': { Burrow: 15 },
+  'Finned Ridges': { Swim: 15 }, 'Full Flight': { Fly: 25 }, 'Fully Flighted': { Fly: 25 }, 'Generation Digger': { Burrow: 15 },
+  'Gremlin Aviator': { Fly: 25 }, 'Gripping Limbs': { Climb: 15 }, 'Heart of Earth': { Burrow: 15 }, "Hero's Wings": { Fly: 25 },
+  'Into the Sky': { Fly: 25 }, 'One with Earth': { Burrow: 15 }, 'Powerful Tail': { Climb: 10 }, 'Practiced Paddler': { Swim: 15 },
+  'Prodigious Climber': { Climb: 10 }, 'Scaling Poppet': { Climb: 15 }, 'Scuttle Up': { Climb: 10 }, 'Sea Legs': { Swim: 10 },
+  'Skilled Climber': { Climb: 10 }, 'Skillful Climber': { Climb: 10 }, 'Soaring Form': { Fly: 20 }, 'Soaring Poppet': { Fly: 15 },
+  'Sodbuster': { Burrow: 10 }, 'Summiting Dragonblood': { Climb: 20 }, 'Swift Swimmer': { Swim: 15 }, 'Swimming Poppet': { Swim: 15 },
+  'Tree Climber (Goblin)': { Climb: 10 }, "True Dragon's Flight": { Fly: 20 }, 'Warren Digger': { Burrow: 15 },
+}
+
 export function movementSpeeds(c: Character, entries: ContentEntry[]) {
   const land = speed(c, entries)
   const dash = isFeatEffectActive(c, 'Uncanny Dash') && activeFeatsNamed(c, 'Gg-os Frame').length > 0
@@ -1604,6 +1617,10 @@ export function movementSpeeds(c: Character, entries: ContentEntry[]) {
     if (feet > 0) movement.push(fixed('Burrow', feet, 'Burrowing Specialist'))
   }
   if (activeFeatsNamed(c, 'Tree Climber').length && ancestryFeatTraits(c).includes('elf')) movement.push(fixed('Climb', 10, 'Tree Climber'))
+  for (const [feat, speeds] of Object.entries(ANCESTRY_MOVEMENT_FEATS)) {
+    if (!activeFeatsNamed(c, feat).length) continue
+    for (const [name, feet] of Object.entries(speeds)) movement.push(fixed(name, feet, feat))
+  }
   if (ragingAthleteBenefits(c, entries)) {
     for (const name of ['Climb', 'Swim']) movement.push(atLandSpeed(name, 'Raging Athlete'))
   }

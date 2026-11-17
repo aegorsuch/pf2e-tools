@@ -610,6 +610,16 @@ describe('shared prerequisite enforcement', () => {
     ]))
     expect(senses({ ...character, feats: character.feats.slice(0, 2) }, [])).toEqual([])
   })
+  it('grants passive ancestry movement Speeds', () => {
+    const character: Character = { ...base, feats: [
+      { name: 'Cave Climber', type: 'Ancestry Feat', level: 9 }, { name: 'Warren Digger', type: 'Ancestry Feat', level: 13 },
+      { name: 'Fledgling Flight', type: 'Ancestry Feat', level: 1 }, { name: 'Full Flight', type: 'Ancestry Feat', level: 9 },
+    ], level: 13 }
+    expect(movementSpeeds(character, [])).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Climb', feet: 10 }), expect.objectContaining({ name: 'Burrow', feet: 15 }),
+      expect.objectContaining({ name: 'Fly', feet: 25 }),
+    ]))
+  })
   it.each(['Adopted Ancestry', 'Dromaar'])('grants Orc Spelunker benefits through %s', access => {
     const character: Character = { ...base, systems: ['sf2e'], ancestry: 'Human',
       heritage: access === 'Dromaar' ? 'Dromaar' : undefined,
