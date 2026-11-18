@@ -68,16 +68,32 @@ it.each(['pf2e', 'sf2e'] as const)('retains the complete %s ancestry introductio
       _id: 'example', _source: { category, name: 'Example', summary: 'Truncated...',
         markdown: '<title level="1">Example</title>\n<column>\n**Source** Core pg. 10\n\n'
           + '_Full introductory paragraph._\n\nSecond paragraph with [linked text](/example).\n\n'
-          + '</column>\n<title level="2">Society</title>\nUnrelated society text.' },
+          + '</column>\n<title level="2">You Might...</title>\nUnrelated suggestions.\n<title level="2">Society</title>\nUnrelated society text.' },
     }] : []
     return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
   }
   const hits = await fetchAonHits(system, fetchFn)
   expect(hits[0]._source?.markdown).toBeUndefined()
   expect(mapAonHits(hits, system)[0].description)
-    .toBe('Full introductory paragraph.\n\nSecond paragraph with linked text.')
+    .toBe('Full introductory paragraph. Second paragraph with linked text.')
   expect(mapAonHit({ _id: 'older', _source: { category: 'ancestry', name: 'Older', summary: 'Existing summary.' } }, system)?.description)
     .toBe('Existing summary.')
+})
+
+it('retains full background text and benefits instead of the truncated indexed summary', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'background' ? [{ _id: 'background', _source: { category, name: 'Example',
+      summary: 'You once lived far away...',
+      markdown: '<title level="1">Example</title>\n\n**Source** Core pg. 10\n\n</column>\n\n'
+        + 'You once lived far away. This is the complete final sentence.\n\nYou gain the [Steady Balance](/Feats.aspx?ID=1) skill feat.',
+    } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries[0].description).toBe('You once lived far away. This is the complete final sentence.\n\nYou gain the Steady Balance skill feat.')
+  expect(entries[0].data.full_description).toBe(true)
 })
 
 it('keeps only remastered Ultimate Flexibility when both versions are available', () => {

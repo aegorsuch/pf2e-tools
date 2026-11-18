@@ -23,6 +23,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       + (system === 'pf2e' && [...RETAINED_LEGACY_FEAT_IDS, ...RETAINED_LEGACY_EQUIPMENT_IDS].some(id => id === hit._id) ? '&NoRedirect=1' : '') : '',
     sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source),
   }
+  const markdown = kind === 'background'
+    ? text(s.markdown).replace(/^[\s\S]*?\*\*Source\*\*[^\n]*\n/i, '') : text(s.markdown)
+  if (kind === 'background' && markdown.trim()) data.full_description = true
   for (const f of DATA_FIELDS) {
     const v = s[f]
     if (typeof v === 'number' || typeof v === 'boolean') data[f] = v
@@ -73,9 +76,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     level,
     traits,
     description: kind === 'ancestry' && text(s.about) ? text(s.about)
-      : (['feat', 'heritage', 'spell', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
-      || usesFullItemRules(s)) && text(s.markdown).trim()
-      ? text(s.markdown).split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
+      : (['feat', 'heritage', 'background', 'spell', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
+      || usesFullItemRules(s)) && markdown.trim()
+      ? markdown.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
     ...(kind === 'feat' && comparisonMarkdown !== text(s.markdown)
       ? { comparisonRules: comparisonMarkdown.split(/\n\s*\n/).map(plain).join('\n\n') } : {}),
     data,

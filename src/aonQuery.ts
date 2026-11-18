@@ -96,8 +96,9 @@ export function parseDeityAbout(md: string) {
 }
 
 export function parseAncestryAbout(md: string) {
-  const body = /\*\*Source\*\*[^\n]*\n([\s\S]*?)(?:<\/column>|<title\b|$)/i.exec(md)?.[1] ?? ''
-  return body.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n')
+  const body = /\*\*Source\*\*[^\n]*\n([\s\S]*)/i.exec(md)?.[1] ?? ''
+  const boundary = /<title\b[^>]*>\s*You Might\b/i.exec(body)
+  return plain(boundary ? body.slice(0, boundary.index) : body.split(/<\/column>|<title\b/i)[0])
 }
 
 // Languages a feat teaches its taker ("You speak and understand Fey"); sentences about allies are ignored
@@ -339,7 +340,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
           if (comp.maneuverActionUrl) s.companion_maneuver_action_url = comp.maneuverActionUrl
         }
-        if (!['feat', 'heritage', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
+        if (!['feat', 'heritage', 'background', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
           && !usesFullItemRules(s)) delete s.markdown
       }
       hits.push(hit)

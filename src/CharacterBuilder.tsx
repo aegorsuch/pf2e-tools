@@ -144,8 +144,8 @@ function BackgroundDetails({ entry, label = entry.name }: { entry: ContentEntry;
   const source = entry.data.sourceBook
   return <article className="background-entry">
     <h4>{label}</h4>
-    {entry.description && <p>{entry.description}</p>}
-    {facts.length > 0 && <p>{facts.join('. ')}.</p>}
+    {entry.description.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+    {!entry.data.full_description && facts.length > 0 && <p>{facts.join('. ')}.</p>}
     {typeof source === 'string' && source && <small>{source}</small>}
   </article>
 }
@@ -156,9 +156,10 @@ function AncestryDetails({ entry }: { entry: ContentEntry }) {
     if (paragraphs[0] === entry.name) paragraphs.shift()
     if (/^Source\b/.test(paragraphs[0] ?? '')) paragraphs.shift()
   }
+  const description = entry.kind === 'ancestry' ? [paragraphs.join(' ')] : paragraphs
   return <article className="ancestry-entry" aria-label={entry.name}>
-    <p><strong>{entry.name}:</strong>{paragraphs[0] && <> {paragraphs[0]}</>}</p>
-    {paragraphs.slice(1).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+    <p><strong>{entry.name}:</strong>{description[0] && <> {description[0]}</>}</p>
+    {description.slice(1).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
   </article>
 }
 

@@ -94,7 +94,7 @@ it('shows selected ancestry and heritage descriptions inline in order without so
   try {
     const markup = section(c)
     expect(markup).toContain('<strong>Halfling:</strong> Full ancestry introduction.')
-    expect(markup).toContain('<p>Complete final paragraph.</p>')
+    expect(markup).toContain('<p><strong>Halfling:</strong> Full ancestry introduction. Complete final paragraph.</p>')
     expect(markup).toContain('<strong>Gutsy Halfling:</strong> Complete heritage benefit.')
     expect(markup.indexOf('aria-label="Halfling"')).toBeLessThan(markup.indexOf('aria-label="Gutsy Halfling"'))
     expect(markup).not.toContain('Source Galactic Ancestries')
