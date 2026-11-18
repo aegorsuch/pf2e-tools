@@ -196,6 +196,7 @@ export interface Character {
   background?: string
   backgroundTerrainLore?: Record<string, string>
   backgroundLores?: Record<string, string[]>
+  backgroundSkillChoices?: Record<string, string>
   deity?: string
   divineIntercessions?: Record<string, string[]>
   inactiveDivineBoonFeats?: Character['feats']

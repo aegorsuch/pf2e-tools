@@ -2,7 +2,7 @@ import { db, ensureSupplementalContent } from './db'
 import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 import { isWeaponMode } from './weaponModes'
-import { backgroundEntries } from './backgrounds'
+import { backgroundEntries, deityBackgroundEntries } from './backgrounds'
 
 export const AON_SITES: Record<GameSystem, string> = {
   pf2e: 'https://2e.aonprd.com',
@@ -33,6 +33,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     else if (typeof v === 'string' && v) data[f] = v
     else if (Array.isArray(v) && v.length) data[f] = v.join(', ')
   }
+  // The search index omits Intimidation: https://2e.aonsrd.com/deities/20-zon-shelyn
+  if (system === 'sf2e' && kind === 'deity' && name === 'Zon-Shelyn') data.skill = 'Crafting, Intimidation'
   if (kind === 'spell') {
     const header = text(s.markdown).split(/\n\s*---\s*\n/, 1)[0]
     for (const field of ['duration', 'range']) {
@@ -124,7 +126,7 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
     } else if (adjusted.kind === 'background') entries.push(...backgroundEntries(adjusted, text(h._source?.markdown)))
     else entries.push(adjusted)
   }
-  return entries
+  return deityBackgroundEntries(entries)
 }
 
 const MORTIFICATION_DAMAGE = ['bludgeoning', 'piercing', 'slashing']

@@ -15,7 +15,7 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
-import { normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
+import { backgroundSkillSlots, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './builder'
@@ -154,6 +154,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
+  const backgroundTraining = editingSkills ? backgroundSkillSlots(c, entries) : []
+  const trainingChoice = (name: string) => backgroundTraining.find(slot => slot.value === name)
+    ?? backgroundTraining.find(slot => !slot.value && slot.options.includes(name))
   const downloadFeat = activeFeatsNamed(c, 'Skill Download')[0]
   const downloadRank = c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1
   const ancestrySkills = editingSkills ? ancestralSkills(c, entries) : []
@@ -237,6 +240,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     || !!tokenState && !!skillTokenPurchase(c, entries, name, target, false, tokenState)
   const setRank = (name: string, r: number) => {
     if (!skillNames.has(name)) return
+    const backgroundChoice = r === 1 && trainingChoice(name)
+    if (backgroundChoice) {
+      save({ backgroundSkillChoices: { ...c.backgroundSkillChoices,
+        [backgroundChoice.background.name]: backgroundChoice.value ? '' : name } })
+      return
+    }
     const currentRank = permanentRanks[name] ?? 0
     const base = baseRanks[name] ?? 0
     const temporary = downloaded?.skill === name && downloaded.rank > currentRank
@@ -439,7 +448,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             const temporary = downloaded?.skill === s.name && downloaded.rank > permanentRank
             const downloadAvailable = !!downloadFeat && i + 1 === downloadRank
               && (temporary || permanentRank < downloadRank)
-            const trainedDisabled = i === 0 && (
+            const backgroundChoice = i === 0 ? trainingChoice(s.name) : undefined
+            const trainedDisabled = i === 0 && !backgroundChoice && (
               permanentRank === 0 ? remaining <= 0
                 : permanentRank === 1 ? !picks.includes(s.name)
                   : baseRank > 1
@@ -460,6 +470,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 title={temporary && i + 1 === downloadRank ? 'Skill Download: temporary proficiency' : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
                   ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
                     : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
+                  : backgroundChoice ? `${backgroundChoice.value ? 'Refund' : 'Choose'} training from ${backgroundChoice.background.name}`
                   : i === 0 && fixed.has(s.name) ? picks.includes(s.name) ? 'Refund redundant training choice' : 'Trained granted by class or background' : RANKS[i + 1]}
                 onClick={() => setRank(s.name, i + 1)}
               >{letter}</button>{!!required?.length && <SourceNote inlineSource={false}
@@ -608,7 +619,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       <div className="skill-rank-budget" aria-label="Remaining skill selections">
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>
-            <b>{RANK_LETTERS[index]}</b>{budget[rank] + Number(!!downloadFeat && !downloaded && downloadRank === index + 1)}
+            <b>{RANK_LETTERS[index]}</b>{budget[rank] + Number(!!downloadFeat && !downloaded && downloadRank === index + 1)
+              + (rank === 'trained' ? backgroundTraining.filter(slot => !slot.value).length : 0)}
           </span>
         ))}
       </div>

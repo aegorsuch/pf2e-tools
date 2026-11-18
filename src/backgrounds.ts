@@ -8,6 +8,28 @@ const names = (value: unknown) => typeof value === 'string'
   ? value.split(/,\s*(?![^()]*\))/).map(name => name.trim().replace(/\bLore(?:\s+Lore)+\b/gi, 'Lore')).filter(Boolean) : []
 export const isOpenBackgroundLore = (name: string) => /\blore\b/i.test(name) && !/^[\w' -]+ Lore$/i.test(name)
 
+export function deityBackgroundEntries(entries: ContentEntry[]) {
+  const deities = entries.filter(entry => entry.kind === 'deity' && !entry.deleted
+    && names(entry.data.skill).length && names(entry.data.attribute).length)
+  return entries.flatMap(entry => {
+    if (entry.kind !== 'background' || entry.name !== 'Disciple' || !entry.systems.includes('sf2e')) return [entry]
+    return [
+      { ...entry, data: { ...entry.data, background_choice_required: true } },
+      ...deities.filter(deity => deity.systems.some(system => entry.systems.includes(system)))
+        .map(deity => {
+          const skills = names(deity.data.skill)
+          return {
+            ...entry, id: `${entry.id}:deity:${encodeURIComponent(deity.name)}`, name: `Disciple (${deity.name})`,
+            data: { ...entry.data, background_base: entry.name, background_deity: deity.name,
+              background_choice_required: false, attribute: deity.data.attribute,
+              skill: [...(skills.length === 1 ? skills : []), `${deity.name} Lore`].join(', '),
+              background_skill_options: skills.length > 1 ? skills.join(', ') : '' },
+          }
+        }),
+    ]
+  })
+}
+
 export function backgroundLoreCount(entry?: ContentEntry) {
   const open = names(entry?.data.skill).filter(isOpenBackgroundLore).length
   if (!open || !entry) return 0

@@ -28,6 +28,53 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('uses shared skill buttons for a restricted divine skill without spending unrestricted training', () => {
+  const disciple: ContentEntry = { ...feyBound, name: 'Disciple (Zon-Shelyn)', data: {
+    skill: 'Zon-Shelyn Lore', background_skill_options: 'Crafting, Intimidation',
+  } }
+  let c: Character = { ...base, background: disciple.name, skillPicks: ['Athletics', 'Society', 'Survival', 'Medicine'] }
+  const entries = [ranger, disciple]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const click = (name: string) => {
+    const button = findButtons(tree()).get(`${name} Trained`)!
+    expect(button.disabled).toBeFalsy()
+    ;(button.onClick as () => void)()
+  }
+  expect(skillRankBudget(c, entries).trained).toBe(0)
+  expect(findButtons(tree()).get('Thievery Trained')?.disabled).toBeTruthy()
+  expect(renderToStaticMarkup(SkillsSummary({ c, entries }))).toContain('4/5 Trained')
+  click('Intimidation')
+  expect(c.backgroundSkillChoices).toEqual({ [disciple.name]: 'Intimidation' })
+  expect(ranksAt(c, entries).Intimidation).toBe(1)
+  expect(ranksAt(c, entries).Crafting ?? 0).toBe(0)
+  expect(skillRankBudget(c, entries).trained).toBe(0)
+  expect(renderToStaticMarkup(SkillsSummary({ c, entries }))).toContain('5/5 Trained')
+  click('Intimidation')
+  click('Crafting')
+  expect(ranksAt(c, entries).Crafting).toBe(1)
+  expect(ranksAt(c, entries).Intimidation ?? 0).toBe(0)
+  expect(c.skillPicks).toEqual(['Athletics', 'Society', 'Survival', 'Medicine'])
+})
+
+it('refunds duplicated class training when choosing a divine skill already trained by class', () => {
+  const disciple: ContentEntry = { ...feyBound, name: 'Disciple (Example)', data: {
+    background_skill_options: 'Nature, Crafting',
+  } }
+  let c = { ...base, background: disciple.name }
+  const entries = [ranger, disciple]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const choose = () => {
+    const button = findButtons(tree()).get('Nature Trained')!
+    expect(button.disabled).toBeFalsy()
+    ;(button.onClick as () => void)()
+  }
+  choose()
+  expect(skillRankBudget(c, entries).trained).toBe(5)
+  choose()
+  expect(skillRankBudget(c, entries).trained).toBe(4)
+  expect(ranksAt(c, entries).Nature).toBe(1)
+})
+
 it('grants a replacement skill and chosen terrain Lore for Scout', () => {
   const klass: ContentEntry = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in Survival, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' } }

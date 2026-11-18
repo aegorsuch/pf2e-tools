@@ -2212,9 +2212,20 @@ export function backgroundSkills(bg?: ContentEntry, c?: Character) {
   const skills = typeof bg?.data.skill === 'string' ? bg.data.skill.split(/,\s*(?![^()]*\))/).map(skill => skill.trim()).filter(Boolean) : []
   const terrain = bg && c?.backgroundTerrainLore?.[bg.name]
   const selected = bg ? backgroundLoreChoices(bg, c).filter(Boolean) : []
+  const skillChoice = bg && c?.backgroundSkillChoices?.[bg.name]
   return [...skills.flatMap(skill => isOpenBackgroundLore(skill)
     ? /\bterrain\b/i.test(skill) && !selected.length && terrain && FAVORED_TERRAINS.includes(terrain) ? [`${terrain} Lore`] : [] : [skill]),
-  ...selected]
+  ...selected, ...(skillChoice && tokens(bg?.data.background_skill_options).includes(skillChoice) ? [skillChoice] : [])]
+}
+
+export function backgroundSkillSlots(c: Character, entries: ContentEntry[]) {
+  if (c.level < 1) return []
+  return [byName(entries, 'background', c.background), freeHeartBackground(c, entries)].flatMap(background => {
+    const options = tokens(background?.data.background_skill_options)
+    if (!background || !options.length) return []
+    const saved = c.backgroundSkillChoices?.[background.name]
+    return [{ background, options, value: saved && options.includes(saved) ? saved : '' }]
+  })
 }
 
 export function backgroundLoreSlots(c: Character, entries: ContentEntry[]) {
@@ -4960,6 +4971,9 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
   const keys = ['trained', 'expert', 'master', 'legendary'] as const
   const remaining = skillRankBudget(c, entries)
   const total = { trained: additionalSkillCount(c, entries), expert: 0, master: 0, legendary: 0 }
+  const backgroundTraining = backgroundSkillSlots(c, entries)
+  total.trained += backgroundTraining.length
+  remaining.trained += backgroundTraining.filter(slot => !slot.value).length
   for (const token of skillIncreaseTokens(c, entries)) total[keys[token.rank - 1]]++
   if (activeFeatsNamed(c, 'Skill Download').length) {
     const key = keys[c.level >= 17 ? 2 : c.level >= 9 ? 1 : 0]

@@ -2,6 +2,20 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('preserves alternative divine skills even when the index lists only one', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'deity' ? [{ _id: 'example', _source: {
+      name: 'Example deity', category, skill: ['Crafting'], attribute: ['Constitution', 'Charisma'],
+      markdown: '**Divine Skill** [Crafting](/skills/5-crafting) or [Intimidation](/skills/8-intimidation)\n\n**Domains** creation',
+    } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const hits = await fetchAonHits('sf2e', fetchFn)
+  expect(mapAonHits(hits, 'sf2e')[0].data.skill).toBe('Crafting, Intimidation')
+})
+
 it('preserves spell duration and range wording without changing their indexed numeric values', () => {
   const entry = mapAonHit({ _id: 'invisibility', _source: {
     name: 'Invisibility', category: 'spell', duration: 600, range: 0,

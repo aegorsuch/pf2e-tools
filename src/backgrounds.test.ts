@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { mapAonHits } from './aon'
 import { backgroundLoreCount } from './backgrounds'
-import { backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundVariants, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
+import { backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character } from './types'
 
@@ -15,6 +15,36 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('lists only deity variants for Disciple, including Zon-Shelyn, with matching grants and boosts', () => {
+  const entries = mapAonHits([
+    { _id: 'disciple', _source: { name: 'Disciple', category: 'background', markdown:
+      `You're trained in a skill listed in your deity's divine skill entry and one Lore skill related to your deity. You gain the ${feat('Religious Talisman')} skill feat.` } },
+    { _id: 'abadar', _source: { name: 'Abadar', category: 'deity', skill: ['Society'], attribute: ['Constitution', 'Intelligence'] } },
+    { _id: 'zon-shelyn', _source: { name: 'Zon-Shelyn', category: 'deity', skill: ['Crafting'], attribute: ['Constitution', 'Charisma'] } },
+    { _id: 'atheism', _source: { name: 'Atheism', category: 'deity' } },
+  ], 'sf2e')
+  const backgrounds = entries.filter(entry => entry.kind === 'background')
+  expect(backgroundVariants(backgrounds, ['Cooking Lore']).map(option => option.value))
+    .toEqual(['Disciple (Abadar)', 'Disciple (Zon-Shelyn)'])
+  const c: Character = { ...base, systems: ['sf2e'], background: 'Disciple (Abadar)' }
+  expect(ranksAt(c, entries)).toMatchObject({ Society: 1, 'Abadar Lore': 1 })
+  expect(backgroundLoreCount(backgrounds.find(entry => entry.name === c.background))).toBe(0)
+  expect(backgrounds.find(entry => entry.name === c.background)?.data.feat).toBe('Religious Talisman')
+  expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['con', 'int'])
+  const zon: Character = { ...c, background: 'Disciple (Zon-Shelyn)' }
+  expect(boostSlots(zon, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['con', 'cha'])
+  expect(backgroundSkillSlots(zon, entries)).toMatchObject([{ options: ['Crafting', 'Intimidation'], value: '' }])
+  for (const choice of ['Crafting', 'Intimidation', 'Society']) {
+    const saved: Character = JSON.parse(JSON.stringify({ ...zon, backgroundSkillChoices: { [zon.background!]: choice } }))
+    const ranks = ranksAt(saved, entries)
+    expect(ranks['Zon-Shelyn Lore']).toBe(1)
+    expect(ranks.Crafting ?? 0).toBe(Number(choice === 'Crafting'))
+    expect(ranks.Intimidation ?? 0).toBe(Number(choice === 'Intimidation'))
+    expect(ranks.Society ?? 0).toBe(0)
+    expect(ranksAt({ ...saved, background: undefined }, entries)[choice] ?? 0).toBe(0)
+  }
+})
 
 it('gives Martial Disciple exactly two variants with the matching skill feat', () => {
   const entries = compile('Martial Disciple', `You're trained in your choice of ${skill('Acrobatics')} or ${skill('Athletics')},

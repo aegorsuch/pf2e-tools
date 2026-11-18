@@ -327,6 +327,8 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (about) s.about = about
         }
         if (category === 'deity' && typeof s.markdown === 'string') {
+          const divineSkill = /^\*\*Divine Skill\*\*[ \t]*([^\r\n]+)/mi.exec(s.markdown)?.[1]
+          if (divineSkill) s.skill = plain(divineSkill).split(/\s+or\s+|,\s*/).filter(Boolean)
           s.sanctification_required = /\bDivine Sanctification\s+must choose\b/i.test(plain(s.markdown))
           const spells = parseClericSpells(s.markdown)
           if (spells) s.cleric_spells = spells
