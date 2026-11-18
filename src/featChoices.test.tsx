@@ -27,6 +27,46 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows only the explicit variant row without changing shared rules, other tables, or future previews', () => {
+  const entry = mapAonHit({ _id: 'variant-details', _source: { name: 'Variant Details', category: 'feat',
+    markdown: 'Shared rules before.\n\n<table><tr><td>**Style**</td><td>**Skill**</td></tr>'
+      + '<tr><td>Power</td><td>Athletics</td></tr><tr><td>Focus</td><td>Arcana</td></tr></table>'
+      + '\n\nShared restrictions after.\n\n<table><tr><td>Level</td><td>Bonus</td></tr>'
+      + '<tr><td>1</td><td>+1</td></tr><tr><td>5</td><td>+2</td></tr></table>',
+  } }, 'pf2e')!
+  const before = JSON.stringify(entry)
+  const character = { ...base, feats: [{ name: entry.name, type: 'Skill Feat', level: 1, choice: 'Power' }] }
+  const render = (choice?: string) => renderToStaticMarkup(
+    <EntryDescription name={entry.name} entry={entry} character={character} choice={choice} />)
+  for (const [choice, detail, excluded] of [['Power', 'Athletics', 'Arcana'], ['Focus', 'Arcana', 'Athletics']]) {
+    const markup = render(choice)
+    expect(markup).toContain(`${choice}: ${detail}`)
+    expect(markup).not.toContain(excluded)
+    expect(markup).toContain('Shared rules before.')
+    expect(markup).toContain('Shared restrictions after.')
+    expect(markup).toContain('Level Bonus 1 +1 5 +2')
+  }
+  for (const choice of [undefined, 'Unavailable saved option']) {
+    expect(render(choice)).toContain('Power Athletics Focus Arcana')
+  }
+  expect(JSON.stringify(entry)).toBe(before)
+})
+
+it('keeps table footnotes only with the choices they actually restrict', () => {
+  const entry = mapAonHit({ _id: 'crafting-options', _source: { name: 'Crafting Options', category: 'feat',
+    markdown: '<row><table><tr><td>**Specialty**</td><td>**Items**</td></tr>'
+      + '<tr><td>Alchemy*</td><td>Alchemical items</td></tr>'
+      + '<tr><td>Stonemasonry</td><td>Stone goods and structures</td></tr></table>'
+      + '<br /> * Requires [Alchemical Crafting](/Feats.aspx?ID=1) to Craft.</row>\n\nShared rules.',
+  } }, 'pf2e')!
+  const render = (choice: string) => renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} choice={choice} />)
+  expect(render('Alchemy')).toContain('Alchemy: Alchemical items. Requires Alchemical Crafting to Craft.')
+  expect(render('Stonemasonry')).toContain('Stonemasonry: Stone goods and structures')
+  expect(render('Stonemasonry')).not.toContain('Alchemical Crafting')
+  expect(render('Stonemasonry')).toContain('Shared rules.')
+  expect(entry.description).toContain('Requires Alchemical Crafting')
+})
+
 it.each([false, true])('uses singular Tenacious Endurance wording only with the one-companion rule enabled (%s)', enabled => {
   const previous = getSettings().singleAnimalCompanion
   const description = "You encourage your companion to refuse to yield, against even the mightiest of foes. When one of your animal companions is reduced to 0 Hit Points, if it isn't wounded, it can remain standing with 1 Hit Point and become wounded 1."

@@ -1546,7 +1546,7 @@ export function WarmaskGear({ c, entries }: SectionProps) {
   const feat = activeFeatsNamed(c, 'Orc Warmask')[0]
   const entry = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
   const chosen = source ? `Power source: ${feat.choice} (${source.tradition}). +${warmaskItemBonus(c)} item bonus to ${source.skill} checks.` : undefined
-  return <EntryDescription character={c} name="Orc Warmask"
+  return <EntryDescription character={c} name="Orc Warmask" choice={feat.choice}
     entry={entry && chosen ? { ...entry, description: `${chosen}\n\n${entry.description}` } : entry}
     descriptionNote={!entry ? chosen : undefined} entries={entries} className="equipment-name" />
 }

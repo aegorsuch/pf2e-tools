@@ -27,8 +27,8 @@ function featIndex(entries: ContentEntry[]) {
   return index
 }
 
-export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, grantSource, descriptionNote, entries, character }: {
-  name: string; entry?: ContentEntry; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
+export function EntryDescription({ name, entry, choice, className, prerequisites, access, buttonLabel, grantSource, descriptionNote, entries, character }: {
+  name: string; entry?: ContentEntry; choice?: string; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -50,7 +50,16 @@ export function EntryDescription({ name, entry, className, prerequisites, access
     ...link, target: index.urls.get(link.url)
       ?? active.systems.map(system => index.names.get(`${system}:${link.name.toLowerCase()}`)).find(Boolean),
   }))
-  const originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  let originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  if (!history.length && choice) {
+    for (const section of active?.choiceDescriptions ?? []) {
+      const option = Object.entries(section.options).find(([name]) => name.toLowerCase() === choice.trim().toLowerCase())
+      if (!option) continue
+      const detail = option[1].replace(/\b(arcane|divine|occult|primal) tradition\b/gi,
+        (_, tradition: string) => `${tradition[0].toUpperCase()}${tradition.slice(1).toLowerCase()} Tradition`)
+      originalDescription = originalDescription?.replace(section.text, () => `${option[0]}: ${detail}`)
+    }
+  }
   const description = active?.kind === 'feat' && ['Tenacious Endurance', 'Heightened Instincts'].includes(active.name)
     && getSettings().singleAnimalCompanion
     ? originalDescription?.replace(/\bone of your (animal )?companions\b/gi, 'your $1companion')

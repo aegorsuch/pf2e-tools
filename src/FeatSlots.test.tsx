@@ -1529,7 +1529,11 @@ it('alphabetizes selected feat rows within each level without moving their slot 
   expect(markup.indexOf('>Zeal</button>')).toBeLessThan(markup.indexOf('>Aardvark</button>'))
   expect(markup.indexOf('>Zeal</button>')).toBeLessThan(markup.indexOf('Remove L01 Class extra feat slot 2'))
   expect(markup.slice(0, markup.indexOf('>Zeal</button>'))).toContain('Remove L01 Class extra feat slot 1')
-  expect(markup.slice(0, markup.indexOf('>Zeal</button>'))).toContain('Add L01 Class feat slot')
+  const levelOneRows = [...markup.matchAll(/<li class="feat-slot-row[^"]*">[\s\S]*?<\/li>/g)]
+    .map(match => match[0]).filter(row => row.includes('L01 Class'))
+  expect(levelOneRows).toHaveLength(3)
+  expect(levelOneRows.at(-1)).toContain('Add L01 Class feat slot')
+  for (const row of levelOneRows.slice(0, -1)) expect(row).not.toContain('Add L01 Class feat slot')
   expect(markup.slice(markup.indexOf('>Aardvark</button>'))).toContain('Add L02 Class feat slot')
 })
 
@@ -1627,7 +1631,7 @@ it('shows the current background skill feat above level-based skill feats', () =
   expect(render({ ...c, background: undefined })).not.toContain('Survey Wildlife')
 })
 
-it('includes action symbols in feat choices and shows add control on each level top row', () => {
+it('includes action symbols in feat choices and shows one add control per level', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },

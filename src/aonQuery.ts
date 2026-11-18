@@ -82,6 +82,51 @@ export const plain = (md: string) => md
   .replace(/\s+/g, ' ')
   .trim()
 
+export function parseChoiceDescriptions(markdown: string) {
+  const sections: { text: string; options: Record<string, string> }[] = []
+  for (const match of markdown.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>|<(ul|ol)\b[^>]*>[\s\S]*?<\/\1>/gi)) {
+    const block = match[0]
+    if ([...block.matchAll(/<(?:table|ul|ol)\b/gi)].length !== 1) continue
+    let complete = true
+    const references = new Map<string, string[]>()
+    const rows = /^<table\b/i.test(block)
+      ? [...block.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].flatMap((row, index) => {
+        const cells = [...row[1].matchAll(/<(td|th)\b[^>]*>([\s\S]*?)<\/\1>/gi)]
+        if (index === 0 && cells.length >= 2 && (cells.every(cell => cell[1].toLowerCase() === 'th')
+          || cells.every(cell => /^\s*\*\*[^*]+\*\*\s*$/.test(cell[2])))) return []
+        if (cells.length < 2) { complete = false; return [] }
+        const label = plain(cells[0][2])
+        const raw = cells.map(cell => cell[2]).join(' ').replace(/\*\*([^*]+)\*\*/g, '$1')
+        references.set(label, [...raw.matchAll(/(?<=[\w)])(\*+)(?!\*)/g)].map(marker => marker[1]))
+        return [[label, cells.slice(1).map(cell => plain(cell[2])).join(', ')]]
+      })
+      : [...block.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].flatMap(row => {
+        const option = /^\s*(?:\*\*([^*]+)\*\*|<(?:b|strong)>([\s\S]*?)<\/(?:b|strong)>)\s*:?\s*([\s\S]+)$/i.exec(row[1])
+        if (!option) complete = false
+        return option ? [[plain(option[1] ?? option[2]), plain(option[3])]] : []
+      })
+    if (!complete || rows.length < 2 || rows.some(([name, detail]) => !name || !detail)
+      || new Set(rows.map(([name]) => name.toLowerCase())).size !== rows.length) continue
+    const options = Object.fromEntries(rows)
+    let source = block
+    let following = markdown.slice(match.index + block.length)
+    for (;;) {
+      const footnote = /^(?:\s|<br\s*\/?>)*(\*+)[ \t]+([^\n]*?)(?=<\/(?:row|column)\b|$|\n)/i.exec(following)
+      const affected = footnote && rows.filter(([name]) => references.get(name)?.includes(footnote[1]))
+      if (!footnote || !affected?.length) break
+      for (const [name] of affected) {
+        options[name] += `${/[.!?]$/.test(options[name]) ? ' ' : '. '}${plain(footnote[2])}`
+      }
+      source += footnote[0]
+      following = following.slice(footnote[0].length)
+    }
+    // Keep exact imported text so replacing a choice block cannot remove surrounding rules.
+    const text = source.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n')
+    sections.push({ text, options })
+  }
+  return sections
+}
+
 const DAMAGE_TYPES = 'acid|cold|electricity|fire|sonic|poison|mental|force|negative|positive|vitality|void|bludgeoning|piercing|slashing|physical|spirit'
 // Cleric spells by rank from a deity page: "1st: Summon Animal; 2nd: Speak with Animals"
 export function parseClericSpells(md: string) {

@@ -331,12 +331,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
                 {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
                 <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
-                  entry={entry} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
+                  entry={entry} choice={row.kind === 'automatic' ? row.feat.choice : undefined} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
               </li>
             </Fragment>
           }
-          const { slot: s, index } = row
+          const { slot: s } = row
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? (c.skippedFeatSlots?.includes(s.key) ? 'N/A' : '')
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
@@ -428,8 +428,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           }
           const granted = isGrantedSlot(s.key)
           const sameLevel = (slot: PlannedSlot) => slot.category === s.category && slot.level === s.level
-          const addSlotIndex = slots.findIndex(slot => sameLevel(slot) && !isGrantedSlot(slot.key))
-          const showAddSlot = index === (addSlotIndex >= 0 ? addSlotIndex : slots.findIndex(sameLevel))
+          const showAddSlot = !rows.slice(rowIndex + 1).some(next => next.kind === 'slot' && sameLevel(next.slot))
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : undefined
@@ -453,7 +452,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {optionLabel(option)}
             </button>
             <EntryDescription character={c} name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
-              entry={option.entry} entries={entries} buttonLabel="Details" className="picker-details"
+              entry={option.entry} choice={option.choice} entries={entries} buttonLabel="Details" className="picker-details"
               prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)}
               descriptionNote={option.entry.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                 : DOMAIN_FEATS.includes(option.entry.name) && option.choice
@@ -487,7 +486,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {homebrewDedication(s.key) ? (
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
+                current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
                   descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                     : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)

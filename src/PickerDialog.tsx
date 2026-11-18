@@ -15,8 +15,8 @@ export function PickerDialog({ label, searchLabel, query, onQuery, onClose, chil
   useEffect(() => { close.current = onClose }, [onClose])
   useEffect(() => {
     const previous = document.activeElement
-    search.current?.focus()
-    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus() }
+    search.current?.focus({ preventScroll: true })
+    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }) }
   }, [])
   const content = <div className="feat-modal-backdrop" onClick={() => close.current()}>
     <div ref={panel} className="feat-modal" role="dialog" aria-modal="true" aria-label={label}

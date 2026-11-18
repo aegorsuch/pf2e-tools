@@ -2,6 +2,29 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('retains exact table blocks and their named options for personalized feat descriptions', () => {
+  const entry = mapAonHit({ _id: 'choices', _source: { name: 'Choice Feat', category: 'feat',
+    markdown: 'Rules before.\n\n<table><tr><th>Style</th><th>Benefit</th></tr>\n\n'
+      + '<tr><td>Power</td><td>[Athletics](/Skills.aspx?ID=3)</td></tr>'
+      + '<tr><td>Focus</td><td>Arcana</td></tr></table>\n\nShared restrictions after.',
+  } }, 'pf2e')!
+  expect(entry.choiceDescriptions).toEqual([{
+    text: 'Style Benefit\n\nPower Athletics Focus Arcana',
+    options: { Power: 'Athletics', Focus: 'Arcana' },
+  }])
+  expect(entry.description).toContain(entry.choiceDescriptions![0].text)
+  expect(entry.description).toContain('Shared restrictions after.')
+})
+
+it.each([
+  '<ul><li>**Power** Athletics</li><li>**Focus** Arcana</li><li>Shared restriction.</li></ul>',
+  '<table><tr><td>Power</td><td>Athletics</td></tr><tr><td>Focus</td><td>Arcana</td></tr><tr><td colspan="2">Shared restriction.</td></tr></table>',
+])('does not make mixed rules and options into a replaceable choice block', markdown => {
+  const entry = mapAonHit({ _id: 'mixed', _source: { name: 'Mixed Rules', category: 'feat', markdown } }, 'pf2e')
+  expect(entry?.choiceDescriptions).toBeUndefined()
+  expect(entry?.description).toContain('Shared restriction.')
+})
+
 it('preserves alternative divine skills even when the index lists only one', async () => {
   const fetchFn: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }

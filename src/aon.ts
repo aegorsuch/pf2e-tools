@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseChoiceDescriptions, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 import { isWeaponMode } from './weaponModes'
 import { backgroundEntries, deityBackgroundEntries } from './backgrounds'
@@ -61,6 +61,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     .map(match => ({ name: match[1], url: AON_SITES[system] + match[2] })) : []
   const comparisonMarkdown = kind === 'feat' ? text(s.markdown)
     .replace(/<details\b[^>]*\bclass=["'][^"']*\bclarification\b[^"']*["'][^>]*>[\s\S]*?<\/details>/gi, '') : ''
+  const choiceDescriptions = kind === 'feat' ? parseChoiceDescriptions(markdown) : []
   // SF2e ids embed the parent ancestry (ancestries--1-astrazoan--heritages--1-aquazoan)
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
   if (text(s.resistances)) data.resistances = text(s.resistances)
@@ -88,6 +89,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       ? markdown.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
     ...(kind === 'feat' && comparisonMarkdown !== text(s.markdown)
       ? { comparisonRules: comparisonMarkdown.split(/\n\s*\n/).map(plain).join('\n\n') } : {}),
+    ...(choiceDescriptions.length ? { choiceDescriptions } : {}),
     data,
     effects: [],
     ...(kind === 'weapon' && Array.isArray(s.weapon_modes) ? { weaponModes: s.weapon_modes.filter(isWeaponMode) } : {}),

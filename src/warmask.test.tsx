@@ -2,13 +2,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { automaticFeatGrants, ranksAt, warmaskAlternateSkills } from './builder'
 import { FeatChoice } from './FeatChoice'
+import { FeatSlots } from './FeatSlots'
+import { mapAonHit } from './aon'
 import { dailyInnateUses, grantedFeatSpells } from './featSpells'
 import { ArmorList, WarmaskGear } from './GearSection'
 import { SkillsSection } from './SkillsSection'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
-import { warmaskItemBonus } from './warmask'
+import { warmaskItemBonus, WARMASK_SOURCES } from './warmask'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 5, ancestry: 'Orc',
@@ -21,6 +23,33 @@ const spell: ContentEntry = {
   id: 'fear', name: 'Fear', kind: 'spell', systems: ['pf2e'], level: 1, source: 'official',
   traits: [], description: '', data: {}, effects: [], updatedAt: 0,
 }
+
+it.each(Object.entries(WARMASK_SOURCES))('shows only %s details in the chosen feat and equipment', (choice, source) => {
+  const list = '<ul>' + Object.entries(WARMASK_SOURCES).map(([name, { skill, tradition }]) =>
+    `<li>**${name}** [${skill}](/Skills.aspx?ID=1), [${tradition.toLowerCase()}](/Traits.aspx?ID=1) tradition</li>`).join('') + '</ul>'
+  const entry = mapAonHit({ _id: 'warmask-choices', _source: { name: 'Orc Warmask', category: 'feat', level: 1, trait: ['Orc'],
+    markdown: "Warmask rules. Once you select this source, it can't be changed.\n" + list + '\n\nShared mask restrictions.',
+  } }, 'pf2e')!
+  const before = JSON.stringify(entry)
+  const c: Character = { ...base, level: 1, feats: [{ ...base.feats[0], choice, slot: 'ancestry:1:0', sourceId: entry.id }] }
+  for (const component of [
+    <WarmaskGear c={c} entries={[entry]} save={() => {}} />,
+    <FeatSlots c={c} entries={[entry]} save={() => {}} categories={['ancestry']} />,
+  ]) {
+    const markup = renderToStaticMarkup(component)
+    const dialog = [...markup.matchAll(/<dialog\b[\s\S]*?<\/dialog>/g)].find(match => match[0].includes('Warmask rules.'))?.[0]
+    expect(dialog).toContain(`${choice}: ${source.skill}, ${source.tradition} Tradition`)
+    expect(dialog).toContain('Shared mask restrictions.')
+    expect(dialog).toContain('it can&#x27;t be changed.')
+    for (const other of Object.keys(WARMASK_SOURCES).filter(name => name !== choice)) expect(dialog).not.toContain(other)
+  }
+  const preview = renderToStaticMarkup(<FeatSlots c={c} entries={[entry]} save={() => {}} categories={['ancestry']}
+    search={{ 'ancestry:1:0:open': '1' }} onSearch={() => {}} />)
+  for (const [name, { skill, tradition }] of Object.entries(WARMASK_SOURCES)) {
+    expect(preview).toContain(`${name}: ${skill}, ${tradition} Tradition`)
+  }
+  expect(JSON.stringify(entry)).toBe(before)
+})
 
 it('grants warmask training and feat, with an alternate when already trained', () => {
   expect(ranksAt(base, []).Religion).toBe(1)
