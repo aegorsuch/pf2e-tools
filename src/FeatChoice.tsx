@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, researchedSpellResistanceChoices, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -186,27 +186,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(terrain => <option key={terrain}>{terrain}</option>)}
     </SearchableSelect>
   }
-  if (feat.name === 'Researched Spell Resistance') {
-    const { rows } = researchedSpellResistanceChoices(c, entries, feat)
-    return <span className="feat-choice feat-choice-with-note">
-      {rows.map((row, choiceIndex) => <span className="searchable-select" key={choiceIndex}>
-        <SearchableSelect label={choiceIndex === 0 ? 'Spell tradition' : 'Additional tradition'}
-          aria-label={`Researched Spell Resistance tradition ${choiceIndex + 1}`} value={row.value}
-          onChange={event => {
-            const value = event.target.value
-            if (value && !row.options.includes(value)) return
-            const choice = [...rows.slice(0, choiceIndex).map(previous => previous.value), ...(value ? [value] : [])].join(', ') || undefined
-            save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
-          }}>
-          <option value="">Choose tradition</option>
-          {row.value && !row.options.includes(row.value) && <option disabled value={row.value}>{row.value}</option>}
-          {[...row.options].sort((a, b) => a.localeCompare(b)).map(tradition => <option key={tradition}>{tradition}</option>)}
-        </SearchableSelect>
-        {row.value && !row.options.includes(row.value) && <small>Saved tradition is unavailable with current skill training or earlier choices.</small>}
-      </span>)}
-      <small>First tradition requires Expert. Each chosen tradition's Master skill unlocks one additional tradition with a Trained skill.</small>
-    </span>
-  }
+  if (feat.name === 'Researched Spell Resistance' || feat.name === 'Assurance') return null
   if (['Inventor Dedication', 'Second Innovation', 'Third Innovation'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '') ?? []
     return <SearchableSelect label="Innovation" aria-label={`${feat.name} innovation`} value={feat.choice ?? ''} onChange={event => {

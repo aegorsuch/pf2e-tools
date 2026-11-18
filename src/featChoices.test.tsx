@@ -235,32 +235,31 @@ it("restricts Officer's Education language slots to common languages without tra
 it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {
   let c: Character = { ...base, level: 13, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 },
     feats: [{ name: 'Researched Spell Resistance', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
-  const tree = () => FeatChoice({ c, entries: [], index: 0, save: patch => { c = { ...c, ...patch } } })
-  findSelect(tree())!.onChange({ target: { value: 'Primal' } })
-  expect(c.feats[0].choice).toBeUndefined()
-  findSelect(tree())!.onChange({ target: { value: 'Arcane' } })
-  expect(findSelects(tree())).toHaveLength(1)
+  const options = () => featChoiceOptions('Researched Spell Resistance', c, [], 'ancestry:13:0')!
+  expect(options()).toEqual(['Arcane'])
+  expect(FeatChoice({ c, entries: [], index: 0, save: () => {} })).toBeNull()
   c = { ...c, rankOverrides: { ...c.rankOverrides, Arcana: 3 } }
-  expect(findSelects(tree())).toHaveLength(2)
-  findSelects(tree())[1].onChange({ target: { value: 'Arcane' } })
-  findSelects(tree())[1].onChange({ target: { value: 'Divine' } })
-  expect(c.feats[0].choice).toBe('Arcane')
-  findSelects(tree())[1].onChange({ target: { value: 'Primal' } })
+  expect(options()).toEqual(['Arcane', 'Arcane, Occult', 'Arcane, Primal'])
+  c.feats[0].choice = 'Arcane, Primal'
   c = JSON.parse(JSON.stringify(c))
   expect(c.feats[0].choice).toBe('Arcane, Primal')
-  expect(findSelects(tree())).toHaveLength(2)
+  expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane', 'Primal'])
   c = { ...c, rankOverrides: { ...c.rankOverrides, Nature: 3 } }
-  findSelects(tree())[2].onChange({ target: { value: 'Occult' } })
-  expect(c.feats[0].choice).toBe('Arcane, Primal, Occult')
+  expect(options()).toContain('Arcane, Primal, Occult')
   c = { ...c, rankOverrides: { ...c.rankOverrides, Occultism: 3, Religion: 1 } }
-  findSelects(tree())[3].onChange({ target: { value: 'Divine' } })
+  c.feats[0].choice = 'Arcane, Primal, Occult, Divine'
   expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane', 'Primal', 'Occult', 'Divine'])
-  expect(findSelects(tree())).toHaveLength(4)
-  c = { ...c, rankOverrides: { ...c.rankOverrides, Arcana: 2 } }
+  const variants = options()
+  expect(variants).toHaveLength(14)
+  expect(new Set(variants.map(choice => choice.split(', ').sort().join(', '))).size).toBe(variants.length)
+  for (const choice of variants) {
+    expect(researchedSpellResistanceChoices(c, [], { ...c.feats[0], choice }).traditions).toEqual(choice.split(', '))
+  }
+  c = { ...c, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 } }
   expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane'])
-  expect(renderToStaticMarkup(tree())).toContain('Saved tradition is unavailable')
-  findSelects(tree())[0].onChange({ target: { value: '' } })
-  expect(c.feats[0].choice).toBeUndefined()
+  expect(options()).toEqual(['Arcane'])
+  c = { ...c, rankOverrides: { Arcana: 1 } }
+  expect(options()).toEqual([])
 })
 
 it.each([

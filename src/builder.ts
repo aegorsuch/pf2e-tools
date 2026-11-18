@@ -412,7 +412,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
-  || key === 'general:1:direwolf-bonded' || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
+  || key === 'general:1:direwolf-bonded' || key === 'skill:1:scholar' || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
 
 export const mechanicIngenuitySlots = (c: Character) =>
   c.className === 'Mechanic' && c.systems.includes('sf2e')
@@ -441,6 +441,11 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (!groupOrder.has('general:1')) groupOrder.set('general:1', groupOrder.size)
     slots.push({ key: 'general:1:direwolf-bonded', category: 'general', level: 1,
       grantedBy: 'Direwolf Bonded', grantedFeat: 'Canny Acumen' })
+  }
+  if (c.background === 'Scholar' && c.level >= 1) {
+    if (!groupOrder.has('skill:1')) groupOrder.set('skill:1', groupOrder.size)
+    slots.push({ key: 'skill:1:scholar', category: 'skill', level: 1,
+      grantedBy: 'Scholar', grantedFeat: 'Assurance' })
   }
   if (c.level >= 1 && hasDivineIntercession(c, 'Torag', 'moderate-boon')) {
     if (!groupOrder.has('ancestry:1')) groupOrder.set('ancestry:1', groupOrder.size)
@@ -1192,6 +1197,15 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
+  if (name === 'Assurance') {
+    const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    const ranks = ranksAt({ ...c, level }, entries)
+    const skills = new Set(statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name))
+    const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return Object.keys(ranks).filter(skill => (skills.has(skill) || / lore$/i.test(skill))
+      && ranks[skill] >= 1 && !used.has(skill)).sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Elf Atavism' || name === 'Elven Atavism') return elfAtavismOptions(c, entries)
     .map(entry => entry.name).sort((a, b) => a.localeCompare(b))
   if (name === 'Exocortex Experimenter' && c.systems.includes('sf2e')) {
@@ -1799,25 +1813,45 @@ export const parryBonus = (c: Character, entries: ContentEntry[]) =>
 
 const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
 
+function researchedTraditionOptions(ranks: Record<string, number>, traditions: string[]) {
+  const capacity = 1 + TRADITION_SKILLS.filter(([tradition, skill]) =>
+    traditions.includes(tradition) && (ranks[skill] ?? 0) >= 3).length
+  return traditions.length < capacity ? TRADITION_SKILLS.filter(([tradition, skill]) =>
+    !traditions.includes(tradition) && (ranks[skill] ?? 0) >= (traditions.length ? 1 : 2))
+    .map(([tradition]) => tradition) : []
+}
+
+function researchedSpellResistanceVariants(c: Character, entries: ContentEntry[]) {
+  const ranks = ranksAt(c, entries)
+  const variants = new Map<string, string>()
+  const visit = (traditions: string[]) => {
+    for (const tradition of researchedTraditionOptions(ranks, traditions)) {
+      const next = [...traditions, tradition]
+      const key = [...next].sort().join(', ')
+      if (variants.has(key)) continue
+      variants.set(key, next.join(', '))
+      visit(next)
+    }
+  }
+  visit([])
+  return [...variants.values()].sort((a, b) => a.localeCompare(b))
+}
+
 export function researchedSpellResistanceChoices(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   const ranks = ranksAt(c, entries)
   const saved = feat.choice?.split(',').map(value => value.trim()).filter(Boolean) ?? []
   const traditions: string[] = []
   const rows: { value: string; options: string[] }[] = []
-  let capacity = 1
   for (let index = 0; index < 4; index++) {
     const value = saved[index] ?? ''
-    const options: string[] = traditions.length === index && index < capacity
-      ? TRADITION_SKILLS.filter(([tradition, skill]) =>
-        !traditions.includes(tradition) && (ranks[skill] ?? 0) >= (index === 0 ? 2 : 1)).map(([tradition]) => tradition)
+    const options: string[] = traditions.length === index
+      ? researchedTraditionOptions(ranks, traditions)
       : []
     if (!value && index > 0 && !options.length) break
     rows.push({ value, options })
     if (!value) break
     if (options.includes(value)) {
       traditions.push(value)
-      const skill = TRADITION_SKILLS.find(([tradition]) => tradition === value)?.[1]
-      if (skill && (ranks[skill] ?? 0) >= 3) capacity++
     }
   }
   return { rows, traditions }

@@ -1276,7 +1276,7 @@ describe('computeAbilities', () => {
 describe('plannedSlots', () => {
   it('follows the standard progression up to the character level', () => {
     updateSettings({ freeArchetype: false })
-    const keys = (level: number) => plannedSlots({ ...base, level }).map((s) => `${s.category}${s.level}`)
+    const keys = (level: number) => plannedSlots({ ...base, background: '', level }).map((s) => `${s.category}${s.level}`)
     expect(keys(1)).toEqual(['ancestry1', 'class1'])
     expect(keys(3)).toEqual(['ancestry1', 'class1', 'class2', 'skill2', 'general3'])
   })

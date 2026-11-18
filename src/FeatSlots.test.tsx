@@ -108,6 +108,55 @@ it('grants Direwolf Bonded a separate Canny Acumen choice slot with normal profi
   expect(c.extraSlots).toEqual([])
 })
 
+it('grants Scholar exactly one persistent skill slot restricted to trained Assurance variants', () => {
+  const assurance: ContentEntry = { id: 'assurance', name: 'Assurance', kind: 'feat', systems: ['pf2e'],
+    source: 'official', level: 1, traits: ['General', 'Skill'], description: '',
+    data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [
+    { ...assurance, id: 'scholar', name: 'Scholar', kind: 'background', traits: [],
+      data: { feat: 'Assurance', skill: 'Arcana, Academia Lore' } },
+    assurance, { ...assurance, id: 'other', name: 'Other Skill', data: {} },
+  ]
+  let c: Character = { ...emptyRanger(), level: 1, background: 'Scholar' }
+  const tree = () => FeatSlots({ c, entries, categories: ['skill'], save: patch => { c = { ...c, ...patch } } })
+  const key = 'skill:1:scholar'
+  const slot = plannedSlots(c, entries).find(slot => slot.key === key)!
+  expect(slot).toMatchObject({ category: 'skill', level: 1, grantedBy: 'Scholar', grantedFeat: 'Assurance' })
+  expect(eligibleFeats(entries, c, slot).map(feat => feat.name)).toEqual(['Assurance'])
+  const choose = findSelect(tree(), 'L01 Skill feat')!
+  choose({ target: { value: 'Other Skill' } })
+  choose({ target: { value: JSON.stringify(['Assurance', 'Stealth']) } })
+  expect(c.feats).toEqual([])
+  choose({ target: { value: JSON.stringify(['Assurance', 'Arcana']) } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats).toEqual([expect.objectContaining({ name: 'Assurance', choice: 'Arcana', slot: key })])
+  expect(renderToStaticMarkup(tree())).toContain('Assurance (Arcana)')
+  expect(renderToStaticMarkup(tree())).not.toContain('background-feat-row')
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Assurance choice"')
+  findButton(tree(), 'Clear L01 Skill feat selection')!()
+  expect(c.feats).toEqual([])
+  expect(plannedSlots({ ...c, dismissedFeatSlots: [key] }, entries).filter(slot => slot.key === key)).toHaveLength(1)
+  expect(plannedSlots({ ...c, background: 'Scout' }, entries).some(slot => slot.key === key)).toBe(false)
+  expect(c.extraSlots).toEqual([])
+})
+
+it('picks researched spell resistance combinations as variants and restores saved tradition order', () => {
+  const feat: ContentEntry = { id: 'researched', name: 'Researched Spell Resistance', kind: 'feat', systems: ['pf2e'],
+    source: 'homebrew', level: 13, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Dwarf', level: 13, rankOverrides: { Arcana: 3, Nature: 1 } }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } } })
+  const choose = findSelect(tree(), 'L13 Ancestry feat')!
+  expect(renderToStaticMarkup(tree())).toContain('Researched Spell Resistance (Arcane, Primal)')
+  choose({ target: { value: JSON.stringify([feat.name, 'Primal']) } })
+  expect(c.feats).toEqual([])
+  choose({ target: { value: JSON.stringify([feat.name, 'Arcane, Primal']) } })
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.feats).toEqual([expect.objectContaining({ name: feat.name, choice: 'Arcane, Primal', slot: 'ancestry:13:0' })])
+  expect(builder.researchedSpellResistance(c, [feat])?.traditions).toEqual(['Arcane', 'Primal'])
+  expect(renderToStaticMarkup(tree())).not.toContain('Researched Spell Resistance tradition')
+  expect(renderToStaticMarkup(tree())).not.toContain('First tradition requires Expert')
+})
+
 it('saves and reloads a level-five duplicate Titan Wrestler replacement, and cleans it up with its source', () => {
   const feat = (name: string, traits = ['General', 'Skill']): ContentEntry => ({
     id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
@@ -1489,6 +1538,7 @@ it('alphabetizes skill feats from all sources within their acquisition level', (
       { name: "Diplomat's Facade", type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1' },
       { name: 'Zebra', type: 'Skill Feat', level: 1, slot: 'skill:1:0' },
       { name: 'Acrobatics', type: 'Skill Feat', level: 1, slot: 'skill:1:1' },
+      { name: 'Assurance', choice: 'Deception', type: 'Skill Feat', level: 1, slot: 'skill:1:scholar' },
       { name: 'Aardvark', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
     ] }
   const background: ContentEntry = { id: 'scholar', name: 'Scholar', kind: 'background', source: 'official',
@@ -1496,12 +1546,12 @@ it('alphabetizes skill feats from all sources within their acquisition level', (
   const assurance: ContentEntry = { ...background, id: 'assurance', name: 'Assurance', kind: 'feat',
     traits: ['General', 'Skill'], data: {} }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[background, assurance]} save={() => {}} categories={['skill']} />)
-  const names = ['>Acrobatics</button>', '>Assurance <small>', '>Blend In <small>',
+  const names = ['>Acrobatics</button>', '>Assurance (Deception)</button>', '>Blend In <small>',
     '>Lie to Me <small>', '>Zebra</button>', 'aria-label="L01 Skill feat"', '>Aardvark</button>']
   for (const name of names) expect(markup).toContain(name)
   const positions = names.map(name => markup.indexOf(name))
   expect(positions).toEqual([...positions].sort((a, b) => a - b))
-  expect(markup.slice(markup.indexOf('>Acrobatics</button>'), markup.indexOf('>Assurance <small>')))
+  expect(markup.slice(markup.indexOf('>Acrobatics</button>'), markup.indexOf('>Assurance (Deception)</button>')))
     .toContain('Remove L01 Skill extra feat slot 1')
   expect(markup.match(/>Level 01<\/li>/g)).toHaveLength(1)
 })
