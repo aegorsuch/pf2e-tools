@@ -45,7 +45,8 @@ export async function ensureSupplementalContent() {
       if (!existing) await db.content.add(entry)
       else if (['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, KILLERS_BELT_MAJOR.id,
         'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
-        'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance'].includes(entry.id)
+        'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
+        'homebrew:persistent-magic-hide'].includes(entry.id)
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }
   })

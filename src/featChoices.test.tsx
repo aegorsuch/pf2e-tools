@@ -681,6 +681,22 @@ it('raises Beastmaster Trance range and duration when heightened', () => {
   expect(render(15)).toContain('Sustained up to 1 hour')
 })
 
+it('targets only your animal companion with Beastmaster Trance under the single companion rule', () => {
+  const previous = getSettings().singleAnimalCompanion
+  const trance: ContentEntry = { ...spell('Beastmaster Trance', ''), level: 3,
+    data: { targets: '1 of your animal companions' }, traits: ['Focus'] }
+  const c: Character = { ...base, level: 10, spells: [{ name: trance.name, rank: 3, cantrip: false, entryId: trance.id }] }
+  const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={[trance]} save={() => {}} />)
+  const before = JSON.stringify({ c, trance })
+  try {
+    updateSettings({ singleAnimalCompanion: true })
+    expect(render()).toContain('<small>Area/Targets</small>Your animal companion')
+    updateSettings({ singleAnimalCompanion: false })
+    expect(render()).toContain('<small>Area/Targets</small>1 of your animal companions')
+    expect(JSON.stringify({ c, trance })).toBe(before)
+  } finally { updateSettings({ singleAnimalCompanion: previous }) }
+})
+
 it('combines all Warden tiers without changing ordinary spell rank groups', () => {
   const spells = [
     spell('Gluttonous Growth', 'Peerless'),

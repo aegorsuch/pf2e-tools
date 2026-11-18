@@ -494,7 +494,12 @@ describe('animal companions', () => {
     const druid = entry('feat', 'Animal Empathy (Druid)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Druid'])
     const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
     const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
-    expect(eligibleFeats([dedication, ranger, druid], c, slot)).toEqual(expect.arrayContaining([ranger, druid]))
+    expect(eligibleFeats([dedication, ranger, druid], c, slot)).toEqual([druid])
+    expect(eligibleFeats([dedication, druid, ranger], { ...c, className: 'Champion' }, slot)).toEqual([ranger])
+    const saved = { ...c, className: 'Champion', feats: [...c.feats, feat(druid.name, undefined, slot.key)] }
+    expect(eligibleFeats([dedication, ranger, druid], saved, slot)).toEqual([druid])
+    expect(eligibleFeats([dedication, ranger, druid], { ...c, className: 'Ranger' },
+      { key: 'class:4:0', category: 'class', level: 4 })).toEqual([ranger])
     const owned = { ...c, feats: [...c.feats, feat('Animal Empathy (Ranger)', undefined, 'class:2:0')] }
     const options = eligibleFeats([dedication, ranger, druid], owned, slot)
     expect(options).not.toContain(ranger)

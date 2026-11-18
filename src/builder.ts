@@ -1110,6 +1110,11 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     && entry.systems.some(system => c.systems.includes(system))
     && entry.traits.some(trait => trait.toLowerCase() === primaryAncestry)
     && featSelectionLevel(entry, c, entries, slot.category, slot) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
+  const animalEmpathy = slot.category === 'archetype' ? candidates
+    .filter(({ entry }) => entry.source === 'official' && /^Animal Empathy(?: \(|$)/.test(entry.name))
+    .sort((a, b) => Number(b.entry.id === selectedSource?.id) - Number(a.entry.id === selectedSource?.id)
+      || Number(b.traits.has(classTrait ?? '')) - Number(a.traits.has(classTrait ?? ''))
+      || Number(b.traits.has('ranger')) - Number(a.traits.has('ranger')))[0]?.entry : undefined
   const overcrowd = candidates.filter(({ entry }) => entry.name === 'Overcrowd' && entry.source === 'official')
     .sort((a, b) => Number(prerequisites(a.entry).missing.length > 0) - Number(prerequisites(b.entry).missing.length > 0)
       || Number(!!a.entry.data.prerequisite) - Number(!!b.entry.data.prerequisite))[0]?.entry
@@ -1138,6 +1143,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
          && (slot.level !== 1 || takenLineage)
          && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Overcrowd' && entry.source === 'official' && entry !== overcrowd) return false
+      if (animalEmpathy && entry.source === 'official' && /^Animal Empathy(?: \(|$)/.test(entry.name) && entry !== animalEmpathy) return false
       if (sharedOfficialFeats.has(entry.name) && entry.source === 'official' && entry !== sharedOfficialFeats.get(entry.name)) return false
       if (entry.name === 'Prehensile Limbs' && specificTail
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false

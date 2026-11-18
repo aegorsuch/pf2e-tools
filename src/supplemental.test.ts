@@ -99,6 +99,23 @@ it('offers Rider as a level-one companion-class feat and grants Ride without cre
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('offers Persistent Magic Hide through Beastmaster at level ten without opening other Ranger persistent feats', () => {
+  const persistent = homebrewCharacterOptions([])
+  const hide = persistent.find(entry => entry.name === 'Persistent Magic Hide')!
+  const dedication: ContentEntry = { ...hide, id: 'beastmaster', name: 'Beastmaster Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], data: { archetype: 'Beastmaster' } }
+  const c: Character = { ...base, className: 'Champion',
+    feats: [{ name: dedication.name, level: 2, type: 'Dedication Feat', slot: 'archetype:2:0' }] }
+  const entries = [...persistent, dedication]
+  const slot = { key: 'archetype:10:0', category: 'archetype' as const, level: 10 }
+  const offered = eligibleFeats(entries, c, slot)
+  expect(offered).toContain(hide)
+  expect(offered.filter(entry => entry.name.startsWith('Persistent '))).toEqual([hide])
+  expect(eligibleFeats(entries, c, { ...slot, key: 'archetype:8:0', level: 8 })).not.toContain(hide)
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot)).not.toContain(hide)
+  expect(eligibleFeats(entries, { ...base, className: 'Ranger' }, { ...slot, category: 'class', key: 'class:10:0' })).toContain(hide)
+})
+
 it.each([['Greywatch', 'Deception'], ['Blackwatch', 'Occultism'], ['Palewatch', 'Religion'], ['Magewatch', 'Arcana']])('offers %s Initiate at level four to its three classes with trained %s required', (watch, skill) => {
   const greywatch = homebrewCharacterOptions([]).find(entry => entry.name === `${watch} Initiate`)!
   const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }

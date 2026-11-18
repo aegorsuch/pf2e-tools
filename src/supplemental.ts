@@ -223,7 +223,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       `Persistent ${name}`, level, ['Ranger'],
       `When you cast ${name}, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.${name === 'Animal Feature'
         ? ' This extended duration applies to all options except wings.\n\nYou can have multiple Animal Feature effects active at the same time. Each effect must meet the spell rank requirement.' : ''}`,
-      { class: 'Ranger' })),
+      { class: 'Ranger', ...(name === 'Magic Hide' ? { archetype: 'Beastmaster' } : {}) })),
     homebrewFeat('impaling-throw', 'Impaling Throw', 1, ['Flourish', 'Ranger', '3rd Party'],
       'Requirements: You are wielding a weapon which does piercing damage with the Thrown trait.\n\nYou know a thorn in the flank of your quarry is an easy quarry to take down. Make a ranged Strike against your prey with the required weapon. If you hit the creature, the weapon stays inside of them instead of dropping to the ground. As long as they leave the weapon in, they are clumsy 1. Removing the weapon requires a single Interact action requiring them to succeed on either an Athletics or Medicine skill check against your class DC.\n\nSpecial: You can use Impaling Throw with improvised weapons that are determined to be appropriate, or when throwing weapons without the thrown trait that deal piercing damage.',
       { class: 'Ranger', actions: 'Single Action', requirements: 'You are wielding a weapon which does piercing damage with the Thrown trait.' }),
