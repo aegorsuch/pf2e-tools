@@ -36,7 +36,7 @@ import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundLoreSlots, backgroundVariants, type BackgroundVariant } from './builder'
-import { characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
+import { backgroundLoreOptions, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
 
 const NONE: ContentEntry[] = []
 
@@ -112,7 +112,8 @@ export function BackgroundLoreChoices({ c, entries, save, background, options }:
   background: ContentEntry; options: string[]
 }) {
   const slots = backgroundLoreSlots(c, entries).filter(slot => slot.background.name === background.name)
-  if (slots.length === 1 && options.includes(slots[0].value)) return null
+  const available = backgroundLoreOptions(background, options)
+  if (slots.length === 1 && available.includes(slots[0].value)) return null
   const id = `background-lores-${encodeURIComponent(background.id)}`
   return <>{slots.map(slot => <label key={`${slot.index}:${slot.value}`}>
     {slots.length > 1 ? `Lore ${slot.index + 1}` : 'Lore'}{' '}
@@ -137,7 +138,7 @@ export function BackgroundLoreChoices({ c, entries, save, background, options }:
           input.value = slot.value
         } else update()
       }} />
-  </label>)}{!!slots.length && <datalist id={id}>{options.map(name => <option key={name} value={name} />)}</datalist>}</>
+  </label>)}{!!slots.length && <datalist id={id}>{available.map(name => <option key={name} value={name} />)}</datalist>}</>
 }
 
 function DeityCard({ deity }: { deity?: ContentEntry }) {

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { mapAonHits } from './aon'
-import { backgroundLoreCount, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
+import { backgroundLoreCount, characterDeityLores, deityLoreBackgroundEntries, PROFESSION_LORES } from './backgrounds'
 import { backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -15,6 +15,19 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('offers only professional Lore variants for Grifter and preserves chosen training', () => {
+  const entries = compile('Grifter', `You're trained in ${skill('Deception')} and a ${skill('Lore')} skill related to a profession or subject you fake expertise in.
+You gain the ${feat('Charming Liar')} skill feat.`, ['Deception', 'Lore related to a profession or subject you fake expertise in'], ['Charming Liar'])
+  const variants = backgroundVariants(entries, ['Abadar Lore', 'Zon-Shelyn Lore', 'Forest Lore', 'Accounting Lore'])
+  expect(variants.filter(option => option.lore).map(option => option.lore)).toEqual(PROFESSION_LORES)
+  expect(variants.at(-1)).toMatchObject({ value: 'Grifter (Custom Profession Lore)', custom: true })
+  expect(variants.some(option => /Abadar|Zon-Shelyn|Forest/.test(option.value))).toBe(false)
+  const selected = variants.find(option => option.lore === 'Accounting Lore')!
+  const c: Character = { ...base, background: selected.background.name, backgroundLores: { Grifter: [selected.lore!] } }
+  expect(ranksAt(c, entries)).toMatchObject({ Deception: 1, 'Accounting Lore': 1 })
+  expect(entries[0].data.feat).toBe('Charming Liar')
+})
 
 it('shares selected deities across characters without duplicates or deleted characters', () => {
   const characters: Character[] = [

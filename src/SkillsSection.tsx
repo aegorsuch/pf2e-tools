@@ -6,6 +6,7 @@ import { resistances,
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
+import { PROFESSION_LORES } from './backgrounds'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -23,19 +24,13 @@ import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './buil
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 export const COMMON_LORES = [...new Set([
   // https://2e.aonprd.com/Skills.aspx?ID=41
-  'Academia', 'Accounting', 'Architecture', 'Art', 'Astronomy', 'Carpentry', 'Circus', 'Driving',
-  'Engineering', 'Farming', 'Fishing', 'Fortune-Telling', 'Games', 'Genealogy', 'Gladiatorial',
-  'Guild', 'Heraldry', 'Herbalism', 'Hunting', 'Labor', 'Legal', 'Library', 'Military',
   'Abadar', 'Erastil', 'Iomedae', 'Demon', 'Giant', 'Vampire', 'Astral Plane', 'Heaven', 'Outer Rifts',
   'Hellknights', 'Pathfinder Society', 'Absalom', 'Magnimar', 'Mountain', 'River',
   ...FAVORED_TERRAINS,
-  'Alcohol', 'Baking', 'Butchering', 'Cooking', 'Tea', 'Mercantile', 'Midwifery', 'Milling',
-  'Mining', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
-  'Underworld', 'Warfare', 'Brewing', 'Distilling', 'Traps', 'Locks', 'Runes', 'Highhelm',
-  'Mortuary', 'Metallurgy', 'Water Filtration', 'Aquaculture', 'Lumber', 'Ranching',
+  'Highhelm',
   // https://2e.aonsrd.com/skills/9-lore
-  'Corporate', 'Piracy', 'Necrovite', 'Apostae', 'Heaven',
-].map(topic => `${topic} Lore`).concat(CLAN_LORES))].sort((a, b) => a.localeCompare(b))
+  'Necrovite', 'Apostae', 'Heaven',
+].map(topic => `${topic} Lore`).concat(PROFESSION_LORES, CLAN_LORES))].sort((a, b) => a.localeCompare(b))
 
 export function commonLoreOptions(deityLores: string[] = [], deity?: string) {
   return [...new Map([...COMMON_LORES, ...deityLores, ...(deity?.trim() ? [`${deity.trim()} Lore`] : [])]

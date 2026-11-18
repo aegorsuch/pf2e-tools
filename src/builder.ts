@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
-import { backgroundLoreCount, isOpenBackgroundLore } from './backgrounds'
+import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
@@ -2189,13 +2189,16 @@ export type BackgroundVariant = { value: string; background: ContentEntry; terra
 
 export function backgroundVariants(options: ContentEntry[], lores: string[] = []) {
   return options.filter(background => !background.data.background_choice_required)
-    .flatMap<BackgroundVariant>(background => backgroundHasTerrainLore(background)
-    ? FAVORED_TERRAINS.map(terrain => ({ value: `${background.name} (${terrain} Lore)`, background, terrain }))
-    : backgroundLoreCount(background) && lores.length
-      ? [...(backgroundLoreCount(background) === 1 ? lores.map(lore => ({
-        value: `${background.name} (${lore})`, background, lore,
-      })) : []), { value: `${background.name} (Custom Lore)`, background, custom: true }]
-      : [{ value: background.name, background }])
+    .flatMap<BackgroundVariant>(background => {
+      const available = backgroundLoreOptions(background, lores)
+      return backgroundHasTerrainLore(background)
+        ? FAVORED_TERRAINS.map(terrain => ({ value: `${background.name} (${terrain} Lore)`, background, terrain }))
+        : backgroundLoreCount(background) && available.length
+          ? [...(backgroundLoreCount(background) === 1 ? available.map(lore => ({
+            value: `${background.name} (${lore})`, background, lore,
+          })) : []), { value: `${background.name} (Custom${available === lores ? '' : ' Profession'} Lore)`, background, custom: true }]
+          : [{ value: background.name, background }]
+    })
 }
 
 function backgroundLoreChoices(bg: ContentEntry, c?: Character) {

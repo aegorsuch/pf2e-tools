@@ -8,6 +8,20 @@ const names = (value: unknown) => typeof value === 'string'
   ? value.split(/,\s*(?![^()]*\))/).map(name => name.trim().replace(/\bLore(?:\s+Lore)+\b/gi, 'Lore')).filter(Boolean) : []
 export const isOpenBackgroundLore = (name: string) => /\blore\b/i.test(name) && !/^[\w' -]+ Lore$/i.test(name)
 
+export const PROFESSION_LORES = [
+  'Academia', 'Accounting', 'Architecture', 'Art', 'Astronomy', 'Carpentry', 'Circus', 'Driving',
+  'Engineering', 'Farming', 'Fishing', 'Fortune-Telling', 'Games', 'Genealogy', 'Gladiatorial',
+  'Guild', 'Heraldry', 'Herbalism', 'Hunting', 'Labor', 'Legal', 'Library', 'Military',
+  'Alcohol', 'Baking', 'Butchering', 'Cooking', 'Tea', 'Mercantile', 'Midwifery', 'Milling',
+  'Mining', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
+  'Underworld', 'Warfare', 'Brewing', 'Distilling', 'Traps', 'Locks', 'Runes',
+  'Mortuary', 'Metallurgy', 'Water Filtration', 'Aquaculture', 'Lumber', 'Ranching', 'Corporate', 'Piracy',
+].map(topic => `${topic} Lore`).sort((a, b) => a.localeCompare(b))
+
+export function backgroundLoreOptions(background: ContentEntry, options: string[]) {
+  return (background.data.background_base ?? background.name) === 'Grifter' ? PROFESSION_LORES : options
+}
+
 export function characterDeityLores(characters: Character[], extraLores: string[] = []) {
   const lores = new Map<string, string>()
   const add = (value: string) => {

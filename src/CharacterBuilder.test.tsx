@@ -15,6 +15,22 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
+it('restricts custom Grifter Lore suggestions to professions without changing unrestricted backgrounds', () => {
+  const background: ContentEntry = {
+    id: 'grifter', systems: ['sf2e'], kind: 'background', source: 'official', name: 'Grifter', level: 1,
+    traits: [], description: '', effects: [], updatedAt: 0, data: { skill: 'Deception, Lore related to a profession' },
+  }
+  const c: Character = { id: 'c', systems: ['sf2e'], name: 'Test', level: 1, background: 'Grifter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<BackgroundLoreChoices c={c} entries={[background]} background={background}
+    save={() => {}} options={['Zon-Shelyn Lore', 'Forest Lore', 'Accounting Lore']} />)
+  expect(markup).toContain('value="Accounting Lore"')
+  expect(markup).toContain('value="Sailing Lore"')
+  expect(markup).not.toContain('value="Zon-Shelyn Lore"')
+  expect(markup).not.toContain('value="Forest Lore"')
+})
+
 it('shares roster deity Lore with background variants and the Skills picker', () => {
   content.entries = [{
     id: 'acolyte', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Acolyte', level: 1,
