@@ -295,6 +295,26 @@ const namedCatalog: ContentEntry[] = [...catalog, rune('Ghost Touch'), rune('Vor
   gunMelee, gunRanged, shadowpiercer, callooh, fallenStars, finalStand,
 ]
 
+it.each([false, true])('locks Greater Astral on every Serithtial blade form (%s)', displayOnly => {
+  const serithtial = specific('Serithtial', 'Bastard Sword', '+4 major striking holy', [])
+  const entries = [...namedCatalog, serithtial, rune('Astral (Greater)'), rune('Grievous')]
+  const forms = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === serithtial.name)
+  expect(forms).toHaveLength(1)
+  for (const name of ['Serithtial', 'Serithtial (Longsword)', 'Serithtial (Rapier)']) {
+    const weapon = { ...owned(name), runes: ['Flaming'] }
+    expect(effectiveWeapon(c, entries, weapon).runes).toEqual(['Holy', 'Astral (Greater)', 'Grievous', 'Flaming'])
+    expect(effectiveWeapon(c, entries, { ...weapon, runes: ['Astral (Greater)'] }).runes)
+      .toEqual(['Holy', 'Astral (Greater)', 'Grievous'])
+    const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries}
+      save={() => {}} displayOnly={displayOnly} />)
+    if (!displayOnly) {
+      expect(markup).toContain('>Astral (Greater)</button>')
+      expect(markup).not.toContain('aria-label="Remove Astral (Greater) rune"')
+    }
+    expect(weapon.runes).toEqual(['Flaming'])
+  }
+})
+
 it.each([false, true])('includes full base weapon names in specific weapon titles (%s)', displayOnly => {
   const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [])
   const weapons = [{ ...owned('Briar'), id: 'briar' }, owned('Wintershot (Longbow)')]

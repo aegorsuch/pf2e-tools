@@ -28,6 +28,7 @@ export interface PrerequisiteFacts {
   abilities: Character['abilities']
   senses: string[]
   spellcastingClassFeature?: boolean
+  canCastSpells?: boolean
   maxSpellRank?: number
   focusPool?: boolean
   untamedForm?: boolean
@@ -304,7 +305,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.className === 'Champion' && ['lay on hands', 'touch of the void', 'shields of the spirit'].includes(spell)) {
       return resultFor(!!facts.devotionSpells?.some(value => key(value) === spell), text)
     }
-    if (name === 'an animal companion') return resultFor(!!facts.companionTypes?.length
+    // Bare lowercase wording describes a capability, not the named Animal Companion feat.
+    if (name === 'an animal companion' || text.replace(/\.$/, '').trim() === 'animal companion') return resultFor(!!facts.companionTypes?.length
       || facts.feats.some(feat => key(feat.name) === 'animal companion')
       || facts.features.some(feature => ['animal companion', 'an animal companion'].includes(key(feature))), text)
     if (name === 'horse animal companion') return resultFor(!!facts.companionTypes?.some(type => key(type) === 'horse'), text)
@@ -390,6 +392,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       : reference === 'reactive strike' ? [reference, 'attack of opportunity']
       : reference === 'ancestral unarmed attack' ? [reference, ...ancestralUnarmedFeatNames(
         facts.ancestryTraits ?? [facts.ancestry ?? '', facts.heritage ?? '']).map(key)] : [reference]
+    if (reference === 'spellcasting' && facts.spellcastingClassFeature
+      || reference === 'focus pool' && facts.focusPool
+      || reference === 'ability to cast spells' && facts.canCastSpells) return met()
     if (facts.features.some((feature) => references.includes(key(feature)))) return met()
     const content = references.flatMap(knownEntries)
     if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference

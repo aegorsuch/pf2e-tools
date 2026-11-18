@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
-import { shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions } from './builder'
+import { shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -210,6 +210,29 @@ it('keeps cached ranks isolated and current after character, rule and catalog ch
     expect(ranksAt(c, entries, 99, false)).toMatchObject({ Arcana: 1, Athletics: 1 })
     expect(ranksAt(c, entries, 99, false).Nature).toBeUndefined()
   } finally { updateSettings({ autoClassSkills: previous }) }
+})
+
+it.each([false, true])('refunds ordinary increases without calculating unused conversion budgets (empty purchases: %s)', emptyPurchases => {
+  const previous = getSettings()
+  const unrelated = entry('feat', 'Unrelated Training')
+  const data = [...entries, unrelated]
+  const c: Character = { ...base, level: 7, skillPicks: ['Occultism'], skillIncreases: { 3: 'Occultism' },
+    skillTokenUpgrades: emptyPurchases ? [] : undefined, feats: [
+      { name: 'Blackwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+      { name: unrelated.name, type: 'General Feat', level: 1, slot: 'general:3:0' },
+    ] }
+  const source = vi.spyOn(featChoices, 'selectedFeatEntry')
+  try {
+    updateSettings({ planSkillPrerequisites: true, autoClassSkills: false, autoLores: false })
+    const normalized = normalizeGrantedSkillSpending(c, data)
+    expect(normalized.skillIncreases).toEqual({})
+    expect(ranksAt(normalized, data).Occultism).toBe(2)
+    expect(c.skillIncreases).toEqual({ 3: 'Occultism' })
+    expect(source.mock.calls.filter(([, , name]) => name === unrelated.name)).toHaveLength(0)
+  } finally {
+    source.mockRestore()
+    updateSettings(previous)
+  }
 })
 
 describe('replacement slots for redundant fixed feat grants', () => {

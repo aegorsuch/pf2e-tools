@@ -1007,6 +1007,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const enhanced = effectiveWeapon(c, entries, w)
         const runeCapacity = hasWeaponRuneCapacity(c, w, a.entry)
         const alloy = alloyedAttackMaterial(c, entries, enhanced)
+        const alloyMaterial = alloy && <div className="gear-runes"><span>Material</span>
+          <Material name={alloy} entries={entries} equipment="Weapon" source="Granted by Alloyed Attacks" />
+        </div>
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
         const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
@@ -1219,6 +1222,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
           <AttackUpgrades attack={a} />
+          {alloyMaterial}
           {namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
@@ -1332,10 +1336,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 </SearchableSelect>
               </span>}
             </>}
-            {alloy && <small>Alloyed Attacks: melee unarmed attacks have {alloy} properties.</small>}
             {shieldSource ? null : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
-              : unarmed ? null : <div className="row">
+              : unarmed ? alloyMaterial : <div className="row">
               {card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />

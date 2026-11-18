@@ -14,6 +14,7 @@ export const isStanceFeat = (entry: ContentEntry) =>
   entry.kind === 'feat' && entry.traits.some(trait => trait.toLowerCase() === 'stance')
 
 export function featDisplayName(entry: ContentEntry | undefined, name = entry?.name ?? '') {
+  if (name === 'Litany Against Wrath') return 'Litany against Wrath'
   if (!entry || !isStanceFeat(entry)) return name
   const qualifier = / \(([^)]+)\)$/.exec(entry.name)
   const base = qualifier && entry.traits.some(trait => trait.toLowerCase() === qualifier[1].toLowerCase())

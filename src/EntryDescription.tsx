@@ -4,7 +4,7 @@ import type { PrerequisiteCheck } from './featPrerequisites'
 import type { FeatAccessCheck } from './featAccess'
 import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
-import { adoptedAncestryText, alloyedAttackChoice, featDisplayName } from './featChoices'
+import { adoptedAncestryText, featDisplayName } from './featChoices'
 import { equipmentDisplayName } from './equipmentGroups'
 import { spellDCText } from './builder'
 import { getSettings } from './settings'
@@ -41,8 +41,6 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
   }
   const title = (value: string, source = active) => text(source && ['item', 'weapon', 'armor', 'shield'].includes(source.kind)
     ? equipmentDisplayName(value) : featDisplayName(source, value))
-  const material = character && active?.kind === 'feat' && /^(?:Tusks(?: \(Orc\))?|Iron Fists?)$/i.test(active.name)
-    ? alloyedAttackChoice(character) : undefined
   const featActions = active?.kind === 'feat' && typeof active.data.actions === 'string' && active.data.actions.trim() !== ''
   const rarity = active && featRarity(active)
   const index = entries && active?.featLinks?.length ? featIndex(entries) : undefined
@@ -91,7 +89,6 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
           {' '}Access does not replace prerequisites.
         </p>}
         <p>{text(description || 'Description unavailable. Sync Archives of Nethys content to load it.')}</p>
-        {material && <p>Alloyed Attacks: melee unarmed attacks have {material} properties.</p>}
         {!history.length && descriptionNote && <p>{text(descriptionNote)}</p>}
         {!!leads?.length && <p>Leads to: {leads.map((link, index) => <span key={`${link.url}:${index}`}>
           {index > 0 && ', '}{link.target

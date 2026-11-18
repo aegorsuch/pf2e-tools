@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { FeatSlots } from './FeatSlots'
 import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
-import { canSelectWardenFeat, compareFeatSelections, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
+import { canSelectWardenFeat, compareFeatSelections, featDisplayName, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { eligibleFeats, languageAllowance, migrateAncestralLinguistics } from './builder'
 import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
@@ -26,6 +26,16 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each(['feat', 'spell'] as const)('displays Litany against Wrath without renaming its saved %s identity', kind => {
+  const entry: ContentEntry = { ...spell('Litany Against Wrath', 'Initiate'), kind }
+  const before = JSON.stringify(entry)
+  expect(featDisplayName(entry)).toBe('Litany against Wrath')
+  const markup = renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} />)
+  expect(markup).toContain('>Litany against Wrath</button>')
+  expect(markup).not.toContain('>Litany Against Wrath</button>')
+  expect(JSON.stringify(entry)).toBe(before)
+})
 
 it('shows only the explicit variant row without changing shared rules, other tables, or future previews', () => {
   const entry = mapAonHit({ _id: 'variant-details', _source: { name: 'Variant Details', category: 'feat',

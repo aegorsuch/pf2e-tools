@@ -54,6 +54,7 @@ const MATERIALS: Record<string, string> = {
 
 function artifactRunes(entry: ContentEntry, runes: string) {
   return [...new Set([...runes.split(';').filter(Boolean),
+    ...(entry.name === 'Serithtial' ? ['Astral (Greater)'] : []),
     ...(entry.traits.some(trait => trait.toLowerCase() === 'artifact') ? ['Grievous'] : [])])].join(';')
 }
 

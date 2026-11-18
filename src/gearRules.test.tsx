@@ -553,17 +553,23 @@ it('adds Hammer Multipistol as a custom copy of both Mace Multipistol forms', ()
   expect(combinationForms(entries, copies[0].name)).toHaveLength(2)
 })
 
-it('shows alloyed metal properties without renaming melee unarmed attacks', () => {
+it.each([false, true])('shows Alloyed Attacks as a locked material without renaming unarmed attacks (offense: %s)', displayOnly => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Orc', level: 12,
     feats: [feat('Iron Fists'), feat('Alloyed Attacks', 5, 'Silver')] }
-  const html = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly={displayOnly} />)
   expect(html).toContain('aria-haspopup="dialog">Fists</button>')
   expect(html).not.toContain('Silver Fists')
-  expect(html).toContain('melee unarmed attacks have Silver properties')
+  expect(html).toContain('>Material</span>')
+  expect(html).toContain('>Silver</button>')
+  expect(html).not.toContain('melee unarmed attacks have')
+  expect(html).not.toContain('aria-label="Remove Silver material"')
+  expect(html).not.toContain('aria-label="Weapon material"')
   expect(featChoiceOptions('Alloyed Attacks', c, [], '')).not.toContain('Adamantine')
   expect(featChoiceOptions('Alloyed Attacks', { ...c, level: 13 }, [], '')).toContain('Adamantine')
-  expect(renderToStaticMarkup(<WeaponList c={{ ...c, feats: [feat('Iron Fists'), feat('Alloyed Attacks', 5, 'Adamantine')] }}
-    entries={[]} save={() => {}} />)).not.toContain('Adamantine Fists')
+  const invalid = renderToStaticMarkup(<WeaponList c={{ ...c, feats: [feat('Iron Fists'), feat('Alloyed Attacks', 5, 'Adamantine')] }}
+    entries={[]} save={() => {}} displayOnly={displayOnly} />)
+  expect(invalid).not.toContain('Adamantine Fists')
+  expect(invalid).not.toContain('>Adamantine</button>')
 })
 
 it.each(['Cold Iron', 'Silver', 'Adamantine'])('keeps adopted Orc attack labels unchanged with %s properties', material => {
@@ -575,7 +581,8 @@ it.each(['Cold Iron', 'Silver', 'Adamantine'])('keeps adopted Orc attack labels 
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('aria-haspopup="dialog">Teeth</button>')
   expect(markup).not.toContain(`aria-haspopup="dialog">${material} Teeth</button>`)
-  expect(markup).toContain(`melee unarmed attacks have ${material} properties`)
+  expect(markup).toContain(`>${material}</button>`)
+  expect(markup).not.toContain('melee unarmed attacks have')
   expect(tusks.name).toBe('Tusks')
   expect(weaponAttack(c, [], tusks).damage).toBe(weaponAttack({ ...c, ancestry: 'Orc' }, [], tusks).damage)
   expect(JSON.stringify(c)).toBe(before)
@@ -590,7 +597,8 @@ it('keeps Alloyed properties and normal tusks without the retired Cold Iron mate
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('aria-haspopup="dialog">Teeth</button>')
   expect(markup).not.toContain('aria-haspopup="dialog">Cold Iron Teeth</button>')
-  expect(markup).toContain('melee unarmed attacks have Silver properties')
+  expect(markup).toContain('>Silver</button>')
+  expect(markup).not.toContain('melee unarmed attacks have')
   expect(markup).not.toContain('Granted by Cold Iron Teeth')
 })
 
@@ -1612,6 +1620,8 @@ it('grants a locked Dwarf clan dagger and adds a pistol only with the Clan Pisto
   const weapons = ownedWeapons(dwarf, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
   expect(weapons.map(weapon => weapon.name)).toEqual([CLAN_DAGGER_DEXTERITY.name])
   for (const weapon of weapons) {
+    expect(weapon.stowed).toBe(true)
+    expect(weaponEquipped(dwarf, entries, weapon)).toBe(false)
     expect(isLockedWeapon(dwarf, weapon.name, entries, weapon.id)).toBe(true)
     expect(hasAutomaticWeaponFundamentals(dwarf, entries, weapon)).toBe(true)
     expect(effectiveWeapon(dwarf, entries, weapon)).toMatchObject({ potency: 2, striking: 2, material: 'Orichalcum' })
@@ -1623,8 +1633,14 @@ it('grants a locked Dwarf clan dagger and adds a pistol only with the Clan Pisto
   const pistolDwarf = { ...dwarf, feats: [feat('Clan Pistol', 1)] }
   const pistolWeapons = ownedWeapons(pistolDwarf, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
   expect(pistolWeapons.map(weapon => weapon.name)).toEqual([CLAN_PISTOL.name, CLAN_DAGGER_DEXTERITY.name])
+  expect(pistolWeapons.every(weapon => weapon.stowed)).toBe(true)
   expect(isLockedWeapon(pistolDwarf, CLAN_PISTOL.name, entries, pistolWeapons[0].id)).toBe(true)
   expect(effectiveWeapon(pistolDwarf, entries, pistolWeapons[0])).toMatchObject({ potency: 2, striking: 2, material: 'Orichalcum' })
+  for (const stowed of [undefined, false, true]) {
+    const saved = { ...pistolDwarf, weapons: pistolWeapons.map(weapon => ({ ...weapon, stowed })) }
+    expect(ownedWeapons(saved, entries).filter(weapon => weapon.id.startsWith('granted-weapon:dwarf:'))
+      .every(weapon => weaponEquipped(saved, entries, weapon) === !stowed)).toBe(true)
+  }
 })
 
 it('grants adopted Dwarves a clan dagger only while the house rule and adoption are active', () => {

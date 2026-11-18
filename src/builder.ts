@@ -785,6 +785,12 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       let senseValues: PrerequisiteFacts['senses'] | undefined
       let featureNames: PrerequisiteFacts['features'] | undefined
       let wardenSpells: string[] | undefined
+      let focus: ReturnType<typeof focusSpells> | undefined
+      let innateGrants: ReturnType<typeof grantedFeatSpells> | undefined
+      let casting: boolean | undefined
+      let hasFocusPool: boolean | undefined
+      const getFocus = () => focus ??= focusSpells(character, entries)
+      const getInnateGrants = () => innateGrants ??= grantedFeatSpells(character, entries).filter(grant => grant.rule.kind === 'innate')
       const subclass = selectedSubclass(character, entries)
       const additionalSubclasses = character.feats.flatMap((feat) => feat.choice && (
         character.className === 'Bard' && feat.name === 'Multifarious Muse'
@@ -797,13 +803,6 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         return feat ? [feat] : []
       }) : []
       const features = classFeatures(entries, character)
-      const focus = focusSpells(character, entries)
-      const hasFocusPool = focus.points > 0 || features.some((feature) => /\byou (?:start with|gain) a focus pool\b/i.test(feature.description))
-      const casting = !!classSpellcasting(character, entries)?.traditions.length
-        || features.some((feature) => /^(?!(?:expert|master|legendary) )[\w &'’-]+ spellcasting$/i.test(feature.name))
-      const innateGrants = grantedFeatSpells(character, entries).filter(grant => grant.rule.kind === 'innate')
-      const maxSpellRank = Math.max(casting ? Math.ceil(character.level / 2) : 0,
-        ...innateGrants.filter((grant) => !grant.entry.traits.some((trait) => trait.toLowerCase() === 'cantrip')).map((grant) => grant.rank), 0)
       const value: PrerequisiteFacts = {
         className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
@@ -821,9 +820,6 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           ...automaticFeatGrants(character, entries).map((feat) => feat.name),
           ...tokens(byName(entries, 'background', character.background)?.data.feat),
           ...(character.className === 'Druid' && (character.order ?? subclass) === 'Animal' ? ['Animal Companion'] : []),
-          ...(casting ? ['spellcasting'] : []),
-          ...(hasFocusPool ? ['focus pool'] : []),
-          ...(casting || hasFocusPool || character.spells?.length ? ['ability to cast spells'] : []),
           ...(character.companions?.length ? ['an animal companion'] : []),
         ] },
         get ranks() { return ranks ??= { ...Object.fromEntries(statDefs(character).map((stat) => [stat.name, 0])), ...ranksAt(character, entries) } },
@@ -843,19 +839,32 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         abilities: character.abilities,
         // Prerequisites describe available capabilities, not the current combat toggle.
         get senses() { return senseValues ??= senses({ ...character, raging: true }, entries).map((sense) => sense.value) },
-        spellcastingClassFeature: casting, maxSpellRank, focusPool: hasFocusPool,
-        untamedForm: knowsSpell(character, entries, 'Untamed Form'),
+        get spellcastingClassFeature() {
+          return casting ??= !!classSpellcasting(character, entries)?.traditions.length
+            || features.some(feature => /^(?!(?:expert|master|legendary) )[\w &'’-]+ spellcasting$/i.test(feature.name))
+        },
+        get maxSpellRank() {
+          return Math.max(value.spellcastingClassFeature ? Math.ceil(character.level / 2) : 0,
+            ...getInnateGrants().filter(grant => !grant.entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+              .map(grant => grant.rank), 0)
+        },
+        get focusPool() {
+          return hasFocusPool ??= getFocus().points > 0
+            || features.some(feature => /\byou (?:start with|gain) a focus pool\b/i.test(feature.description))
+        },
+        get canCastSpells() { return !!(value.spellcastingClassFeature || value.focusPool || character.spells?.length) },
+        get untamedForm() { return knowsSpell(character, entries, 'Untamed Form') },
         championBlessings: championBlessings(character),
         sanctification: character.className === 'Champion' && byName(entries, 'deity', character.deity)?.data.sanctification
           ? deitySanctification(character, entries).selected ?? 'None' : undefined,
         legacyTenetsOfGood: character.className === 'Champion' && !!character.legacyTenetsOfGood,
-        devotionSpells: focus.spells.map(spell => spell.name),
+        get devotionSpells() { return getFocus().spells.map(spell => spell.name) },
         championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
           ? 'protective' : character.className === 'Champion' && ['Desecration', 'Iniquity', 'Obedience'].includes(subclass ?? '')
             ? 'offensive' : undefined,
         familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
-        primalInnateSpell: innateGrants.some(grant => grant.rule.tradition?.toLowerCase() === 'primal'),
+        get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
           || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
           || features.some(feature => /\blimited telepathy\b/i.test(`${feature.name} ${feature.description}`))
@@ -865,7 +874,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
             && /^construct(?: innovation)?$/i.test(feat.choice ?? '')),
         companionTypes: character.companions?.map(companion => companion.type) ?? [],
         get wardenSpells() { return wardenSpells ??= [...new Set([...grantedWardenSpells(character, entries).map(spell => spell.name),
-          ...focus.spells.filter(spell => {
+          ...getFocus().spells.filter(spell => {
             const entry = byName(entries, 'spell', spell.name)
             return entry && wardenTierOf(entry)
           }).map(spell => spell.name)])] },
@@ -3489,10 +3498,10 @@ function dwarfClanWeaponGrants(c: Character, entries: ContentEntry[]): OwnedWeap
     : selected && attributes.includes(selected) ? selected
       : attributes.includes('str') ? 'str' : attributes[0] ?? 'str'
   return [
-    ...(clanPistol ? [{ id: DWARF_CLAN_PISTOL_ID, name: CLAN_PISTOL.name, potency: 0, striking: 0, runes: [], material: 'Orichalcum' }] : []),
+    ...(clanPistol ? [{ id: DWARF_CLAN_PISTOL_ID, name: CLAN_PISTOL.name, potency: 0, striking: 0, runes: [], material: 'Orichalcum', stowed: true }] : []),
     ...(nativeDwarf || adoptedDwarf ? [{ id: DWARF_CLAN_DAGGER_ID,
       name: keyAbility === 'dex' ? CLAN_DAGGER_DEXTERITY.name : CLAN_DAGGER.name,
-      potency: 0, striking: 0, runes: [], material: 'Orichalcum' }] : []),
+      potency: 0, striking: 0, runes: [], material: 'Orichalcum', stowed: true }] : []),
   ]
 }
 
@@ -3706,9 +3715,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     const index = weapons.findIndex(weapon => weapon.id === grant.id || weapon.name === grant.name)
     if (index >= 0) {
       const saved = weapons[index]
-      weapons[index] = { ...saved, ...grant, potency: saved.potency, striking: saved.striking, runes: saved.runes,
-        ...(saved.capacityLoaded !== undefined ? { capacityLoaded: saved.capacityLoaded } : {}),
-        ...(saved.stowed !== undefined ? { stowed: saved.stowed } : {}) }
+      weapons[index] = { ...saved, ...grant, potency: saved.potency, striking: saved.striking, runes: saved.runes, stowed: saved.stowed,
+        ...(saved.capacityLoaded !== undefined ? { capacityLoaded: saved.capacityLoaded } : {}) }
     } else weapons.push(grant)
   }
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
@@ -4907,16 +4915,18 @@ export function normalizeGrantedSkillSpending(c: Character, entries: ContentEntr
       .flatMap(match => skills.filter(skill => new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(match[2]))
         .map(skill => ({ level, skill, rank: RANKS.findIndex(rank => rank.toLowerCase() === match[1].toLowerCase()) })))
   })
+  const spendingState = (character: Character) => character.skillTokenUpgrades?.length
+    ? calculateSkillTokenState(character, entries) : { ranks: ranksAt(character, entries), active: [] }
   let next = c
-  let state = calculateSkillTokenState(c, entries)
+  let state = spendingState(c)
   const accept = (candidate: Character, removed?: SkillTokenUpgrade) => {
-    const after = calculateSkillTokenState(candidate, entries)
+    const after = spendingState(candidate)
     if (Object.entries(state.ranks).some(([skill, rank]) => (after.ranks[skill] ?? 0) < rank)
       || state.active.some(item => item.purchase !== removed && !after.active.some(other => other.purchase === item.purchase))) return
     for (const requirement of historical) {
-      const before = calculateSkillTokenState({ ...next, level: requirement.level }, entries).ranks[requirement.skill] ?? 0
-      if (before >= requirement.rank && (calculateSkillTokenState({ ...candidate, level: requirement.level }, entries)
-        .ranks[requirement.skill] ?? 0) < requirement.rank) return
+      const before = spendingState({ ...next, level: requirement.level }).ranks[requirement.skill] ?? 0
+      if (before >= requirement.rank
+        && (spendingState({ ...candidate, level: requirement.level }).ranks[requirement.skill] ?? 0) < requirement.rank) return
     }
     next = candidate
     state = after

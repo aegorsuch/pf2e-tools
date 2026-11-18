@@ -633,6 +633,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       || grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience' ? [] : [
       frequency && `${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`,
       grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask')
+        && grant.rule.condition !== 'Only within your claimed territory'
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
       stats && `${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`,
       higherDC && resolution.save && classDC === undefined

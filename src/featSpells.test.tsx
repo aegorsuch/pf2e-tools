@@ -1416,7 +1416,7 @@ it('grants Champion domain spells from imported spell data and shows them in foc
   expect(grantedFeatSpells({ ...c, level: 7 }, entries).map(grant => grant.entry.name)).toEqual(['Tidal Surge'])
 })
 
-it('lists Sacral Lord cantrips with their territorial restriction', () => {
+it('lists Sacral Lord cantrips without territorial helper text while preserving their restriction', () => {
   const source = feat('Sacral Lord', 'Claim a defined territory, such as a forest. Within its borders, you can cast [_detect magic_](/Spells.aspx?ID=1485), [_guidance_](/Spells.aspx?ID=1549), and [_sigil_](/Spells.aspx?ID=1673) as innate divine cantrips, and you gain a bonus.')
   const entries = [source, ...['Detect Magic', 'Guidance', 'Sigil'].map(name => entry(name, 'spell', {}, ['Cantrip']))]
   const c: Character = { ...base, level: 4, feats: [taken(source.name, 4)] }
@@ -1426,7 +1426,7 @@ it('lists Sacral Lord cantrips with their territorial restriction', () => {
     rank: 2, rule: { kind: 'innate', tradition: 'divine', frequency: 'at will', condition: 'Only within your claimed territory' },
   })))
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Only within your claimed territory')
+  expect(markup).not.toContain('Only within your claimed territory')
   expect(markup).toContain('>Detect Magic</button>')
   expect(markup).toContain('>Guidance</button>')
   expect(markup).toContain('>Sigil</button>')

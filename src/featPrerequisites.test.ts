@@ -4,6 +4,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisit
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
 import * as featChoices from './featChoices'
+import * as featSpells from './featSpells'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
 import { normalizeConditionalSkillChoices, skillRankBudget } from './builder'
@@ -19,6 +20,17 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('does not recalculate spell grants for unrelated feat and attribute prerequisites', () => {
+  const c: Character = { ...base, feats: [selected('Orc Ferocity')] }
+  const grants = vi.spyOn(featSpells, 'grantedFeatSpells')
+  try {
+    expect(check('Orc Ferocity; Strength +2', c, [entry('feat', 'Orc Ferocity')])).toEqual({ missing: [], manual: [] })
+    expect(grants).not.toHaveBeenCalled()
+    expect(check('focus pool', { ...c, className: 'Champion' })).toEqual({ missing: [], manual: [] })
+    expect(grants).toHaveBeenCalled()
+  } finally { grants.mockRestore() }
+})
 
 it('grants Earned Glory Performance and Impressive Performance only after its taken level', () => {
   const feat = { name: 'Earned Glory', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
@@ -898,6 +910,28 @@ describe('shared prerequisite enforcement', () => {
     expect(featPrerequisiteChecker(c, data)(manifold)).toEqual({ missing: [], manual: [] })
     expect(featPrerequisiteChecker(c, data, 16)(manifold)).toEqual({ missing: ['masterful hunter'], manual: [] })
     expect(featPrerequisiteChecker({ ...c, className: 'Fighter' }, data)(manifold).missing).toEqual(["hunter's edge", 'masterful hunter'])
+  })
+
+  it('accepts a faithful steed for Ferocious Beasts without requiring the Animal Companion feat', () => {
+    const beasts = entry('feat', 'Ferocious Beasts', {
+      prerequisite: 'Bonded Animal, animal companion, or Pet; Orc Ferocity',
+    }, 13, ['Orc'])
+    const data = [beasts, ...['Bonded Animal', 'Animal Companion', 'Pet', 'Orc Ferocity', 'Faithful Steed']
+      .map(name => entry('feat', name))]
+    const ferocity = { ...selected('Orc Ferocity'), type: 'Ancestry Feat', slot: 'ancestry:1:0' }
+    const c: Character = { ...base, className: 'Champion', ancestry: 'Orc', level: 13,
+      feats: [ferocity, selected('Faithful Steed')], companions: [{ id: 'steed', name: '', type: 'Horse' }] }
+    const slot = { category: 'ancestry' as const, level: 13, key: 'ancestry:13:0' }
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(beasts)).toEqual({ missing: [], manual: [] })
+    expect(featSelectionPrerequisiteChecker({ ...c, companions: [] }, data, slot)(beasts).missing)
+      .toContain('Bonded Animal, animal companion, or Pet')
+    expect(featSelectionPrerequisiteChecker({ ...c, feats: [selected('Faithful Steed')] }, data, slot)(beasts))
+      .toEqual({ missing: ['Orc Ferocity'], manual: [] })
+    expect(featPrerequisiteChecker(c, data)(target('Animal Companion'))).toEqual({ missing: ['Animal Companion'], manual: [] })
+    for (const name of ['Bonded Animal', 'Pet']) {
+      expect(featSelectionPrerequisiteChecker({ ...c, companions: [], feats: [ferocity, selected(name)] }, data, slot)(beasts))
+        .toEqual({ missing: [], manual: [] })
+    }
   })
 
   it('allows Rangers to substitute Survival only for Snarecrafter archetype Crafting prerequisites, including prerequisite chains', () => {

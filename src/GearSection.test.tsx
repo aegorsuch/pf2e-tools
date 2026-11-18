@@ -29,6 +29,20 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it('adds weapons unequipped without changing an existing equipped weapon', () => {
+  let c = character([])
+  const existing = c.weapons![0]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = WeaponList({ c, entries: [weapon], save })
+  const picker = findElement(tree, element => element.type === Search && element.props.kind === 'weapon')
+  if (typeof picker?.props.onPick !== 'function') throw new Error('Weapon picker unavailable')
+  picker.props.onPick(weapon)
+  expect(c.weapons?.at(-1)).toMatchObject({ name: weapon.name, stowed: true })
+  expect(weaponEquipped(c, [weapon], c.weapons!.at(-1)!)).toBe(false)
+  expect(c.weapons![0]).toEqual(existing)
+  expect(weaponEquipped(c, [weapon], c.weapons![0])).toBe(true)
+})
+
 it.each([false, true])('opens parameterized weapon trait definitions in both views (displayOnly=%s)', displayOnly => {
   const bow: ContentEntry = { ...weapon, id: 'longbow', name: 'Longbow', traits: ['Deadly d10', 'Volley 30 ft.'],
     data: { ...weapon.data, weapon_type: 'Ranged', range: 100, hands: '1+' } }
