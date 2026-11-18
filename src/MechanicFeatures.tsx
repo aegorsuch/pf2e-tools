@@ -230,7 +230,6 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
           <small>{healing ? `Heals ${healingAmount} HP; no save` : `${result.damage}${mine.incapacitant ? ' nonlethal' : ''}; basic Reflex DC ${classDc}`};
             {` ${result.radius}-foot burst.`} Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
           {mine.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
-          <small>Turn mods off when they expire.</small>
           <button type="button" onClick={() => {
             const glitching = { ...c.mechanicGlitching }
             if (mine.id) delete glitching[`mine:${mine.id}`]
@@ -264,12 +263,9 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         enduring={{ active: c.mechanicEnduringMod?.kind === 'exo', onChange: active => save(setEnduringMod(c, active
           ? { kind: 'exo', item: 'mechanic:exo', mod: 'debilitation', value: c.mechanicExocortexDebilitation ?? [], label: 'Turret' }
           : undefined)) }} />
-      <small>Manage turret grade, upgrades, and Strikes in Weapons.</small>
     </>}
-    {c.subclass === 'Drone' && <small>Manage your drone and its customizations in Minions.</small>}
     {c.level >= 9 && <small>Remote Mods: Modify your exocortex and its weapons within {c.level >= 15 ? 150 : 60} feet.</small>}
     {c.level >= 13 && <div className="col"><strong>Enduring Mod</strong>
-      <small>During daily preparations, Modify one item; that mod lasts 24 hours. Choose an enduring mod on its item or drone controls; unsupported mods use manual tracking.</small>
       {c.mechanicEnduringMod?.kind ? <>
         <span>Enduring item: {c.mechanicEnduringMod.label ?? c.mechanicEnduringMod.item}
           {' '}({c.mechanicEnduringMod.mod.replace(/([a-z])([A-Z])/g, '$1 $2')}).</span>
@@ -285,7 +281,6 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
     </div>}
     {c.level >= 15 && <small>Manifold Mods: apply two mods whenever you Modify an item.</small>}
     {c.level >= 19 && <small>Instant Mods: once per round, Modify as a free action.</small>}
-    <small><a href="https://2e.aonsrd.com/actions/546-modify" target="_blank" rel="noreferrer">Modify rules</a>:
-      use item and exocortex controls for mods; track expiration manually.</small>
+    <a href="https://2e.aonsrd.com/actions/546-modify" target="_blank" rel="noreferrer">Modify rules</a>
   </div>
 }

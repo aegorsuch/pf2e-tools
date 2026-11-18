@@ -268,8 +268,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     {displayed.map(display => {
       if (display.kind === 'warmask') return <li key="warmask"><WarmaskGear c={c} entries={entries} save={save} /></li>
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
-        descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." />
-        {' '}<small>(Cyborg; integrated, thought-operated)</small></li>
+        descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." /></li>
       if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><EntryDescription name="Bracelet of Empathy"
         entry={entries.find(entry => entry.kind === 'item' && entry.name === 'Collar of Empathy')} className="equipment-name" /></li>
       if (display.kind === 'simple-poisons') return <li key="simple-poisons"><SimplePoisons c={c} entries={entries} save={save} /></li>
@@ -290,7 +289,6 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       <ItemTroubleshoot c={c} save={save} kind="equipment" id={item.mechanicItemId} label={item.name}
         attach={id => ({ equipment: c.equipment.map((gear, i) => i === index ? { ...gear, mechanicItemId: id } : gear) })} />
       {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>
-        <small>Mods apply to one grenade.</small>
         <GrenadeMods c={c} grenade={entry} label={item.name} itemKey={`equipment:${item.name}`} save={save} />
       </>}
       </li>
@@ -337,7 +335,6 @@ function PioneerHumanOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
         {options.map(terrain => <option key={terrain}>{terrain}</option>)}
       </SearchableSelect>
     </div>
-    <small>Pioneer Human grants Trained Survival and free Terrain Expertise. If your class or background also trains Survival, choose one additional trained skill in Skills.</small>
   </div>
 }
 
@@ -597,7 +594,6 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
             <a href="https://2e.aonsrd.com/traits/52-cosmic" target="_blank" rel="noreferrer">Cosmic trait</a>
           </Info>}
           <PioneerHumanOptions {...section} />
-          <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
         </div>
@@ -624,7 +620,6 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
               ...(choice && (lore || custom) ? { backgroundLores: { ...c.backgroundLores, [choice]: [lore ?? ''] } } : {}) })} />}
           {extraBackground && <BackgroundDetails entry={extraBackground} label={`Free Heart: ${extraBackground.name}`} />}
           {extraBackground && <BackgroundLoreChoices {...section} background={extraBackground} options={loreOptions} />}
-          {freeHeart && <small>Free Heart grants the background's trained skill and skill feat, but not its attribute boosts.</small>}
           <Achievements {...section} />
         </div>
       </DeferredDetails>

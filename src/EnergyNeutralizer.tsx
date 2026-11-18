@@ -31,6 +31,5 @@ export function EnergyNeutralizer({ c, save, id, label }: Pick<SectionProps, 'c'
       onChange={event => save(setEnduringMod(c, event.target.checked
         ? { kind: 'armor', item: id, mod: 'energyNeutralizer', value: selected, label } : undefined))} />
       {' '}Enduring Energy Neutralizer</label>}
-    <small>Turn the mod off when it expires.</small>
   </div>
 }

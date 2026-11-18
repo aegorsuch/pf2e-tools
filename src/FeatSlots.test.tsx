@@ -265,14 +265,14 @@ it('reuses selected prerequisite checks for empty slots and invalidates changed 
   } finally { check.mockRestore(); updateSettings({ autoLores: previous }) }
 })
 
-it('keeps a saved noncommon adopted ancestry disabled until access is established', () => {
+it('keeps a saved adopted ancestry disabled only for an unmet specific Access requirement', () => {
   const ancestry: ContentEntry = { id: 'automaton', name: 'Automaton', kind: 'ancestry', source: 'official', systems: ['pf2e'],
-    level: 1, traits: ['Rare'], description: '', data: {}, effects: [], updatedAt: 0 }
+    level: 1, traits: ['Rare'], description: '', data: { access: 'Kellid ethnicity' }, effects: [], updatedAt: 0 }
   const c: Character = { ...emptyRanger(), ancestry: 'Human', feats: [
     { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: ancestry.name },
   ] }
   const save = vi.fn()
-  const render = (character = c) => renderToStaticMarkup(<FeatChoice c={character} entries={[ancestry]} save={save} index={0} />)
+  const render = (character = c, entry = ancestry) => renderToStaticMarkup(<FeatChoice c={character} entries={[entry]} save={save} index={0} />)
   const markup = render()
   expect(markup).toContain('Ancestry: Automaton (unavailable)')
   expect(markup).toMatch(/<option[^>]*disabled=""[^>]*value="Automaton"/)
@@ -280,6 +280,7 @@ it('keeps a saved noncommon adopted ancestry disabled until access is establishe
   const approved = render({ ...c, featAccessOverrides: [ancestry.id] })
   expect(approved).not.toContain('(unavailable)')
   expect(approved).not.toContain('Saved ancestry is unavailable.')
+  expect(render(c, { ...ancestry, data: {} })).not.toContain('(unavailable)')
   expect(save).not.toHaveBeenCalled()
   expect(c.feats[0].choice).toBe(ancestry.name)
 })

@@ -222,7 +222,7 @@ it('shows Blast Resistance save upgrades alongside fire and sonic resistance onl
   const c: Character = { ...base, level: 5, feats: [{ name: 'Blast Resistance', type: 'Ancestry Feat', level: 5 }] }
   const note = 'Against an effect that causes dazzled or deafened, a successful saving throw becomes a critical success.'
   const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
-  expect(html.match(/aria-label="Blast Resistance note"/g)).toHaveLength(3)
+  expect(html.match(/aria-label="Blast Resistance note"/g)).toHaveLength(5)
   expect(html).toContain(note)
   expect(builder.resistances(c, [ranger])).toEqual([
     { damage: 'Fire', value: 3, source: 'Blast Resistance' },
@@ -239,8 +239,11 @@ it.each([undefined, 'Darkvision'])('always shows Senses, including when ancestry
   const ancestry: ContentEntry = { ...ranger, id: 'ancestry', kind: 'ancestry', name: 'Test ancestry', data: vision ? { vision } : {} }
   const html = renderToStaticMarkup(<SensesAndSpeed c={{ ...base, ancestry: ancestry.name }} entries={[ancestry]}
     save={() => {}} />)
-  expect(html).toContain(vision ? 'Senses: Darkvision (Test ancestry)' : 'Senses: No special senses')
-  if (vision) expect(html).not.toContain('No special senses')
+  expect(html).toContain(vision ? 'Senses: <span>Darkvision<button' : 'Senses: No special senses')
+  if (vision) {
+    expect(html).toContain('aria-label="Test ancestry note"')
+    expect(html).not.toContain('No special senses')
+  }
 })
 
 it('shows situational ancestry effects only while their feats are active without changing ordinary defenses', () => {
@@ -685,7 +688,8 @@ it("shows Officer's Medical Training using the better Medicine ability and its r
 it('shows Pain Tolerance resistance and conditional save bonus without increasing ordinary saves', () => {
   const c: Character = { ...base, level: 7, feats: [{ name: 'Pain Tolerance', type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
-  expect(markup).toContain('Mental 3 (Pain Tolerance)')
+  expect(markup).toContain('Mental 3<button')
+  expect(markup).toContain('aria-label="Pain Tolerance note"')
   expect(markup).toContain('+12 against effects that would make you clumsy, drained, or enfeebled (+1 circumstance).')
   expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
   const before = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 5 }} entries={[ranger]} save={() => {}} part="defense" />)
@@ -1066,13 +1070,16 @@ it('restores spent training when overlapping grants disappear without removing s
   expect(c.skillPicks).toEqual(['Nature', 'Society', 'Survival'])
 })
 
-it('shows Toughness contribution next to expanded Defense HP without changing the total', () => {
+it('keeps Toughness contribution in a note without changing the HP total', () => {
   const c: Character = { ...base, level: 20, ancestry: 'Human', abilities: { ...base.abilities, con: 20 },
     feats: [{ name: 'Toughness', type: 'General Feat', level: 1, slot: 'general:3:0' }] }
   const entries: ContentEntry[] = [{ ...ranger, data: { ...ranger.data, hp: 10 } },
     { ...ranger, id: 'human', kind: 'ancestry', name: 'Human', data: { hp: 8 } }]
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
-  expect(markup).toContain('328<small> (+20 Toughness)</small>')
+  expect(markup).toContain('328<button')
+  expect(markup).toContain('aria-label="Hit Points note"')
+  expect(markup).toContain('+20 Toughness (Hit Points)')
+  expect(markup).not.toContain('<small> (+20 Toughness)</small>')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, feats: [] }} entries={entries} save={() => {}} part="defense" />))
     .not.toContain('Toughness')
 })
@@ -1082,8 +1089,9 @@ it('shows only the highest resistance for each damage type', () => {
   const fire10: ContentEntry = { ...fire5, id: 'fire10', name: 'Fire Ward', data: { resistances: 'fire=10' } }
   const c: Character = { ...base, feats: [fire5, fire10].map(entry => ({ name: entry.name, type: 'Ancestry Feat', level: 1 })) }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[fire5, fire10]} save={() => {}} part="defense" />)
-  expect(markup).toContain('Fire 10 (Fire Ward)')
-  expect(markup).not.toContain('Fire 5 (Fire Guard)')
+  expect(markup).toContain('Fire 10<button')
+  expect(markup).toContain('aria-label="Fire Ward note"')
+  expect(markup).not.toContain('Fire Guard')
 })
 
 it('keeps Pioneer training fixed, refunds redundant picks, and notes conditional Terrain Expertise on Survival', () => {
@@ -1348,11 +1356,14 @@ it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () =>
     .not.toContain('Shiny note')
 })
 
-it('shows speed bonus sources but omits redundant Initiative helper', () => {
+it('keeps speed bonus sources in a note and omits redundant Initiative helper', () => {
   const c: Character = { ...base, feats: ['Fleet', 'Primal Nimbleness', 'Incredible Initiative']
     .map((name) => ({ name, type: 'General Feat', level: 1 })) }
   const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[ranger]} save={() => {}} />)
-  expect(markup).toContain('35 ft. (+5 Fleet, +5 Primal Nimbleness)')
+  expect(markup).toContain('35 ft.<button')
+  expect(markup).toContain('aria-label="Land Speed note"')
+  expect(markup).toContain('+5 Fleet; +5 Primal Nimbleness (Land Speed)')
+  expect(markup).not.toContain('35 ft. (+5 Fleet')
   expect(markup).not.toContain('Initiative:')
   expect(initiativeBonus(c, [ranger])).toBe(5)
 })

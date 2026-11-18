@@ -33,7 +33,7 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
   })).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="col">
     <strong>Drone equipment</strong>
-    <small>Weapon mounts: {used}/{capacity.mounts}. Mounted weapons do not use your hands.</small>
+    <small>Weapon mounts: {used}/{capacity.mounts}.</small>
     {capacity.hands > 0 && <small>Drone hands used: {handsUsed}/{capacity.hands}.</small>}
     {mounted.map(({ weapon, entry, hands, active, held }) => {
       const attack = active ? droneWeaponAttack(c, entries, weapon) : undefined
@@ -129,6 +129,5 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
       <option value="">Add armor upgrade...</option>
       {armorOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (Level {entry.level})</option>)}
     </SearchableSelect>}
-    <small>Drone companions benefit from item bonuses only to Speed and AC. Check upgrade descriptions for other effects not reflected in statistics.</small>
   </div>
 }

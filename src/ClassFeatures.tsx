@@ -74,10 +74,9 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       {c.raging && instinct && !['giant', 'fury'].includes(instinct)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
       {c.className === 'Champion' && activeFeatsNamed(c, 'Dragonslayer Oath').length > 0 && <div className="col">
-        <b>Dragonslayer Oath (legacy)</b>
-        <small>Against dragons, Retributive Strike deals +4 circumstance damage (+6 with master weapon proficiency).
+        <Info label="Dragonslayer Oath (legacy)">Against dragons, Retributive Strike deals +4 circumstance damage (+6 with master weapon proficiency).
           Glimpse of Redemption grants resistance {7 + c.level}; Liberating Step grants +4 circumstance to its checks and allows two Steps.
-          These benefits apply only to the corresponding legacy champion reactions; verify legacy prerequisites with your GM.</small>
+          These benefits apply only to the corresponding legacy champion reactions; verify legacy prerequisites with your GM.</Info>
       </div>}
       {c.className === 'Champion' && c.level >= 1 && <label>Sanctification{' '}
         <select aria-label="Sanctification" value={sanctification.selected ?? ''} disabled={!!sanctification.required || !sanctification.options.length} onChange={(e) => {
@@ -91,7 +90,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       {c.className === 'Champion' && c.level >= 1 && !championCauseTenets(c.subclass) && <label>
         <input type="checkbox" aria-label="Confirm legacy Tenets of Good" checked={!!c.legacyTenetsOfGood}
           onChange={event => save({ legacyTenetsOfGood: event.target.checked })} /> Confirm legacy Tenets of Good
-        <small> Known causes map to matching tenets automatically. Use this only when legacy rules apply and your cause is unknown.</small>
       </label>}
       {c.className === 'Champion' && c.level >= 3 && <div className="col">
         <label>Blessing of the Devoted{' '}
@@ -103,7 +101,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
             {['Blessed Armament', 'Blessed Shield', 'Blessed Swiftness'].map((name) => <option key={name} disabled={extraBlessings.includes(name)}>{name}</option>)}
           </select>
         </label>
-        {extraBlessings.length > 0 && <small>Additional blessings: {extraBlessings.join(', ')}. Change these with their feat choices.</small>}
+        {extraBlessings.length > 0 && <small>Additional blessings: {extraBlessings.join(', ')}.</small>}
         {championBlessings(c).includes('Blessed Armament') && <>
           {targets.length > 1 ? <span>Blessed armament{' '}
             <SearchableSelect aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
@@ -125,7 +123,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
               {runes.map((rune) => <option key={rune}>{rune}</option>)}
             </SearchableSelect>
           </span>
-          <small>One free rune outside normal property rune slots; grants critical specialization. Radiant Armament (10) and Armament Paragon (20) expand rune choices.</small>
         </>}
       </div>}
       <ul>

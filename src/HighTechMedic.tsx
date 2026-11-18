@@ -44,7 +44,6 @@ export function HighTechMedic({ c, save, index, entry }: Pick<SectionProps, 'c' 
       {item.mechanicMedicMods?.includes('Powerful Stimulant') && <small>Reduce enfeebled or frightened by 1.</small>}
       {item.mechanicMedicMods?.includes('Protective Excretions') && <small>Attempt a DC 10 flat check to end one persistent damage type.</small>}
       {item.mechanicMedicMods?.includes('Restorative Boost') && <small>Fast healing {Math.ceil(entry.level / 2)} for 3 rounds.</small>}
-      <small>Turn mods off when they expire.</small>
     </>}
   </div>
 }

@@ -36,6 +36,6 @@ export function DebilitatingExocortex({ c, choices, onChange, enduring }: {
       {activeFeatsNamed(c, 'Foolproof Debilitations').length ? ' (enemies must critically succeed)' : ''} or gain{' '}
       {active.filter(option => options.includes(option)).map(option =>
         ['Clumsy', 'Enfeebled', 'Stupefied'].includes(option) ? `${option} ${count === 2 ? 2 : 1}` : option).join(' and ')}
-      {' '}until the end of their next turn. Turn off when the mod expires.</small>}
+      {' '}until the end of their next turn.</small>}
   </div>
 }

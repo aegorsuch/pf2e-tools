@@ -119,16 +119,16 @@ it('applies the full adopted Dwarf weapon list without a choice and only after a
   expect(attack({ ...c, feats: [c.feats[0], { ...familiarity, slot: 'ancestry:1:0', takenLevel: 1 }] }, artillery, entries).rank).toBe(0)
 })
 
-it('grants only stated weapon Access, not all ancestry gear or rare versions, and persists GM approval separately', () => {
+it('allows rarity alone while preserving stated weapon grants and saved GM approval', () => {
   const uncommon = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')
   const rare = { ...uncommon, id: 'rare-waraxe', data: { ...uncommon.data, rarity: 'rare' }, traits: ['Dwarf', 'Rare'] }
   const armor = content('Dwarf Armor', 'armor', { rarity: 'uncommon' }, ['Dwarf'])
   const entries = [dwarf, uncommon, rare, armor]
   const c = { ...character, feats: [selected('Dwarven Weapon Familiarity')] }
-  expect(gearAccess(character, entries, uncommon)).toMatchObject({ automatic: false, approved: false })
+  expect(gearAccess(character, entries, uncommon)).toMatchObject({ automatic: true, approved: false })
   expect(gearAccess(c, entries, uncommon)).toMatchObject({ automatic: true, sources: ['Dwarven Weapon Familiarity'] })
-  expect(gearAccess(c, entries, rare)?.automatic).toBe(false)
-  expect(gearAccess(c, entries, armor)?.automatic).toBe(false)
+  expect(gearAccess(c, entries, rare)?.automatic).toBe(true)
+  expect(gearAccess(c, entries, armor)?.automatic).toBe(true)
   const saved = JSON.parse(JSON.stringify({ ...c, gearAccessOverrides: [armor.id] }))
   expect(gearAccess(saved, entries, armor)?.approved).toBe(true)
   expect(gearAccess(saved, entries, rare)?.approved).toBe(false)
@@ -193,10 +193,10 @@ it('toggles Barbarian War Javelin Access without changing proficiency or unrelat
     expect(weaponAccessSources(barbarian, entries, other)).toEqual([])
     expect(weaponAccessSources(barbarian, entries, rare)).toEqual([])
     updateSettings({ barbarianWarJavelinAccess: false })
-    expect(gearAccess(barbarian, entries, javelin)).toMatchObject({ automatic: false, approved: false })
+    expect(gearAccess(barbarian, entries, javelin)).toMatchObject({ automatic: true, approved: false, sources: [] })
     expect(attack(barbarian, javelin, entries).rank).toBe(1)
     expect(gearAccess({ ...barbarian, gearAccessOverrides: [javelin.id] }, entries, javelin))
-      .toMatchObject({ automatic: false, approved: true })
+      .toMatchObject({ automatic: true, approved: true })
   } finally { updateSettings({ barbarianWarJavelinAccess: original }) }
 })
 

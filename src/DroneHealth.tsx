@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { activeFeatsNamed, type SectionProps } from './builder'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { damageDrone, DRONE_DAMAGE_TYPES, type DroneDamageType } from './droneDamage'
+import { Info } from './Info'
 
 export function DroneHealth({ c, entries, save }: SectionProps) {
   const [amount, setAmount] = useState('')
@@ -52,9 +53,9 @@ export function DroneHealth({ c, entries, save }: SectionProps) {
           }}>Apply damage</button>
       </div>
       {result && <small role="status">{result}</small>}
-      <small>Enter one damage type at a time after saves. Applies listed resistance, electricity weakness,
+      <Info label="Damage rules">Enter one damage type at a time after saves. Applies listed resistance, electricity weakness,
         damage-type and nonlethal immunity, force field, then temporary HP. "Other" bypasses the force field;
-        apply other immunities and modifiers separately.</small>
+        apply other immunities and modifiers separately.</Info>
       {!hp && <><small>Shut down: immune to damage and unable to act until repaired.</small>
         <button type="button" onClick={() => save({ mechanicDroneHp: 1 })}>Reboot after 1 minute</button></>}
       <button type="button" disabled={hp === stats.hp} onClick={() => save({ mechanicDroneHp: stats.hp })}>
@@ -68,7 +69,6 @@ export function DroneHealth({ c, entries, save }: SectionProps) {
           Emergency Repair: 10 minutes elapsed
         </button>}
       </>}
-      <small>Track elapsed time and temporary HP expiration manually.</small>
     </div>
   </details>
 }

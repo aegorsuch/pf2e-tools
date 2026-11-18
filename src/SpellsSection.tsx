@@ -21,6 +21,7 @@ import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
+import { spellAccessGranted } from './featAccess'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
@@ -91,8 +92,8 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
       </select>
     </label>
     {mutable && active && !canChange && <small>As Mutable as Nature requires an original duration of 1 minute.</small>}
-    {canChange && <small>Each form change costs 1 action. Remaining spell duration does not reset.</small>}
-    <small>Track the chosen battle form's other statistics separately; this does not replace your character statistics.</small>
+    <SourceNote source="Untamed Form" note={`Track the chosen battle form's other statistics separately; this does not replace your character statistics.${canChange
+      ? ' Each form change costs 1 action. Remaining spell duration does not reset.' : ''}`} />
   </fieldset>
 }
 
@@ -447,7 +448,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
     return { spells, byId: new Map(spells.map(entry => [entry.id, entry])), byName: new Map(spells.map(entry => [entry.name, entry])) }
   }, [entries, c.systems])
   const options = useMemo(() => Array.from({ length: 11 }, (_, rank) => witchwarperSpellOptions(c, spellIndex.spells, rank)),
-    [c.className, c.subclass, c.level, c.systems, c.spells, spellIndex])
+    [c.className, c.subclass, c.level, c.systems, c.spells, c.ancestry, c.ethnicity, c.background,
+      c.achievements, c.featAccessOverrides, spellIndex])
   const paradox = witchwarperParadox(c)
   const casting = classSpellcasting(c, entries)
   const slots = classSpellSlots(c)
@@ -606,10 +608,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
   const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells) : undefined,
     [druid, c.className, c.level, c.feats, c.systems, spellIndex])
-  const druidAvailable = useMemo(() => {
-    const learned = new Set((c.spells ?? []).map(spell => spell.entryId ?? spell.name))
-    return druidList?.filter(entry => isCommonSpell(entry) || learned.has(entry.id) || learned.has(entry.name))
-  }, [druidList, c.spells])
+  const druidAvailable = useMemo(() => druidList?.filter(entry => spellAccessGranted(c, entry)),
+    [druidList, c.spells, c.ancestry, c.ethnicity, c.background, c.achievements, c.featAccessOverrides])
   const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
@@ -661,7 +661,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       && <CompanionSpellOptions c={c} entries={entries} save={save} name={name} hideToggle />}
     {name === 'Untamed Form' && <UntamedFormOptions c={c} entries={entries} save={save} />}
     {name === 'Oaken Resilience' && (grownOfOakSpell
-      ? <small>Cast rank {grownOfOakSpell.rank} (Grown of Oak)</small>
+      ? <small>Cast rank {grownOfOakSpell.rank}</small>
       : <label>Cast rank{' '}
       <select aria-label="Oaken Resilience cast rank" value={c.oakenResilienceRank ?? ''} onChange={(event) => {
         const value = Number(event.target.value)
@@ -670,7 +670,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <option value="">Choose cast rank</option>
         {Array.from({ length: 9 }, (_, i) => i + 2).map(value => <option key={value} value={value}>{value}</option>)}
       </select>
-      {!c.oakenResilienceRank && <small> Choose cast rank to apply resistance and weakness.</small>}
     </label>)}
     {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
       && <SpellDamageRolls name={name} rank={rank} />}

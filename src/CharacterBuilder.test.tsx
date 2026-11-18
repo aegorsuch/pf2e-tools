@@ -224,7 +224,7 @@ it('shows Cyborg traits and its integrated comm unit without the optional house 
     expect(markup).toContain('>Cyborg trait</a>')
     expect(markup).toContain('>Tech trait</a>')
     expect(markup).toContain('Comm Unit')
-    expect(markup).toContain('Cyborg; integrated, thought-operated')
+    expect(markup).not.toContain('Cyborg; integrated, thought-operated')
     expect(markup).toContain('aria-label="Augmentation capacity">0/8</small>')
     expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: undefined }} onClose={() => {}} />))
       .not.toContain('Cyborg; integrated, thought-operated')
@@ -270,7 +270,7 @@ it('shows Free Heart background selection in Background only while the feat is a
     const section = markup.slice(markup.indexOf('<strong>Background</strong>'), markup.indexOf('<strong>Class</strong>'))
     expect(section).toContain('aria-label="Free Heart background"')
     expect(section).toContain('Performer')
-    expect(section).toContain('not its attribute boosts')
+    expect(section).not.toContain('not its attribute boosts')
     expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, level: 0 }} onClose={() => {}} />))
       .not.toContain('aria-label="Free Heart background"')
   } finally { content.entries = [] }
@@ -671,7 +671,8 @@ it.each([undefined, 'Gloves', 'Hands'] as const)('separates handwrap inventory a
     expect(equipment.match(/<h4>Handwraps<\/h4>/g)).toHaveLength(1)
     expect(gloves).toContain('Gloves of Storing')
     expect(gloves).not.toContain('Handwraps')
-    expect(handwraps).toContain('Fundamental runes')
+    expect(handwraps).toContain('Potency')
+    expect(handwraps).not.toContain('automatically upgrade with character level')
     expect(handwraps).toContain('Flaming')
     const glovesSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Gloves" />)
     const handwrapsSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Handwraps" />)
@@ -865,7 +866,7 @@ it('retains official access metadata and shows saved ethnicity without changing 
     expect(markup).toContain('<option selected="">Kellid</option>')
     const ethnicity = markup.match(/<select[^>]*aria-label="Ethnicity"[^>]*>[\s\S]*?<\/select>/)?.[0]
     expect(ethnicity).not.toContain('Mountain Dwarf')
-    expect(markup).toContain('Access does not replace prerequisites.')
+    expect(markup).not.toContain('Access does not replace prerequisites.')
     expect(saved).toMatchObject({ ancestry: 'Human', heritage: 'Versatile Human', ethnicity: 'Kellid' })
     const changed = renderToStaticMarkup(<CharacterBuilder character={{ ...saved, ancestry: 'Dwarf' }} onClose={() => {}} />)
     const dwarfEthnicity = changed.match(/<select[^>]*aria-label="Ethnicity"[^>]*>[\s\S]*?<\/select>/)?.[0]

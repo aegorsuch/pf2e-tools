@@ -282,11 +282,14 @@ it('derives Calistria’s wasp and bonus abilities separately from existing fami
   expect(saves).toBe(0)
   expect(html).toContain('Leshy Familiar, Wasp Familiar')
   expect(html).toContain('Daily familiar or master abilities (0/2)')
-  expect(html).toContain('Burrower and Flier as bonus abilities')
+  expect(html).toContain('Burrower')
+  expect(html).toContain('Flier')
+  expect(html).not.toContain('Burrower and Flier as bonus abilities')
   expect(html).toContain('Burrower: Burrow Speed 5 feet; can dig Tiny holes.')
   expect(html).toContain('Flier: Fly Speed 25 feet.')
   expect(html).toContain('aria-label="Leshy familiar granted ability"')
-  expect(html).toContain('<small>Hit Points</small> <b>56</b> (includes Tough)')
+  expect(html).toContain('<small>Hit Points</small> <b>56</b>')
+  expect(html).not.toContain('(includes Tough)')
   expect(html).toContain('<small>Hit Points</small> <b>40</b>')
 
   findInput(tree(), 'Wasp familiar name')?.({ target: { value: 'Sting' } })
@@ -408,7 +411,7 @@ it('applies active familiar Tough and displays recognized daily ability effects'
     familiar: { abilities: ['Flier', '', 'tough', 'Climber'] },
   }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('<small>Hit Points</small> <b>56</b> (includes Tough)')
+  expect(markup).toContain('<small>Hit Points</small> <b>56</b>')
   expect(markup).toContain('Flier: Fly Speed 25 feet.')
   expect(markup).toContain('Climber: Climb Speed 25 feet.')
   const reduced = renderToStaticMarkup(<MinionsSection c={{ ...c, feats: c.feats.slice(0, 1) }} entries={[]} save={() => {}} />)

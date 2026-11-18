@@ -384,7 +384,7 @@ it('calculates turret defenses and selected array', () => {
   expect(markup).toContain('fire; range 60 feet')
   expect(markup).toContain('AC 28; HP 70; broken 35; hardness 15')
   expect(markup).toContain('Fortitude and Reflex +18')
-  expect(markup).toContain('Manage turret grade, upgrades, and Strikes in Weapons')
+  expect(markup).not.toContain('Manage turret grade, upgrades, and Strikes in Weapons')
   expect(renderToStaticMarkup(<MechanicFeatures c={{ ...turret, className: 'Ranger' }} save={() => {}} />)).toBe('')
 })
 
@@ -425,7 +425,7 @@ it('applies Magnetic Levitators only while its armor is worn', () => {
   expect(magneticLevitatorsActive(c, [])).toBe(true)
   expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 10, source: 'Magnetic Levitators' })
   expect(renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />))
-    .toContain('hover; Magnetic Levitators')
+    .toContain(' (hover)')
   expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).not.toContainEqual(
     expect.objectContaining({ source: 'Magnetic Levitators' }))
   const drone: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Powerful',

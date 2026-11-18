@@ -200,3 +200,13 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
     source: ethnicity ? 'ethnicity' : background ? 'background' : ancestry ? 'ancestry' : achievement ? 'achievement' : undefined,
   }
 }
+
+export function contentAccessGranted(c: Character, entry: ContentEntry) {
+  const access = featAccess(c, entry)
+  return !access || access.automatic || access.approved
+}
+
+export function spellAccessGranted(c: Character, entry: ContentEntry) {
+  return contentAccessGranted(c, entry) || !!c.spells?.some(spell =>
+    spell.entryId ? spell.entryId === entry.id : spell.name === entry.name)
+}

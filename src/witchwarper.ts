@@ -1,4 +1,5 @@
 import type { Character, ContentEntry } from './types'
+import { spellAccessGranted } from './featAccess'
 
 export type WitchwarperParadoxName = 'Analyst' | 'Anomaly' | 'Gap Influenced' | 'Precog'
 export const WITCHWARPER_KEY_ATTRIBUTES = ['int', 'cha'] as const
@@ -109,14 +110,12 @@ export function witchwarperRepertoireSlots(c: Character) {
 export function witchwarperSpellOptions(c: Character, entries: ContentEntry[], rank: number) {
   const paradox = witchwarperParadox(c)
   if (!paradox) return []
-  const learned = new Set((c.spells ?? []).flatMap(spell => [spell.name, ...(spell.entryId ? [spell.entryId] : [])]))
   return entries.filter(entry => entry.kind === 'spell' && !entry.deleted && entry.systems.some(system => c.systems.includes(system))
     && !entry.traits.some(trait => /^focus$/i.test(trait))
     && (rank === 0 ? entry.traits.some(trait => /^cantrip$/i.test(trait))
       : !entry.traits.some(trait => /^cantrip$/i.test(trait)) && entry.level <= rank)
     && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(paradox.tradition.toLowerCase())
-    && (!entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
-      && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? '')) || learned.has(entry.id) || learned.has(entry.name)))
+    && spellAccessGranted(c, entry))
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
 }
 

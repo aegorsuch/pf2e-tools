@@ -482,7 +482,7 @@ it('lists only known and craftable gadgets for daily preparations', () => {
   const entries = [content('item', 'Little Gadget', {}, 3, ['Gadget']), content('item', 'Future Gadget', {}, 5, ['Gadget']),
     content('item', 'Unknown Gadget', {}, 1, ['Gadget'])]
   const html = renderToStaticMarkup(<Gadgets c={c} entries={entries} save={() => {}} />)
-  expect(html).toContain('Prepare 2 temporary gadgets')
+  expect(html.match(/aria-label="Prepared gadget \d"/g)).toHaveLength(2)
   expect(html).toContain('Little Gadget (Level 3)')
   expect(html).not.toContain('Unknown Gadget')
   expect(html).not.toContain('Future Gadget')
@@ -501,8 +501,11 @@ it('marks one eligible weapon innovation with scaled fundamentals and locked mat
   })
 
   expect(canBeWeaponInnovation(inventor, [{ ...weapon, level: 1 }], item)).toBe(false)
-  expect(canBeWeaponInnovation(inventor, [{ ...weapon, traits: ['Rare'] }], item)).toBe(false)
-  expect(canBeWeaponInnovation({ ...inventor, gearAccessOverrides: [weapon.id] }, [{ ...weapon, traits: ['Rare'] }], item)).toBe(true)
+  expect(canBeWeaponInnovation(inventor, [{ ...weapon, traits: ['Rare'] }], item)).toBe(true)
+  const restricted = { ...weapon, traits: ['Rare'], data: { ...weapon.data, access: 'Kellid ethnicity' } }
+  expect(canBeWeaponInnovation(inventor, [restricted], item)).toBe(false)
+  expect(canBeWeaponInnovation({ ...inventor, ethnicity: 'Kellid' }, [restricted], item)).toBe(true)
+  expect(canBeWeaponInnovation({ ...inventor, gearAccessOverrides: [weapon.id] }, [restricted], item)).toBe(true)
   const martial = content('class', 'Inventor', { attack_proficiency: 'Trained in martial weapons' })
   expect(weaponAttack(inventor, [weapon, martial], item).rank).toBe(1)
   expect(item.material).toBe('Cold Iron (Low-Grade)')
@@ -1826,14 +1829,19 @@ it('exposes persisted defensive contexts and shows conditional bonuses without c
   expect(renderToStaticMarkup(<SkillsSection c={{ ...druid, feats: [] }} entries={[]} save={() => {}} part="defense" />)).not.toContain('Harden Flesh note')
 })
 
-it('shows movement sources inline and alphabetizes alternate speeds after land Speed', () => {
+it('keeps movement sources in notes and alphabetizes alternate speeds after land Speed', () => {
   const c: Character = { ...base, level: 9, className: 'Ranger',
     feats: [feat('Persistent Animal Feature', 8), feat('Fleet'), feat('Primal Nimbleness')],
     spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }, { name: 'Canopy Crawler', rank: 2, cantrip: false },
       { name: 'Stormwind Flight', rank: 4, cantrip: false }],
     activeSpells: ['Animal Feature', 'Canopy Crawler', 'Stormwind Flight'], animalFeatures: ['Fish Tail', 'Wings'] }
-  const text = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />).replace(/<[^>]*>/g, '')
-  expect(text).toContain('Speed: 35 ft. (+5 Fleet, +5 Primal Nimbleness); Climbing 35 ft. (Canopy Crawler); Fly 35 ft. (Stormwind Flight); Swim 35 ft. (Animal Feature)')
+  const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  const text = markup.replace(/<span[^>]*class="source-note"[^>]*>[\s\S]*?<\/span>/g, '').replace(/<[^>]*>/g, '')
+  expect(text).toContain('Speed: 35 ft.*; Climbing 35 ft.*; Fly 35 ft.*; Swim 35 ft.*')
+  for (const source of ['Fleet', 'Primal Nimbleness', 'Canopy Crawler', 'Stormwind Flight', 'Animal Feature']) {
+    expect(text).not.toContain(source)
+    expect(markup).toContain(source)
+  }
   const inactive = renderToStaticMarkup(<SensesAndSpeed c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} />)
   expect(inactive).not.toContain('Climbing')
   expect(inactive).not.toContain('(Animal Feature)')
@@ -1848,7 +1856,8 @@ it.each([[1, 30], [4, 30], [5, 60], [20, 60]])('adds active Keen Smell scent at 
   expect(senses({ ...c, activeSpells: [] }, [])).not.toContainEqual(expected)
   expect(senses({ ...c, feats: [] }, [])).not.toContainEqual(expected)
   const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain(`Scent (imprecise) ${range} feet (Keen Smell)`)
+  expect(markup).toContain(`Scent (imprecise) ${range} feet<button`)
+  expect(markup).toContain('aria-label="Keen Smell note"')
 })
 
 it('applies Magic Hide only to the selected companion while the known spell is active', () => {
@@ -2045,12 +2054,13 @@ it('makes Primal Nimbleness available to both classes and scales heritage and Ra
   expect(druidPoison.traits).toEqual(['Alchemist', 'Druid'])
 })
 
-it('keeps other poison resistance sources visible without borrowing the feat saving throw note', () => {
+it('keeps other poison resistance sources in notes without borrowing the feat saving throw note', () => {
   const poison = content('feat', 'Venom Ward', { resistances: 'poison=5' })
   const markup = renderToStaticMarkup(<SkillsSection c={{ ...base, feats: [feat(poison.name)] }}
     entries={[poison]} save={() => {}} part="defense" />)
-  expect(markup).toContain('Poison 5 (Venom Ward)')
-  expect(markup).not.toContain('source-note-trigger')
+  expect(markup).toContain('Poison 5<button')
+  expect(markup).toContain('aria-label="Venom Ward note"')
+  expect(markup).not.toContain('bonus to saving throws against poisons')
 })
 
 it.each([

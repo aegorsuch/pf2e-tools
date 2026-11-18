@@ -11,6 +11,7 @@ import { MechanicWeaponMods } from './GearSection'
 import { setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
+import { Info } from './Info'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
 
@@ -71,7 +72,6 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
       </select>
     </label>}
     {c.mechanicDroneChassis === 'Imitator' && <div className="col">
-      <small>Enter the imitated ancestry or animal's size, Speeds, and one unarmed attack.</small>
       {(['species', 'attack', 'damageType'] as const).map(field => <label key={field}>
         {field === 'species' ? 'Imitated species' : field === 'attack' ? 'Imitated attack' : 'Attack damage type'}{' '}
         <input aria-label={field === 'species' ? 'Imitated species' : field === 'attack' ? 'Imitated attack' : 'Attack damage type'}
@@ -203,7 +203,6 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         <option value="killbot">Killbot</option>
         <option value="magneticLevitators">Magnetic Levitators</option>
       </select></label>}
-      <small>Turn these mods off when they expire.</small>
     </div>}
     {activeFeatsNamed(c, 'Advanced Drone').length > 0 && !['Burly', 'Deft'].includes(activeFeatsNamed(c, 'Advanced Drone')[0].choice ?? '')
       && <small role="status">Choose Burly or Deft in the Advanced Drone feat.</small>}
@@ -255,7 +254,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
             </select>
           </label>
           {customization && <>
-            <small>{customization.description}</small>
+            <Info label="Customization details">{customization.description}</Info>
             {!valid && <small role="status">This customization cannot be selected more than once.</small>}
             {needsPersonality && !hasPersonality && <small role="status">Requires Artificial Personality or Sapient.</small>}
             {customization.choices && <label>Choice{' '}
@@ -296,8 +295,6 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         </div>
       })}
     </div>)}
-    <small>Customizations can be changed during daily preparations.</small>
     {stats && <DroneEquipment c={c} entries={entries} save={save} />}
-    <small>Situational customization effects require manual tracking.</small>
   </div>
 }

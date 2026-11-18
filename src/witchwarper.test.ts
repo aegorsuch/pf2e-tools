@@ -84,14 +84,22 @@ describe('Witchwarper class setup', () => {
   it('limits repertoire options to valid tradition, rank and access without including focus spells', () => {
     const entries = [
       magic('Arcane Bolt'), magic('Rare Bolt', 1, 'Arcane', ['Rare']),
+      { ...magic('Restricted Bolt'), data: { tradition: 'Arcane', access: 'Kellid ethnicity' } },
       magic('Wrong Tradition', 1, 'Occult'), magic('Higher Rank', 2),
       magic('Warp Probability', 1, 'Arcane', ['Focus']), magic('Analyze Target', 1, 'Arcane', ['Cantrip']),
       { ...magic('Deleted'), deleted: true },
     ]
-    expect(witchwarperSpellOptions(base, entries, 1).map(entry => entry.name)).toEqual(['Arcane Bolt'])
+    expect(witchwarperSpellOptions(base, entries, 1).map(entry => entry.name)).toEqual(['Arcane Bolt', 'Rare Bolt'])
     expect(witchwarperSpellOptions(base, entries, 0).map(entry => entry.name)).toEqual(['Analyze Target'])
     expect(witchwarperSpellOptions({ ...base, spells: [{ name: 'Rare Bolt', cantrip: false, rank: 1 }] }, entries, 1)
       .map(entry => entry.name)).toEqual(['Arcane Bolt', 'Rare Bolt'])
+    for (const c of [
+      { ...base, ethnicity: 'Kellid' },
+      { ...base, featAccessOverrides: ['Restricted Bolt'] },
+      { ...base, spells: [{ name: 'Restricted Bolt', cantrip: false, rank: 1 }] },
+    ]) {
+      expect(witchwarperSpellOptions(c, entries, 1).map(entry => entry.name)).toEqual(['Arcane Bolt', 'Rare Bolt', 'Restricted Bolt'])
+    }
     const compatible: ContentEntry = { ...magic('Compatible Magic'), systems: ['pf2e'] }
     expect(witchwarperSpellOptions(base, [compatible], 1)).toEqual([])
     expect(witchwarperSpellOptions({ ...base, systems: ['sf2e', 'pf2e'] }, [compatible], 1)).toEqual([compatible])

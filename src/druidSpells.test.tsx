@@ -62,14 +62,17 @@ it('adds feat-granted spells to the primal list and excludes unavailable content
   expect(druidSpellList({ ...c, feats: [taken('Fey Caller', 9)] }, entries)).toEqual([heal])
 })
 
-it('prepares common primal spells without a manually populated spellbook or slot counts', () => {
+it('prepares accessible primal spells without a manually populated spellbook or slot counts', () => {
   const entries = [spell('Heal'), spell('Cantrip', 1, 'Primal', ['Cantrip']),
-    spell('Rare Magic', 1, 'Primal', ['Rare']), spell('Arcane Only', 1, 'Arcane'), spell('Higher Rank', 2)]
+    spell('Rare Magic', 1, 'Primal', ['Rare']), spell('Arcane Only', 1, 'Arcane'), spell('Higher Rank', 2),
+    { ...spell('Restricted Magic'), data: { tradition: 'Primal', access: 'Kellid ethnicity' } }]
   const html = render(base, entries)
   const rankOne = choices(html, 'Spell Rank 1 slot 1')
   const cantrip = choices(html, 'Cantrip slot 1')
   expect(rankOne).toContain('value="Heal"')
-  for (const name of ['Cantrip', 'Rare Magic', 'Arcane Only', 'Higher Rank']) expect(rankOne).not.toContain(`value="${name}"`)
+  expect(rankOne).toContain('value="Rare Magic"')
+  for (const name of ['Cantrip', 'Restricted Magic', 'Arcane Only', 'Higher Rank']) expect(rankOne).not.toContain(`value="${name}"`)
+  expect(choices(render({ ...base, ethnicity: 'Kellid' }, entries), 'Spell Rank 1 slot 1')).toContain('value="Restricted Magic"')
   expect(cantrip).toContain('value="Cantrip"')
   expect(cantrip).not.toContain('value="Heal"')
   expect(html).not.toContain('Spell slots:')
@@ -82,8 +85,9 @@ it('prepares common primal spells without a manually populated spellbook or slot
 })
 
 it('retains explicit learned access to uncommon spells', () => {
-  const rare = spell('Rare Magic', 1, 'Primal', ['Rare'])
+  const rare = { ...spell('Rare Magic', 1, 'Primal', ['Rare']), data: { tradition: 'Primal', access: 'Kellid ethnicity' } }
   const c = { ...base, spells: [{ name: rare.name, entryId: rare.id, rank: 1, cantrip: false }] }
+  expect(choices(render(base, [rare]), 'Spell Rank 1 slot 1')).not.toContain('value="Rare Magic"')
   expect(choices(render(c, [rare]), 'Spell Rank 1 slot 1')).toContain('value="Rare Magic"')
   expect(render(c, [rare])).toContain('aria-label="Remove Rare Magic"')
 })

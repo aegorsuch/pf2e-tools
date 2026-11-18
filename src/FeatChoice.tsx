@@ -36,7 +36,6 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
         {options.map(skill => <option key={skill}>{skill}</option>)}
       </select>
     </label>
-    <small>Temporary Assurance until daily preparations; cannot satisfy permanent prerequisites.</small>
   </span>
 }
 
@@ -118,7 +117,6 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           {choice && !options.includes(choice) && <option disabled>{choice}</option>}
           {options.map(name => <option key={name}>{name}</option>)}
         </SearchableSelect>
-        {feat.name === 'Unconventional Weaponry' && <small>Choose an ancestry weapon or one common in another culture. Eligible selected weapons gain Access and familiarity.</small>}
         {rareException && <label><input type="checkbox" checked={!!feat.rareWeaponOverride}
           onChange={event => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, rareWeaponOverride: event.target.checked } : existing) })} />
           {' '}GM allows rare Shobhad Longrifle for this feat (house rule)</label>}
@@ -171,7 +169,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
         {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
       </SearchableSelect>
-      {subclass && <small>{subclass.description}</small>}
+      {subclass && <EntryDescription name={subclass.name} entry={subclass} buttonLabel="Subclass details" />}
     </span>
   }
   if (feat.name === 'Terrain Expertise') {
@@ -204,9 +202,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     if (!options) return null
     const label = atavism ? 'heritage' : feat.name === 'Adopted Ancestry' ? 'ancestry'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
-    const noteId = feat.name === 'Adopted Ancestry' ? `${c.id}:feat:${index}:note` : undefined
-    const choiceControl = <span className={`feat-choice${noteId ? ' feat-choice-with-note' : ''}`}>
-      <SearchableSelect aria-label={`${feat.name} ${label}`} aria-describedby={noteId} value={feat.choice ?? ''} onChange={(e) => {
+    const choiceControl = <span className="feat-choice">
+      <SearchableSelect aria-label={`${feat.name} ${label}`} value={feat.choice ?? ''} onChange={(e) => {
         const choice = e.target.value || undefined
         if (choice && !options.includes(choice)) return
         save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
@@ -221,8 +218,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {atavism && feat.choice === 'Ancient Elf' && <small role="status">Ancient Elf requires a non-elf ancestry with a lifespan measured in multiple centuries; alternate benefits require GM approval. Choose its multiclass dedication separately.</small>}
       {atavism && feat.choice && !options.includes(feat.choice)
         && <small role="status">Saved heritage is unavailable. Sync content or choose an enabled Elf heritage.</small>}
-      {noteId && <small id={noteId}>Choose a common ancestry or one with established access; physiological requirements need GM approval.</small>}
-      {noteId && feat.choice && !options.includes(feat.choice)
+      {feat.name === 'Adopted Ancestry' && feat.choice && !options.includes(feat.choice)
         && <small role="status">Saved ancestry is unavailable. Check content and GM access, or choose another ancestry.</small>}
       {feat.name === 'Technomagical Scrapper' && feat.choice && !options.includes(feat.choice)
         && <small>Saved skill variant is unavailable at this feat's level. Choose another variant.</small>}

@@ -1102,7 +1102,7 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt({ ...c, feats: [] }, entries).Performance).toBeUndefined()
   })
 
-  it('offers only common or accessible Adopted Ancestry choices without losing saved choices', () => {
+  it('allows Adopted Ancestry regardless of rarity while enforcing specific Access requirements', () => {
     const common = entry('ancestry', 'Dwarf')
     const uncommon = entry('ancestry', 'Ratfolk', {}, 1, ['Uncommon'])
     const rare = entry('ancestry', 'Automaton', { rarity: 'rare' })
@@ -1113,11 +1113,11 @@ describe('official passive feat mechanics', () => {
       .map(name => entry('ancestry', name))
     const data = [common, uncommon, rare, accessed, sfOnly, deleted, ...heritages, entry('ancestry', base.ancestry!)]
     const c = { ...base, feats: [selected('Adopted Ancestry', 3, rare.name)] }
-    expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf'])
+    expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Automaton', 'Dwarf', 'Ratfolk'])
     expect(featChoiceOptions('Adopted Ancestry', { ...c, featAccessOverrides: [rare.id] }, data, 'general:3:0'))
-      .toEqual(['Automaton', 'Dwarf'])
+      .toEqual(['Automaton', 'Dwarf', 'Ratfolk'])
     expect(featChoiceOptions('Adopted Ancestry', { ...c, achievements: ['Member of the Knights of Lastwall'] }, data, 'general:3:0'))
-      .toEqual(['Accessed Ancestry', 'Dwarf'])
+      .toEqual(['Accessed Ancestry', 'Automaton', 'Dwarf', 'Ratfolk'])
     expect(c.feats[0].choice).toBe(rare.name)
   })
 

@@ -1,5 +1,6 @@
 import { activeFeatsNamed } from './builder'
 import type { Character } from './types'
+import { SourceNote } from './Info'
 
 export function TransmutativeCasing({ c, value, onChange }: { c: Character; value?: string; onChange: (value: string | undefined) => void }) {
   if (!activeFeatsNamed(c, 'Transmutative Casing').length) return null
@@ -15,6 +16,6 @@ export function TransmutativeCasing({ c, value, onChange }: { c: Character; valu
       {value && !choices.includes(value) && <option value={value} disabled>{value} (unavailable)</option>}
       {choices.map(choice => <option key={choice}>{choice}</option>)}
     </select>
-    {value && choices.includes(value) && <small> Physical damage uses {value}; turn off when the mod expires.</small>}
+    {value && choices.includes(value) && <SourceNote source="Transmutative Casing" note={`Physical damage uses ${value}.`} />}
   </label>
 }

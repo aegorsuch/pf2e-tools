@@ -105,6 +105,20 @@ it.each(['unmet', 'automatic', 'approved'])('only shows unmet gear access helper
   if (state === 'approved') expect(c.gearAccessOverrides).toEqual([restricted.id])
 })
 
+it.each(['Uncommon', 'Rare', 'Unique'])('allows %s gear without a specific Access requirement', rarity => {
+  const c = character([])
+  for (const kind of ['weapon', 'armor', 'shield'] as const) {
+    const entry: ContentEntry = { ...weapon, kind, traits: [rarity], data: { ...weapon.data, rarity } }
+    const markup = renderToStaticMarkup(<OpenGearSearch c={c} entries={[entry]} save={() => {}} kind={kind}
+      label="Add Gear" onPick={() => {}} />)
+    expect(markup).toContain('>Add</button>')
+    expect(markup).not.toContain('disabled=""')
+    expect(markup).not.toContain('Approve access')
+    expect(markup).not.toContain('Meet Access or obtain GM approval')
+  }
+  expect(c.gearAccessOverrides).toBeUndefined()
+})
+
 it.each([false, true])('shows the Oversized Throw two-action icon in both views (displayOnly=%s)', displayOnly => {
   const c = { ...character([{ name: 'Oversized Throw', type: 'Class Feat', level: 4 }]), className: 'Barbarian', raging: true }
   const tree = WeaponList({ c, entries: [], save: () => {}, displayOnly })
@@ -1021,6 +1035,10 @@ it('shows precise Bulk thresholds and Hardy Traveler contribution without claimi
   expect(markup).toContain('Encumbered above <b>8</b> Bulk; maximum <b>13</b> Bulk.')
   expect(markup).toContain('Strength +2; size Medium; Hardy Traveler +1')
   expect(markup).toContain('Worn-item bonuses and temporary size changes are not tracked.')
+  expect(markup).toContain('aria-label="Bulk limits note"')
+  const visible = markup.replace(/<span[^>]*class="source-note"[^>]*>[\s\S]*?<\/span>/g, '').replace(/<[^>]*>/g, '')
+  expect(visible).not.toContain('Strength')
+  expect(visible).not.toContain('not tracked')
   expect(renderToStaticMarkup(<BulkLimits c={{ ...c, level: 8 }} entries={[feat]} />))
     .toContain('Encumbered above <b>7</b> Bulk; maximum <b>12</b> Bulk.')
 })

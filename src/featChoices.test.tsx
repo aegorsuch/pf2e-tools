@@ -295,7 +295,7 @@ it('preserves unavailable saved feat choices and hides meaningless proficiency a
   const c: Character = { ...base, feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Dwarf' }] }
   const markup = renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)
   expect(markup).toContain('<option disabled="" value="Dwarf" selected="">Dwarf</option>')
-  expect(markup).toContain('physiological requirements need GM approval')
+  expect(markup).not.toContain('physiological requirements need GM approval')
   for (const name of ['Armor Proficiency', 'Ancestral Paragon', 'Multilingual']) {
     const feat = { ...entries[0], name, kind: 'feat' as const, data: { repeatable: true } }
     expect(FeatChoice({ c: { ...base, feats: [{ name, type: 'General Feat', level: 1 }] }, entries: [feat], save: () => {}, index: 0 })).toBeNull()

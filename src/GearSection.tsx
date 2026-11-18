@@ -120,7 +120,7 @@ const explosiveShotSummary = (c: Character, weapon: OwnedWeapon, attack: ReturnT
 
 const mechanicModDuration = (c: Character) => `${activeFeatsNamed(c, 'Steady Modifications').length
   ? 'Mods normally last 1 minute' : 'Mods normally end after your next turn'}${c.level >= 13
-  ? '; your daily enduring mod lasts 24 hours' : ''}. Turn them off when they expire.`
+  ? '; your daily enduring mod lasts 24 hours' : ''}.`
 
 function AttackUpgrades({ attack }: { attack: ReturnType<typeof weaponAttack> }) {
   if (!attack.upgrades.length) return null
@@ -252,12 +252,12 @@ export function Augmentations({ c, entries, save }: SectionProps) {
 export function BulkLimits({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const limits = bulkLimits(c, entries)
   return <div aria-label="Bulk limits">
-    <p>Encumbered above <b>{limits.encumbered}</b> Bulk; maximum <b>{limits.maximum}</b> Bulk.</p>
-    <small>Strength {signed(limits.strength)}; size {limits.size}
-      {limits.sizeMultiplier !== 1 ? ` (limits ×${limits.sizeMultiplier})` : ''}
-      {limits.bonuses.map(bonus => `; ${bonus.source} ${bonus.encumbered === bonus.maximum
-        ? signed(bonus.encumbered) : `(encumbered ${signed(bonus.encumbered)}, maximum ${signed(bonus.maximum)})`}`).join('')}.
-      {' '}Worn-item bonuses and temporary size changes are not tracked.</small>
+    <p>Encumbered above <b>{limits.encumbered}</b> Bulk; maximum <b>{limits.maximum}</b> Bulk.
+      <SourceNote source="Bulk limits" note={`Strength ${signed(limits.strength)}; size ${limits.size}${
+        limits.sizeMultiplier !== 1 ? ` (limits ×${limits.sizeMultiplier})` : ''}${
+        limits.bonuses.map(bonus => `; ${bonus.source} ${bonus.encumbered === bonus.maximum
+          ? signed(bonus.encumbered) : `(encumbered ${signed(bonus.encumbered)}, maximum ${signed(bonus.maximum)})`}`).join('')
+      }. Worn-item bonuses and temporary size changes are not tracked.`} /></p>
   </div>
 }
 
@@ -420,7 +420,7 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
       kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined ? <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>
-      : <small>Upgrade slots: {upgrades.length}/{limit}. Check item rules for upgrade effects.</small>}
+      : <small>Upgrade slots: {upgrades.length}/{limit}.</small>}
     {limit !== undefined && upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
     {limit !== undefined && upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value="" onChange={event => {
       if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
@@ -541,7 +541,6 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
       {handwraps ? <details className="gear-card" aria-label={item.name} open>
         <summary><strong><EntryDescription name={item.name}
           entry={entries.find(entry => entry.kind === 'item' && entry.name === item.name) ?? item} className="equipment-name" /></strong></summary>
-        <small>{handwraps.kind === 'hardlight' ? 'Grade' : 'Fundamental runes'} automatically upgrade with character level.</small>
         {handwraps.kind === 'hardlight' ? <label>Grade{' '}
           <select aria-label="Hardlight handwraps grade" value={handwraps.grade ?? 'Commercial'} onChange={(e) => {
             const grade = grades.find((name) => name === e.target.value)
@@ -612,7 +611,6 @@ export function Gadgets({ c, entries, save }: SectionProps) {
   const used = c.gadgetUsed ?? []
   return <div className="col">
     <h4>Gadgets</h4>
-    <small>Prepare {limits.prepared} temporary gadgets from known formulas during daily preparations. They expire at your next preparations.</small>
     {Array.from({ length: limits.prepared }, (_, index) => {
       const current = preparations[index] ?? ''
       return <div className="row" key={index}>
@@ -655,7 +653,6 @@ export function MunitionsCrafter({ c, entries, save }: SectionProps) {
   const used = c.munitionsUsed ?? []
   return <div className="col">
     <h4>Munitions</h4>
-    <small>Prepare {limits.prepared} temporary consumables of your level or lower from known bomb or alchemical ammunition formulas. Ammunition and black powder doses or rounds are prepared in batches of 4; black powder horns and kegs are excluded.</small>
     {Array.from({ length: limits.prepared }, (_, index) => {
       const current = preparations[index] ?? ''
       const selected = candidates.find(entry => entry.name === current)
@@ -703,7 +700,6 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
   const used = c.grenadeUsed ?? []
   return <div className="col">
     <h4>Grenade Specialist</h4>
-    <small>Prepare {limits.prepared} temporary grenades from known formulas. They expire at your next daily preparations.</small>
     {Array.from({ length: limits.prepared }, (_, index) => {
       const current = preparations[index] ?? ''
       const grenade = candidates.find(entry => entry.name === current)
@@ -1186,9 +1182,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {arrowhead && <small><SourceNote source={arrowhead.source}
             note={`Against your Hunt Prey target: attack ${signed(a.attack + Math.max(0, arrowhead.value - a.item))}. +${arrowhead.value} item bonus replaces, rather than stacks with, weapon potency. Once per day, when a bow attack would miss, use a reaction to gain +2 circumstance to that roll; resolve manually.`} /></small>}
           {a.entry?.data.named_weapon_rules_missing && <small role="status">Named weapon enhancement details unavailable. Configure its runes and consult the item rules.</small>}
-          {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <small>
-            Ignores concealment from mist or precipitation; negates strong-wind attack penalties{a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.
-          </small>}
+          {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <SourceNote source="Wintershot"
+            note={`Ignores concealment from mist or precipitation; negates strong-wind attack penalties${a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.`} />}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.every(ability => ability.name === 'Summary' || ability.name === 'Senses')
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
           {abilities.map(ability => <details key={ability.name}>
@@ -1231,8 +1226,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
             {summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
           {fixed && <small>Requires Rage and a free hand.</small>}
-          {innovation && <small>Weapon Innovation is shared across both forms.</small>}
-          {avengerNote && <small> {avengerNote}</small>}
+          {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
         </div>
         return (
           <details key={w.id} className="gear-card" aria-label={displayName} open={!c.collapsedWeaponIds?.includes(w.id)} onToggle={event => {
@@ -1269,9 +1263,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <button type="button" aria-label={`Increase ${displayName} loaded ammunition`} disabled={loaded === capacity}
                 onClick={() => update(w.id, { capacityLoaded: loaded + 1 })}>+</button>
             </div>}
-            {avengerNote && <small>{avengerNote}</small>}
-            {forms.length > 0 && <small>Both forms share runes, modifications, and Weapon Innovation.</small>}
-            {card && <small>One deck shares runes between both usages. Choose dagger or dart when entering the stance.</small>}
+            {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
             {gauntlet && w.id === GAUNTLET.id && <label>Armor gauntlet{' '}
               <select aria-label="Armor gauntlet" value={gauntlet.name} disabled={gauntlet.locked} onChange={(e) => {
                 const choice = ARMOR_GAUNTLETS.find((name) => name === e.target.value)
@@ -1643,13 +1635,14 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {' '}Enduring Magnetic Levitators
             </label>}
             {c.mechanicArmorMods?.[a.id]?.magneticLevitators && c.className === 'Mechanic'
-              && c.systems.includes('sf2e') && <small>Land Speed gains hover; Fly Speed 10 feet while worn. Turn off when the mod expires.</small>}
+              && c.systems.includes('sf2e') && <SourceNote source="Magnetic Levitators"
+                note="Land Speed gains hover; Fly Speed 10 feet while worn." />}
             <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
             {entry?.description && !entry.data.named_armor && <Info label="Summary">{entry.description}</Info>}
             <NamedArmorAbilities entry={entry} />
-            {starfinder && <small>Grade: {String(starfinder.data.armor_grade)} (automatic)</small>}
-            {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}. Track installed upgrades separately.</small>}
+            {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
+            {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
@@ -1743,7 +1736,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           {shieldUpgrades && !shield.material && !materialOptions.length && <small>No matching materials available. Sync Archives of Nethys content if needed.</small>}
           {shieldUpgrades && shield.material && (shield.material.hardness === undefined || shield.material.hp === undefined)
             && <small>Material durability unavailable; base shield durability is used.</small>}
-          {shieldUpgrades && shield.material && <small>Material special effects are not applied automatically.</small>}
+          {shieldUpgrades && shield.material && <SourceNote source="Shield material"
+            note="Material special effects are not applied automatically." />}
           <div className="row">
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
             {shield.name === 'Scale of Igroon' && <button type="button"
@@ -1779,9 +1773,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         </header>
         <ShieldAttachment c={c} entries={entries} save={save} shield={grantedShield} />
         <ShieldDurability c={c} entries={entries} shield={grantedShield} />
-        <small>{grantedShield.id === 'granted-shield:inventor'
-          ? 'Granted by Armor Innovation. Reinforcing runes improve automatically.'
-          : 'Material and base stats improve automatically.'}</small>
         <ShieldRune rune={grantedShield.reinforcingRune} entries={entries}
           granted={blessedShieldBenefit(c, grantedShield, entries)?.rune}
           locked={grantedShield.id === 'granted-shield:inventor' || championBlessings(c).includes('Blessed Shield')}

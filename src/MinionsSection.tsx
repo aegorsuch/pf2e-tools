@@ -474,7 +474,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <summary><h4>{isWasp ? 'Wasp Familiar' : isLeshy ? 'Leshy Familiar' : 'Familiar'}</h4></summary>
           <label>Name <input aria-label={isWasp ? 'Wasp familiar name' : 'Familiar name'} value={data?.name ?? ''}
             onChange={event => saveFamiliar({ name: event.target.value })} /></label>
-          <div><small>Hit Points</small> <b>{c.level * (familiarTough ? 7 : 5)}</b>{familiarTough && ' (includes Tough)'}</div>
+          <div><small>Hit Points</small> <b>{c.level * (familiarTough ? 7 : 5)}</b></div>
           {familiarDefense && <>
             <div className="gear-stats">
               <span><small>Armor Class</small><b>{familiarDefense.ac}</b></span>
@@ -482,7 +482,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <span><small>Reflex</small>{signed(familiarDefense.reflex)}</span>
               <span><small>Will</small>{signed(familiarDefense.will)}</span>
             </div>
-            <small>Uses your AC and saves before your circumstance and status modifiers.</small>
           </>}
           {isLeshy && <label>Granted ability{' '}
             <select aria-label="Leshy familiar granted ability" value={data?.leshyAbility ?? ''} onChange={event => {
@@ -490,9 +489,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               saveFamiliar({ leshyAbility: value === 'Plant' || value === 'Fungus' ? value : undefined })
             }}>
               <option value="">Choose ability</option><option>Plant</option><option>Fungus</option>
-            </select> <small>Does not count against daily choices.</small>
+            </select>
           </label>}
-          {isWasp && <small>Calistria's moderate boon grants Burrower and Flier as bonus abilities; they do not count against daily choices.</small>}
           <div><small>Daily familiar or master abilities ({familiarAbilities.length}/{familiarCapacity})</small></div>
           {Array.from({ length: familiarCapacity }, (_, index) => <label key={index}>Ability {index + 1}{' '}
             <input aria-label={`${isWasp ? 'Wasp familiar' : 'Familiar'} ability ${index + 1}`} value={data?.abilities?.[index] ?? ''}
@@ -503,7 +501,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 saveFamiliar({ abilities })
               }} />
           </label>)}
-          <small>Enter familiar or master abilities selected during daily preparations; verify eligibility and effects against their rules.</small>
           {abilityNotes.flatMap(ability => {
               const name = PET_ABILITIES.find(option => option.toLowerCase() === ability.trim().toLowerCase())
               return name && name !== 'Tough' ? [<small key={name}>{name}: {PET_ABILITY_NOTES[name]}</small>] : []
@@ -531,7 +528,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {!isWasp && c.className === 'Witch' && <small>One ability must be your patron's unique familiar ability.</small>}
           {isLeshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 && knowsSpell(c, entries, 'Oaken Resilience') && <>
             {oaken && <small>Oaken Resilience: Bludgeoning and piercing resistance {oaken.resistance}; fire weakness {oaken.fireWeakness}.</small>}
-            <small>Grown of Oak targets your leshy familiar only if within 30 feet when cast.</small>
+            <SourceNote source="Grown of Oak" note="Targets your leshy familiar only if within 30 feet when cast." />
           </>}
           <MinionFerocity c={c} ferocity={ferocity} />
         </details>})}
@@ -561,7 +558,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {[...new Set([...petAbilities.filter(ability => PET_ABILITIES.includes(ability)), ...(seaFriend ? ['Darkvision', 'Tough'] : [])])]
             .map(ability => <small key={ability}>{ability}: {PET_ABILITY_NOTES[ability]}</small>)}
           {seaFriend && petAbilities.some(ability => ['Darkvision', 'Tough'].includes(ability)) && <small>Choose a different pet ability; Darkvision and Tough are already granted.</small>}
-          <small>Pet abilities must include abilities natural to the chosen animal; review ability effects and Command an Animal rules.</small>
           <MinionFerocity c={c} ferocity={ferocity} />
         </details>}
       </div>

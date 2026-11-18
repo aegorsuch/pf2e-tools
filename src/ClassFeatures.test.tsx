@@ -56,7 +56,7 @@ it('saves an explicit Champion confirmation of legacy Tenets of Good', () => {
   onChange({ target: { checked: true } })
   expect(c.legacyTenetsOfGood).toBe(true)
   expect(findInput(tree())?.checked).toBe(true)
-  expect(renderToStaticMarkup(tree())).toContain('Known causes map to matching tenets automatically')
+  expect(renderToStaticMarkup(tree())).not.toContain('Known causes map to matching tenets automatically')
   expect(findInput(ClassFeatures({ c: { ...c, className: 'Fighter' }, entries: [], save: () => {} }))).toBeUndefined()
 })
 

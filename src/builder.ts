@@ -8,7 +8,7 @@ export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntr
 import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { companionAdvancement } from './companions'
-import { featAccess, featRarity } from './featAccess'
+import { contentAccessGranted, featRarity } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
@@ -1286,7 +1286,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   }
   if (name === 'Adopted Ancestry') return [...new Set(entries.filter((entry) => entry.kind === 'ancestry' && !entry.deleted && !isVersatileHeritage(entry)
     && entry.name !== c.ancestry && entry.systems.some((system) => c.systems.includes(system))
-    && (!featRarity(entry) || featAccess(c, entry)?.automatic || c.featAccessOverrides?.includes(entry.id))).map((entry) => entry.name))]
+    && contentAccessGranted(c, entry)).map((entry) => entry.name))]
     .sort((a, b) => a.localeCompare(b))
   if (name === 'Skill Training' || name === 'Shiny') {
     const level = name === 'Shiny' && index >= 0 ? Math.min(c.level, featTakenLevel(c.feats[index])) : c.level
@@ -4400,8 +4400,7 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
     || PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id)) return false
   const entry = weaponEntry(entries, weapon.name)
   if (!entry || entry.level !== 0 || !entry.systems.includes('pf2e') || weaponCategory(entry) === 'Unarmed') return false
-  const access = featAccess(c, entry)
-  return (!featRarity(entry) && !access) || !!access?.automatic || !!access?.approved
+  return contentAccessGranted(c, entry)
     || !!c.gearAccessOverrides?.includes(entry.id) || weaponAccessSources(c, entries, entry).length > 0
 }
 

@@ -78,14 +78,30 @@ it('offers only eligible initial and alternative snares without inventing Brastl
   const character: Character = { ...c, level: 6, feats: [dedication, brastlewark], snareFormulaChoices: ['Alarm Snare'],
     brastlewarkFormulaMode: 'other' }
   const markup = renderToStaticMarkup(<FormulasSection c={character} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Choose four common 1st-level snare formulas')
+  expect(markup.match(/aria-label="Snare Crafting formula \d"/g)).toHaveLength(4)
+  expect(markup).not.toContain('Choose four common 1st-level snare formulas')
   expect(markup).toContain('Spike Snare (Level 1)')
   expect(markup).not.toContain('Rare Snare (Level 1)')
   expect(markup).not.toContain('High Snare (Level 5)')
   expect(markup).toContain('Low Snare (Level 4)')
-  expect(markup).toContain('You must have access to each formula')
+  expect(markup).not.toContain('You must have access to each formula')
   expect(knownFormulas({ ...character, brastlewarkFormulaMode: undefined }, entries).map(formula => formula.name))
     .toEqual(['Alarm Snare'])
+})
+
+it('allows formula Access by default without bypassing specific requirements or grant restrictions', () => {
+  const restricted = item('Restricted Snare', 1, ['Snare'], { access: 'Kellid ethnicity' })
+  const catalog = [...entries, restricted]
+  const character: Character = { ...c, feats: [dedication], skillPicks: ['Survival'], skillIncreases: { 3: 'Survival' } }
+  const render = (ethnicity?: string) => renderToStaticMarkup(<FormulasSection c={{ ...character, ethnicity }}
+    entries={catalog} save={() => {}} />)
+  const markup = render()
+  const expert = /<select aria-label="Expert snare formula 1"[^>]*>([\s\S]*?)<\/select>/.exec(markup)?.[1]
+  expect(expert).toBeDefined()
+  expect(expert).toContain('Rare Snare')
+  expect(expert).not.toContain('Restricted Snare')
+  expect(expert).not.toContain('High Snare')
+  expect(render('Kellid')).toContain('Restricted Snare')
 })
 
 it('grants snare formula choices when relevant proficiency increases after dedication', () => {
@@ -98,8 +114,8 @@ it('grants snare formula choices when relevant proficiency increases after dedic
   const html = renderToStaticMarkup(<FormulasSection c={character} entries={entries} save={() => {}} />)
   expect(html).toContain('Expert snare formula 1')
   expect(html).toContain('Master snare formula 1')
-  expect(html).toContain('level 3 or lower')
-  expect(html).toContain('level 7 or lower')
+  expect(html.match(/aria-label="Expert snare formula \d"/g)).toHaveLength(3)
+  expect(html.match(/aria-label="Master snare formula \d"/g)).toHaveLength(3)
   expect(snareAdvancements({ ...character, className: 'Fighter' }, entries)).toEqual([])
   expect(character.snareAdvancementFormulaChoices?.[3]).toBe('Low Snare')
 })
@@ -140,7 +156,7 @@ it('grants common grenade formulas and scales daily grenades with Crafting and P
   expect(formulas).toContain('Grenade formula 2')
   expect(formulas).not.toContain('Rare Grenade (Level 1)')
   const prepared = renderToStaticMarkup(<GrenadeSpecialist c={character} entries={catalog} save={() => {}} />)
-  expect(prepared).toContain('Prepare 8 temporary grenades')
+  expect(prepared.match(/aria-label="Prepared grenade \d"/g)).toHaveLength(8)
   expect(prepared).toContain('Frag Grenade (Level 1)')
   expect(prepared).not.toContain('High Grenade (Level 15)')
 })
@@ -213,7 +229,7 @@ it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily ba
     { name: bomb.name, source: 'Munitions Crafter' },
   ])
   const formulas = renderToStaticMarkup(<FormulasSection c={character} entries={catalog} save={() => {}} />)
-  expect(formulas).toContain('four 1st-level common or uncommon bombs or alchemical ammunition formulas')
+  expect(formulas.match(/aria-label="Munitions Crafter formula \d"/g)).toHaveLength(4)
   expect(formulas).toContain('2/4 feat choices')
   expect(formulas).toContain(`${ammunition.name} (Level 1)`)
   expect(formulas).not.toContain('Rare Bomb (Level 1)')
@@ -222,7 +238,7 @@ it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily ba
     entries={catalog} save={() => {}} />))
     .toMatch(/<option value="Bottled Lightning" disabled="" selected="">Bottled Lightning \(unavailable\)<\/option>/)
   const preparation = renderToStaticMarkup(<MunitionsCrafter c={character} entries={catalog} save={() => {}} />)
-  expect(preparation).toContain('Prepare 6 temporary consumables of your level or lower')
+  expect(preparation.match(/aria-label="Prepared munition \d"/g)).toHaveLength(6)
   expect(preparation).toContain('4 rounds')
   expect(preparation).toContain(`${powder.name} (Level 0; 4 rounds)`)
   expect(preparation).toContain('Bottled Lightning (Level 1; 1 item)')

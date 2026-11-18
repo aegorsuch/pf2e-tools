@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
-import { featRarity } from './featAccess'
+import { contentAccessGranted, featRarity } from './featAccess'
 import { formulaGrants, formulaKey as key, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { ContentEntry } from './types'
 
@@ -45,6 +45,7 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
     && !['Rare', 'Unique'].includes(featRarity(item) ?? ''))
   const munitionsOptions = munitionsFormulaOptions(items, c.systems)
   const unique = (list: ContentEntry[]) => [...new Map(list.map(item => [key(item.name), item])).values()]
+    .filter(item => contentAccessGranted(c, item) || c.gearAccessOverrides?.includes(item.id))
     .sort((a, b) => a.name.localeCompare(b.name))
   const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices'
     | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices', count: number, candidates: ContentEntry[], label: string,
@@ -79,7 +80,7 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
     && (sources.brastlewark || !restricted.has(key(item.name))))).slice(0, 40)
   return <div className="character-section-content">
       {sources.snareCrafting && <div className="col">
-        <b>Snare Crafting</b><small>Choose four common 1st-level snare formulas.</small>
+        <b>Snare Crafting</b>
         {options('snareFormulaChoices', 4, basic, 'Snare Crafting formula')}
       </div>}
       {sources.brastlewark && <div className="col">
@@ -94,28 +95,25 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
           </select>
         </label>
         {c.brastlewarkFormulaMode === 'other' && <>
-          <small>Choose snares of your level when you took the feat or lower. You must have access to each formula.</small>
           {options('brastlewarkFormulaChoices', 2, other, 'Brastlewark formula')}
         </>}
       </div>}
       {gadgets && <div className="col">
-        <b>Gadget Specialist</b><small>Choose common or uncommon gadget formulas.</small>
+        <b>Gadget Specialist</b>
         {options('gadgetFormulaChoices', gadgets.formulas, gadgetOptions, 'Gadget formula')}
       </div>}
       {munitions && <div className="col">
         <b>Munitions Crafter</b>
-        <small>Formula book includes Black Powder (Dose or Round) and four 1st-level common or uncommon bombs or alchemical ammunition formulas.</small>
         {options('munitionsFormulaChoices', munitions.formulaChoices, munitionsOptions, 'Munitions Crafter formula', 0, true)}
       </div>}
       {grenades && <div className="col">
-        <b>Grenade Specialist</b><small>Choose two common grenade formulas.</small>
+        <b>Grenade Specialist</b>
         {options('grenadeFormulaChoices', grenades.formulas, items.filter(item => isGrenade(item) && !featRarity(item)), 'Grenade formula', 0, true)}
       </div>}
       {snareRanks.map(({ rank, level }) => {
         const title = ['Expert', 'Master', 'Legendary'][rank - 2]
         return <div className="col" key={rank}>
           <b>Snarecrafter Dedication: {title}</b>
-          <small>Choose three snares of level {level} or lower; confirm access to restricted formulas.</small>
           {options('snareAdvancementFormulaChoices', 3, snares.filter(item => item.level <= level
             && (sources.brastlewark || !restricted.has(key(item.name)))), `${title} snare formula`, (rank - 2) * 3)}
         </div>
@@ -123,14 +121,13 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
       {known.length > 0 && <ul>{known.map(formula => {
         const entry = items.find(item => key(item.name) === key(formula.name))
         return <li key={key(formula.name)}>
-          <EntryDescription name={formula.name} entry={entry} /> <small>({formula.source})</small>
+          <EntryDescription name={formula.name} entry={entry} />
           {formula.source === 'Other' && <button type="button" aria-label={`Remove ${formula.name} formula`}
             onClick={() => confirmRemoval(`formula "${formula.name}"`, () =>
               save({ formulas: (c.formulas ?? []).filter(name => key(name) !== key(formula.name)) }))}>Remove</button>}
         </li>
       })}</ul>}
       <label>Search formulas <input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
-      <small>Add formulas learned from other sources. Knowing a formula does not grant access to restricted items.</small>
       {q.length >= 2 && <ul>{matches.map(item => <li key={item.id}>
         <EntryDescription name={item.name} entry={item} /> (Level {item.level}){' '}
         <button type="button" aria-label={`Add ${item.name} formula`} onClick={() => {

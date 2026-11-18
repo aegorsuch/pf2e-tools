@@ -98,19 +98,23 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
     ? movementSpeeds(c, entries, { includeUncannyDash: true }) : undefined
   return <>
     <SkillsSection c={c} entries={entries} save={save} part="senses" />
-    <small>Senses: {characterSenses.map((s) => `${s.value} (${s.source})`).join(', ') || 'No special senses'}
+    <small>Senses: {characterSenses.length ? characterSenses.map((sense, index) => <span key={`${sense.value}:${sense.source}`}>
+      {index > 0 && ', '}{sense.value}{sense.source && <SourceNote source={sense.source} note={`Grants ${sense.value}.`} />}
+    </span>) : 'No special senses'}
       {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
         note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}</small>
     <small>Speed: {speeds.map((movement, index) => {
       const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
         {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
-        {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover; Magnetic Levitators)'}
-        {movement.source && ` (${movement.source})`}
-        {bonuses.length > 0 && ` (${bonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}
+        {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover)'}
+        {(movement.source || bonuses.length > 0) && <SourceNote source={`${movement.name} Speed`}
+          note={[movement.source, ...bonuses.map(bonus => `+${bonus.feet} ${bonus.source}`)].filter(Boolean).join('; ')} />}
       </span>
     })}{dashSpeeds && <SourceNote source="Uncanny Dash"
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
+      {athlete && <SourceNote source="Raging Athlete"
+        note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
       {hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
       source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
     <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
@@ -127,12 +131,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
         {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
       </select>
     </label>}
-    {terrain && <small>Favored Terrain ({terrain.terrain}): ignore non-magical difficult terrain.
-      {terrain.enhanced && (['Arctic', 'Desert'].includes(terrain.terrain)
+    {terrain && <SourceNote source={`Favored Terrain (${terrain.terrain})`} note={`ignore non-magical difficult terrain.${
+      terrain.enhanced ? (['Arctic', 'Desert'].includes(terrain.terrain)
         ? ` Eat and drink one-tenth as much; ignore severe/extreme ${terrain.terrain === 'Arctic' ? 'cold' : 'heat'}; cross ${terrain.terrain === 'Arctic' ? 'ice and snow' : 'sand'} at full Speed without Balance.`
-        : terrain.terrain === 'Swamp' ? ' Cross bogs at full Speed, including deep bogs normally requiring Swim or causing greater difficult terrain.' : '')}
-    </small>}
-    {athlete && <small>Raging Athlete: High/Long Jump DCs {athlete.jumpDCAdjustment}; successful Long Jump +{athlete.longJumpExtra} ft.; Leap {athlete.verticalLeap} ft. vertical{athlete.horizontalLeap && ` / ${athlete.horizontalLeap} ft. horizontal`}.</small>}
+        : terrain.terrain === 'Swamp' ? ' Cross bogs at full Speed, including deep bogs normally requiring Swim or causing greater difficult terrain.' : '') : ''}`} />}
   </>
 }
 
@@ -146,7 +148,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     warmask: c.warmask, lores: c.lores, ...patch,
   })
   const stats = statDefs(c)
-  const klass = editingSkills ? entries.find((e) => e.kind === 'class' && e.name === c.className) : undefined
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
   const extraBackground = editingSkills ? freeHeartBackground(c, entries) : undefined
   const extraBackgroundSkills = backgroundSkills(extraBackground, c)
@@ -571,7 +572,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
-            && <small> ({hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')})</small>}
+            && <SourceNote source="Hit Points" note={hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')} />}
             {!!activeFeatsNamed(c, 'Scar-Thick Skin').length && <SourceNote source="Scar-Thick Skin"
               note="Flat check to end persistent bleed: DC 10, or DC 5 with especially appropriate assistance." />}
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
@@ -597,9 +598,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
         <RageToggle c={c} save={save} />
-        {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
+        {skin && <SourceNote source="Animal Skin" note={`+${skin.itemBonus} item AC; Dexterity cap +${skin.dexCap}.`} />}
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
-          && <small>Pioneer Human: {c.pioneerEnvironment.toLowerCase()} environmental effects are one step less extreme. This is not damage resistance.</small>}
+          && <SourceNote source="Pioneer Human"
+            note={`${c.pioneerEnvironment.toLowerCase()} environmental effects are one step less extreme. This is not damage resistance.`} />}
         <FeatEffectToggle c={c} save={save} name="Heart of the Kaiju" label="Kaiju form resistance active"
           title="Physical resistance 5 only while in kaiju form. This control does not apply the form's other statistics." />
         <div className="skill-grid" role="table" aria-label="Defense">
@@ -607,29 +609,31 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </div>
         {spec ? <small>Armor Specialization: {spec.group}{spec.summary && `, ${spec.summary}`}<SourceNote
           source={`${spec.armor}${spec.feat ? ` via ${spec.feat} feat` : spec.feature ? ` via ${spec.feature} class feature` : ''}`}
-          note={spec.effect} />{spec.group === 'Plate' && ' Plate resistance applies to all slashing damage, not only critical hits.'}
-          {spec.group === 'Chain' && ' Chain reduction applies only when you are critically hit.'}</small> : <small>Armor Specialization: None</small>}
+          note={[spec.effect, spec.group === 'Plate' ? 'Plate resistance applies to all slashing damage, not only critical hits.'
+            : spec.group === 'Chain' ? 'Chain reduction applies only when you are critically hit.' : ''].filter(Boolean).join(' ')} /></small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r, index) => {
           const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect : RESISTANCE_NOTES[r.source]
-          return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
-            ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
+          return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}
+            <SourceNote source={r.source} note={note ?? `Grants ${r.damage} resistance ${r.value}.`} /></span>
         }) : 'None'}
           {activeFeatsNamed(c, 'Harden Flesh').length > 0 && <>
             {' '}<SourceNote source="Harden Flesh"
               note={`After using its one-action activity while standing on earthen or stone ground, you gain resistance ${Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4)))} to physical damage except adamantine until the beginning of your next turn.`} />
           </>}
         </small>
-        {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map(weakness =>
-          `${weakness.damage} ${weakness.value} (${weakness.source})`).join(', ')}. Weaknesses to the same damage type don’t stack; apply only the highest.</small>}
-        {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness (Test-Subject Ysoki)</small>}
-        {oaken && <small>Weakness: Fire {oaken.fireWeakness} (Oaken Resilience)</small>}
+        {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map((weakness, index) =>
+          <span key={`${weakness.damage}:${weakness.source}`}>{index > 0 && ', '}{weakness.damage} {weakness.value}
+            <SourceNote source={weakness.source} note="Weaknesses to the same damage type do not stack; apply only the highest." /></span>)}</small>}
+        {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness
+          <SourceNote source="Test-Subject Ysoki" note="Grants immunity to sickened from radiation sickness." /></small>}
+        {oaken && <small>Weakness: Fire {oaken.fireWeakness}
+          <SourceNote source="Oaken Resilience" note={`Grants fire weakness ${oaken.fireWeakness}.`} /></small>}
       </>
     )
   }
 
   return (
     <>
-      {!klass && <small>Pick a class to fill in class proficiencies.</small>}
       {c.className === 'Rogue' && selectedSubclass(c, entries) === 'Mastermind' && <label>Mastermind skill{' '}
         <select aria-label="Mastermind racket skill" value={c.rogueRacketSkills?.Mastermind ?? ''} onChange={event => {
           const skill = event.target.value
