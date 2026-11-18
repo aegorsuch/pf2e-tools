@@ -1078,12 +1078,13 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : w.runes })
+        const iruxiGranted = unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
+          && !effectiveWeapon({ ...c, feats: c.feats.filter(feat => feat.name !== 'Iruxi Spirit Strike') }, entries, w)
+            .runes.some(rune => runeName(rune) === 'Ghost Touch')
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
-          ...(unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
-            && blessed !== 'Ghost Touch' && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
-            ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
+          ...(iruxiGranted ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({
               name: `${c.level >= 11 ? 'Greater ' : ''}${name}`, source: 'Granted to clan daggers',
@@ -1389,8 +1390,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 limit={typeof a.entry.data.upgrade_slots === 'number' ? a.entry.data.upgrade_slots : undefined}
                 onChange={upgrades => update(w.id, { upgrades })} />
             </>}
-            {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight') && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
+            {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
+                && (!iruxiGranted || runeName(rune) !== 'Ghost Touch')
                 && !builtIn?.runes.includes(rune))}
               entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={Math.max(0, maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity) - (builtIn?.runes.length ?? 0))} freeRunes={freeRunes}

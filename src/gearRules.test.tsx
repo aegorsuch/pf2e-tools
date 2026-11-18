@@ -2109,13 +2109,27 @@ it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', ()
   const fangs = attacks.find(weapon => weapon.name === 'Fangs')!
   const attack = weaponAttack(c, [], fangs)
   expect(attack.damage).toBe('3d8+1 piercing')
-  expect(attack.traits).toContain('Ghost Touch')
+  expect(attack.traits).not.toContain('Ghost Touch')
+  expect(effectiveWeapon(c, [], fangs).runes).toContain('Ghost Touch')
   const fistEntry = content('weapon', 'Test Fist', { weapon_category: 'Unarmed', damage: '1d4 bludgeoning', hands: 1 }, 0, ['Unarmed'])
   const fist: OwnedWeapon = { id: fistEntry.id, name: fistEntry.name, potency: 0, striking: 0, runes: [] }
-  expect(weaponAttack(c, [fistEntry], fist).traits).toContain('Ghost Touch')
+  expect(weaponAttack(c, [fistEntry], fist).traits).not.toContain('Ghost Touch')
+  expect(effectiveWeapon(c, [fistEntry], fist).runes).toEqual(['Ghost Touch'])
   const weapon = content('weapon', 'Shortsword', { damage: '1d6 piercing', hands: 1 }, 0, [])
   const held: OwnedWeapon = { id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }
   expect(weaponAttack(c, [weapon], held).traits).not.toContain('Ghost Touch')
+  expect(effectiveWeapon(c, [weapon], held).runes).not.toContain('Ghost Touch')
+  expect(effectiveWeapon({ ...c, level: 12 }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
+  const withRune = { ...c, handwraps: { potency: 1, striking: 0, runes: ['Ghost Touch'] } }
+  expect(effectiveWeapon(withRune, [fistEntry], fist).runes).toEqual(['Ghost Touch'])
+  expect(effectiveWeapon({ ...c, ancestry: 'Human' }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
+  expect(effectiveWeapon({ ...c, feats: [] }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
+  for (const choice of ['Claws', 'Fangs', 'Tail']) {
+    const character = { ...c, feats: [feat('Iruxi Armaments', 1, choice), feat('Iruxi Spirit Strike', 13)] }
+    const unarmed = ownedWeapons(character, []).find(candidate => candidate.name === choice)!
+    expect(effectiveWeapon(character, [], unarmed).runes).toContain('Ghost Touch')
+    expect(weaponAttack(character, [], unarmed).traits).not.toContain('Ghost Touch')
+  }
   const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [fist] }} entries={[fistEntry]} save={() => {}} />)
   expect(markup).toContain('Granted by Iruxi Spirit Strike')
   expect(markup).not.toContain('aria-label="Remove Ghost Touch rune"')

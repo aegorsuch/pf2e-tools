@@ -4583,6 +4583,12 @@ function withBlessedArmament(c: Character, entries: ContentEntry[], weapon: Owne
   return rune ? { ...weapon, runes: [...weapon.runes, rune] } : weapon
 }
 
+function withIruxiSpiritStrike(c: Character, weapon: OwnedWeapon): OwnedWeapon {
+  return c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
+    && !weapon.runes.some(rune => runeName(rune) === 'Ghost Touch')
+    ? { ...weapon, runes: [...weapon.runes, 'Ghost Touch'] } : weapon
+}
+
 export function livingWeaponRunes(weapon: OwnedWeapon) {
   return [...weapon.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(weapon.potency)), 'Shifting']
 }
@@ -4809,15 +4815,16 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   }
   const animalSource = animalStrengthSource(c, entries, weapon)
   if (animalSource) {
-    return animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource))
+    return withIruxiSpiritStrike(c, animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource)))
   }
   const fundamentals = effectiveHandwraps(c, entries)
   const enhanced: OwnedWeapon = { ...weapon, material: undefined,
     potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
     striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0),
     runes: fundamentals?.kind === 'hardlight' ? [] : fundamentals?.runes ?? [] }
-  if (fundamentals?.kind === 'hardlight') return enhanced
-  return withBlessedArmament(c, entries, { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })
+  if (fundamentals?.kind === 'hardlight') return withIruxiSpiritStrike(c, enhanced)
+  return withIruxiSpiritStrike(c, withBlessedArmament(c, entries,
+    { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) }))
 }
 
 export const maxPropertyRunes = (potency: number, material?: OwnedWeapon['material'], runeCapacity = false) => {
@@ -5048,8 +5055,6 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(activeFeatsNamed(c, 'Raise Haft').length > 0 && weaponHands(entries, w, c) === 2
         && !traits.includes('parry') ? ['Parry'] : []),
-      ...(activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0 && c.ancestry === 'Lizardfolk'
-        && category === 'Unarmed' && !traits.includes('ghost touch') ? ['Ghost Touch'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
