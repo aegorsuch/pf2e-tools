@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { achievementOptions, ethnicityOptions, featAccess, featRarity } from './featAccess'
+import { achievementKey, achievementOptions, ethnicityOptions, featAccess, featRarity } from './featAccess'
 import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -155,13 +155,14 @@ it('uses Tian Xia origin or familiarity with Sun Wukong for Wukong Extension', (
   expect(featAccess(character, extension)).toMatchObject({ requirement: label, automatic: false })
 })
 
-it('grants both Nidal steed access through husbandry while still requiring a horse, not just another companion', () => {
-  const label = 'Nidal origin or exposure to Nidalese husbandry'
+it('shares Nidalese Horselords training across both steeds and Born In The Saddle while preserving saved access', () => {
+  const label = 'Trained with the Nidalese Horselords'
   const steeds: ContentEntry[] = ['Chiardmar Steed', 'Nidarrmar Steed'].map(name => ({
     ...feat, id: name, name, level: 6, traits: ['Ranger'], data: { access: 'You’re from Nidal.', prerequisite: 'horse animal companion' },
   }))
-  expect(achievementOptions(steeds)).toEqual([{
-    key: label.toLowerCase(), requirement: label, feats: ['Chiardmar Steed', 'Nidarrmar Steed'],
+  const saddle = { ...feat, name: 'Born In The Saddle', data: { access: 'You’re from Nidal.' } }
+  expect(achievementOptions([...steeds, saddle])).toEqual([{
+    key: achievementKey(label), requirement: label, feats: ['Born In The Saddle', 'Chiardmar Steed', 'Nidarrmar Steed'],
   }])
   const c: Character = { ...character, className: 'Ranger', level: 6, achievements: [label] }
   const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
@@ -170,6 +171,12 @@ it('grants both Nidal steed access through husbandry while still requiring a hor
     expect(featAccess(c, { ...steed, data: { ...steed.data, access: 'You\ufffdre from Nidal.' } }))
       .toMatchObject({ requirement: label, automatic: true })
     expect(featAccess({ ...c, achievements: [] }, steed)?.automatic).toBe(false)
+  }
+  for (const saved of ['Nidal origin or exposure to Nidalese husbandry', 'Trained with Nidalese Horselords',
+    'member of the nidalese horselords', label]) {
+    for (const source of [...steeds, saddle])
+      expect(featAccess({ ...c, achievements: [saved] }, source))
+        .toMatchObject({ requirement: label, automatic: true, source: 'achievement' })
   }
   expect(eligibleFeats(steeds, c, slot)).toEqual([])
   expect(eligibleFeats(steeds, { ...c, companions: [{ id: 'wolf', type: 'Wolf', name: 'Wolf' }] }, slot)).toEqual([])

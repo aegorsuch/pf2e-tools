@@ -29,6 +29,29 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it.each([
+  { traits: [], grace: false, step: 5 },
+  { traits: ['Agile'], grace: false, step: 4 },
+  { traits: ['Agile'], grace: true, step: 3 },
+  { traits: [], grace: true, step: 5 },
+])('shows three attack bonuses for $traits with Agile Grace=$grace', ({ traits, grace, step }) => {
+  const c: Character = { ...character(grace ? [{ name: 'Agile Grace', type: 'Class Feat', level: 10 }] : []),
+    className: 'Champion', level: 20, abilities: { str: 26, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    weapons: [{ id: 'sword', name: 'Longsword', potency: 4, striking: 3, runes: [] }] }
+  const entries: ContentEntry[] = [{ ...weapon, traits }, { ...weapon, id: 'champion', kind: 'class', name: 'Champion',
+    data: { attack_proficiency: 'Master in martial weapons' } }]
+  const attack = weaponAttack(c, entries, c.weapons![0])
+  expect(attack.attack).toBe(38)
+  expect(attack.multipleAttackPenalties).toEqual([0, -step, -2 * step])
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('aria-label="Longsword attack +38: show breakdown"')
+    expect(markup).toContain(`</span>/+${38 - step}/+${38 - 2 * step}</span>`)
+    expect(markup).not.toContain('aria-label="Flurry note"')
+    if (grace && traits.includes('Agile')) expect(markup).toContain('0/-3/-6 (Agile Grace)')
+  }
+})
+
 it('adds weapons unequipped without changing an existing equipped weapon', () => {
   let c = character([])
   const existing = c.weapons![0]

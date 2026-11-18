@@ -27,6 +27,48 @@ const base: Character = {
 }
 
 it.each([
+  [16, 'Master', false, false, 3],
+  [16, 'Master', true, false, 2],
+  [17, 'Expert', false, false, 3],
+  [17, 'Master', false, false, 2],
+  [17, 'Master', true, false, 1],
+  [17, 'Master', true, true, 1],
+] as const)('handles Flurry MAP at level %i with %s proficiency, agile=%s and Agile Grace=%s',
+  (level, proficiency, agile, grace, step) => {
+    const c: Character = { ...base, level, className: 'Ranger', subclass: 'Flurry',
+      feats: grace ? [{ name: 'Agile Grace', type: 'Class Feat', level: 10 }] : [],
+      weapons: [{ id: 'sword', name: 'Test Sword', potency: 0, striking: 0, runes: [] }] }
+    const entries: ContentEntry[] = [{
+      id: 'test-sword', name: 'Test Sword', systems: ['pf2e'], kind: 'weapon', source: 'official', level: 0,
+      traits: agile ? ['Agile'] : [], description: '', effects: [], updatedAt: 0,
+      data: { weapon_category: 'Martial', damage: '1d8 slashing', hands: 1 },
+    }, {
+      id: 'ranger', name: 'Ranger', systems: ['pf2e'], kind: 'class', source: 'official', level: 1,
+      traits: [], description: '', effects: [], updatedAt: 0,
+      data: { attack_proficiency: `${proficiency} in martial weapons` },
+    }]
+    const attack = weaponAttack(c, entries, c.weapons![0])
+    expect(attack.multipleAttackPenalties).toEqual(grace ? [0, -3, -6] : agile ? [0, -4, -8] : [0, -5, -10])
+    expect(attack.huntedPreyMultipleAttackPenalties).toEqual([0, -step, -2 * step])
+    const totals = [0, -step, -2 * step].map(penalty => `+${attack.attack + penalty}`).join('/')
+    for (const displayOnly of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+      expect(markup).toContain('aria-label="Flurry note"')
+      expect(markup).toContain(`Against your hunted prey: ${totals}.`)
+    }
+    for (const patch of [{ subclass: 'Precision' }, { className: 'Fighter' }])
+      expect(weaponAttack({ ...c, ...patch }, entries, c.weapons![0]).huntedPreyMultipleAttackPenalties).toBeUndefined()
+    const manifold: Character = { ...c, level: 18, subclass: 'Precision',
+      feats: [{ name: 'Manifold Edge', type: 'Class Feat', level: 18, choice: 'Flurry' }] }
+    expect(weaponAttack(manifold, entries, c.weapons![0]).huntedPreyMultipleAttackPenalties).toBeDefined()
+  })
+
+it('uses Agile MAP for unarmed attacks', () => {
+  const fist = ownedWeapons(base, []).find(weapon => weapon.name === 'Fist')!
+  expect(weaponAttack(base, [], fist).multipleAttackPenalties).toEqual([0, -4, -8])
+})
+
+it.each([
   [undefined, 1],
   [{ potency: 0, striking: 0, runes: [] }, 2],
   [{ potency: 2, striking: 2, runes: [] }, 3],
@@ -201,8 +243,10 @@ it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without 
   try {
     updateSettings({ barbarianIgnoreAgile: false })
     expect(weaponAttack(c, [agile], main).rageDamage).toBe(1)
+    expect(weaponAttack(c, [agile], main).multipleAttackPenalties).toEqual([0, -4, -8])
     updateSettings({ barbarianIgnoreAgile: true })
     expect(weaponAttack(c, [agile], main).rageDamage).toBe(2)
+    expect(weaponAttack(c, [agile], main).multipleAttackPenalties).toEqual([0, -5, -10])
     const javelin = { ...main, name: thrown.name }
     expect(weaponAttack(c, [thrown], javelin).rageDamage).toBe(0)
     expect(weaponAttack({ ...c, feats: [feat('Raging Thrower')] }, [thrown], javelin).rageDamage).toBe(2)

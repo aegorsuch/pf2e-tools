@@ -1,6 +1,6 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
@@ -56,7 +56,7 @@ it('clears selected skill prerequisite warnings while planning without changing 
   expect(JSON.stringify(c)).toBe(before)
 })
 
-it('disables Lead the Pack in the feat picker while the single companion rule is enabled', () => {
+it('hides Lead the Pack in the feat picker while the single companion rule is enabled', () => {
   const previous = getSettings().singleAnimalCompanion
   const feat: ContentEntry = { id: 'lead-the-pack', name: 'Lead the Pack', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 16, traits: ['Archetype'], description: '', data: {}, effects: [], updatedAt: 0 }
@@ -67,9 +67,8 @@ it('disables Lead the Pack in the feat picker while the single companion rule is
   const label = 'L16 Dedication: Lead the Pack'
   try {
     updateSettings({ singleAnimalCompanion: true })
-    const disabledLabel = `${label} * Missing Limit 1 Animal Companion must be disabled`
-    expect(renderToStaticMarkup(tree())).toContain(`aria-label="${disabledLabel}" disabled=""`)
-    findButton(tree(), disabledLabel)!()
+    expect(renderToStaticMarkup(tree())).not.toContain(`aria-label="${label}`)
+    expect(findButton(tree(), label)).toBeUndefined()
     expect(save).not.toHaveBeenCalled()
     updateSettings({ singleAnimalCompanion: false })
     expect(renderToStaticMarkup(tree())).toContain(`aria-label="${label}">`)
@@ -386,6 +385,9 @@ it("keeps Officer's Education general slots tied to their source feats", () => {
 })
 
 it('persists Social Chameleon choices in normal feat sections and clears dependent grants', () => {
+  const previous = getSettings().disableAdoptedAncestry
+  onTestFinished(() => updateSettings({ disableAdoptedAncestry: previous }))
+  updateSettings({ disableAdoptedAncestry: false })
   const chameleon: ContentEntry = { id: 'chameleon', name: 'Social Chameleon', kind: 'feat', source: 'official',
     systems: ['sf2e'], level: 5, traits: ['Human'], description: '', data: {}, effects: [], updatedAt: 0 }
   const adopted: ContentEntry = { ...chameleon, id: 'adopted', name: 'Adopted Ancestry', level: 1, traits: ['General'] }
@@ -549,6 +551,11 @@ it.each([
   { name: 'Adopted Ancestry', count: 2 },
   { name: 'Adopted Ancestry', count: 12 },
 ])('collapses $name ($count choices) while keeping variants searchable and selectable', ({ name, count }) => {
+  if (name === 'Adopted Ancestry') {
+    const previous = getSettings().disableAdoptedAncestry
+    onTestFinished(() => updateSettings({ disableAdoptedAncestry: previous }))
+    updateSettings({ disableAdoptedAncestry: false })
+  }
   const weaponry = name === 'Unconventional Weaponry'
   const category = weaponry ? 'ancestry' : 'general'
   const level = weaponry ? 1 : 3

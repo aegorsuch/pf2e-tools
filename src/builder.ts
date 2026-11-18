@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -903,10 +903,14 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    if (/^Side by Side(?: \(|$)/.test(entry.name) && archetypesOf(entry).includes('Beastmaster')
+      && character.feats.some(feat => feat.name === 'Beastmaster Dedication')) {
+      for (let i = missing.length - 1; i >= 0; i--) if (missing[i] === 'Animal Companion') missing.splice(i, 1)
+    }
     const companionRequirement = beastmasterRequirementMissing(character, entries, entry.name)
     if (companionRequirement) missing.push(companionRequirement)
     if (getSettings().singleAnimalCompanion && ['Lead the Pack', 'Pack Takedown'].includes(entry.name)) {
-      missing.push('Limit 1 Animal Companion must be disabled')
+      missing.push('Disable Multiple Animal Companions must be disabled')
     }
     if (getSettings().singleAnimalCompanion
       && ['Incredible Beastmaster Companion', 'Incredible Mount', 'Specialized Beastmaster Companion', 'Specialized Mount'].includes(entry.name)) {
@@ -984,6 +988,15 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   ])
   const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
+  const classTrait = c.className?.toLowerCase()
+  const classCompanionStages = new Set<string>()
+  if (getSettings().singleAnimalCompanion && classTrait) {
+    for (const { entry, traits } of featIndex(entries)) {
+      if (!traits.has(classTrait) || traits.has('archetype') || !entry.systems.some(system => c.systems.includes(system))) continue
+      const stage = companionProgressionStage(entry.name)
+      if (stage) classCompanionStages.add(stage)
+    }
+  }
   const orderExplorerOk = availableOrders(c).length > 0
   const artisanSkillEligible = slot.grantedBy !== 'Exceptional Artisan' || !!slot.grantedSkill
     && (ranksAt({ ...c, level: slot.level }, entries)[slot.grantedSkill] ?? 0) >= 3
@@ -1008,6 +1021,11 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
+      && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
+      && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
+      && !(classCompanionStages.has(companionProgressionStage(e.name) ?? '') && !traits.has(classTrait ?? '')
+        && (traits.has('archetype') || archetypesOf(e).length > 0)
+        && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
       && (!slot.grantedFeat || e.name === slot.grantedFeat)
       && (!ownedArchetype || isDedication(e) || ownedArchetype(e).length === 0)
       && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
@@ -1042,7 +1060,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
       && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Incredible Mount|Incredible Beastmaster Companion|Mature Animal Companion|Mature Beastmaster Companion|Impressive Mount|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
-      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call)\b/.test(e.name))
+      && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call|Lead the Pack|Pack Takedown)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
@@ -1062,7 +1080,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
-        || (e.data.repeatable === true || e.name !== 'Auspicious Mount' && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
+        || (e.data.repeatable === true || !['Auspicious Mount', 'Peerless Mascot Companion'].includes(e.name)
+          && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
     && entry.traits.some(trait => trait.toLowerCase() === 'lineage') && taken.has(entry.name))
@@ -1237,6 +1256,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       && ranks[skill] >= 1 && !used.has(skill) && (!required || skill === required)).sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Elf Atavism' || name === 'Elven Atavism') return elfAtavismOptions(c, entries)
+    .filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')
     .map(entry => entry.name).sort((a, b) => a.localeCompare(b))
   if (name === 'Exocortex Experimenter' && c.systems.includes('sf2e')) {
     const used = new Set([c.subclass?.toLowerCase(),
@@ -3883,14 +3903,20 @@ export function activeAnimalFeatures(c: Character, entries: ContentEntry[]) {
     .map((feature) => feature.name)
 }
 
-export const UNTAMED_SHIFT_CHOICES = [
+const UNTAMED_SHIFT_CHOICES = [
   { name: 'Claws', feat: 'Untamed Form' }, { name: 'Jaws', feat: 'Insect Shape' },
   { name: 'Elemental', feat: 'Elemental Shape' }, { name: 'Plant', feat: 'Plant Shape' }, { name: 'Wings', feat: 'Soaring Shape' },
 ] as const
+export function untamedShiftChoices() {
+  return getSettings().championFormNoFlight
+    ? UNTAMED_SHIFT_CHOICES.filter(choice => choice.name !== 'Wings')
+    : UNTAMED_SHIFT_CHOICES
+}
+
 export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[]) {
   if (!isSpellActive(c, entries, 'Untamed Shift')) return []
   const max = c.level >= 19 ? 3 : c.level >= 11 ? 2 : 1
-  const available = UNTAMED_SHIFT_CHOICES.filter(choice => activeFeatsNamed(c, choice.feat).length).map(choice => choice.name)
+  const available = untamedShiftChoices().filter(choice => activeFeatsNamed(c, choice.feat).length).map(choice => choice.name)
   return [...new Set(c.untamedShiftEffects ?? [])].filter(choice => available.includes(choice)).slice(0, max)
 }
 
@@ -4664,6 +4690,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
     advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, cairn ? Math.max(...Object.values(ranks)) : 0)
+  const agile = traits.includes('agile')
+  const agileGrace = agile && activeFeatsNamed(c, 'Agile Grace').length > 0
+  const mapStep = agileGrace ? 3 : agile ? 4 : 5
+  const flurry = c.className === 'Ranger' && (selectedSubclass(c, entries)?.replace(/ Edge$/, '') === 'Flurry'
+    || activeFeatsNamed(c, 'Manifold Edge').some(feat => feat.choice === 'Flurry'))
+  const flurryStep = (c.level >= 17 && rank >= 3 ? 2 : 3) - Number(agile)
   const prof = rank === 0 && martialExperience ? c.level : proficiencyBonus(rank, c.level)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
@@ -4763,6 +4795,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     rank,
     item: w.potency,
     attack: mod + prof + w.potency - clumsy + divineAttackBonus,
+    multipleAttackPenalties: [0, -mapStep, -2 * mapStep],
+    huntedPreyMultipleAttackPenalties: flurry ? [0, -flurryStep, -2 * flurryStep] : undefined,
     breakdown: {
       total: mod + prof + w.potency - clumsy + divineAttackBonus,
       parts: [
@@ -4772,6 +4806,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
         ...(clumsy ? [{ label: 'Giant Instinct: clumsy (status)', value: -clumsy }] : []),
       ],
+      notes: [`Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`],
     } satisfies TotalBreakdown,
     range,
     thrownRange: !ranged && thrown && thrownRange > 0

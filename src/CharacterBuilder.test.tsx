@@ -430,6 +430,33 @@ it('preserves an incompatible saved heritage as disabled rather than selectable 
   } finally { content.entries = [] }
 })
 
+it('hides Ancient Elf from heritage choices without erasing a saved heritage', () => {
+  const previous = getSettings().disableAncientElfMultitalented
+  const elf = { id: 'elf', kind: 'ancestry', name: 'Elf', traits: [] }
+  const ancient = { id: 'ancient-elf', kind: 'heritage', name: 'Ancient Elf', traits: ['Elf'] }
+  const woodland = { id: 'woodland-elf', kind: 'heritage', name: 'Woodland Elf', traits: ['Elf'] }
+  content.entries = [elf, ancient, woodland].map(entry => ({ ...entry, kind: entry.kind as ContentEntry['kind'],
+    systems: ['pf2e'], source: 'official', level: 0, traits: entry.traits ?? [], description: '', data: {}, effects: [], updatedAt: 0 }))
+  const c: Character = { id: 'ancient-elf-test', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Elf', heritage: 'Ancient Elf',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const before = JSON.stringify(c)
+  const heritagePicker = (character: Character) => renderToStaticMarkup(
+    <CharacterBuilder character={character} onClose={() => {}} />,
+  ).match(/<select[^>]*aria-label="Heritage"[^>]*>[\s\S]*?<\/select>/)?.[0] ?? ''
+  try {
+    updateSettings({ disableAncientElfMultitalented: true })
+    expect(heritagePicker(c))
+      .toContain('<option value="Ancient Elf" disabled="" selected="">Ancient Elf (not available for this ancestry)</option>')
+    updateSettings({ disableAncientElfMultitalented: false })
+    expect(heritagePicker(c)).toContain('<option value="Ancient Elf" selected="">Ancient Elf</option>')
+    expect(JSON.stringify(c)).toBe(before)
+  } finally {
+    updateSettings({ disableAncientElfMultitalented: previous })
+    content.entries = []
+  }
+})
+
 it('restores Pioneer protection and terrain choices and hides them for other heritages', () => {
   const c: Character = {
     id: 'pioneer', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Human', heritage: 'Pioneer Human',

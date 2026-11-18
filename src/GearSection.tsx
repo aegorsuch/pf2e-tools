@@ -122,6 +122,17 @@ const mechanicModDuration = (c: Character) => `${activeFeatsNamed(c, 'Steady Mod
   ? 'Mods normally last 1 minute' : 'Mods normally end after your next turn'}${c.level >= 13
   ? '; your daily enduring mod lasts 24 hours' : ''}.`
 
+function WeaponAttackBonuses({ attack, label }: { attack: ReturnType<typeof weaponAttack>; label: string }) {
+  return <>
+    <span className="weapon-attack-bonuses">
+      <TotalBreakdown label={label} breakdown={attack.breakdown} signedTotal />
+      {attack.multipleAttackPenalties.slice(1).map((penalty, index) => <Fragment key={index}>/{signed(attack.attack + penalty)}</Fragment>)}
+    </span>
+    {attack.huntedPreyMultipleAttackPenalties && <SourceNote source="Flurry"
+      note={`Against your hunted prey: ${attack.huntedPreyMultipleAttackPenalties.map(penalty => signed(attack.attack + penalty)).join('/')}.`} />}
+  </>
+}
+
 function AttackUpgrades({ attack }: { attack: ReturnType<typeof weaponAttack> }) {
   if (!attack.upgrades.length) return null
   return <div className="gear-runes">{attack.upgrades.map(upgrade =>
@@ -1209,7 +1220,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {cannotEquip && (legacyPouchWeapon || hands === undefined || unknownHands)
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-            {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
+            {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
@@ -1239,7 +1250,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
             <summary><strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-              {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal />
+              {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}

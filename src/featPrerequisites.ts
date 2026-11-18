@@ -67,6 +67,7 @@ const ROLE_PATTERN = new RegExp(`^(.+?) (${Object.keys(ROLE_CLASSES).sort((a, b)
 const rankPrefix = /^(untrained|trained|expert|master|legendary)\s+(?:in|with)\s+/i
 const GOOD_CHAMPION_CAUSES = new Set(['justice', 'grandeur', 'liberation', 'redemption', 'paladin', 'redeemer', 'liberator'])
 const EVIL_CHAMPION_CAUSES = new Set(['desecration', 'iniquity', 'obedience', 'desecrator', 'antipaladin', 'tyrant'])
+const CHAMPION_CAUSE_ALIASES: Record<string, string> = { redeemer: 'redemption', liberator: 'liberation' }
 
 export function championCauseTenets(cause?: string) {
   const normalized = key(cause ?? '')
@@ -378,12 +379,14 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const choices = role[2] === 'order' ? facts.orders : [facts.subclass ?? '', ...facts.additionalSubclasses]
       const normalize = (value: string) => {
         const name = key(value).replace(/^the /, '').replace(new RegExp(` ${role[2]}$`), '')
-        return role[2] === 'order' && name === 'untamed' ? 'wild' : name
+        return role[2] === 'order' && name === 'untamed' ? 'wild'
+          : role[2] === 'cause' ? CHAMPION_CAUSE_ALIASES[name] ?? name : name
       }
       const expected = normalize(role[1])
       const known = role[2] === 'order' ? context.knownOrders.some((order) => normalize(order) === expected)
         : knownEntries(role[1]).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[role[2]])
-      if (known || choices.some((choice) => normalize(choice) === expected)) {
+      if (known || role[2] === 'cause' && Object.values(CHAMPION_CAUSE_ALIASES).includes(expected)
+        || choices.some((choice) => normalize(choice) === expected)) {
         return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === expected), text)
       }
     }

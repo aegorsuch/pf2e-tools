@@ -147,11 +147,20 @@ describe('animal companions', () => {
       const result = companionStats(c, [bear], 'Bear')!
       expect(result.hp).toBe(companionStats({ ...c, feats: [] }, [bear], 'Bear')!.hp + 40)
       expect(result.senses).toContain('Darkvision')
-      expect(result.speed).toContain('fly 35 feet')
       expect(result.grantedTraits).toContain(trait)
       expect(result.weakness).toBe(weakness)
       expect(companionStats(c, [bear], 'Bear', undefined, 'second')!.weakness).toBeUndefined()
       expect(companionStats({ ...c, level: 19 }, [bear], 'Bear')!.weakness).toBeUndefined()
+      const previous = getSettings().championFormNoFlight
+      const flyingBear = { ...bear, data: { ...bear.data, speed_raw: '35 feet, fly 15 feet' } }
+      try {
+        updateSettings({ championFormNoFlight: true })
+        expect(companionStats(c, [bear], 'Bear')!.speed).toBe('35 feet')
+        expect(companionStats(c, [flyingBear], 'Bear')!.speed).toBe('35 feet, fly 15 feet')
+        updateSettings({ championFormNoFlight: false })
+        expect(companionStats(c, [bear], 'Bear')!.speed).toBe('35 feet, fly 35 feet')
+        expect(companionStats(c, [flyingBear], 'Bear')!.speed).toBe('35 feet, fly 35 feet')
+      } finally { updateSettings({ championFormNoFlight: previous }) }
     },
   )
 
@@ -506,9 +515,9 @@ describe('animal companions', () => {
       const character = { ...base, level: 20 }
       const packSlot = { key: 'archetype:20:0', category: 'archetype' as const, level: 20 }
       expect(eligibleFeats([pack], character, packSlot)).not.toContain(pack)
-      expect(eligibleFeats([pack], character, packSlot, { includeUnmetPrerequisites: true })).toContain(pack)
+      expect(eligibleFeats([pack], character, packSlot, { includeUnmetPrerequisites: true })).not.toContain(pack)
       expect(featSelectionPrerequisiteChecker(character, [pack], packSlot)(pack).missing)
-        .toContain('Limit 1 Animal Companion must be disabled')
+        .toContain('Disable Multiple Animal Companions must be disabled')
     }
   })
 
@@ -533,6 +542,82 @@ describe('animal companions', () => {
       companions: [{ id: 'a', name: '', type: 'Bear' }, { id: 'b', name: '', type: 'Bear' }] }
     const stats = companionStats(c, [bear], 'Bear', undefined, 'a')!
     expect(stats.beastmasterSpecial.map(x => x.name)).toEqual(['Pack Movement', 'Heightened Instincts', 'Call Companion'])
+  })
+
+  it.each([
+    ['Champion', 'Loyal Warhorse', 'Imposing Destrier', 'Auspicious Mount'],
+    ['Commander', 'Battle-Tested Companion', 'Battle-Hardened Companion', 'Peerless Mascot Companion'],
+    ['Druid', 'Mature Animal Companion (Druid)', 'Incredible Companion (Druid)', 'Specialized Companion (Druid)'],
+    ['Ranger', 'Mature Animal Companion (Ranger)', 'Incredible Companion (Ranger)', 'Specialized Companion (Ranger)'],
+  ])('prefers native %s companion progression before any upgrades are selected', (className, matureName, advancedName, specializedName) => {
+    const previous = getSettings().singleAnimalCompanion
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const native = [matureName, advancedName, specializedName].map((name, i) =>
+      entry('feat', name, {}, [6, 10, 16][i], [className]))
+    const archetype = ['Mature Beastmaster Companion', 'Incredible Beastmaster Companion', 'Specialized Beastmaster Companion',
+      'Impressive Mount', 'Incredible Mount', 'Specialized Mount'].map((name, i) =>
+      entry('feat', name, { archetype: 'Beastmaster' }, [4, 8, 14][i % 3], ['Archetype']))
+    const sideBySide = entry('feat', 'Side by Side (Druid)', { archetype: 'Beastmaster', prerequisite: 'Animal Companion' }, 14, ['Druid'])
+    const entries = [dedication, ...native, ...archetype, sideBySide]
+    const c: Character = { ...base, className, level: 20, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
+    const slot = { key: 'archetype:20:0', category: 'archetype' as const, level: 20 }
+    const before = JSON.stringify(c)
+    try {
+      updateSettings({ singleAnimalCompanion: true })
+      const offered = eligibleFeats(entries, c, slot)
+      for (const option of archetype) expect(offered).not.toContain(option)
+      expect(offered).toContain(sideBySide)
+      for (const option of native) expect(eligibleFeats(entries, c, { ...slot, category: 'class' })).toContain(option)
+      expect(eligibleFeats(entries, { ...c, level: 4 }, { ...slot, level: 4, key: 'archetype:4:0' })).not.toContain(archetype[0])
+      for (const option of archetype) {
+        const saved = { ...c, feats: [...c.feats, { ...feat(option.name, undefined, slot.key), sourceId: option.id }] }
+        expect(eligibleFeats(entries, saved, slot, { includeUnmetPrerequisites: true })).toContain(option)
+      }
+      updateSettings({ singleAnimalCompanion: false })
+      for (const option of archetype) expect(eligibleFeats(entries, c, slot)).toContain(option)
+      expect(JSON.stringify(c)).toBe(before)
+    } finally { updateSettings({ singleAnimalCompanion: previous }) }
+  })
+
+  it('uses only native progression available in the character ruleset', () => {
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const mature = entry('feat', 'Mature Beastmaster Companion', { archetype: 'Beastmaster' }, 4, ['Archetype'])
+    const foreign: ContentEntry = { ...entry('feat', 'Loyal Warhorse', {}, 6, ['Champion']), systems: ['sf2e'] }
+    const c: Character = { ...base, className: 'Champion', feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
+    expect(eligibleFeats([dedication, mature, foreign], c, { key: 'archetype:4:0', category: 'archetype', level: 4 })).toContain(mature)
+  })
+
+  it('offers Beastmaster Side by Side at level 14 without requiring the Druid Animal Companion feat', () => {
+    const previous = getSettings().championBeastmaster
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const animal = entry('feat', 'Animal Companion', {}, 1, ['Druid', 'Ranger'])
+    const sideBySide = entry('feat', 'Side by Side (Druid)', {
+      archetype: 'Beastmaster', archetype_levels: 'Beastmaster: 14', prerequisite: animal.name,
+    }, 10, ['Druid'])
+    const entries = [dedication, animal, sideBySide]
+    const c: Character = { ...base, className: 'Champion', level: 14,
+      feats: [feat('Faithful Steed', undefined, 'class:1:0'), feat(dedication.name, undefined, 'archetype:2:0')],
+      companions: [{ id: 'horse', type: 'Horse', name: '' }] }
+    const slot = { key: 'archetype:14:0', category: 'archetype' as const, level: 14 }
+    try {
+      updateSettings({ championBeastmaster: false })
+      expect(featSelectionPrerequisiteChecker(c, entries, slot)(sideBySide)).toEqual({ missing: [], manual: [] })
+      expect(eligibleFeats(entries, c, slot)).toContain(sideBySide)
+      expect(eligibleFeats(entries, { ...c, level: 13 }, { ...slot, level: 13, key: 'archetype:13:0' })).not.toContain(sideBySide)
+      expect(eligibleFeats(entries, { ...c, feats: c.feats.slice(0, 1) }, slot)).not.toContain(sideBySide)
+      const selected = { ...c, feats: [...c.feats, feat(sideBySide.name, undefined, 'class:10:0')] }
+      expect(eligibleFeats(entries, selected, slot)).not.toContain(sideBySide)
+    } finally { updateSettings({ championBeastmaster: previous }) }
+  })
+
+  it('applies Commander native maturity, advanced training and ordinary specializations', () => {
+    const c: Character = { ...base, className: 'Commander', level: 16,
+      feats: [feat('Battle-Tested Companion'), feat('Battle-Hardened Companion', 'Nimble'), feat('Peerless Mascot Companion', 'Ambusher')] }
+    expect(companionAdvancement(c)).toEqual({ mature: true, advanced: 'Nimble', specializations: ['Ambusher'] })
+    expect(companionAdvancement({ ...c, level: 1 })).toEqual({ mature: false, advanced: undefined, specializations: [] })
+    const specialized = entry('feat', 'Peerless Mascot Companion', {}, 16, ['Commander'])
+    expect(eligibleFeats([specialized], { ...c, level: 20 },
+      { key: 'class:20:0', category: 'class', level: 20 })).not.toContain(specialized)
   })
 
   it('hides Mature and Incredible Beastmaster Companion but lets class advancement unlock Specialized', () => {

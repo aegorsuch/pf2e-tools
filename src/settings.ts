@@ -3,6 +3,8 @@ import { useSyncExternalStore } from 'react'
 export interface Settings {
   singleAdditionalArms: boolean
   adoptedDwarfClanDagger: boolean
+  disableAdoptedAncestry: boolean
+  disableAncientElfMultitalented: boolean
   exclusiveCyborgHearts: boolean
   // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
@@ -24,7 +26,7 @@ export interface Settings {
   commanderBeastmaster: boolean
   druidBeastmaster: boolean
   rangerBeastmaster: boolean
-  // House rule: Animal Feature, Auspice, Celestial Form, and Fiendish Form do not grant flight
+  // House rule: suppress flight grants from Animal Feature, Auspice, Celestial/Fiendish Form and Mount, and Untamed Shift
   championFormNoFlight: boolean
   // House rule: General feat pickers hide skill feats
   generalFeatsOnly: boolean
@@ -51,7 +53,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

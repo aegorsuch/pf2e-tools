@@ -117,10 +117,13 @@ it('alphabetizes clarified rule labels and keeps renamed rules searchable', () =
   expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
   for (const label of [
     'Advanced General Training and General Training: Once Each',
-    'Animal Feature, Auspice, and Celestial / Fiendish Form: No Flight',
+    'Disable fly speed from Animal Feature, Auspice Specialization, Celestial Form, Fiendish Form, Untamed Shift',
     'Cyborg Machine Heart or Mortal Heart Exclusive',
     'Druid Order Explorer Grants Skills',
     'Deity Grants Lore',
+    'Disable Adopted Ancestry, Orc Kinship, Social Chameleon',
+    'Disable Ancient Elf, Multitalented',
+    'Disable Multiple Animal Companions',
     'Inventor Access: Bladed Gauntlet and Firearms',
     'Orc Warmask Item Bonus Scaling',
     'Ranger Cavalier Dedication',

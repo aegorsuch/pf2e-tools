@@ -1,6 +1,6 @@
 import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, proficiencyBonus, signed, type Ability } from './builder'
 import { beastmasterAbilities } from './beastmasterFeats'
-import { isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
+import { companionProgressionStage, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, ContentEntry } from './types'
 import { getSettings } from './settings'
 
@@ -93,12 +93,10 @@ const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: '
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
   const active = c.feats.filter((feat) => featTakenLevel(feat) <= c.level)
-  const has = (prefix: string) => active.filter((f) => f.name.startsWith(prefix))
   const advanced = active.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
   const specializations = [...new Set(active.filter((feat) => isCompanionSpecialization(feat.name))
     .flatMap((f) => (f.choice && (f.choice !== 'Auspice' || f.name === 'Auspicious Mount') ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
-  return { mature: has('Mature Animal Companion').length > 0 || has('Mature Beastmaster Companion').length > 0 || has('Impressive Mount').length > 0
-    || has('Loyal Warhorse').length > 0 || !!advanced, advanced, specializations }
+  return { mature: active.some(feat => companionProgressionStage(feat.name) === 'mature') || !!advanced, advanced, specializations }
 }
 
 export function constructCompanionAdvancement(c: Character) {
@@ -249,7 +247,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
   if (apex) speed = speed.replace(/(\d+)\s*(feet|ft)\b/gi, (_, feet: string, unit: string) => `${+feet + 10} ${unit}`)
-  if (auspice && !getSettings().championFormNoFlight || celestialMount || fiendishMount) {
+  if ((auspice || celestialMount || fiendishMount) && !getSettings().championFormNoFlight) {
     const land = Number(/^\d+/.exec(speed)?.[0])
     if (land > 0) {
       const fly = /\bfly\s+(\d+)\s*(?:feet|ft)\b/i.exec(speed)

@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, UNTAMED_SHIFT_CHOICES, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { grantedWardenSpells, spellWardenLabel } from './featChoices'
@@ -155,9 +155,8 @@ export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
   const multiple = c.feats.some((feat) => feat.name === 'Persistent Animal Feature')
   return <fieldset className="col">
     <legend>Animal Feature: {multiple ? 'choose effects' : 'choose one'}</legend>
-    {ANIMAL_FEATURES.map((feature) => {
-      const noFlight = feature.name === 'Wings' && getSettings().championFormNoFlight
-      const unavailable = noFlight || feature.rank > Math.ceil(c.level / 2)
+    {ANIMAL_FEATURES.filter(feature => feature.name !== 'Wings' || !getSettings().championFormNoFlight).map((feature) => {
+      const unavailable = feature.rank > Math.ceil(c.level / 2)
       return <label key={feature.name} className={unavailable ? 'disabled' : undefined}>
         <input type="checkbox" aria-label={`Animal Feature: ${feature.name}`} disabled={unavailable} checked={active.includes(feature.name)}
           onChange={(e) => {
@@ -171,7 +170,7 @@ export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
               animalFeatures,
               ...spellActiveChange(c, 'Animal Feature', animalFeatures.length > 0),
             })
-          }} /> {feature.name} <small>{feature.effect}{noFlight ? ' (disabled by No Flight house rule)' : unavailable ? ` (requires rank ${feature.rank}; character level ${feature.rank * 2 - 1})` : ''}</small>
+          }} /> {feature.name} <small>{feature.effect}{unavailable ? ` (requires rank ${feature.rank}; character level ${feature.rank * 2 - 1})` : ''}</small>
       </label>
     })}
   </fieldset>
@@ -182,7 +181,7 @@ function UntamedShiftOptions({ c, entries, save }: SectionProps) {
   const max = c.level >= 19 ? 3 : c.level >= 11 ? 2 : 1
   return <fieldset className="col">
     <legend>Untamed Shift: choose up to {max} effects</legend>
-    {UNTAMED_SHIFT_CHOICES.map(choice => {
+    {untamedShiftChoices().map(choice => {
       const unavailable = !activeFeatsNamed(c, choice.feat).length || !selected.includes(choice.name) && selected.length >= max
       return <label key={choice.name}><input type="checkbox" aria-label={`Untamed Shift: ${choice.name}`}
         checked={selected.includes(choice.name)} disabled={unavailable} onChange={event => {
@@ -197,16 +196,18 @@ function UntamedShiftOptions({ c, entries, save }: SectionProps) {
 
 function SpellEffectActions({ c, entries, save, entry, name }: SectionProps & {
   entry?: ContentEntry
-  name: 'Animal Feature' | 'Untamed Shift'
+  name: 'Animal Feature' | 'Untamed Shift' | 'Untamed Form'
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const dialogId = useId()
-  const actions = typeof entry?.data.actions === 'string' && entry.data.actions.trim() ? entry.data.actions
+  const form = name === 'Untamed Form'
+  const actions = form ? 'Two Actions' : typeof entry?.data.actions === 'string' && entry.data.actions.trim() ? entry.data.actions
     : name === 'Animal Feature' ? 'Single Action' : 'Single Action to Two Actions'
+  const label = form ? 'Configure Untamed Form' : `Choose ${name} effects`
   return <>
-    <button type="button" className="spell-action-button" aria-label={`Choose ${name} effects`}
-      aria-haspopup="dialog" aria-controls={dialogId} title={`${actions}; choose ${name} effects`}
+    <button type="button" className="spell-action-button" aria-label={label}
+      aria-haspopup="dialog" aria-controls={dialogId} title={`${actions}; ${label}`}
       onClick={() => {
         dialog.current?.showModal()
         dialog.current?.querySelector('h4')?.focus()
@@ -215,8 +216,9 @@ function SpellEffectActions({ c, entries, save, entry, name }: SectionProps & {
     </button>
     <dialog ref={dialog} id={dialogId} className="entry-dialog" aria-labelledby={titleId}
       onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-      <h4 id={titleId} tabIndex={-1}>{name} effects</h4>
-      {name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
+      <h4 id={titleId} tabIndex={-1}>{form ? 'Untamed Form options' : `${name} effects`}</h4>
+      {form ? <UntamedFormOptions c={c} entries={entries} save={save} />
+        : name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
         : <UntamedShiftOptions c={c} entries={entries} save={save} />}
       <form method="dialog"><button autoFocus>Close</button></form>
     </dialog>
@@ -308,7 +310,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
     <li className="innate-spell-row">
       <div className="innate-spell-name">
         <div className="spell-title"><EntryDescription name={name} entry={entry} />
-          {actionControls ?? (!['Animal Feature', 'Untamed Shift'].includes(name) && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
+          {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form'].includes(name) && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
         {rankLabel && <small className="spell-rank-label">{rankLabel}</small>}
         {note && <small>{note}</small>}
       </div>
@@ -661,7 +663,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         source={damage.source} note={damage.note} /></small>)}
     {(name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion')
       && <CompanionSpellOptions c={c} entries={entries} save={save} name={name} hideToggle />}
-    {name === 'Untamed Form' && <UntamedFormOptions c={c} entries={entries} save={save} />}
     {name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank}</small>
       : <label>Cast rank{' '}
@@ -676,7 +677,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
       && <SpellDamageRolls name={name} rank={rank} />}
   </>
-  const inlineControls = (name: string) => name === 'Animal Feature' || name === 'Untamed Shift'
+  const inlineControls = (name: string) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form'
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} />
     : name === 'Shield'
     ? <label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">

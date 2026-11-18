@@ -387,6 +387,19 @@ it('checks champion sanctification and devotion spell prerequisites from actual 
   expect(check('Any feat with the oath trait', sworn, [oath], 2).missing).toEqual([])
 })
 
+it.each([
+  ['Lasting Doubt', 'redeemer cause', 'Redemption', 'Redeemer'],
+  ['Liberating Stride', 'liberator cause', 'Liberation', 'Liberator'],
+])('checks %s automatically for remastered and legacy Champion causes', (name, prerequisite, remastered, legacy) => {
+  const feat = entry('feat', name, { prerequisite }, 12, ['Champion'])
+  const evaluate = (className: string, subclass?: string) =>
+    featPrerequisiteChecker({ ...base, className, subclass }, [feat])(feat)
+  for (const cause of [remastered, legacy]) expect(evaluate('Champion', cause)).toEqual({ missing: [], manual: [] })
+  for (const cause of ['Justice', 'Grandeur', 'Redemption', 'Liberation', undefined].filter(cause => cause !== remastered))
+    expect(evaluate('Champion', cause)).toEqual({ missing: [prerequisite], manual: [] })
+  expect(evaluate('Fighter', remastered)).toEqual({ missing: [prerequisite], manual: [] })
+})
+
 it('treats Reactive Strike as the legacy Attack of Opportunity prerequisite at its acquisition level', () => {
   const reactive = entry('feat', 'Reactive Strike', {}, 6, ['Champion'])
   const stance = entry('feat', 'Impassable Wall Stance', { prerequisite: 'Attack of Opportunity' }, 8, ['Champion'])

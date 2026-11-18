@@ -25,6 +25,7 @@ const TIAN_ELEMENTALISM_TRAINING = 'Trained in Tian Xia elementalism'
 const WUKONG_EXTENSION_ACCESS = 'Tian Xia origin or familiar with Sun Wukong'
 const NIDAL_HUSBANDRY = 'Nidal origin or exposure to Nidalese husbandry'
 const NIDALESE_HORSELORDS = 'Trained with the Nidalese Horselords'
+const NIDALESE_HORSELORDS_KEY = 'member of the nidalese horselords'
 const RIVETHUN_MEMBERSHIP = 'Member of the Rivethun'
 const DWARVEN_DEFENDER = 'Undergone defender training in a dwarven settlement such as Highhelm'
 const OLD_CHELIAX = 'From Old Cheliax'
@@ -41,6 +42,7 @@ const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKON
 achievementLabels.set(LASTWALL_MEMBERSHIP.toLowerCase(), LASTWALL_TRAINING)
 achievementLabels.set(PATHFINDER_MEMBERSHIP.toLowerCase(), PATHFINDER_TRAINING)
 achievementLabels.set(TIAN_ELEMENTALISM.toLowerCase(), TIAN_ELEMENTALISM_TRAINING)
+achievementLabels.set(NIDALESE_HORSELORDS_KEY, NIDALESE_HORSELORDS)
 const lastwallAccess = new Set([
   LASTWALL_MEMBERSHIP.toLowerCase(),
   'member of knights of lastwall',
@@ -54,6 +56,8 @@ const lastwallAccess = new Set([
 export function achievementKey(access: string) {
   const key = achievementLabel(access.trim().replace(/\s+/g, ' ').replace(/[\u2018\u2019]/g, "'")).toLowerCase()
     .replace(/^(?:member of or trained by|trained by|trained with(?= the | knights)) /, 'member of ')
+  if ([NIDAL_HUSBANDRY.toLowerCase(), NIDALESE_HORSELORDS.toLowerCase(),
+    NIDALESE_HORSELORDS_KEY, 'member of nidalese horselords', 'trained with nidalese horselords'].includes(key)) return NIDALESE_HORSELORDS_KEY
   if (key === 'tian xia origin' || key === TIAN_ELEMENTALISM.toLowerCase()
     || key === 'tian xia origin or exposure to tian xia elementalism'
     || key === TIAN_ELEMENTALISM_TRAINING.toLowerCase()) return TIAN_ELEMENTALISM.toLowerCase()
@@ -80,11 +84,9 @@ function achievementLabel(requirement: string) {
 
 function narrativeRequirement(entry: ContentEntry, access: string) {
   return entry.name === 'Wukong Extension' ? WUKONG_EXTENSION_ACCESS
-    : entry.name.toLowerCase() === 'born in the saddle' ? NIDALESE_HORSELORDS
+    : ['born in the saddle', 'chiardmar steed', 'nidarrmar steed'].includes(entry.name.toLowerCase()) ? NIDALESE_HORSELORDS
     : achievementKey(access) === SHACKLES_TRAVEL.toLowerCase() ? SHACKLES_TRAVEL
-    : ['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)
-    && (achievementKey(access) === 'from nidal' || /^you\ufffdre from nidal[.!?]*$/i.test(access))
-    ? NIDAL_HUSBANDRY : access
+    : access
 }
 
 function isAchievementRequirement(requirement: string) {

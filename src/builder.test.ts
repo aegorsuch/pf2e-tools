@@ -1,6 +1,6 @@
 import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQuery'
 import { mapAonHit } from './aon'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
@@ -9,6 +9,24 @@ import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
+})
+
+it('hides pack-only feats while multiple companions are disabled, including unmet-prerequisite browsing', () => {
+  const previous = getSettings().singleAnimalCompanion
+  const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+  const pack = ['Lead the Pack', 'Pack Takedown'].map(name =>
+    entry('feat', name, { archetype: 'Beastmaster' }, 16, ['Archetype']))
+  const c: Character = { ...base, className: 'Fighter', level: 20,
+    feats: [{ name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  const slot = { key: 'archetype:20:0', category: 'archetype' as const, level: 20 }
+  try {
+    updateSettings({ singleAnimalCompanion: true })
+    for (const includeUnmetPrerequisites of [false, true]) {
+      for (const feat of pack) expect(eligibleFeats([dedication, ...pack], c, slot, { includeUnmetPrerequisites })).not.toContain(feat)
+    }
+    updateSettings({ singleAnimalCompanion: false })
+    for (const feat of pack) expect(eligibleFeats([dedication, ...pack], c, slot)).toContain(feat)
+  } finally { updateSettings({ singleAnimalCompanion: previous }) }
 })
 
 it('merges equivalent cross-system ancestry feats after eligibility filtering but retains different rules and prerequisites', () => {
@@ -91,6 +109,9 @@ it.each([
   ['Prescient Planner', 3, 'general'],
   ['Unconventional Weaponry', 1, 'ancestry'],
 ] as const)('offers one official %s across systems while preserving homebrew', (name, level, category) => {
+  const previous = getSettings().disableAncientElfMultitalented
+  onTestFinished(() => updateSettings({ disableAncientElfMultitalented: previous }))
+  updateSettings({ disableAncientElfMultitalented: false })
   const pf = { ...entry('feat', name, {}, level, [category === 'general' ? 'General' : 'Human']), description: 'Pathfinder wording.' }
   const sf: ContentEntry = { ...pf, id: `sf:${name}`, systems: ['sf2e'], description: 'Starfinder wording.',
     data: name === 'Cooperative Soul' ? { prerequisite: 'Cooperative Nature' } : {} }
@@ -1126,6 +1147,9 @@ describe('official passive feat mechanics', () => {
   })
 
   it('allows Adopted Ancestry regardless of rarity while enforcing specific Access requirements', () => {
+    const previous = getSettings().disableAdoptedAncestry
+    onTestFinished(() => updateSettings({ disableAdoptedAncestry: previous }))
+    updateSettings({ disableAdoptedAncestry: false })
     const common = entry('ancestry', 'Dwarf')
     const uncommon = entry('ancestry', 'Ratfolk', {}, 1, ['Uncommon'])
     const rare = entry('ancestry', 'Automaton', { rarity: 'rare' })
@@ -1145,6 +1169,9 @@ describe('official passive feat mechanics', () => {
   })
 
   it('unlocks only the adopted ancestry alongside the original ancestry without losing saved choices on deleveling', () => {
+    const previous = getSettings().disableAdoptedAncestry
+    onTestFinished(() => updateSettings({ disableAdoptedAncestry: previous }))
+    updateSettings({ disableAdoptedAncestry: false })
     const data = [
       entry('ancestry', 'Elf'), entry('ancestry', 'Human'), entry('ancestry', 'Dwarf'),
       entry('feat', 'Elven Lore', {}, 1, ['Elf']),
@@ -1162,6 +1189,9 @@ describe('official passive feat mechanics', () => {
   })
 
   it('grants Social Chameleon only Adopted Ancestry and a common level-1 feat from that ancestry', () => {
+    const previous = getSettings().disableAdoptedAncestry
+    onTestFinished(() => updateSettings({ disableAdoptedAncestry: previous }))
+    updateSettings({ disableAdoptedAncestry: false })
     const c: Character = { ...base, ancestry: 'Human', level: 5, systems: ['pf2e', 'sf2e'],
       feats: [{ name: 'Social Chameleon', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }] }
     const data = [
@@ -1191,6 +1221,45 @@ describe('official passive feat mechanics', () => {
       .toContain('Higher Elf Feat')
     expect(plannedSlots({ ...adopted, level: 4 }).some(slot => slot.grantedBy === 'Social Chameleon')).toBe(false)
     expect(plannedSlots({ ...adopted, feats: adopted.feats.slice(1) }).some(slot => slot.grantedBy === 'Social Chameleon')).toBe(false)
+  })
+
+  it('toggles both grouped ancestry restrictions independently without changing saved feats', () => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    const names = ['Adopted Ancestry', 'Multitalented', 'Orc Kinship', 'Social Chameleon']
+    const data = names.map(name => entry('feat', name, {}, 1, ['General']))
+    const c: Character = { ...base, level: 9, feats: [
+      { name: 'Shield Block', type: 'General Feat', level: 1 },
+    ] }
+    const saved = JSON.stringify(c)
+    const options = () => eligibleFeats(data, c, { key: 'general:9:0', category: 'general', level: 9 })
+      .map(feat => feat.name)
+    updateSettings({ disableAdoptedAncestry: true, disableAncientElfMultitalented: true })
+    expect(options()).toEqual([])
+    updateSettings({ disableAdoptedAncestry: false })
+    expect(options()).toEqual(['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'])
+    updateSettings({ disableAdoptedAncestry: true, disableAncientElfMultitalented: false })
+    expect(options()).toEqual(['Multitalented'])
+    updateSettings({ disableAdoptedAncestry: false })
+    expect(options()).toEqual(names)
+    expect(JSON.stringify(c)).toBe(saved)
+  })
+
+  it.each(['Elf Atavism', 'Elven Atavism'])('%s hides only Ancient Elf when its grouped restriction is enabled', name => {
+    const previous = getSettings().disableAncientElfMultitalented
+    onTestFinished(() => updateSettings({ disableAncientElfMultitalented: previous }))
+    const elf = entry('ancestry', 'Elf')
+    const ancient = entry('heritage', 'Ancient Elf', {}, 0, ['Elf'])
+    const woodland = entry('heritage', 'Woodland Elf', {}, 0, ['Elf'])
+    const data = [elf, ancient, woodland]
+    const c: Character = { ...base, ancestry: 'Elf', level: 5, heritage: 'Ancient Elf',
+      feats: [{ name, type: 'Ancestry Feat', level: 5, choice: 'Ancient Elf' }] }
+    const saved = JSON.stringify(c)
+    updateSettings({ disableAncientElfMultitalented: true })
+    expect(featChoiceOptions(name, c, data, 'ancestry:5:0')).toEqual(['Woodland Elf'])
+    updateSettings({ disableAncientElfMultitalented: false })
+    expect(featChoiceOptions(name, c, data, 'ancestry:5:0')).toEqual(['Ancient Elf', 'Woodland Elf'])
+    expect(JSON.stringify(c)).toBe(saved)
   })
 
   it('scales each Multilingual selection at master and legendary Society, not just character level', () => {

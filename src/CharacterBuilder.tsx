@@ -37,6 +37,7 @@ import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundLoreSlots, backgroundVariants, type BackgroundVariant } from './builder'
 import { backgroundLoreOptions, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
+import { getSettings } from './settings'
 
 const NONE: ContentEntry[] = []
 
@@ -554,7 +555,9 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         <div className="character-section-content">
           <div className="row">
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined })} />
-            <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage} options={heritagesFor(entries, c.ancestry)} onChange={(v) => save({ heritage: v })} />
+            <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage}
+              options={heritagesFor(entries, c.ancestry).filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')}
+              onChange={(v) => save({ heritage: v })} />
               <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={selectedEthnicity} disabled={!c.ancestry} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
                 {selectedEthnicity && !ethnicities.includes(selectedEthnicity) && <option value={selectedEthnicity} disabled={unavailableEthnicity}>

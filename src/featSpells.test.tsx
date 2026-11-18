@@ -1,6 +1,6 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
@@ -581,6 +581,9 @@ it('grants Caustic Blast automatically for Elemental Wrath regardless of legacy 
 })
 
 it('applies Untamed Shift selected effects, attack runes, heightening, and form resistance', () => {
+  const previous = getSettings().championFormNoFlight
+  onTestFinished(() => updateSettings({ championFormNoFlight: previous }))
+  updateSettings({ championFormNoFlight: false })
   const c: Character = { ...base, className: 'Druid', order: 'Wild', level: 11,
     feats: [taken('Untamed Form'), taken('Elemental Shape', 10), taken('Soaring Shape', 8)],
     handwraps: { potency: 2, striking: 1, runes: [] },
@@ -600,6 +603,7 @@ it('applies Untamed Shift selected effects, attack runes, heightening, and form 
   expect(resistances(shifted, [])).toEqual([])
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Untamed Shift: Claws')
+  expect(html).toContain('aria-label="Untamed Shift: Wings"')
   expect(html).toContain('aria-label="Choose Untamed Shift effects"')
   expect(html).toContain('aria-label="Single Action to Two Actions"')
   expect(html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).not.toContain('Untamed Shift: choose')
@@ -610,6 +614,46 @@ it('applies Untamed Shift selected effects, attack runes, heightening, and form 
     expect(weapons).toContain(' + 4d6 persistent bleed')
     expect(weapons).not.toContain('on a hit (Untamed Shift)')
   }
+})
+
+it('hides Untamed Shift Wings without consuming an effect slot or suppressing Stormwind Flight', () => {
+  const previous = getSettings().championFormNoFlight
+  onTestFinished(() => updateSettings({ championFormNoFlight: previous }))
+  updateSettings({ championFormNoFlight: true })
+  const c: Character = { ...base, className: 'Druid', order: 'Wild', level: 11,
+    feats: [taken('Untamed Form'), taken('Elemental Shape', 10), taken('Soaring Shape', 8)],
+    spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }],
+    activeSpells: ['Untamed Shift', 'Stormwind Flight'], untamedShiftEffects: ['Wings', 'Claws', 'Elemental'] }
+  const before = JSON.stringify(c)
+  expect(movementSpeeds(c, []).filter(speed => speed.name === 'Fly')).toEqual([
+    { name: 'Fly', feet: 25, source: 'Stormwind Flight' },
+  ])
+  expect(resistances(c, [])).toContainEqual({ damage: 'Critical hits', value: 5, source: 'Untamed Shift' })
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('aria-label="Untamed Shift: Claws" checked=""')
+  expect(html).not.toContain('aria-label="Untamed Shift: Wings"')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it('puts saved Untamed Form settings behind the two-action button next to the active toggle', () => {
+  const c: Character = { ...base, className: 'Druid', order: 'Wild', level: 20,
+    feats: [taken('Untamed Form'), taken('Dragon Shape', 12)],
+    activeSpells: ['Untamed Form'], spentFocusPoints: [0],
+    untamedForm: { rank: 10, form: 'Dragon Form', shape: 'Red Dragon', originalDuration: 'unlimited' } }
+  const spell = entry('Untamed Form', 'spell', { actions: 'Two Actions' }, ['Focus'])
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]}
+    save={() => { throw Error('Rendering must preserve saved spell state') }} />)
+  const trigger = html.match(/<button[^>]*aria-label="Configure Untamed Form"[^>]*aria-controls="([^"]+)"[^>]*>[\s\S]*?<\/button>/)
+  expect(trigger?.[0]).toContain('aria-label="Two Actions"')
+  const dialog = html.match(/<dialog\b[^>]*>[\s\S]*?<\/dialog>/g)
+    ?.find(markup => markup.startsWith(`<dialog id="${trigger?.[1]}"`))
+  const options = html.match(/<fieldset class="col"><legend>Untamed Form<\/legend>[\s\S]*?<\/fieldset>/)?.[0]
+  expect(options).toBeDefined()
+  expect(dialog).toContain(options!)
+  expect(options).toContain('aria-label="Untamed Form cast rank" disabled=""')
+  expect(options).toContain('aria-label="Untamed Form shape" disabled="" value="Red Dragon"')
+  expect(options).toContain('selected="">unlimited</option>')
+  expect(html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).toContain('aria-label="Untamed Form active" checked=""')
 })
 
 it('shows the class spell attack modifier for Impaling Briars without an Attack trait', () => {
@@ -887,7 +931,7 @@ it.each(['focus', 'innate', 'prepared'] as const)('hides Animal Feature choices 
     expect(dialog).not.toMatch(/<dialog[^>]*\bopen(?:=|\s|>)/)
     expect(dialog).toContain('aria-label="Animal Feature: Claws" checked=""')
     expect(dialog).toContain('aria-label="Animal Feature: Jaws" checked=""')
-    expect(dialog).toContain('aria-label="Animal Feature: Wings"')
+    expect(dialog).not.toContain('aria-label="Animal Feature: Wings"')
   }
   const visible = html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')
   expect(visible).not.toContain('Animal Feature: choose')
@@ -1025,7 +1069,7 @@ it.each([
   expect(spell.data.duration).toBe(60)
 })
 
-it('disables Animal Feature wings through existing No Flight setting without clearing saved selections', () => {
+it('hides Animal Feature wings through existing No Flight setting without clearing saved selections', () => {
   const previous = getSettings().championFormNoFlight
   const c: Character = { ...base, level: 20, activeSpells: ['Animal Feature'], animalFeatures: ['Wings', 'Fish Tail'],
     feats: [taken('Persistent Animal Feature', 8)], spells: [{ name: 'Animal Feature', rank: 2, cantrip: false }] }
@@ -1033,7 +1077,7 @@ it('disables Animal Feature wings through existing No Flight setting without cle
   const render = () => renderToStaticMarkup(<AnimalFeatureOptions c={c} entries={[]} save={() => {}} />)
   try {
     updateSettings({ championFormNoFlight: true })
-    expect(render()).toContain('aria-label="Animal Feature: Wings" disabled=""')
+    expect(render()).not.toContain('aria-label="Animal Feature: Wings"')
     expect(movementSpeeds(c, []).some(speed => speed.name === 'Fly')).toBe(false)
     expect(movementSpeeds(c, [])).toContainEqual({ name: 'Swim', feet: 25, source: 'Animal Feature' })
     updateSettings({ championFormNoFlight: false })
