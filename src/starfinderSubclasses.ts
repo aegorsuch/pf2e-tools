@@ -1,4 +1,5 @@
 import type { ContentEntry } from './types'
+import { SOLDIER_STYLES } from './soldier'
 
 // Archives of Nethys publishes these SF2e choices under their class pages, not as catalog categories.
 const choices: Record<string, [string, string, string][]> = {
@@ -51,5 +52,10 @@ export const STARFINDER_SUBCLASSES: ContentEntry[] = [...Object.entries(choices)
     id: `supplemental:sf2e:mechanic:${slug}`, systems: ['sf2e'], kind: 'subclass', source: 'official',
     name, level: 1, traits: [], description,
     data: { class: 'Mechanic', url: `https://2e.aonsrd.com/classes/7-mechanic/exocortex/${slug}` },
+    effects: [], updatedAt: 1,
+  })), ...SOLDIER_STYLES.map(({ name, skill, slug, description }): ContentEntry => ({
+    id: `supplemental:sf2e:soldier:${slug}:${skill || 'style'}`, systems: ['sf2e'], kind: 'subclass', source: 'official',
+    name, level: 1, traits: [], description,
+    data: { class: 'Soldier', skill, url: `https://2e.aonsrd.com/classes/5-soldier/fighting-styles/${slug}` },
     effects: [], updatedAt: 1,
   }))]

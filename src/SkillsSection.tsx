@@ -20,6 +20,8 @@ import { backgroundSkillSlots, normalizeGrantedSkillSpending, skillRankAllocatio
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './builder'
+import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './soldier'
+import { witchwarperParadox } from './witchwarper'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 export const COMMON_LORES = [...new Set([
@@ -42,6 +44,7 @@ const RESISTANCE_NOTES: Record<string, string> = {
   'Heart of the Kaiju': "Physical resistance applies only while in kaiju form. This toggle does not apply the form's other statistics.",
   'Primal Aegis': 'Resistance equals your positive Wisdom modifier.',
   'Radiation Resistant': 'Poison resistance applies only to damage from radiation effects.',
+  'Armor Storm': 'Applies only to damage from attacks made by suppressed creatures.',
 }
 
 function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
@@ -157,6 +160,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
   const backgroundTraining = editingSkills ? backgroundSkillSlots(c, entries) : []
+  const erudite = editingSkills ? eruditeWarrior(c) : undefined
+  const eruditeChoice = (name: string) => !!erudite && / lore$/i.test(name)
+    && (!erudite.lore || erudite.lore === name)
   const trainingChoice = (name: string) => backgroundTraining.find(slot => slot.value === name)
     ?? backgroundTraining.find(slot => !slot.value && slot.options.includes(name))
   const downloadFeat = activeFeatsNamed(c, 'Skill Download')[0]
@@ -241,6 +247,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     || !!tokenState && !!skillTokenPurchase(c, entries, name, target, false, tokenState)
   const setRank = (name: string, r: number) => {
     if (!skillNames.has(name)) return
+    if (r === 1 && eruditeChoice(name)) {
+      save({ subclassSkillChoices: { ...c.subclassSkillChoices,
+        [ERUDITE_LORE_KEY]: erudite?.lore === name ? '' : name } })
+      return
+    }
     const backgroundChoice = r === 1 && trainingChoice(name)
     if (backgroundChoice) {
       save({ backgroundSkillChoices: { ...c.backgroundSkillChoices,
@@ -348,12 +359,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             const skillIncreases = Object.fromEntries(Object.entries(c.skillIncreases ?? {}).filter(([, skill]) => skill !== s.name))
             const rankOverrides = { ...c.rankOverrides }
             delete rankOverrides[s.name]
+            const subclassSkillChoices = erudite?.lore === s.name
+              ? { ...c.subclassSkillChoices, [ERUDITE_LORE_KEY]: '' } : c.subclassSkillChoices
             const withoutLore = { ...c, lores: c.lores.filter(lore => lore.name !== s.name),
-              skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides }
-            const stillGranted = [...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(c, entries), ...backgroundSkills(bg, c), ...extraBackgroundSkills].includes(s.name)
+              skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides, subclassSkillChoices }
+            const stillGranted = [...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...autoClassSkills(withoutLore, entries), ...backgroundSkills(bg, c), ...extraBackgroundSkills].includes(s.name)
               || activeFeatsNamed(c, "Officer's Medical Training").some(feat => feat.choice === s.name)
                 && (ranksAt(withoutLore, entries)[s.name] ?? 0) > 0
-            save({ lores: c.lores.filter(lore => lore.name !== s.name),
+            save({ lores: c.lores.filter(lore => lore.name !== s.name), subclassSkillChoices,
               ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides,
                 skillTokenUpgrades: c.skillTokenUpgrades?.filter(purchase => purchase.skill !== s.name) } : {}) })
           })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
@@ -362,6 +375,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
           {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
+          {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
+            && <SourceNote source="Tangible Object" note={`${conditionalTotal(1)} against illusions and holograms (+1 circumstance).`} />}
+          {isSoldier(c) && c.level >= 3 && ['Athletics', 'Intimidation'].includes(s.name)
+            && <SourceNote source="Fearsome Bulwark" note={`${signed(total - armorPenalty + Math.max(0, abilityMod(c.abilities.con) - abil))} to ${
+              s.name === 'Athletics' ? 'Reposition or Shove' : 'Coerce or Demoralize'} using Constitution instead of ${ABILITY_LABEL[ability]}.`} />}
+          {s.name === 'Athletics' && soldierStyle(c)?.name === 'Armor Storm'
+            && <SourceNote source="Armor Storm" note={`${signed(total - armorPenalty + Math.max(0, 1 - status))} to Disarm, Grapple, Reposition, Shove, or Trip suppressed foes (+1 status).
+              ${c.level >= 3 ? `Reposition or Shove using Fearsome Bulwark: ${signed(total - armorPenalty + Math.max(0, 1 - status) + Math.max(0, abilityMod(c.abilities.con) - abil))}.` : ''}
+              No free hand required; success suppresses until your next turn.`} />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
@@ -442,7 +464,15 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {s.name === 'Survival' && wasteland && <SourceNote inlineSource={false} source="Wasteland Warrior" note={hazardNote} />}
           {s.name === 'Survival' && terrainExpertise && <SourceNote inlineSource={false} source="Terrain Expertise"
             note={`${conditionalTotal(1)} to Survival in ${terrainExpertise.terrains.join(', ')} terrain.`} />}
-          </b></span>
+          </b>{editingSkills && s.kind === 'skill' && permanentRank > 0 && witchwarperParadox(c)
+            && c.witchwarper?.anchor === 'Core Memories' && <button type="button"
+              aria-label={`Core Memories ${s.name}`} aria-pressed={c.witchwarper.coreMemorySkill === s.name}
+              onClick={() => {
+                const selected = c.witchwarper?.coreMemorySkill === s.name
+                const select = () => save({ witchwarper: { ...c.witchwarper, coreMemorySkill: selected ? undefined : s.name } })
+                if (selected) confirmRemoval(`Core Memories Assurance (${s.name})`, select)
+                else select()
+              }}>Assurance</button>}</span>
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = permanentRank === i + 1 ? i : i + 1
@@ -450,7 +480,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             const downloadAvailable = !!downloadFeat && i + 1 === downloadRank
               && (temporary || permanentRank < downloadRank)
             const backgroundChoice = i === 0 ? trainingChoice(s.name) : undefined
-            const trainedDisabled = i === 0 && !backgroundChoice && (
+            const trainedDisabled = i === 0 && !backgroundChoice && !eruditeChoice(s.name) && (
               permanentRank === 0 ? remaining <= 0
                 : permanentRank === 1 ? !picks.includes(s.name)
                   : baseRank > 1
@@ -580,8 +610,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           note={spec.effect} />{spec.group === 'Plate' && ' Plate resistance applies to all slashing damage, not only critical hits.'}
           {spec.group === 'Chain' && ' Chain reduction applies only when you are critically hit.'}</small> : <small>Armor Specialization: None</small>}
         <small>Resistances: {res.length ? res.map((r, index) => {
-          const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect
-            : activeFeatsNamed(c, r.source).length ? RESISTANCE_NOTES[r.source] : undefined
+          const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect : RESISTANCE_NOTES[r.source]
           return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}{note
             ? <SourceNote source={r.source} note={note} /> : ` (${r.source})`}</span>
         }) : 'None'}
@@ -615,7 +644,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>
             <b>{RANK_LETTERS[index]}</b>{budget[rank] + Number(!!downloadFeat && !downloaded && downloadRank === index + 1)
-              + (rank === 'trained' ? backgroundTraining.filter(slot => !slot.value).length : 0)}
+              + (rank === 'trained' ? backgroundTraining.filter(slot => !slot.value).length + Number(!!erudite && !erudite.lore) : 0)}
           </span>
         ))}
       </div>
@@ -643,7 +672,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             input.setCustomValidity('This Lore skill already exists.')
           }
           if (!input.reportValidity()) return
-          save({ lores: [...c.lores, { name, rank: 0 }] })
+          save({ lores: [...c.lores, { name, rank: 0 }],
+            ...(erudite && !erudite.lore ? { subclassSkillChoices: { ...c.subclassSkillChoices, [ERUDITE_LORE_KEY]: name } } : {}) })
           form.reset()
           form.closest('details')?.removeAttribute('open')
         }}>

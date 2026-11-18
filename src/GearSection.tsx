@@ -1,13 +1,14 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, abilityMod, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { armorBulk, armorStrengthMet } from './builder'
 import { classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
@@ -1215,6 +1216,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ', '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}</small>
+          {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
+            <SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></small>)}
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
             {summary.form && <small>{summary.form}:</small>}
@@ -1294,6 +1297,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <div className="gear-stats">
                 <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
                 {summary.attack.range > 0 && <span><small>Range</small><b>{summary.attack.range} feet</b></span>}
+                {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
+                  DC {area.dc} Reflex, {area.shape}<SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></span>)}
                 {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet</b></span>}
                 {summary.attack.thrownRangeBonus > 0 && !summary.attack.range && !summary.attack.thrownRange
                   && <span><small>Thrown range</small>+{summary.attack.thrownRangeBonus} feet (Strong Arm)</span>}
@@ -1588,8 +1593,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const strengthRequirement = Number(entry?.data.strength)
         const hasStrengthRequirement = entry?.data.strength !== undefined && entry.data.strength !== null
           && entry.data.strength !== '' && Number.isFinite(strengthRequirement) && strengthRequirement > 0
-        const strengthMet = hasStrengthRequirement && abilityMod(c.abilities.str)
-          + (activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? 2 : 0) >= strengthRequirement
+        const strengthMet = !!entry && armorStrengthMet(c, entry)
         const checkPenalty = parseFloat(String(entry?.data.check_penalty ?? 0)) || 0
         const effectiveCheckPenalty = strengthMet ? 0 : checkPenalty
         const speedPenalty = parseFloat(String(entry?.data.speed_penalty ?? 0)) || 0
@@ -1660,6 +1664,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 <span><small>Strength</small>{hasStrengthRequirement
                   ? `${signed(strengthRequirement)} (${strengthMet ? 'met' : 'not met'})` : '—'}</span>
                 <span><small>Category</small>{String(entry.data.armor_category ?? armorCategory(entry))}</span>
+                <span><small>Bulk</small>{String(armorBulk(c, entry, a.worn) ?? '—')}
+                  {armorBulk(c, entry, a.worn) !== entry.data.bulk
+                    && <SourceNote source="Walking Armory" note="Armor Bulk reduced by 1, minimum 1, because your Strength meets its requirement." />}</span>
                 <span><small>Group</small>{String(entry.data.armor_group || '—')}</span>
                 <span><small>Speed</small>{hasStrengthRequirement
                   ? `${penalty(speedPenalty)} ft (${penalty(effectiveSpeedPenalty)} ft)`

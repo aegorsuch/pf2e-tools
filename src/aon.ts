@@ -35,6 +35,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   }
   // The search index omits Intimidation: https://2e.aonsrd.com/deities/20-zon-shelyn
   if (system === 'sf2e' && kind === 'deity' && name === 'Zon-Shelyn') data.skill = 'Crafting, Intimidation'
+  if (system === 'sf2e' && kind === 'class') {
+    if (name === 'Soldier') data.attribute = 'Constitution'
+    if (name === 'Witchwarper') data.attribute = 'Intelligence, Charisma'
+  }
   if (kind === 'spell') {
     const header = text(s.markdown).split(/\n\s*---\s*\n/, 1)[0]
     for (const field of ['duration', 'range']) {

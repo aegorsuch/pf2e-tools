@@ -18,6 +18,8 @@ import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
+import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
+import { witchwarperParadox, witchwarperSpellcasting, witchwarperSpellSlots } from './witchwarper'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
@@ -1427,6 +1429,7 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
 }
 
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
+  if (c.className === 'Witchwarper') return witchwarperSpellcasting(c)
   const klass = byName(entries, 'class', c.className)
   const traditions = c.className === 'Druid' ? ['Primal'] : tokens(klass?.data.tradition)
   const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
@@ -1467,6 +1470,7 @@ export function spellDCText(c: Character, entries: ContentEntry[], text: string)
 }
 
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
+  if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
   if (c.className !== 'Druid' || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   const slots: Record<number, number> = {}
   if (c.level < 1) return slots
@@ -1567,20 +1571,33 @@ export function favoredTerrainBenefits(c: Character, entries: ContentEntry[]) {
     || classFeatures(entries, c).some(feature => feature.name === 'Unimpeded Journey') }
 }
 
+export function armorStrengthMet(c: Character, armor: ContentEntry, allowConstitution = true) {
+  const threshold = num(armor.data.strength)
+  const score = threshold >= 10 && !armor.systems.includes('sf2e')
+  const strength = (score ? c.abilities.str : abilityMod(c.abilities.str))
+    + (activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? score ? 4 : 2 : 0)
+  const constitution = allowConstitution && isSoldier(c) ? score ? c.abilities.con : abilityMod(c.abilities.con) : -Infinity
+  return threshold > 0 && Math.max(strength, constitution) >= threshold
+}
+
+export function armorBulk(c: Character, armor: ContentEntry, worn: boolean) {
+  return worn && isSoldier(c) && armorStrengthMet(c, armor, false) && num(armor.data.bulk) > 1
+    ? Math.max(1, num(armor.data.bulk) - 1) : armor.data.bulk
+}
+
 export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
   const armor = worn && armorEntry(c, entries, worn.name)
   if (armor && !armor.systems.includes('sf2e')) {
     const base = Math.min(0, num(armor.data.speed_penalty))
-    const meets = num(armor.data.strength) > 0 && c.abilities.str >= num(armor.data.strength)
+    const meets = num(armor.data.strength) > 0 && (c.abilities.str >= num(armor.data.strength)
+      || isSoldier(c) && c.abilities.con >= num(armor.data.strength))
     const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
     const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
     return { check: 0, speed: Math.min(0, base + iron + (meets ? mobility ? 10 : 5 : 0)) }
   }
   if (!armor) return { check: 0, speed: 0 }
-  const threshold = num(armor.data.strength)
-  const meets = threshold > 0 && abilityMod(c.abilities.str)
-    + 2 * Number(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length > 0) >= threshold
+  const meets = armorStrengthMet(c, armor)
   const check = meets ? 0 : Math.min(0, num(armor.data.check_penalty))
   const penalty = Math.min(0, num(armor.data.speed_penalty))
   const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
@@ -1606,6 +1623,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     { source: `${names.has('Hyper Boosters') ? 'Hyper Boosters' : 'Speed Boosters'} (status)`, feet: booster },
     { source: 'Favored Terrain (Plains; status)', feet: terrainSpeed },
     { source: 'Uncanny Dash (status)', feet: dashSpeed },
+    { source: 'Quantum Field (status)', feet: witchwarperParadox(c)?.name === 'Precog' && c.witchwarper?.movingInQuantumField ? 5 : 0 },
   ].sort((a, b) => b.feet - a.feet)[0]
   const armorPenalty = starfinderArmorPenalties(c, entries).speed
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
@@ -1654,9 +1672,11 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     && activeFeatsNamed(c, 'Gg-os Frame').length > 0
   const armorPenalty = starfinderArmorPenalties(c, entries).speed
   const landStatus = speedBonuses(c, entries, options).find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
+  const fieldSpeed = witchwarperParadox(c)?.name === 'Precog' && c.witchwarper?.movingInQuantumField ? 5 : 0
+  const fixedStatus = Math.max(dash ? 10 : 0, fieldSpeed)
   const fixed = (name: string, feet: number, source: string) => ({
-    name, feet: Math.max(5, feet + (dash ? 10 : 0) + armorPenalty), status: dash ? 10 : 0,
-    source: `${source}${dash ? ', Uncanny Dash (+10 status)' : ''}${armorPenalty ? `, armor (${armorPenalty})` : ''}`,
+    name, feet: Math.max(5, feet + fixedStatus + armorPenalty), status: fixedStatus,
+    source: `${source}${dash ? ', Uncanny Dash (+10 status)' : fieldSpeed ? ', Quantum Field (+5 status)' : ''}${armorPenalty ? `, armor (${armorPenalty})` : ''}`,
   })
   const atLandSpeed = (name: string, source: string) => ({ name, feet: land, source, status: landStatus })
   const features = activeAnimalFeatures(c, entries)
@@ -1982,6 +2002,8 @@ export function subclassSkillChoice(c: Character, entries: ContentEntry[]) {
 
 export function subclassSkillGrants(c: Character, entries: ContentEntry[]): string[] {
   if (c.level < 1 || !c.className) return []
+  const erudite = eruditeWarrior(c)
+  if (erudite) return [erudite.skill, ...(erudite.lore ? [erudite.lore] : [])]
   const subclass = selectedSubclass(c, entries)
   if (!subclass) return []
   if (c.className === 'Druid') return DRUID_ORDERS[subclass] ? [DRUID_ORDERS[subclass]] : []
@@ -2047,6 +2069,8 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  const paradox = witchwarperParadox(c)
+  if (paradox) add(paradox.initialWarpSpell, `${paradox.name} paradox`)
   const champion = c.className === 'Champion' && c.level >= 1
   const devotionAvailable = c.devotionSpell && (championDevotionOptions(c, entries).includes(c.devotionSpell)
     || !!c.deity && !byName(entries, 'deity', c.deity))
@@ -2657,6 +2681,18 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (testSubjectAdaptation(c) === 'Cybernetic Augmentation') {
     grants.push({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
   }
+  if (soldierStyle(c)?.name === 'Close Quarters') {
+    grants.push({ name: 'Whirling Swipe', source: 'Close Quarters', level: 1 })
+  }
+  const memorySkill = witchwarperParadox(c) && c.witchwarper?.anchor === 'Core Memories' ? c.witchwarper.coreMemorySkill : undefined
+  if (memorySkill) {
+    const rank = ranksAt({ ...c, witchwarper: { ...c.witchwarper, coreMemorySkill: undefined } }, entries)[memorySkill] ?? 0
+    if (rank > 0) grants.push({ name: 'Assurance', choice: memorySkill, source: 'Core Memories', level: 1 })
+    if (rank >= 2 && (/ lore$/i.test(memorySkill)
+      || ['Arcana', 'Computers', 'Crafting', 'Medicine', 'Nature', 'Occultism', 'Religion', 'Society'].includes(memorySkill))) {
+      grants.push({ name: 'Automatic Knowledge', choice: memorySkill, source: 'Core Memories', level: 1 })
+    }
+  }
   if (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Kinship').length) {
     grants.push({ name: 'Adopted Ancestry', choice: 'Orc', source: 'Orc Kinship',
       level: Math.min(...activeFeatsNamed(c, 'Orc Kinship').map(featTakenLevel)) })
@@ -2763,6 +2799,10 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
   if (testSubjectAdaptation(c) === 'Cybernetic Augmentation' && beforeLevel > 1) bump('Computers')
   autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
+  const erudite = eruditeWarrior({ ...c, level: Math.min(c.level, beforeLevel - 1) })
+  if (erudite) for (const skill of [erudite.skill, ...(erudite.lore ? [erudite.lore] : [])]) {
+    ranks[skill] = Math.max(ranks[skill] ?? 0, erudite.rank)
+  }
   backgroundSkills(byName(entries, 'background', c.background), c).forEach(bump)
   backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries), c).forEach(bump)
   if (isPioneerHuman(c)) bump('Survival')
@@ -3226,6 +3266,9 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  if (soldierStyle(c)?.name === 'Armor Storm') {
+    out.push({ damage: 'all damage from attacks by suppressed creatures', value: half, source: 'Armor Storm' })
+  }
   if ((c.weapons ?? []).some(weapon => weaponEntry(entries, weapon.name)?.data.named_weapon_source === "Spear of the Destroyer's Flame")) {
     out.push({ damage: 'fire', value: 20, source: "Spear of the Destroyer's Flame" })
   }
@@ -4642,11 +4685,13 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? (c.level >= 15 ? 2 : 1) * rank : 0
   const barbarianSpecialization = c.className === 'Barbarian' && c.systems.includes('pf2e') && c.level >= 7 && rank >= 2
     ? (c.level >= 15 ? 2 : 1) * rank : 0
+  const starfinderSpecialization = c.systems.includes('sf2e') && rank >= 2
+    && (c.className === 'Soldier' && c.level >= 7 || c.className === 'Witchwarper' && c.level >= 13) ? rank : 0
   const cairnSpecialization = cairn && rank >= 2
     ? classFeatures(entries, c).some(feature => /^greater weapon specialization$/i.test(feature.name)) ? rank * 2
       : classFeatures(entries, c).some(feature => /^weapon specialization$/i.test(feature.name)) ? rank : 0 : 0
   const rageDamage = rageDamageBonus(c, entries, w, traits, ranged)
-  const damageBonus = flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization) + rageDamage
+  const damageBonus = flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + rageDamage
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -4658,11 +4703,28 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const pristineLivingWeapon = c.level >= 14
     && ['Pristine Living Weapon', 'Living Weapon', 'Wild Hunter Dedication'].every((name) => hasFeat(c, name))
     && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource)
+  const range = ranged && num(entry?.data.range) > 0
+    ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
+      * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0
+  const style = soldierStyle(c)
+  const areaTrait = entry?.traits.find(trait => /^area(?:\s|$)/i.test(trait))
+  const automatic = traits.some(trait => /^automatic(?:\s|$)/i.test(trait))
+  const closeQuarters = style?.name === 'Close Quarters' && !ranged && weaponHands(entries, w, c) === 2
+  const classDC = isSoldier(c) ? classDifficultyClass(c, entries) : undefined
+  const areaAttacks = classDC === undefined ? [] : [
+    ...(areaTrait ? [{ name: 'Area Fire', shape: areaTrait.replace(/^area\s*/i, '') }] : []),
+    ...(automatic ? [{ name: 'Auto-Fire', shape: `${style?.name === 'Action Hero' ? range : Math.floor(range / 2)}-foot cone` }] : []),
+    ...(closeQuarters ? [{ name: 'Soldier feat area', shape: '5-foot burst' }] : []),
+  ].map(area => ({ ...area, dc: classDC + (usesWeaponUpgrades(entry) ? w.potency : 0),
+    note: `Area Fire and Auto-Fire take two actions; soldier feats use their listed action costs. Basic Reflex save. Failure${style?.name === 'Bombard' ? ' or success (not critical success)' : ''} suppresses enemies until your next turn (-1 circumstance to attacks, -10-foot status to Speeds).${
+      !/\bgrenade\b/i.test(`${entry?.name} ${entry?.data.weapon_group ?? ''}`) ? " Primary Target: before the area attack, make a free Strike without increasing MAP; a hit changes that target's successful area save to failure." : ' Grenades and grenade launchers cannot use Primary Target.'}${
+      style?.name === 'Bombard' ? ` Exclude up to ${Math.max(0, Math.floor(abilityMod(c.abilities.con) / 2))} allies.` : ''}${style ? ` ${style.description}` : ''}` }))
   return {
     entry,
     upgrades,
     pristineLivingWeapon,
     rageDamage,
+    areaAttacks,
     additionalDamage: [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])],
@@ -4676,7 +4738,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(w.runes.some((rune) => runeName(rune) === 'Parrying') && weaponRuneApplies(entries, w, 'Parrying')
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
-    criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization,
+    criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
+      || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait)),
     criticalNote: cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
     ability,
     mod,
@@ -4694,9 +4757,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ...(clumsy ? [{ label: 'Giant Instinct: clumsy (status)', value: -clumsy }] : []),
       ],
     } satisfies TotalBreakdown,
-    range: ranged && num(entry?.data.range) > 0
-      ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
-        * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0,
+    range,
     thrownRange: !ranged && thrown && thrownRange > 0
       ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,
@@ -4969,6 +5030,11 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
   const backgroundTraining = backgroundSkillSlots(c, entries)
   total.trained += backgroundTraining.length
   remaining.trained += backgroundTraining.filter(slot => !slot.value).length
+  const erudite = eruditeWarrior(c)
+  if (erudite) {
+    total.trained++
+    remaining.trained += Number(!erudite.lore)
+  }
   for (const token of skillIncreaseTokens(c, entries)) total[keys[token.rank - 1]]++
   if (activeFeatsNamed(c, 'Skill Download').length) {
     const key = keys[c.level >= 17 ? 2 : c.level >= 9 ? 1 : 0]

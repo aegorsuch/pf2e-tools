@@ -28,6 +28,22 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
+  let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
+    lores: [{ name: 'Military Lore', rank: 0 }] }
+  const tree = () => SkillsSection({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
+  const remaining = skillRankBudget(c, []).trained
+  expect(renderToStaticMarkup(SkillsSummary({ c, entries: [] }))).toContain('0/1 Trained')
+  expect(findButtons(tree()).get('Military Lore Trained')?.disabled).toBe(false)
+  ;(findButtons(tree()).get('Military Lore Trained')!.onClick as () => void)()
+  expect(c.subclassSkillChoices?.['Soldier:Erudite Warrior:lore']).toBe('Military Lore')
+  expect(renderToStaticMarkup(SkillsSummary({ c, entries: [] }))).toContain('1/1 Trained')
+  expect(skillRankBudget(c, []).trained).toBe(remaining)
+  ;(findButtons(tree()).get('Military Lore Trained')!.onClick as () => void)()
+  expect(c.subclassSkillChoices?.['Soldier:Erudite Warrior:lore']).toBe('')
+  expect(ranksAt(c, [])['Military Lore']).toBe(0)
+})
+
 it('uses shared skill buttons for a restricted divine skill without spending unrestricted training', () => {
   const disciple: ContentEntry = { ...feyBound, name: 'Disciple (Zon-Shelyn)', data: {
     skill: 'Zon-Shelyn Lore', background_skill_options: 'Crafting, Intimidation',

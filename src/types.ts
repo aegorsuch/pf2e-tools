@@ -192,6 +192,11 @@ export interface Character {
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)
   classSkill?: string
   subclassSkillChoices?: Record<string, string>
+  witchwarper?: {
+    anchor?: 'Core Memories' | 'Focal Point' | 'Tangible Object'
+    coreMemorySkill?: string
+    movingInQuantumField?: boolean
+  }
   rogueRacketSkills?: Record<string, string>
   background?: string
   backgroundTerrainLore?: Record<string, string>
@@ -328,6 +333,8 @@ export interface Character {
     ability: keyof Character['abilities']; tradition: string; rank: number; slots: Record<string, number>
     prepared?: Record<string, string>
     spentSlots?: string[]
+    repertoire?: Record<string, string>
+    signatureSpells?: Record<string, string>
   }
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   mageAutomatonCantrip?: string

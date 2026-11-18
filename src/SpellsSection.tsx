@@ -20,6 +20,7 @@ import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
+import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
@@ -439,6 +440,108 @@ export function DevotionSpellChoice({ c, entries, save }: SectionProps) {
   </div>
 }
 
+export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
+  const [castRanks, setCastRanks] = useState<Record<string, number>>({})
+  const spellIndex = useMemo(() => {
+    const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted && entry.systems.some(system => c.systems.includes(system)))
+    return { spells, byId: new Map(spells.map(entry => [entry.id, entry])), byName: new Map(spells.map(entry => [entry.name, entry])) }
+  }, [entries, c.systems])
+  const options = useMemo(() => Array.from({ length: 11 }, (_, rank) => witchwarperSpellOptions(c, spellIndex.spells, rank)),
+    [c.className, c.subclass, c.level, c.systems, c.spells, spellIndex])
+  const paradox = witchwarperParadox(c)
+  const casting = classSpellcasting(c, entries)
+  const slots = classSpellSlots(c)
+  if (!paradox || !casting?.ability || !slots) return null
+  const sc = { ...c.spellcasting, ability: casting.ability, tradition: paradox.tradition, rank: casting.rank, slots }
+  const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => save({ spellcasting: { ...sc, ...patch } })
+  const dc = spellDifficultyClass(c, entries)
+  const selected = new Set<string>()
+  const known = witchwarperRepertoireSlots(c).map(slot => {
+    const entry = slot.granted ? spellIndex.byName.get(slot.granted)
+      : spellIndex.byId.get(slot.value) ?? spellIndex.byName.get(slot.value)
+    const key = `${slot.rank}:${entry?.name}`
+    const valid = !!entry && !selected.has(key) && (slot.granted ? entry.name === slot.granted
+      : options[slot.rank].some(option => option.id === entry.id))
+    if (valid) selected.add(key)
+    return { ...slot, entry, valid }
+  })
+  return <div className="class-spell-slots">
+    <div className="row"><b>Spell Repertoire</b>
+      {!!sc.spentSlots?.length && <button type="button" aria-label="Reset class spell slots"
+        onClick={() => setSc({ spentSlots: [] })}>Reset slots</button>}
+    </div>
+    {[...new Set(known.map(slot => slot.rank))].map(rank => {
+      const available = Array.from({ length: slots[rank] ?? 0 }, (_, index) => `${rank}:${index}`)
+        .filter(key => !sc.spentSlots?.includes(key)).length
+      return <section className="spell-slot-group" key={rank}>
+        <h5>{rank === 0 ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})`
+          : `Spell Rank ${rank} (${available}/${slots[rank]} slots)`}</h5>
+        <SpellColumns />
+        <ul>{known.filter(slot => slot.rank === rank).map((slot, index) => {
+          const choices = uniqueSpellNames([
+            ...(slot.entry && options[rank].some(entry => entry.id === slot.entry?.id) ? [slot.entry] : []),
+            ...options[rank].filter(entry => !known.some(other => other.key !== slot.key
+              && other.rank === rank && other.valid && other.entry?.name === entry.name)),
+          ])
+          const signature = c.level >= 3 && rank > 0 && sc.signatureSpells?.[rank] === slot.key && slot.valid
+          const requestedRank = castRanks[slot.key] ?? rank
+          const allowedRanks = signature ? Object.keys(slots).map(Number)
+            .filter(value => value > 0 && value >= (slot.entry?.level ?? rank)) : [rank]
+          const castRank = allowedRanks.includes(requestedRank) ? requestedRank : rank
+          const freeSlot = Array.from({ length: slots[castRank] ?? 0 }, (_, index) => `${castRank}:${index}`)
+            .find(key => !sc.spentSlots?.includes(key))
+          const metadata = spellMetadata(slot.entry, rank === 0 ? Math.ceil(c.level / 2) : castRank, c)
+          const value = slot.granted ? slot.entry?.id ?? slot.granted : slot.value
+          return <li className="spellbook-row" key={slot.key}>
+            <div className="spellbook-slot">
+              {slot.granted ? <><EntryDescription name={slot.granted} entry={slot.entry} />
+                <SourceNote source={`${paradox.name} paradox`} note="Granted repertoire spell; does not use a free spell choice." /></>
+                : <SearchableSelect aria-label={`Witchwarper ${rank === 0 ? 'cantrip' : `rank ${rank} spell`} ${index + 1}`}
+                  value={value} onChange={event => {
+                    const value = event.target.value
+                    if (value && !choices.some(entry => entry.id === value)) return
+                    const select = () => setSc({ repertoire: { ...sc.repertoire, [slot.key]: value } })
+                    if (!value && slot.value) confirmRemoval(`repertoire spell "${slot.entry?.name ?? slot.value}"`, select)
+                    else select()
+                  }}>
+                  <option value="">Not Selected</option>
+                  {slot.value && !choices.some(entry => entry.id === slot.value)
+                    && <option value={slot.value} disabled={!slot.valid}>{slot.entry?.name ?? slot.value}{!slot.valid && ' (unavailable)'}</option>}
+                  {choices.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                </SearchableSelect>}
+              {slot.entry && !slot.granted && <EntryDescription name={slot.entry.name} entry={slot.entry}
+                buttonLabel="Details" className="picker-details" />}
+              {rank > 0 && <button type="button" disabled={!slot.valid || !freeSlot}
+                aria-label={`Cast ${slot.entry?.name ?? 'unselected spell'} at rank ${castRank}`}
+                onClick={() => {
+                  if (slot.valid && freeSlot) setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), freeSlot])] })
+                }}>Cast</button>}
+              {c.level >= 3 && rank > 0 && <button type="button" disabled={!slot.valid}
+                aria-label={`Signature spell rank ${rank} choice ${index + 1}`} aria-pressed={signature}
+                className={signature ? 'on' : ''} onClick={() => {
+                  const select = () => setSc({ signatureSpells: { ...sc.signatureSpells, [rank]: signature ? '' : slot.key } })
+                  if (signature) confirmRemoval(`signature spell "${slot.entry?.name}"`, select)
+                  else select()
+                }}>Signature</button>}
+              {signature && <select aria-label={`Cast rank for ${slot.entry?.name}`} value={castRank}
+                onChange={event => setCastRanks({ ...castRanks, [slot.key]: Number(event.target.value) })}>
+                {allowedRanks.map(value => <option key={value} value={value}>Rank {value}</option>)}
+              </select>}
+              {slot.entry && <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />}
+            </div>
+            <span><small>Duration</small>{metadata.duration}</span>
+            <span><small>Range</small>{metadata.range}</span>
+            <span><small>Save</small>{spellSave(metadata.save, dc)}</span>
+            <span><small>Area/Targets</small>{metadata.targets}</span>
+            {(slot.value || slot.granted) && !slot.valid
+              && <small className="innate-spell-controls" role="status">Selected repertoire spell unavailable for your current spell list or rank.</small>}
+          </li>
+        })}</ul>
+      </section>
+    })}
+  </div>
+}
+
 function spellSummaryData(c: Character, entries: ContentEntry[]) {
   const spells = (c.spells ?? []).map(spell => spell.name.toLowerCase() === 'goodberry'
     ? { ...spell, name: 'Cornucopia', entryId: entries.find(entry => entry.kind === 'spell' && !entry.deleted
@@ -460,7 +563,9 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
     const [rank, index] = key.split(':').map(Number)
     return value && Number.isInteger(index) && index >= 0 && index < (slots?.[rank] ?? 0)
   })
-  const classSpells = slots ? new Set(prepared.map(([, value]) => value)).size : manualSpells.length
+  const classSpells = witchwarperParadox(c)
+    ? new Set(witchwarperRepertoireSlots(c).flatMap(slot => slot.granted ? [slot.granted] : slot.value ? [slot.value] : [])).size
+    : slots ? new Set(prepared.map(([, value]) => value)).size : manualSpells.length
   return <summary className="character-section-summary">
     <strong>Spells</strong>
     <span>{classSpells + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length + items.length} spells
@@ -481,7 +586,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const casting = classSpellcasting(c, entries)
   const automaticSlots = classSpellSlots(c)
-  const druid = automaticSlots !== undefined
+  const witchwarper = witchwarperParadox(c)
+  const druid = c.className === 'Druid' && automaticSlots !== undefined
   const sc: Character['spellcasting'] = c.className === 'Druid' ? { ...c.spellcasting,
     ability: 'wis', tradition: 'Primal', rank: casting?.rank ?? 1,
     slots: automaticSlots ?? c.spellcasting?.slots ?? {} } : c.spellcasting
@@ -667,7 +773,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <DevotionSpellChoice c={c} entries={entries} save={save} />
       {casting && <>
       <div className="row">
-        {!casting.ability && <label>Casting ability{' '}
+        {!casting.ability && c.className !== 'Witchwarper' && <label>Casting ability{' '}
           <select value={sc?.ability ?? ''} onChange={(e) => setSc({ ability: e.target.value as never })}>
             <option value="">none</option>
             {ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a]}</option>)}
@@ -681,7 +787,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             </label>}
         {traditions.length === 1 && <b>{traditions[0]} tradition</b>}
       </div>
-      {(sc || casting.ability) && (
+      {(c.className === 'Witchwarper' ? casting.ability : sc || casting.ability) && (
         <div className="skill-row with-item spell-dc-row">
           <span className="skill-name">DC {10 + mod} <small>(Attack {signed(mod)})</small></span>
           <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${RANK_NAMES[casting.rank]}`} title={RANK_NAMES[casting.rank]}>
@@ -706,7 +812,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {c.className === 'Druid' && !druid && <small role="status">
         Flexible Spellcaster preparation is not automated; your manual spell-slot settings are retained.
       </small>}
-      {sc && traditions.length > 0 && classSlotRanks.length > 0 && <div className="class-spell-slots">
+      {witchwarper && <WitchwarperRepertoire c={c} entries={entries} save={save} />}
+      {!witchwarper && sc && traditions.length > 0 && classSlotRanks.length > 0 && <div className="class-spell-slots">
         <div className="row">
           <b>Class Spell Slots</b>
           {(sc.spentSlots?.length ?? 0) > 0 && <button type="button" aria-label="Reset class spell slots"

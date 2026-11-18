@@ -6,6 +6,7 @@ import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
+import { WitchwarperFeatures } from './WitchwarperFeatures'
 
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
@@ -48,12 +49,10 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       <summary><h4>Class Features ({features.length})</h4></summary>
       {!imported && <p>Class feature data is still loading.</p>}
       <MechanicFeatures c={c} save={save} />
+      <WitchwarperFeatures c={c} save={save} />
       {giant && <div className="col" aria-label="Giant Instinct">
         {weaponChoice('Giant Instinct weapon', c.giantWeaponId, weapon => canBeGiantWeapon(c, entries, weapon),
           id => save({ giantWeaponId: id || undefined }))}
-        <small>Selected weapon is oversized (Large for Small or Medium wielders).
-          House rule: Orichalcum and level-appropriate potency and striking runes.
-          Clumsy 1 applies while wielding it, even outside Rage. Size does not increase damage dice or reach.</small>
         {c.level >= 9 && <label>Raging Resistance{' '}
           <select aria-label="Giant Raging Resistance" value={c.giantRagingResistance ?? ''} onChange={event => {
             const choice = (['Cold', 'Electricity', 'Fire'] as const).find(name => name === event.target.value)
@@ -62,7 +61,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
             <option value="">Choose damage type</option>
             {['Cold', 'Electricity', 'Fire'].map(name => <option key={name}>{name}</option>)}
           </select>
-          <small> While raging: bludgeoning and chosen type, resistance 3 + Constitution modifier.</small>
         </label>}
       </div>}
       {verdant && <div className="col" aria-label="Verdant Weapon selection">
