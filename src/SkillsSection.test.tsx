@@ -526,6 +526,25 @@ it('applies only the highest owned Killer belt bonus and removes it when gear is
     [{ ...greater, deleted: true }])).toBeUndefined()
 })
 
+it('applies the Voyager pack Survival item bonus without a source label or stacking copies and conditional item bonuses', () => {
+  const pack: ContentEntry = { ...KILLERS_BELT_MAJOR, id: 'voyager', name: "Voyager's Pack", source: 'official', effects: [] }
+  const arrowhead: ContentEntry = { ...pack, id: 'arrowhead', name: "Hunter's Arrowhead (Major)" }
+  const entries = [ranger, pack, arrowhead]
+  const c: Character = { ...base, equipment: [{ name: pack.name, qty: 2 }, { name: arrowhead.name, qty: 1 }] }
+  const row = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} />)
+    .split('class="skill-name">Survival')[1].split('class="skill-name">')[0]
+  const withoutPack = { ...c, equipment: c.equipment.filter(item => item.name !== pack.name) }
+  const ordinaryTotal = Number(/<b>\+?(-?\d+)/.exec(row(withoutPack))![1])
+  const markup = row(c)
+  expect(markup).toContain(`<b>+${ordinaryTotal + 3}`)
+  expect(markup).toContain(`Survival +${ordinaryTotal + 3} against your Hunt Prey target`)
+  expect(markup).not.toContain(pack.name)
+  expect(builder.voyagerPackBonus(withoutPack, entries)).toBeUndefined()
+  expect(builder.voyagerPackBonus({ ...c, equipment: [{ name: pack.name, qty: 0 }] }, entries)).toBeUndefined()
+  expect(builder.voyagerPackBonus(c, [{ ...pack, deleted: true }])).toBeUndefined()
+  expect(builder.voyagerPackBonus(c, [{ ...pack, systems: ['sf2e'] }])).toBeUndefined()
+})
+
 it('shows Rider as a conditional Nature bonus without increasing ordinary Nature checks', () => {
   const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)

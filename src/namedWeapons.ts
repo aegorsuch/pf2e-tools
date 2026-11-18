@@ -1,4 +1,5 @@
 import type { ContentEntry, OwnedWeapon } from './types'
+import { getSettings } from './settings'
 
 const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club"
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
@@ -209,9 +210,12 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   const end = destruction < 0 ? entry.description.length : destruction
   const intro = entry.description.slice(0, tiers[0]?.index ?? end)
   const active = tier ? entry.description.slice(tier.index, next?.index ?? end) : ''
-  const oakenRank = points >= 20 ? 8 : points >= 14 ? 6 : points >= 8 ? 4 : points >= 4 ? 2 : 0
+  const baseOakenRank = points >= 20 ? 8 : points >= 14 ? 6 : points >= 8 ? 4 : points >= 4 ? 2 : 0
+  const oakenRank = baseOakenRank && level !== undefined && getSettings().innateAutoHeighten
+    ? Math.max(baseOakenRank, Math.ceil(level / 2)) : baseOakenRank
+  const oakenResistance = 2 * Math.floor(oakenRank / 2)
   const remastered = active.replace(/\bcasts (?:an? )?(?:[2468](?:nd|th)-level )?barkskin on its partner\.?/gi,
-    `casts rank ${oakenRank} Oaken Resilience on its partner. For 10 minutes, the partner gains resistance ${oakenRank} to bludgeoning and piercing damage and weakness ${oakenRank * 3 / 2} to fire. After taking fire damage, the partner can Dismiss the spell as a free action triggered by that damage; this does not reduce the triggering damage.`)
+    `casts rank ${oakenRank} Oaken Resilience on its partner. For 10 minutes, the partner gains resistance ${oakenResistance} to bludgeoning and piercing damage and weakness ${oakenResistance * 3 / 2} to fire. After taking fire damage, the partner can Dismiss the spell as a free action triggered by that damage; this does not reduce the triggering damage.`)
     .replace(/\bbarkskin\b/gi, 'Oaken Resilience')
   return { ...entry, description: [intro, remastered, destruction < 0 ? '' : entry.description.slice(destruction)].join('\n\n'),
     traits: [...entry.traits.filter(trait => trait !== 'Intelligent'), ...(points >= 4 ? ['Intelligent'] : [])],

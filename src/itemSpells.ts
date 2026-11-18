@@ -2,6 +2,7 @@ import type { Character, ContentEntry } from './types'
 import { armorEntry, ownedArmors, ownedShields, runeName, shieldEntry, weaponEntry } from './builder'
 import { withNamedWeaponState } from './namedWeapons'
 import { limitedSpellUses } from './featSpells'
+import { getSettings } from './settings'
 
 export interface ItemSpell {
   source: ContentEntry
@@ -62,6 +63,7 @@ const rankIn = (text: string) => {
 
 export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
   if (!c.equipment.some(item => item.qty > 0) && !c.weapons?.length && !c.armors?.length && !c.shield) return []
+  const minimumRank = getSettings().innateAutoHeighten ? Math.ceil(c.level / 2) : 0
   const index = catalog(entries)
   const eligible = (entry?: ContentEntry): entry is ContentEntry => !!entry && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
@@ -100,9 +102,10 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
       const entry = candidates.find(entry => entry.systems.some(system => source.systems.includes(system))) ?? candidates[0]
       const gradeRank = new RegExp(`${escape(name)}(?: spell)? is (\\d+)(?:st|nd|rd|th)[- ]rank`, 'i').exec(text)?.[1]
       const cantrip = entry?.traits.some(trait => /^cantrip$/i.test(trait))
+      const itemRank = gradeRank ? Number(gradeRank) : rank === 0 || rank === undefined && cantrip ? Math.ceil(c.level / 2) : rank ?? entry?.level ?? 1
       out.push({ source, name: entry?.name ?? name, entry,
         usageKey: JSON.stringify([source.id, 'spell', normalized(entry?.name ?? name)]),
-        rank: gradeRank ? Number(gradeRank) : rank === 0 || rank === undefined && cantrip ? Math.ceil(c.level / 2) : rank ?? entry?.level ?? 1,
+        rank: Math.max(minimumRank, itemRank),
         usesSpellcasting: staff || source.traits.some(trait => /^(?:wand|scroll|spellheart)$/i.test(trait))
           || /(?:your|wielder's) spell (?:DC|attack)|your spellcasting/i.test(text),
         ...details,
@@ -152,6 +155,6 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
     }
   }
   const unique = new Map<string, ItemSpell>()
-  for (const spell of out) unique.set(JSON.stringify([spell.source.id, spell.name, spell.rank, spell.frequency, spell.actions, spell.condition]), spell)
+  for (const spell of out) unique.set(JSON.stringify([spell.usageKey, spell.name, spell.rank, spell.frequency, spell.actions, spell.condition]), spell)
   return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name) || a.source.name.localeCompare(b.source.name) || a.rank - b.rank)
 }

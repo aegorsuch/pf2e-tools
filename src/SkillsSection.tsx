@@ -3,7 +3,7 @@ import { resistances,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { PROFESSION_LORES } from './backgrounds'
@@ -340,8 +340,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const tattoo = s.name === 'Crafting' ? tradecraftTattooBonus(c, entries) : undefined
     const artifact = artifactItemSkillBonus(c, entries, s.name)
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
+    const pack = s.name === 'Survival' ? voyagerPackBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0)
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0)
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const status = athleticRush ? 2 : s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''

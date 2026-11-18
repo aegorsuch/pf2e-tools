@@ -1,11 +1,19 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
-import { expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
 import { itemSpells, itemSpellUses } from './itemSpells'
 import { ItemSpellUses, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
+
+let previousAutoHeighten: boolean
+beforeEach(() => {
+  previousAutoHeighten = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+})
+afterEach(() => updateSettings({ innateAutoHeighten: previousAutoHeighten }))
 
 const base: Character = {
   id: 'item-caster', systems: ['pf2e'], name: 'Test', level: 20, className: 'Fighter',
@@ -55,6 +63,49 @@ it('does not turn triggers, casting bonuses, crafting requirements, or spell-eff
     'Whenever you cast heal, increase healing.\n\nActivate Reaction; Trigger You are hit by force barrage; Effect Gain resistance as if you cast heal.\n\nCraft Requirements Supply one casting of heal.')
   const c = { ...base, equipment: [{ name: references.name, qty: 1 }] }
   expect(itemSpells(c, [references, make('Heal', 'spell'), make('Force Barrage', 'spell')])).toEqual([])
+})
+
+it('auto-heightens item spells without lowering higher ranks, changing uses, or granting additional spells', () => {
+  const charm = make('Spell Charm', 'item', 'Activate Reaction; Frequency twice per day; Effect You cast a 2nd-rank fear spell (DC 25).')
+  const higher: ContentEntry = { ...make('Healing Charm', 'item'),
+    spellGrants: [{ kind: 'innate', spells: ['Heal'], rank: 6, frequency: 'once per day' }] }
+  const entries = [charm, higher, make('Fear', 'spell'), make('Heal', 'spell')]
+  let c: Character = { ...base, level: 9, equipment: [{ name: charm.name, qty: 1 }, { name: higher.name, qty: 1 }] }
+  const original = itemSpells(c, entries)
+  c = { ...c, itemSpellUses: { [original[0].usageKey]: [0] } }
+  const before = JSON.stringify(c)
+  updateSettings({ innateAutoHeighten: true })
+  const heightened = itemSpells(c, entries)
+  expect(heightened.map(spell => spell.rank)).toEqual([5, 6])
+  expect(heightened.map(spell => [spell.name, spell.usageKey, spell.frequency, spell.actions, spell.dc]))
+    .toEqual(original.map(spell => [spell.name, spell.usageKey, spell.frequency, spell.actions, spell.dc]))
+  expect(itemSpellUses(c, heightened[0])).toMatchObject({ remaining: 1, spent: [0] })
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)).toContain('Rank 5')
+  expect(JSON.stringify(c)).toBe(before)
+  updateSettings({ innateAutoHeighten: false })
+  expect(itemSpells(c, entries).map(spell => spell.rank)).toEqual([2, 6])
+})
+
+it('heightens actual staff spells and deduplicates resulting ranks without unlocking higher-grade spells', () => {
+  const entries = [official('Staff of Healing (Greater)'), ...['Stabilize', 'Heal', 'Clear Mind', 'Regenerate'].map(official)]
+  updateSettings({ innateAutoHeighten: true })
+  const spells = itemSpells({ ...base, equipment: [{ name: 'Staff of Healing (Greater)', qty: 1 }] }, entries)
+  expect(spells.filter(spell => spell.name === 'Heal')).toHaveLength(1)
+  expect(spells.every(spell => spell.rank === 10 && spell.frequency === 'Staff charges')).toBe(true)
+  expect(spells.some(spell => spell.name === 'Regenerate')).toBe(false)
+})
+
+it('preserves independent activations when auto-heightening makes their spell ranks equal', () => {
+  const charm = make('Dual Charm', 'item',
+    'Activate Two Actions; Frequency once per day; Effect You cast a 2nd-rank fear spell.\n\nActivate Two Actions; Frequency once per day; Effect You cast a 4th-rank fear spell.')
+  const c: Character = { ...base, equipment: [{ name: charm.name, qty: 1 }] }
+  updateSettings({ innateAutoHeighten: true })
+  const spells = itemSpells(c, [charm, make('Fear', 'spell')])
+  expect(spells.map(spell => spell.rank)).toEqual([10, 10])
+  expect(spells[0].usageKey).not.toBe(spells[1].usageKey)
+  const spent = { ...c, itemSpellUses: { [spells[0].usageKey]: [0] } }
+  expect(itemSpellUses(spent, spells[0])?.remaining).toBe(0)
+  expect(itemSpellUses(spent, spells[1])?.remaining).toBe(1)
 })
 
 it.each([['Masquerade Scarf', 1, 'once per day'], ['Masquerade Scarf (Greater)', 2, 'At will']] as const)(

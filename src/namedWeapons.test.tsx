@@ -1,10 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
 import { namedWeaponAbilities } from './namedWeapons'
+import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
 import { gearAccess } from './gearAccess'
 import { HUNTERS_ARROWHEADS } from './supplemental'
@@ -405,6 +406,9 @@ it.each([false, true])('persists Briar points, rejects invalid inputs, and remov
 })
 
 it.each([false, true])('toggles remastered Briar Oaken Resilience at each earned rank without affecting a familiar (%s)', displayOnly => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
   const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [
     '1 Sharpness Point Briar gains shifting.',
     ...[[4, ''], [8, 'a 4th-level '], [14, 'a 6th-level '], [20, 'an 8th-level ']].flatMap(([points, heightening]) => [
@@ -450,6 +454,28 @@ it.each([false, true])('toggles remastered Briar Oaken Resilience at each earned
       expect(oakenResilience(saved, entries)).toMatchObject({ rank: 4 })
     }
   }
+})
+
+it.each([[9, 5, 4], [20, 10, 10]])('heightens earned Briar spells and their actual resistance at level %i', (level, rank, resistance) => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: true })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [
+    '1 Sharpness Point Briar gains shifting.',
+    '4 Sharpness Points Briar gains powers.',
+    'Activate command; Frequency three times per day; Effect Briar casts barkskin on its partner.',
+    '8 Sharpness Points Briar gains powers.',
+    '14 Sharpness Points Briar gains powers.',
+    '20 Sharpness Points Briar gains powers.',
+  ])
+  const entries = [...namedCatalog, rune('Shifting'), briar]
+  const character: Character = { ...c, level,
+    weapons: [{ ...owned('Briar'), briarSharpness: 4, briarOakenResilienceActive: true }] }
+  expect(oakenResilience(character, entries)).toEqual({ rank, resistance, fireWeakness: resistance * 3 / 2 })
+  const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} />)
+  expect(markup).toContain(`casts rank ${rank} Oaken Resilience`)
+  expect(markup).toContain(`resistance ${resistance} to bludgeoning and piercing damage and weakness ${resistance * 3 / 2} to fire`)
+  expect(oakenResilience({ ...character, weapons: [{ ...character.weapons![0], briarSharpness: 0 }] }, entries)).toBeUndefined()
 })
 
 it('changes named weapon types without losing upgrades or saved artifact access', () => {

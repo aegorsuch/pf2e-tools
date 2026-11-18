@@ -3471,7 +3471,7 @@ export function oakenResilience(c: Character, entries: ContentEntry[], target: '
       ?? c.oakenResilienceRank : undefined
   const itemRanks = target === 'character' ? carriedWeapons(c, entries)
     .filter(weapon => weapon.briarOakenResilienceActive)
-    .map(weapon => withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)?.data.named_weapon_oaken_rank) : []
+    .map(weapon => withNamedWeaponState(weaponEntry(entries, weapon.name), weapon, c.level)?.data.named_weapon_oaken_rank) : []
   const rank = Math.max(0, ...[spellRank, ...itemRanks]
     .filter((rank): rank is number => typeof rank === 'number' && Number.isInteger(rank) && rank >= 2 && rank <= 10))
   if (!rank) return undefined
@@ -3718,17 +3718,21 @@ export function totalArmHands(c: Character) {
 
 export const ringCapacity = (c: Character) => totalArmHands(c) * 5
 
-function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: string, baseBonus = 1) {
-  const names = [family, `${family} (Greater)`, `${family} (Major)`]
+function ownedItemBonus(c: Character, entries: ContentEntry[], bonuses: Record<string, number>) {
   return c.equipment.flatMap(item => {
     const entry = item.qty > 0 ? byName(entries, 'item', item.name) : undefined
     if (!entry || entry.deleted || !entry.systems.some(system => c.systems.includes(system))) return []
     const name = equipmentDisplayName(entry.name)
-    const grade = names.indexOf(name)
-    return grade < 0 ? [] : [{ source: name, value: grade + baseBonus }]
+    const value = bonuses[name]
+    return typeof value === 'number' ? [{ source: name, value }] : []
   }).sort((a, b) => b.value - a.value)[0]
 }
 
+function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: string, baseBonus = 1) {
+  return ownedItemBonus(c, entries, { [family]: baseBonus, [`${family} (Greater)`]: baseBonus + 1, [`${family} (Major)`]: baseBonus + 2 })
+}
+
+export const voyagerPackBonus = (c: Character, entries: ContentEntry[]) => ownedItemBonus(c, entries, { "Voyager's Pack": 3 })
 export const killerBeltBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Killer's Belt")
 export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
 export const tradecraftTattooBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Tradecraft Tattoo', 2)
