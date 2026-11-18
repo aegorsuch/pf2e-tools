@@ -59,6 +59,14 @@ it('checks swim-Speed prerequisites against automatically calculated movement', 
   expect(check('You have a swim Speed', { ...swimmer, feats: [] }).missing).not.toEqual([])
 })
 
+it('qualifies Wetlander Lizardfolk for Marsh Runner through its swim Speed', () => {
+  const marshRunner = entry('feat', 'Marsh Runner', { prerequisite: 'You have a swim Speed' })
+  const wetlander: Character = { ...base, ancestry: 'Lizardfolk', heritage: 'Wetlander Lizardfolk' }
+  const heritage = entry('heritage', 'Wetlander Lizardfolk')
+
+  expect(featPrerequisiteChecker(wetlander, [heritage, marshRunner])(marshRunner)).toEqual({ missing: [], manual: [] })
+})
+
 it('grants Ride from Reptile Rider', () => {
   const c: Character = { ...base, feats: [selected('Reptile Rider')] }
   expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Ride', source: 'Reptile Rider', level: 1 })
