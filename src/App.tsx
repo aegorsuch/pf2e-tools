@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
 import { characterSummary } from './builder'
+import { CharacterFilters, filterCharacters, type CharacterFilterValues } from './CharacterFilters'
 import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
 import { HomebrewList } from './HomebrewList'
@@ -63,6 +64,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
   const [homebrewSearch, setHomebrewSearch] = useState('')
+  const [characterFilters, setCharacterFilters] = useState<CharacterFilterValues>({ ancestry: '', className: '' })
   const [catalogReady, setCatalogReady] = useState('')
   const [catalogFailure, setCatalogFailure] = useState<{ key: string; message: string }>()
   const [catalogRetry, setCatalogRetry] = useState(0)
@@ -107,7 +109,8 @@ export default function App() {
   const entries = catalog?.entries
 
   const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
-  const sortedCharacters = [...(characters ?? [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  const sortedCharacters = filterCharacters(characters ?? [], characterFilters)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
   const newCharacter = async () => {
     const name = window.prompt('Character name?')?.trim()
@@ -236,7 +239,10 @@ export default function App() {
       <div className="home-section-heading">
         <h2>Characters</h2>
         <button type="button" onClick={newCharacter}>New character</button>
+        <CharacterFilters characters={characters ?? []} filters={characterFilters} onChange={setCharacterFilters} />
       </div>
+      {characters && (characterFilters.ancestry || characterFilters.className) && !sortedCharacters.length
+        && <p role="status">No matching characters.</p>}
       <ul className="character-list">
         {sortedCharacters.map((c) => (
           <li className="character-row" key={c.id}>

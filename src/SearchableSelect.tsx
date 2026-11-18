@@ -9,13 +9,14 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   onPrepare?: () => void
   onClear?: () => void
   optionCount?: number
+  alwaysSearchable?: boolean
   renderDetails?: (value: string) => ReactNode
   searchText?: (value: string) => string
 }
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, renderDetails, searchText, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, renderDetails, searchText, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -23,7 +24,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, rende
   const generatedId = useId()
   const id = props.id ?? generatedId
   const searchLabel = `Search ${props['aria-label'].replace(/^(?:add|choose)\s+/i, '').toLowerCase()}`
-  const searchable = useMemo(() => (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount])
+  const searchable = useMemo(() => alwaysSearchable || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable])
   const activeQuery = searchable ? query.trim() : ''
   const filtered = activeQuery ? searchSelectOptions(children, activeQuery, value, searchText) : { children, matches: 0 }
   const options = useMemo(() => selectOptionList(children), [children])
