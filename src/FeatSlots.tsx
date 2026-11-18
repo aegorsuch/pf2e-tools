@@ -199,7 +199,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
         slot: slot.key, takenLevel: slot.level, sourceId: entry.id }) ?? []).map(spell => spell.name))]
       : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
-      ? undefined : featChoiceOptions(entry.name, c, entries, slot.key)
+      ? undefined : featChoiceOptions(entry.name, c, entries, slot.key, undefined, slot.category)
     const choices = skill && entry.name === 'Skill Training' ? allChoices?.filter(choice => choice === skill) : allChoices
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
@@ -349,7 +349,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? (c.skippedFeatSlots?.includes(s.key) ? 'N/A' : '')
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
-          const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex) : undefined
+          const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex, s.category) : undefined
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories',
             'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body'].includes(selection.name)
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined

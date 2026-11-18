@@ -123,6 +123,7 @@ it('alphabetizes clarified rule labels and keeps renamed rules searchable', () =
     'Deity Grants Lore',
     'Disable Adopted Ancestry, Orc Kinship, Social Chameleon',
     'Disable Ancient Elf, Multitalented',
+    'Disable Warden spells for Beastmaster except for Heal Companion and Magic Hide',
     'Disable Multiple Animal Companions',
     'Inventor Access: Bladed Gauntlet and Firearms',
     'Orc Warmask Item Bonus Scaling',

@@ -5,6 +5,7 @@ export interface Settings {
   adoptedDwarfClanDagger: boolean
   disableAdoptedAncestry: boolean
   disableAncientElfMultitalented: boolean
+  disableBeastmasterWardenSpells: boolean
   exclusiveCyborgHearts: boolean
   // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
@@ -53,7 +54,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

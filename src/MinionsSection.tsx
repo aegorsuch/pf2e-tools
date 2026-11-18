@@ -1,8 +1,10 @@
+import { Fragment } from 'react'
 import { SourceNote } from './Info'
+import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
-import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
+import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll } from './SpellDamage'
@@ -117,17 +119,17 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
         return <div key={slot} className="row companion-equipment-slot companion-other-equipment" role="group"
           aria-label={`${companion.name || companion.type} Other equipment`}>
           <strong>Other</strong>
-          {slotOptions.map(entry => <label key={entry.id}>
+          {slotOptions.map(entry => <span className="row" key={entry.id}>
             <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${entry.name}`}
               checked={selectedIds.includes(entry.id)}
               onChange={event => updateOther({ entryId: entry.id, name: entry.name }, event.target.checked)} />
-            {entry.name}
-          </label>)}
-          {unavailable.map(item => <label key={item.entryId}>
+            <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} />
+          </span>)}
+          {unavailable.map(item => <span className="row" key={item.entryId}>
             <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${item.name}`}
               checked onChange={() => updateOther(item, false)} />
-            {item.name} (unavailable)
-          </label>)}
+            <EntryDescription name={item.name} entry={entries.find(entry => entry.id === item.entryId)} entries={entries} character={c} /> (unavailable)
+          </span>)}
         </div>
       }
       const selected = companion.equipment?.[slot]
@@ -136,6 +138,10 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
         <strong>{slot}</strong>
         <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
           value={selected?.entryId ?? ''} optionCount={slotOptions.length}
+          renderDetails={value => {
+            const entry = slotOptions.find(option => option.id === value)
+            return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+          }}
           onClear={() => update(slot, undefined)}
           onChange={event => {
             const entry = slotOptions.find(option => option.id === event.target.value)
@@ -147,6 +153,8 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
             && <option value={selected.entryId} disabled>{selected.name} (unavailable)</option>}
           {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
         </SearchableSelect>
+        {selected && <EntryDescription name={selected.name} entry={entries.find(entry => entry.id === selected.entryId)}
+          entries={entries} character={c} />}
       </div>
     })}
   </section>
@@ -265,6 +273,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
               const acSource = [stats?.magicHide ? 'Magic Hide' : undefined,
                 stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
+              const specials = [
+                ...(stats?.mount ? [{ name: 'Mount', note: undefined }] : []),
+                ...(stats?.beastmasterSpecial ?? []),
+                ...(!isConstruct && activeFeatsNamed(c, 'Beastmaster Bond').length ? [{ name: 'Beastmaster Bond',
+                  note: `Communicate telepathically with this animal companion ${ranksAt(c, entries).Nature >= 4 ? 'anywhere on the planet' : 'within 100 feet'}.` }] : []),
+              ].sort((a, b) => a.name.localeCompare(b.name))
               const maneuvers = [
                 ...(stats?.maneuver ? [{ name: stats.maneuver, actions: stats.maneuverActions, traits: stats.maneuverTraits,
                   requirements: stats.maneuverRequirements,
@@ -367,7 +381,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => <div key={a.name} className="companion-action">
                         <div className="companion-action-title">
                           <ActionIcon actions="Single Action" />
-                          <b>{a.name}</b>{a.traits && <small>({a.traits})</small>}
+                          <b>{a.name.replace(/\b\w/g, char => char.toUpperCase())}</b>{a.traits && <small>({a.traits})</small>}
                           <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
                             && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
                           <span>— {a.damage}{!a.ranged && enlargeModifierNote
@@ -429,12 +443,17 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     </div>)}
                   </section>}
                   <section className="companion-actions">
-                    <h5>Special: {[...(stats.mount ? ['Mount'] : []), ...stats.beastmasterSpecial.map(special => special.name),
-                      ...(!isConstruct && activeFeatsNamed(c, 'Beastmaster Bond').length ? ['Beastmaster Bond'] : [])]
-                      .sort((a, b) => a.localeCompare(b)).join(', ') || 'None'}</h5>
-                    {stats.beastmasterSpecial.map(special => <SourceNote key={special.name} source={special.name} note={special.note} />)}
-                    {!isConstruct && !!activeFeatsNamed(c, 'Beastmaster Bond').length && <SourceNote source="Beastmaster Bond" inlineSource={false}
-                      note={`Communicate telepathically with this animal companion ${ranksAt(c, entries).Nature >= 4 ? 'anywhere on the planet' : 'within 100 feet'}.`} />}
+                    <h5>Special</h5>
+                    <div>{specials.length ? specials.map((special, specialIndex) => {
+                      const source = selectedFeatEntry(c, entries, special.name)
+                      return <Fragment key={special.name}>
+                        {specialIndex > 0 && ', '}
+                        {special.note ? <EntryDescription name={special.name} entry={source ?? {
+                          ...stats.entry, id: `${stats.entry.id}:${special.name}`, name: special.name, kind: 'trait',
+                          description: special.note, data: {}, effects: [],
+                        }} entries={entries} character={c} descriptionNote={source ? special.note : undefined} /> : special.name}
+                      </Fragment>
+                    }) : 'None'}</div>
                   </section>
                   <section className="companion-actions">
                     <h5>Speed</h5>

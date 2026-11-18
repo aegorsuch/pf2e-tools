@@ -21,6 +21,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'deityLore', label: 'Deity Grants Lore' },
   { key: 'disableAdoptedAncestry', label: 'Disable Adopted Ancestry, Orc Kinship, Social Chameleon' },
   { key: 'disableAncientElfMultitalented', label: 'Disable Ancient Elf, Multitalented' },
+  { key: 'disableBeastmasterWardenSpells', label: 'Disable Warden spells for Beastmaster except for Heal Companion and Magic Hide' },
   { key: 'druidBeastmaster', label: 'Druid Beastmaster Dedication' },
   { key: 'druidCavalier', label: 'Druid Cavalier Dedication' },
   { key: 'fighterPhysicalSkills', label: 'Fighter Grants Acrobatics and Athletics',

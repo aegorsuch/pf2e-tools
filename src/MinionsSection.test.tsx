@@ -83,19 +83,50 @@ it('shows a plain Mount label only when eligible, without Rider helper text or c
   const render = (character = c, entry = bird) => renderToStaticMarkup(<MinionsContent c={character} entries={[entry]} save={() => {}} />)
   expect(render()).not.toContain('full mount special ability')
   expect(render()).not.toContain('move and Support you on the same turn')
-  expect(render()).toContain('<h5>Special: None</h5>')
+  expect(render()).toContain('<h5>Special</h5><div>None</div>')
   expect(render()).toContain('<span>Animal</span><span>Minion</span>')
   const plant = render(c, { ...bird, traits: ['Plant', 'Minion'] })
   expect(plant).toContain('<span>Plant</span><span>Minion</span>')
   expect(plant).not.toContain('<span>Animal</span>')
   const large = render(c, { ...bird, data: { ...bird.data, size: 'Large' } })
-  expect(large).toContain('<h5>Special: Mount</h5>')
+  expect(large).toContain('<h5>Special</h5><div>Mount</div>')
   expect(large).not.toContain('<span>Mount</span>')
   expect(large).not.toContain('full mount special ability')
   expect(render({ ...c, feats: [] })).not.toContain('it can move and Support you on the same turn')
-  expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).toContain('<h5>Special: Mount</h5>')
+  expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).toContain('<h5>Special</h5><div>Mount</div>')
   expect(render(c, { ...bird, data: { ...bird.data, mount: true } })).not.toContain('it can move and Support you on the same turn')
   expect(JSON.stringify(c)).toBe(before)
+})
+
+it('opens Special summaries by name without asterisks and capitalizes attack labels without changing saved data', () => {
+  const c: Character = {
+    id: 'specials', systems: ['pf2e'], name: 'Test', level: 20, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Beastmaster Bond', type: 'Dedication Feat', level: 4 },
+      { name: 'Heightened Instincts', type: 'Dedication Feat', level: 18 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'horse', type: 'Horse', name: '' }],
+  }
+  const horse: ContentEntry = {
+    id: 'horse', systems: ['pf2e'], name: 'Horse', kind: 'companion', source: 'official', level: 1,
+    traits: ['Animal'], description: '', effects: [], updatedAt: 0,
+    data: { size: 'Medium', hp: 8, companion_attacks: 'hoof|1d6 bludgeoning|;tail lash|1d4 bludgeoning|' },
+  }
+  const instincts: ContentEntry = { ...horse, id: 'instincts', name: 'Heightened Instincts', kind: 'feat',
+    description: 'Succeeding at a save improves the result.', data: {}, level: 18 }
+  const before = JSON.stringify({ c, horse })
+  const markup = renderToStaticMarkup(<MinionsContent c={c} entries={[horse, instincts]} save={() => {}} />)
+  const special = markup.slice(markup.indexOf('<h5>Special</h5>'), markup.indexOf('<h5>Speed</h5>'))
+  for (const name of ['Beastmaster Bond', 'Heightened Instincts'])
+    expect(special).toContain(`aria-haspopup="dialog">${name}</button>`)
+  expect(special).toContain('Communicate telepathically with this animal companion within 100 feet.')
+  expect(special).toContain('Succeeding at a save improves the result.')
+  expect(special).not.toContain('source-note-trigger')
+  expect(special).not.toContain('Description unavailable')
+  expect(markup).toContain('<b>Hoof</b>')
+  expect(markup).toContain('<b>Tail Lash</b>')
+  expect(markup).not.toContain('<b>hoof</b>')
+  expect(JSON.stringify({ c, horse })).toBe(before)
 })
 
 it('saves companion names independently, preserves them when changing type, and allows clearing them', () => {
@@ -333,7 +364,7 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   }
   const item = (id: string, name: string, subcategory = 'Companion Items'): ContentEntry => ({
     id, name, kind: 'item', systems: ['pf2e'], source: 'official', level: 1, traits: [],
-    description: '', data: { item_subcategory: subcategory }, effects: [], updatedAt: 0,
+    description: `Rules for ${name}.`, data: { item_subcategory: subcategory }, effects: [], updatedAt: 0,
   })
   const entries = [
     item('collar-z', 'Collar of Vigor'), item('collar-a', 'Collar of Empathy'),
@@ -357,8 +388,12 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   expect(markup).toContain('<option value="" selected="">None</option>')
   expect(markup).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
   expect(markup).toContain('aria-label="Buddy Other: Hosteling Statuette"')
+  for (const name of ['Collar of Empathy', 'Hosteling Statuette', 'Steadyfoot Tassel']) {
+    expect(markup).toContain(`aria-haspopup="dialog">${name}</button>`)
+    expect(markup).toContain(`Rules for ${name}.`)
+  }
   const other = markup.match(/aria-label="Buddy Other equipment">([\s\S]*?)<\/div>/)?.[1]
-  expect(other).toMatch(/^<strong>Other<\/strong><label>/)
+  expect(other).toMatch(/^<strong>Other<\/strong><span class="row">/)
   expect(other).toContain('aria-label="Buddy Other: Hosteling Statuette"')
   expect(other).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
   expect(markup).not.toContain('Buddy Harness equipment')
@@ -535,8 +570,8 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   const senses = markup.slice(markup.indexOf('<h5>Senses</h5>'), markup.indexOf('<h5>Skills</h5>'))
   expect(senses).toContain('<small>Perception</small>')
   expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<b>Support Benefit</b>'))
-  expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<h5>Special: None</h5>'))
-  expect(markup.indexOf('<h5>Special: None</h5>')).toBeLessThan(markup.indexOf('<h5>Speed</h5>'))
+  expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<h5>Special</h5>'))
+  expect(markup.indexOf('<h5>Special</h5>')).toBeLessThan(markup.indexOf('<h5>Speed</h5>'))
   expect(markup).toContain('<span>Animal</span><span>Minion</span>')
   const skills = markup.slice(markup.indexOf('<h5>Skills</h5>'), markup.indexOf('<h5>Speed</h5>'))
   expect(skills).toContain('<div>Acrobatics +18 (T)</div>')

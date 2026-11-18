@@ -27,6 +27,67 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('restricts Beastmaster Warden variants without restricting Ranger or legacy focus feats', () => {
+  const previous = getSettings().disableBeastmasterWardenSpells
+  const dedication: ContentEntry = { ...spell('Beastmaster Dedication', 'Initiate'), kind: 'feat', level: 2,
+    traits: ['Archetype', 'Dedication'], data: { archetype: 'Beastmaster' } }
+  const initiate: ContentEntry = { ...dedication, id: 'initiate', name: 'Initiate Warden', level: 1,
+    traits: ['Ranger'], data: { archetype: 'Beastmaster', archetype_levels: 'Beastmaster: 4', repeatable: true } }
+  const advanced: ContentEntry = { ...initiate, id: 'advanced', name: 'Advanced Warden', level: 4,
+    data: { archetype: 'Beastmaster', archetype_levels: 'Beastmaster: 6', prerequisite: initiate.name, repeatable: true } }
+  const legacy: ContentEntry = { ...dedication, id: 'legacy', name: 'Heal Animal', level: 4, traits: ['Archetype'] }
+  const trance: ContentEntry = { ...legacy, id: 'trance', name: "Beastmaster's Trance", level: 6 }
+  const catalog = [dedication, initiate, advanced, legacy, trance, ...entries, spell('Magic Hide', 'Initiate')]
+  const c: Character = { ...base, className: 'Champion', level: 20,
+    feats: [{ name: dedication.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+  const slot = { key: 'archetype:20:0', category: 'archetype' as const, level: 20 }
+  const before = JSON.stringify(c)
+  try {
+    updateSettings({ disableBeastmasterWardenSpells: true })
+    expect(featChoiceOptions(initiate.name, c, catalog, slot.key)).toEqual(['Heal Companion', 'Magic Hide'])
+    expect(featChoiceOptions(initiate.name, c, catalog, 'class:20:0', undefined, 'archetype'))
+      .toEqual(['Heal Companion', 'Magic Hide'])
+    expect(featChoiceOptions(initiate.name, { ...c, className: 'Ranger' }, catalog, 'class:20:0'))
+      .toEqual(['Gravity Weapon', 'Heal Companion', 'Magic Hide'])
+    for (const includeUnmetPrerequisites of [false, true]) {
+      const offered = eligibleFeats(catalog, c, slot, { includeUnmetPrerequisites })
+      expect(offered).toContain(initiate)
+      expect(offered).not.toContain(advanced)
+      expect(offered).toContain(legacy)
+      expect(offered).toContain(trance)
+    }
+    const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={catalog} categories={['archetype']} save={() => {}}
+      search={{ 'archetype:20:0:open': '1' }} onSearch={() => {}} />)
+    expect(render()).toContain('Initiate Warden (Heal Companion)')
+    expect(render()).toContain('Initiate Warden (Magic Hide)')
+    expect(render()).not.toContain('Initiate Warden (Gravity Weapon)')
+    updateSettings({ disableBeastmasterWardenSpells: false })
+    expect(featChoiceOptions(initiate.name, c, catalog, slot.key)).toEqual(['Gravity Weapon', 'Heal Companion', 'Magic Hide'])
+    expect(eligibleFeats(catalog, c, slot, { includeUnmetPrerequisites: true })).toContain(advanced)
+    expect(render()).toContain('Initiate Warden (Gravity Weapon)')
+    expect(JSON.stringify(c)).toBe(before)
+  } finally { updateSettings({ disableBeastmasterWardenSpells: previous }) }
+})
+
+it('exhausts only allowed Beastmaster Warden choices without consuming them for empty Ranger class slots', () => {
+  const previous = getSettings().disableBeastmasterWardenSpells
+  const catalog = [...entries, spell('Magic Hide', 'Initiate')]
+  const c: Character = { ...base, level: 20, feats: ['Heal Companion', 'Magic Hide'].map((choice, i) => ({
+    name: 'Initiate Warden', type: 'Dedication Feat', level: 1, slot: `archetype:4:${i}`, choice,
+  })) }
+  try {
+    updateSettings({ disableBeastmasterWardenSpells: true })
+    expect(canSelectWardenFeat('Initiate Warden', c, catalog, 'archetype:6:0', true)).toBe(false)
+    expect(canSelectWardenFeat('Initiate Warden', c, catalog, 'class:6:0')).toBe(true)
+    const emptyNative = { ...c, feats: [0, 1].map(i => ({
+      name: 'Initiate Warden', type: 'Class Feat', level: 1, slot: `class:1:${i}`,
+    })) }
+    expect(canSelectWardenFeat('Initiate Warden', emptyNative, catalog, 'archetype:6:0', true)).toBe(true)
+    updateSettings({ disableBeastmasterWardenSpells: false })
+    expect(canSelectWardenFeat('Initiate Warden', c, catalog, 'archetype:6:0', true)).toBe(true)
+  } finally { updateSettings({ disableBeastmasterWardenSpells: previous }) }
+})
+
 it.each(['feat', 'spell'] as const)('displays Litany against Wrath without renaming its saved %s identity', kind => {
   const entry: ContentEntry = { ...spell('Litany Against Wrath', 'Initiate'), kind }
   const before = JSON.stringify(entry)

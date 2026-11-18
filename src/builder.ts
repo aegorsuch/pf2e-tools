@@ -1023,6 +1023,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(generalOnly && traits.has('skill'))
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
+      && !(getSettings().disableBeastmasterWardenSpells && slot.category === 'archetype'
+        && archetypesOf(e).includes('Beastmaster') && hasWardenChoice(e)
+        && !wardenSpellOptions(e, entries, true).length)
       && !(classCompanionStages.has(companionProgressionStage(e.name) ?? '') && !traits.has(classTrait ?? '')
         && (traits.has('archetype') || archetypesOf(e).length > 0)
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
@@ -1081,7 +1084,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
         || (e.data.repeatable === true || !['Auspicious Mount', 'Peerless Mascot Companion'].includes(e.name)
-          && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key)))
+          && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
+            slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
     && entry.traits.some(trait => trait.toLowerCase() === 'lineage') && taken.has(entry.name))
@@ -1239,7 +1243,8 @@ function scrapperVariants(ranks: Record<string, number>) {
     .map(skill => ({ skill, rank, label: `${skill} to ${RANKS[rank]}` }))
 }
 
-export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
+export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
+  category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
   const background = slotKey === 'skill:1:scholar' || slotKey.startsWith('skill:1:background:')
     ? byName(entries, 'background', c.background) : undefined
@@ -1398,7 +1403,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   }
   if (hasWardenChoice({ name }) && c.systems.includes('pf2e')) {
     const selected = new Set(c.feats.flatMap((feat) => feat.slot !== slotKey && hasWardenChoice(feat) && feat.choice ? [feat.choice] : []))
-    return wardenSpellOptions({ name }, entries).map((spell) => spell.name).filter((choice) => !selected.has(choice))
+    const source = selectedFeatEntry(c, entries, name, selectedIndex === undefined ? undefined : c.feats[selectedIndex]?.sourceId)
+    const beastmaster = (category ? category === 'archetype' : slotKey.startsWith('archetype:'))
+      && archetypesOf(source).includes('Beastmaster')
+    return wardenSpellOptions({ name }, entries, beastmaster).map((spell) => spell.name).filter((choice) => !selected.has(choice))
   }
   if (name === 'First World Magic' || name === 'Ancestral Magic' || name === 'Ancestral Cantrip') return undefined
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })

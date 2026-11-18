@@ -121,10 +121,12 @@ export function spellWardenLabel(tier: unknown) {
     : undefined
 }
 
-export function wardenSpellOptions(feat: NamedFeat, entries: ContentEntry[]) {
+export function wardenSpellOptions(feat: NamedFeat, entries: ContentEntry[], beastmaster = false) {
   const tier = WARDEN_TIERS[feat.name]
   if (!tier) return []
-  return wardenSpellsAtTier(tier, entries)
+  const spells = wardenSpellsAtTier(tier, entries)
+  return beastmaster && getSettings().disableBeastmasterWardenSpells
+    ? spells.filter(spell => spell.name === 'Heal Companion' || spell.name === 'Magic Hide') : spells
 }
 
 // House addition: Snare Hopping is offered alongside the Initiate Warden spells
@@ -153,16 +155,17 @@ export function hasWardenChoice(feat: NamedFeat) {
   return Object.hasOwn(WARDEN_TIERS, feat.name)
 }
 
-export function canSelectWardenFeat(name: string, c: Character, entries: ContentEntry[], slotKey?: string) {
+export function canSelectWardenFeat(name: string, c: Character, entries: ContentEntry[], slotKey?: string, beastmaster = false) {
   const tier = WARDEN_TIERS[name]
   if (!tier || !c.systems.includes('pf2e')) return true
-  const options = new Set(wardenSpellsAtTier(tier, entries).map((spell) => spell.name))
+  const restricted = beastmaster && getSettings().disableBeastmasterWardenSpells
+  const options = new Set(wardenSpellOptions({ name }, entries, beastmaster).map((spell) => spell.name))
   const choices = new Set<string>()
   let unassigned = 0
   for (const feat of c.feats) {
     if (feat.name !== name || feat.slot === slotKey) continue
     if (feat.choice) choices.add(feat.choice)
-    else unassigned++
+    else if (!restricted || feat.slot?.startsWith('archetype:') || /^(?:Archetype|Dedication) Feat$/i.test(feat.type)) unassigned++
   }
   return [...options].filter((option) => !choices.has(option)).length > unassigned
 }
