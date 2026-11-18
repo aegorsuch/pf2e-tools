@@ -2243,6 +2243,18 @@ it.each([['Untrained', 1], ['Trained', 2], ['Expert', 2], ['Master', 3], ['Legen
     expect(armorRanks(c, [entry('class', 'Fighter', { heavy_armor_proficiency: rank })]).Heavy).toBe(expected)
   })
 
+it('applies Guardian Mastery armor item bonus to damaging Reflex saves', () => {
+  const armor = entry('armor', 'Full Plate', { armor_category: 'Heavy', ac: 6 }, 1, ['Bulwark'])
+  const mastery = entry('classFeature', 'Guardian Mastery', { class: 'Guardian' }, 13)
+  const c: Character = { ...base, className: 'Guardian', level: 13, abilities: { ...base.abilities, dex: 10 },
+    armors: [{ id: 'a', name: armor.name, potency: 1, resilient: 0, runes: [], worn: true }] }
+  const notes = savingThrowBreakdown(c, [armor, mastery], 'Reflex', { Reflex: 2 }).notes?.join(' ')
+  expect(notes).toContain('Guardian Mastery: +')
+  expect(notes).toContain('(+8)')
+  expect(savingThrowBreakdown(c, [armor], 'Reflex').notes?.join(' ') ?? '').not.toContain('Guardian Mastery')
+  expect(savingThrowBreakdown({ ...c, armors: [] }, [armor, mastery], 'Reflex').notes?.join(' ') ?? '').not.toContain('Guardian Mastery')
+})
+
 it('applies Bulwark resistance only while armored and keeps damaging Reflex benefits conditional', () => {
   const armor = entry('armor', 'Breastplate', { armor_category: 'Medium' })
   const c: Character = { ...base, level: 13, abilities: { ...base.abilities, dex: 12 },

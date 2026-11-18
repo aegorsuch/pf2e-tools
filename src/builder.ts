@@ -3258,10 +3258,17 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const total = parts.reduce((sum, part) => sum + part.value, 0)
   const bulwark = name === 'Reflex' && armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'
     : armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined)
+  const guardianArmorBonus = name === 'Reflex' && armor && c.className === 'Guardian'
+    && classFeatures(entries, c).some(feature => feature.name === 'Guardian Mastery')
+    ? num(armorEntry(c, entries, armor.name)?.data.ac) + (armor.potency ?? 0)
+      + (armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? 1 : 0)
+    : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
     ...(bulwark
       ? [`${bulwark}: ${signed(total + Math.max(0, 3 - abilityMod(c.abilities.dex)))} on damaging Reflex saves using your armor's bulwark trait (+3 instead of Dexterity, if higher).`] : []),
+    ...(guardianArmorBonus !== undefined
+      ? [`Guardian Mastery: ${signed(total + Math.max(0, guardianArmorBonus - abilityMod(c.abilities.dex)))} on damaging Reflex saves using your armor's item bonus to AC (${signed(guardianArmorBonus)}) instead of Dexterity, if higher; a success becomes a critical success.`] : []),
     ...(researched ? [`Researched Spell Resistance: +1 circumstance against ${researched.traditions.join(', ')} spells and effects; circumstance bonuses do not stack.`] : []),
     ...(activeFeatsNamed(c, 'Hazard Finder').length
       ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),

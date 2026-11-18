@@ -73,6 +73,11 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       </div>}
       {c.raging && instinct && !['giant', 'fury'].includes(instinct)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
+      {c.className === 'Guardian' && features.some(feature => feature.name === 'Reaction Time') && <div className="col">
+        <Info label="Reaction Time">You have 2 reactions each turn; the additional reaction can be used only for guardian feats or class features
+          (including Shield Block){features.some(feature => feature.name === 'Ever Ready' || feature.name === "Guardian's Techniques")
+            ? ', and you also have it when you roll initiative' : ''}.</Info>
+      </div>}
       {c.className === 'Champion' && activeFeatsNamed(c, 'Dragonslayer Oath').length > 0 && <div className="col">
         <Info label="Dragonslayer Oath (legacy)">Against dragons, Retributive Strike deals +4 circumstance damage (+6 with master weapon proficiency).
           Glimpse of Redemption grants resistance {7 + c.level}; Liberating Step grants +4 circumstance to its checks and allows two Steps.
