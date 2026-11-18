@@ -561,8 +561,8 @@ it('sorts innate ranks numerically ascending within each tradition', () => {
   const spells = ['Primal Spell 10', 'Primal Spell 2', 'Primal Spell 1', 'Arcane Spell'].map(name => entry(name, 'spell'))
   const c: Character = { ...base, level: 20, feats: sources.map(source => taken(source.name)) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources, ...spells]} save={() => {}} />)
-  const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'), markup.indexOf('<h5>Rituals</h5>'))
-  expect([...innate.matchAll(/<h5>([^<]+)<\/h5>/g)].map(match => match[1])).toEqual([
+  const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'))
+  expect([...innate.matchAll(/<h5>([^<]+ Spell Rank \d+)<\/h5>/g)].map(match => match[1])).toEqual([
     'Arcane Spell Rank 10', 'Primal Spell Rank 1', 'Primal Spell Rank 2', 'Primal Spell Rank 10',
   ])
 })
@@ -1714,11 +1714,15 @@ it('shows feat-granted and manual rituals as spell rows below focus and innate s
   const rituals = html.slice(ritualHeading)
   expect(rituals).toContain('class="spellbook-columns"')
   expect(rituals).toContain('aria-haspopup="dialog">Create Undead</button>')
-  expect(rituals).toContain('Granted by Undead Creator')
+  expect(rituals).not.toContain('Granted by')
+  expect(rituals).not.toContain('Add ritual')
+  expect(rituals).not.toContain('Choose ritual')
   expect(rituals).toContain('aria-haspopup="dialog">Awaken Animal</button>')
   expect(rituals).toContain('<small>Range</small>10 feet')
   expect(rituals).toContain('<small>Area/Targets</small>1 dead creature')
   expect(rituals).toContain('1 day')
   expect(rituals).toContain('aria-label="Remove ritual Awaken Animal"')
   expect(rituals).not.toContain('aria-label="Remove ritual Create Undead"')
+  const empty = renderToStaticMarkup(<SpellsSection c={{ ...character, rituals: [], feats: [] }} entries={entries} save={() => {}} />)
+  expect(empty).not.toContain('<h5>Rituals</h5>')
 })

@@ -562,52 +562,30 @@ function RitualsContent({ c, entries, save }: SectionProps) {
   const rituals = entries.filter(entry => entry.kind === 'ritual' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))).sort((a, b) => a.name.localeCompare(b.name))
   const manualNames = c.rituals ?? []
-  const grantSources = new Map<string, Set<string>>()
+  const grantedNames = new Set<string>()
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
     const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
-    for (const name of source?.ritualGrants ?? []) {
-      const key = name.toLowerCase()
-      const sources = grantSources.get(key) ?? new Set<string>()
-      sources.add(feat.name)
-      grantSources.set(key, sources)
-    }
+    for (const name of source?.ritualGrants ?? []) grantedNames.add(name.toLowerCase())
   }
-  const ritualNames = [...new Map([...manualNames, ...[...grantSources.keys()]].map(name => [name.toLowerCase(), name])).values()]
+  const ritualNames = [...new Map([...manualNames, ...grantedNames].map(name => [name.toLowerCase(), name])).values()]
     .sort((a, b) => a.localeCompare(b))
-  const known = new Set(ritualNames.map(name => name.toLowerCase()))
+  if (!ritualNames.length) return null
   const saveManualNames = (names: string[]) => save({ rituals: names })
   return <section className="innate-spell-group">
     <h5>Rituals</h5>
-    {ritualNames.length > 0 && <>
-      <SpellColumns />
-      <ul>{ritualNames.map(name => {
-        const key = name.toLowerCase()
-        const entry = rituals.find(ritual => ritual.name.toLowerCase() === key)
-        const sources = [...(grantSources.get(key) ?? [])].sort((a, b) => a.localeCompare(b))
-        const manuallyAdded = manualNames.some(ritual => ritual.toLowerCase() === key)
-        return <SpellItem c={c} key={key} name={entry?.name ?? name} entry={entry} rank={entry?.level ?? 0}
-          actionControls={<ActionIcon entry={entry} showOther />}
-          note={sources.length > 0 || !entry ? <>
-            {sources.length > 0 && <span>Granted by {sources.join(', ')}</span>}
-            {!entry && <span role="status">Ritual data unavailable.</span>}
-          </> : undefined}>
-          {manuallyAdded && sources.length === 0 && <button type="button" className="spell-remove"
-            aria-label={`Remove ritual ${entry?.name ?? name}`} title="Remove" onClick={() => confirmRemoval(`ritual "${name}"`,
-              () => saveManualNames(manualNames.filter(ritual => ritual.toLowerCase() !== key)))}>×</button>}
-        </SpellItem>
-      })}</ul>
-    </>}
-    {rituals.length > 0
-      ? <SearchableSelect label="Add ritual" aria-label="Add ritual" value="" optionCount={rituals.length}
-        onChange={event => {
-          const entry = rituals.find(ritual => ritual.name === event.target.value)
-          if (entry && !known.has(entry.name.toLowerCase())) saveManualNames([...manualNames, entry.name])
-        }}>
-        <option value="">Choose ritual...</option>
-        {rituals.filter(ritual => !known.has(ritual.name.toLowerCase()))
-          .map(ritual => <option key={ritual.id} value={ritual.name}>{ritual.name} (Ritual {ritual.level})</option>)}
-      </SearchableSelect>
-      : <small role="status">Ritual data unavailable. Sync Archives of Nethys content to load rituals.</small>}
+    <SpellColumns />
+    <ul>{ritualNames.map(name => {
+      const key = name.toLowerCase()
+      const entry = rituals.find(ritual => ritual.name.toLowerCase() === key)
+      const manuallyAdded = manualNames.some(ritual => ritual.toLowerCase() === key)
+      return <SpellItem c={c} key={key} name={entry?.name ?? name} entry={entry} rank={entry?.level ?? 0}
+        actionControls={<ActionIcon entry={entry} showOther />}
+        note={!entry && <span role="status">Ritual data unavailable.</span>}>
+        {manuallyAdded && !grantedNames.has(key) && <button type="button" className="spell-remove"
+          aria-label={`Remove ritual ${entry?.name ?? name}`} title="Remove" onClick={() => confirmRemoval(`ritual "${name}"`,
+            () => saveManualNames(manualNames.filter(ritual => ritual.toLowerCase() !== key)))}>×</button>}
+      </SpellItem>
+    })}</ul>
   </section>
 }
 
