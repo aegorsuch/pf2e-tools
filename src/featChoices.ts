@@ -52,7 +52,7 @@ export function alloyedAttackChoice(c: Character) {
 
 function adoptedAncestry(c: Character, pattern: RegExp) {
   return ![c.ancestry, c.heritage].some(name => pattern.test(name?.trim() ?? ''))
-    && c.feats.some(feat => feat.name === 'Adopted Ancestry' && pattern.test(feat.choice?.trim() ?? '') && featTakenLevel(feat) <= c.level)
+    && ancestryFeatTraits(c).some(name => pattern.test(name))
 }
 
 export function adoptedAncestryText(c: Character, text: string) {

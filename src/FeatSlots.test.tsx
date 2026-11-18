@@ -200,6 +200,32 @@ it('saves and reloads a level-five duplicate Titan Wrestler replacement, and cle
   expect(plannedSlots(c, entries).some(replacement => replacement.redundantFeat)).toBe(false)
 })
 
+it('keeps chained Orc Kinship labels shortened in the picker and saved feat without changing identity', () => {
+  const source: ContentEntry = { id: 'orc-ferocity', name: 'Orc Ferocity', kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Orc'], description: 'Orc Ferocity rules.', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', level: 9, feats: [
+    { name: 'Social Chameleon', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },
+    { name: 'Adopted Ancestry', type: 'General Feat', level: 1, takenLevel: 5, choice: 'Dwarf',
+      slot: 'general:1:social-chameleon:ancestry:5:0' },
+    { name: 'Orc Kinship', type: 'Ancestry Feat', level: 1, takenLevel: 5,
+      slot: 'ancestry:1:social-chameleon:ancestry:5:0' },
+  ] }
+  const before = JSON.stringify(source)
+  const tree = () => FeatSlots({ c, entries: [source], categories: ['ancestry'],
+    search: { 'ancestry:9:0:open': '1', 'ancestry:9:0:query': 'ferocity' }, onSearch: () => {},
+    save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('L09 Ancestry: Ferocity')
+  findButton(tree(), 'L09 Ancestry: Ferocity')!()
+  expect(c.feats.find(feat => feat.name === source.name)).toMatchObject({
+    name: 'Orc Ferocity', sourceId: source.id, slot: 'ancestry:9:0',
+  })
+  c = JSON.parse(JSON.stringify(c))
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('>Ferocity</button>')
+  expect(markup).not.toContain('>Orc Ferocity</button>')
+  expect(JSON.stringify(source)).toBe(before)
+})
+
 it('searches adopted Orc Tusks as Teeth while saving and reloading canonical feat identity', () => {
   const tusks: ContentEntry = { id: 'aon:pf2e:feat-4519', name: 'Tusks', kind: 'feat', source: 'official', systems: ['pf2e'],
     level: 1, traits: ['Orc'], description: 'Your tusks deal 1d6 piercing damage. Each tusk has finesse and unarmed traits.',

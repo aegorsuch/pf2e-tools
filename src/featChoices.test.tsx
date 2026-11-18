@@ -120,6 +120,18 @@ it.each(['Ferocity', 'Superstition', 'Warmask'])('displays %s without Orc only f
   const c: Character = { ...base, ancestry: 'Human', feats: [adopted] }
   const render = (character: Character) => renderToStaticMarkup(<EntryDescription character={character} name={`Orc ${name}`} />)
   expect(render(c)).toContain(`aria-haspopup="dialog">${name}</button>`)
+  const kinship = { name: 'Orc Kinship', type: 'Ancestry Feat', level: 1, takenLevel: 5 }
+  const chain: Character = { ...c, level: 5, feats: [
+    { name: 'Social Chameleon', type: 'Ancestry Feat', level: 5 },
+    { ...adopted, choice: 'Dwarf', takenLevel: 5 }, kinship,
+  ] }
+  expect(render(JSON.parse(JSON.stringify(chain)))).toContain(`aria-haspopup="dialog">${name}</button>`)
+  for (const inactive of [
+    { ...chain, level: 4 },
+    { ...chain, feats: chain.feats.slice(0, -1) },
+    { ...chain, systems: ['sf2e'] as Character['systems'] },
+    ...['Orc', 'Dromaar', 'Half-Orc'].map(ancestry => ({ ...chain, ancestry })),
+  ]) expect(render(inactive)).toContain(`aria-haspopup="dialog">Orc ${name}</button>`)
   for (const character of [
     { ...c, feats: [] },
     { ...c, feats: [{ ...adopted, takenLevel: 2 }] },
@@ -127,6 +139,7 @@ it.each(['Ferocity', 'Superstition', 'Warmask'])('displays %s without Orc only f
     { ...c, feats: [{ ...adopted, choice: 'Dwarf' }] },
   ]) expect(render(character)).toContain(`aria-haspopup="dialog">Orc ${name}</button>`)
   expect(c.feats).toEqual([adopted])
+  expect(chain.feats[2]).toEqual(kinship)
 })
 
 it('skips ancestry resolution for missing and unambiguous feat sources without ignoring saved source IDs', () => {
