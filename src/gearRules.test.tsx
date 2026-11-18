@@ -2106,12 +2106,27 @@ it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', ()
   const c: Character = { ...base, ancestry: 'Lizardfolk', level: 13,
     feats: [feat('Iruxi Armaments', 1, 'Fangs'), feat('Iruxi Spirit Strike', 13), feat('Iruxi Unarmed Cunning', 5)] }
   const attacks = ownedWeapons(c, [])
-  const fangs = attacks.find(weapon => weapon.name === 'Fangs (Iruxi Armaments)')!
+  const fangs = attacks.find(weapon => weapon.name === 'Fangs')!
   const attack = weaponAttack(c, [], fangs)
   expect(attack.damage).toBe('3d8+1 piercing')
   expect(attack.traits).toContain('Ghost Touch')
+  const fistEntry = content('weapon', 'Test Fist', { weapon_category: 'Unarmed', damage: '1d4 bludgeoning', hands: 1 }, 0, ['Unarmed'])
+  const fist: OwnedWeapon = { id: fistEntry.id, name: fistEntry.name, potency: 0, striking: 0, runes: [] }
+  expect(weaponAttack(c, [fistEntry], fist).traits).toContain('Ghost Touch')
+  const weapon = content('weapon', 'Shortsword', { damage: '1d6 piercing', hands: 1 }, 0, [])
+  const held: OwnedWeapon = { id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }
+  expect(weaponAttack(c, [weapon], held).traits).not.toContain('Ghost Touch')
+  const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [fist] }} entries={[fistEntry]} save={() => {}} />)
+  expect(markup).toContain('Granted by Iruxi Spirit Strike')
+  expect(markup).not.toContain('aria-label="Remove Ghost Touch rune"')
   expect(attack.criticalSpecialization).toBe(true)
-  expect(featChoiceOptions('Iruxi Armaments', c, [], '')).toEqual(['Claws', 'Fangs', 'Tail'])
+  expect(featChoiceOptions('Iruxi Armaments', c, [], '')).toEqual(['Claws', 'Tail'])
+  const twoSelections = { ...c, feats: [...c.feats, feat('Iruxi Armaments', 5, 'Claws')] }
+  expect(featChoiceOptions('Iruxi Armaments', twoSelections, [], '', 0)).toEqual(['Fangs', 'Tail'])
+  expect(featChoiceOptions('Iruxi Armaments', twoSelections, [], '', 3)).toEqual(['Claws', 'Tail'])
+  const threeSelections = { ...twoSelections, feats: [...twoSelections.feats, feat('Iruxi Armaments', 9, 'Tail')] }
+  const fourthSelection = { ...threeSelections, feats: [...threeSelections.feats, feat('Iruxi Armaments', 13)] }
+  expect(featChoiceOptions('Iruxi Armaments', fourthSelection, [], '', 5)).toEqual([])
 })
 
 it('makes Primal Nimbleness available to both classes and scales heritage and Ranger poison resistance', () => {

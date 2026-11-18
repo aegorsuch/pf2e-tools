@@ -3,6 +3,9 @@ import type { ContentEntry } from './types'
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
 const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)"])
 const BODY = /\n\n-{3,}\s*\n\n/
+export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
+export const isScaleOfIgroonShield = (name?: string) =>
+  name === 'Scale of Igroon' || name === SCALE_OF_IGROON_FORTRESS
 
 export function isNamedArmor(name: string) {
   return ARMORS.has(name)
@@ -80,17 +83,36 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
   }
 }
 
-const shieldCache = new WeakMap<ContentEntry[], ContentEntry | null>()
+const shieldCache = new WeakMap<ContentEntry[], Map<string, ContentEntry | null>>()
 
 export function makeNamedShieldEntry(entries: ContentEntry[], name: string): ContentEntry | undefined {
-  if (name !== 'Scale of Igroon') return undefined
-  const cached = shieldCache.get(entries)
-  if (cached !== undefined) return cached ?? undefined
+  if (!isScaleOfIgroonShield(name)) return undefined
+  let cache = shieldCache.get(entries)
+  if (!cache) shieldCache.set(entries, cache = new Map())
+  if (cache.has(name)) return cache.get(name) ?? undefined
   const item = entries.find(entry => entry.kind === 'item' && !entry.deleted && entry.name === name && entry.systems.includes('pf2e'))
+    ?? entries.find(entry => entry.kind === 'item' && !entry.deleted && entry.name === 'Scale of Igroon' && entry.systems.includes('pf2e'))
   const stats = item && /\bHardness (\d+), HP (\d+), BT (\d+)\b/.exec(item.description)
-  const shield = item && stats ? { ...item, kind: 'shield' as const,
-    data: { ...item.data, named_shield: true, hardness: Number(stats[1]), hp: Number(stats[2]), bt: Number(stats[3]) } } : undefined
-  shieldCache.set(entries, shield ?? null)
+  const fortress = name === SCALE_OF_IGROON_FORTRESS
+    ? entries.find(entry => entry.kind === 'shield' && !entry.deleted && entry.name === 'Fortress Shield' && entry.systems.includes('pf2e'))
+    : undefined
+  const profile = fortress ? 'Fortress Shield profile: AC Bonus 3 (4 while raised and taking cover); Speed Penalty -10 feet; Bulk 5.' : undefined
+  const description = item
+    ? profile ? item.description.replace(/\n\n(?:\*\*)?Activate(?:\*\*)?/, `\n\n${profile}\n\nActivate`) : item.description
+    : ''
+  const shield = item && stats && (name !== SCALE_OF_IGROON_FORTRESS || fortress) ? {
+    ...item, id: name === SCALE_OF_IGROON_FORTRESS ? `${item.id}:fortress-shield` : item.id,
+    name, kind: 'shield' as const, description,
+    traits: [...new Set([...(fortress?.traits ?? []), ...item.traits])],
+    data: {
+      ...fortress?.data, ...item.data, named_shield: true,
+      ...(fortress ? { named_shield_base: fortress.name, named_shield_fortress: true,
+        ac: fortress.data.ac, bulk: fortress.data.bulk, speed_penalty: fortress.data.speed_penalty,
+        hands: fortress.data.hands } : {}),
+      hardness: Number(stats[1]), hp: Number(stats[2]), bt: Number(stats[3]),
+    },
+  } : undefined
+  cache.set(name, shield ?? null)
   return shield
 }
 
@@ -100,6 +122,7 @@ const ACTIONS: Record<string, string[]> = {
   "Slithermaw's Bane": ['Reaction', ''],
   "Slithermaw's Bane (Artifact)": ['Reaction', 'Two Actions', 'Two Actions'],
   'Scale of Igroon': ['Single Action', 'Single Action', 'Free Action'],
+  [SCALE_OF_IGROON_FORTRESS]: ['Single Action', 'Single Action', 'Free Action'],
   'Shadowed Scale, the Jungle Secret': ['Single Action', 'Single Action'],
 }
 

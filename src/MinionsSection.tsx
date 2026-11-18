@@ -39,12 +39,14 @@ function minionSummaryData(c: Character) {
   const constructAdvancement = constructCompanionAdvancement(c)
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
   const leshy = activeFeatsNamed(c, 'Leshy Familiar').length > 0
-  const familiar = leshy || c.className === 'Witch' || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
+  const undeadFamiliar = activeFeatsNamed(c, 'Undead Familiar').length > 0
+  const familiar = leshy || undeadFamiliar || c.className === 'Witch'
+    || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
   const wasp = hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
-  return { companions, advancement, constructAdvancement, stage, leshy, familiar, wasp, seaFriend, pet }
+  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, familiar, wasp, seaFriend, pet }
 }
 
 function MinionFerocity({ c, ferocity }: { c: Character; ferocity: ReturnType<typeof minionFerocity> }) {
@@ -193,7 +195,7 @@ export function MinionsSection(props: SectionProps) {
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
-  const { companions, advancement, stage, constructAdvancement, leshy, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, advancement, stage, constructAdvancement, leshy, undeadFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const companionEntries = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
@@ -210,8 +212,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       : animalCompanionGrant ? 'Animal Companion' : beastmaster ? 'Beastmaster Dedication' : undefined
   const companionLimit = beastmaster && !getSettings().singleAnimalCompanion ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
     + activeFeatsNamed(c, 'Additional Companion').length) : 1
+  const witchFamiliarAbilities = c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
-    + (c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0)
+    + witchFamiliarAbilities
   const familiarDefense = familiar || wasp ? (() => {
     const base = (breakdown: TotalBreakdown) => breakdown.parts
       .filter(part => !/\((?:circumstance|status)\)/i.test(part.label)).reduce((sum, part) => sum + part.value, 0)
@@ -242,7 +245,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
         </details>}
-        <details className="character-subsection" open>
+        {(companions.length > 0 || companionGrant) && <details className="character-subsection" open>
           <summary><h4>{companions.length === 1
             ? companions[0].type === CONSTRUCT_COMPANION_NAME ? 'Construct Companion' : 'Animal Companion'
             : 'Animal Companions'}</h4></summary>
@@ -492,21 +495,32 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               </article>
             )
           })}
-        </details>
+        </details>}
         {[...(familiar ? [{ wasp: false, data: c.familiar }] : []),
           ...(wasp ? [{ wasp: true, data: c.waspFamiliar }] : [])].map(({ wasp: isWasp, data }) => {
           const isLeshy = leshy && !isWasp
-          const familiarAbilities = (data?.abilities ?? []).slice(0, familiarCapacity).filter(Boolean)
+          const isUndead = undeadFamiliar && !isWasp
+          const dailyAbilityLimit = isUndead
+            ? (activeFeatsNamed(c, 'Enhanced Undead Familiar').length ? 3 : 1) + witchFamiliarAbilities
+            : familiarCapacity
+          const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar' : 'Familiar'
+          const familiarAbilities = (data?.abilities ?? []).slice(0, dailyAbilityLimit).filter(Boolean)
           const familiarTough = familiarAbilities.some(ability => ability.trim().toLowerCase() === 'tough')
           const saveFamiliar = (changes: Partial<NonNullable<Character['familiar']>>) =>
             save(isWasp ? { waspFamiliar: { ...data, ...changes } } : { familiar: { ...data, ...changes } })
           const abilityNotes = [...(isWasp ? ['Burrower', 'Flier'] : []), ...familiarAbilities]
             .filter((ability, index, all) => all.findIndex(other => other.trim().toLowerCase() === ability.trim().toLowerCase()) === index)
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
-          <summary><h4>{isWasp ? 'Wasp Familiar' : isLeshy ? 'Leshy Familiar' : 'Familiar'}</h4></summary>
-          <label>Name <input aria-label={isWasp ? 'Wasp familiar name' : 'Familiar name'} value={data?.name ?? ''}
+          <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : 'Familiar'}</h4></summary>
+          <label>Name <input aria-label={isWasp ? 'Wasp familiar name' : `${familiarType} name`} value={data?.name ?? ''}
             onChange={event => saveFamiliar({ name: event.target.value })} /></label>
           <div><small>Hit Points</small> <b>{c.level * (familiarTough ? 7 : 5)}</b></div>
+          {isUndead && <>
+            <div className="gear-traits"><span>Undead</span></div>
+            <small>Immune to bleed, death effects, disease, mental, and poison.</small>
+            <small>Can't choose familiar abilities that change its trait, such as Construct or Dragon.</small>
+            <small>Can be targeted by spells and abilities that target your thralls. If destroyed, can be raised during next daily preparations.</small>
+          </>}
           {familiarDefense && <>
             <div className="gear-stats">
               <span><small>Armor Class</small><b>{familiarDefense.ac}</b></span>
@@ -523,9 +537,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <option value="">Choose ability</option><option>Plant</option><option>Fungus</option>
             </select>
           </label>}
-          <div><small>Daily familiar or master abilities ({familiarAbilities.length}/{familiarCapacity})</small></div>
-          {Array.from({ length: familiarCapacity }, (_, index) => <label key={index}>Ability {index + 1}{' '}
-            <input aria-label={`${isWasp ? 'Wasp familiar' : 'Familiar'} ability ${index + 1}`} value={data?.abilities?.[index] ?? ''}
+          <div><small>Daily familiar or master abilities ({familiarAbilities.length}/{dailyAbilityLimit})</small></div>
+          {Array.from({ length: dailyAbilityLimit }, (_, index) => <label key={index}>Ability {index + 1}{' '}
+            <input aria-label={`${isWasp ? 'Wasp familiar' : familiarType} ability ${index + 1}`} value={data?.abilities?.[index] ?? ''}
               onChange={event => {
                 const abilities = Array.from({ length: Math.max(data?.abilities?.length ?? 0, index + 1) },
                   (_, i) => data?.abilities?.[i] ?? '')

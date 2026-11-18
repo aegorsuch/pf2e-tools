@@ -4,12 +4,11 @@ import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
-import { grantedWardenSpells, spellWardenLabel } from './featChoices'
+import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
 import { dailyInnateUses, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
-import { featTakenLevel } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
@@ -559,6 +558,57 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
   return { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items: itemSpells(c, entries) }
 }
 
+function RitualsContent({ c, entries, save }: SectionProps) {
+  const rituals = entries.filter(entry => entry.kind === 'ritual' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system))).sort((a, b) => a.name.localeCompare(b.name))
+  const manualNames = c.rituals ?? []
+  const grantSources = new Map<string, Set<string>>()
+  for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
+    const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+    for (const name of source?.ritualGrants ?? []) {
+      const key = name.toLowerCase()
+      const sources = grantSources.get(key) ?? new Set<string>()
+      sources.add(feat.name)
+      grantSources.set(key, sources)
+    }
+  }
+  const ritualNames = [...new Map([...manualNames, ...[...grantSources.keys()]].map(name => [name.toLowerCase(), name])).values()]
+    .sort((a, b) => a.localeCompare(b))
+  const known = new Set(ritualNames.map(name => name.toLowerCase()))
+  const saveManualNames = (names: string[]) => save({ rituals: names })
+  return <section className="innate-spell-group">
+    <h5>Rituals</h5>
+    {rituals.length > 0
+      ? <SearchableSelect label="Add ritual" aria-label="Add ritual" value="" optionCount={rituals.length}
+        onChange={event => {
+          const entry = rituals.find(ritual => ritual.name === event.target.value)
+          if (entry && !known.has(entry.name.toLowerCase())) saveManualNames([...manualNames, entry.name])
+        }}>
+        <option value="">Choose ritual...</option>
+        {rituals.filter(ritual => !known.has(ritual.name.toLowerCase()))
+          .map(ritual => <option key={ritual.id} value={ritual.name}>{ritual.name} (Ritual {ritual.level})</option>)}
+      </SearchableSelect>
+      : <small role="status">Ritual data unavailable. Sync Archives of Nethys content to load rituals.</small>}
+    {ritualNames.length > 0 && <ul>{ritualNames.map(name => {
+      const key = name.toLowerCase()
+      const entry = rituals.find(ritual => ritual.name.toLowerCase() === key)
+      const sources = [...(grantSources.get(key) ?? [])].sort((a, b) => a.localeCompare(b))
+      const manuallyAdded = manualNames.some(ritual => ritual.toLowerCase() === key)
+      return <li className="innate-spell-row" key={key}>
+        <div className="innate-spell-name">
+          {entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" entries={entries} character={c} />
+            : <b>{name}</b>}
+          {sources.length > 0 && <small>Granted by {sources.join(', ')}</small>}
+          {!entry && <small role="status">Ritual data unavailable.</small>}
+        </div>
+        {manuallyAdded && sources.length === 0 && <button type="button" className="spell-remove"
+          aria-label={`Remove ritual ${entry?.name ?? name}`} title="Remove" onClick={() => confirmRemoval(`ritual "${name}"`,
+            () => saveManualNames(manualNames.filter(ritual => ritual.toLowerCase() !== key)))}>×</button>}
+      </li>
+    })}</ul>}
+  </section>
+}
+
 export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'entries'> & { data?: ReturnType<typeof spellSummaryData> }) {
   const { manualSpells, granted, focus, innate, items } = data ?? spellSummaryData(c, entries)
   const slots = classSpellSlots(c)
@@ -772,6 +822,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   return (
       <div className="character-section-content">
       <DevotionSpellChoice c={c} entries={entries} save={save} />
+      <RitualsContent c={c} entries={entries} save={save} />
       {casting && <>
       <div className="row">
         {!casting.ability && c.className !== 'Witchwarper' && <label>Casting ability{' '}

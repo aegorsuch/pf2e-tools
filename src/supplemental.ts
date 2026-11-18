@@ -117,21 +117,21 @@ export const ORC_TUSKS: ContentEntry = {
 }
 
 export const IRUXI_CLAWS: ContentEntry = {
-  ...FIST, id: 'supplemental:iruxi-claws', name: 'Claws (Iruxi Armaments)',
+  ...FIST, id: 'supplemental:iruxi-claws', name: 'Claws',
   traits: ['Agile', 'Finesse', 'Unarmed', 'Versatile P'],
   description: 'Iruxi Armaments improves your claw unarmed attack to 1d6 slashing damage and adds versatile P.',
   data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d6 slashing' },
 }
 
 export const IRUXI_FANGS: ContentEntry = {
-  ...FIST, id: 'supplemental:iruxi-fangs', name: 'Fangs (Iruxi Armaments)',
+  ...FIST, id: 'supplemental:iruxi-fangs', name: 'Fangs',
   traits: ['Unarmed'],
   description: 'Iruxi Armaments grants a fangs unarmed attack dealing 1d8 piercing damage.',
   data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d8 piercing' },
 }
 
 export const IRUXI_TAIL: ContentEntry = {
-  ...FIST, id: 'supplemental:iruxi-tail', name: 'Tail (Iruxi Armaments)',
+  ...FIST, id: 'supplemental:iruxi-tail', name: 'Tail',
   traits: ['Sweep', 'Unarmed'],
   description: 'Iruxi Armaments grants a tail unarmed attack dealing 1d6 bludgeoning damage with sweep.',
   data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d6 bludgeoning' },

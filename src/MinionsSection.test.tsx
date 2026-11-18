@@ -286,6 +286,39 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
 })
 
+it('shows undead familiar traits, immunities, restrictions, and one daily ability', () => {
+  const c: Character = {
+    id: 'undead-familiar', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Undead Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Flier', 'Tough'] },
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('<h4>Undead Familiar</h4>')
+  expect(html).toContain('<span>Undead</span>')
+  expect(html).toContain('Immune to bleed, death effects, disease, mental, and poison.')
+  expect(html).toContain('change its trait, such as Construct or Dragon.')
+  expect(html).toContain('Can be targeted by spells and abilities that target your thralls.')
+  expect(html).toContain('Daily familiar or master abilities (1/1)')
+  expect(html).toContain('aria-label="Undead familiar ability 1"')
+  expect(html).not.toContain('aria-label="Undead familiar ability 2"')
+})
+
+it('raises undead familiar ability limit to three with Enhanced Undead Familiar', () => {
+  const c: Character = {
+    id: 'enhanced-undead-familiar', systems: ['pf2e'], name: 'Test', level: 2, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: ['Undead Familiar', 'Enhanced Undead Familiar'].map(name => ({ name, type: 'Class Feat', level: 1 })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Flier', 'Tough', 'Darkvision', 'Climber'] },
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Daily familiar or master abilities (3/3)')
+  expect(html).toContain('aria-label="Undead familiar ability 3"')
+  expect(html).not.toContain('aria-label="Undead familiar ability 4"')
+})
+
 it('derives Calistria’s wasp and bonus abilities separately from existing familiar choices', () => {
   let c: Character = {
     id: 'wasp', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid', deity: 'Calistria',
@@ -853,6 +886,17 @@ it('lets a Champion choose Faithful Steed without a companion naming field', () 
   expect(markup).not.toContain('Choose Faithful Steed')
   expect(markup).not.toContain('aria-label="Companion name"')
   expect(c.companions).toMatchObject([{ type: 'Horse', name: '' }])
+})
+
+it('hides the Animal Companion section when there is no companion or companion-granting feat', () => {
+  const c: Character = {
+    id: 'no-companion', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).not.toContain('Animal Companion')
+  expect(html).not.toContain('Choose Faithful Steed')
 })
 
 it('adds Beastmaster specialization slots beside existing companion specializations without replacing them', () => {

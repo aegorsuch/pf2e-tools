@@ -6,6 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
+import { isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { armorBulk, armorStrengthMet } from './builder'
@@ -1080,6 +1081,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
+          ...(unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
+            && blessed !== 'Ghost Touch' && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
+            ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({
               name: `${c.level >= 11 ? 'Greater ' : ''}${name}`, source: 'Granted to clan daggers',
@@ -1756,13 +1760,20 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             note="Material special effects are not applied automatically." />}
           <div className="row">
             <label>Damage <input type="number" min={0} value={shield.damage} onChange={(e) => save({ shield: { ...shield, damage: Math.max(0, +e.target.value || 0) } })} /></label>
-            {shield.name === 'Scale of Igroon' && <button type="button"
+            {isScaleOfIgroonShield(shield.name) && <button type="button"
               aria-label="Recover 4 HP (start of wielder’s turn)" title="Recover 4 HP (start of wielder’s turn)"
               disabled={equipped?.id !== shield.id || shield.damage <= 0}
               onClick={() => save({ shield: { ...shield, damage: Math.max(0, shield.damage - 4) } })}>
               +4 HP
             </button>}
           </div>
+          {shield.name === SCALE_OF_IGROON_FORTRESS && <label>
+            <input type="checkbox" aria-label="Taking Cover behind Fortress Shield"
+              checked={equipped?.id === shield.id && !!shield.takingCover}
+              disabled={equipped?.id !== shield.id || !shieldRaised(c)}
+              onChange={event => save(shieldChange(c, shield, { takingCover: event.target.checked }))} />
+            Take Cover (+1 AC)
+          </label>}
           <ShieldDurability c={c} entries={entries} shield={shield} />
           <NamedArmorAbilities entry={shieldEntry(entries, shield.name)} />
           <button type="button" className="spell-remove" aria-label={`Remove ${shield.name}`} title="Remove"

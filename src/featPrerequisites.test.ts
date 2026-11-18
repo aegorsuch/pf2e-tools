@@ -48,6 +48,31 @@ it('qualifies Signifer through class spellcasting or class focus spells, not ite
   expect(featPrerequisiteChecker({ ...ranger, feats: [selected(focus.name, 8)] }, entries, 6)(signifer).missing).toHaveLength(1)
 })
 
+it('does not let Consult the Stars satisfy permanent skill prerequisites', () => {
+  const consult: Character = { ...base, feats: [{ ...selected('Consult the Stars'), choice: 'Deception' }] }
+  expect(check('trained in Deception', consult).missing).not.toEqual([])
+})
+
+it('checks swim-Speed prerequisites against automatically calculated movement', () => {
+  const swimmer: Character = { ...base, level: 4, className: 'Druid', feats: [selected('Natural Swimmer', 4)] }
+  expect(check('You have a swim Speed', swimmer)).toEqual({ missing: [], manual: [] })
+  expect(check('You have a swim Speed', { ...swimmer, feats: [] }).missing).not.toEqual([])
+})
+
+it('grants Ride from Reptile Rider', () => {
+  const c: Character = { ...base, feats: [selected('Reptile Rider')] }
+  expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Ride', source: 'Reptile Rider', level: 1 })
+})
+
+it('keeps Hallowed Dead and Unholy Dead mutually exclusive without a prerequisite warning', () => {
+  const feats = ['Hallowed Dead', 'Unholy Dead'].map(name => entry('feat', name))
+  const c: Character = { ...base, feats: [selected('Hallowed Dead')] }
+  const slot = { key: 'class:2:0', category: 'class' as const, level: 2 }
+  const unholyDead = feats.find(feat => feat.name === 'Unholy Dead')!
+  expect(eligibleFeats(feats, c, slot, { includeUnmetPrerequisites: true })).not.toContain(unholyDead)
+  expect(featSelectionPrerequisiteChecker(c, feats, slot)(unholyDead)).toEqual({ missing: [], manual: [] })
+})
+
 it.each(['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant'])(
   'makes %s exclusive with both other preferment paths, even when browsing unmet prerequisites', name => {
     const feats = ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']

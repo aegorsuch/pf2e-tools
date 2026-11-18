@@ -27,6 +27,7 @@ export interface PrerequisiteFacts {
   weaponRank?: (name: string) => number | undefined
   abilities: Character['abilities']
   senses: string[]
+  swimSpeed?: boolean
   spellcastingClassFeature?: boolean
   classFocusSpells?: boolean
   canCastSpells?: boolean
@@ -262,6 +263,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'intercept attack' || name === 'disarming intercept') {
       return resultFor(facts.className === 'Guardian', text)
     }
+    if (name === 'you have a swim speed' || name === 'you have swim speed') return resultFor(!!facts.swimSpeed, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
