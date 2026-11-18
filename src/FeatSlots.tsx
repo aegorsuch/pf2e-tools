@@ -576,7 +576,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               )}
               {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
                 || SKILL_GRANT_REPLACEMENT_FEATS.includes(selection.name)
-                || ['Bone Magic', 'Lizardfolk Lore', 'Reinforced Skeleton'].includes(selection.name)
+                || ['Bone Magic', 'Reinforced Skeleton'].includes(selection.name)
+                || selection.name === 'Lizardfolk Lore' && !selectedChoices.includes(selection.choice)
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())
                 || selection.name === 'Mercy' && !selectedChoices.includes(selection.choice)
                 || ORDER_TRAINING_FEATS.includes(selection.name) && !selectedChoices.includes(selection.choice)

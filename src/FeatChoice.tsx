@@ -107,7 +107,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   if (feat.name === 'Lizardfolk Lore') {
-    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    if (feat.choice?.includes(', ')) return null
+    const options = ['Nature', 'Occultism']
     const replacements = lizardfolkLoreReplacementChoices(c, entries, index)
     const setReplacement = (replacementIndex: number, value: string) => {
       const next = [...(feat.replacements ?? [])]

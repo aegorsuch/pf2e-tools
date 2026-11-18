@@ -354,12 +354,32 @@ it('applies persistent Lizardfolk and Necromancer feat benefits to defenses, sen
     'Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.')
 })
 
-it('grants Lizardfolk Lore skill training and the selected Additional Lore progression', () => {
+it.each([
+  ['Nature', 'Astrology Lore'], ['Nature', 'Lizardfolk Lore'],
+  ['Occultism', 'Astrology Lore'], ['Occultism', 'Lizardfolk Lore'],
+])('grants Lizardfolk Lore variant %s and %s', (skill, lore) => {
   const c: Character = { ...base, className: undefined, background: undefined, ancestry: 'Lizardfolk',
-    feats: [{ name: 'Lizardfolk Lore', type: 'Ancestry Feat', level: 1, choice: 'Nature', replacements: ['Astrology Lore'] }] }
-  expect(featChoiceOptions('Lizardfolk Lore', c, [], 'ancestry:1:0')).toEqual(['Nature', 'Occultism'])
-  expect(ranksAt(c, [])).toMatchObject({ Survival: 1, Nature: 1, 'Astrology Lore': 1 })
-  expect(featLores(c, [])).toContain('Astrology Lore')
+    feats: [{ name: 'Lizardfolk Lore', type: 'Ancestry Feat', level: 1, choice: `${skill}, ${lore}` }] }
+  expect(featChoiceOptions('Lizardfolk Lore', c, [], 'ancestry:1:0')).toHaveLength(4)
+  expect(ranksAt(c, [])).toMatchObject({ Survival: 1, [skill]: 1, [lore]: 1 })
+  expect(ranksAt({ ...c, level: 3 }, [])[lore]).toBe(2)
+  expect(ranksAt({ ...c, level: 7 }, [])[lore]).toBe(3)
+  expect(featLores(c, [])).toContain(lore)
+})
+
+it('adds trained slots for repeated Lizardfolk Lore skills and preserves legacy selections', () => {
+  const klass = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival' })
+  const feat = { name: 'Lizardfolk Lore', type: 'Ancestry Feat', level: 1, choice: 'Nature, Astrology Lore' }
+  const c: Character = { ...base, ancestry: 'Lizardfolk', className: 'Ranger', background: undefined, feats: [feat] }
+  expect(additionalSkillCount(c, [klass]) - additionalSkillCount({ ...c, feats: [] }, [klass])).toBe(2)
+  expect(skillRankBudget(c, [klass]).trained - skillRankBudget({ ...c, feats: [] }, [klass]).trained).toBe(2)
+  const occultism = { ...c, feats: [{ ...feat, choice: 'Occultism, Astrology Lore' }] }
+  expect(additionalSkillCount(occultism, [klass]) - additionalSkillCount({ ...occultism, feats: [] }, [klass])).toBe(1)
+  const legacy = { ...c, feats: [{ ...feat, choice: 'Nature', replacements: ['Astrology Lore', 'Athletics', 'Society'] }] }
+  expect(ranksAt(legacy, [klass])).toMatchObject({ Survival: 1, Nature: 1, 'Astrology Lore': 1, Athletics: 1, Society: 1 })
+  const normalized = normalizeConditionalSkillChoices(legacy, [klass])
+  expect(normalized.skillPicks).toEqual(expect.arrayContaining(['Athletics', 'Society']))
+  expect(featLores(normalized, [klass])).toContain('Astrology Lore')
 })
 
 describe('replacement slots for redundant fixed feat grants', () => {

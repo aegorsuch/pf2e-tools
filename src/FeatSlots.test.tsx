@@ -62,6 +62,23 @@ it('uses Iruxi Armaments variants without a trailing selector', () => {
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)).toBe('')
 })
 
+it.each(['Nature, Astrology Lore', 'Nature, Lizardfolk Lore', 'Occultism, Astrology Lore', 'Occultism, Lizardfolk Lore'])(
+  'selects Lizardfolk Lore (%s) without separate controls', choice => {
+    const feat: ContentEntry = { id: 'lizardfolk-lore', name: 'Lizardfolk Lore', kind: 'feat', source: 'official',
+      systems: ['pf2e'], level: 1, traits: ['Lizardfolk'], description: '', data: {}, effects: [], updatedAt: 0 }
+    let c: Character = { ...emptyRanger(), ancestry: 'Lizardfolk', level: 1 }
+    const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
+      search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
+    const label = `Lizardfolk Lore (${choice})`
+    expect(renderToStaticMarkup(tree())).toContain(label)
+    findButton(tree(), `L01 Ancestry: ${label}`)!()
+    c = JSON.parse(JSON.stringify(c))
+    expect(c.feats[0].choice).toBe(choice)
+    expect(renderToStaticMarkup(tree())).toContain(label)
+    expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />)).toBe('')
+  },
+)
+
 it('clears selected skill prerequisite warnings while planning without changing character skills', () => {
   const c: Character = { ...emptyRanger(), level: 20,
     skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' },

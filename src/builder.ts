@@ -1302,7 +1302,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name !== 'Assurance' && typeof fixedBackgroundChoice === 'string') return [fixedBackgroundChoice]
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
-  if (name === 'Lizardfolk Lore') return ['Nature', 'Occultism']
+  if (name === 'Lizardfolk Lore') return ['Nature, Astrology Lore', 'Nature, Lizardfolk Lore',
+    'Occultism, Astrology Lore', 'Occultism, Lizardfolk Lore']
   if (name === 'Iruxi Armaments') {
     const used = new Set(c.feats.flatMap((feat, featIndex) =>
       featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
@@ -2467,7 +2468,7 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
     return lore ? [`${lore} Lore`] : []
   }),
   ...c.feats.flatMap(feat => feat.name === 'Lizardfolk Lore' && featTakenLevel(feat) <= c.level
-    ? [feat.replacements?.[0]?.trim().replace(/\s+lore$/i, ' Lore')].filter((lore): lore is string => !!lore) : []),
+    ? [lizardfolkLoreSelection(feat).lore].filter((lore): lore is string => !!lore) : []),
   ...activeFeatsNamed(c, 'Additional Lore').flatMap((feat) => {
     const choice = feat.choice?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
@@ -2515,10 +2516,20 @@ export function loreReplacementChoices(c: Character, entries: ContentEntry[], in
   }))
 }
 
+function lizardfolkLoreSelection(feat: Character['feats'][number]) {
+  const [skill, variantLore] = (feat.choice ?? '').split(', ')
+  const lore = variantLore ?? feat.replacements?.[0]?.trim().replace(/\s+lore$/i, ' Lore')
+  return {
+    skill: ['Nature', 'Occultism'].includes(skill) ? skill : undefined,
+    lore: ['Astrology Lore', 'Lizardfolk Lore'].includes(lore ?? '') ? lore : undefined,
+  }
+}
+
 export function lizardfolkLoreReplacementChoices(c: Character, entries: ContentEntry[], index: number) {
   const feat = c.feats[index]
   if (!feat || feat.name !== 'Lizardfolk Lore') return []
-  const skills = ['Survival', ...(feat.choice && ['Nature', 'Occultism'].includes(feat.choice) ? [feat.choice] : [])]
+  const skill = lizardfolkLoreSelection(feat).skill
+  const skills = ['Survival', ...(skill ? [skill] : [])]
   const ranks = ancestrySkillBefore(c, entries, index)
   const available = statDefs(c).filter(stat => stat.kind === 'skill' && !(ranks[stat.name] ?? 0)).map(stat => stat.name)
   return skills.flatMap((skill, i) => (ranks[skill] ?? 0) > 0 ? [{
@@ -2694,7 +2705,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
         }
       }
     } else if (feat.name === 'Lizardfolk Lore') {
-      for (const [skill, replacementIndex] of [['Survival', 1], [feat.choice ?? '', 2]] as const) {
+      for (const [skill, replacementIndex] of [['Survival', 1], [lizardfolkLoreSelection(feat).skill ?? '', 2]] as const) {
         if (!skill || !['Survival', 'Nature', 'Occultism'].includes(skill)) continue
         if (!(ranks[skill] ?? 0)) trained.push(skill)
         else {
@@ -5091,7 +5102,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       const named = ancestry ? [ancestry.skill]
         : feat.name === 'Pick On Someone My Size' ? []
         : feat.name === 'Ancestral Skills' ? ancestralSkills(c, entries, [feat])
-        : feat.name === 'Lizardfolk Lore' ? ['Survival', ...(feat.choice && ['Nature', 'Occultism'].includes(feat.choice) ? [feat.choice] : [])]
+        : feat.name === 'Lizardfolk Lore' ? ['Survival', ...[lizardfolkLoreSelection(feat).skill].filter((skill): skill is string => !!skill)]
         : (feat.name === 'Dwarven Lore' ? undefined : ancestryLoreGrant(c, entries, feat.name)?.skills) ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
         ?? (feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
         : feat.name === 'Clan Lore' ? CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
