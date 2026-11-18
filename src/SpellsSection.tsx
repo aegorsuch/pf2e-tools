@@ -21,6 +21,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
+import { DINOSAUR_FORMS } from './dinosaurForm'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
@@ -193,17 +194,38 @@ function UntamedShiftOptions({ c, entries, save }: SectionProps) {
   </fieldset>
 }
 
-function SpellEffectActions({ c, entries, save, entry, name }: SectionProps & {
+export function DinosaurFormOptions({ c, save, rank }: Pick<SectionProps, 'c' | 'save'> & { rank: number }) {
+  const active = c.activeSpells?.includes('Dinosaur Form')
+  return <fieldset className="col">
+    <legend>Dinosaur Form</legend>
+    <label>Form{' '}
+      <select aria-label="Dinosaur Form battle form" value={active ? c.dinosaurForm?.form ?? '' : ''}
+        onChange={event => {
+          if (!DINOSAUR_FORMS.some(form => form.name === event.target.value) || rank < 4 || rank > 10 || !Number.isInteger(rank)) return
+          save({ dinosaurForm: { form: event.target.value, rank }, ...spellActiveChange(c, 'Dinosaur Form', true) })
+        }}>
+        <option value="">Choose form</option>
+        {DINOSAUR_FORMS.map(form => <option key={form.name}>{form.name}</option>)}
+      </select>
+    </label>
+    <button type="button" disabled={!active} onClick={() => save({
+      dinosaurForm: undefined, ...spellActiveChange(c, 'Dinosaur Form', false),
+    })}>Dismiss Dinosaur Form</button>
+  </fieldset>
+}
+
+function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.level / 2) }: SectionProps & {
   entry?: ContentEntry
-  name: 'Animal Feature' | 'Untamed Shift' | 'Untamed Form'
+  name: 'Animal Feature' | 'Untamed Shift' | 'Untamed Form' | 'Dinosaur Form'
+  rank?: number
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const dialogId = useId()
-  const form = name === 'Untamed Form'
+  const form = name === 'Untamed Form' || name === 'Dinosaur Form'
   const actions = form ? 'Two Actions' : typeof entry?.data.actions === 'string' && entry.data.actions.trim() ? entry.data.actions
     : name === 'Animal Feature' ? 'Single Action' : 'Single Action to Two Actions'
-  const label = form ? 'Configure Untamed Form' : `Choose ${name} effects`
+  const label = form ? name === 'Dinosaur Form' ? 'Choose Dinosaur Form' : 'Configure Untamed Form' : `Choose ${name} effects`
   return <>
     <button type="button" className="spell-action-button" aria-label={label}
       aria-haspopup="dialog" aria-controls={dialogId} title={`${actions}; ${label}`}
@@ -215,8 +237,9 @@ function SpellEffectActions({ c, entries, save, entry, name }: SectionProps & {
     </button>
     <dialog ref={dialog} id={dialogId} className="entry-dialog" aria-labelledby={titleId}
       onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-      <h4 id={titleId} tabIndex={-1}>{form ? 'Untamed Form options' : `${name} effects`}</h4>
-      {form ? <UntamedFormOptions c={c} entries={entries} save={save} />
+      <h4 id={titleId} tabIndex={-1}>{form ? `${name} options` : `${name} effects`}</h4>
+      {name === 'Dinosaur Form' ? <DinosaurFormOptions c={c} save={save} rank={rank} />
+        : form ? <UntamedFormOptions c={c} entries={entries} save={save} />
         : name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
         : <UntamedShiftOptions c={c} entries={entries} save={save} />}
       <form method="dialog"><button autoFocus>Close</button></form>
@@ -376,7 +399,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
     durationNote: persistent && name === 'Animal Feature' && !getSettings().championFormNoFlight ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : name === 'Warning Stripes' ? 'Self or 30 feet'
-      : ['Athletic Rush', 'Enduring Might', 'Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Athletic Rush', 'Dinosaur Form', 'Enduring Might', 'Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || tracks && range === '—' ? 'Self'
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
@@ -386,7 +409,8 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       : name === 'Pulverizing Wake' ? '1 creature within reach'
       : name === 'Warning Stripes' ? 'Yourself or your animal companion'
       : name === 'Canopy Crawler' && rank >= 5 ? 'Yourself and your animal companion'
-      : ['Athletic Rush', 'Enduring Might', 'Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : name === 'Mask of Terror' && rank >= 8 ? 'Up to 5 creatures'
+      : ['Athletic Rush', 'Dinosaur Form', 'Enduring Might', 'Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || targets === '—' && ['Sure Strike', 'True Strike', 'Vanishing Tracks'].includes(name) ? 'Self' : targets,
   }
 }
@@ -704,8 +728,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
       && <SpellDamageRolls name={name} rank={rank} />}
   </>
-  const inlineControls = (name: string) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form'
-    ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} />
+  const inlineControls = (name: string, rank = Math.ceil(c.level / 2)) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
+    ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
     : name === 'Shield'
     ? <label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
@@ -900,8 +924,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   </SearchableSelect>
                   {selectedEntry && <EntryDescription name={selectedEntry.name} entry={selectedEntry}
                     buttonLabel="Details" className="picker-details" />}
-                  {selectedEntry && (selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift'
-                    ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} />
+                  {selectedEntry && (selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
+                    ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
                     : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />)}
                 </div>
                 <span><small>Duration</small>{metadata.duration}{metadata.durationNote
@@ -1017,7 +1041,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <ul>{group.grants.map(grant => {
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
-              inlineControls={<>{inlineControls(grant.entry.name)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               {...buffProps(grant.entry.name)}>
               {controls(grant.entry.name, grant.rank)}
             </InnateSpellRow>

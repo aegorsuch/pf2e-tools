@@ -871,6 +871,31 @@ it.each(['Gale Blast', 'Spout'])('offers Touch of the Sea (%s) as a distinct anc
   expect(renderToStaticMarkup(tree())).toContain(`Touch of the Sea (${spell})`)
 })
 
+it('saves Bone Magic spell and tradition in one variant and grants the selected spell without a second selector', () => {
+  const source: ContentEntry = { id: 'bone-magic', name: 'Bone Magic', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Lizardfolk'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const voidWarp: ContentEntry = { ...source, id: 'void-warp', name: 'Void Warp', kind: 'spell',
+    traits: ['Cantrip'], data: { tradition: 'Arcane, Divine, Occult' } }
+  const shared = { ...voidWarp, id: 'shared-cantrip', name: 'Shared Cantrip', data: { tradition: 'Occult, Primal' } }
+  const entries = [source, voidWarp, shared]
+  let c: Character = { ...emptyRanger(), ancestry: 'Lizardfolk', level: 20 }
+  const tree = () => FeatSlots({ c, entries, save: patch => { c = { ...c, ...patch } }, categories: ['ancestry'] })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Bone Magic (Occult: Void Warp)')
+  expect(markup).toContain('Bone Magic (Occult: Shared Cantrip)')
+  expect(markup).toContain('Bone Magic (Primal: Shared Cantrip)')
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: JSON.stringify([source.name, 'occult|Void Warp']) } })
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(c.feats[0]).toMatchObject({ name: source.name, choice: 'occult|Void Warp' })
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Void Warp' }, rank: 10, rule: { tradition: 'occult' } }])
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={() => {}} index={0} />)).toBe('')
+  expect(renderToStaticMarkup(tree())).not.toContain('Bone Magic tradition and cantrip')
+  expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'Void Warp' }] }, entries))
+    .toMatchObject([{ entry: { name: 'Void Warp' }, rank: 10, rule: { tradition: 'occult' } }])
+  expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'primal|Void Warp' }] }, entries)).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'Shared Cantrip' }] }, entries)).toEqual([])
+})
+
 it.each(['listed', 'any'])('offers separate Ancestral Cantrip spell variants for %s choices', mode => {
   const cantrip = mapAonHit({ _id: 'dwarf-cantrip', _source: { name: 'Ancestral Cantrip', category: 'feat', level: 1, trait: ['Dwarf'],
     markdown: `Header\n\n---\n\nChoose one cantrip.<br/><br/>**[Option(s)](/feats/1)**: primal; ${mode === 'listed'

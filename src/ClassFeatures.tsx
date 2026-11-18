@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
@@ -17,12 +17,20 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const targets = c.className === 'Champion' && c.level >= 3 ? blessedArmamentTargets(c, entries) : []
   const target = blessedArmamentTarget(c, entries)
   const sanctification = deitySanctification(c, entries)
-  const weapons = ownedWeapons(c, entries)
+  const weapons = ownedWeapons({ ...c, activeSpells: c.activeSpells?.filter(name => name !== 'Dinosaur Form') }, entries)
   const giant = isGiantInstinct(c, entries)
   const instinct = barbarianInstinct(c, entries)
   const verdant = c.systems.includes('pf2e') && ['Verdant Weapon', 'Verdant Weapon Jousting']
     .some(name => activeFeatsNamed(c, name).length > 0)
   const verdantWeapon = weapons.find(weapon => weapon.verdantWeapon)
+  const osteo = c.systems.includes('pf2e') && c.level >= 4 && activeFeatsNamed(c, 'Osteo Armaments').length > 0
+  const osteoWeapon = weapons.find(weapon => weapon.osteoArmament)
+  const selectWeapon = (id: string, tag: 'verdantWeapon' | 'osteoArmament') => {
+    const saved = c.weapons ?? weapons.filter(weapon => !weapon.attachedTo)
+    const chosen = weapons.find(weapon => weapon.id === id)
+    save({ weapons: [...saved, ...(chosen && !saved.some(weapon => weapon.id === id) ? [chosen] : [])]
+      .map(weapon => ({ ...weapon, [tag]: weapon.id === id })) })
+  }
   const weaponChoice = (label: string, value: string | undefined, eligible: (weapon: OwnedWeapon) => boolean,
     onChange: (id: string) => void) => {
     const options = weapons.filter(weapon => eligible(weapon) && weaponEquipped(c, entries, weapon))
@@ -64,12 +72,12 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         </label>}
       </div>}
       {verdant && <div className="col" aria-label="Verdant Weapon selection">
-        {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon), id => {
-          const saved = c.weapons ?? weapons.filter(weapon => !weapon.attachedTo)
-          const chosen = weapons.find(weapon => weapon.id === id)
-          save({ weapons: [...saved, ...(chosen && !saved.some(weapon => weapon.id === id) ? [chosen] : [])]
-            .map(weapon => ({ ...weapon, verdantWeapon: weapon.id === id })) })
-        })}
+        {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon),
+          id => selectWeapon(id, 'verdantWeapon'))}
+      </div>}
+      {osteo && <div className="col" aria-label="Osteo Armaments selection">
+        {weaponChoice('Osteo Armaments', osteoWeapon?.id, weapon => canBeOsteoArmament(c, entries, weapon),
+          id => selectWeapon(id, 'osteoArmament'))}
       </div>}
       {c.raging && instinct && !['giant', 'fury'].includes(instinct)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}

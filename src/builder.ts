@@ -1,6 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
+import { DINOSAUR_WEAPONS, dinosaurBattleForm } from './dinosaurForm'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells } from './featSpells'
 import { GODCLAW_DOMAINS, ORDER_TRAINING_FEATS, hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -1471,6 +1472,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return wardenSpellOptions({ name }, entries, beastmaster).map((spell) => spell.name).filter((choice) => !selected.has(choice))
   }
   if (name === 'First World Magic' || name === 'Ancestral Magic' || name === 'Ancestral Cantrip') return undefined
+  if (name === 'Bone Magic') return boneMagicChoiceOptions(c, entries, { name, type: '', level: 1 })
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
@@ -1728,7 +1730,8 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     { source: 'Athletic Rush (status)', feet: isSpellActive(c, entries, 'Athletic Rush') ? 10 : 0 },
     { source: 'Quantum Field (status)', feet: witchwarperParadox(c)?.name === 'Precog' && c.witchwarper?.movingInQuantumField ? 5 : 0 },
   ].sort((a, b) => b.feet - a.feet)[0]
-  const armorPenalty = starfinderArmorPenalties(c, entries).speed
+  const dinosaur = dinosaurForm(c, entries)
+  const armorPenalty = dinosaur ? 0 : starfinderArmorPenalties(c, entries).speed
   const fortressShieldPenalty = equippedShield(c)?.name === SCALE_OF_IGROON_FORTRESS ? -10 : 0
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
     ...(hellknightBenefitActive(c, 'Trailblazing Stride') ? [{ source: 'Trailblazing Stride (circumstance)', feet: 10 }] : []),
@@ -1739,11 +1742,12 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     ...(activeFeatsNamed(c, 'Hellknight Mobility').length && activeFeatsNamed(c, 'Unburdened Iron').length
       && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '')) === 'Heavy' && wornArmor(c, entries)
       ? [{ source: 'Hellknight Mobility', feet: 5 }] : [])]
+    .filter(bonus => !dinosaur || /\((?:status|circumstance)\)$/.test(bonus.source))
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
 export const speed = (c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) =>
-  Math.max(5, (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25)
+  Math.max(5, (dinosaurForm(c, entries)?.speed ?? (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25))
     + speedBonuses(c, entries, options).reduce((sum, bonus) => sum + bonus.feet, 0))
 
 export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
@@ -1773,6 +1777,8 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
 }
 
 export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
+  if (dinosaurForm(c, entries)) return [{ name: 'Land', feet: speed(c, entries, options), source: 'Dinosaur Form',
+    status: speedBonuses(c, entries, options).find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0 }]
   const trailblazing = hellknightBenefitActive(c, 'Trailblazing Stride') ? 10 : 0
   const land = speed(trailblazing ? { ...c, activeFeatEffects: c.activeFeatEffects?.filter(name => name !== 'Trailblazing Stride') } : c, entries, options)
   const dash = !!options.includeUncannyDash && activeFeatsNamed(c, 'Uncanny Dash').length > 0
@@ -2761,6 +2767,10 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const addVision = (value: string, source: string) => {
     if (!out.some((sense) => sense.value.toLowerCase() === value.toLowerCase())) out.push({ value, source })
   }
+  if (dinosaurForm(c, entries)) {
+    addVision('Low-light vision', 'Dinosaur Form')
+    addVision('Scent (imprecise) 30 feet', 'Dinosaur Form')
+  }
   if (hellknightBenefitActive(c, 'Seek Injustice')) {
     addVision('See through up to 5 feet of stone, wood, or similar barriers (not metal; 1 minute)', 'Seek Injustice')
   }
@@ -3311,6 +3321,39 @@ export function weaponRanks(c: Character, entries: ContentEntry[]) {
   return ranks
 }
 
+function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, entry = weaponEntry(entries, weapon.name, weapon.id), highestRank = false) {
+  const category = weaponCategory(entry)
+  const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
+    .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
+  const familiarity = entry ? weaponFamiliarity(c, entry, category, entries) : undefined
+  const unconventional = entry && unconventionalWeapon(c, entries, entry)
+  const familiarCategory = familiarity?.proficiency
+  const unconventionalCategory = unconventional ? category === 'Advanced' ? 'Martial' : 'Simple' : undefined
+  const innovationCategory = weapon.inventorInnovation && category === 'Advanced' && canBeWeaponInnovation(c, entries, weapon) ? 'Martial' : undefined
+  const ranks = weaponRanks(c, entries)
+  const avengerRank = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, weapon.name)
+    ? Math.max(1, baseWeaponRanks(c, entries).Simple, baseWeaponRanks(c, entries).Martial) : 0
+  const martialExperience = activeFeatsNamed(c, 'Martial Experience').length > 0
+  const expertise = familiarity?.expertise || unconventional && activeFeatsNamed(c, 'Unconventional Expertise').length > 0
+  const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
+    unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
+    familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, highestRank ? Math.max(...Object.values(ranks)) : 0)
+  const proficiencySources = [
+    { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
+    ...(familiarCategory ? [{ name: `${familiarCategory} via weapon familiarity`, rank: ranks[familiarCategory] }] : []),
+    ...(unconventionalCategory ? [{ name: `${unconventionalCategory} via Unconventional Weaponry`, rank: ranks[unconventionalCategory] }] : []),
+    ...(innovationCategory ? [{ name: 'Martial via Weapon Innovation', rank: ranks.Martial }] : []),
+    ...(familiarity?.trained ? [{ name: 'Weapon familiarity training', rank: 1 }] : []),
+    ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
+    ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
+    ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
+    ...(highestRank ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
+    ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
+  ].filter(source => source.rank === rank).map(source => source.name)
+  return { category, rank, familiarity, martialExperience, proficiencySources }
+}
+
 function baseArmorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = groupRanks(c, entries, ARMOR_GROUPS, 'defense_proficiency', (t) => /armor|unarmored defense/i.test(t))
   const klass = byName(entries, 'class', c.className)
@@ -3700,6 +3743,12 @@ export function armorProficiencyRank(c: Character, entries: ContentEntry[], armo
 }
 
 export function armorClassBreakdown(c: Character, entries: ContentEntry[]): TotalBreakdown {
+  const dinosaur = dinosaurForm(c, entries)
+  if (dinosaur) {
+    const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
+    return { total: dinosaur.ac + shield, parts: [{ label: 'Dinosaur Form', value: dinosaur.ac },
+      ...(shield ? [{ label: 'Shield cantrip (circumstance)', value: shield }] : [])], notes: [] }
+  }
   const worn = wornArmor(c, entries)
   const armor = equippedArmorEntry(c, entries)
   const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
@@ -3975,6 +4024,8 @@ export function deityWeapon(c: Character, entries: ContentEntry[]) {
 }
 
 export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
+  const dinosaur = dinosaurForm(c, entries)
+  if (dinosaur) return dinosaur.attacks.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
   const weapons = [...carriedWeapons(c, entries)]
   for (const grant of dwarfClanWeaponGrants(c, entries)) {
     const index = weapons.findIndex(weapon => weapon.id === grant.id || weapon.name === grant.name)
@@ -4060,6 +4111,11 @@ export function knowsSpell(c: Character, entries: ContentEntry[], name: string) 
 
 export const isSpellActive = (c: Character, entries: ContentEntry[], name: string) =>
   !!c.activeSpells?.includes(name) && knowsSpell(c, entries, name)
+
+export function dinosaurForm(c: Character, entries: ContentEntry[]) {
+  return c.dinosaurForm && isSpellActive(c, entries, 'Dinosaur Form')
+    ? dinosaurBattleForm(c.dinosaurForm.form, c.dinosaurForm.rank, c.level) : undefined
+}
 
 export function untamedFormRanks(c: Character) {
   const maximum = Math.ceil(c.level / 2)
@@ -4187,6 +4243,7 @@ export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
   })
 }
 export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
+  || DINOSAUR_WEAPONS.some(entry => entry.name === name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
@@ -4220,6 +4277,8 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
+  const dinosaur = DINOSAUR_WEAPONS.find(entry => id ? entry.id === id : entry.name === name)
+  if (dinosaur) return dinosaur
   const iruxi = id && iruxiAttackIds.has(id) ? SUPPLEMENTAL_WEAPONS.find(entry => entry.id === id) : undefined
   if (iruxi) return iruxi
   const hammerMultipistol = name.startsWith('Hammer Multipistol')
@@ -4645,6 +4704,22 @@ export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon
     && c.feats.some((feat) => featTakenLevel(feat) <= c.level && ['Verdant Weapon', 'Verdant Weapon Jousting'].includes(feat.name))
 }
 
+export function canBeOsteoArmament(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  if (!c.systems.includes('pf2e') || c.level < 4 || !activeFeatsNamed(c, 'Osteo Armaments').length
+    || weapon.attachedTo || shieldAttachmentSource(c, weapon)
+    || weapon.id === OVERSIZED_THROW.id || weapon.name === HAFT_STRIKER_WEAPON.name
+    || PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id)) return false
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  return !!entry && entry.systems.includes('pf2e') && weaponCategory(entry) !== 'Unarmed'
+    && !usesWeaponUpgrades(entry) && weaponTraining(c, entries, weapon, entry).rank > 0
+}
+
+export function osteoArmamentRune(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  return weapon.osteoArmament && c.level >= 8 && canBeOsteoArmament(c, entries, weapon)
+    ? c.level >= 15 || weapon.runes.some(rune => runeName(rune) === 'Decaying (Greater)') ? 'Decaying (Greater)' : 'Decaying'
+    : undefined
+}
+
 export function barbarianInstinct(c: Character, entries: ContentEntry[]) {
   return c.className === 'Barbarian' && c.systems.includes('pf2e') && c.level >= 1
     ? selectedSubclass(c, entries)?.replace(/\s+Instinct$/i, '').trim().toLowerCase() : undefined
@@ -4712,6 +4787,7 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
     || c.systems.includes('pf2e') && [CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name, CLAN_PISTOL.name].includes(weapon.name)
     || !!weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon)
     || !!weapon.verdantWeapon && canBeVerdantWeapon(c, entries, weapon)
+    || !!weapon.osteoArmament && canBeOsteoArmament(c, entries, weapon)
     || isGiantWeapon(c, entries, weapon)
     || !!weapon.inventorInnovation && canBeWeaponInnovation(c, entries, weapon)
     || PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id) && activeFeatsNamed(c, "Fane's Fourberie").length > 0
@@ -4736,6 +4812,8 @@ export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], w
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  if (DINOSAUR_WEAPONS.some(entry => entry.id === weapon.id))
+    return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
   const shield = shieldAttachmentSource(c, weapon)
   if (shield) {
     const generated = shield.id === 'granted-shield:hardwood'
@@ -4808,6 +4886,13 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     if (plate) enhanced = { ...enhanced, material: plate.material, potency: weapon.potency, striking: weapon.striking }
     if (builtIn) enhanced = { ...enhanced, potency: Math.max(enhanced.potency, builtIn.potency),
       striking: Math.max(enhanced.striking, builtIn.striking), runes: [...new Set([...builtIn.runes, ...enhanced.runes])] }
+    if (weapon.osteoArmament && canBeOsteoArmament(c, entries, weapon)) {
+      const decaying = osteoArmamentRune(c, entries, weapon)
+      enhanced = { ...enhanced, material: undefined, runes: decaying
+        ? [...enhanced.runes.filter(rune => runeBaseName(rune) !== 'Decaying'
+          && weaponRuneApplies(entries, { ...enhanced, runes: [decaying] }, rune)), decaying]
+        : enhanced.runes }
+    }
     return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
         .slice(0, maxPropertyRunes(enhanced.potency, enhanced.material,
@@ -4846,6 +4931,7 @@ export const weaponDamage = (entry?: ContentEntry) => {
 }
 
 export function alloyedAttackMaterial(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  if (DINOSAUR_WEAPONS.some(entry => entry.id === weapon.id)) return undefined
   const entry = weaponEntry(entries, weapon.name)
   if (weaponCategory(entry) !== 'Unarmed' || isRanged(entry)) return undefined
   return alloyedAttackChoice(c)
@@ -4863,6 +4949,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
   let entry = withNamedWeaponState(weaponEntry(entries, w.name, w.id), w, c.level)
+  const dinosaur = dinosaurForm(c, entries)
+  const dinosaurAttack = dinosaur?.attacks.find(entry => entry.id === w.id)
+  if (dinosaurAttack) entry = dinosaurAttack
   const sparkFist = w.name === SPARK_FIST.name && activeFeatsNamed(c, 'Spark Fist').length > 0
   const cairn = w.name === CAIRN_FIST.name || sparkFist ? cairnForm(c, entries) : undefined
   if (cairn) {
@@ -4931,23 +5020,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const clumsy = ability === 'dex' ? giantWeaponClumsy(c, entries) : 0
   const divineAttackBonus = hasDivineIntercession(c, 'Iomedae', 'major-boon')
     && !!entry && /^longsword$/i.test(namedWeaponBaseName(entry)) && weaponHeld(c, entries, w) ? 2 : 0
-  const category = weaponCategory(entry)
-  const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
-    .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
-  const familiarity = entry ? weaponFamiliarity(c, entry, category, entries) : undefined
-  const unconventional = entry && unconventionalWeapon(c, entries, entry)
-  const familiarCategory = familiarity?.proficiency
-  const unconventionalCategory = unconventional ? category === 'Advanced' ? 'Martial' : 'Simple' : undefined
-  const innovationCategory = w.inventorInnovation && category === 'Advanced' && canBeWeaponInnovation(c, entries, w) ? 'Martial' : undefined
-  const ranks = weaponRanks(c, entries)
-  const avengerRank = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
-    ? Math.max(1, baseWeaponRanks(c, entries).Simple, baseWeaponRanks(c, entries).Martial) : 0
-  const martialExperience = activeFeatsNamed(c, 'Martial Experience').length > 0
-  const expertise = familiarity?.expertise || unconventional && activeFeatsNamed(c, 'Unconventional Expertise').length > 0
-  const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
-    unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
-    familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, cairn ? Math.max(...Object.values(ranks)) : 0)
+  const { category, rank, familiarity, martialExperience, proficiencySources } = weaponTraining(c, entries, w, entry, !!cairn)
   const agile = traits.includes('agile')
   const agileGrace = agile && activeFeatsNamed(c, 'Agile Grace').length > 0
   const mapStep = agileGrace ? 3 : agile ? 4 : 5
@@ -4955,18 +5028,6 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     || activeFeatsNamed(c, 'Manifold Edge').some(feat => feat.choice === 'Flurry'))
   const flurryStep = (c.level >= 17 && rank >= 3 ? 2 : 3) - Number(agile)
   const prof = rank === 0 && martialExperience ? c.level : proficiencyBonus(rank, c.level)
-  const proficiencySources = [
-    { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
-    ...(familiarCategory ? [{ name: `${familiarCategory} via weapon familiarity`, rank: ranks[familiarCategory] }] : []),
-    ...(unconventionalCategory ? [{ name: `${unconventionalCategory} via Unconventional Weaponry`, rank: ranks[unconventionalCategory] }] : []),
-    ...(innovationCategory ? [{ name: 'Martial via Weapon Innovation', rank: ranks.Martial }] : []),
-    ...(familiarity?.trained ? [{ name: 'Weapon familiarity training', rank: 1 }] : []),
-    ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
-    ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
-    ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
-    ...(cairn ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
-    ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
-  ].filter(source => source.rank === rank).map(source => source.name)
   const m = /(\d+)d(\d+)\s*([A-Za-z]+)?/.exec(String(entry?.data.damage ?? ''))
   const damageType = m?.[3]?.toLowerCase()
   const physicalTypes = ['b', 'p', 's', 'bludgeoning', 'piercing', 'slashing']
@@ -4992,7 +5053,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const battleStance = activeStance(c, entries)?.name === "Jotun's Battle Stance"
   const hasReachTrait = traits.some(trait => /^reach(?:\s|$)/i.test(trait))
   const baseReach = num(entry?.data.reach) || (hasReachTrait ? 10 : 5)
-  const reach = isRanged(entry) ? 0
+  const reach = dinosaurAttack ? num(dinosaurAttack.data.reach) : isRanged(entry) ? 0
     : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10 : baseReach
   const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
@@ -5006,8 +5067,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const cairnSpecialization = cairn && rank >= 2
     ? classFeatures(entries, c).some(feature => /^greater weapon specialization$/i.test(feature.name)) ? rank * 2
       : classFeatures(entries, c).some(feature => /^weapon specialization$/i.test(feature.name)) ? rank : 0 : 0
-  const rageDamage = rageDamageBonus(c, entries, w, traits, ranged)
-  const damageBonus = flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + rageDamage
+  const rageDamage = dinosaurAttack ? 0 : rageDamageBonus(c, entries, w, traits, ranged)
+  const damageBonus = dinosaurAttack && dinosaur ? dinosaur.damageBonus : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + rageDamage
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -5035,13 +5096,21 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     note: `Area Fire and Auto-Fire take two actions; soldier feats use their listed action costs. Basic Reflex save. Failure${style?.name === 'Bombard' ? ' or success (not critical success)' : ''} suppresses enemies until your next turn (-1 circumstance to attacks, -10-foot status to Speeds).${
       !/\bgrenade\b/i.test(`${entry?.name} ${entry?.data.weapon_group ?? ''}`) ? " Primary Target: before the area attack, make a free Strike without increasing MAP; a hit changes that target's successful area save to failure." : ' Grenades and grenade launchers cannot use Primary Target.'}${
       style?.name === 'Bombard' ? ` Exclude up to ${Math.max(0, Math.floor(abilityMod(c.abilities.con) / 2))} allies.` : ''}${style ? ` ${style.description}` : ''}` }))
+  const withoutDinosaur = { ...c, activeSpells: c.activeSpells?.filter(name => name !== 'Dinosaur Form') }
+  const ownUnarmed: number = dinosaurAttack ? Math.max(0, ...ownedWeapons(withoutDinosaur, entries)
+    .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
+    .map((weapon): number => weaponAttack(withoutDinosaur, entries, weapon).attack)) : 0
+  const ownAttack = mod + prof + w.potency - clumsy + divineAttackBonus
+  const attack: number = dinosaurAttack && dinosaur ? Math.max(dinosaur.attack + divineAttackBonus, ownUnarmed) : ownAttack
   return {
     entry,
     upgrades,
     pristineLivingWeapon,
     rageDamage,
     areaAttacks,
-    additionalDamage: [...divineAttackDamage(c), ...namedWeaponDamage(entry),
+    additionalDamage: dinosaurAttack ? dinosaurAttack.data.persistent_bleed
+      ? [{ source: 'Dinosaur Form', value: `${dinosaurAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []
+      : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])],
     traits: [...new Set([...(entry?.traits ?? []),
@@ -5056,22 +5125,28 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(activeFeatsNamed(c, 'Raise Haft').length > 0 && weaponHands(entries, w, c) === 2
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
-    criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
+    criticalSpecialization: !dinosaurAttack && (hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
-      || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait)),
-    criticalNote: cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
+      || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait))),
+    criticalNote: dinosaurAttack?.data.critical_bleed ? `${dinosaurAttack.data.critical_bleed} persistent bleed on a critical hit.`
+      : cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
     ability,
     mod,
     prof,
     rank,
     item: w.potency,
-    attack: mod + prof + w.potency - clumsy + divineAttackBonus,
+    attack,
     multipleAttackPenalties: [0, -mapStep, -2 * mapStep],
     huntedPreyMultipleAttackPenalties: flurry ? [0, -flurryStep, -2 * flurryStep] : undefined,
     breakdown: {
-      total: mod + prof + w.potency - clumsy + divineAttackBonus,
-      parts: [
+      total: attack,
+      parts: dinosaurAttack && dinosaur ? [
+        { label: 'Dinosaur Form', value: dinosaur.attack },
+        ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
+        ...(ownUnarmed > dinosaur.attack + divineAttackBonus ? [{ label: 'Higher own unarmed attack modifier',
+          value: ownUnarmed - dinosaur.attack - divineAttackBonus }] : []),
+      ] : [
         { label: ABILITY_LABEL[ability], value: mod },
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
         { label: 'Effective weapon potency (item)', value: w.potency },

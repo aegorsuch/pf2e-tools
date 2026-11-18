@@ -71,6 +71,7 @@ export interface OwnedWeapon {
   size?: 'Small' | 'Large' | 'Huge' | 'Gargantuan'
   livingWeapon?: boolean
   verdantWeapon?: boolean
+  osteoArmament?: boolean
   inventorInnovation?: boolean
   inventorModifications?: Partial<Record<'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic', string>> & {
     complexSimplicityTraits?: string[]
@@ -345,6 +346,7 @@ export interface Character {
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   rituals?: string[]
   activeSpells?: string[]
+  dinosaurForm?: { form: string; rank: number }
   untamedForm?: {
     form?: string
     shape?: string

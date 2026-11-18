@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import {
-  propertyRunes, eligibleWeaponRunes, runeName, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
+  propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, dinosaurForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -66,6 +66,8 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
                 : source === 'Frost' || source === 'Frost (Greater)' ? `Critical hit: DC ${source === 'Frost' ? 24 : 34} Fortitude or slowed 1 until the end of your next turn.${source === 'Frost (Greater)' ? ' Cold damage from this weapon ignores cold resistance.' : ''}`
                 : source === 'Ashen' ? 'On hit, target must attempt a DC 25 Will save or be confused for 1 round.'
                   : source === 'Ashen (Greater)' ? 'On hit, target must attempt a DC 35 Will save or be confused for 1 round; critical failure extends confusion to 1 minute.'
+                    : source === 'Decaying' || source === 'Decaying (Greater)'
+                      ? `Critical hit: ${source === 'Decaying (Greater)' ? '4d4' : '2d4'} persistent void damage, also affecting a raised shield. This void damage can damage objects and constructs.${source === 'Decaying (Greater)' ? ' Void damage ignores void resistance and immunity.' : ''}`
                     : undefined
       const value = source === 'Anarchic' ? '1d6 chaotic vs. lawful targets'
         : source === 'Axiomatic' ? '1d6 lawful vs. chaotic targets'
@@ -80,6 +82,7 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
                 : source === 'Thundering' || source === 'Thundering (Greater)' ? '1d6 sonic'
               : source === 'Ashen' ? '1d4 persistent fire'
                 : source === 'Ashen (Greater)' ? '1d8 persistent fire'
+                  : source === 'Decaying' || source === 'Decaying (Greater)' ? '1d4 void'
                   : source === 'Shockwave' ? damageDice ? `${damageDice} bludgeoning splash` : 'bludgeoning splash equal to weapon damage dice'
                     : rune
       return { source, note, value: value.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase()) }
@@ -961,6 +964,8 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
 }
 
 export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
+  if (!displayOnly && dinosaurForm(c, entries)) return <WeaponList
+    c={{ ...c, activeSpells: c.activeSpells?.filter(name => name !== 'Dinosaur Form') }} entries={entries} save={save} />
   const weapons = ownedWeapons(c, entries)
   const gauntlet = armorGauntlet(c, entries)
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
@@ -972,6 +977,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   })
   const update = (id: string, patch: Partial<OwnedWeapon>) => {
     const weapon = weapons.find((weapon) => weapon.id === id)
+    if (weapon && patch.runes && osteoArmamentRune(c, entries, weapon)) {
+      const enhanced = effectiveWeapon(c, entries, weapon)
+      const hidden = weapon.runes.filter(rune => runeBaseName(rune) === 'Decaying' || !enhanced.runes.includes(rune))
+      patch = { ...patch, runes: [...new Set([...patch.runes, ...hidden])] }
+    }
     const shieldSource = weapon && shieldAttachmentSource(c, weapon)
     if (weapon && shieldSource) {
       const attachedWeapon = { ...shieldSource.attachedWeapon!, ...patch }
@@ -1064,6 +1074,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const livingWeapon = canUseLivingWeapon && !!w.livingWeapon
         const shared = livingWeapon ? livingWeaponEnhancements(c, entries, w) : card ? enhanced : w
         const canUseVerdantWeapon = !attachmentSource && canBeVerdantWeapon(c, entries, w)
+        const osteoArmament = !!w.osteoArmament && canBeOsteoArmament(c, entries, w)
+        const decaying = osteoArmamentRune(c, entries, w)
         const giantWeapon = isGiantWeapon(c, entries, w)
         const canUseInnovation = !attachmentSource && canBeWeaponInnovation(c, entries, w)
         const innovation = canUseInnovation && !!w.inventorInnovation
@@ -1085,6 +1097,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
           ...(iruxiGranted ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
+          ...(decaying ? [{ name: decaying, source: 'Granted by Osteo Armaments' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({
               name: `${c.level >= 11 ? 'Greater ' : ''}${name}`, source: 'Granted to clan daggers',
@@ -1355,7 +1368,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {shieldSource ? null : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
               : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? alloyMaterial : <div className="row">
-              {card ? <small>Material: playing cards</small> : <>
+              {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
               </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
@@ -1379,7 +1392,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
               {!upgradeWeapon && <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
-                onChange={(potency) => update(w.id, { potency, runes: shared.runes.slice(0, maxPropertyRunes(potency, enhanced.material, runeCapacity)) })} />
+                onChange={(potency) => update(w.id, { potency, runes: shared.runes
+                  .filter(rune => !decaying || runeBaseName(rune) !== 'Decaying' && enhanced.runes.includes(rune))
+                  .slice(0, maxPropertyRunes(potency, enhanced.material, runeCapacity)) })} />
               }
               {!upgradeWeapon && <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />}
@@ -1393,6 +1408,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
                 && (!iruxiGranted || runeName(rune) !== 'Ghost Touch')
+                && (!decaying || runeBaseName(rune) !== 'Decaying')
                 && !builtIn?.runes.includes(rune))}
               entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
               limit={Math.max(0, maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity) - (builtIn?.runes.length ?? 0))} freeRunes={freeRunes}

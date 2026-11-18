@@ -163,6 +163,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       ? 'Rats' : option.replace(/^[a-z]/, char => char.toUpperCase()))
   }
   const choiceLabel = (name: string, choice: string) => name === 'Clan Lore' ? clanLoreLabel(choice)
+    : name === 'Bone Magic' ? choice.replace(/^(occult|primal)\|/, (_, tradition: string) => `${tradition[0].toUpperCase()}${tradition.slice(1)}: `)
     : name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
   const subclassDescription = (name: string, choice?: string) => {
     const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Multifarious Muse': 'Bard',
@@ -510,7 +511,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)
                       : subclassDescription(selection?.name ?? '', selection?.choice)} />
               ) : popup ? (
-                <button type="button" className="feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
+                <button type="button" className="feat-name feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
                   onClick={() => onSearch?.(`${s.key}:open`, '1')}>
                   {current || emptyLabel}
                 </button>

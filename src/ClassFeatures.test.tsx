@@ -110,3 +110,38 @@ it('moves Verdant choice to Class Features without losing saved enhancements or 
   c = { ...c, weapons: c.weapons!.map(item => ({ ...item, stowed: true })) }
   expect(findControl(tree(), 'Verdant Weapon')?.value).toBe('second')
 })
+
+it('selects one proficient equipped Osteo Armament while preserving saved gear and stowed choices', () => {
+  const spear: ContentEntry = { id: 'spear', name: 'Spear', kind: 'weapon', systems: ['pf2e'], source: 'official',
+    level: 0, traits: [], description: '', data: { weapon_category: 'Simple', hands: 1, damage: '1d6 P' }, effects: [], updatedAt: 1 }
+  const advanced = { ...spear, id: 'advanced', name: 'Advanced weapon', data: { ...spear.data, weapon_category: 'Advanced' } }
+  const necromancer: ContentEntry = { ...spear, id: 'necromancer', name: 'Necromancer', kind: 'class',
+    data: { attack_proficiency: 'Trained in simple weapons' } }
+  const first = { id: 'first', name: spear.name, potency: 3, striking: 2, runes: ['Flaming'], material: 'Cold Iron', osteoArmament: true }
+  const second = { ...first, id: 'second', osteoArmament: false }
+  const hidden = { ...second, id: 'hidden', stowed: true }
+  const untrained = { ...second, id: 'untrained', name: advanced.name }
+  let c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 15, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Osteo Armaments', type: 'Class Feat', level: 4 }], weapons: [first, second, hidden, untrained],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const tree = () => ClassFeatures({ c, entries: [spear, advanced, necromancer], save: patch => { c = { ...c, ...patch } } })
+  expect(findControl(tree(), 'Osteo Armaments')?.value).toBe('first')
+  for (const id of ['hidden', 'untrained', 'missing']) {
+    findControl(tree(), 'Osteo Armaments')!.onChange!({ target: { value: id } })
+    expect(c.weapons).toEqual([first, second, hidden, untrained])
+  }
+  findControl(tree(), 'Osteo Armaments')!.onChange!({ target: { value: 'second' } })
+  expect(c.weapons).toEqual([{ ...first, osteoArmament: false }, { ...second, osteoArmament: true }, hidden, untrained])
+  expect(effectiveWeapon(c, [spear, necromancer], c.weapons![1])).toMatchObject({
+    material: undefined, potency: 3, striking: 2, runes: ['Flaming', 'Decaying (Greater)'],
+  })
+  c = { ...c, weapons: c.weapons!.map(item => ({ ...item, stowed: true })) }
+  expect(findControl(tree(), 'Osteo Armaments')?.value).toBe('second')
+  expect(renderToStaticMarkup(tree())).toContain('not equipped or unavailable')
+  findControl(tree(), 'Osteo Armaments')!.onChange!({ target: { value: '' } })
+  expect(c.weapons!.some(weapon => weapon.osteoArmament)).toBe(false)
+  expect(c.weapons![1].material).toBe('Cold Iron')
+  c = { ...c, level: 3 }
+  expect(findControl(tree(), 'Osteo Armaments')).toBeUndefined()
+})

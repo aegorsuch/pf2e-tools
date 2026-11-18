@@ -81,6 +81,17 @@ it('keeps Hallowed Dead and Unholy Dead mutually exclusive without a prerequisit
   expect(featSelectionPrerequisiteChecker(c, feats, slot)(unholyDead)).toEqual({ missing: [], manual: [] })
 })
 
+it.each(['The Hallowed Dead', 'Hallowed Dead'])('checks only possession of %s for Hallowed Earth', name => {
+  const hallowed = entry('feat', name, { prerequisite: "You aren't unholy." }, 1, ['Necromancer'])
+  const earth = entry('feat', 'Hallowed Earth', { prerequisite: 'The Hallowed Dead' }, 6, ['Necromancer'])
+  const entries = [hallowed, earth]
+  const c: Character = { ...base, className: 'Necromancer', level: 8, feats: [selected(name)] }
+  expect(featPrerequisiteChecker(c, entries)(earth)).toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...c, feats: [] }, entries)(earth).missing).toEqual(['The Hallowed Dead'])
+  expect(featPrerequisiteChecker({ ...c, feats: [selected(name, 8)] }, entries, 6)(earth).missing).toEqual(['The Hallowed Dead'])
+  expect(featPrerequisiteChecker(c, entries)(hallowed).manual).toEqual(["You aren't unholy."])
+})
+
 it.each(['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant'])(
   'makes %s exclusive with both other preferment paths, even when browsing unmet prerequisites', name => {
     const feats = ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']

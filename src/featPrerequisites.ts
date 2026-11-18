@@ -265,6 +265,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     }
     if (name === 'you have a swim speed' || name === 'you have swim speed') return resultFor(!!facts.swimSpeed, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
+    if (trail.has('hallowed earth') && ['the hallowed dead', 'hallowed dead'].includes(name))
+      return resultFor(facts.feats.some(feat => ['the hallowed dead', 'hallowed dead'].includes(key(feat.name))), text)
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)

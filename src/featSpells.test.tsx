@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, DevotionSpellChoice, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, DevotionSpellChoice, DinosaurFormOptions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -134,9 +134,52 @@ it('grants Lizardfolk innate spells with fixed ranks and daily use tracking', ()
     feats: [taken(boneInvestiture.name, 13), taken(fossilRider.name, 17), taken(spiritualHeadhunter.name, 13)] }
   const grants = grantedFeatSpells(c, [boneInvestiture, fossilRider, spiritualHeadhunter, ...spells])
   expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition])).toEqual([
-    ['Dinosaur Form', 5, undefined], ['Mask of Terror', 1, undefined], ['Talking Corpse', 1, 'primal'],
+    ['Dinosaur Form', 5, 'primal'], ['Mask of Terror', 1, 'primal'], ['Talking Corpse', 1, 'primal'],
   ])
   expect(grants.every(grant => dailyInnateUses(c, grant)?.limit === 1)).toBe(true)
+})
+
+it('casts and dismisses a selected Dinosaur Form from its two-action control at its actual innate rank', () => {
+  const source = feat('Bone Investiture', 'You can cast [_dinosaur form_](/Spells.aspx?ID=1) on yourself as a 5th-rank innate spell once per day.', 13)
+  const spell = { ...entry('Dinosaur Form', 'spell', { actions: 'Two Actions', duration: '1 minute' }), level: 4 }
+  const entries = [source, spell]
+  let c: Character = { ...base, level: 20, feats: [taken(source.name, 13)] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(render()).toContain('aria-label="Choose Dinosaur Form"')
+  expect(render()).toContain('Primal Spell Rank 5')
+  expect(render()).toContain('<small>Range</small>Self')
+  expect(render()).toContain('<small>Area/Targets</small>Self')
+  updateSettings({ innateAutoHeighten: true })
+  expect(render()).toContain('Primal Spell Rank 10')
+  const tree = () => DinosaurFormOptions({ c, save, rank: grantedFeatSpells(c, entries)[0].rank })
+  const select = (node: ReactNode): ((event: { target: { value: string } }) => void) | undefined => {
+    for (const child of Children.toArray(node)) {
+      if (!isValidElement<{ children?: ReactNode; onChange?: (event: { target: { value: string } }) => void }>(child)) continue
+      if (child.type === 'select') return child.props.onChange
+      const nested = select(child.props.children)
+      if (nested) return nested
+    }
+  }
+  select(tree())!({ target: { value: 'Not a dinosaur' } })
+  expect(c.dinosaurForm).toBeUndefined()
+  select(tree())!({ target: { value: 'Tyrannosaurus' } })
+  expect(c).toMatchObject({ dinosaurForm: { form: 'Tyrannosaurus', rank: 10 }, activeSpells: ['Dinosaur Form'] })
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(findUseButton(tree(), 'Dismiss Dinosaur Form')?.disabled).toBe(false)
+  findUseButton(tree(), 'Dismiss Dinosaur Form')!.onClick()
+  expect(c.activeSpells).toEqual([])
+  expect(c.dinosaurForm).toBeUndefined()
+})
+
+it.each([7, 8, 10])('shows Mask of Terror heightened targets at rank %i', rank => {
+  const source = feat('Fossil Rider', `You can cast [_mask of terror_](/Spells.aspx?ID=1) on yourself as a ${rank}th-rank innate spell once per day.`, 17)
+  const spell = { ...entry('Mask of Terror', 'spell', { range: 30, targets: '1 creature' }), level: 7 }
+  const c: Character = { ...base, level: 20, feats: [taken(source.name, 17)] }
+  const entries = [source, spell]
+  expect(grantedFeatSpells(c, entries)[0]).toMatchObject({ rank, rule: { tradition: 'primal', condition: 'Must target yourself' } })
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain(`<small>Area/Targets</small>${rank >= 8 ? 'Up to 5 creatures' : '1 creature'}`)
 })
 
 it('lets Necromancers choose distinct additional rank-1 grave spells through Widespread Fascination', () => {

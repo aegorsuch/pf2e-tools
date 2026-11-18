@@ -1,7 +1,7 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
-import { boneMagicChoiceOptions, DOMAIN_FEATS, featSpellOptions } from './featSpells'
+import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
@@ -311,25 +311,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)
-  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart'].includes(feat.name)) return null
-  if (feat.name === 'Bone Magic') {
-    const options = boneMagicChoiceOptions(c, entries, feat)
-    return <span className="feat-choice">
-      <SearchableSelect aria-label="Bone Magic tradition and cantrip" value={feat.choice ?? ''} onChange={event => {
-        const choice = event.target.value || undefined
-        if (choice && !options.includes(choice)) return
-        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
-      }}>
-        <option value="">Choose tradition and cantrip</option>
-        {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
-        {options.map(choice => {
-          const [tradition, name] = choice.split('|', 2)
-          return <option key={choice} value={choice}>{tradition[0].toUpperCase() + tradition.slice(1)}: {name}</option>
-        })}
-      </SearchableSelect>
-      {!options.length && <small>Spell choices unavailable. Import official spell data.</small>}
-    </span>
-  }
+  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
       const choice = event.target.value || undefined

@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, combinationName, defenseSummary, deitySanctification, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown,
   equippedWeaponHands, featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack, weaponEntry, weaponEquipped,
 } from './builder'
 import { companionStats } from './companions'
@@ -162,6 +163,136 @@ const haftStance = content('feat', 'Haft Striker Stance', {}, 4, ['Fighter', 'St
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+const osteoClass = content('class', 'Champion', { attack_proficiency: 'Trained in simple weapons and martial weapons' })
+
+it.each([
+  [4, 1, 1, undefined], [7, 1, 1, undefined], [8, 1, 1, 'Decaying'],
+  [10, 2, 1, 'Decaying'], [12, 2, 2, 'Decaying'], [14, 2, 2, 'Decaying'],
+  [15, 2, 2, 'Decaying (Greater)'], [16, 3, 2, 'Decaying (Greater)'], [19, 3, 3, 'Decaying (Greater)'],
+])('scales Osteo Armaments without material at level %i', (level, potency, striking, decaying) => {
+  const c: Character = { ...base, level: Number(level), feats: [feat('Osteo Armaments', 4)] }
+  const weapon: OwnedWeapon = { ...main, osteoArmament: true, potency: 0, striking: 0, runes: ['Flaming'], material: 'Cold Iron' }
+  expect(effectiveWeapon(c, [sword, osteoClass], weapon)).toMatchObject({
+    potency, striking, material: undefined, runes: ['Flaming', ...(decaying ? [decaying] : [])],
+  })
+  expect(weapon).toMatchObject({ potency: 0, striking: 0, runes: ['Flaming'], material: 'Cold Iron' })
+  expect(effectiveWeapon(c, [sword], { ...weapon, osteoArmament: false })).toMatchObject({
+    potency: 0, striking: 0, material: expect.stringContaining('Cold Iron'), runes: ['Flaming'],
+  })
+})
+
+it('requires active Osteo training and respects advanced-weapon proficiency without recursive attacks', () => {
+  const advanced = { ...sword, name: 'Advanced sword', data: { ...sword.data, weapon_category: 'Advanced' } }
+  const weapon: OwnedWeapon = { ...main, name: advanced.name, osteoArmament: true, potency: 0, striking: 0 }
+  const c = { ...base, feats: [feat('Osteo Armaments', 4)] }
+  const entries = [advanced, osteoClass]
+  expect(canBeOsteoArmament(c, entries, weapon)).toBe(false)
+  expect(effectiveWeapon(c, entries, weapon)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  const trained = { ...c, feats: [...c.feats, feat('Weapon Proficiency', 1, advanced.name)] }
+  expect(canBeOsteoArmament(trained, entries, weapon)).toBe(true)
+  expect(weaponAttack(trained, entries, weapon).rank).toBe(1)
+  expect(effectiveWeapon(trained, entries, weapon)).toMatchObject({ potency: 2, striking: 1, runes: ['Decaying'] })
+  expect(canBeOsteoArmament(trained, entries, { ...weapon, attachedTo: 'other' })).toBe(false)
+  const future = { ...trained, feats: [{ ...trained.feats[0], takenLevel: 12 }, trained.feats[1]] }
+  expect(effectiveWeapon(future, entries, weapon)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+})
+
+it('upgrades free Decaying once, preserves purchased runes, and renders damage without a material control', () => {
+  const weapon: OwnedWeapon = { ...main, osteoArmament: true, material: 'Cold Iron', runes: ['Decaying', 'Flaming'] }
+  const c: Character = { ...base, level: 15, feats: [feat('Osteo Armaments', 4)], weapons: [weapon] }
+  const entries = [sword, osteoClass, ...['Decaying', 'Decaying (Greater)', 'Flaming', 'Frost'].map(name =>
+    content('item', name, { item_subcategory: 'Weapon Property Runes' }, 8))]
+  expect(effectiveWeapon(c, entries, weapon).runes).toEqual(['Flaming', 'Decaying (Greater)'])
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Decaying (Greater)')
+  expect(markup).toContain('1d4 void')
+  expect(markup).toContain('4d4')
+  expect(markup).toContain('void resistance and immunity')
+  expect(markup).toContain('aria-label="Add property rune"')
+  expect(markup).not.toContain('aria-label="Material"')
+  expect(markup).not.toContain('Remove Decaying')
+  expect(effectiveWeapon({ ...c, feats: [] }, entries, weapon)).toMatchObject({
+    material: 'Cold Iron (Standard-Grade)', runes: ['Decaying', 'Flaming'],
+  })
+  expect(weapon.runes).toEqual(['Decaying', 'Flaming'])
+})
+
+it('preserves purchased Decaying when editing other property runes on an Osteo Armament', () => {
+  const weapon = { ...main, osteoArmament: true, runes: ['Decaying', 'Flaming'] }
+  let c: Character = { ...base, level: 15, feats: [feat('Osteo Armaments', 4)], weapons: [weapon] }
+  const tree = WeaponList({ c, entries: [sword, osteoClass], save: patch => { c = { ...c, ...patch } } })
+  const findRunes = (node: ReactNode): ((runes: string[]) => void) | undefined => {
+    for (const child of Children.toArray(node)) {
+      if (!isValidElement<{ children?: ReactNode; freeRunes?: { source: string }[]; onChange?: (runes: string[]) => void }>(child)) continue
+      if (child.props.freeRunes?.some(rune => rune.source === 'Granted by Osteo Armaments')) return child.props.onChange
+      const nested = findRunes(child.props.children)
+      if (nested) return nested
+    }
+  }
+  findRunes(tree)!(['Flaming', 'Frost'])
+  expect(c.weapons?.find(saved => saved.id === weapon.id)?.runes).toEqual(['Flaming', 'Frost', 'Decaying'])
+})
+
+it.each([
+  [4, 7, 'Large', 25, 15, '1d12+9 piercing', 10],
+  [5, 9, 'Huge', 27, 20, '2d12+6 piercing', 15],
+  [7, 13, 'Gargantuan', 34, 25, '2d12+15 piercing', 20],
+  [10, 20, 'Gargantuan', 41, 25, '2d12+15 piercing', 20],
+] as const)('applies Dinosaur Form rank %i to defenses, senses, movement and attacks without altering gear', (rank, level, size, ac, hp, damage, reach) => {
+  const spell = content('spell', 'Dinosaur Form', { actions: 'Two Actions' }, 4, ['Polymorph'])
+  const c: Character = { ...base, level, spells: [{ name: spell.name, rank, cantrip: false }],
+    activeSpells: [spell.name], dinosaurForm: { form: 'Tyrannosaurus', rank }, weapons: [main],
+    handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }
+  const entries = [spell, sword]
+  const before = JSON.stringify(c.weapons)
+  expect(dinosaurForm(c, entries)).toMatchObject({ size, temporaryHp: hp })
+  expect(armorClass(c, entries)).toBe(ac)
+  expect(movementSpeeds(c, entries)).toEqual([{ name: 'Land', feet: 30, source: 'Dinosaur Form', status: 0 }])
+  expect(senses(c, entries)).toEqual(expect.arrayContaining([
+    { value: 'Low-light vision', source: 'Dinosaur Form' }, { value: 'Scent (imprecise) 30 feet', source: 'Dinosaur Form' },
+  ]))
+  const attacks = ownedWeapons(c, entries)
+  expect(attacks.map(attack => attack.name)).toEqual(['Tyrannosaurus Jaws', 'Tyrannosaurus Tail'])
+  const jaws = weaponAttack(c, entries, attacks[0])
+  expect(jaws).toMatchObject({ damage, reach, item: 0, additionalDamage: [] })
+  expect(effectiveWeapon(c, entries, attacks[0]).runes).toEqual([])
+  const natural = { ...c, activeSpells: [] }
+  const ownAttack = weaponAttack(natural, entries, ownedWeapons(natural, entries).find(weapon => weapon.name === 'Fist')!).attack
+  expect(jaws.attack).toBe(Math.max(rank >= 7 ? 25 : rank >= 5 ? 18 : 16, ownAttack))
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
+  expect(defense).toContain(`<small>Temporary Hit Points</small><b>${hp}`)
+  expect(defense).toContain(size)
+  expect(JSON.stringify(c.weapons)).toBe(before)
+  const inventory = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(inventory).toContain('Longsword')
+  expect(inventory).not.toContain('Tyrannosaurus Jaws')
+  const offense = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)
+  expect(offense).toContain('Tyrannosaurus Jaws')
+  expect(offense).not.toContain('Longsword')
+  expect(ownedWeapons(natural, entries).some(weapon => weapon.id === main.id)).toBe(true)
+  expect(dinosaurForm({ ...c, spells: [] }, entries)).toBeUndefined()
+})
+
+it('switches Dinosaur battle forms, reach, agile attacks, persistent damage and Athletics', () => {
+  const spell = content('spell', 'Dinosaur Form', {}, 4)
+  const c: Character = { ...base, level: 20, spells: [{ name: spell.name, rank: 10, cantrip: false }],
+    activeSpells: [spell.name], dinosaurForm: { form: 'Deinonychus', rank: 10 } }
+  const entries = [spell]
+  expect(movementSpeeds(c, entries)[0].feet).toBe(40)
+  const talon = weaponAttack(c, entries, ownedWeapons(c, entries)[0])
+  expect(talon).toMatchObject({ damage: '4d4+15 piercing', multipleAttackPenalties: [0, -4, -8],
+    additionalDamage: [{ value: '1 persistent bleed' }], reach: 20 })
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="skills" />)
+  expect(skills).toMatch(/class="skill-name">Athletics.*?<b>\+25/)
+  const trained = { ...c, abilities: { ...c.abilities, str: 28 }, rankOverrides: { Athletics: 4 } }
+  expect(renderToStaticMarkup(<SkillsSection c={trained} entries={entries} save={() => {}} part="skills" />))
+    .toMatch(/class="skill-name">Athletics.*?<b>\+37/)
+  const brontosaurus = { ...c, dinosaurForm: { form: 'Brontosaurus', rank: 10 } }
+  expect(weaponAttack(brontosaurus, entries, ownedWeapons(brontosaurus, entries)[0]).reach).toBe(25)
+  const triceratops = { ...c, dinosaurForm: { form: 'Triceratops', rank: 5 } }
+  expect(weaponAttack(triceratops, entries, ownedWeapons(triceratops, entries)[0]))
+    .toMatchObject({ damage: '4d8+6 piercing', reach: 15, criticalNote: '1d6 persistent bleed on a critical hit.' })
+})
 
 it.each([
   [1, 0, 0, 6], [2, 1, 0, 6], [4, 1, 1, 6], [7, 1, 1, 10], [10, 2, 1, 10],

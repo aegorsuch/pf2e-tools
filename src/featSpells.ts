@@ -271,7 +271,9 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (feat.name === 'Bone Magic') {
-      const [tradition, name] = feat.choice?.split('|', 2) ?? []
+      const choices = boneMagicChoiceOptions(c, entries, feat)
+        .filter(choice => choice === feat.choice || !!feat.choice && choice.endsWith(`|${feat.choice}`))
+      const [tradition, name] = choices.length === 1 ? choices[0].split('|', 2) : []
       const spell = ['occult', 'primal'].includes(tradition ?? '')
         ? featSpellOptions(c, entries, feat)?.find(entry => entry.name === name
           && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
@@ -337,6 +339,8 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     const rules = [...source?.spellGrants ?? [], ...orderTrainingRules(c, entries, feat)]
+      .map(rule => ['Bone Investiture', 'Fossil Rider'].includes(feat.name) && rule.kind === 'innate'
+        ? { ...rule, tradition: 'primal', condition: rule.condition ?? 'Must target yourself' } : rule)
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {
       const entry = options.find(spell => spell.name === feat.choice)
