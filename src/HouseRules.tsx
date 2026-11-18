@@ -18,6 +18,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'exclusiveCyborgHearts', label: 'Cyborg Machine Heart or Mortal Heart Exclusive' },
   { key: 'commanderBeastmaster', label: 'Commander Beastmaster Dedication' },
   { key: 'cyborgTestSubject', label: 'Cyborg Heritage adds Test-Subject Ysoki Heritage' },
+  { key: 'deityLore', label: 'Deity Grants Lore' },
   { key: 'druidBeastmaster', label: 'Druid Beastmaster Dedication' },
   { key: 'druidCavalier', label: 'Druid Cavalier Dedication' },
   { key: 'fighterPhysicalSkills', label: 'Fighter Grants Acrobatics and Athletics',

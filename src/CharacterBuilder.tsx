@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
-import { SearchableFeatSlots } from './FeatSlots'
+import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
@@ -495,6 +495,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       ? [companion.id]
       : [])
   const featSlots = plannedSlots(c, entries)
+  const featGrants = featSectionGrants(c, entries, ['skill', 'general'], featSlots)
   const classSlots = featSlots.filter(slot => slot.category === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
 
@@ -502,11 +503,15 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
     const slots = featSlots.filter((slot) => slot.category === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
+    const granted = category === 'archetype' ? 0
+      : [...featGrants.backgroundFeats, ...featGrants.automaticFeats]
+        .filter(feat => featGrants.grantedType(feat.name) === `${category === 'skill' ? 'Skill' : 'General'} Feat`).length
+        + (category === 'skill' ? featGrants.memories.length : 0)
     return (
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>{title}</strong>
-          <span>{filled}/{slots.length}</span>
+          <span>{filled + granted}/{slots.length + granted}</span>
         </summary>
         <div className="character-section-content">
           <SearchableFeatSlots {...section} categories={[category]} title={title} bare />

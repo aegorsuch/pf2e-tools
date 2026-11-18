@@ -2474,6 +2474,11 @@ function normalizeLaborerSkills(c: Character): Character {
   }
 }
 
+export function deityGrantedLores(c: Character) {
+  const deity = c.deity?.trim()
+  return getSettings().deityLore && deity ? [`${deity} Lore`] : []
+}
+
 export function trainedFeatLores(c: Character) {
   return [
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Underworld Investigator').length
@@ -2822,6 +2827,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
     ranks[name] = Math.max(ranks[name] ?? 0, educationLevel >= 15 ? 4 : educationLevel >= 7 ? 3 : educationLevel >= 2 ? 2 : 1)
   }
   trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).forEach(grant => bump(grant.name))
+  deityGrantedLores(c).forEach(bump)
   skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
   ranks.Perception = rankFromText(klass?.data.perception_proficiency)
@@ -2877,7 +2883,8 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
   const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background), c).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
-  if (loreUp) lores.push(...trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).map(grant => grant.name))
+  if (loreUp) lores.push(...trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).map(grant => grant.name),
+    ...deityGrantedLores(c))
   if (loreUp) lores.push(...activeFeatsNamed({ ...c, level: Math.min(c.level, beforeLevel - 1) }, "Officer's Medical Training")
     .flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) ? [feat.choice] : []))
   if (loreUp) lores.push(...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries), c)
@@ -2982,6 +2989,7 @@ export function skillDownload(c: Character, entries: ContentEntry[]) {
   const valid = statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
     || c.lores.some(lore => lore.name === skill) || featLores(c, entries).includes(skill ?? '')
     || trainedFeatLores(c).some(grant => grant.name === skill)
+    || deityGrantedLores(c).includes(skill ?? '')
     || backgroundSkills(byName(entries, 'background', c.background), c).includes(skill ?? '')
     || backgroundSkills(freeHeartBackground(c, entries), c).includes(skill ?? '') || autoClassSkills(c, entries).includes(skill ?? '')
   return skill && valid ? { skill, rank: c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 } : undefined

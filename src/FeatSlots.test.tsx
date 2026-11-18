@@ -24,6 +24,19 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+it('counts a fixed background feat once and includes temporary granted skill feats', () => {
+  const assurance: ContentEntry = { id: 'assurance-count', systems: ['pf2e', 'sf2e'], kind: 'feat', source: 'official',
+    name: 'Assurance', level: 1, traits: ['General', 'Skill'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const render = (c: Character) => renderToStaticMarkup(<FeatSlots c={c} entries={[assurance]} categories={['skill']} save={() => {}} />)
+  const c: Character = { ...emptyRanger(), level: 20, background: 'Scholar',
+    feats: [{ name: 'Assurance', type: 'Skill Feat', level: 1, slot: 'skill:1:scholar', choice: 'Arcana' }] }
+  expect(render(c)).toContain('Feat slots 1/11</h4>')
+  const memory: Character = { ...emptyRanger(), systems: ['sf2e'], level: 20,
+    feats: [{ name: 'Carry Their Memories', type: 'Ancestry Feat', level: 5 }] }
+  expect(render(memory)).toContain('Feat slots 1/11</h4>')
+  expect(render({ ...memory, feats: [{ ...memory.feats[0], takenLevel: 21 }] })).toContain('Feat slots 0/10</h4>')
+})
+
 it('clears selected skill prerequisite warnings while planning without changing character skills', () => {
   const c: Character = { ...emptyRanger(), level: 20,
     skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' },

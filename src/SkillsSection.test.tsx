@@ -145,8 +145,7 @@ it('includes current and other characters deity Lore in shared choices without d
   }
   const options = choices(c)
   expect(options).toContain('Zon-Shelyn Lore')
-  expect(options).toContain('Sarenrae Lore')
-  expect(options.filter(name => name.toLowerCase() === 'sarenrae lore')).toHaveLength(1)
+  expect(options.filter(name => name.toLowerCase() === 'sarenrae lore')).toHaveLength(0)
   expect(options.filter(name => name === 'Abadar Lore')).toHaveLength(1)
   expect(options).toEqual([...options].sort((a, b) => a.localeCompare(b)))
   expect(choices({ ...c, lores: [{ name: 'Zon-Shelyn Lore', rank: 1 }] })).not.toContain('Zon-Shelyn Lore')
@@ -574,6 +573,42 @@ it.each([['Wildwood Ink', 1], ['Greater Wildwood Ink', 2], ['Wildwood Ink (Major
     const duplicate = { ...c, equipment: [{ name, qty: 2 }, { name, qty: 1 }] }
     expect(render(duplicate)).toContain(`<b>+${normal}`)
   })
+
+it('grants current deity Lore without spending training and removes only its automatic grant', () => {
+  const previous = getSettings()
+  const entries = [ranger]
+  const c: Character = { ...base, deity: 'Iomedae' }
+  const download: Character = { ...c, systems: ['pf2e', 'sf2e'],
+    feats: [{ name: 'Skill Download', type: 'Ancestry Feat', level: 1, choice: 'Iomedae Lore' }] }
+  const saved = JSON.stringify(c)
+  try {
+    updateSettings({ deityLore: true, autoLores: false })
+    for (const level of [1, 3, 7, 15, 20]) expect(ranksAt({ ...c, level }, entries)['Iomedae Lore']).toBe(1)
+    expect(skillRankBudget(c, entries)).toEqual(skillRankBudget(base, entries))
+    expect(builder.skillDownload(download, entries)).toEqual({ skill: 'Iomedae Lore', rank: 1 })
+    expect(ranksAt({ ...c, level: 3, skillIncreases: { 3: 'Iomedae Lore' } }, entries)['Iomedae Lore']).toBe(2)
+    const buttons = findButtons(SkillsSection({ c, entries, save: () => {} }))
+    expect(buttons.has('Iomedae Lore Trained')).toBe(true)
+    expect(buttons.get('Iomedae Lore Trained')?.disabled).toBe(true)
+    for (const deity of [undefined, '', '   ']) {
+      expect(builder.deityGrantedLores({ ...c, deity })).toEqual([])
+      expect(ranksAt({ ...c, deity }, entries)['Iomedae Lore']).toBeUndefined()
+    }
+    const changed = ranksAt({ ...c, deity: 'Sarenrae' }, entries)
+    expect(changed['Iomedae Lore']).toBeUndefined()
+    expect(changed['Sarenrae Lore']).toBe(1)
+    const manual: Character = { ...c, level: 3, lores: [{ name: 'Iomedae Lore', rank: 2 }] }
+    expect(ranksAt({ ...manual, deity: undefined }, entries)['Iomedae Lore']).toBe(2)
+    expect(JSON.stringify(c)).toBe(saved)
+    updateSettings({ autoLores: true })
+    expect(ranksAt({ ...c, level: 7 }, entries)['Iomedae Lore']).toBe(3)
+    updateSettings({ deityLore: false })
+    expect(ranksAt(c, entries)['Iomedae Lore']).toBeUndefined()
+    expect(builder.skillDownload(download, entries)).toBeUndefined()
+    expect(ranksAt(manual, entries)['Iomedae Lore']).toBe(2)
+    expect(findButtons(SkillsSection({ c, entries, save: () => {} })).has('Iomedae Lore Trained')).toBe(false)
+  } finally { updateSettings(previous) }
+})
 
 it('grants Underworld Investigator free trained Lore without Additional Lore progression', () => {
   const previous = getSettings().autoLores

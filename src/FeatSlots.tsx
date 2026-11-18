@@ -69,18 +69,7 @@ export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSe
     onSearch={(key, text) => setSearch(previous => ({ ...previous, [key]: text }))} />
 }
 
-export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
-  const checks = selectedChecks(c, entries)
-  const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
-    const key = JSON.stringify([slot, entry])
-    let result = checks.get(key)
-    if (!result) {
-      result = featSelectionPrerequisiteChecker(c, entries, slot)(entry)
-      checks.set(key, result)
-    }
-    return result
-  }
-  const allSlots = plannedSlots(c, entries)
+export function featSectionGrants(c: Character, entries: ContentEntry[], categories?: FeatSlotCategory[], allSlots = plannedSlots(c, entries)) {
   const featsByName = featByName(entries)
   const grantedType = (name: string) => {
     const entry = featsByName.get(name)
@@ -109,6 +98,27 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       const preferred = matches.find(other => other.source !== 'Ancestral Skills') ?? matches[0]
       return all.indexOf(preferred) === index
     })
+  const memories = !categories || categories.includes('skill')
+    ? c.feats.flatMap((feat, index) => feat.name === 'Carry Their Memories' && featTakenLevel(feat) <= c.level
+      ? [{ kind: 'memory' as const, level: featTakenLevel(feat), index, feat: { name: 'Assurance', choice: feat.choice } }] : [])
+    : []
+  return { background, backgroundFeats, grants, automaticFeats, memories, grantedType }
+}
+
+export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
+  const checks = selectedChecks(c, entries)
+  const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
+    const key = JSON.stringify([slot, entry])
+    let result = checks.get(key)
+    if (!result) {
+      result = featSelectionPrerequisiteChecker(c, entries, slot)(entry)
+      checks.set(key, result)
+    }
+    return result
+  }
+  const allSlots = plannedSlots(c, entries)
+  const featsByName = featByName(entries)
+  const { background, backgroundFeats, grants, automaticFeats, memories, grantedType } = featSectionGrants(c, entries, categories, allSlots)
   const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
@@ -290,12 +300,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
-  const memories = c.feats.flatMap((feat, index) => feat.name === 'Carry Their Memories' && featTakenLevel(feat) <= c.level
-    ? [{ kind: 'memory' as const, level: featTakenLevel(feat), index, feat: { name: 'Assurance', choice: feat.choice } }] : [])
+  const grantedCount = backgroundFeats.length + automaticFeats.length + memories.length
   const rows = [
     ...backgroundFeats.map(feat => ({ kind: 'background' as const, level: 1, feat })),
     ...automaticFeats.map(feat => ({ kind: 'automatic' as const, level: feat.level, feat })),
-    ...(!categories || categories.includes('skill') ? memories : []),
+    ...memories,
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => {
     if (a.level !== b.level) return a.level - b.level
@@ -308,7 +317,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const Wrapper = bare ? 'div' : 'details'
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
-      {!bare && <summary><h4>{title} {slots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length}/{slots.length}</h4></summary>}
+      {!bare && <summary><h4>{title} {slots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length + grantedCount}/{slots.length + grantedCount}</h4></summary>}
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level

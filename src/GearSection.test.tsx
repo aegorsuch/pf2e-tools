@@ -1516,7 +1516,7 @@ it('omits rune names from multiple damage notes in editable and display-only vie
   c.weapons![0].runes = ['Astral (Greater)', 'Holy']
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} displayOnly={displayOnly} />)
-    expect(markup).toMatch(/Damage 2d8 S \+ 1d6 spirit<button[^>]*>\*<\/button><span[^>]*>.*?<\/span>, 1d4 spirit<button/)
+    expect(markup).toMatch(/Damage 2d8 S \+ 1d6 spirit<button[^>]*>\*<\/button><span[^>]*>.*?<\/span> \+ 1d4 spirit<button/)
     expect(markup).not.toContain('*</button> (Astral (Greater))')
     expect(markup).not.toContain('*</button> (Holy)')
     expect(markup).toContain('Greater Astral: spirit damage ignores spirit resistance.')
@@ -1587,7 +1587,7 @@ it.each(['Crushing', 'Crushing (Greater)', 'Greater Crushing'])('shows %s critic
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[maul]} save={() => {}} />)
     const dice = striking + 1
     const severity = rune === 'Crushing' ? 1 : 2
-    expect(markup).toContain(`Damage ${dice}d12 B + 1d6 force, ${dice} B splash`)
+    expect(markup).toContain(`Damage ${dice}d12 B + 1d6 force + ${dice} B splash`)
     expect(markup).toContain(`Critical hit: clumsy ${severity} and enfeebled ${severity} until the end of your next turn.`)
     expect(markup).toContain('Shockwave splash does not harm you.')
     expect(markup).toContain(`aria-label="Remove ${rune} rune"`)
@@ -1773,11 +1773,11 @@ it('shows only compatible inherited runes on buff attacks and no removal control
   }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Claws attack +14: show breakdown')
-  expect(markup).toContain('Damage 2d6 S + 1d6 force, 1d6 persistent bleed')
+  expect(markup).toContain('Damage 2d6 S + 1d6 force + 1d6 persistent bleed')
   expect(markup).not.toContain('aria-haspopup="dialog">Jaws</button>')
   const jawsMarkup = renderToStaticMarkup(<WeaponList c={{ ...c, animalFeature: 'Jaws' }} entries={[]} save={() => {}} />)
   expect(jawsMarkup).toContain('Jaws attack +14: show breakdown')
-  expect(jawsMarkup).toContain('Damage 2d8 P + 1d6 force, 1d6 persistent bleed')
+  expect(jawsMarkup).toContain('Damage 2d8 P + 1d6 force + 1d6 persistent bleed')
   expect(markup).not.toContain('Claws (Animal Feature)')
   expect(markup).not.toContain('Jaws (Animal Feature)')
   expect(markup).not.toContain('aria-label="Remove Claws"')

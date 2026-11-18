@@ -7,6 +7,7 @@ import { fetchAonHits } from './aonQuery'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
+import { FeatSlots } from './FeatSlots'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -14,6 +15,42 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
   <details className="character-section">{children}</details> }))
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
+
+it('counts granted feats alongside filled and empty slots in Skill and General headings', () => {
+  const skills = ['Ride', 'Quick Jump', 'Battle Medicine', "Crafter's Appraisal", 'Dubious Knowledge', 'Student of the Canon']
+  const feat = (name: string, traits = ['General', 'Skill']): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits, description: '', data: {}, effects: [], updatedAt: 0,
+  })
+  content.entries = [
+    ...skills.map(name => feat(name)), feat('Shield Block', ['General']), feat('Untrained Improvisation', ['General']),
+    { ...feat('Study'), kind: 'background', data: { feat: 'Student of the Canon' } },
+    { ...feat('Shield Block'), id: 'fighter-shield-block', kind: 'classFeature', data: { class: 'Fighter' } },
+  ]
+  const c: Character = {
+    id: 'grants', systems: ['pf2e'], name: 'Test', level: 20, className: 'Fighter', background: 'Study',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: ['Rider', 'Hydraulic Pistons', "Officer's Medical Training", 'Eye for Treasure', 'Orc Warmask', 'Clever Improviser']
+      .map(name => ({ name, type: 'Ancestry Feat', level: 1 })),
+    equipment: [], lores: [], languages: [], entryIds: [],
+    extraSlots: [{ category: 'skill', level: 1, count: 1 }], updatedAt: 0,
+  }
+  const before = JSON.stringify(c)
+  const render = (character = c) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+  const markup = render()
+  expect(markup).toContain('<strong>Skill Feats</strong><span>6/17</span>')
+  expect(markup).toContain('<strong>General Feats</strong><span>2/7</span>')
+  for (const [category, count] of [['skill', '6/17'], ['general', '2/7']] as const) {
+    const standalone = renderToStaticMarkup(<FeatSlots c={c} entries={content.entries} categories={[category]} save={() => {}} />)
+    expect(standalone).toContain(`Feat slots ${count}</h4>`)
+  }
+  const selected: Character = { ...c, feats: [...c.feats,
+    { name: 'Shield Block', type: 'General Feat', level: 3, slot: 'general:3:0' }] }
+  expect(render(selected)).toContain('<strong>General Feats</strong><span>2/6</span>')
+  expect(render({ ...c, feats: c.feats.map(feat => ({ ...feat, takenLevel: 21 })) }))
+    .toContain('<strong>Skill Feats</strong><span>1/12</span>')
+  expect(JSON.stringify(c)).toBe(before)
+})
 
 it('restricts custom Grifter Lore suggestions to professions without changing unrestricted backgrounds', () => {
   const background: ContentEntry = {

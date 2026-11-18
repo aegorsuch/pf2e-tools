@@ -120,6 +120,7 @@ it('alphabetizes clarified rule labels and keeps renamed rules searchable', () =
     'Animal Feature, Auspice, and Celestial / Fiendish Form: No Flight',
     'Cyborg Machine Heart or Mortal Heart Exclusive',
     'Druid Order Explorer Grants Skills',
+    'Deity Grants Lore',
     'Inventor Access: Bladed Gauntlet and Firearms',
     'Orc Warmask Item Bonus Scaling',
     'Ranger Cavalier Dedication',
@@ -130,7 +131,7 @@ it.each([
   { enabled: false, accepted: false },
   { enabled: false, accepted: true },
   { enabled: true, accepted: false },
-].flatMap(test => (['freeArchetype', 'rangerCavalier'] as const).map(key => ({ ...test, key }))))('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted, key }) => {
+].flatMap(test => (['freeArchetype', 'rangerCavalier', 'deityLore'] as const).map(key => ({ ...test, key }))))('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted, key }) => {
   const previous = getSettings()
   const confirm = vi.fn(() => accepted)
   vi.stubGlobal('window', { confirm })
