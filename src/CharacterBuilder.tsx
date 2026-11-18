@@ -13,7 +13,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, COMMON_LORES, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
@@ -35,7 +35,7 @@ import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipm
 import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
-import { backgroundVariants } from './builder'
+import { backgroundLoreSlots, backgroundVariants, type BackgroundVariant } from './builder'
 
 const NONE: ContentEntry[] = []
 
@@ -46,19 +46,25 @@ const deityLabel = (deity: ContentEntry) => {
     : deity.name
 }
 
-function Pick({ label, kind, value, options, onChange, ancestry, terrainLore }: {
+function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, loreOptions = NONE_LORES, backgroundLores }: {
   label: string
   kind: string
   value?: string
   options: ContentEntry[]
-  onChange: (v: string | undefined, terrain?: string) => void
+  onChange: (v: string | undefined, terrain?: string, lore?: string, custom?: boolean) => void
   ancestry?: string
   terrainLore?: Character['backgroundTerrainLore']
+  loreOptions?: string[]
+  backgroundLores?: Character['backgroundLores']
 }) {
   const [ready, setReady] = useState(false)
-  const variants = useMemo(() => kind === 'background' ? backgroundVariants(options)
-    : options.map(background => ({ value: background.name, background, terrain: undefined })), [options, kind])
-  const selectedValue = variants.find(option => option.background.name === value && option.terrain === terrainLore?.[value ?? ''])?.value ?? value
+  const variants = useMemo<BackgroundVariant[]>(() => kind === 'background' ? backgroundVariants(options, loreOptions)
+    : options.map(background => ({ value: background.name, background })), [options, kind, loreOptions])
+  const selectedLore = backgroundLores?.[value ?? '']?.[0]
+  const selectedValue = variants.find(option => option.background.name === value
+    && (option.terrain ? option.terrain === terrainLore?.[value ?? '']
+      : option.lore ? option.lore === selectedLore : !option.custom))?.value
+    ?? variants.find(option => option.background.name === value && option.custom)?.value ?? value
   const byName = useMemo(() => new Map(variants.map(option => [option.value, option.background])), [variants])
   const labels = useMemo(() => new Map(variants.map(option =>
     [option.value, kind === 'deity' ? deityLabel(option.background) : option.value])), [variants, kind])
@@ -88,7 +94,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore }: 
         }}
         onFocus={prepare} onPointerDown={prepare} onChange={(e) => {
           const option = variants.find(option => option.value === e.target.value)
-          onChange(option?.background.name ?? (e.target.value || undefined), option?.terrain)
+          onChange(option?.background.name ?? (e.target.value || undefined), option?.terrain, option?.lore, option?.custom)
         }}>
         <option value="">No {kind}</option>
         {selectedValue && (!ready || !labels.has(selectedValue)) && <option value={selectedValue} disabled={unavailable}>
@@ -97,6 +103,40 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore }: 
         {choices}
       </SearchableSelect>
   )
+}
+
+const NONE_LORES: string[] = []
+
+export function BackgroundLoreChoices({ c, entries, save, background, options }: SectionProps & {
+  background: ContentEntry; options: string[]
+}) {
+  const slots = backgroundLoreSlots(c, entries).filter(slot => slot.background.name === background.name)
+  if (slots.length === 1 && options.includes(slots[0].value)) return null
+  const id = `background-lores-${encodeURIComponent(background.id)}`
+  return <>{slots.map(slot => <label key={`${slot.index}:${slot.value}`}>
+    {slots.length > 1 ? `Lore ${slot.index + 1}` : 'Lore'}{' '}
+    <input aria-label={`${background.name} Lore ${slot.index + 1}`} defaultValue={slot.value} list={id}
+      onInput={event => event.currentTarget.setCustomValidity('')}
+      onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur() } }}
+      onBlur={event => {
+        const input = event.currentTarget
+        const value = input.value.trim().replace(/\s+/g, ' ')
+        const name = !value ? '' : /\s+lore$/i.test(value) ? value : `${value} Lore`
+        if (/^lore$/i.test(value)) input.setCustomValidity('Enter a Lore specialty.')
+        else if (name && slots.some(other => other.index !== slot.index && other.value.toLowerCase() === name.toLowerCase()))
+          input.setCustomValidity('This Lore skill is already selected.')
+        if (!input.reportValidity() || name === slot.value) return
+        const update = () => {
+          const choices = [...(c.backgroundLores?.[background.name] ?? [])]
+          choices[slot.index] = name
+          save({ backgroundLores: { ...c.backgroundLores, [background.name]: choices } })
+        }
+        if (!name && slot.value) {
+          confirmRemoval(`"${slot.value}"`, update)
+          input.value = slot.value
+        } else update()
+      }} />
+  </label>)}{!!slots.length && <datalist id={id}>{options.map(name => <option key={name} value={name} />)}</datalist>}</>
 }
 
 function DeityCard({ deity }: { deity?: ContentEntry }) {
@@ -404,6 +444,14 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const subclassChoice = subclassSkillChoice(c, entries)
   const choiceValue = subclassChoice ? c.subclassSkillChoices?.[subclassChoice.key] ?? '' : ''
   const background = named('background', c.background)
+  const loreOptions = useMemo(() => [...new Set([...COMMON_LORES, ...c.lores.map(lore => lore.name),
+    ...Object.values(c.backgroundLores ?? {}).flat().filter(Boolean), ...(c.deity ? [`${c.deity} Lore`] : []),
+  ])].sort((a, b) => a.localeCompare(b)), [c.lores, c.backgroundLores, c.deity])
+  const backgroundLabel = (name: string) => {
+    const lore = c.backgroundTerrainLore?.[name] ? `${c.backgroundTerrainLore[name]} Lore`
+      : c.backgroundLores?.[name]?.filter(Boolean).join(', ')
+    return lore ? `${name} (${lore})` : name
+  }
   const equipmentGroups = useMemo(() => {
     const items = new Map<string, ContentEntry>()
     const fallback = new Map<string, ContentEntry>()
@@ -551,20 +599,24 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Background</strong>
-          <span>{c.background === 'Scout' && c.backgroundTerrainLore?.Scout
-            ? `Scout (${c.backgroundTerrainLore.Scout} Lore)` : c.background || 'Choose background'}</span>
+          <span>{c.background ? backgroundLabel(c.background) : 'Choose background'}</span>
         </summary>
         <div className="character-section-content">
           <Pick label="Background" kind="background" value={c.background} options={of('background')} terrainLore={c.backgroundTerrainLore}
-            onChange={(background, terrain) => save({ background, ...(background && terrain
-              ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [background]: terrain } } : {}) })} />
-          {background && <BackgroundDetails entry={background} />}
+            loreOptions={loreOptions} backgroundLores={c.backgroundLores}
+            onChange={(background, terrain, lore, custom) => save({ background, ...(background && terrain
+              ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [background]: terrain } } : {}),
+            ...(background && (lore || custom) ? { backgroundLores: { ...c.backgroundLores, [background]: [lore ?? ''] } } : {}) })} />
+          {background && <BackgroundDetails entry={background} label={backgroundLabel(background.name)} />}
+          {background && <BackgroundLoreChoices {...section} background={background} options={loreOptions} />}
           {freeHeart && <Pick label="Free Heart background" kind="background" value={freeHeart.choice}
             options={of('background').filter(entry => freeHeartOptions?.has(entry.name))}
-            terrainLore={c.backgroundTerrainLore}
-            onChange={(choice, terrain) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat),
-              ...(choice && terrain ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [choice]: terrain } } : {}) })} />}
+            terrainLore={c.backgroundTerrainLore} loreOptions={loreOptions} backgroundLores={c.backgroundLores}
+            onChange={(choice, terrain, lore, custom) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat),
+              ...(choice && terrain ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [choice]: terrain } } : {}),
+              ...(choice && (lore || custom) ? { backgroundLores: { ...c.backgroundLores, [choice]: [lore ?? ''] } } : {}) })} />}
           {extraBackground && <BackgroundDetails entry={extraBackground} label={`Free Heart: ${extraBackground.name}`} />}
+          {extraBackground && <BackgroundLoreChoices {...section} background={extraBackground} options={loreOptions} />}
           {freeHeart && <small>Free Heart grants the background's trained skill and skill feat, but not its attribute boosts.</small>}
           <Achievements {...section} />
         </div>

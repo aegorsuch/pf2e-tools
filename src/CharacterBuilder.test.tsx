@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { CharacterBuilder as Builder, EquipmentSearch } from './CharacterBuilder'
+import { BackgroundLoreChoices, CharacterBuilder as Builder, EquipmentSearch } from './CharacterBuilder'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
@@ -15,22 +15,75 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
-it('shows saved Scout Lore as a background variant without a separate skill picker', () => {
+it.each(['Scout', 'Nomad'])('shows saved %s Lore as a background variant without a separate skill picker', name => {
   content.entries = [{
-    id: 'scout', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Scout', level: 1,
+    id: 'scout', systems: ['pf2e'], kind: 'background', source: 'official', name, level: 1,
     traits: [], description: '', effects: [], updatedAt: 0,
     data: { skill: 'Survival, Lore related to one terrain you scouted in (such as Forest Lore or Cavern Lore).' },
   }]
-  const c: Character = { id: 'scout', systems: ['pf2e'], name: 'Test', level: 1, background: 'Scout',
-    backgroundTerrainLore: { Scout: 'Forest' },
+  const c: Character = { id: 'scout', systems: ['pf2e'], name: 'Test', level: 1, background: name,
+    backgroundTerrainLore: { [name]: 'Forest' },
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toContain('<span>Scout (Forest Lore)</span>')
-  expect(markup).toContain('<option value="Scout (Forest Lore)" selected="">Scout (Forest Lore)</option>')
-  expect(markup).not.toContain('aria-label="Scout terrain Lore"')
+  expect(markup).toContain(`<span>${name} (Forest Lore)</span>`)
+  expect(markup).toContain(`<option value="${name} (Forest Lore)" selected="">${name} (Forest Lore)</option>`)
+  expect(markup).not.toContain(`aria-label="${name} terrain Lore"`)
   expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, backgroundTerrainLore: undefined }} onClose={() => {}} />))
-    .toContain('<option value="Scout" selected="">Scout</option>')
+    .toContain(`<option value="${name}" selected="">${name}</option>`)
+})
+
+it('saves custom background Lore in Background, validates duplicate slots, and confirms clearing', () => {
+  const background: ContentEntry = {
+    id: 'time-traveler', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Time Traveler', level: 1,
+    traits: [], description: 'You are trained in three Lore skills of your choice.', effects: [], updatedAt: 0,
+    data: { skill: 'Lore' },
+  }
+  let c: Character = { id: 'lore', systems: ['pf2e'], name: 'Test', level: 1, background: background.name,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    backgroundLores: { Cultist: ['Iomedae Lore'] } }
+  const inputs = () => {
+    const result: Record<string, unknown>[] = []
+    const walk = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input') result.push(child.props)
+      walk(child.props.children as ReactNode)
+    })
+    walk(BackgroundLoreChoices({ c, entries: [background], background, options: ['Abadar Lore'],
+      save: patch => { c = { ...c, ...patch } } }))
+    return result
+  }
+  const input = {
+    value: '', error: '', setCustomValidity(message: string) { this.error = message },
+    reportValidity() { return !this.error },
+  }
+  const change = (index: number, value: string) => {
+    input.value = value
+    input.error = ''
+    ;(inputs()[index].onBlur as (event: unknown) => void)({ currentTarget: input })
+  }
+  const confirm = vi.fn(() => false)
+  vi.stubGlobal('window', { confirm })
+  try {
+    expect(inputs()).toHaveLength(3)
+    change(0, '  Ancient   History ')
+    expect(c.backgroundLores).toEqual({ Cultist: ['Iomedae Lore'], 'Time Traveler': ['Ancient History Lore'] })
+    change(1, 'ancient history lore')
+    expect(input.error).toBe('This Lore skill is already selected.')
+    change(1, 'Lore')
+    expect(input.error).toBe('Enter a Lore specialty.')
+    change(1, 'Farming Lore')
+    expect(c.backgroundLores!['Time Traveler']).toEqual(['Ancient History Lore', 'Farming Lore'])
+    change(0, '')
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(c.backgroundLores!['Time Traveler'][0]).toBe('Ancient History Lore')
+    expect(input.value).toBe('Ancient History Lore')
+    confirm.mockReturnValue(true)
+    change(0, '')
+    expect(c.backgroundLores!['Time Traveler'][0]).toBe('')
+    expect(c.lores).toEqual([])
+  } finally { vi.unstubAllGlobals() }
 })
 
 it('shows background rules inline and keeps ancestry and background boost choices in Ability Scores', () => {

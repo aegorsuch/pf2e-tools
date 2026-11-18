@@ -2,6 +2,7 @@ import { db, ensureSupplementalContent } from './db'
 import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 import { isWeaponMode } from './weaponModes'
+import { backgroundEntries } from './backgrounds'
 
 export const AON_SITES: Record<GameSystem, string> = {
   pf2e: 'https://2e.aonprd.com',
@@ -120,7 +121,8 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
         ...adjusted, id: `${adjusted.id}:${damage}`, name: `Mortification (${damage[0].toUpperCase()}${damage.slice(1)})`,
         data: { ...adjusted.data, resistances: `${damage}=hellknight` },
       })))
-    } else entries.push(adjusted)
+    } else if (adjusted.kind === 'background') entries.push(...backgroundEntries(adjusted, text(h._source?.markdown)))
+    else entries.push(adjusted)
   }
   return entries
 }

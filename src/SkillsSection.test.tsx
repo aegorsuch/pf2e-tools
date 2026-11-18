@@ -72,12 +72,14 @@ it('offers clan trades in the general Lore picker in alphabetical order', () => 
   expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
 })
 
-it('offers terrain Lore for other matching backgrounds without treating fixed Lore as a choice', () => {
+it('shows chosen terrain Lore without a separate selector and leaves fixed Lore unchanged', () => {
   const nomad = { ...feyBound, name: 'Nomad',
     data: { skill: 'Survival, Lore related to one terrain you traveled in (such as Desert Lore or Swamp Lore).' } }
   const fixed = { ...feyBound, name: 'Surge Investigator', data: { skill: 'Nature, Occultism, Magical Terrain Lore' } }
-  const nomadHtml = renderToStaticMarkup(<SkillsSection c={{ ...base, background: nomad.name }} entries={[ranger, nomad]} save={() => {}} />)
-  expect(nomadHtml).toContain('aria-label="Nomad terrain Lore"')
+  const nomadHtml = renderToStaticMarkup(<SkillsSection c={{ ...base, background: nomad.name,
+    backgroundTerrainLore: { Nomad: 'Forest' } }} entries={[ranger, nomad]} save={() => {}} />)
+  expect(nomadHtml).not.toContain('aria-label="Nomad terrain Lore"')
+  expect(nomadHtml).toContain('Forest Lore')
   const fixedHtml = renderToStaticMarkup(<SkillsSection c={{ ...base, background: fixed.name }} entries={[ranger, fixed]} save={() => {}} />)
   expect(fixedHtml).not.toContain('terrain Lore"')
   expect(ranksAt({ ...base, background: fixed.name }, [ranger, fixed])['Magical Terrain Lore']).toBe(1)

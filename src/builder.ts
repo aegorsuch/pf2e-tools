@@ -1,6 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { backgroundLoreCount, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
@@ -412,7 +413,8 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
-  || key === 'general:1:direwolf-bonded' || key === 'skill:1:scholar' || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
+  || key === 'general:1:direwolf-bonded' || key === 'skill:1:scholar' || key.startsWith('skill:1:background:')
+  || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
 
 export const mechanicIngenuitySlots = (c: Character) =>
   c.className === 'Mechanic' && c.systems.includes('sf2e')
@@ -442,10 +444,22 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     slots.push({ key: 'general:1:direwolf-bonded', category: 'general', level: 1,
       grantedBy: 'Direwolf Bonded', grantedFeat: 'Canny Acumen' })
   }
-  if (c.background === 'Scholar' && c.level >= 1) {
+  const background = byName(entries, 'background', c.background)
+  if ((c.background === 'Scholar' || background?.data.background_base === 'Scholar') && c.level >= 1) {
     if (!groupOrder.has('skill:1')) groupOrder.set('skill:1', groupOrder.size)
     slots.push({ key: 'skill:1:scholar', category: 'skill', level: 1,
-      grantedBy: 'Scholar', grantedFeat: 'Assurance' })
+      grantedBy: c.background, grantedFeat: 'Assurance' })
+  }
+  if (background && c.level >= 1) {
+    for (const name of tokens(background.data.feat)) {
+      if (slots.some(slot => slot.grantedBy === c.background && slot.grantedFeat === name)) continue
+      const feat = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name
+        && entry.systems.some(system => c.systems.includes(system)))
+      if (!['Assurance', 'Terrain Expertise'].includes(name) && feat?.data.repeatable !== true && !background.data[`background_choice_${name}`]) continue
+      if (!groupOrder.has('skill:1')) groupOrder.set('skill:1', groupOrder.size)
+      slots.push({ key: `skill:1:background:${encodeURIComponent(background.name)}:${encodeURIComponent(name)}`,
+        category: 'skill', level: 1, grantedBy: background.name, grantedFeat: name })
+    }
   }
   if (c.level >= 1 && hasDivineIntercession(c, 'Torag', 'moderate-boon')) {
     if (!groupOrder.has('ancestry:1')) groupOrder.set('ancestry:1', groupOrder.size)
@@ -1197,14 +1211,19 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  const background = slotKey === 'skill:1:scholar' || slotKey.startsWith('skill:1:background:')
+    ? byName(entries, 'background', c.background) : undefined
+  const fixedBackgroundChoice = background?.data[`background_choice_${name}`]
+  if (name !== 'Assurance' && typeof fixedBackgroundChoice === 'string') return [fixedBackgroundChoice]
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
   if (name === 'Assurance') {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
     const ranks = ranksAt({ ...c, level }, entries)
     const skills = new Set(statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name))
     const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    const required = fixedBackgroundChoice || background?.data.background_skill
     return Object.keys(ranks).filter(skill => (skills.has(skill) || / lore$/i.test(skill))
-      && ranks[skill] >= 1 && !used.has(skill)).sort((a, b) => a.localeCompare(b))
+      && ranks[skill] >= 1 && !used.has(skill) && (!required || skill === required)).sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Elf Atavism' || name === 'Elven Atavism') return elfAtavismOptions(c, entries)
     .map(entry => entry.name).sort((a, b) => a.localeCompare(b))
@@ -2166,17 +2185,55 @@ export const backgroundHasTerrainLore = (bg?: ContentEntry) =>
   typeof bg?.data.skill === 'string' && bg.data.skill.split(/,\s*(?![^()]*\))/).some(skill =>
     /\blore\b/i.test(skill) && /\bterrain\b/i.test(skill) && !/^[\w' -]+ Lore$/i.test(skill.trim()))
 
-export function backgroundVariants(options: ContentEntry[]) {
-  return options.flatMap<{ value: string; background: ContentEntry; terrain?: string }>(background => background.name === 'Scout' && backgroundHasTerrainLore(background)
+export type BackgroundVariant = { value: string; background: ContentEntry; terrain?: string; lore?: string; custom?: boolean }
+
+export function backgroundVariants(options: ContentEntry[], lores: string[] = []) {
+  return options.filter(background => !background.data.background_choice_required)
+    .flatMap<BackgroundVariant>(background => backgroundHasTerrainLore(background)
     ? FAVORED_TERRAINS.map(terrain => ({ value: `${background.name} (${terrain} Lore)`, background, terrain }))
-    : [{ value: background.name, background, terrain: undefined }])
+    : backgroundLoreCount(background) && lores.length
+      ? [...(backgroundLoreCount(background) === 1 ? lores.map(lore => ({
+        value: `${background.name} (${lore})`, background, lore,
+      })) : []), { value: `${background.name} (Custom Lore)`, background, custom: true }]
+      : [{ value: background.name, background }])
+}
+
+function backgroundLoreChoices(bg: ContentEntry, c?: Character) {
+  const seen = new Set<string>()
+  return Array.from({ length: backgroundLoreCount(bg) }, (_, index) => {
+    const name = (c?.backgroundLores?.[bg.name]?.[index] ?? '').trim().replace(/\s+/g, ' ')
+    if (!/^.+\s+lore$/i.test(name) || seen.has(name.toLowerCase())) return ''
+    seen.add(name.toLowerCase())
+    return name
+  })
 }
 
 export function backgroundSkills(bg?: ContentEntry, c?: Character) {
   const skills = typeof bg?.data.skill === 'string' ? bg.data.skill.split(/,\s*(?![^()]*\))/).map(skill => skill.trim()).filter(Boolean) : []
   const terrain = bg && c?.backgroundTerrainLore?.[bg.name]
-  return skills.flatMap(skill => /\blore\b/i.test(skill) && /\bterrain\b/i.test(skill) && !/^[\w' -]+ Lore$/i.test(skill)
-    ? terrain && FAVORED_TERRAINS.includes(terrain) ? [`${terrain} Lore`] : [] : [skill])
+  const selected = bg ? backgroundLoreChoices(bg, c).filter(Boolean) : []
+  return [...skills.flatMap(skill => isOpenBackgroundLore(skill)
+    ? /\bterrain\b/i.test(skill) && !selected.length && terrain && FAVORED_TERRAINS.includes(terrain) ? [`${terrain} Lore`] : [] : [skill]),
+  ...selected]
+}
+
+export function backgroundLoreSlots(c: Character, entries: ContentEntry[]) {
+  if (c.level < 1) return []
+  return [byName(entries, 'background', c.background), freeHeartBackground(c, entries)].flatMap(background => {
+    if (!background || backgroundHasTerrainLore(background) && c.backgroundTerrainLore?.[background.name]) return []
+    const legacy = c.backgroundTerrainLore?.[background.name]
+    return backgroundLoreChoices(background, c).map((value, index) => ({
+      background, index, value: value || (index === 0 && legacy && FAVORED_TERRAINS.includes(legacy) ? `${legacy} Lore` : ''),
+    }))
+  })
+}
+export function backgroundLoreIncreaseSlots(c: Character, entries: ContentEntry[]) {
+  return [byName(entries, 'background', c.background), freeHeartBackground(c, entries)].flatMap(background =>
+    background && /At 3rd level, 7th level, and 15th level,[^.]*skill increases[^.]*only to these Lore skills/i.test(background.description)
+      ? [3, 7, 15].filter(level => level <= c.level).map(level => ({
+        key: `background-lore:${encodeURIComponent(background.name)}:${level}`, level,
+        skills: backgroundLoreChoices(background, c).filter(Boolean),
+      })) : [])
 }
 export function freeHeartBackground(c: Character, entries: ContentEntry[]) {
   const choice = activeFeatsNamed(c, 'Free Heart')[0]?.choice
@@ -2787,12 +2844,14 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const educationSlots = officerEducationSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const ingenuitySlots = mechanicIngenuitySlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   const signiferSlots = signiferExpertSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) })
+  const backgroundSlots = backgroundLoreIncreaseSlots({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
     ...initiateGrants.map(grant => grant.level), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
     ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
-    ...ingenuitySlots.map(slot => slot.level), ...signiferSlots.map(slot => slot.level)])].sort((a, b) => a - b)
+    ...ingenuitySlots.map(slot => slot.level), ...signiferSlots.map(slot => slot.level),
+    ...backgroundSlots.map(slot => slot.level)])].sort((a, b) => a - b)
   for (const l of levels) {
     if (l === longevityLevel) {
       const skill = c.skillIncreases?.[LONGEVITY_EXPERT_SLOT]
@@ -2806,6 +2865,10 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     for (const slot of signiferSlots.filter(slot => slot.level === l)) {
       const skill = c.skillIncreases?.[slot.key]
       if (skill && slot.skills.includes(skill) && ranks[skill] === 1) ranks[skill] = 2
+    }
+    for (const slot of backgroundSlots.filter(slot => slot.level === l)) {
+      const skill = c.skillIncreases?.[slot.key]
+      if (skill && slot.skills.includes(skill) && (ranks[skill] ?? 0) > 0 && canIncreaseTo(l, ranks[skill])) ranks[skill]++
     }
     if (increases.has(l)) {
       const skill = c.skillIncreases?.[l]
@@ -4644,7 +4707,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       const classTraining = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : [])])
       return backgroundSkills(byName(entries, 'background', c.background), c).filter(skill => classTraining.has(skill)).length
     })()
-    + backgroundSkills(freeHeartBackground(c, entries)).filter(skill => autoClassSkills(c, entries).includes(skill)).length
+    + backgroundSkills(freeHeartBackground(c, entries), c).filter(skill => autoClassSkills(c, entries).includes(skill)).length
     + c.feats.reduce((total, feat, index) => {
       if (featTakenLevel(feat) > c.level) return total
       const ancestry = ancestrySkillGrant(c, entries, feat.name)
@@ -4721,8 +4784,9 @@ function baseSkillRankBudget(c: Character, entries: ContentEntry[]) {
     }
   }
   const remaining = { trained: Math.max(0, additionalSkillCount(c, entries) - effectivePicks.length), expert: 0, master: 0, legendary: 0 }
-  for (const token of skillIncreaseTokens(c)) {
-    if (!c.skillIncreases?.[token.key]) remaining[(['trained', 'expert', 'master', 'legendary'] as const)[token.rank - 1]]++
+  for (const token of skillIncreaseTokens(c, entries)) {
+    const skill = c.skillIncreases?.[token.key]
+    if (!skill || token.skills && !token.skills.includes(skill)) remaining[(['trained', 'expert', 'master', 'legendary'] as const)[token.rank - 1]]++
   }
   return remaining
 }
@@ -4734,12 +4798,13 @@ interface SkillToken {
   skills?: string[]
 }
 
-function skillIncreaseTokens(c: Character): SkillToken[] {
+function skillIncreaseTokens(c: Character, entries: ContentEntry[]): SkillToken[] {
   return [
     ...(longevityExpertLevel(c) !== undefined ? [{ key: LONGEVITY_EXPERT_SLOT, rank: 2 }] : []),
     ...officerEducationSlots(c).map(slot => ({ key: slot.key, rank: 2 })),
     ...signiferExpertSlots(c).map(slot => ({ key: slot.key, rank: 2, skills: slot.skills })),
     ...mechanicIngenuitySlots(c).map(slot => ({ key: slot.key, rank: rankCap(slot.level), skills: ['Computers', 'Crafting'] })),
+    ...backgroundLoreIncreaseSlots(c, entries).map(slot => ({ ...slot, rank: rankCap(slot.level) })),
     ...skillIncreaseLevels(c).map(level => ({ key: String(level), rank: rankCap(level) })),
   ]
 }
@@ -4747,7 +4812,8 @@ function skillIncreaseTokens(c: Character): SkillToken[] {
 function unusedSkillTokens(c: Character, entries: ContentEntry[]) {
   const tokens: SkillToken[] = Array.from({ length: baseSkillRankBudget(c, entries).trained },
     (_, index) => ({ key: `trained:${index}`, rank: 1 }))
-  tokens.push(...skillIncreaseTokens(c).filter(token => !c.skillIncreases?.[token.key]))
+  tokens.push(...skillIncreaseTokens(c, entries).filter(token => !c.skillIncreases?.[token.key]
+    || token.skills && !token.skills.includes(c.skillIncreases[token.key])))
   return tokens
 }
 
@@ -4794,7 +4860,7 @@ export function normalizeGrantedSkillSpending(c: Character, entries: ContentEntr
       accept({ ...next, skillTokenUpgrades: next.skillTokenUpgrades?.filter(item => item !== purchase) }, purchase)
     }
   }
-  for (const token of skillIncreaseTokens(c)) {
+  for (const token of skillIncreaseTokens(c, entries)) {
     const skill = next.skillIncreases?.[token.key]
     if (!skill || !skills.includes(skill)) continue
     const skillIncreases = { ...next.skillIncreases }
@@ -4894,7 +4960,7 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
   const keys = ['trained', 'expert', 'master', 'legendary'] as const
   const remaining = skillRankBudget(c, entries)
   const total = { trained: additionalSkillCount(c, entries), expert: 0, master: 0, legendary: 0 }
-  for (const token of skillIncreaseTokens(c)) total[keys[token.rank - 1]]++
+  for (const token of skillIncreaseTokens(c, entries)) total[keys[token.rank - 1]]++
   if (activeFeatsNamed(c, 'Skill Download').length) {
     const key = keys[c.level >= 17 ? 2 : c.level >= 9 ? 1 : 0]
     total[key]++

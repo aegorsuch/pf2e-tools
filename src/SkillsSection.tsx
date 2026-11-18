@@ -1,6 +1,6 @@
 import { resistances,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundHasTerrainLore, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
-  ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
@@ -19,10 +19,9 @@ import { normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequireme
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './builder'
-import type { ContentEntry } from './types'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
-const COMMON_LORES = [...new Set([
+export const COMMON_LORES = [...new Set([
   // https://2e.aonprd.com/Skills.aspx?ID=41
   'Academia', 'Accounting', 'Architecture', 'Art', 'Astronomy', 'Carpentry', 'Circus', 'Driving',
   'Engineering', 'Farming', 'Fishing', 'Fortune-Telling', 'Games', 'Genealogy', 'Gladiatorial',
@@ -221,6 +220,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     }
     const slots: { key: string; level: number; expertOnly: boolean; restricted: boolean; skills?: string[] }[] = skillIncreaseLevels(c).map(level => ({ key: String(level), level, expertOnly: false, restricted: false }))
     slots.push(...expertSlots.map(slot => ({ ...slot, expertOnly: true, restricted: true })))
+    slots.push(...backgroundLoreIncreaseSlots(c, entries).map(slot => ({ ...slot, expertOnly: false, restricted: true })))
     if (name === 'Computers' || name === 'Crafting')
       slots.push(...mechanicIngenuitySlots(c).map(slot => ({ ...slot, expertOnly: false, restricted: true })))
     slots.sort((a, b) => a.level - b.level || Number(b.restricted) - Number(a.restricted))
@@ -612,18 +612,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </span>
         ))}
       </div>
-      {[bg, extraBackground].filter((background): background is ContentEntry =>
-        !!background && background.name !== 'Scout' && backgroundHasTerrainLore(background)).map(background =>
-        <label key={background.id}>{background.name} Lore{' '}
-          <select aria-label={`${background.name} terrain Lore`} value={c.backgroundTerrainLore?.[background.name] ?? ''} onChange={event => {
-            const terrain = event.target.value
-            if (terrain && !FAVORED_TERRAINS.includes(terrain)) return
-            save({ backgroundTerrainLore: { ...c.backgroundTerrainLore, [background.name]: terrain } })
-          }}>
-            <option value="">Choose terrain</option>
-            {FAVORED_TERRAINS.map(terrain => <option key={terrain} value={terrain}>{terrain} Lore</option>)}
-          </select>
-        </label>)}
       {!!tokenState?.inactive.length && <div className="skill-token-exchange">
           {tokenState.inactive.map(({ purchase, index, reason }) => {
             return <div key={`${purchase.skill}:${purchase.rank}:${index}`}>
