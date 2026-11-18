@@ -877,7 +877,7 @@ it('saves Bone Magic spell and tradition in one variant and grants the selected 
   const voidWarp: ContentEntry = { ...source, id: 'void-warp', name: 'Void Warp', kind: 'spell',
     traits: ['Cantrip'], data: { tradition: 'Arcane, Divine, Occult' } }
   const shared = { ...voidWarp, id: 'shared-cantrip', name: 'Shared Cantrip', data: { tradition: 'Occult, Primal' } }
-  const entries = [source, voidWarp, shared]
+  const entries = [source, voidWarp, { ...voidWarp, id: 'legacy-void-warp' }, shared]
   let c: Character = { ...emptyRanger(), ancestry: 'Lizardfolk', level: 20 }
   const tree = () => FeatSlots({ c, entries, save: patch => { c = { ...c, ...patch } }, categories: ['ancestry'] })
   const markup = renderToStaticMarkup(tree())

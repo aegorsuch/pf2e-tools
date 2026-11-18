@@ -194,10 +194,10 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
 }
 
 export function boneMagicChoiceOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
-  return (featSpellOptions(c, entries, feat) ?? []).flatMap(spell =>
+  return [...new Set((featSpellOptions(c, entries, feat) ?? []).flatMap(spell =>
     (['occult', 'primal'] as const)
       .filter(tradition => String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
-      .map(tradition => `${tradition}|${spell.name}`))
+      .map(tradition => `${tradition}|${spell.name}`)))]
 }
 
 export function mageAutomatonOptions(c: Character, entries: ContentEntry[]) {
