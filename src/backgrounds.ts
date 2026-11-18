@@ -1,5 +1,5 @@
 import { plain } from './aonQuery.ts'
-import type { ContentEntry } from './types.ts'
+import type { Character, ContentEntry } from './types.ts'
 
 type Link = { name: string; start: number; end: number }
 type Grant = { name: string; choice?: string }
@@ -7,6 +7,40 @@ type Grant = { name: string; choice?: string }
 const names = (value: unknown) => typeof value === 'string'
   ? value.split(/,\s*(?![^()]*\))/).map(name => name.trim().replace(/\bLore(?:\s+Lore)+\b/gi, 'Lore')).filter(Boolean) : []
 export const isOpenBackgroundLore = (name: string) => /\blore\b/i.test(name) && !/^[\w' -]+ Lore$/i.test(name)
+
+export function characterDeityLores(characters: Character[], extraLores: string[] = []) {
+  const lores = new Map<string, string>()
+  const add = (value: string) => {
+    const lore = value.trim().replace(/\s+/g, ' ')
+    if (/^.+ Lore$/i.test(lore) && !lores.has(lore.toLowerCase())) lores.set(lore.toLowerCase(), lore)
+  }
+  for (const character of characters) {
+    if (character.deleted) continue
+    if (character.deity?.trim()) add(`${character.deity.trim()} Lore`)
+    for (const name of [character.background, ...character.feats.filter(feat => feat.name === 'Free Heart').map(feat => feat.choice)]) {
+      const saved = /^Acolyte \((.+ Lore)\)$/.exec(name ?? '')
+      if (saved) add(saved[1])
+    }
+  }
+  extraLores.forEach(add)
+  return [...lores.values()].sort((a, b) => a.localeCompare(b))
+}
+
+export function deityLoreBackgroundEntries(entries: ContentEntry[], lores: string[]): ContentEntry[] {
+  if (!lores.length) return entries
+  return entries.flatMap(entry => {
+    const skills = names(entry.data.skill)
+    if (entry.kind !== 'background' || entry.name !== 'Acolyte' || entry.source !== 'official'
+      || !entry.systems.includes('pf2e') || !skills.includes('Religion') || !skills.includes('Scribing Lore')) return [entry]
+    return [entry, ...lores.filter(lore => !skills.some(skill => skill.toLowerCase() === lore.toLowerCase()))
+      .map(lore => ({
+        ...entry, id: `${entry.id}:deity-lore:${encodeURIComponent(lore)}`, name: `Acolyte (${lore})`,
+        description: entry.description.replaceAll('Scribing Lore', lore),
+        data: { ...entry.data, background_base: entry.name,
+          skill: skills.map(skill => skill === 'Scribing Lore' ? lore : skill).join(', ') },
+      }))]
+  })
+}
 
 export function deityBackgroundEntries(entries: ContentEntry[]) {
   const deities = entries.filter(entry => entry.kind === 'deity' && !entry.deleted

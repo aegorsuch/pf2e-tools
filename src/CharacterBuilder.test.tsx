@@ -15,6 +15,27 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
+it('shares roster deity Lore with background variants and the Skills picker', () => {
+  content.entries = [{
+    id: 'acolyte', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Acolyte', level: 1,
+    traits: [], description: 'Trained in Religion and Scribing Lore.', effects: [], updatedAt: 0,
+    data: { skill: 'Religion, Scribing Lore', feat: 'Student of the Canon' },
+  }]
+  const c: Character = {
+    id: 'acolyte', systems: ['pf2e'], name: 'Test', level: 1, background: 'Acolyte',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} deityLores={['Zon-Shelyn Lore']} onClose={() => {}} />)
+  const picker = markup.match(/<select aria-label="Common Lore"[\s\S]*?<\/select>/)?.[0] ?? ''
+  expect(picker).toContain('>Zon-Shelyn Lore</option>')
+  const saved = renderToStaticMarkup(<CharacterBuilder character={{ ...c, background: 'Acolyte (Zon-Shelyn Lore)' }}
+    onClose={() => {}} />)
+  expect(saved).toContain('<option value="Acolyte (Zon-Shelyn Lore)" selected="">Acolyte (Zon-Shelyn Lore)</option>')
+  expect(saved).toContain('Trained in Religion and Zon-Shelyn Lore.')
+  expect(saved).not.toContain('Trained in Religion and Scribing Lore.')
+})
+
 it.each(['Scout', 'Nomad'])('shows saved %s Lore as a background variant without a separate skill picker', name => {
   content.entries = [{
     id: 'scout', systems: ['pf2e'], kind: 'background', source: 'official', name, level: 1,

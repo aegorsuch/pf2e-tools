@@ -119,6 +119,23 @@ it('offers clan trades in the general Lore picker in alphabetical order', () => 
   expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
 })
 
+it('includes current and other characters deity Lore in shared choices without duplicates or already trained Lore', () => {
+  const c: Character = { ...base, deity: 'Sarenrae' }
+  const choices = (character: Character) => {
+    const markup = renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}}
+      deityLores={['Zon-Shelyn Lore', 'sarenrae Lore', 'Abadar Lore']} />)
+    const picker = markup.match(/<select aria-label="Common Lore"[\s\S]*?<\/select>/)?.[0] ?? ''
+    return [...picker.matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map(match => match[1]).slice(1)
+  }
+  const options = choices(c)
+  expect(options).toContain('Zon-Shelyn Lore')
+  expect(options).toContain('Sarenrae Lore')
+  expect(options.filter(name => name.toLowerCase() === 'sarenrae lore')).toHaveLength(1)
+  expect(options.filter(name => name === 'Abadar Lore')).toHaveLength(1)
+  expect(options).toEqual([...options].sort((a, b) => a.localeCompare(b)))
+  expect(choices({ ...c, lores: [{ name: 'Zon-Shelyn Lore', rank: 1 }] })).not.toContain('Zon-Shelyn Lore')
+})
+
 it('shows chosen terrain Lore without a separate selector and leaves fixed Lore unchanged', () => {
   const nomad = { ...feyBound, name: 'Nomad',
     data: { skill: 'Survival, Lore related to one terrain you traveled in (such as Desert Lore or Swamp Lore).' } }

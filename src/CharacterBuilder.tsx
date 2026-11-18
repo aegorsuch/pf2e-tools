@@ -13,7 +13,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, COMMON_LORES, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, commonLoreOptions, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
@@ -36,6 +36,7 @@ import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundLoreSlots, backgroundVariants, type BackgroundVariant } from './builder'
+import { characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
 
 const NONE: ContentEntry[] = []
 
@@ -356,9 +357,14 @@ function characterCatalog(catalog: ContentEntry[], systemsKey: string) {
   return entries
 }
 
-export function CharacterBuilder({ character: c, catalog, onClose }: { character: Character; catalog: ContentEntry[]; onClose: () => void }) {
+export function CharacterBuilder({ character: c, catalog, onClose, deityLores = NONE_LORES }: {
+  character: Character; catalog: ContentEntry[]; onClose: () => void; deityLores?: string[]
+}) {
   const systemsKey = c.systems.join()
-  const entries = characterCatalog(catalog, systemsKey)
+  const baseEntries = characterCatalog(catalog, systemsKey)
+  const deityLoreKey = JSON.stringify(characterDeityLores([c], deityLores))
+  const availableDeityLores = useMemo<string[]>(() => JSON.parse(deityLoreKey), [deityLoreKey])
+  const entries = useMemo(() => deityLoreBackgroundEntries(baseEntries, availableDeityLores), [baseEntries, availableDeityLores])
   const latest = useRef(c)
   latest.current = c
   const [undo, setUndo] = useState<{ label: string; snapshot: Character } | null>(null)
@@ -444,9 +450,9 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const subclassChoice = subclassSkillChoice(c, entries)
   const choiceValue = subclassChoice ? c.subclassSkillChoices?.[subclassChoice.key] ?? '' : ''
   const background = named('background', c.background)
-  const loreOptions = useMemo(() => [...new Set([...COMMON_LORES, ...c.lores.map(lore => lore.name),
-    ...Object.values(c.backgroundLores ?? {}).flat().filter(Boolean), ...(c.deity ? [`${c.deity} Lore`] : []),
-  ])].sort((a, b) => a.localeCompare(b)), [c.lores, c.backgroundLores, c.deity])
+  const loreOptions = useMemo(() => [...new Set([...commonLoreOptions(availableDeityLores), ...c.lores.map(lore => lore.name),
+    ...Object.values(c.backgroundLores ?? {}).flat().filter(Boolean),
+  ])].sort((a, b) => a.localeCompare(b)), [c.lores, c.backgroundLores, availableDeityLores])
   const backgroundLabel = (name: string) => {
     const lore = c.backgroundTerrainLore?.[name] ? `${c.backgroundTerrainLore[name]} Lore`
       : c.backgroundLores?.[name]?.filter(Boolean).join(', ')
@@ -814,7 +820,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
       <DeferredDetails>
         <SkillsSummary {...section} />
         <div className="character-section-content">
-          <SkillsSection {...section} />
+          <SkillsSection {...section} deityLores={availableDeityLores} />
         </div>
       </DeferredDetails>
       <DeferredDetails>

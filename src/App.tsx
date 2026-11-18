@@ -1,8 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
 import { characterSummary } from './builder'
+import { characterDeityLores } from './backgrounds'
 import { CharacterFilters, filterCharacters, type CharacterFilterValues } from './CharacterFilters'
 import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
@@ -78,6 +79,8 @@ export default function App() {
   // Start backups only once signed in; the first run also pulls data from other devices
   useEffect(() => (userId ? startAutoSync(setStatus) : undefined), [userId])
   const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
+  const deityLoreKey = JSON.stringify(characterDeityLores(characters ?? []))
+  const deityLores = useMemo<string[]>(() => JSON.parse(deityLoreKey), [deityLoreKey])
   const editingCharacter = characters?.find((c) => c.id === editingId)
   const neededSystems = editingCharacter?.systems ?? draft?.systems
   const neededKey = neededSystems?.slice().sort().join(',') ?? ''
@@ -228,7 +231,7 @@ export default function App() {
       )}
 
       {editingCharacter && ((!neededKey || catalogReady === requestKey) && catalog?.key === catalogReady && catalog.full
-        ? <Suspense fallback={null}><CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} onClose={() => setEditingId(null)} /></Suspense>
+        ? <Suspense fallback={null}><CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} deityLores={deityLores} onClose={() => setEditingId(null)} /></Suspense>
         : <div role="status">
           {catalogError ? <><p>{catalogError}</p><button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></>
             : <p>Loading character content...</p>}

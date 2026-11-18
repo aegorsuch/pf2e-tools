@@ -37,6 +37,11 @@ export const COMMON_LORES = [...new Set([
   'Corporate', 'Piracy', 'Necrovite', 'Apostae', 'Heaven',
 ].map(topic => `${topic} Lore`).concat(CLAN_LORES))].sort((a, b) => a.localeCompare(b))
 
+export function commonLoreOptions(deityLores: string[] = [], deity?: string) {
+  return [...new Map([...COMMON_LORES, ...deityLores, ...(deity?.trim() ? [`${deity.trim()} Lore`] : [])]
+    .map(lore => [lore.toLowerCase(), lore])).values()].sort((a, b) => a.localeCompare(b))
+}
+
 const RESISTANCE_NOTES: Record<string, string> = {
   'Poison Resistance': '+1 status bonus to saving throws against poisons.',
   'Heart of the Kaiju': "Physical resistance applies only while in kaiju form. This toggle does not apply the form's other statistics.",
@@ -133,7 +138,9 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   </>
 }
 
-export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills' }: SectionProps & { part?: 'skills' | 'offense' | 'defense' | 'senses' }) {
+export function SkillsSection({ c: original, entries, save: saveOriginal, part = 'skills', deityLores }: SectionProps & {
+  part?: 'skills' | 'offense' | 'defense' | 'senses'; deityLores?: string[]
+}) {
   const editingSkills = part === 'skills'
   const c = editingSkills ? normalizeGrantedSkillSpending(normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries), entries) : original
   const save: SectionProps['save'] = patch => saveOriginal(c === original ? patch : {
@@ -662,7 +669,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               input.setCustomValidity('')
             }}>
               <option value="" disabled>Choose Lore</option>
-              {COMMON_LORES.filter(name => !lores.some(existing => existing.toLowerCase() === name.toLowerCase()))
+              {commonLoreOptions(deityLores, c.deity).filter(name => !lores.some(existing => existing.toLowerCase() === name.toLowerCase()))
                 .map(name => <option key={name} value={name}>{name}</option>)}
             </select>
           </label>
