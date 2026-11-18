@@ -24,7 +24,7 @@ import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions
 import { spellAccessGranted } from './featAccess'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
 
 const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
   && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
@@ -377,7 +377,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
     durationNote: persistent && name === 'Animal Feature' && !getSettings().championFormNoFlight ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : name === 'Warning Stripes' ? 'Self or 30 feet'
-      : ['Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Athletic Rush', 'Enduring Might', 'Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || tracks && range === '—' ? 'Self'
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
@@ -386,7 +386,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       : name === 'Pulverizing Wake' ? '1 creature within reach'
       : name === 'Warning Stripes' ? 'Yourself or your animal companion'
       : name === 'Canopy Crawler' && rank >= 5 ? 'Yourself and your animal companion'
-      : ['Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Athletic Rush', 'Enduring Might', 'Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || targets === '—' && ['Sure Strike', 'True Strike', 'Vanishing Tracks'].includes(name) ? 'Self' : targets,
   }
 }
@@ -634,6 +634,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       frequency && `${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`,
       grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask')
         && grant.rule.condition !== 'Only within your claimed territory'
+        && grant.rule.condition !== 'Only through barriers of earth or stone'
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
       stats && `${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`,
       higherDC && resolution.save && classDC === undefined

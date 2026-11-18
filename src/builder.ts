@@ -1632,6 +1632,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     { source: `${names.has('Hyper Boosters') ? 'Hyper Boosters' : 'Speed Boosters'} (status)`, feet: booster },
     { source: 'Favored Terrain (Plains; status)', feet: terrainSpeed },
     { source: 'Uncanny Dash (status)', feet: dashSpeed },
+    { source: 'Athletic Rush (status)', feet: isSpellActive(c, entries, 'Athletic Rush') ? 10 : 0 },
     { source: 'Quantum Field (status)', feet: witchwarperParadox(c)?.name === 'Precog' && c.witchwarper?.movingInQuantumField ? 5 : 0 },
   ].sort((a, b) => b.feet - a.feet)[0]
   const armorPenalty = starfinderArmorPenalties(c, entries).speed

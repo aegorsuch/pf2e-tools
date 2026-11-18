@@ -1378,6 +1378,27 @@ it('adds and marks Imitate Fauna status bonus only while the known spell is acti
   }
 })
 
+it('applies Athletic Rush to Athletics and Speed only while the known spell is active', () => {
+  const c: Character = { ...base, spells: [{ name: 'Athletic Rush', rank: 1, cantrip: false }],
+    activeSpells: ['Athletic Rush'], feats: [{ name: 'Fleet', type: 'General Feat', level: 1 }] }
+  const render = (character: Character) => renderToStaticMarkup(<>
+    <SkillsSection c={character} entries={[ranger]} save={() => {}} />
+    <SensesAndSpeed c={character} entries={[ranger]} save={() => {}} />
+  </>)
+  const markup = render(c)
+  expect(markup).toMatch(/Athletics <b>\+2<button[^>]*>\*<\/button><span/)
+  expect(markup).toContain('aria-label="Athletic Rush note"')
+  expect(markup).toContain('+10 Athletic Rush (status)')
+  expect(builder.speed(c, [ranger])).toBe(40)
+  expect(markup).toContain('Deception <b>+0</b>')
+  for (const patch of [{ activeSpells: [] }, { spells: [] }]) {
+    const inactive = { ...c, ...patch }
+    expect(render(inactive)).toContain('Athletics <b>+0</b>')
+    expect(render(inactive)).not.toContain('Athletic Rush note')
+    expect(builder.speed(inactive, [ranger])).toBe(30)
+  }
+})
+
 it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () => {
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Shiny', type: 'Ancestry Feat', level: 1 }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)

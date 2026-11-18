@@ -42,6 +42,9 @@ it('uses status stacking for boosters and applies heavy construction armor profi
     inventorArmorModifications: { initial: 'Speed Boosters', breakthrough: 'Hyper Boosters', overdrive: true } }
   expect(speed(c, [])).toBe(55)
   expect(speed({ ...c, inventorArmorModifications: { ...c.inventorArmorModifications, overdrive: false } }, [])).toBe(35)
+  const rush: Character = { ...c, spells: [{ name: 'Athletic Rush', rank: 1, cantrip: false }], activeSpells: ['Athletic Rush'] }
+  expect(speed(rush, [])).toBe(55)
+  expect(speed({ ...rush, inventorArmorModifications: { ...c.inventorArmorModifications, overdrive: false } }, [])).toBe(35)
   expect(renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)).toContain('+30 ft status')
   const heavy: Character = { ...c, inventorArmorModifications: { breakthrough: 'Heavy Construction' } }
   expect(armorEntry(heavy, [], 'Power Suit')?.data).toMatchObject({

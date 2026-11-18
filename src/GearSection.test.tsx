@@ -923,7 +923,7 @@ it.each([
   expect(c.shield?.attachedWeapon).toMatchObject({ potency: 0, striking: 0 })
 })
 
-it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(
+it.each([[4, ''], [5, "Bolka's Blessing"], [10, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"], [20, "Greater Bolka's Blessing"]])(
   'grants locked clan dagger filigrees at level %i', (level, expected) => {
     const c: Character = { ...character([]), level, weapons: [{ id: 'dagger', name: 'Clan Dagger', potency: 0, striking: 0, runes: [] }] }
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
@@ -934,6 +934,7 @@ it.each([[4, ''], [5, "Bolka's Blessing"], [11, "Greater Bolka's Blessing"]])(
       expect(markup).toContain(`${level >= 11 ? 'Greater ' : ''}Trudd&#x27;s Strength`)
       expect(markup).not.toContain('aria-label="Remove Bolka')
       expect(markup).not.toContain('aria-label="Remove Greater Bolka')
+      if (level >= 11) expect(markup).not.toContain('>Bolka&#x27;s Blessing</button>')
     }
   },
 )
@@ -1068,6 +1069,9 @@ it('persists weapon and armor materials before fundamental controls, allowing a 
   expect(c.weapons?.[0].material).toBe('Orichalcum')
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
   expect(markup).toContain('aria-label="Add property rune"')
+  const offense = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} displayOnly />)
+  expect(offense).not.toContain('>Material</span>')
+  expect(offense).not.toContain('>Orichalcum</button>')
   expect(markup.indexOf('aria-haspopup="dialog">Orichalcum')).toBeLessThan(markup.indexOf('<label>Potency'))
   const armorMaterial = findElement(ArmorList({ c, entries: [], save }), (element) => element.props['aria-label'] === 'Armor material')
   if (!armorMaterial) throw new Error('Missing armor material')

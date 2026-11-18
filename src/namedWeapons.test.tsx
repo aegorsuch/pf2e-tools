@@ -315,6 +315,27 @@ it.each([false, true])('locks Greater Astral on every Serithtial blade form (%s)
   }
 })
 
+it('keeps Serithtial blade selection and item abilities in Equipment only', () => {
+  const serithtial = specific('Serithtial', 'Bastard Sword', '+4 major striking holy', [
+    'Activate\u2014Grace of the Inheritor (divine) Frequency once per day; Effect Restore Hit Points.',
+    'Destruction The sword can be destroyed only by its ancient enemy.',
+  ])
+  serithtial.description = `Serithtial\n\n---\n\nPerception +20; darkvision\n\n---\n\n${serithtial.description}`
+  const entries = [...namedCatalog, serithtial]
+  const character = { ...c, weapons: [owned('Serithtial')] }
+  const render = (displayOnly: boolean) => renderToStaticMarkup(
+    <WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+  const equipment = render(false)
+  const offense = render(true)
+  expect(equipment).toContain('aria-label="Serithtial weapon type"')
+  expect(offense).not.toContain('aria-label="Serithtial weapon type"')
+  for (const heading of ['Senses', 'Summary', 'Grace of the Inheritor', 'Destruction']) {
+    expect(equipment).toContain(`<summary>${heading} `)
+    expect(offense).not.toContain(`<summary>${heading} `)
+  }
+  expect(offense).toContain('Damage ')
+})
+
 it.each([false, true])('includes full base weapon names in specific weapon titles (%s)', displayOnly => {
   const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [])
   const weapons = [{ ...owned('Briar'), id: 'briar' }, owned('Wintershot (Longbow)')]

@@ -949,7 +949,7 @@ it('keeps Clan Crystal Form at its fixed sixth rank at higher character levels',
 })
 
 it('keeps all buff Active toggles on the spell-name line without duplicates', () => {
-  const names = ['Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+  const names = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
   const c: Character = { ...base, className: 'Ranger',
     spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Imitate Fauna', 'Keen Smell'] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell',
@@ -962,6 +962,27 @@ it('keeps all buff Active toggles on the spell-name line without duplicates', ()
   }
   expect(html).toContain('aria-label="Imitate Fauna active" checked=""')
   expect(html).toContain('aria-label="Keen Smell active" checked=""')
+})
+
+it('toggles Athletic Rush granted by a focus-spell source without a manually selected spell', () => {
+  const spell = entry('Athletic Rush', 'spell', {}, ['Focus'])
+  const domain = entry('Domain Initiate', 'feat', { grants_focus_spells: spell.name })
+  const c: Character = { ...base, feats: [taken(domain.name)], activeSpells: [spell.name] }
+  const entries = [spell, domain]
+  expect(movementSpeeds(c, entries)).toContainEqual({ name: 'Land', feet: 35 })
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
+    .toContain('aria-label="Athletic Rush active" checked=""')
+  expect(movementSpeeds({ ...c, activeSpells: [] }, entries)).toContainEqual({ name: 'Land', feet: 25 })
+  expect(movementSpeeds({ ...c, feats: [] }, entries)).toContainEqual({ name: 'Land', feet: 25 })
+})
+
+it.each(['Athletic Rush', 'Enduring Might'])('shows Self range and target for %s', name => {
+  const spell = entry(name, 'spell', { range: 0 }, ['Focus'])
+  const c: Character = { ...base, spells: [{ name, rank: 1, cantrip: false }], activeSpells: [name] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('<small>Range</small>Self')
+  expect(html).toContain('<small>Area/Targets</small>Self')
+  if (name === 'Athletic Rush') expect(html).toContain('aria-label="Athletic Rush active" checked=""')
 })
 
 it('omits Active trackers for spells without automated character effects, regardless of duration or saved state', () => {
@@ -1226,7 +1247,7 @@ it('adds Stonegate as an independent seventh-rank Magic Passage use without repl
   expect(markup.match(/aria-haspopup="dialog">Magic Passage<\/button>/g)).toHaveLength(2)
   expect(markup).toContain('Divine Spell Rank 7')
   expect(markup).toContain('20-foot-deep')
-  expect(markup).toContain('Only through barriers of earth or stone')
+  expect(markup).not.toContain('Only through barriers of earth or stone')
   expect(unresolvedFeatSpells(c, entries)).toEqual([])
 })
 

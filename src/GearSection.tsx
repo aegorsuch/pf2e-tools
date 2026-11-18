@@ -1117,7 +1117,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                 <option value={0}>Less than 1 year</option><option value={1}>1 year</option><option value={2}>2+ years</option>
               </select>
             </label>}
-            {namedBases.length > 1 && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
+            {namedBases.length > 1 && (!displayOnly || namedSource !== 'Serithtial') && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
               <select aria-label={`${namedSource} weapon type`} value={String(a.entry?.data.named_weapon_base)}
                 onChange={event => {
                   const base = event.target.value
@@ -1222,8 +1222,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
           <AttackUpgrades attack={a} />
-          {alloyMaterial}
-          {namedWeaponNotes}
+          {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
             {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}

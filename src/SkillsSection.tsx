@@ -335,7 +335,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
       : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0)
-    const status = s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
+    const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
+    const status = athleticRush ? 2 : s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
       && armorModifications(c).some(mod => mod.name === modification)
@@ -374,7 +375,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(total)}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
-          && <SourceNote inlineSource={false} source="Imitate Fauna" note="+4 status bonus when using Impersonate as an animal." />}
+          && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : 'Imitate Fauna'}
+            note={athleticRush ? '+2 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
           {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
           {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
             && <SourceNote source="Tangible Object" note={`${conditionalTotal(1)} against illusions and holograms (+1 circumstance).`} />}
