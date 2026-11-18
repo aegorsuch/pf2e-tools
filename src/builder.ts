@@ -81,14 +81,18 @@ export function maxHp(c: Character, entries: ContentEntry[]) {
     ? 12 : heritageHp ?? num(byName(entries, 'ancestry', c.ancestry)?.data.hp)
   const cls = num(byName(entries, 'class', c.className)?.data.hp)
   return ancestry + (cls + abilityMod(c.abilities.con)) * c.level
-    + hitPointBonuses(c).reduce((total, bonus) => total + bonus.value, 0)
+    + hitPointBonuses(c, entries).reduce((total, bonus) => total + bonus.value, 0)
     - (hasDivineIntercession(c, 'Asmodeus', 'major-curse') ? Math.max(1, c.level) * 4 : 0)
 }
 
-export function hitPointBonuses(c: Character) {
+export function hitPointBonuses(c: Character, entries?: ContentEntry[]) {
   const owned = (name: string) => c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)
+  const guardianFeatCount = entries ? c.feats.filter(feat => featTakenLevel(feat) <= c.level
+    && archetypesOf(selectedFeatEntry(c, entries, feat.name, feat.sourceId)).includes('Guardian')).length : 0
   return [
     ...LEVEL_HP_FEATS.filter(owned).map(source => ({ source, value: c.level })),
+    ...(owned('Guardian Resiliency') && guardianFeatCount
+      ? [{ source: 'Guardian Resiliency', value: guardianFeatCount * 3 }] : []),
     ...(owned('Unbreakable-er Goblin') ? [{ source: 'Unbreakable-er Goblin', value: 10 }] : []),
   ]
 }
@@ -1227,6 +1231,9 @@ export function rogueRackets(c: Character, entries: ContentEntry[]) {
   return [...new Set(taken.filter((name): name is string => !!name && ROGUE_RACKETS.some(racket => racket === name)))]
 }
 const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = {
+  "Caretaker's Intuition": { skill: 'Nature' },
+  'Jotunborn Grappler': { skill: 'Athletics', feat: 'Titan Wrestler' },
+  'Guardian Dedication': { skill: 'Athletics' },
   'Earned Glory': { skill: 'Performance', feat: 'Impressive Performance' },
   'Round Ears': { skill: 'Deception' },
   Sociable: { skill: 'Diplomacy', feat: 'Hobnobber' },
@@ -1235,11 +1242,14 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = 
   'Broken Hand Technique': { skill: 'Athletics', feat: 'Titan Wrestler' },
   Spelunker: { skill: 'Acrobatics', feat: 'Quick Squeeze' },
 }
-const SKILLS_TAB_ANCESTRY_GRANTS = ['Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker']
+const SKILLS_TAB_ANCESTRY_GRANTS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
+  'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker']
+export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
-  const system = ['Earned Glory', 'Round Ears', 'Sociable'].includes(name) ? 'pf2e' : 'sf2e'
+  const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears', 'Sociable'].includes(name)
+    ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined
   const source = selectedFeatEntry(c, entries, name)
   if (source && !source.systems.includes(system)) return undefined
@@ -1285,6 +1295,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   const fixedBackgroundChoice = background?.data[`background_choice_${name}`]
   if (name !== 'Assurance' && typeof fixedBackgroundChoice === 'string') return [fixedBackgroundChoice]
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
+  if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
   if (name === 'Assurance') {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
     const ranks = ranksAt({ ...c, level }, entries)
@@ -1316,7 +1327,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (ORDER_TRAINING_FEATS.includes(name)) return orderTrainingChoices(c, name, index)
   if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, entries, name)
-  if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
+  if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0
+    || !SKILL_GRANT_REPLACEMENT_FEATS.includes(name) && !c.feats[index].choice)) return undefined
   if (ancestryGrant && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if (!ranks[ancestryGrant.skill]) return undefined
@@ -2493,7 +2505,8 @@ export function normalizeConditionalSkillChoices(c: Character, entries: ContentE
       return replacements.length === (feat.replacements?.length ?? 0) && replacements.every((value, i) => value === feat.replacements?.[i])
         ? feat : { ...feat, replacements: replacements.length ? replacements : undefined }
     }
-    if (![...SKILLS_TAB_ANCESTRY_GRANTS, 'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(feat.name)
+    if (SKILL_GRANT_REPLACEMENT_FEATS.includes(feat.name)
+      || ![...SKILLS_TAB_ANCESTRY_GRANTS, 'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(feat.name)
       || !feat.choice || !featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) return feat
     add(feat.choice)
     return { ...feat, choice: undefined }
@@ -2673,6 +2686,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
   }
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
+  if (activeFeatsNamed(c, "Jotun's Eyes").length) addVision('Darkvision', "Jotun's Eyes")
   if (ancestryFeatTraits(c).includes('dwarf') && carriedWeapons(c, entries).some(weapon => weaponHeld(c, entries, weapon)
     && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Axe of the Dwarven Lords')) {
     addVision('Greater Darkvision', 'Axe of the Dwarven Lords')
@@ -3084,7 +3098,8 @@ export function untrainedSkillProficiency(c: Character) {
 
 export function bulkLimits(c: Character, entries: ContentEntry[]) {
   const strength = abilityMod(c.abilities.str)
-  const size = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
+  const size = activeFeatsNamed(c, "Jotun's Heart").length
+    ? 'Huge' : String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
   const sizeMultipliers: Record<string, number> = { tiny: 0.5, large: 2, huge: 4, gargantuan: 8 }
   const sizeMultiplier = sizeMultipliers[size.trim().toLowerCase()] ?? 1
   const bonuses: { source: string; encumbered: number; maximum: number }[] = []
@@ -3212,6 +3227,25 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
   if (rogueRackets(c, entries).some(racket => racket === 'Ruffian' || racket === 'Avenger')) ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
   if (activeFeatsNamed(c, 'Animal Skin').length) ranks.Unarmored = Math.max(ranks.Unarmored, 2)
+  const guardianDedications = proficiencyFeats(c, 'Guardian Dedication')
+  const guardianArmorGroups = new Set<typeof ARMOR_GROUPS[number]>()
+  for (const { feat } of guardianDedications) {
+    const level = featTakenLevel(feat)
+    const prior = armorRanks({ ...c, level,
+      feats: c.feats.filter(other => other.name !== 'Guardian Dedication' && featTakenLevel(other) <= level) }, entries)
+    const granted = prior.Light && prior.Medium ? ['Heavy'] as const : ['Light', 'Medium'] as const
+    for (const group of granted) {
+      guardianArmorGroups.add(group)
+      ranks[group] = Math.max(ranks[group], 1)
+    }
+  }
+  if (guardianArmorGroups.size) {
+    const classRanks = baseArmorRanks(c, entries)
+    const armorExpertise = Math.max(...ARMOR_GROUPS.filter(group => group !== 'Unarmored').map(group => classRanks[group]))
+    const unarmoredExpertise = c.level >= 13 ? classRanks.Unarmored : 0
+    const grantedRank = Math.max(armorExpertise, unarmoredExpertise)
+    if (grantedRank >= 2) for (const group of guardianArmorGroups) ranks[group] = Math.max(ranks[group], grantedRank)
+  }
   const granted = new Set<typeof ARMOR_GROUPS[number]>()
   for (const { feat } of proficiencyFeats(c, 'Armor Proficiency')) {
     const prior = baseArmorRanks({ ...c, level: featTakenLevel(feat) }, entries)
@@ -3256,8 +3290,9 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
   const total = parts.reduce((sum, part) => sum + part.value, 0)
-  const bulwark = name === 'Reflex' && armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'
-    : armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined)
+  const mightyBulwark = name === 'Reflex' && activeFeatsNamed(c, 'Mighty Bulwark').length > 0
+  const bulwark = name === 'Reflex' && (mightyBulwark ? 'Mighty Bulwark' : armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'
+    : armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined))
   const guardianArmorBonus = name === 'Reflex' && armor && c.className === 'Guardian'
     && classFeatures(entries, c).some(feature => feature.name === 'Guardian Mastery')
     ? num(armorEntry(c, entries, armor.name)?.data.ac) + (armor.potency ?? 0)
@@ -3266,7 +3301,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
     ...(bulwark
-      ? [`${bulwark}: ${signed(total + Math.max(0, 3 - abilityMod(c.abilities.dex)))} on damaging Reflex saves using your armor's bulwark trait (+3 instead of Dexterity, if higher).`] : []),
+      ? [`${bulwark}: ${signed(total + Math.max(0, (mightyBulwark ? 4 : 3) - abilityMod(c.abilities.dex)))} on damaging Reflex saves using a +${mightyBulwark ? 4 : 3} circumstance bonus instead of Dexterity, if higher${mightyBulwark ? '' : " (requires armor with the bulwark trait)"}.`] : []),
     ...(guardianArmorBonus !== undefined
       ? [`Guardian Mastery: ${signed(total + Math.max(0, guardianArmorBonus - abilityMod(c.abilities.dex)))} on damaging Reflex saves using your armor's item bonus to AC (${signed(guardianArmorBonus)}) instead of Dexterity, if higher; a success becomes a critical success.`] : []),
     ...(researched ? [`Researched Spell Resistance: +1 circumstance against ${researched.traditions.join(', ')} spells and effects; circumstance bonuses do not stack.`] : []),
@@ -3377,6 +3412,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  for (const feat of activeFeatsNamed(c, 'Planar Resilience')) {
+    if (feat.choice && ['Cold', 'Fire'].includes(feat.choice)) {
+      out.push({ damage: feat.choice.toLowerCase(), value: half, source: 'Planar Resilience' })
+    }
+  }
   if (soldierStyle(c)?.name === 'Armor Storm') {
     out.push({ damage: 'all damage from attacks by suppressed creatures', value: half, source: 'Armor Storm' })
   }
@@ -4810,9 +4850,19 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? traits.map(trait => /^two-hand\s+(?:1)?d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean) : undefined
   const baseDie = m ? Number(twoHandDie ?? m[2]) : 0
   const dieSteps = [4, 6, 8, 10, 12]
-  const die = hasFeat(c, 'Deadly Simplicity') && isDeadlySimplicityWeapon(c, entries, entry)
+  const baseDamageDie = hasFeat(c, 'Deadly Simplicity') && isDeadlySimplicityWeapon(c, entries, entry)
     ? category === 'Unarmed' ? Math.max(baseDie, 6) : dieSteps.find((step) => step > baseDie) ?? baseDie
     : baseDie
+  const shieldWarfare = activeFeatsNamed(c, 'Shield Warfare').length > 0
+    && (String(entry?.data.weapon_group ?? '').toLowerCase() === 'shield' || /^shield (?:bash|boss|spikes)$/i.test(entry?.name ?? ''))
+  const die = shieldWarfare ? dieSteps.find(step => step > baseDamageDie) ?? baseDamageDie : baseDamageDie
+  const heart = activeFeatsNamed(c, "Jotun's Heart").length > 0
+  const battleStance = activeStance(c, entries)?.name === "Jotun's Battle Stance"
+  const hasReachTrait = traits.some(trait => /^reach(?:\s|$)/i.test(trait))
+  const baseReach = num(entry?.data.reach) || (hasReachTrait ? 10 : 5)
+  const reach = isRanged(entry) ? 0
+    : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
+    : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10 : baseReach
   const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
     : traits.includes('propulsive') ? str > 0 ? Math.floor(str / 2) : str : 0
   const mechanicSpecialization = c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 7 && rank >= 2
@@ -4895,6 +4945,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       notes: [`Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`],
     } satisfies TotalBreakdown,
     range,
+    reach,
     thrownRange: !ranged && thrown && thrownRange > 0
       ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,

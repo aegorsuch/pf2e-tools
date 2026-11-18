@@ -34,6 +34,7 @@ export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
   check('Ambush Awareness', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
   check('Elven Instincts', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
   check('Climbing Tail', 'Athletics', 2, 'to Climb'),
+  check('Pounding Leap', 'Athletics', 2, "to High Jump or Long Jump when attempting the feat's special Strike"),
   check('Folk Healer', 'Medicine', 1, 'to Treat Wounds and Treat Disease'),
   check('Handy with Your Paws', 'Crafting', 1, 'to Repair non-magical items'),
   check('Larger than Life (Kitsune)', 'Intimidation', 1, 'to Intimidation checks'),

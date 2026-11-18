@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -231,6 +231,84 @@ it('keeps cached ranks isolated and current after character, rule and catalog ch
     expect(ranksAt(c, entries, 99, false)).toMatchObject({ Arcana: 1, Athletics: 1 })
     expect(ranksAt(c, entries, 99, false).Nature).toBeUndefined()
   } finally { updateSettings({ autoClassSkills: previous }) }
+})
+
+it('applies Jotunborn skill grants, senses, resistance, size, and reach', () => {
+  const ancestry = entry('ancestry', 'Jotunborn', { hp: 10, size: 'Large' })
+  const eyes = entry('feat', "Jotun's Eyes")
+  const heart = entry('feat', "Jotun's Heart")
+  const stance = entry('feat', "Jotun's Battle Stance", {}, 1, ['Stance'])
+  const grappler = entry('feat', 'Jotunborn Grappler')
+  const planar = entry('feat', 'Planar Resilience')
+  const sword = entry('weapon', 'Greatsword', {
+    weapon_category: 'Martial', weapon_type: 'Melee', weapon_group: 'Sword', damage: '1d12 slashing', hands: 2,
+  })
+  const entries = [ancestry, eyes, heart, stance, grappler, planar, sword, entry('class', 'Fighter', { hp: 10 })]
+  const c: Character = { ...base, ancestry: 'Jotunborn', className: 'Fighter', level: 5,
+    activeStance: "Jotun's Battle Stance",
+    feats: [
+      { name: "Jotun's Eyes", type: 'Ancestry Feat', level: 1 },
+      { name: "Jotun's Heart", type: 'Ancestry Feat', level: 5 },
+      { name: "Jotun's Battle Stance", type: 'Ancestry Feat', level: 1 },
+      { name: 'Jotunborn Grappler', type: 'Ancestry Feat', level: 1 },
+      { name: 'Planar Resilience', type: 'Ancestry Feat', level: 1, choice: 'Cold' },
+    ] }
+
+  expect(senses(c, entries)).toContainEqual({ value: 'Darkvision', source: "Jotun's Eyes" })
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Cold', value: 2, source: 'Planar Resilience' })
+  expect(featChoiceOptions('Planar Resilience', c, entries, 'ancestry:1:0')).toEqual(['Cold', 'Fire'])
+  expect(bulkLimits(c, entries).size).toBe('Huge')
+  expect(maxHp(c, entries)).toBe(65)
+  expect(weaponAttack(c, entries, { id: 'sword', name: 'Greatsword', potency: 0, striking: 0, runes: [] }).reach).toBe(15)
+
+  const athlete: Character = { ...base, level: 1,
+    feats: [{ name: 'Jotunborn Grappler', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  expect(ranksAt(athlete, [grappler]).Athletics).toBe(1)
+  expect(automaticFeatGrants(athlete, [grappler])).toContainEqual({
+    name: 'Titan Wrestler', source: 'Jotunborn Grappler', level: 1,
+  })
+  const alreadyTrained: Character = { ...athlete, skillPicks: ['Athletics'] }
+  expect(featChoiceOptions('Jotunborn Grappler', alreadyTrained, [grappler], 'ancestry:1:0')).toContain('Arcana')
+  const replacement = normalizeConditionalSkillChoices({ ...alreadyTrained,
+    feats: [{ ...alreadyTrained.feats[0], choice: 'Arcana' }] }, [grappler])
+  expect(replacement.feats[0].choice).toBe('Arcana')
+  expect(ranksAt(replacement, [grappler]).Arcana).toBe(1)
+  expect(ranksAt({ ...athlete, feats: [{ name: "Caretaker's Intuition", type: 'Ancestry Feat', level: 1 }] },
+    [entry('feat', "Caretaker's Intuition")]).Nature).toBe(1)
+})
+
+it('applies Guardian Dedication armor and skill training, Guardian Resiliency, and Mighty Bulwark', () => {
+  const dedication = entry('feat', 'Guardian Dedication', { archetype: 'Guardian' }, 2, ['Archetype', 'Dedication'])
+  const shieldWarfare = entry('feat', 'Shield Warfare', { archetype: 'Guardian' }, 4, ['Archetype'])
+  const resiliency = entry('feat', 'Guardian Resiliency', { archetype: 'Guardian' }, 4, ['Archetype'])
+  const mighty = entry('feat', 'Mighty Bulwark', { archetype: 'Guardian' }, 8, ['Archetype'])
+  const elf = entry('ancestry', 'Elf', { hp: 6 })
+  const fighter = entry('class', 'Fighter', { hp: 10 })
+  const c: Character = { ...base, level: 4, className: 'Fighter',
+    feats: [
+      { name: 'Guardian Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+      { name: 'Shield Warfare', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+      { name: 'Guardian Resiliency', type: 'Archetype Feat', level: 4, slot: 'archetype:4:1' },
+    ] }
+  expect(armorRanks(c, [dedication, fighter])).toMatchObject({ Light: 1, Medium: 1, Heavy: 0 })
+  expect(maxHp(c, [dedication, shieldWarfare, resiliency, elf, fighter])).toBe(55)
+  expect(hitPointBonuses(c, [dedication, shieldWarfare, resiliency])).toContainEqual({
+    source: 'Guardian Resiliency', value: 9,
+  })
+  const mightyCharacter = { ...c, feats: [...c.feats, { name: 'Mighty Bulwark', type: 'Archetype Feat', level: 4 }] }
+  expect(savingThrowBreakdown(mightyCharacter, [dedication, shieldWarfare, resiliency, mighty, fighter], 'Reflex').notes?.join(' '))
+    .toContain('Mighty Bulwark: +4 on damaging Reflex saves')
+  expect(ranksAt(c, [dedication]).Athletics).toBe(1)
+})
+
+it('increases shield weapon damage die with Shield Warfare', () => {
+  const warfare = entry('feat', 'Shield Warfare', { archetype: 'Guardian' }, 4, ['Archetype'])
+  const shield = entry('weapon', 'Shield Bash', {
+    weapon_category: 'Martial', weapon_type: 'Melee', weapon_group: 'Shield', damage: '1d4 bludgeoning', hands: 1,
+  })
+  const c: Character = { ...base, level: 4, feats: [{ name: 'Shield Warfare', type: 'Archetype Feat', level: 4 }] }
+  expect(weaponAttack(c, [warfare, shield], { id: 'bash', name: 'Shield Bash', potency: 0, striking: 0, runes: [] }).damage)
+    .toMatch(/^1d6\b/)
 })
 
 it.each([false, true])('refunds ordinary increases without calculating unused conversion budgets (empty purchases: %s)', emptyPurchases => {

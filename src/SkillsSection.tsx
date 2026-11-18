@@ -574,7 +574,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       .sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
-    const hpBonuses = hitPointBonuses(c)
+    const hpBonuses = hitPointBonuses(c, entries)
     const oaken = oakenResilience(c, entries)
     const divineWeaknesses = divineIntercessionWeaknesses(c)
     return (

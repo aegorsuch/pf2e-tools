@@ -1303,6 +1303,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <div className="gear-stats">
                 <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
                 {summary.attack.range > 0 && <span><small>Range</small><b>{summary.attack.range} feet</b></span>}
+                {summary.attack.reach > 0 && <span><small>Reach</small><b>{summary.attack.reach} feet</b></span>}
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
                   DC {area.dc} Reflex, {area.shape}<SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></span>)}
                 {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet</b></span>}
