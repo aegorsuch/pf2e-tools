@@ -131,6 +131,13 @@ export function ancestralMagicAvailable(c: Character, entries: ContentEntry[], f
 }
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (feat.name === 'Bone Magic') {
+    return spellIndex(entries).spells.filter(spell => spell.systems.some(system => c.systems.includes(system))
+      && spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
+      && ['occult', 'primal'].some(tradition => String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+      && !spell.traits.some(trait => /^(uncommon|rare|unique|focus)$/i.test(trait)))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Mask of Power') {
     return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
@@ -171,6 +178,13 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
           && !spell.traits.some(trait => /^(uncommon|rare|unique|focus)$/i.test(trait))
         : rule?.spells.some(name => name.toLowerCase() === spell.name.toLowerCase())))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function boneMagicChoiceOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  return (featSpellOptions(c, entries, feat) ?? []).flatMap(spell =>
+    (['occult', 'primal'] as const)
+      .filter(tradition => String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+      .map(tradition => `${tradition}|${spell.name}`))
 }
 
 export function mageAutomatonOptions(c: Character, entries: ContentEntry[]) {
@@ -241,6 +255,17 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rule: { kind: 'innate', spells: [entry.name], tradition: warmask.tradition, frequency: 'once per day',
           condition: 'Must be wearing your warmask' },
         rank: 1, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
+    if (feat.name === 'Bone Magic') {
+      const [tradition, name] = feat.choice?.split('|', 2) ?? []
+      const spell = ['occult', 'primal'].includes(tradition ?? '')
+        ? featSpellOptions(c, entries, feat)?.find(entry => entry.name === name
+          && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+        : undefined
+      if (spell && tradition) out.push({ entry: spell, source: feat.name,
+        rule: { kind: 'innate', spells: [spell.name], tradition, frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, tradition, spell.name.toLowerCase()]) })
       continue
     }
     if (feat.name === 'Ancestral Cantrip') {

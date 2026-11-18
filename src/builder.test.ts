@@ -334,6 +334,34 @@ it.each([false, true])('refunds ordinary increases without calculating unused co
   }
 })
 
+it('applies persistent Lizardfolk and Necromancer feat benefits to defenses, senses, and Speed', () => {
+  const c: Character = { ...base, level: 12, ancestry: 'Lizardfolk', feats: [
+    { name: 'Reinforced Skeleton', type: 'Class Feat', level: 12, choice: 'Fire, Piercing' },
+    { name: 'Sanguine Mastery', type: 'Class Feat', level: 12 },
+    { name: 'Become as Spirit', type: 'Class Feat', level: 12 },
+    { name: 'Necromantic Lifesense', type: 'Class Feat', level: 10 },
+    { name: 'Parthenogenic Hatchling', type: 'Ancestry Feat', level: 1 },
+  ] }
+  expect(speed(c, [])).toBe(30)
+  expect(senses(c, []).some(sense => sense.value === 'Lifesense (imprecise) 30 feet')).toBe(true)
+  expect(resistances(c, [])).toEqual(expect.arrayContaining([
+    { damage: 'Fire', value: 6, source: 'Reinforced Skeleton' },
+    { damage: 'Piercing', value: 6, source: 'Reinforced Skeleton' },
+    { damage: 'Bleed', value: 6, source: 'Sanguine Mastery' },
+    { damage: 'All damage except force, ghost touch, spirit, and vitality (for 1 round after destroying a thrall)', value: 6, source: 'Become as Spirit' },
+  ]))
+  expect(savingThrowBreakdown(c, [], 'Fortitude').notes).toContain(
+    'Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.')
+})
+
+it('grants Lizardfolk Lore skill training and the selected Additional Lore progression', () => {
+  const c: Character = { ...base, className: undefined, background: undefined, ancestry: 'Lizardfolk',
+    feats: [{ name: 'Lizardfolk Lore', type: 'Ancestry Feat', level: 1, choice: 'Nature', replacements: ['Astrology Lore'] }] }
+  expect(featChoiceOptions('Lizardfolk Lore', c, [], 'ancestry:1:0')).toEqual(['Nature', 'Occultism'])
+  expect(ranksAt(c, [])).toMatchObject({ Survival: 1, Nature: 1, 'Astrology Lore': 1 })
+  expect(featLores(c, [])).toContain('Astrology Lore')
+})
+
 describe('replacement slots for redundant fixed feat grants', () => {
   const data = [
     entry('background', 'Direwolf Bonded', { feat: 'Canny Acumen, Titan Wrestler' }),

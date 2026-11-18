@@ -447,8 +447,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const training = selection && featTakenLevel(selection) <= c.level
             ? hellknightTrainingBenefit(c, selection.name, selection.choice) : undefined
           const seekUsed = !!c.dailyAbilityUses?.['Seek Injustice']
-          const sameLevel = (slot: PlannedSlot) => slot.category === s.category && slot.level === s.level
-          const showAddSlot = !!selection || !rows.slice(rowIndex + 1).some(next => next.kind === 'slot' && sameLevel(next.slot))
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : undefined
@@ -578,6 +576,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               )}
               {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
                 || SKILL_GRANT_REPLACEMENT_FEATS.includes(selection.name)
+                || ['Bone Magic', 'Iruxi Armaments', 'Lizardfolk Lore', 'Reinforced Skeleton'].includes(selection.name)
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())
                 || selection.name === 'Mercy' && !selectedChoices.includes(selection.choice)
                 || ORDER_TRAINING_FEATS.includes(selection.name) && !selectedChoices.includes(selection.choice)
@@ -605,12 +604,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 : lastSlot || requiredGrant ? `Clear ${label} feat selection`
                 : `Remove ${label}${extra ? ' extra' : ''} feat slot ${s.key.split(':')[2]}`}
                 title={locked ? 'Granted by a house rule' : lastSlot || requiredGrant ? 'Clear selection' : 'Remove slot'}
-                disabled={locked || (lastSlot || requiredGrant) && !current}
+                disabled={locked || !current && !extra && (lastSlot || requiredGrant)}
                 onClick={() => removeSlot(s, extra)}>−</button>}
-              {showAddSlot
-                ? <button type="button" aria-label={`Add ${label} feat slot`}
-                  onClick={() => addSlot(s.category, s.level)}>+</button>
-                : <button type="button" className="slot-spacer" aria-hidden="true" tabIndex={-1} disabled>+</button>}
+              <button type="button" aria-label={`Add ${label} feat slot`}
+                onClick={() => addSlot(s.category, s.level)}>+</button>
             </li>
             </Fragment>
           )

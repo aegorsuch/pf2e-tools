@@ -1,7 +1,7 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
-import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
+import { boneMagicChoiceOptions, DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
@@ -106,6 +106,44 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </SearchableSelect>}
     </span>
   }
+  if (feat.name === 'Lizardfolk Lore') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const replacements = lizardfolkLoreReplacementChoices(c, entries, index)
+    const setReplacement = (replacementIndex: number, value: string) => {
+      const next = [...(feat.replacements ?? [])]
+      next[replacementIndex] = value
+      while (next.length && !next[next.length - 1]) next.pop()
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, replacements: next.length ? next : undefined } : existing) })
+    }
+    return <span className="feat-choice feat-choice-with-note">
+      <label>Skill{' '}
+        <select aria-label="Lizardfolk Lore skill" value={feat.choice ?? ''} onChange={event => {
+          const choice = event.target.value || undefined
+          if (choice && !options.includes(choice)) return
+          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+        }}>
+          <option value="">Choose Nature or Occultism</option>
+          {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
+          {options.map(option => <option key={option}>{option}</option>)}
+        </select>
+      </label>
+      <label>Additional Lore{' '}
+        <select aria-label="Lizardfolk Lore additional lore" value={feat.replacements?.[0] ?? ''} onChange={event => setReplacement(0, event.target.value)}>
+          <option value="">Choose lore</option>
+          <option>Astrology Lore</option>
+          <option>Lizardfolk Lore</option>
+        </select>
+      </label>
+      {replacements.map(row => <label key={row.index}>{row.skill} replacement{' '}
+        <select aria-label={`Lizardfolk Lore ${row.skill} replacement`} value={row.value ?? ''}
+          onChange={event => setReplacement(row.index, event.target.value)}>
+          <option value="">Choose replacement skill</option>
+          {row.value && !row.options.includes(row.value) && <option disabled>{row.value}</option>}
+          {row.options.map(option => <option key={option}>{option}</option>)}
+        </select>
+      </label>)}
+    </span>
+  }
   if (['Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Experienced Laborer'].includes(feat.name)) return null
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
@@ -152,9 +190,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </select>
     </label>
   }
-  if (feat.name === 'Beast Trainer' || feat.name === 'Hold Mark' || feat.name === 'Alloyed Attacks') {
+  if (feat.name === 'Beast Trainer' || feat.name === 'Hold Mark' || feat.name === 'Alloyed Attacks'
+    || feat.name === 'Iruxi Armaments' || feat.name === 'Reinforced Skeleton') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
-    const label = feat.name === 'Beast Trainer' ? 'Granted feat' : feat.name === 'Hold Mark' ? 'Emblem' : 'Metal'
+    const label = feat.name === 'Beast Trainer' ? 'Granted feat' : feat.name === 'Hold Mark' ? 'Emblem'
+      : feat.name === 'Alloyed Attacks' ? 'Metal' : feat.name === 'Iruxi Armaments' ? 'Attack' : 'Resistance'
     return <label>{label}{' '}
       <select aria-label={`${feat.name} choice`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value
@@ -271,6 +311,24 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   }
   const spellOptions = featSpellOptions(c, entries, feat)
   if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart'].includes(feat.name)) return null
+  if (feat.name === 'Bone Magic') {
+    const options = boneMagicChoiceOptions(c, entries, feat)
+    return <span className="feat-choice">
+      <SearchableSelect aria-label="Bone Magic tradition and cantrip" value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+        <option value="">Choose tradition and cantrip</option>
+        {feat.choice && !options.includes(feat.choice) && <option disabled value={feat.choice}>{feat.choice}</option>}
+        {options.map(choice => {
+          const [tradition, name] = choice.split('|', 2)
+          return <option key={choice} value={choice}>{tradition[0].toUpperCase() + tradition.slice(1)}: {name}</option>
+        })}
+      </SearchableSelect>
+      {!options.length && <small>Spell choices unavailable. Import official spell data.</small>}
+    </span>
+  }
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
       const choice = event.target.value || undefined

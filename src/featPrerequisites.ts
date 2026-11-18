@@ -259,6 +259,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     }
     if (/^(?:you have a )?spellcasting class feature$/.test(name)) return resultFor(!!facts.spellcastingClassFeature
       || trail.has('hellknight signifer preferment') && !!facts.classFocusSpells, text)
+    if (name === 'intercept attack' || name === 'disarming intercept') {
+      return resultFor(facts.className === 'Guardian', text)
+    }
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)

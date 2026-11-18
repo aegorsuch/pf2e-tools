@@ -6,7 +6,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
-import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
+import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { AnimalFeatureOptions, DevotionSpellChoice, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
@@ -1386,6 +1386,19 @@ it('requires a valid chosen cantrip and heightens only that choice', () => {
   expect(grantedFeatSpells(c, entries)).toEqual([])
   expect(grantedFeatSpells({ ...c, feats: [taken(grant.name, 1, 'Primal Cantrip')] }, entries)).toEqual([])
   expect(grantedFeatSpells({ ...c, feats: [taken(grant.name, 1, 'Light')] }, entries)).toMatchObject([{ rank: 3, entry: { name: 'Light' } }])
+})
+
+it('lets Bone Magic select both cantrip and tradition', () => {
+  const grant = feat('Bone Magic', 'Choose one cantrip from either the occult spell list or primal spell list.')
+  const entries = [grant, entry('Ghost Sound', 'spell', { tradition: 'Occult, Primal' }, ['Cantrip']),
+    entry('Occult Cantrip', 'spell', { tradition: 'Occult' }, ['Cantrip']),
+    entry('Rare Cantrip', 'spell', { tradition: 'Primal' }, ['Cantrip', 'Rare'])]
+  const c = { ...base, feats: [taken(grant.name)] }
+  expect(boneMagicChoiceOptions(c, entries, c.feats[0])).toEqual([
+    'occult|Ghost Sound', 'primal|Ghost Sound', 'occult|Occult Cantrip',
+  ])
+  expect(grantedFeatSpells({ ...c, feats: [taken(grant.name, 1, 'primal|Ghost Sound')] }, entries))
+    .toMatchObject([{ entry: { name: 'Ghost Sound' }, rule: { tradition: 'primal' }, rank: 3 }])
 })
 
 it('keeps cast-time alternatives on one shared daily grant and rejects conditional or variable grants', () => {

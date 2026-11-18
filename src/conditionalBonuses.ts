@@ -32,6 +32,7 @@ export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
   save('Twitchy', 1, 'hazards'),
   save('Wind Tempered', 1, 'air and electricity effects'),
   check('Ambush Awareness', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
+  check('Death Speaker', 'Diplomacy', 1, 'to Make an Impression or Request of undead creatures'),
   check('Elven Instincts', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
   check('Climbing Tail', 'Athletics', 2, 'to Climb'),
   check('Pounding Leap', 'Athletics', 2, "to High Jump or Long Jump when attempting the feat's special Strike"),

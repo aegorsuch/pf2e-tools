@@ -2089,6 +2089,31 @@ it('requires a two-handed hammer, spear, or polearm for Haft Striker and inherit
   expect(ownedWeapons({ ...c, feats: [] }, entries).map((weapon) => weapon.name)).not.toContain(HAFT_STRIKER_WEAPON.name)
 })
 
+it('gives two-handed weapons the Parry trait from Raise Haft and improves existing Parry to +2', () => {
+  const weapon = content('weapon', 'Greatsword', { hands: 2, weapon_group: 'Sword', damage: '1d12 slashing' }, 0)
+  const raisedHaft = content('feat', 'Raise Haft')
+  const wielded: OwnedWeapon = { id: 'greatsword', name: weapon.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, level: 2, weapons: [wielded], feats: [feat('Raise Haft', 2)] }
+  const entries = [weapon, raisedHaft]
+  expect(hasParryWeapon(c, entries)).toBe(true)
+  expect(weaponAttack(c, entries, wielded).traits).toContain('Parry')
+  expect(parryValue(c, entries)).toBe(1)
+  expect(parryValue({ ...c, weapons: [{ ...wielded, name: 'Parrying Greatsword' }] },
+    [content('weapon', 'Parrying Greatsword', { hands: 2, damage: '1d12 slashing' }, 0, ['Parry']), raisedHaft])).toBe(2)
+})
+
+it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', () => {
+  const c: Character = { ...base, ancestry: 'Lizardfolk', level: 13,
+    feats: [feat('Iruxi Armaments', 1, 'Fangs'), feat('Iruxi Spirit Strike', 13), feat('Iruxi Unarmed Cunning', 5)] }
+  const attacks = ownedWeapons(c, [])
+  const fangs = attacks.find(weapon => weapon.name === 'Fangs (Iruxi Armaments)')!
+  const attack = weaponAttack(c, [], fangs)
+  expect(attack.damage).toBe('3d8+1 piercing')
+  expect(attack.traits).toContain('Ghost Touch')
+  expect(attack.criticalSpecialization).toBe(true)
+  expect(featChoiceOptions('Iruxi Armaments', c, [], '')).toEqual(['Claws', 'Fangs', 'Tail'])
+})
+
 it('makes Primal Nimbleness available to both classes and scales heritage and Ranger poison resistance', () => {
   const druidPoison = content('feat', 'Poison Resistance', { class: 'Druid', archetype: 'Assassin' }, 2, ['Alchemist', 'Druid'])
   const options = homebrewCharacterOptions([druidPoison])
