@@ -1595,7 +1595,7 @@ export function druidSpellList(c: Character, entries: ContentEntry[]) {
 
 // Spellcasting attribute is set by the class, not chosen
 const CASTING_ABILITY: Record<string, Ability> = {
-  Animist: 'wis', Bard: 'cha', Cleric: 'wis', Druid: 'wis', Magus: 'int', Oracle: 'cha', Psychic: 'int',
+  Animist: 'wis', Bard: 'cha', Cleric: 'wis', Druid: 'wis', Magus: 'int', Necromancer: 'int', Oracle: 'cha', Psychic: 'int',
   Monk: 'wis', Ranger: 'wis', Sorcerer: 'cha', Summoner: 'cha', Thaumaturge: 'cha', Witch: 'int', Wizard: 'int', Champion: 'cha', Kineticist: 'con',
 }
 

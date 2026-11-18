@@ -689,9 +689,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
       stats && `${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`,
       higherDC && resolution.save && classDC === undefined
-        ? <span role="status">Class DC unavailable: choose your class key attribute or sync class content.</span>
-        : (resolution.save || resolution.attack) && mod === undefined
-          && <span role="status">Check granting source for spellcasting attribute and DC.</span>,
+        && <span role="status">Class DC unavailable: choose your class key attribute or sync class content.</span>,
     ].filter(Boolean)
     return { dc, note: notes.length ? <>{notes.map((note, index) => <span key={index}>{index > 0 && '; '}{note}</span>)}</> : undefined }
   }

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
+import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, spellDifficultyClass, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
@@ -1635,6 +1635,40 @@ it.each(['Song of the Soul', 'Deathly Scream'])('grants %s as a Necromancer focu
   expect(focusSpells(character, entries)).toMatchObject({ points: 1, spells: [expect.objectContaining({ name })] })
   expect(renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />))
     .toContain(`<h5>Focus Spells Rank 1</h5>`)
+})
+
+it.each([[1, 1], [6, 1], [7, 2], [14, 2], [15, 3], [18, 3], [19, 4], [20, 4]])(
+  'uses Necromancer Intelligence and spell proficiency at level %i', (level, rank) => {
+    const entries = [
+      entry('Necromancer', 'class', { tradition: 'Occult', attribute: 'Intelligence' }),
+      ...[['Expert', 7, 'expert'], ['Master', 15, 'master'], ['Legendary', 19, 'legendary']].map(([name, level, rank]) => ({
+        ...entry(`${name} Necromancy`, 'classFeature', { class: 'Necromancer' }), level: Number(level),
+        description: `Your proficiency ranks for spell attack modifier and spell DC increase to ${rank}.`,
+      })),
+      { ...entry('Grave Magic', 'feat'), spellGrants: [{ kind: 'focus' as const, spells: ['Bone Spear', 'Deathly Scream'], heightened: true }] },
+      entry('Bone Spear', 'spell', { saving_throw: 'AC' }, ['Focus', 'Necromancer', 'Attack']),
+      entry('Deathly Scream', 'spell', { saving_throw: 'Fortitude' }, ['Focus', 'Necromancer']),
+    ]
+    const c: Character = { ...base, className: 'Necromancer', level, feats: [taken('Grave Magic')],
+      spellcasting: { ability: 'cha', tradition: 'Occult', rank: 1, slots: {} } }
+    const mod = 4 + level + rank * 2
+    expect(classSpellcasting(c, entries)).toEqual({ traditions: ['Occult'], rank, ability: 'int' })
+    expect(spellDifficultyClass(c, entries)).toBe(10 + mod)
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+    expect(markup).toContain(`Intelligence Attack +${mod}`)
+    expect(markup).toContain(`Fortitude DC ${10 + mod}`)
+    expect(markup).not.toContain('Check granting source')
+  },
+)
+
+it('omits granting-source helper text when a focus spell has no resolved casting attribute', () => {
+  const entries = [
+    { ...entry('Unknown Magic', 'feat'), spellGrants: [{ kind: 'focus' as const, spells: ['Test Spell'] }] },
+    entry('Test Spell', 'spell', { saving_throw: 'Will' }, ['Focus']),
+  ]
+  const markup = renderToStaticMarkup(<SpellsSection c={{ ...base, feats: [taken('Unknown Magic')] }} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Test Spell')
+  expect(markup).not.toContain('Check granting source for spellcasting attribute and DC.')
 })
 
 it('shows feat-granted and manually tracked rituals in a separate Spells section', () => {
