@@ -80,7 +80,7 @@ it('auto-heightens item spells without lowering higher ranks, changing uses, or 
   expect(heightened.map(spell => [spell.name, spell.usageKey, spell.frequency, spell.actions, spell.dc]))
     .toEqual(original.map(spell => [spell.name, spell.usageKey, spell.frequency, spell.actions, spell.dc]))
   expect(itemSpellUses(c, heightened[0])).toMatchObject({ remaining: 1, spent: [0] })
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)).toContain('Rank 5')
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)).not.toContain('spell-rank-label')
   expect(JSON.stringify(c)).toBe(before)
   updateSettings({ innateAutoHeighten: false })
   expect(itemSpells(c, entries).map(spell => spell.rank)).toEqual([2, 6])
@@ -137,7 +137,7 @@ it('uses current Briar sharpness instead of granting spells from future artifact
   expect(itemSpells({ ...c, weapons: [{ ...c.weapons![0], briarSharpness: 0 }] }, entries)).toEqual([])
 })
 
-it('renders innate-style item rows with actions, fixed ranks and usage dots instead of source text', () => {
+it('renders innate-style item rows with actions and usage dots, without rank labels or source text', () => {
   const source = make('Spark Charm', 'item', 'Activate Reaction; Frequency once per day; Effect You cast a 2nd-rank fear spell (DC 25).')
   const spell = { ...make('Fear', 'spell'), data: { saving_throw: 'Will', actions: 'Two Actions' } }
   const c = { ...base, equipment: [{ name: source.name, qty: 1 }] }
@@ -148,7 +148,7 @@ it('renders innate-style item rows with actions, fixed ranks and usage dots inst
   expect(html).toContain('aria-label="Spend Fear (Spark Charm) use 1"')
   expect(html).toContain('class="action-cost" aria-label="Reaction"')
   expect(html).not.toContain('class="action-cost" aria-label="Two Actions"')
-  expect(html).toContain('Rank 2')
+  expect(html).not.toContain('spell-rank-label')
   expect(html).toContain('Will DC 25')
   expect(html).not.toContain('Focus Points')
   expect(html).not.toContain('Remove Fear')

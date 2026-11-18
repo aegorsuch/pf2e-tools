@@ -291,7 +291,7 @@ function spellSave(save: string, dc?: number) {
   return dc !== undefined && /\b(?:Fortitude|Reflex|Will)\b/i.test(save) && !/\bDC\s+\d+/i.test(save) ? `${save} DC ${dc}` : save
 }
 
-function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rankLabel, rank, saveDC, actionControls }: {
+function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rank, saveDC, actionControls }: {
   c: Character
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
@@ -299,7 +299,6 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
   children?: ReactNode
   inlineControls?: ReactNode
   actionControls?: ReactNode
-  rankLabel?: string
   rank: number
   saveDC?: number
 }) {
@@ -311,7 +310,6 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
       <div className="innate-spell-name">
         <div className="spell-title"><EntryDescription name={name} entry={entry} />
           {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form'].includes(name) && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
-        {rankLabel && <small className="spell-rank-label">{rankLabel}</small>}
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote
@@ -1006,7 +1004,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const note = [(!uses || !/\bper day\b/i.test(spell.frequency ?? '')) && spell.frequency, spell.condition]
             .filter(Boolean).join('; ')
           return <SpellItem c={c} key={`${spell.source.id}:${index}`}
-          name={spell.name} entry={spell.entry} rank={spell.rank} rankLabel={`Rank ${spell.rank}`}
+          name={spell.name} entry={spell.entry} rank={spell.rank}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
           inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
           actionControls={spell.actions ? <ActionIcon actions={spell.actions} showOther />
