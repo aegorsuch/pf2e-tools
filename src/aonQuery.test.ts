@@ -7,6 +7,17 @@ it.each(['Song of the Soul', 'Deathly Scream'])('parses %s as a granted grave fo
   expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])
 })
 
+it.each([
+  ['Bone Investiture', 'You can cast [_dinosaur form_](/Spells.aspx?ID=1) on yourself as a 5th-rank innate spell once per day.',
+    { kind: 'innate', spells: ['dinosaur form'], frequency: 'once per day', rank: 5, heightened: false, fixedRank: true, shared: false }],
+  ['Fossil Rider', 'You can cast [_mask of terror_](/Spells.aspx?ID=1) on yourself as an innate spell once per day.',
+    { kind: 'innate', spells: ['mask of terror'], frequency: 'once per day', heightened: false, shared: false }],
+  ['Spiritual Headhunter', 'Once before your next daily preparations, you can cast [_talking corpse_](/Spells.aspx?ID=1) as a primal innate spell.',
+    { kind: 'innate', spells: ['talking corpse'], tradition: 'primal', frequency: 'once per day', heightened: false, shared: false }],
+])('parses fixed innate spell grants from %s', (_name, text, expected) => {
+  expect(parseFeatSpellGrants(`<title>Feat</title>\n\n---\n\n${text}`)).toContainEqual(expected)
+})
+
 it('imports ritual entries and feat-granted rituals', () => {
   const feat = mapAonHit({ _id: 'feat-9105', _source: { name: 'Undead Creator', category: 'feat', level: 2,
     markdown: '<title>Undead Creator</title>\n\n---\n\nYou learn the [_create undead_](/Rituals.aspx?ID=117) ritual.' } }, 'pf2e')

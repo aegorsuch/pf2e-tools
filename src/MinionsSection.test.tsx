@@ -305,6 +305,20 @@ it('shows undead familiar traits, immunities, restrictions, and one daily abilit
   expect(html).not.toContain('aria-label="Undead familiar ability 2"')
 })
 
+it('creates a familiar record for Crocodile’s Twin', () => {
+  const c: Character = {
+    id: 'crocodile-twin', systems: ['pf2e'], name: 'Test', level: 1, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Crocodile's Twin", type: 'Ancestry Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Crocodile Familiar')
+  expect(html).toContain('Tiny crocodile familiar granted by Crocodile&#x27;s Twin.')
+  expect(html).toContain('Daily familiar or master abilities (0/2)')
+  expect(html).toContain('aria-label="Crocodile familiar ability 2"')
+})
+
 it('raises undead familiar ability limit to three with Enhanced Undead Familiar', () => {
   const c: Character = {
     id: 'enhanced-undead-familiar', systems: ['pf2e'], name: 'Test', level: 2, className: 'Necromancer',

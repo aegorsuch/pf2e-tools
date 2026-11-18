@@ -99,6 +99,46 @@ it('auto-heightens innate grants without changing uses, selections, focus spells
   expect(JSON.stringify(c)).toBe(saved)
 })
 
+it('grants Lizardfolk innate spells with fixed ranks and daily use tracking', () => {
+  const boneInvestiture = feat('Bone Investiture',
+    'You can cast [_dinosaur form_](/Spells.aspx?ID=1) on yourself as a 5th-rank innate spell once per day.', 13)
+  const fossilRider = feat('Fossil Rider',
+    'You can cast [_mask of terror_](/Spells.aspx?ID=2) on yourself as an innate spell once per day.', 17)
+  const spiritualHeadhunter = feat('Spiritual Headhunter',
+    'Once before your next daily preparations, you can cast [_talking corpse_](/Spells.aspx?ID=3) as a primal innate spell.', 13)
+  const spells = [entry('Dinosaur Form', 'spell'), entry('Mask of Terror', 'spell'), entry('Talking Corpse', 'spell')]
+  const c: Character = { ...base, level: 17, ancestry: 'Lizardfolk',
+    feats: [taken(boneInvestiture.name, 13), taken(fossilRider.name, 17), taken(spiritualHeadhunter.name, 13)] }
+  const grants = grantedFeatSpells(c, [boneInvestiture, fossilRider, spiritualHeadhunter, ...spells])
+  expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition])).toEqual([
+    ['Dinosaur Form', 5, undefined], ['Mask of Terror', 1, undefined], ['Talking Corpse', 1, 'primal'],
+  ])
+  expect(grants.every(grant => dailyInnateUses(c, grant)?.limit === 1)).toBe(true)
+})
+
+it('lets Necromancers choose distinct additional rank-1 grave spells through Widespread Fascination', () => {
+  const widespread = entry('Widespread Fascination', 'feat')
+  const spells = [
+    entry('Blood Infusion', 'spell', {}, ['Focus', 'Necromancer']),
+    entry('Bone Spear', 'spell', {}, ['Focus', 'Necromancer']),
+    entry('Create Thrall', 'spell', {}, ['Cantrip', 'Necromancer']),
+    { ...entry('Deathly Scream', 'spell', {}, ['Focus', 'Necromancer']), level: 2 },
+    { ...entry('Other Focus', 'spell', {}, ['Focus', 'Necromancer']), systems: ['sf2e' as const] },
+  ]
+  const c: Character = { ...base, level: 8, className: 'Necromancer', feats: [
+    { name: widespread.name, type: 'Class Feat', level: 4, choice: 'Blood Infusion', slot: 'class:4:0' },
+    { name: widespread.name, type: 'Class Feat', level: 8, choice: 'Bone Spear', slot: 'class:8:0' },
+  ] }
+  const entries = [widespread, ...spells]
+  expect(c.feats.map(feat => featSpellOptions(c, entries, feat)?.map(spell => spell.name))).toEqual([
+    ['Blood Infusion'], ['Bone Spear'],
+  ])
+  expect(grantedFeatSpells(c, entries).map(grant => grant.entry.name)).toEqual(['Blood Infusion', 'Bone Spear'])
+  expect(focusSpells(c, entries)).toMatchObject({
+    points: 2, spells: [expect.objectContaining({ name: 'Blood Infusion' }), expect.objectContaining({ name: 'Bone Spear' })],
+  })
+})
+
 it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and DCs and restores source rules when disabled', highest => {
   const grant = feat('Mental Magic', 'You can cast [fear](/Spells.aspx?ID=1) and [ignition](/Spells.aspx?ID=2) as occult innate spells at will.', 5)
   const entries = [grant, entry('Fear', 'spell', { saving_throw: 'Will' }), entry('Ignition', 'spell', { saving_throw: 'AC' }, ['Attack'])]
@@ -420,12 +460,14 @@ it('restores focus dots individually across saves without a Refocus button or re
 it('applies earned Refocus feats, tracks conditional spending between Refocuses, and excludes Mythic actions', () => {
   const focus = feat("Warden's Focus", 'When you Refocus, you regain all your Focus Points instead of 1.', 12)
   const wellspring = feat('Meditative Wellspring', 'If you have spent at least 3 Focus Points since the last time you Refocused, you recover 3 Focus Points when you Refocus instead of 1.', 18)
+  const graveFocus = feat('Grave Focus', 'Whenever you Refocus, completely refill your focus pool.', 12)
   const mythic = feat('Mythic Refocus', 'Spend a Mythic Point; you immediately recover all your Focus Points.', 8)
-  const entries = [focus, wellspring, mythic]
+  const entries = [focus, wellspring, graveFocus, mythic]
   expect(refocusRecovery({ ...base, level: 12, feats: [taken(focus.name, 12)] }, entries, 3, 3)).toBe(3)
   expect(refocusRecovery({ ...base, level: 11, feats: [taken(focus.name, 12)] }, entries, 3, 3)).toBe(1)
   expect(refocusRecovery({ ...base, level: 18, feats: [taken(wellspring.name, 18)], focusPointsSpentSinceRefocus: 2 }, entries, 3, 3)).toBe(1)
   expect(refocusRecovery({ ...base, level: 18, feats: [taken(wellspring.name, 18)], focusPointsSpentSinceRefocus: 3 }, entries, 3, 2)).toBe(3)
+  expect(refocusRecovery({ ...base, level: 12, className: 'Necromancer', feats: [taken(graveFocus.name, 12)] }, entries, 3, 3)).toBe(3)
   expect(refocusRecovery({ ...base, level: 18, feats: [taken(mythic.name, 8)] }, entries, 3, 3)).toBe(1)
 })
 

@@ -44,6 +44,15 @@ it('assigns and refunds Erudite Lore through shared skill buttons without spendi
   expect(ranksAt(c, [])['Military Lore']).toBe(0)
 })
 
+it('shows Reptile Rider’s conditional Nature bonus and granted Ride feat', () => {
+  const c: Character = { ...base, ancestry: 'Lizardfolk',
+    feats: [{ name: 'Reptile Rider', type: 'Ancestry Feat', level: 1 }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(markup).toContain('+4 to Handle an Animal that is a reptile, dinosaur, or similar (+1 circumstance).')
+  expect(builder.automaticFeatGrants(c, [ranger])).toContainEqual(
+    expect.objectContaining({ name: 'Ride', source: 'Reptile Rider' }))
+})
+
 it('uses shared skill buttons for a restricted divine skill without spending unrestricted training', () => {
   const disciple: ContentEntry = { ...feyBound, name: 'Disciple (Zon-Shelyn)', data: {
     skill: 'Zon-Shelyn Lore', background_skill_options: 'Crafting, Intimidation',

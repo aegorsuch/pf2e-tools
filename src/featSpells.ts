@@ -34,7 +34,9 @@ export function refocusRecovery(c: Character, entries: ContentEntry[], capacity:
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
     const text = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === feat.name
       && entry.systems.some(system => c.systems.includes(system)))?.description ?? ''
-    if (/When you Refocus, you (?:regain|recover) all your Focus Points/i.test(text)) recovery = capacity
+    if (/(?:When|Whenever) you Refocus, you (?:regain|recover) all your Focus Points|Whenever you Refocus, completely refill your focus pool/i.test(text)) {
+      recovery = capacity
+    }
     const conditional = /spent at least ([23]) Focus Points since the last time you Refocused/i.exec(text)
     const amount = /(?:recover|regain) ([23]) Focus Points when you Refocus instead of 1/i.exec(text)
     if (conditional && amount && (c.focusPointsSpentSinceRefocus ?? spent) >= Number(conditional[1])) {
@@ -132,6 +134,16 @@ export function ancestralMagicAvailable(c: Character, entries: ContentEntry[], f
 }
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (feat.name === 'Widespread Fascination' && c.className === 'Necromancer' && c.systems.includes('pf2e')) {
+    const used = new Set(c.feats.filter(other => other.name === feat.name
+      && (feat.slot ? other.slot !== feat.slot : other !== feat)).flatMap(other => other.choice ? [other.choice.toLowerCase()] : []))
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
+      && spell.level === 1 && spell.traits.some(trait => trait.toLowerCase() === 'focus')
+      && spell.traits.some(trait => trait.toLowerCase() === 'necromancer')
+      && !spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
+      && !used.has(spell.name.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Bone Magic') {
     return spellIndex(entries).spells.filter(spell => spell.systems.some(system => c.systems.includes(system))
       && spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
@@ -267,6 +279,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       if (spell && tradition) out.push({ entry: spell, source: feat.name,
         rule: { kind: 'innate', spells: [spell.name], tradition, frequency: 'at will', heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, tradition, spell.name.toLowerCase()]) })
+      continue
+    }
+    if (feat.name === 'Widespread Fascination') {
+      const spell = feat.choice && featSpellOptions(c, entries, feat)?.find(entry => entry.name === feat.choice)
+      if (spell) out.push({ entry: spell, source: feat.name,
+        rule: { kind: 'focus', spells: [spell.name], heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, spell.name.toLowerCase()]) })
       continue
     }
     if (feat.name === 'Ancestral Cantrip') {

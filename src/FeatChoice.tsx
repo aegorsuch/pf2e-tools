@@ -339,6 +339,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {feat.choice && !spellOptions.some(spell => spell.name === feat.choice) && <option disabled>{feat.choice}</option>}
       {[...new Set(spellOptions.map(spell => spell.name))].map(name => <option key={name}>{name}</option>)}
     </SearchableSelect>
+    {feat.name === 'Widespread Fascination' && <small>Choose a rank 1 grave spell from a different fascination you have access to.</small>}
     {!spellOptions.length && <small>Spell choices unavailable. Import official spell data.</small>}
   </span>
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'

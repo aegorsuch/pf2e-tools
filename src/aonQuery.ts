@@ -202,24 +202,25 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
     const spells = [...separateDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
       .map(match => match[1])
     if (spells.length) grants.push({ kind: 'innate', spells, rank: Number(separateDaily[2]),
-      tradition: separateDaily[3], frequency: 'once per day', heightened: false, ...(ability ? { ability } : {}) })
+      tradition: separateDaily[3], frequency: 'once per day', heightened: false, fixedRank: true, ...(ability ? { ability } : {}) })
   }
   const higherDC = /using the higher of your class DC or\s+spell DC/i.test(body)
   if ((!higherDC && /class DC|whichever is higher/i.test(body)) || /At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants
   const sentences = body.split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
-    if (!/^(?:(?:once|twice|\d+ times) per day,? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
+    if (!/^(?:(?:(?:once|twice|\d+ times) per day|once before your next daily preparations?),? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
     const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
       .map(match => plain(match[1]))
     if (!names.length) continue
     if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
       if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
       const tradition = /\b(arcane|divine|occult|primal)\b/i.exec(sentence)?.[1]
-      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b/gi)].map(match => match[0])
+      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b|\bonce before your next daily preparations?\b/gi)]
+        .map(match => /before your next daily preparations?/i.test(match[0]) ? 'once per day' : match[0])
       if (!frequencies.length && headerFrequency && names.length === 1
         && sentences.filter(text => /\byou can cast\b.*\binnate\b/i.test(text)).length === 1) frequencies.push(headerFrequency)
       const ranks = [...sentence.matchAll(/\b(\d+)(?:st|nd|rd|th)-(?:rank|level)\b/gi)]
-      if (!tradition || frequencies.length !== 1 || ranks.length > 1) continue
+      if (frequencies.length !== 1 || ranks.length > 1) continue
       const next = plain(sentences[index + 1] ?? '')
       const scales = (text: string) => /half your level,? rounded up/i.test(text)
       const shared = names.length > 1 && /\bor\b/i.test(sentence)
@@ -229,7 +230,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
       const rule: SpellGrant = {
         kind: 'innate', spells: names, tradition, frequency: frequencies[0].toLowerCase().replace('at-will', 'at will'),
         ...(ranks[0] ? { rank: Number(ranks[0][1]) } : {}),
-        heightened, shared,
+        heightened, shared, ...(ranks[0] ? { fixedRank: true } : {}),
         ...(ability ? { ability } : {}),
         ...(higherDC ? { dc: 'higher-class-or-spell' as const } : {}),
       }
