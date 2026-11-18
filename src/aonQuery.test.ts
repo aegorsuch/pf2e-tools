@@ -1,6 +1,25 @@
 import { expect, it } from 'vitest'
-import { fetchAonHits, parseCompanion } from './aonQuery'
+import { fetchAonHits, parseCompanion, parseFeatSpellGrants } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
+
+it.each(['Song of the Soul', 'Deathly Scream'])('parses %s as a granted grave focus spell', name => {
+  const markdown = `<title>Feat</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.`
+  expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])
+})
+
+it('imports ritual entries and feat-granted rituals', () => {
+  const feat = mapAonHit({ _id: 'feat-9105', _source: { name: 'Undead Creator', category: 'feat', level: 2,
+    markdown: '<title>Undead Creator</title>\n\n---\n\nYou learn the [_create undead_](/Rituals.aspx?ID=117) ritual.' } }, 'pf2e')
+  const ritual = mapAonHit({ _id: 'ritual-117', _source: { name: 'Create Undead', category: 'ritual', level: 2,
+    trait: ['Uncommon', 'Unholy'], url: '/Rituals.aspx?ID=117', cast: '1 day', cost: 'black onyx',
+    markdown: '**Cast** 1 day\n\n---\n\nYou transform the target.' } }, 'pf2e')
+  expect(feat?.ritualGrants).toEqual(['create undead'])
+  expect(ritual).toMatchObject({
+    kind: 'ritual', name: 'Create Undead', level: 2, traits: ['Uncommon', 'Unholy'],
+    data: { cast: '1 day', cost: 'black onyx', url: 'https://2e.aonprd.com/Rituals.aspx?ID=117' },
+  })
+  expect(ritual?.description).toContain('Cast 1 day')
+})
 
 it('retains exact table blocks and their named options for personalized feat descriptions', () => {
   const entry = mapAonHit({ _id: 'choices', _source: { name: 'Choice Feat', category: 'feat',

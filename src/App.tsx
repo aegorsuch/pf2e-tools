@@ -18,7 +18,7 @@ import './App.css'
 
 const loadCharacterBuilder = () => import('./CharacterBuilder').then(m => ({ default: m.CharacterBuilder }))
 const CharacterBuilder = lazy(loadCharacterBuilder)
-const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'familiar', 'subclass']
+const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'ritual', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'familiar', 'subclass']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
   { id: 'sf2e', label: 'Starfinder 2e' },

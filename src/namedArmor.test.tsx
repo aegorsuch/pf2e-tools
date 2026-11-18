@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, perceptionItemBonus, resistances, savingThrowBreakdown, shieldEntry, shieldMaterialOptions, shieldStats } from './builder'
+import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses } from './builder'
 import { ArmorList } from './GearSection'
-import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities } from './namedArmor'
+import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { specificMagicItemName } from './equipmentGroups'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
-import type { Character, OwnedArmor, OwnedShield } from './types'
+import type { Character, ContentEntry, OwnedArmor, OwnedShield } from './types'
 
 const item = (name: string, markdown: string, extra: Record<string, unknown> = {}) => mapAonHit({
   _id: name, _source: { category: 'equipment', name, markdown, level: 20, trait: ['Invested', 'Artifact'], ...extra },
@@ -52,6 +52,9 @@ const scale = item('Scale of Igroon', [
   '**Activate** <actions string="Free Action" /> (manipulate) **Trigger** Shield Block prevents energy damage from a line, ray, or direct attack; **Effect** Reflect the energy.',
   '**Destruction** Stomped in absolute darkness.',
 ].join('\n\n'), { usage: 'held in 1 hand', url: '/Equipment.aspx?ID=2365' })
+const fortressShield: ContentEntry = { id: 'fortress-shield', name: 'Fortress Shield', kind: 'shield', source: 'official',
+  systems: ['pf2e'], level: 0, traits: [], description: '', data: { ac: 3, bulk: 5, hands: '2', speed_penalty: -10 },
+  effects: [], updatedAt: 0 }
 const mask = item('Shadowed Scale, the Jungle Secret', [
   '---',
   'When you wear the mask, you are always concealed while in a jungle. It can replace a Magaambyan mask.',
@@ -59,7 +62,7 @@ const mask = item('Shadowed Scale, the Jungle Secret', [
   '**Activate** <actions string="Single Action" /> Interact; **Frequency** once per hour; **Requirements** Adjacent to the body of a creature you killed that decomposed into soil; **Effect** Cast summon plant or fungus at half the slain creature’s level, rounded up.',
   '**Destruction** Stomped by the progenitor of all mokele-mbembes.',
 ].join('\n\n'), { usage: 'worn mask', url: '/Equipment.aspx?ID=1530' })
-const entries = [leather, hide, chain, elven, embrace, bane, artifact, fortification, greaterFortification, scale, mask]
+const entries = [leather, hide, chain, elven, embrace, bane, artifact, fortification, greaterFortification, scale, fortressShield, mask]
 const character: Character = {
   id: 'armor-test', systems: ['pf2e'], name: 'Armor test', level: 20,
   abilities: { str: 14, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
@@ -90,6 +93,7 @@ it('derives named armor bases, fundamental runes, elven construction, and immuta
   expect(armorEntry(character, entries, embrace.name)?.data).toMatchObject({
     ac: 1, dex_cap: 4, named_armor_potency: 4, named_armor_resilient: 3, url: embrace.data.url, price: '',
   })
+
   expect(effectiveArmor(character, entries, owned(embrace.name))).toMatchObject({ potency: 4, resilient: 3 })
   expect(effectiveArmor(character, entries, owned(bane.name))).toMatchObject({ potency: 2, resilient: 2 })
   const upgraded = { ...owned(artifact.name), potency: 4, runes: ['Shadow', 'Fortification (Greater)'] }
@@ -102,6 +106,22 @@ it('derives named armor bases, fundamental runes, elven construction, and immuta
   expect(generated.traits).not.toContain('Noisy')
   expect(JSON.stringify(entries)).toBe(before)
   expect(upgraded.runes).toEqual(['Shadow', 'Fortification (Greater)'])
+})
+
+it('builds a Fortress Shield variant that retains Scale of Igroon effects and adds its profile', () => {
+  const variant = makeNamedShieldEntry(entries, SCALE_OF_IGROON_FORTRESS)!
+  expect(variant).toMatchObject({ name: SCALE_OF_IGROON_FORTRESS, kind: 'shield',
+    data: { ac: 3, bulk: 5, speed_penalty: -10, hardness: 20, hp: 160, bt: 80, named_shield_fortress: true } })
+  expect(variant.description).toContain('Fortress Shield profile')
+  const shield: OwnedShield = { id: variant.id, name: variant.name, hardness: 20, hp: 160, damage: 0,
+    equipped: true, raised: true, takingCover: true }
+  const c = { ...character, shield }
+  expect(shieldAcBonus(c, entries)).toBe(4)
+  expect(shieldAcBonus({ ...c, shield: { ...shield, raised: false } }, entries)).toBe(3)
+  expect(speedBonuses(c, entries)).toContainEqual({ source: 'Fortress Shield', feet: -10 })
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="shield" />)
+  expect(markup).toContain('aria-label="Taking Cover behind Fortress Shield"')
+  expect(markup).toContain('Take Cover (+1 AC)')
 })
 
 it('applies passive armor defenses only while worn, including legacy equipment-only saves', () => {

@@ -55,6 +55,13 @@ it('counts a fixed background feat once and includes temporary granted skill fea
   expect(render({ ...memory, feats: [{ ...memory.feats[0], takenLevel: 21 }] })).toContain('Feat slots 0/10</h4>')
 })
 
+it('uses Iruxi Armaments variants without a trailing selector', () => {
+  const c: Character = { ...emptyRanger(), ancestry: 'Lizardfolk', feats: [
+    { name: 'Iruxi Armaments', type: 'Ancestry Feat', level: 1, choice: 'Claws' },
+  ] }
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)).toBe('')
+})
+
 it('clears selected skill prerequisite warnings while planning without changing character skills', () => {
   const c: Character = { ...emptyRanger(), level: 20,
     skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' },

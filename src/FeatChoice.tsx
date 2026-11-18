@@ -191,10 +191,10 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </label>
   }
   if (feat.name === 'Beast Trainer' || feat.name === 'Hold Mark' || feat.name === 'Alloyed Attacks'
-    || feat.name === 'Iruxi Armaments' || feat.name === 'Reinforced Skeleton') {
+    || feat.name === 'Reinforced Skeleton') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const label = feat.name === 'Beast Trainer' ? 'Granted feat' : feat.name === 'Hold Mark' ? 'Emblem'
-      : feat.name === 'Alloyed Attacks' ? 'Metal' : feat.name === 'Iruxi Armaments' ? 'Attack' : 'Resistance'
+      : feat.name === 'Alloyed Attacks' ? 'Metal' : 'Resistance'
     return <label>{label}{' '}
       <select aria-label={`${feat.name} choice`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value

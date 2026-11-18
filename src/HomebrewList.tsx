@@ -12,7 +12,7 @@ const LABELS: Partial<Record<EntryKind, string>> = {
   ancestry: 'Ancestries', armor: 'Armor', armorGroup: 'Armor Groups', background: 'Backgrounds', class: 'Classes',
   classFeature: 'Class Features', companion: 'Companions', companionAdv: 'Companion Advancements',
   companionSpec: 'Companion Specializations', deity: 'Deities', familiar: 'Familiars', heritage: 'Heritages',
-  item: 'Gear', language: 'Languages', shield: 'Shields', spell: 'Spells', subclass: 'Subclasses',
+  item: 'Gear', language: 'Languages', ritual: 'Rituals', shield: 'Shields', spell: 'Spells', subclass: 'Subclasses',
   weapon: 'Weapons', weaponGroup: 'Weapon Groups',
 }
 

@@ -14,7 +14,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isNamedArmor, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements } from './namedArmor'
+import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -315,7 +315,7 @@ export function ownedShields(c: Character): OwnedShield[] {
   return [c.shield, hardwoodShield(c), inventorBuckler(c)].filter((shield): shield is OwnedShield => !!shield)
 }
 export function shieldChange(c: Character, shield: OwnedShield,
-  patch: Partial<Pick<OwnedShield, 'equipped' | 'raised' | 'damage' | 'reinforcingRune' | 'attachedWeapon'>>): Partial<Character> {
+  patch: Partial<Pick<OwnedShield, 'equipped' | 'raised' | 'takingCover' | 'damage' | 'reinforcingRune' | 'attachedWeapon'>>): Partial<Character> {
   if (shield.id === 'granted-shield:hardwood') return { hardwoodShield: { ...c.hardwoodShield, ...patch } }
   if (shield.id === 'granted-shield:inventor') return { inventorBuckler: { ...c.inventorBuckler, ...patch } }
   return { shield: { ...shield, ...patch } }
@@ -323,7 +323,7 @@ export function shieldChange(c: Character, shield: OwnedShield,
 type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
 
 export function shieldAllowsUpgrades(shield: { name?: string }) {
-  return shield.name !== 'Scale of Igroon'
+  return !isScaleOfIgroonShield(shield.name)
 }
 
 export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, entries: ContentEntry[] = []) {
@@ -374,23 +374,26 @@ export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: b
   const change: Partial<Character> = {}
   for (const current of [shield, ...ownedShields(c).filter(item => item.id !== shield.id)]) {
     const active = current.id === shield.id ? equipped : !equipped && current.id === previous
-    Object.assign(change, shieldChange(c, current, { equipped: active, ...(!active ? { raised: false } : {}) }))
+    Object.assign(change, shieldChange(c, current, { equipped: active,
+      ...(!active ? { raised: false, takingCover: false } : {}) }))
   }
   return change
 }
 export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   const shield = equippedShield(c)
   if (!shield) return 0
-  const entry = entries.find(item => item.kind === 'shield' && (item.id === shield.id || item.name === shield.name))
+  const entry = shieldEntry(entries, shield.name)
   const bonus = num(entry?.data.ac)
   const normal = bonus > 0 ? bonus : isBucklerShield(shield.name) ? 1 : 2
-  return isBucklerShield(shield.name) && normal === 1 && activeFeatsNamed(c, 'Elegant Buckler').length ? 2 : normal
+  const elegant = isBucklerShield(shield.name) && normal === 1 && activeFeatsNamed(c, 'Elegant Buckler').length ? 1 : 0
+  const cover = shield.name === SCALE_OF_IGROON_FORTRESS && shieldRaised(c) && shield.takingCover ? 1 : 0
+  return normal + elegant + cover
 }
 export const isBucklerShield = (name: string) => /buckler/i.test(name)
 export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {
   const shield = equippedShield(c)
   if (!shield) return {}
-  return shieldChange(c, shield, { raised })
+  return shieldChange(c, shield, { raised, ...(!raised ? { takingCover: false } : {}) })
 }
 export const shieldParagonActive = (c: Character) => !!equippedShield(c) && activeFeatsNamed(c, 'Shield Paragon').length > 0
 export const shieldRaised = (c: Character) => !!equippedShield(c) && (!!equippedShield(c)?.raised || shieldParagonActive(c))
@@ -754,8 +757,9 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   return available.length ? Math.min(...available) : entry.level
 }
 
-const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed'],
+const PREREQUISITE_EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed'],
   ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']]
+const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS, ['Hallowed Dead', 'Unholy Dead']]
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
 const MECHANIC_EXOCORTEXES = ['Drone', 'Mine', 'Turret']
 
@@ -828,6 +832,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           ...(character.className === 'Druid' && (character.order ?? subclass) === 'Animal' ? ['Animal Companion'] : []),
           ...(character.companions?.length ? ['an animal companion'] : []),
         ] },
+        get swimSpeed() { return movementSpeeds(character, entries).some(speed => speed.name === 'Swim' && speed.feet > 0) },
         get ranks() { return ranks ??= { ...Object.fromEntries(statDefs(character).map((stat) => [stat.name, 0])), ...ranksAt(character, entries) } },
         get buildSkillRanks() {
           if (!options.planSkillPrerequisites) return undefined
@@ -919,7 +924,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
-    for (const group of EXCLUSIVE_FEAT_GROUPS) {
+    for (const group of PREREQUISITE_EXCLUSIVE_FEAT_GROUPS) {
       if (!group.includes(entry.name)) continue
       const other = character.feats.find(feat => feat.name !== entry.name && group.includes(feat.name))
       if (other) missing.push(`${entry.name} cannot be combined with ${other.name}`)
@@ -1104,7 +1109,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.filter(feat => feat.name === 'Mercy' && feat.slot !== slot.key).length < 3
           && !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (!isCompanionSpecialization(e.name) || specializations < 3)
-      && EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
+      && MUTUALLY_EXCLUSIVE_FEAT_GROUPS.every((group) => !group.includes(e.name) || !group.some((name) => name !== e.name && taken.has(name)))
       && (!getSettings().exclusiveCyborgHearts || !CYBORG_HEART_FEATS.includes(e.name)
         || !CYBORG_HEART_FEATS.some(name => name !== e.name && taken.has(name)))
       && (!/^Mortification \(/.test(e.name) || ![...taken].some(name => /^Mortification \(/.test(name)))
@@ -1116,6 +1121,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
+        || e.name === 'Iruxi Armaments' && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
@@ -1297,7 +1303,11 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
   if (name === 'Lizardfolk Lore') return ['Nature', 'Occultism']
-  if (name === 'Iruxi Armaments') return ['Claws', 'Fangs', 'Tail']
+  if (name === 'Iruxi Armaments') {
+    const used = new Set(c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return ['Claws', 'Fangs', 'Tail'].filter(choice => !used.has(choice))
+  }
   if (name === 'Reinforced Skeleton') return ['Cold, Slashing', 'Cold, Piercing', 'Electricity, Slashing',
     'Electricity, Piercing', 'Fire, Slashing', 'Fire, Piercing']
   if (name === 'Assurance') {
@@ -1718,11 +1728,13 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     { source: 'Quantum Field (status)', feet: witchwarperParadox(c)?.name === 'Precog' && c.witchwarper?.movingInQuantumField ? 5 : 0 },
   ].sort((a, b) => b.feet - a.feet)[0]
   const armorPenalty = starfinderArmorPenalties(c, entries).speed
+  const fortressShieldPenalty = equippedShield(c)?.name === SCALE_OF_IGROON_FORTRESS ? -10 : 0
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
     ...(hellknightBenefitActive(c, 'Trailblazing Stride') ? [{ source: 'Trailblazing Stride (circumstance)', feet: 10 }] : []),
     ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
     ...(status.feet > 0 ? [status] : []),
     ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : []),
+    ...(fortressShieldPenalty ? [{ source: 'Fortress Shield', feet: fortressShieldPenalty }] : []),
     ...(activeFeatsNamed(c, 'Hellknight Mobility').length && activeFeatsNamed(c, 'Unburdened Iron').length
       && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '')) === 'Heavy' && wornArmor(c, entries)
       ? [{ source: 'Hellknight Mobility', feet: 5 }] : [])]
@@ -1885,7 +1897,7 @@ function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weap
 
 function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const enhanced = effectiveWeapon(c, entries, weapon)
-  const entry = weaponEntry(entries, enhanced.name)
+  const entry = weaponEntry(entries, enhanced.name, enhanced.id)
   return hasParryTrait(entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
     && weaponHands(entries, enhanced, c) === 2) || defensiveArmamentsParry(c, enhanced, entry)
     || enhanced.runes.some(rune => runeName(rune) === 'Parrying'
@@ -1912,13 +1924,13 @@ export const activeStance = (c: Character, entries: ContentEntry[]) =>
 function twinParryValue(c: Character, entries: ContentEntry[]) {
   if (!activeFeatsNamed(c, 'Twin Parry').length) return 0
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
-    const entry = weaponEntry(entries, weapon.name)
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
     const melee = /melee/i.test(String(entry?.data.weapon_type ?? '')) || !isRanged(entry)
     return weaponEquipped(c, entries, weapon) && !!entry && weaponCategory(entry) !== 'Unarmed' && melee
   })
   const oneHanded = meleeWeapons.filter(weapon => weaponHands(entries, weapon, c) === 1)
   const freeHandWeapons = meleeWeapons.filter(weapon => {
-    const entry = weaponEntry(entries, weapon.name)
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
     return [...(entry?.traits ?? []), ...tokens(entry?.data.trait)].some(trait => /^free[- ]hand$/i.test(trait))
   })
   const freeHands = Math.max(0, totalHandCapacity(c) - equippedHands(c, entries))
@@ -1948,7 +1960,7 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
   const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
   const raisedHaftBonus = activeFeatsNamed(c, 'Raise Haft').length > 0
     && ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
-      && weaponHands(entries, weapon, c) === 2 && hasParryTrait(weaponEntry(entries, weapon.name))) ? 2 : 0
+      && weaponHands(entries, weapon, c) === 2 && hasParryTrait(weaponEntry(entries, weapon.name, weapon.id))) ? 2 : 0
   const tacticalGrid = ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
     && installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
   return Math.max(1, featBonus, raisedHaftBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0)
@@ -2747,7 +2759,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
   if (activeFeatsNamed(c, "Jotun's Eyes").length) addVision('Darkvision', "Jotun's Eyes")
   if (ancestryFeatTraits(c).includes('dwarf') && carriedWeapons(c, entries).some(weapon => weaponHeld(c, entries, weapon)
-    && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Axe of the Dwarven Lords')) {
+    && weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source === 'Axe of the Dwarven Lords')) {
     addVision('Greater Darkvision', 'Axe of the Dwarven Lords')
   }
   if (c.systems.includes('sf2e')) {
@@ -2873,7 +2885,7 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
   }
-  for (const [source, name] of [["Gecko's Grip", 'Combat Climber'], ['Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
+  for (const [source, name] of [["Gecko's Grip", 'Combat Climber'], ['Rider', 'Ride'], ['Reptile Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
     ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump']]) {
     for (const feat of activeFeatsNamed(c, source)) grants.push({ name, source, level: featTakenLevel(feat) })
   }
@@ -3133,16 +3145,29 @@ export function dailyLongevityRanks(c: Character, entries: ContentEntry[]) {
   return ranksAt(c, entries)
 }
 
+export function temporarySkillTrainings(c: Character, entries: ContentEntry[]) {
+  const feats = [...activeFeatsNamed(c, 'Skill Download'), ...activeFeatsNamed(c, 'Consult the Stars')]
+  return feats.map(feat => {
+    const skill = feat.choice
+    const stat = skill ? statDefs(c).find(candidate => candidate.kind === 'skill' && candidate.name === skill) : undefined
+    const valid = !!skill && (!!stat || c.lores.some(lore => lore.name === skill)
+      || featLores(c, entries).includes(skill) || trainedFeatLores(c).some(grant => grant.name === skill)
+      || deityGrantedLores(c).includes(skill)
+      || backgroundSkills(byName(entries, 'background', c.background), c).includes(skill)
+      || backgroundSkills(freeHeartBackground(c, entries), c).includes(skill)
+      || autoClassSkills(c, entries).includes(skill))
+    const keyAbility = stat?.ability ?? (/ lore$/i.test(skill ?? '') ? 'int' : undefined)
+    const allowed = feat.name !== 'Consult the Stars' || ['cha', 'int', 'wis'].includes(keyAbility ?? '')
+    return {
+      feat, rank: feat.name === 'Consult the Stars' ? 1 : c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1,
+      ...(skill && valid && allowed ? { skill } : {}),
+    }
+  })
+}
+
 export function skillDownload(c: Character, entries: ContentEntry[]) {
-  const feat = activeFeatsNamed(c, 'Skill Download')[0]
-  const skill = feat?.choice
-  const valid = statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
-    || c.lores.some(lore => lore.name === skill) || featLores(c, entries).includes(skill ?? '')
-    || trainedFeatLores(c).some(grant => grant.name === skill)
-    || deityGrantedLores(c).includes(skill ?? '')
-    || backgroundSkills(byName(entries, 'background', c.background), c).includes(skill ?? '')
-    || backgroundSkills(freeHeartBackground(c, entries), c).includes(skill ?? '') || autoClassSkills(c, entries).includes(skill ?? '')
-  return skill && valid ? { skill, rank: c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1 } : undefined
+  const training = temporarySkillTrainings(c, entries).find(candidate => candidate.skill)
+  return training?.skill ? { skill: training.skill, rank: training.rank } : undefined
 }
 
 export function untrainedSkillProficiency(c: Character) {
@@ -3743,7 +3768,7 @@ function carriedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
 }
 
 export function animalStrengthWeapons(c: Character, entries: ContentEntry[]) {
-  return carriedWeapons(c, entries).filter(weapon => weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed'
+  return carriedWeapons(c, entries).filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) !== 'Unarmed'
     && ![OVERSIZED_THROW.id, HAFT_STRIKER_WEAPON.id].includes(weapon.id))
 }
 
@@ -3778,7 +3803,7 @@ export function animalStrengthSource(c: Character, entries: ContentEntry[], weap
 export function haftStrikerWeapons(c: Character, entries: ContentEntry[]) {
   if (c.level < 4 || !hasFeat(c, HAFT_STRIKER_WEAPON.name)) return []
   return carriedWeapons(c, entries).filter((weapon) => {
-    const entry = weaponEntry(entries, weapon.name)
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
     return !weapon.attachedTo && !!entry && !isRanged(entry)
       && (/^(hammer|spear|polearm)$/i.test(String(entry.data.weapon_group)) || /\bstaff\b/i.test(entry.name))
       && weaponHands(entries, weapon, c) === 2 && weaponHeld(c, entries, weapon)
@@ -3958,9 +3983,9 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const untamedAttacks = [UNTAMED_CLAWS, UNTAMED_JAWS].filter(attack => shift.includes(attack === UNTAMED_CLAWS ? 'Claws' : 'Jaws'))
   const cairnAttacks = cairnForm(c, entries) ? [CAIRN_FIST] : []
   const sparkAttacks = activeFeatsNamed(c, 'Spark Fist').length ? [SPARK_FIST] : []
-  const iruxiChoice = activeFeatsNamed(c, 'Iruxi Armaments')[0]?.choice
-  const iruxiAttacks = iruxiChoice === 'Claws' ? [IRUXI_CLAWS]
-    : iruxiChoice === 'Fangs' ? [IRUXI_FANGS] : iruxiChoice === 'Tail' ? [IRUXI_TAIL] : []
+  const iruxiAttacks = activeFeatsNamed(c, 'Iruxi Armaments').flatMap(feat =>
+    feat.choice === 'Claws' ? [IRUXI_CLAWS] : feat.choice === 'Fangs' ? [IRUXI_FANGS]
+      : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
@@ -3977,7 +4002,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
-    if (!available.some((weapon) => weapon.name === entry.name)) {
+    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
@@ -4003,7 +4028,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
   }
   const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name && weapon.name !== SPARK_FIST.name
-    && weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed')
+    && weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
   if (hasOtherUnarmed) return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name)
   if (!available.some((weapon) => weapon.name === FIST.name)) {
     available.push({ id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] })
@@ -4133,11 +4158,11 @@ export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
 }
 export const SHIELD_ATTACHED_WEAPONS = ['Shield Boss', 'Shield Pistol', 'Shield Spikes'] as const
 export function shieldAttachmentOptions(shield: Pick<OwnedShield, 'name'>) {
-  return SHIELD_ATTACHED_WEAPONS.filter(name => shield.name !== 'Scale of Igroon' || name !== 'Shield Pistol')
+  return SHIELD_ATTACHED_WEAPONS.filter(name => !isScaleOfIgroonShield(shield.name) || name !== 'Shield Pistol')
 }
 function shieldAttachedWeapon(shield: OwnedShield) {
   const weapon = shield.attachedWeapon
-  return shield.name === 'Scale of Igroon' && weapon && !shieldAttachmentOptions(shield).some(name => name === weapon.name)
+  return isScaleOfIgroonShield(shield.name) && weapon && !shieldAttachmentOptions(shield).some(name => name === weapon.name)
     ? undefined : weapon
 }
 export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
@@ -4153,8 +4178,8 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
   || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
-export function weaponEntry(entries: ContentEntry[], name: string) {
-  let entry = resolveWeaponEntry(entries, name)
+export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
+  let entry = resolveWeaponEntry(entries, name, id)
   if (entry?.source === 'homebrew' && entry.data.url && (entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))
     || !entry.weaponModes && entry.traits.some(trait => /^modular\b/i.test(trait)))) {
     const source = entries.find(candidate => candidate.kind === 'weapon' && candidate.source === 'official'
@@ -4180,7 +4205,9 @@ export function weaponEntry(entries: ContentEntry[], name: string) {
   return { ...entry, traits: entry.traits.map(trait => /^versatile$/i.test(trait.trim()) ? `Versatile ${alternate.join(', ')}` : trait) }
 }
 
-function resolveWeaponEntry(entries: ContentEntry[], name: string) {
+function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
+  const iruxi = id && iruxiAttackIds.has(id) ? SUPPLEMENTAL_WEAPONS.find(entry => entry.id === id) : undefined
+  if (iruxi) return iruxi
   const hammerMultipistol = name.startsWith('Hammer Multipistol')
     ? hammerMultipistolEntries(entries).find(entry => entry.name === name) : undefined
   if (hammerMultipistol) return hammerMultipistol
@@ -4395,7 +4422,7 @@ const FALLBACK_RUNE_USAGE: Record<string, string> = {
 export const runeBaseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
 
 export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, rune: string) {
-  const entry = weaponEntry(entries, weapon.name)
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
   const traits = (entry?.traits ?? []).map((trait) => trait.toLowerCase())
   const damage = `${weaponDamage(entry)} ${entry?.data.damage_type ?? ''} ${traits.filter((trait) => /^(versatile|modular)\b/.test(trait)).join(' ')}`.toLowerCase()
   const name = runeBaseName(rune)
@@ -4449,7 +4476,7 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
 }
 
 export function canBeLivingWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  const entry = weaponEntry(entries, weapon.name)
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
   return weapon.id !== OVERSIZED_THROW.id && weapon.id !== GAUNTLET.id && weapon.name !== HAFT_STRIKER_WEAPON.name
     && !PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id)
     && !!activeFeatsNamed(c, 'Living Weapon').length && weaponCategory(entry) !== 'Unarmed'
@@ -4675,7 +4702,7 @@ export function usesWeaponUpgrades(entry?: ContentEntry) {
 }
 
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  const entry = weaponEntry(entries, weapon.name)
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
   const unarmed = weaponCategory(entry) === 'Unarmed'
   const handwraps = unarmed ? effectiveHandwraps(c, entries) : undefined
   const ids = unarmed
@@ -4692,7 +4719,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   const shield = shieldAttachmentSource(c, weapon)
   if (shield) {
     const generated = shield.id === 'granted-shield:hardwood'
-    const material = shield.name === 'Scale of Igroon' && weapon.name !== SHIELD_BASH.name ? 'Orichalcum' : generated
+    const material = isScaleOfIgroonShield(shield.name) && weapon.name !== SHIELD_BASH.name ? 'Orichalcum' : generated
       ? /High-Grade/.test(shield.name) ? 'Duskwood (High-Grade)' : 'Duskwood (Standard-Grade)'
       : shieldAllowsUpgrades(shield) ? shield.material?.name : undefined
     if (weapon.name === SHIELD_BASH.name) return { ...weapon, material, potency: 0, striking: 0, runes: [] }
@@ -4717,7 +4744,7 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     const selectedForm = { ...weapon, name: form.name }
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
-  const entry = weaponEntry(entries, weapon.name)
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
   const builtIn = namedWeaponEnhancements(withNamedWeaponState(entry, weapon, c.level))
   if (builtIn?.material) weapon = { ...weapon, material: builtIn.material }
   if (usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed') return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
@@ -4814,7 +4841,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (combinationForms(entries, w.name).length || PLAYING_CARD_WEAPONS.some(card => card.id === w.id)) {
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
-  let entry = withNamedWeaponState(weaponEntry(entries, w.name), w, c.level)
+  let entry = withNamedWeaponState(weaponEntry(entries, w.name, w.id), w, c.level)
   const sparkFist = w.name === SPARK_FIST.name && activeFeatsNamed(c, 'Spark Fist').length > 0
   const cairn = w.name === CAIRN_FIST.name || sparkFist ? cairnForm(c, entries) : undefined
   if (cairn) {
@@ -5008,7 +5035,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(activeFeatsNamed(c, 'Raise Haft').length > 0 && weaponHands(entries, w, c) === 2
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0 && c.ancestry === 'Lizardfolk'
-        && iruxiAttackIds.has(w.id) && !traits.includes('ghost touch') ? ['Ghost Touch'] : []),
+        && category === 'Unarmed' && !traits.includes('ghost touch') ? ['Ghost Touch'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
@@ -5108,7 +5135,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {
     if (featTakenLevel(selected) > c.level) return total
-    if (selected.name === 'Skill Download') return total
+    if (selected.name === 'Skill Download' || selected.name === 'Consult the Stars') return total
     if (selected.name === 'Natural Skill') return total + 2
     if (selected.name === 'Experienced Laborer' && c.systems.includes('sf2e')) return total + 1
     if (selected.name === "Officer's Education") return total + (activeFeatsNamed(c, selected.name).slice(0, 2).includes(selected) ? 2 : 0)
@@ -5322,10 +5349,10 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
     remaining.trained += Number(!erudite.lore)
   }
   for (const token of skillIncreaseTokens(c, entries)) total[keys[token.rank - 1]]++
-  if (activeFeatsNamed(c, 'Skill Download').length) {
-    const key = keys[c.level >= 17 ? 2 : c.level >= 9 ? 1 : 0]
+  for (const training of temporarySkillTrainings(c, entries)) {
+    const key = keys[training.rank - 1]
     total[key]++
-    if (!skillDownload(c, entries)) remaining[key]++
+    if (!training.skill) remaining[key]++
   }
   return keys.map((key, index) => ({ rank: RANKS[index + 1], used: Math.max(0, total[key] - remaining[key]), total: total[key] }))
 }
@@ -5405,7 +5432,9 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
   const seen = new Set<string>()
   // Saved gear resolves by name; picker Access and source must use that same first record.
   const pool = baseItems([...entries.filter(entry => entry.kind === kind && !entry.deleted && !entry.data.retired),
-    ...(kind === 'armor' ? namedArmorEntries(entries) : kind === 'shield' ? [makeNamedShieldEntry(entries, 'Scale of Igroon')].filter((entry): entry is ContentEntry => !!entry) : []),
+    ...(kind === 'armor' ? namedArmorEntries(entries) : kind === 'shield'
+      ? ['Scale of Igroon', SCALE_OF_IGROON_FORTRESS].map(name => makeNamedShieldEntry(entries, name))
+        .filter((entry): entry is ContentEntry => !!entry) : []),
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
   return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'

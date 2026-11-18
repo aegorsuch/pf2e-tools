@@ -7,7 +7,7 @@ export const WORN_EQUIPMENT_GROUPS = [
 export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', ...WORN_EQUIPMENT_GROUPS] as const
 export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
 export type EntryKind =
-  | 'feat' | 'weapon' | 'armor' | 'spell' | 'item' | 'ancestry' | 'class'
+  | 'feat' | 'weapon' | 'armor' | 'spell' | 'ritual' | 'item' | 'ancestry' | 'class'
   | 'shield' | 'armorGroup' | 'weaponGroup' | 'background' | 'heritage' | 'deity' | 'classFeature' | 'language'
   | 'companion' | 'companionSpec' | 'companionAdv' | 'subclass' | 'familiar' | 'trait'
 export type Source = 'official' | 'homebrew'
@@ -119,6 +119,7 @@ export interface OwnedShield {
   hp: number
   damage: number
   raised: boolean
+  takingCover?: boolean
   attachedWeapon?: OwnedWeapon
   material?: { name: string; hardness?: number; hp?: number }
   reinforcingRune?: 'Minor' | 'Lesser' | 'Moderate' | 'Greater' | 'Major' | 'Supreme'
@@ -161,6 +162,7 @@ export interface ContentEntry {
   data: Record<string, string | number | boolean>
   effects: Effect[]
   spellGrants?: SpellGrant[]
+  ritualGrants?: string[]
   weaponModes?: WeaponMode[]
   featLinks?: { name: string; url: string }[]
   updatedAt: number
@@ -341,6 +343,7 @@ export interface Character {
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   mageAutomatonCantrip?: string
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
+  rituals?: string[]
   activeSpells?: string[]
   untamedForm?: {
     form?: string

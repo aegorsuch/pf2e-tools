@@ -160,6 +160,17 @@ it('keeps exact spell names, aliases, systems and refreshed content correct with
   expect(unresolvedFeatSpells(c, [source, { ...alias, deleted: true }]).map(grant => grant.name)).toEqual(['Pass Without Trace'])
 })
 
+it('grants Bone Caller phantom steed through its remastered Marvelous Mount name', () => {
+  const boneCaller: ContentEntry = { ...entry('Bone Caller', 'feat'), spellGrants: [
+    { kind: 'innate', spells: ['animal messenger', 'phantom steed'], tradition: 'primal', frequency: 'once per day' },
+  ] }
+  const messenger = entry('Animal Messenger', 'spell')
+  const mount = entry('Marvelous Mount', 'spell')
+  const c: Character = { ...base, level: 9, feats: [taken(boneCaller.name, 9)] }
+  expect(grantedFeatSpells(c, [boneCaller, messenger, mount]).map(grant => grant.entry.name))
+    .toEqual(['Animal Messenger', 'Marvelous Mount'])
+})
+
 it('offers As Mutable as Nature only after acquiring the ability to cast Untamed Form', () => {
   const mutable = homebrewCharacterOptions([]).find(entry => entry.name === 'As Mutable as Nature')!
   const c: Character = { ...base, className: 'Druid', order: 'Untamed', level: 20,
@@ -1568,4 +1579,34 @@ it.each(['Champion', 'Monk', 'Ranger'])('scales actual %s spell proficiency inde
   expect(classSpellcasting({ ...base, className, level: 8 }, entries)?.rank).toBe(1)
   expect(classSpellcasting({ ...base, className, level: 9 }, entries)?.rank).toBe(2)
   expect(classSpellcasting({ ...base, className, level: 17 }, entries)?.rank).toBe(3)
+})
+
+it.each(['Song of the Soul', 'Deathly Scream'])('grants %s as a Necromancer focus spell', name => {
+  const source = mapAonHit({ _id: `feat-${name}`, _source: { name, category: 'feat', level: 2, trait: ['Necromancer'],
+    markdown: `<title>${name}</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.` } }, 'pf2e')!
+  const spell = entry(name, 'spell', {}, ['Focus', 'Necromancer'])
+  const entries = [source, spell]
+  const character: Character = { ...base, className: 'Necromancer', level: 2, feats: [taken(name, 2)] }
+  expect(grantedFeatSpells(character, entries)).toMatchObject([
+    { entry: { name }, source: name, rule: { kind: 'focus', spells: [name.toLowerCase()], heightened: true } },
+  ])
+  expect(focusSpells(character, entries)).toMatchObject({ points: 1, spells: [expect.objectContaining({ name })] })
+  expect(renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />))
+    .toContain(`<h5>Focus Spells Rank 1</h5>`)
+})
+
+it('shows feat-granted and manually tracked rituals in a separate Spells section', () => {
+  const creator = mapAonHit({ _id: 'feat-9105', _source: { name: 'Undead Creator', category: 'feat', level: 2,
+    markdown: '<title>Undead Creator</title>\n\n---\n\nYou learn the [_create undead_](/Rituals.aspx?ID=117) ritual.' } }, 'pf2e')!
+  const createUndead = mapAonHit({ _id: 'ritual-117', _source: { name: 'Create Undead', category: 'ritual', level: 2,
+    trait: ['Uncommon', 'Unholy'], url: '/Rituals.aspx?ID=117', markdown: '**Cast** 1 day\n\n---\n\nRitual rules.' } }, 'pf2e')!
+  const awakenAnimal = entry('Awaken Animal', 'ritual')
+  const entries = [creator, createUndead, awakenAnimal]
+  const character: Character = { ...base, className: 'Necromancer', level: 2,
+    feats: [taken('Undead Creator', 2)], rituals: ['Awaken Animal'] }
+  const html = renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
+  expect(html).toContain('<h5>Rituals</h5>')
+  expect(html).toContain('Create Undead')
+  expect(html).toContain('Granted by Undead Creator')
+  expect(html).toContain('Awaken Animal')
 })

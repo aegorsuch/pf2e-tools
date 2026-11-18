@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
@@ -160,8 +160,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const extraBackgroundSkills = backgroundSkills(extraBackground, c)
   const permanentRanks = ranksAt(c, entries)
   const heritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
-  const downloaded = skillDownload(c, entries)
-  const ranks = downloaded ? { ...permanentRanks, [downloaded.skill]: Math.max(permanentRanks[downloaded.skill] ?? 0, downloaded.rank) } : permanentRanks
+  const temporaryTrainings = temporarySkillTrainings(c, entries)
+  const ranks = temporaryTrainings.reduce((result, training) => training.skill
+    ? { ...result, [training.skill]: Math.max(result[training.skill] ?? 0, training.rank) } : result, permanentRanks)
   const trainedLores = trainedFeatLores(c)
   const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...deityGrantedLores(c), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg, c).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
@@ -173,8 +174,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     && (!erudite.lore || erudite.lore === name)
   const trainingChoice = (name: string) => backgroundTraining.find(slot => slot.value === name)
     ?? backgroundTraining.find(slot => !slot.value && slot.options.includes(name))
-  const downloadFeat = activeFeatsNamed(c, 'Skill Download')[0]
-  const downloadRank = c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1
   const ancestrySkills = editingSkills ? ancestralSkills(c, entries) : []
   const heritageSkills = editingSkills && isPioneerHuman(c) ? ['Survival'] : []
   const grantedTraining = [...ancestrySkills, ...heritageSkills]
@@ -268,11 +267,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     }
     const currentRank = permanentRanks[name] ?? 0
     const base = baseRanks[name] ?? 0
-    const temporary = downloaded?.skill === name && downloaded.rank > currentRank
+    const temporary = temporaryTrainings.find(training => training.skill === name && training.rank === r)
     const permanentAvailable = r === 1 ? currentRank === 0 && remaining > 0
       : r > currentRank && canReachRank(name, r)
-    if (downloadFeat && r === downloadRank && (temporary || currentRank < r && (!downloaded || !permanentAvailable))) {
-      save({ feats: c.feats.map(feat => feat === downloadFeat
+    const availableTraining = temporaryTrainings.find(training => training.rank === r
+      && (training.skill === undefined || !permanentAvailable)
+      && (training.feat.name !== 'Consult the Stars'
+        || ['cha', 'int', 'wis'].includes(skills.find(skill => skill.name === name)?.ability ?? (/ lore$/i.test(name) ? 'int' : ''))))
+    if (temporary || availableTraining && currentRank < r) {
+      const selected = temporary ?? availableTraining!
+      save({ feats: c.feats.map(feat => feat === selected.feat
         ? { ...feat, choice: temporary ? undefined : name } : feat) })
       return
     }
@@ -415,8 +419,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           })}
           {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`${itemTotal(filigree)} to Coerce (+${filigree} item bonus).`} />}
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
-          {downloaded?.skill === s.name && downloaded.rank > permanentRank && <SourceNote inlineSource={false}
-            source="Skill Download" note="Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options." />}
+          {temporaryTrainings.filter(training => training.skill === s.name && training.rank > permanentRank).map(training =>
+            <SourceNote key={`${training.feat.name}:${s.name}`} inlineSource={false} source={training.feat.name}
+              note="Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options." />)}
           {s.name === 'Fortitude' && !!activeFeatsNamed(c, 'Radiation Resistant').length && <SourceNote inlineSource={false}
             source="Radiation Resistant" note={`${conditionalTotal(1)} against radiation effects (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
@@ -489,9 +494,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = permanentRank === i + 1 ? i : i + 1
-            const temporary = downloaded?.skill === s.name && downloaded.rank > permanentRank
-            const downloadAvailable = !!downloadFeat && i + 1 === downloadRank
-              && (temporary || permanentRank < downloadRank)
+            const temporary = temporaryTrainings.find(training => training.skill === s.name
+              && training.rank === i + 1 && training.rank > permanentRank)
+            const downloadAvailable = !!temporary || temporaryTrainings.some(training => training.rank === i + 1
+              && (training.skill === undefined || permanentRank < i + 1)
+              && (training.feat.name !== 'Consult the Stars'
+                || ['cha', 'int', 'wis'].includes(s.ability ?? (/ lore$/i.test(s.name) ? 'int' : ''))))
             const backgroundChoice = i === 0 ? trainingChoice(s.name) : undefined
             const trainedDisabled = i === 0 && !backgroundChoice && !eruditeChoice(s.name) && (
               permanentRank === 0 ? remaining <= 0
@@ -511,7 +519,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 aria-pressed={rank === i + 1}
                 aria-label={`${s.name} ${RANKS[i + 1]}`}
                 disabled={disabled}
-                title={temporary && i + 1 === downloadRank ? 'Skill Download: temporary proficiency' : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
+                title={temporary ? `${temporary.feat.name}: temporary proficiency` : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
                   ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
                     : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
                   : backgroundChoice ? `${backgroundChoice.value ? 'Refund' : 'Choose'} training from ${backgroundChoice.background.name}`
@@ -659,7 +667,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       <div className="skill-rank-budget" aria-label="Remaining skill selections">
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>
-            <b>{RANK_LETTERS[index]}</b>{budget[rank] + Number(!!downloadFeat && !downloaded && downloadRank === index + 1)
+            <b>{RANK_LETTERS[index]}</b>{budget[rank] + temporaryTrainings.filter(training => !training.skill && training.rank === index + 1).length
               + (rank === 'trained' ? backgroundTraining.filter(slot => !slot.value).length + Number(!!erudite && !erudite.lore) : 0)}
           </span>
         ))}

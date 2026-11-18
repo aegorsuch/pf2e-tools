@@ -11,6 +11,7 @@ export const AON_ENDPOINTS: Record<GameSystem, string> = {
 export const DATA_FIELDS = [
   'hp', 'size', 'archetype', 'attribute', 'attribute_flaw', 'language', 'vision', 'rarity', 'skill', 'feat', 'prerequisite', 'access',
   'actions', 'trigger', 'duration', 'range', 'area', 'target', 'targets', 'save', 'saving_throw', 'saving_throw_dc', 'saving_throw_basic',
+  'cast', 'cost', 'secondary_casters', 'primary_check', 'secondary_checks',
   'bulk', 'price', 'damage', 'hands', 'weapon_type', 'usage', 'ac', 'dex_cap', 'strength',
   'check_penalty', 'range', 'thrown_range', 'tradition', 'school', 'item_category', 'perception_proficiency',
   'fortitude_proficiency', 'reflex_proficiency', 'will_proficiency', 'skill_proficiency',
@@ -58,6 +59,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   armor: 'armor',
   shield: 'shield',
   spell: 'spell',
+  ritual: 'ritual',
   equipment: 'item',
   ancestry: 'ancestry',
   class: 'class',
@@ -207,7 +209,8 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   const sentences = body.split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
     if (!/^(?:(?:once|twice|\d+ times) per day,? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
-    const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map(match => match[1])
+    const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+      .map(match => plain(match[1]))
     if (!names.length) continue
     if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
       if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
@@ -233,7 +236,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
       if (!heightened && scales(next)) {
         grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))
       } else grants.push(rule)
-    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition) spells?\b/i.test(sentence)
+    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition|grave) spells?\b/i.test(sentence)
       || /\byou gain the \[[^\]]+\]\(\/?Spells\.aspx[^)]*\) order\.$/i.test(sentence.trim())) {
       if (/\b(?:if|choose|depending|based on)\b/i.test(sentence) || /\bor\b/i.test(sentence) && names.length <= 1) continue
       grants.push({ kind: 'focus', spells: names, heightened: true, ...(ability ? { ability } : {}),
@@ -242,6 +245,12 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
     }
   }
   return grants
+}
+
+export function parseFeatRitualGrants(md: string) {
+  const body = md.split(/\n---\n/)[1] ?? ''
+  return [...new Set([...body.matchAll(/\byou (?:learn|gain)\s+(?:the\s+)?\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?Rituals\.aspx[^)]*\)\s+ritual\b/gi)]
+    .map(match => plain(match[1])))]
 }
 
 // Animal companion stat block: unarmed attacks as "name|damage|traits" joined by ";", plus support benefit and advanced maneuver

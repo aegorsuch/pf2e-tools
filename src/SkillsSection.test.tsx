@@ -1563,6 +1563,30 @@ it('uses Skill Download before permanent selections without spending them', () =
   expect(skillRankBudget(c, entries).trained).toBe(3)
 })
 
+it('grants Consult the Stars one temporary trained skill from eligible key abilities', () => {
+  const feat: ContentEntry = { ...ranger, id: 'consult-the-stars', kind: 'feat', name: 'Consult the Stars',
+    description: 'You become trained in one skill of your choice.' }
+  let c: Character = { ...base, level: 17, feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1 }],
+    lores: [{ name: 'Underworld Lore', rank: 0 }] }
+  const entries = [ranger, feat]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const before = skillRankBudget(c, entries)
+  const buttons = findButtons(tree())
+  expect(buttons.get('Deception Trained')?.disabled).toBe(false)
+  ;(buttons.get('Deception Trained')!.onClick as () => void)()
+  expect(builder.skillDownload(c, entries)).toEqual({ skill: 'Deception', rank: 1 })
+  expect(ranksAt(c, entries).Deception ?? 0).toBe(0)
+  expect(skillRankBudget(c, entries)).toEqual(before)
+  for (const skill of ['Arcana', 'Religion', 'Underworld Lore']) {
+    const choice = { ...c, feats: [{ ...c.feats[0], choice: skill }] }
+    expect(builder.skillDownload(choice, entries)).toEqual({ skill, rank: 1 })
+  }
+  for (const skill of ['Acrobatics', 'Athletics']) {
+    const choice = { ...c, feats: [{ ...c.feats[0], choice: skill }] }
+    expect(builder.skillDownload(choice, entries)).toBeUndefined()
+  }
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }

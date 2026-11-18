@@ -1,5 +1,5 @@
 import { db, ensureSupplementalContent } from './db'
-import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseChoiceDescriptions, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
+import { CATEGORY_TO_KIND, DATA_FIELDS, EXCLUDED_LEGACY_RANGER_FEAT_IDS, RETAINED_LEGACY_EQUIPMENT_IDS, RETAINED_LEGACY_FEAT_IDS, SUBCLASS_CLASSES, fetchAonHits, parseChoiceDescriptions, parseFeatRitualGrants, parseFeatSpellGrants, plain, usesFullItemRules, type Hit } from './aonQuery.ts'
 import type { ContentEntry, GameSystem } from './types'
 import { isWeaponMode } from './weaponModes'
 import { backgroundEntries, deityBackgroundEntries } from './backgrounds'
@@ -59,6 +59,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const leadsTo = kind === 'feat' ? /<title\b[^>]*>[^<]*\bleads to\.\.\.<\/title>([\s\S]*)/i.exec(text(s.markdown))?.[1] : undefined
   const featLinks = leadsTo ? [...leadsTo.matchAll(/\[([^\]]+)\]\((\/(?:Feats\.aspx|feats\/)[^)]*)\)/gi)]
     .map(match => ({ name: match[1], url: AON_SITES[system] + match[2] })) : []
+  const ritualGrants = kind === 'feat' ? parseFeatRitualGrants(text(s.markdown)) : []
   const comparisonMarkdown = kind === 'feat' ? text(s.markdown)
     .replace(/<details\b[^>]*\bclass=["'][^"']*\bclarification\b[^"']*["'][^>]*>[\s\S]*?<\/details>/gi, '') : ''
   const choiceDescriptions = kind === 'feat' ? parseChoiceDescriptions(markdown) : []
@@ -84,7 +85,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     level,
     traits,
     description: kind === 'ancestry' && text(s.about) ? text(s.about)
-      : (['feat', 'heritage', 'background', 'spell', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
+      : (['feat', 'heritage', 'background', 'spell', 'ritual', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
       || usesFullItemRules(s)) && markdown.trim()
       ? markdown.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
     ...(kind === 'feat' && comparisonMarkdown !== text(s.markdown)
@@ -94,6 +95,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     effects: [],
     ...(kind === 'weapon' && Array.isArray(s.weapon_modes) ? { weaponModes: s.weapon_modes.filter(isWeaponMode) } : {}),
     ...(kind === 'feat' ? { spellGrants: parseFeatSpellGrants(text(s.markdown)) } : {}),
+    ...(ritualGrants.length ? { ritualGrants } : {}),
     ...(featLinks.length ? { featLinks } : {}),
     // Stable timestamp so re-importing doesn't make every entry look changed and re-sync
     updatedAt: 1,
