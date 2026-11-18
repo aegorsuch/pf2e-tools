@@ -44,7 +44,7 @@ it('grants lesser, greater, and cross-trained order spells with correct ranks, r
   expect(hellknightTrainingBenefit(crossed, 'Order Cross-Training', 'Order of the Gate: Divine')?.description).not.toContain('rank 5')
   const godclaw = { ...c, feats: [taken('Hellknight Dedication', 2, 'Order of the Godclaw'), taken('Advanced Order Training', 12)] }
   updateSettings({ innateAutoHeighten: true })
-  expect(grantedFeatSpells(godclaw, entries)[0]).toMatchObject({ rank: 5, rule: { shared: true, fixedRank: true } })
+  expect(grantedFeatSpells(godclaw, entries)[0]).toMatchObject({ rank: 6, rule: { shared: true, fixedRank: true } })
   updateSettings({ innateAutoHeighten: false })
   const torrent = { ...godclaw, feats: [taken('Hellknight Dedication', 2, 'Order of the Torrent'), taken('Advanced Order Training', 12)] }
   expect(grantedFeatSpells(torrent, entries)[0]).toMatchObject({ entry: { name: 'Unfettered Movement' }, rank: 5 })
@@ -97,6 +97,29 @@ it('auto-heightens innate grants without changing uses, selections, focus spells
   expect(grantedFeatSpells(c, entries).map(grant => grant.rank)).toEqual(original.map(grant => grant.rank))
   expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 10, source: cairn.name })
   expect(JSON.stringify(c)).toBe(saved)
+})
+
+it('auto-heightens fixed-rank Primal Rampage spells and their effects, restoring source ranks when disabled', () => {
+  const rampage = feat('Primal Rampage',
+    'You gain [_unfettered movement_](/Spells.aspx?ID=1732) and [_mountain resilience_](/Spells.aspx?ID=1610) as 4th-rank primal innate spells that you can cast once per day.', 13)
+  const entries = [rampage, ...['Unfettered Movement', 'Mountain Resilience'].map(name => ({
+    ...entry(name, 'spell'), level: 4,
+  }))]
+  const c: Character = { ...base, level: 20, className: 'Necromancer', ancestry: 'Lizardfolk',
+    feats: [taken(rampage.name, 13)], activeSpells: ['Mountain Resilience'] }
+  const original = grantedFeatSpells(c, entries)
+  expect(original.map(grant => grant.rank)).toEqual([4, 4])
+  updateSettings({ innateAutoHeighten: true })
+  const heightened = grantedFeatSpells(c, entries)
+  expect(heightened.map(grant => grant.rank)).toEqual([10, 10])
+  expect(heightened.map(grant => dailyInnateUses(c, grant))).toEqual(original.map(grant => dailyInnateUses(c, grant)))
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 20, source: 'Mountain Resilience' })
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Primal Spell Rank 10')
+  expect(markup).not.toContain('Primal Spell Rank 4')
+  updateSettings({ innateAutoHeighten: false })
+  expect(grantedFeatSpells(c, entries)).toEqual(original)
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 5, source: 'Mountain Resilience' })
 })
 
 it('grants Lizardfolk innate spells with fixed ranks and daily use tracking', () => {

@@ -374,7 +374,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     }
   }
   return getSettings().innateAutoHeighten
-    ? out.map(grant => grant.rule.kind === 'innate' && !grant.rule.fixedRank ? { ...grant, rank: Math.max(grant.rank, Math.ceil(c.level / 2)) } : grant)
+    ? out.map(grant => grant.rule.kind === 'innate' ? { ...grant, rank: Math.max(grant.rank, Math.ceil(c.level / 2)) } : grant)
     : out
 }
 
