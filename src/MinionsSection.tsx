@@ -40,13 +40,14 @@ function minionSummaryData(c: Character) {
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
   const leshy = activeFeatsNamed(c, 'Leshy Familiar').length > 0
   const undeadFamiliar = activeFeatsNamed(c, 'Undead Familiar').length > 0
-  const familiar = leshy || undeadFamiliar || c.className === 'Witch'
+  const crocodileFamiliar = activeFeatsNamed(c, "Crocodile's Twin").length > 0
+  const familiar = leshy || undeadFamiliar || crocodileFamiliar || c.className === 'Witch'
     || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
   const wasp = hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
-  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, familiar, wasp, seaFriend, pet }
+  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet }
 }
 
 function MinionFerocity({ c, ferocity }: { c: Character; ferocity: ReturnType<typeof minionFerocity> }) {
@@ -173,7 +174,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 }
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
-  const { companions, constructAdvancement, stage, leshy, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
     <span>{[...companions.map((comp, index) => {
@@ -182,7 +183,8 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
         : index === 0 ? stage : 'Young'
       return `${compStage} ${comp.type}${comp.name && comp.name !== comp.type ? ` (${comp.name})` : ''}`
     }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
-      ...(familiar ? [leshy ? 'Leshy Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
+      ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
+        : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
@@ -195,7 +197,7 @@ export function MinionsSection(props: SectionProps) {
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
-  const { companions, advancement, stage, constructAdvancement, leshy, undeadFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, advancement, stage, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const companionEntries = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
@@ -500,10 +502,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           ...(wasp ? [{ wasp: true, data: c.waspFamiliar }] : [])].map(({ wasp: isWasp, data }) => {
           const isLeshy = leshy && !isWasp
           const isUndead = undeadFamiliar && !isWasp
+          const isCrocodile = crocodileFamiliar && !isWasp && !isUndead && !isLeshy
           const dailyAbilityLimit = isUndead
             ? (activeFeatsNamed(c, 'Enhanced Undead Familiar').length ? 3 : 1) + witchFamiliarAbilities
             : familiarCapacity
-          const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar' : 'Familiar'
+          const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
+            : isCrocodile ? 'Crocodile familiar' : 'Familiar'
           const familiarAbilities = (data?.abilities ?? []).slice(0, dailyAbilityLimit).filter(Boolean)
           const familiarTough = familiarAbilities.some(ability => ability.trim().toLowerCase() === 'tough')
           const saveFamiliar = (changes: Partial<NonNullable<Character['familiar']>>) =>
@@ -511,9 +515,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const abilityNotes = [...(isWasp ? ['Burrower', 'Flier'] : []), ...familiarAbilities]
             .filter((ability, index, all) => all.findIndex(other => other.trim().toLowerCase() === ability.trim().toLowerCase()) === index)
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
-          <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : 'Familiar'}</h4></summary>
+          <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
+            : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4></summary>
           <label>Name <input aria-label={isWasp ? 'Wasp familiar name' : `${familiarType} name`} value={data?.name ?? ''}
             onChange={event => saveFamiliar({ name: event.target.value })} /></label>
+          {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           <div><small>Hit Points</small> <b>{c.level * (familiarTough ? 7 : 5)}</b></div>
           {isUndead && <>
             <div className="gear-traits"><span>Undead</span></div>
