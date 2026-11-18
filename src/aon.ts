@@ -92,7 +92,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
 // sites and localhost, so the deployed app cannot query it directly; direct queries are the fallback.
 async function loadHits(system: GameSystem, onProgress?: (n: number) => void) {
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}data/aon-${system}.json`)
+    const res = await fetch(`${import.meta.env.BASE_URL}data/aon-${system}.json?v=${encodeURIComponent(AON_IMPORT_VERSION)}`)
     if (res.ok) {
       const hits = (await res.json()) as unknown
       if (Array.isArray(hits) && hits.length) return hits as Hit[]
