@@ -150,6 +150,18 @@ function BackgroundDetails({ entry, label = entry.name }: { entry: ContentEntry;
   </article>
 }
 
+function AncestryDetails({ entry }: { entry: ContentEntry }) {
+  const paragraphs = entry.description.split(/\n\s*\n/).map(paragraph => paragraph.trim()).filter(Boolean)
+  if (entry.source === 'official') {
+    if (paragraphs[0] === entry.name) paragraphs.shift()
+    if (/^Source\b/.test(paragraphs[0] ?? '')) paragraphs.shift()
+  }
+  return <article className="ancestry-entry" aria-label={entry.name}>
+    <p><strong>{entry.name}:</strong>{paragraphs[0] && <> {paragraphs[0]}</>}</p>
+    {paragraphs.slice(1).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+  </article>
+}
+
 export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
@@ -383,6 +395,7 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
   const deity = named('deity', c.deity)
 
   const ancestry = named('ancestry', c.ancestry)
+  const heritage = named('heritage', c.heritage)
   const klass = named('class', c.className)
   const subclasses = subclassOptions(c, entries)
   const subclassName = selectedSubclass(c, entries)
@@ -492,6 +505,8 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
               </SearchableSelect>
           </div>
+          {ancestry && <AncestryDetails entry={ancestry} />}
+          {heritage && <AncestryDetails entry={heritage} />}
           {c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki' && <label>
             Test-Subject adaptation{' '}
             <select aria-label="Test-Subject adaptation" value={c.testSubjectAdaptation ?? ''}
@@ -527,7 +542,6 @@ export function CharacterBuilder({ character: c, catalog, onClose }: { character
           </Info>}
           <PioneerHumanOptions {...section} />
           <small>Ethnicity options match your ancestry and come from official feat access and prerequisite rules. Access does not replace prerequisites.</small>
-          {ancestry && <Info label={ancestry.name}>{detail(ancestry)}</Info>}
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
         </div>

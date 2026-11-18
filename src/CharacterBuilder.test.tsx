@@ -75,6 +75,36 @@ it('shows Test-Subject adaptation options only for the matching heritage', () =>
     .not.toContain('aria-label="Test-Subject adaptation"')
 })
 
+it('shows selected ancestry and heritage descriptions inline in order without source headers or raw metadata', () => {
+  content.entries = [
+    { id: 'halfling', systems: ['sf2e'], kind: 'ancestry', source: 'official', name: 'Halfling', level: 0,
+      traits: [], description: 'Full ancestry introduction.\n\nComplete final paragraph.', data: { hp: 6, attribute: 'Dexterity, Wisdom, Free' },
+      effects: [], updatedAt: 0 },
+    { id: 'gutsy', systems: ['sf2e'], kind: 'heritage', source: 'official', name: 'Gutsy Halfling', level: 0,
+      traits: ['Halfling'], description: 'Gutsy Halfling\n\nSource Galactic Ancestries pg. 72\n\nComplete heritage benefit.',
+      data: {}, effects: [], updatedAt: 0 },
+  ]
+  const c: Character = { id: 'ancestry-rules', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Halfling', heritage: 'Gutsy Halfling',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const section = (character: Character) => {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+    return markup.slice(markup.indexOf('<strong>Ancestry</strong>'), markup.indexOf('<strong>Background</strong>'))
+  }
+  try {
+    const markup = section(c)
+    expect(markup).toContain('<strong>Halfling:</strong> Full ancestry introduction.')
+    expect(markup).toContain('<p>Complete final paragraph.</p>')
+    expect(markup).toContain('<strong>Gutsy Halfling:</strong> Complete heritage benefit.')
+    expect(markup.indexOf('aria-label="Halfling"')).toBeLessThan(markup.indexOf('aria-label="Gutsy Halfling"'))
+    expect(markup).not.toContain('Source Galactic Ancestries')
+    expect(markup).not.toContain('hp: 6')
+    expect(markup).not.toContain('Attribute Boosts')
+    expect(section({ ...c, heritage: undefined })).not.toContain('Complete heritage benefit.')
+    expect(section({ ...c, ancestry: undefined, heritage: undefined })).not.toContain('ancestry-entry')
+  } finally { content.entries = [] }
+})
+
 it('shows cosmic and biotech traits from Cyborg upgrades instead of tech', () => {
   content.entries = []
   const c: Character = { id: 'cyborg', systems: ['sf2e'], name: 'Test', level: 13, ancestry: 'Ysoki',

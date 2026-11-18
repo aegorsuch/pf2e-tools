@@ -336,7 +336,8 @@
   padding: 8px 0;
 }
 
-.background-entry {
+.background-entry,
+.ancestry-entry {
   display: flex;
   flex-direction: column;
   gap: 10px;

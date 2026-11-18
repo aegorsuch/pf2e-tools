@@ -95,6 +95,11 @@ export function parseDeityAbout(md: string) {
   return body.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n')
 }
 
+export function parseAncestryAbout(md: string) {
+  const body = /\*\*Source\*\*[^\n]*\n([\s\S]*?)(?:<\/column>|<title\b|$)/i.exec(md)?.[1] ?? ''
+  return body.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n')
+}
+
 // Languages a feat teaches its taker ("You speak and understand Fey"); sentences about allies are ignored
 export function parseFeatLanguages(md: string) {
   const out: string[] = []
@@ -315,6 +320,10 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
             const cats = spec.split('[')[0].match(/light|medium|heavy|unarmored/gi) ?? []
             if (cats.length) s.grants_armor_categories = cats.join(', ')
           }
+        }
+        if (category === 'ancestry' && typeof s.markdown === 'string') {
+          const about = parseAncestryAbout(s.markdown)
+          if (about) s.about = about
         }
         if (category === 'deity' && typeof s.markdown === 'string') {
           s.sanctification_required = /\bDivine Sanctification\s+must choose\b/i.test(plain(s.markdown))

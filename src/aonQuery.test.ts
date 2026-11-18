@@ -60,6 +60,26 @@ it('keeps full equipment rules for clickable item descriptions instead of trunca
   }
 })
 
+it.each(['pf2e', 'sf2e'] as const)('retains the complete %s ancestry introduction without unrelated page sections', async system => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'ancestry' ? [{
+      _id: 'example', _source: { category, name: 'Example', summary: 'Truncated...',
+        markdown: '<title level="1">Example</title>\n<column>\n**Source** Core pg. 10\n\n'
+          + '_Full introductory paragraph._\n\nSecond paragraph with [linked text](/example).\n\n'
+          + '</column>\n<title level="2">Society</title>\nUnrelated society text.' },
+    }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const hits = await fetchAonHits(system, fetchFn)
+  expect(hits[0]._source?.markdown).toBeUndefined()
+  expect(mapAonHits(hits, system)[0].description)
+    .toBe('Full introductory paragraph.\n\nSecond paragraph with linked text.')
+  expect(mapAonHit({ _id: 'older', _source: { category: 'ancestry', name: 'Older', summary: 'Existing summary.' } }, system)?.description)
+    .toBe('Existing summary.')
+})
+
 it('keeps only remastered Ultimate Flexibility when both versions are available', () => {
   const legacy = { _id: 'feat-1171', _source: { category: 'feat', name: 'Ultimate Flexibility', trait: ['Fighter', 'Uncommon'] } }
   const current = { _id: 'feat-4858', _source: { category: 'feat', name: 'Ultimate Flexibility', trait: ['Fighter'],
