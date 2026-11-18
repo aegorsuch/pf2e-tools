@@ -21,6 +21,14 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it.each(['Disarming Intercept', 'Intercept Attack'])('recognizes Guardian class action prerequisite %s', prerequisite => {
+  const interceptor = entry('feat', 'Energy Interceptor', { prerequisite }, 2, ['Guardian'])
+  expect(featPrerequisiteChecker({ ...base, className: 'Guardian' }, [interceptor])(interceptor))
+    .toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...base, className: 'Fighter' }, [interceptor])(interceptor).missing)
+    .toEqual([prerequisite])
+})
+
 it('qualifies Signifer through class spellcasting or class focus spells, not item or archetype-only spells', () => {
   const signifer = entry('feat', 'Hellknight Signifer Preferment', { prerequisite: 'you have a spellcasting class feature.' })
   const wizard = entry('class', 'Wizard', { tradition: 'Arcane' })

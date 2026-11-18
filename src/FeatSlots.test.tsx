@@ -2324,6 +2324,13 @@ it.each(['standard', 'extra'])('removes an empty %s selector without confirmatio
   expect(c.feats.map((feat) => feat.name)).toEqual(['Keep'])
 })
 
+it('shows an add-slot control on every visible feat row', () => {
+  const c: Character = { ...emptyRanger(), extraSlots: [{ category: 'class', level: 1, count: 1 }],
+    feats: [{ name: 'Keep', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} save={() => {}} categories={['class']} />)
+  expect(markup.match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(2)
+})
+
 it('still confirms selected-feat removals and preserves them when canceled', () => {
   vi.mocked(window.confirm).mockReturnValue(false)
   let c: Character = { ...emptyRanger(), feats: [{ name: 'Keep', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }

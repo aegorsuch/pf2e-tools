@@ -116,6 +116,27 @@ export const ORC_TUSKS: ContentEntry = {
   data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonprd.com/Feats.aspx?ID=4519' },
 }
 
+export const IRUXI_CLAWS: ContentEntry = {
+  ...FIST, id: 'supplemental:iruxi-claws', name: 'Claws (Iruxi Armaments)',
+  traits: ['Agile', 'Finesse', 'Unarmed', 'Versatile P'],
+  description: 'Iruxi Armaments improves your claw unarmed attack to 1d6 slashing damage and adds versatile P.',
+  data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d6 slashing' },
+}
+
+export const IRUXI_FANGS: ContentEntry = {
+  ...FIST, id: 'supplemental:iruxi-fangs', name: 'Fangs (Iruxi Armaments)',
+  traits: ['Unarmed'],
+  description: 'Iruxi Armaments grants a fangs unarmed attack dealing 1d8 piercing damage.',
+  data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d8 piercing' },
+}
+
+export const IRUXI_TAIL: ContentEntry = {
+  ...FIST, id: 'supplemental:iruxi-tail', name: 'Tail (Iruxi Armaments)',
+  traits: ['Sweep', 'Unarmed'],
+  description: 'Iruxi Armaments grants a tail unarmed attack dealing 1d6 bludgeoning damage with sweep.',
+  data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d6 bludgeoning' },
+}
+
 export const CLAN_PISTOL: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:clan-pistol', name: 'Clan Pistol',
   traits: ['Concussive', 'Dwarf', 'Fatal d10', 'Uncommon'],
@@ -360,6 +381,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
 }
 
 export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS,
+  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
