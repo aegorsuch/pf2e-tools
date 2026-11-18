@@ -16,6 +16,29 @@ const base: Character = {
   feats: [], lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('offers only Street Urchin city variants while preserving skills, boosts, feat, and legacy choices', () => {
+  const entries = mapAonHits([{ _id: 'street-urchin', _source: {
+    name: 'Street Urchin', category: 'background', attribute: ['Dexterity', 'Constitution'], feat: ['Pickpocket'],
+    skill: ['Thievery', 'Lore for the city you lived in as a street urchin (such as Absalom Lore or Magnimar Lore).'],
+    markdown: `You're trained in the ${skill('Thievery')} skill, and a ${skill('Lore')} skill for the city you lived in as a street urchin (such as Absalom Lore or Magnimar Lore). You gain the ${feat('Pickpocket')} skill feat.`,
+  } }], 'pf2e')
+  const options = backgroundVariants(entries, ['Cooking Lore', 'Iomedae Lore'])
+  expect(options.map(option => option.value)).toEqual([
+    'Street Urchin (Absalom)', 'Street Urchin (Katapesh)', 'Street Urchin (Magnimar)',
+  ])
+  for (const city of ['Absalom', 'Katapesh', 'Magnimar']) {
+    const background = options.find(option => option.value === `Street Urchin (${city})`)!.background
+    const saved: Character = JSON.parse(JSON.stringify({ ...base, background: background.name }))
+    expect(ranksAt(saved, entries)).toMatchObject({ Thievery: 1, [`${city} Lore`]: 1 })
+    expect(ranksAt({ ...saved, level: 20 }, entries)[`${city} Lore`]).toBe(1)
+    expect(backgroundLoreSlots(saved, entries)).toEqual([])
+    expect(background.data.feat).toBe('Pickpocket')
+    expect(boostSlots(saved, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['dex', 'con'])
+  }
+  const legacy: Character = { ...base, background: 'Street Urchin', backgroundLores: { 'Street Urchin': ['Old City Lore'] } }
+  expect(ranksAt(legacy, entries)).toMatchObject({ Thievery: 1, 'Old City Lore': 1 })
+})
+
 it('offers only professional Lore variants for Grifter and preserves chosen training', () => {
   const entries = compile('Grifter', `You're trained in ${skill('Deception')} and a ${skill('Lore')} skill related to a profession or subject you fake expertise in.
 You gain the ${feat('Charming Liar')} skill feat.`, ['Deception', 'Lore related to a profession or subject you fake expertise in'], ['Charming Liar'])

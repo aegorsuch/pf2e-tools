@@ -190,6 +190,15 @@ export function backgroundEntries(entry: ContentEntry, markdown: string): Conten
     return [{ ...entry, data: { ...entry.data, skill: common('skill'), feat: common('feat'), background_choice_required: true } }, ...variants]
   }
   const { variants, fixedSkills, fixedFeats, hasChoices } = choices(entry, markdown)
+  if (entry.name === 'Street Urchin' && entry.systems.includes('pf2e')) {
+    const skills = fixedSkills.filter(skill => !isOpenBackgroundLore(skill))
+    return [{ ...entry, data: { ...entry.data, background_choice_required: true } },
+      ...['Absalom', 'Katapesh', 'Magnimar'].map(city => ({
+        ...entry, id: `${entry.id}:variant:${city}`, name: `${entry.name} (${city})`,
+        data: { ...entry.data, background_base: entry.name, background_choice_required: false,
+          skill: [...skills, `${city} Lore`].join(', '), feat: fixedFeats.map(feat => feat.name).join(', ') },
+      }))]
+  }
   if (!hasChoices && (markdown.match(/\btrained in\b/gi)?.length ?? 0) > 1) return [entry]
   if (!hasChoices) return [{ ...entry, data: { ...entry.data,
     skill: fixedSkills.join(', '), feat: fixedFeats.map(feat => feat.name).join(', '),

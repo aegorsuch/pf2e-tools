@@ -113,7 +113,7 @@ export function BackgroundLoreChoices({ c, entries, save, background, options }:
 }) {
   const slots = backgroundLoreSlots(c, entries).filter(slot => slot.background.name === background.name)
   const available = backgroundLoreOptions(background, options)
-  if (slots.length === 1 && available.includes(slots[0].value)) return null
+  if (background.data.background_choice_required || slots.length === 1 && available.includes(slots[0].value)) return null
   const id = `background-lores-${encodeURIComponent(background.id)}`
   return <>{slots.map(slot => <label key={`${slot.index}:${slot.value}`}>
     {slots.length > 1 ? `Lore ${slot.index + 1}` : 'Lore'}{' '}

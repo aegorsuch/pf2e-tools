@@ -29,6 +29,9 @@ it('restricts custom Grifter Lore suggestions to professions without changing un
   expect(markup).toContain('value="Sailing Lore"')
   expect(markup).not.toContain('value="Zon-Shelyn Lore"')
   expect(markup).not.toContain('value="Forest Lore"')
+  expect(renderToStaticMarkup(<BackgroundLoreChoices c={c} entries={[background]}
+    background={{ ...background, data: { ...background.data, background_choice_required: true } }}
+    save={() => {}} options={[]} />)).toBe('')
 })
 
 it('shares roster deity Lore with background variants and the Skills picker', () => {
