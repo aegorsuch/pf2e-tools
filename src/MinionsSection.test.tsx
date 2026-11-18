@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
-import { expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
@@ -54,16 +54,7 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
   return found
 }
 
-function findSelectClear(node: ReactNode, label: string): (() => void) | undefined {
-  let found: (() => void) | undefined
-  Children.forEach(node, (child) => {
-    if (found || !isValidElement<Record<string, unknown>>(child)) return
-    found = child.type === SearchableSelect && child.props['aria-label'] === label
-      ? child.props.onClear as (() => void) | undefined
-      : findSelectClear(child.props.children as ReactNode, label)
-  })
-  return found
-}
+afterEach(() => vi.unstubAllGlobals())
 
 it('shows a plain Mount label only when eligible, without Rider helper text or character changes', () => {
   const c: Character = {
@@ -129,7 +120,7 @@ it('opens Special summaries by name without asterisks and capitalizes attack lab
   expect(JSON.stringify({ c, horse })).toBe(before)
 })
 
-it('saves companion names independently, preserves them when changing type, and allows clearing them', () => {
+it('removes companion naming controls without erasing saved names or changing familiar naming', () => {
   let c: Character = {
     id: 'named-companions', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -139,17 +130,16 @@ it('saves companion names independently, preserves them when changing type, and 
   }
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
   const tree = () => MinionsContent({ c, entries: [], save })
-  findInput(tree(), 'Companion name')!({ target: { value: 'Bramble' } })
-  expect(c.companions).toEqual([{ id: 'first', type: 'Badger', name: 'Bramble', supportActive: true },
-    { id: 'second', type: 'Cat', name: 'Whiskers' }])
-  expect(renderToStaticMarkup(tree())).toContain('aria-label="Companion name" value="Bramble"')
+  expect(findInput(tree(), 'Companion name')).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Companion name"')
   findSelect(tree(), 'Companion type')!({ target: { value: 'Riding Badger' } })
-  expect(c.companions?.[0]).toMatchObject({ id: 'first', type: 'Riding Badger', name: 'Bramble', supportActive: false })
-  c = { ...c, companions: [...c.companions!].reverse() }
-  findInput(tree(), 'Companion name')!({ target: { value: 'Mittens' } })
-  expect(c.companions?.find(companion => companion.id === 'first')?.name).toBe('Bramble')
-  findInput(tree(), 'Companion name')!({ target: { value: '' } })
-  expect(c.companions?.find(companion => companion.id === 'second')?.name).toBe('')
+  expect(c.companions?.[0]).toMatchObject({ id: 'first', type: 'Riding Badger', name: '', supportActive: false })
+  expect(c.companions?.[1].name).toBe('Whiskers')
+  c = { ...c, className: 'Witch', companions: [{ id: 'construct', type: CONSTRUCT_COMPANION_NAME, name: 'Saved' }] }
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).not.toContain('aria-label="Companion name"')
+  expect(markup).toContain('aria-label="Familiar name"')
+  expect(c.companions?.[0].name).toBe('Saved')
 })
 
 it('shows Beastmaster Bond range based on Nature proficiency only for animal companions', () => {
@@ -354,6 +344,8 @@ it('derives Calistria’s wasp and bonus abilities separately from existing fami
 })
 
 it('selects alphabetized companion equipment and allows multiple Other items', () => {
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('window', { confirm })
   let c: Character = {
     id: 'equipped-companion', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -378,47 +370,48 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
     save: patch => { c = { ...c, ...patch } } })
   const collarSelect = findSelect(tree(), 'Buddy Collar equipment')
   if (!collarSelect) throw new Error('Missing companion collar slot')
+  const emptyMarkup = renderToStaticMarkup(tree())
+  expect(emptyMarkup.indexOf('Collar of Empathy')).toBeLessThan(emptyMarkup.indexOf('Collar of Vigor'))
   collarSelect({ target: { value: 'collar-a' } })
   expect(c.companions?.[0].equipment?.Collar).toEqual({ entryId: 'collar-a', name: 'Collar of Empathy', qty: 1 })
   const markup = renderToStaticMarkup(tree())
   expect(markup).not.toContain('Qty ')
   expect(findButton(tree(), 'Increase Collar quantity')).toBeUndefined()
-  expect(markup.indexOf('Collar of Empathy')).toBeLessThan(markup.indexOf('Collar of Vigor'))
-  expect(markup.indexOf('Hosteling Statuette')).toBeLessThan(markup.indexOf('Steadyfoot Tassel'))
+  expect(findSelect(tree(), 'Buddy Collar equipment')).toBeUndefined()
+  expect(markup).not.toContain('Collar of Vigor')
   expect(markup).toContain('<option value="" selected="">None</option>')
-  expect(markup).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
-  expect(markup).toContain('aria-label="Buddy Other: Hosteling Statuette"')
-  for (const name of ['Collar of Empathy', 'Hosteling Statuette', 'Steadyfoot Tassel']) {
+  expect(markup).toContain('aria-label="Remove Buddy Other: Steadyfoot Tassel"')
+  expect(markup).toContain('aria-label="Buddy Add other equipment"')
+  for (const name of ['Collar of Empathy', 'Steadyfoot Tassel']) {
     expect(markup).toContain(`aria-haspopup="dialog">${name}</button>`)
     expect(markup).toContain(`Rules for ${name}.`)
   }
-  const other = markup.match(/aria-label="Buddy Other equipment">([\s\S]*?)<\/div>/)?.[1]
-  expect(other).toMatch(/^<strong>Other<\/strong><span class="row">/)
-  expect(other).toContain('aria-label="Buddy Other: Hosteling Statuette"')
-  expect(other).toContain('aria-label="Buddy Other: Steadyfoot Tassel"')
+  expect(markup).toContain('<div class="rune"><button type="button" aria-haspopup="dialog">Collar of Empathy</button>')
+  expect(markup).not.toContain('type="checkbox"')
   expect(markup).not.toContain('Buddy Harness equipment')
   expect(markup).not.toContain('Buddy Head equipment')
-  expect(markup.match(/<option value="anti-dragon">Anti-Dragon Barding<\/option>/g)).toHaveLength(1)
+  expect(markup.match(/>Anti-Dragon Barding \(Light\)<\/option>/g)).toHaveLength(1)
+  expect(markup.match(/>Anti-Dragon Barding \(Heavy\)<\/option>/g)).toHaveLength(1)
   expect(markup).not.toContain('wrong-category')
   expect(markup).not.toContain('<option value="irrelevant">Rope</option>')
-  expect(markup).toContain('aria-label="Clear Buddy Collar equipment"')
-  const clear = findSelectClear(tree(), 'Buddy Collar equipment')
+  const clear = findButton(tree(), 'Remove Buddy Collar: Collar of Empathy')
   if (!clear) throw new Error('Missing companion equipment clear control')
+  confirm.mockReturnValueOnce(false)
+  clear()
+  expect(c.companions?.[0].equipment?.Collar?.entryId).toBe('collar-a')
   clear()
   expect(c.companions?.[0].equipment?.Collar).toBeUndefined()
+  expect(findSelect(tree(), 'Buddy Collar equipment')).toBeDefined()
 
-  const tassel = findToggle(tree(), 'Buddy Other: Steadyfoot Tassel')
-  if (!tassel) throw new Error('Missing Steadyfoot Tassel choice')
-  tassel({ target: { checked: true } })
-  const statuette = findToggle(tree(), 'Buddy Other: Hosteling Statuette')
+  const statuette = findSelect(tree(), 'Buddy Add other equipment')
   if (!statuette) throw new Error('Missing Hosteling Statuette choice')
-  statuette({ target: { checked: true } })
+  statuette({ target: { value: 'statuette' } })
   expect(c.companions?.[0].equipment?.Other).toEqual([
     { entryId: 'statuette', name: 'Hosteling Statuette', qty: 1 },
     { entryId: 'tassel', name: 'Steadyfoot Tassel', qty: 1 },
   ])
-  const removeTassel = findToggle(tree(), 'Buddy Other: Steadyfoot Tassel')
-  removeTassel?.({ target: { checked: false } })
+  const removeTassel = findButton(tree(), 'Remove Buddy Other: Steadyfoot Tassel')
+  removeTassel?.()
   expect(c.companions?.[0].equipment?.Other).toEqual([
     { entryId: 'statuette', name: 'Hosteling Statuette', qty: 1 },
   ])
@@ -799,7 +792,7 @@ it.each([
   expect(markup).not.toContain('Add animal companion')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('aria-label="Remove Wolf"')
-  expect(markup).toContain('aria-label="Companion name" value="Wolf"')
+  expect(markup).not.toContain('aria-label="Companion name"')
   expect(markup).not.toContain('<strong>Wolf</strong>')
   expect(markup).not.toContain('Wolf (Wolf)')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [], companions: [] }} entries={[wolf]} save={() => {}} />))
@@ -835,7 +828,7 @@ it.each([
   expect(c.feats[0]).toMatchObject({ name: specialized, choice: 'Racer' })
 })
 
-it('lets a Champion choose or replace Faithful Steed and edit its name', () => {
+it('lets a Champion choose Faithful Steed without a companion naming field', () => {
   let c: Character = {
     id: 'champion', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -858,9 +851,8 @@ it('lets a Champion choose or replace Faithful Steed and edit its name', () => {
   expect(markup).toContain('<h4>Animal Companion</h4>')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('Choose Faithful Steed')
-  expect(markup).toContain('aria-label="Companion name" value=""')
-  findInput(MinionsContent({ c, entries: [horse], save }), 'Companion name')!({ target: { value: 'Dawn' } })
-  expect(c.companions).toMatchObject([{ type: 'Horse', name: 'Dawn' }])
+  expect(markup).not.toContain('aria-label="Companion name"')
+  expect(c.companions).toMatchObject([{ type: 'Horse', name: '' }])
 })
 
 it('adds Beastmaster specialization slots beside existing companion specializations without replacing them', () => {
@@ -921,9 +913,9 @@ it('grants a Beastmaster Dedication companion and extra companions only with Add
   expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
 })
 
-it('saves Auspice specialization and servitor choices only when Auspicious Mount is available', () => {
+it('derives Auspice servitor from Champion sanctification only while Auspicious Mount is available', () => {
   let c: Character = {
-    id: 'champion', systems: ['pf2e'], name: 'Test', level: 16, className: 'Champion',
+    id: 'champion', systems: ['pf2e'], name: 'Test', level: 16, className: 'Champion', deity: 'Patron', sanctification: 'Holy',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: 'Auspicious Mount', type: 'Class Feat', level: 16 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
@@ -934,18 +926,24 @@ it('saves Auspice specialization and servitor choices only when Auspicious Mount
     traits: [], description: '', data: { size: 'Large', mount: true, speed: 40 }, effects: [], updatedAt: 1,
   }
   const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
-  const tree = () => MinionsContent({ c, entries: [horse], save })
+  const deity: ContentEntry = { ...horse, id: 'patron', kind: 'deity', name: 'Patron', data: { sanctification: 'holy, unholy' } }
+  const tree = () => MinionsContent({ c, entries: [horse, deity], save })
   expect(renderToStaticMarkup(tree())).toContain('<option value="Auspice">Auspice</option>')
   const choose = findSelect(tree(), 'Companion specialization 1')!
   choose({ target: { value: 'Auspice' } })
   expect(c.feats[0].choice).toBe('Auspice')
-  expect(renderToStaticMarkup(tree())).toContain('aria-label="Auspice servitor"')
-  findSelect(tree(), 'Auspice servitor')!({ target: { value: 'Celestial' } })
-  expect(c.companions![0].auspiceServitor).toBe('Celestial')
+  expect(findSelect(tree(), 'Auspice servitor')).toBeUndefined()
+  expect(c.companions![0].auspiceServitor).toBeUndefined()
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('<span>Holy</span>')
   expect(markup).toContain('Weakness: Unholy 5')
   expect(markup).not.toContain('fly 40 feet')
+  c = { ...c, sanctification: 'Unholy' }
+  expect(renderToStaticMarkup(tree())).toContain('<span>Fiend</span>')
+  expect(renderToStaticMarkup(tree())).toContain('Weakness: Holy 5')
+  c = { ...c, sanctification: undefined }
+  expect(renderToStaticMarkup(tree())).toContain('<span>Monitor</span>')
+  expect(renderToStaticMarkup(tree())).not.toContain('Weakness:')
   c = { ...c, level: 15 }
   expect(renderToStaticMarkup(tree())).not.toContain('Companion specialization')
   expect(renderToStaticMarkup(tree())).not.toContain('Auspice servitor')

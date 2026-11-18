@@ -5,6 +5,7 @@ import { characterHeritages } from './heritages'
 import { divineBoonSpells } from './divineIntercessions'
 import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
+import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
@@ -176,6 +177,17 @@ export function mageAutomatonOptions(c: Character, entries: ContentEntry[]) {
   return c.level >= 1 && c.heritage === 'Mage Automaton' ? cantripOptions(c, spellIndex(entries).spells, 'Arcane') : []
 }
 
+function orderTrainingRules(c: Character, entries: ContentEntry[], feat: Character['feats'][number]): SpellGrant[] {
+  const benefit = hellknightTrainingBenefit(c, feat.name, feat.choice)
+  if (benefit?.name === 'Dedication to the Five' && benefit.choice && GODCLAW_DOMAINS.includes(benefit.choice)) {
+    return domainFeatSpells(c, entries, 'Domain Initiate', benefit.choice).map(entry => ({
+      kind: 'focus', spells: [entry.name], tradition: 'Divine', heightened: true,
+      condition: `Casting this domain spell grants ${2 * Math.ceil(c.level / 2)} temporary HP for 1 round.`,
+    }))
+  }
+  return hellknightTrainingSpellRules(c, feat.name, feat.choice)
+}
+
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
   const mageCantrip = c.mageAutomatonCantrip
@@ -279,7 +291,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: rule.rank, usageKey: JSON.stringify([selection, feat.name, spell.name.toLowerCase()]) })
       continue
     }
-    const rules = source?.spellGrants ?? []
+    const rules = [...source?.spellGrants ?? [], ...orderTrainingRules(c, entries, feat)]
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {
       const entry = options.find(spell => spell.name === feat.choice)
@@ -317,7 +329,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     }
   }
   return getSettings().innateAutoHeighten
-    ? out.map(grant => grant.rule.kind === 'innate' ? { ...grant, rank: Math.max(grant.rank, Math.ceil(c.level / 2)) } : grant)
+    ? out.map(grant => grant.rule.kind === 'innate' && !grant.rule.fixedRank ? { ...grant, rank: Math.max(grant.rank, Math.ceil(c.level / 2)) } : grant)
     : out
 }
 
@@ -351,6 +363,11 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
     .some(entry => entry.systems.some(system => c.systems.includes(system))) ? [{ name: 'Detect Magic', source: seer }] : []
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    const training = hellknightTrainingBenefit(c, feat.name, feat.choice)
+    if (training?.name === 'Dedication to the Five' && training.choice && GODCLAW_DOMAINS.includes(training.choice)
+      && !domainFeatSpells(c, entries, 'Domain Initiate', training.choice).length) {
+      return [{ name: `${training.choice} domain focus spell`, source }]
+    }
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
     if (feat.name === 'Grown of Oak' && !entries.some(entry => entry.kind === 'spell' && !entry.deleted
       && entry.name === 'Oaken Resilience' && entry.systems.some(system => c.systems.includes(system)))) {
@@ -360,7 +377,7 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       && entry.name === 'Caustic Blast' && entry.systems.some(system => c.systems.includes(system)))) {
       return [{ name: 'Caustic Blast', source }]
     }
-    return (source?.spellGrants ?? []).flatMap(rule => (rule.choice ? feat.choice ? [feat.choice] : [] : rule.spells)
+    return [...source?.spellGrants ?? [], ...orderTrainingRules(c, entries, feat)].flatMap(rule => (rule.choice ? feat.choice ? [feat.choice] : [] : rule.spells)
       .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.some(system => c.systems.includes(system))))
       .map(name => ({ name, source })))
   })]

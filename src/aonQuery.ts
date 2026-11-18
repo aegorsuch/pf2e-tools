@@ -17,17 +17,17 @@ export const DATA_FIELDS = [
   'armor_proficiency', 'armor_class_proficiency', 'ac_proficiency', 'unarmored_proficiency',
   'light_armor_proficiency', 'medium_armor_proficiency', 'heavy_armor_proficiency', 'attack_proficiency',
   'defense_proficiency', 'divine_font', 'hardness', 'ancestry', 'item_subcategory', 'weapon_group', 'armor_group', 'weapon_category', 'armor_category', 'damage_type', 'reload', 'speed_penalty',
-  'domain_primary', 'sanctification', 'sanctification_required', 'warden_spell_tier', 'upgrade_slots', 'weapon_ammunition', 'weapon_tracking',
+  'domain_primary', 'sanctification', 'sanctification_required', 'alignment', 'warden_spell_tier', 'upgrade_slots', 'weapon_ammunition', 'weapon_tracking',
   'deity_category', 'epithet', 'edict', 'anathema', 'area_of_concern', 'religious_symbol', 'favored_weapon', 'domain', 'domain_alternate', 'cleric_spells', 'about', 'pantheon_member', 'grants_languages', 'grants_lore', 'grants_armor_groups', 'grants_armor_categories', 'grants_vision', 'grants_armor_specialization', 'grants_focus_spells', 'grants_order_spells', 'grants_focus_point',
   'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma', 'sense', 'speed_raw', 'mount', 'companion_attacks', 'companion_support', 'companion_maneuver',
   'companion_maneuver_actions', 'companion_maneuver_traits', 'companion_maneuver_requirements', 'companion_maneuver_description',
 ]
-const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', ...DATA_FIELDS]
+const SOURCE_FIELDS = ['name', 'category', 'class', 'level', 'trait', 'summary', 'url', 'source', 'speed', 'legacy_id', ...DATA_FIELDS]
 export const usesFullItemRules = (source: Record<string, unknown>) =>
   ['equipment', 'weapon', 'armor', 'shield'].includes(String(source.category))
 
 // Retain these legacy oaths because their remaster replacements have different mechanics.
-export const RETAINED_LEGACY_FEAT_IDS = ['feat-219', 'feat-1669']
+export const RETAINED_LEGACY_FEAT_IDS = ['feat-219', 'feat-220', 'feat-1669']
 export const RETAINED_LEGACY_EQUIPMENT_IDS = ['equipment-290', 'equipment-291']
 
 // Old Ranger snare feats; keep the remastered Snarecrafter archetype instead.
@@ -393,6 +393,27 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
       hits.push(hit)
     }
     onProgress?.(hits.length)
+  }
+  const deities = hits.flatMap(hit => {
+    const source = hit._source
+    return system === 'pf2e' && source?.category === 'deity' && !source.alignment && Array.isArray(source.legacy_id)
+      ? [{ source, ids: source.legacy_id.filter((id): id is string => typeof id === 'string') }] : []
+  })
+  const legacyIds = [...new Set(deities.flatMap(deity => deity.ids))]
+  if (legacyIds.length) {
+    const response = await fetchFn(AON_ENDPOINTS[system], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ size: legacyIds.length, query: { ids: { values: legacyIds } }, _source: ['alignment'] }),
+    })
+    if (!response.ok) throw new Error(`AoN legacy deity alignments: HTTP ${response.status}`)
+    const json = (await response.json()) as { hits?: { hits?: Hit[] } }
+    const alignments = new Map((json.hits?.hits ?? []).flatMap(hit =>
+      hit._id && typeof hit._source?.alignment === 'string' ? [[hit._id, hit._source.alignment] as const] : []))
+    for (const { source, ids } of deities) {
+      const values = [...new Set(ids.map(id => alignments.get(id)))]
+      if (values.length === 1 && values[0]) source.alignment = values[0]
+    }
   }
   const maneuverUrls = [...new Set(hits.flatMap(hit => {
     const source = hit._source

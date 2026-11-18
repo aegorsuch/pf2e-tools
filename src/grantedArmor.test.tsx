@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { armorClass, armorEntry, armorGauntlet, armorSpecialization, blessedShieldBenefit, defenseSummary, effectiveWeapon, equippedShield, hardwoodShield, inventorBuckler, isLockedWeapon, ownedArmors, ownedWeapons, shieldChange, shieldEquipChange, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { SkillsSection } from './SkillsSection'
-import { grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
+import { ARMIGER_ARMOR_ID, grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -16,6 +16,30 @@ const base: Character = {
 }
 const feat = (name: string, choice?: string, level = 1): Character['feats'][number] =>
   ({ name, choice, level, type: 'Ancestry Feat' })
+
+it('grants locked Orichalcum Hellknight armor by wearable category and scales fundamentals without replacing owned gear', () => {
+  const klass: ContentEntry = { id: 'armiger-class', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger',
+    level: 1, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { light_armor_proficiency: 'Trained', medium_armor_proficiency: 'Trained' } }
+  const c: Character = { ...base, className: 'Ranger', level: 4, feats: [feat('Ardent Armiger', undefined, 4)],
+    armors: [{ id: 'ordinary', name: 'Leather', potency: 0, resilient: 0, runes: [], worn: true }] }
+  const before = JSON.stringify(c)
+  const armor = ownedArmors(c, [klass]).find(armor => armor.id === ARMIGER_ARMOR_ID)!
+  expect(armor).toMatchObject({ name: 'Hellknight Breastplate', material: 'Orichalcum', potency: 0, resilient: 0, worn: false })
+  const upgraded: Character = { ...c, level: 11, feats: [...c.feats, feat('Armor Proficiency', undefined, 5)],
+    armors: [...c.armors!, { ...armor, worn: false, runes: ['Shadow'] }] }
+  expect(ownedArmors(upgraded, [klass]).find(armor => armor.id === ARMIGER_ARMOR_ID))
+    .toMatchObject({ name: 'Hellknight Plate', potency: 2, resilient: 1, material: 'Orichalcum', runes: ['Shadow'] })
+  expect(ownedArmors({ ...upgraded, level: 20 }, [klass]).find(armor => armor.id === ARMIGER_ARMOR_ID))
+    .toMatchObject({ potency: 3, resilient: 3 })
+  const markup = renderToStaticMarkup(<ArmorList c={upgraded} entries={[klass]} save={() => {}} part="armor" />)
+  expect(markup).not.toContain('aria-label="Remove Hellknight Plate"')
+  expect(markup).not.toContain('aria-label="Remove Orichalcum material"')
+  expect(ownedArmors({ ...c, level: 3 }, [klass]).some(armor => armor.id === ARMIGER_ARMOR_ID)).toBe(false)
+  expect(ownedArmors({ ...c, feats: [] }, [klass]).some(armor => armor.id === ARMIGER_ARMOR_ID)).toBe(false)
+  expect(ownedArmors(c, []).some(armor => armor.id === ARMIGER_ARMOR_ID)).toBe(false)
+  expect(JSON.stringify(c)).toBe(before)
+})
 
 it.each([
   ['Kashrishi', 'Tough Skin', 'pf2e'],

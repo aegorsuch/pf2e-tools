@@ -11,7 +11,8 @@ import { DamageRoll } from './SpellDamage'
 import { newId } from './db'
 import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
-import { isCompanionEquipmentItem } from './companions'
+import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
+import { confirmRemoval } from './confirmRemoval'
 import { DroneFeatures } from './DroneFeatures'
 import { hasDivineIntercession } from './divineIntercessions'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
@@ -62,14 +63,17 @@ function MinionFerocity({ c, ferocity }: { c: Character; ferocity: ReturnType<ty
   </section>
 }
 
-export function CompanionEquipmentSlots({ c, companion, entries, save }: {
+export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
   c: Character
   companion: NonNullable<Character['companions']>[number]
   entries: SectionProps['entries']
   save: SectionProps['save']
+  size?: string
 }) {
-  const options = entries.filter(entry => isCompanionEquipmentItem(entry) && !entry.deleted
-    && entry.systems.some(system => c.systems.includes(system)))
+  const available = entries.filter(entry => !entry.deleted && entry.systems.some(system => c.systems.includes(system)))
+  const options = [...available.filter(entry => isCompanionEquipmentItem(entry)
+    && (!/\bbarding\b/i.test(entry.name) || /\bsaddle\b/i.test(entry.name))),
+    ...bardingOptions(entries, c.level, size).filter(entry => entry.systems.some(system => c.systems.includes(system)))]
   const selectedOther = Array.isArray(companion.equipment?.Other)
     ? companion.equipment.Other
     : companion.equipment?.Other ? [companion.equipment.Other] : []
@@ -77,7 +81,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
     const matches = options.filter(entry => {
       const text = `${entry.name} ${entry.traits.join(' ')} ${String(entry.data.item_category ?? '')} ${String(entry.data.item_subcategory ?? '')}`
       switch (slot) {
-        case 'Barding': return /\bbarding\b/i.test(text)
+        case 'Barding': return !!entry.data.barding_type
         case 'Collar': return /\bcollar\b/i.test(text)
         case 'Saddle': return /\bsaddle\b/i.test(text)
         case 'Shoes': return /\b(?:shoes|boots|horseshoes?)\b/i.test(text)
@@ -109,52 +113,58 @@ export function CompanionEquipmentSlots({ c, companion, entries, save }: {
     else delete equipment.Other
     saveEquipment(equipment)
   }
+  const itemTag = (slot: CompanionEquipmentSlot, item: CompanionEquipment, entry?: ContentEntry) =>
+    <div key={item.entryId} className="rune">
+      <EntryDescription name={entry?.name ?? item.name} entry={entry} entries={entries} character={c} />
+      {!entry && <span> (unavailable)</span>}
+      <button type="button" aria-label={`Remove ${companion.name || companion.type} ${slot}: ${entry?.name ?? item.name}`}
+        onClick={() => confirmRemoval(`"${entry?.name ?? item.name}"`, () =>
+          slot === 'Other' ? updateOther(item, false) : update(slot, undefined))}>×</button>
+    </div>
   return <section className="col companion-equipment" aria-label={`${companion.name || companion.type} equipment`}>
     <h5>Equipment</h5>
     {COMPANION_EQUIPMENT_SLOTS.map(slot => {
       if (slot === 'Other') {
         const selectedIds = selectedOther.map(item => item.entryId)
         const slotOptions = bySlot(slot, selectedIds)
-        const unavailable = selectedOther.filter(item => !slotOptions.some(entry => entry.id === item.entryId))
+        const remaining = slotOptions.filter(entry => !selectedIds.includes(entry.id))
         return <div key={slot} className="row companion-equipment-slot companion-other-equipment" role="group"
           aria-label={`${companion.name || companion.type} Other equipment`}>
           <strong>Other</strong>
-          {slotOptions.map(entry => <span className="row" key={entry.id}>
-            <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${entry.name}`}
-              checked={selectedIds.includes(entry.id)}
-              onChange={event => updateOther({ entryId: entry.id, name: entry.name }, event.target.checked)} />
-            <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} />
-          </span>)}
-          {unavailable.map(item => <span className="row" key={item.entryId}>
-            <input type="checkbox" aria-label={`${companion.name || companion.type} Other: ${item.name}`}
-              checked onChange={() => updateOther(item, false)} />
-            <EntryDescription name={item.name} entry={entries.find(entry => entry.id === item.entryId)} entries={entries} character={c} /> (unavailable)
-          </span>)}
+          {[...selectedOther].sort((a, b) => a.name.localeCompare(b.name))
+            .map(item => itemTag(slot, item, slotOptions.find(entry => entry.id === item.entryId)))}
+          {remaining.length > 0 && <SearchableSelect aria-label={`${companion.name || companion.type} Add other equipment`}
+            value="" optionCount={remaining.length} renderDetails={value => {
+              const entry = remaining.find(option => option.id === value)
+              return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+            }} onChange={event => {
+              const entry = remaining.find(option => option.id === event.target.value)
+              if (entry) updateOther({ entryId: entry.id, name: entry.name }, true)
+            }}>
+            <option value="">Choose other equipment...</option>
+            {remaining.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </SearchableSelect>}
         </div>
       }
       const selected = companion.equipment?.[slot]
       const slotOptions = bySlot(slot, selected ? [selected.entryId] : [])
+      const selectedEntry = selected && (slot === 'Barding'
+        ? equippedBarding(entries, c.level, selected, size) : slotOptions.find(entry => entry.id === selected.entryId))
       return <div key={slot} className="row companion-equipment-slot">
         <strong>{slot}</strong>
-        <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
-          value={selected?.entryId ?? ''} optionCount={slotOptions.length}
+        {selected ? itemTag(slot, selected, selectedEntry) : <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
+          value="" optionCount={slotOptions.length}
           renderDetails={value => {
             const entry = slotOptions.find(option => option.id === value)
             return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
           }}
-          onClear={() => update(slot, undefined)}
           onChange={event => {
             const entry = slotOptions.find(option => option.id === event.target.value)
-            if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: selected?.qty ?? 1 })
-            else if (!event.target.value) update(slot, undefined)
+            if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: 1 })
           }}>
           <option value="">{slot === 'Barding' ? 'None' : `Choose ${slot.toLowerCase()}...`}</option>
-          {selected && !slotOptions.some(entry => entry.id === selected.entryId)
-            && <option value={selected.entryId} disabled>{selected.name} (unavailable)</option>}
           {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-        </SearchableSelect>
-        {selected && <EntryDescription name={selected.name} entry={entries.find(entry => entry.id === selected.entryId)}
-          entries={entries} character={c} />}
+        </SearchableSelect>}
       </div>
     })}
   </section>
@@ -269,9 +279,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const reach = stats?.reach ?? (stats?.enlarge
                 ? (stats.naturalSize === 'Tiny' ? 0 : 5) + stats.enlarge.reachIncrease : undefined)
               const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1)' : undefined
-              const acNote = [stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
+              const acNote = [stats?.barding ? `+${stats.barding.data.ac} Item (${stats.barding.name}); Dexterity cap +${stats.barding.data.dex_cap}` : undefined,
+                stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
-              const acSource = [stats?.magicHide ? 'Magic Hide' : undefined,
+              const acSource = [stats?.barding?.name, stats?.magicHide ? 'Magic Hide' : undefined,
                 stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
               const specials = [
                 ...(stats?.mount ? [{ name: 'Mount', note: undefined }] : []),
@@ -321,8 +332,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return (
               <article key={comp.id} className="gear-card">
                 <header className="row">
-                  <label>Name <input aria-label="Companion name" value={comp.name}
-                    onChange={event => update(comp.id, { name: event.target.value })} /></label>
                   <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value, supportActive: false })}>
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
                   </SearchableSelect>
@@ -349,7 +358,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 )}
                 {stats ? <>
                   {stats.auspice && <div className="row">
-                    <label>Servitor{' '}
+                    {c.className !== 'Champion' && <label>Servitor{' '}
                       <select aria-label="Auspice servitor" value={comp.auspiceServitor ?? ''} onChange={(e) => {
                         const servitor = (['Celestial', 'Fiend', 'Monitor'] as const).find((type) => type === e.target.value)
                         update(comp.id, { auspiceServitor: servitor })
@@ -357,7 +366,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         <option value="">Choose deity's servitor...</option>
                         {['Celestial', 'Fiend', 'Monitor'].map((type) => <option key={type}>{type}</option>)}
                       </select>
-                    </label>
+                    </label>}
                     <label>Servitor language{' '}
                       <input aria-label="Auspice servitor language" value={comp.auspiceLanguage ?? ''}
                         onChange={(e) => update(comp.id, { auspiceLanguage: e.target.value })} />
@@ -399,10 +408,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         <SourceNote source="Apex Companion" note="Gain 30 temporary Hit Points when cast; not added to maximum Hit Points." inlineSource={false} /></span>}
                       <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
                       <span><small>Fortitude</small>{signed(stats.fortitude)}{stats.aspect?.save === 'Fortitude'
-                        && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Might).`} inlineSource={false} />}</span>
+                        && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Might).`} inlineSource={false} />}
+                        {stats.antiDragon && <SourceNote source={stats.antiDragon.source}
+                          note={`+${stats.antiDragon.bonus} item bonus to Fortitude DC against Grapple, Reposition, Shove, or Trip. A creature that Grapples this companion takes ${stats.antiDragon.damage} piercing damage.`} />}</span>
                       <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote
                         && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
-                        {stats.aspect?.save === 'Reflex' && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Swiftness).`} inlineSource={false} />}</span>
+                        {stats.aspect?.save === 'Reflex' && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Swiftness).`} inlineSource={false} />}
+                        {stats.antiDragon && <SourceNote source={stats.antiDragon.source}
+                          note={`+${stats.antiDragon.bonus} item bonus to Reflex DC against Grapple, Reposition, Shove, or Trip.`} />}</span>
                       <span><small>Will</small>{signed(stats.will)}{stats.aspect?.save === 'Will'
                         && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Insight).`} inlineSource={false} />}</span>
                     </div>
@@ -410,7 +423,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
                       Creatures touching or hitting the steed with an adjacent melee Strike take {stats.paleHorse.retaliation} {stats.paleHorse.damage.toLowerCase()} damage.</div>}
                   </section>
-                  <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
+                  <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} size={stats.size} save={save} />
                   {maneuvers.length > 0 && <section className="companion-actions">
                       <h5>Maneuvers</h5>
                       {maneuvers.map(maneuver => <div key={maneuver.name} className="companion-action">
@@ -459,7 +472,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     <h5>Speed</h5>
                     <div><span>{stats.speed}{stats.canopyCrawler
                       && <SourceNote source="Canopy Crawler" note="Climb Speed equal to highest Speed." />}</span>
-                      {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `+${bonus.feet} ${bonus.source}`).join(', ')})`}</div>
+                      {stats.speedBonuses.length > 0 && ` (${stats.speedBonuses.map((bonus) => `${signed(bonus.feet)} ${bonus.source}`).join(', ')})`}</div>
                     {stats.ignoreAllDifficultTerrain ? <small>Ignores difficult terrain and greater difficult terrain (Apex Companion).</small>
                       : stats.ignoreDifficultTerrain > 0 && <small>Ignores the first {stats.ignoreDifficultTerrain} feet of difficult terrain each turn (Chiardmar Steed).</small>}
                   </section>

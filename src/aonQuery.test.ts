@@ -39,6 +39,31 @@ it('preserves alternative divine skills even when the index lists only one', asy
   expect(mapAonHits(hits, 'sf2e')[0].data.skill).toBe('Crafting, Intimidation')
 })
 
+it('loads legacy deity alignment without guessing from sanctification or adding legacy entries', async () => {
+  const deities = [
+    { _id: 'iomedae', _source: { category: 'deity', name: 'Iomedae', sanctification: ['holy'], legacy_id: ['good'] } },
+    { _id: 'calistria', _source: { category: 'deity', name: 'Calistria', sanctification: ['holy', 'unholy'], legacy_id: ['neutral'] } },
+    { _id: 'asmodeus', _source: { category: 'deity', name: 'Asmodeus', sanctification: ['unholy'], legacy_id: ['evil'] } },
+    { _id: 'unknown', _source: { category: 'deity', name: 'Unknown', legacy_id: ['missing'] } },
+    { _id: 'current', _source: { category: 'deity', name: 'Current', alignment: 'CG', legacy_id: ['evil'] } },
+  ]
+  const legacy = [
+    { _id: 'good', _source: { alignment: 'LG' } },
+    { _id: 'neutral', _source: { alignment: 'CN' } },
+    { _id: 'evil', _source: { alignment: 'LE' } },
+  ]
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      query: { ids?: { values: string[] }; bool?: { filter: { term: { category: string } }[] } }
+    }
+    const hits = body.query.ids ? legacy : body.query.bool?.filter[0].term.category === 'deity' ? deities : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries.map(entry => [entry.name, entry.data.alignment]))
+    .toEqual([['Iomedae', 'LG'], ['Calistria', 'CN'], ['Asmodeus', 'LE'], ['Unknown', undefined], ['Current', 'CG']])
+})
+
 it('preserves spell duration and range wording without changing their indexed numeric values', () => {
   const entry = mapAonHit({ _id: 'invisibility', _source: {
     name: 'Invisibility', category: 'spell', duration: 600, range: 0,

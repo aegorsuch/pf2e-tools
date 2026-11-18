@@ -5,6 +5,7 @@ import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
+import { hellknightTrainingBenefit } from './hellknight'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { AnimalFeatureOptions, DevotionSpellChoice, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
@@ -20,6 +21,53 @@ beforeEach(() => {
   updateSettings({ innateAutoHeighten: false })
 })
 afterEach(() => updateSettings({ innateAutoHeighten: previousAutoHeighten }))
+
+it('grants lesser, greater, and cross-trained order spells with correct ranks, restrictions, and independent daily uses', () => {
+  const entries = ['Locate', 'Summon Fiend', 'Resist Energy', 'Heal', 'Unfettered Movement']
+    .map(name => ({ ...entry(name, 'spell'), level: name === 'Summon Fiend' ? 5 : name === 'Locate' ? 3 : name === 'Unfettered Movement' ? 4 : name === 'Resist Energy' ? 2 : 1 }))
+  const c: Character = { ...base, level: 12, feats: [taken('Hellknight Dedication', 2, 'Order of the Gate'),
+    taken('Order Training', 8, 'Arcane'), taken('Advanced Order Training', 12, 'Occult'),
+    taken('Order Cross-Training', 12, 'Order of the Pyre')] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition])).toEqual([
+    ['Locate', 3, 'Arcane'], ['Summon Fiend', 6, 'Occult'], ['Resist Energy', 2, 'Divine'],
+  ])
+  expect(grants[1].rule.condition).toBe('Devils only')
+  expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
+  expect(dailyInnateUses(c, grants[2])?.limit).toBe(2)
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(3)
+  expect(grantedFeatSpells({ ...c, level: 14 }, entries).slice(0, 2).map(grant => grant.rank)).toEqual([5, 7])
+  const crossed = { ...c, level: 20, feats: [taken('Hellknight Dedication', 2, 'Order of the Pyre'),
+    taken('Order Cross-Training', 12, 'Order of the Gate: Divine')] }
+  expect(grantedFeatSpells(crossed, entries)[0].rank).toBe(3)
+  expect(hellknightTrainingBenefit(c, 'Order Training', 'Arcane')?.description).toContain('rank 5 at level 14')
+  expect(hellknightTrainingBenefit(crossed, 'Order Cross-Training', 'Order of the Gate: Divine')?.description).not.toContain('rank 5')
+  const godclaw = { ...c, feats: [taken('Hellknight Dedication', 2, 'Order of the Godclaw'), taken('Advanced Order Training', 12)] }
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells(godclaw, entries)[0]).toMatchObject({ rank: 5, rule: { shared: true, fixedRank: true } })
+  updateSettings({ innateAutoHeighten: false })
+  const torrent = { ...godclaw, feats: [taken('Hellknight Dedication', 2, 'Order of the Torrent'), taken('Advanced Order Training', 12)] }
+  expect(grantedFeatSpells(torrent, entries)[0]).toMatchObject({ entry: { name: 'Unfettered Movement' }, rank: 5 })
+  expect(unresolvedFeatSpells(c, [])).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: 'Locate' }), expect.objectContaining({ name: 'Summon Fiend' }), expect.objectContaining({ name: 'Resist Energy' }),
+  ]))
+})
+
+it('grants chosen Godclaw domain spells through native training or cross-training, without granting other domains', () => {
+  const spell = { ...entry('Swear Oath', 'spell', { domain: 'Duty' }, ['Focus']), level: 1 }
+  for (const cross of [false, true]) {
+    const c: Character = { ...base, level: 12, feats: [
+      taken('Hellknight Dedication', 2, cross ? 'Order of the Pyre' : 'Order of the Godclaw'),
+      taken(cross ? 'Order Cross-Training' : 'Order Training', cross ? 12 : 8, cross ? 'Order of the Godclaw: Duty' : 'Duty'),
+    ] }
+    expect(grantedFeatSpells(c, [spell])).toHaveLength(1)
+    expect(grantedFeatSpells(c, [spell])[0]).toMatchObject({ entry: { name: spell.name }, rank: 6,
+      rule: { kind: 'focus', condition: 'Casting this domain spell grants 12 temporary HP for 1 round.' } })
+    expect(focusSpells(c, [spell])).toMatchObject({ points: 1, spells: [expect.objectContaining({ name: spell.name })] })
+    expect(unresolvedFeatSpells(c, [])).toContainEqual(expect.objectContaining({ name: 'Duty domain focus spell' }))
+    expect(grantedFeatSpells({ ...c, level: 7 }, [spell])).toEqual([])
+  }
+})
 
 it('auto-heightens innate grants without changing uses, selections, focus spells, or higher granted ranks', () => {
   const passage = { ...entry('Magic Passage', 'spell'), level: 5 }

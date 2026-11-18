@@ -1603,9 +1603,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const effectiveCheckPenalty = strengthMet ? 0 : checkPenalty
         const speedPenalty = parseFloat(String(entry?.data.speed_penalty ?? 0)) || 0
         const heavyConstruction = modifications.some(mod => mod.name === 'Heavy Construction')
-        const effectiveSpeedPenalty = strengthMet
-          ? heavyConstruction ? 0 : Math.min(0, speedPenalty + 5)
-          : speedPenalty
+        const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && entry && armorCategory(entry) === 'Heavy'
+        const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
+        const effectiveSpeedPenalty = strengthMet && heavyConstruction ? 0
+          : Math.min(0, speedPenalty + iron + (strengthMet ? mobility ? 10 : 5 : 0))
         const penalty = (value: number) => value === 0 ? '0' : String(value)
         const acRank = entry ? armorProficiencyRank(c, entries, entry) : 0
         const booster = a.id === INVENTOR_ARMOR_ID && a.worn
@@ -1684,7 +1685,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             )}
             <div className="row">
               {entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span> : a.material ? <div className="gear-runes"><span>Material</span>
-                <Material name={a.material} entries={entries} equipment="Armor" source={body ? 'Attached to character' : 'Locked by Wood armor group'}
+                <Material name={a.material} entries={entries} equipment="Armor" source={body ? 'Attached to character'
+                  : typeof entry?.data.granted_by === 'string' ? entry.data.granted_by : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>
                     update(a.id, { material: undefined, runes: a.runes.slice(0, runeLimit(a.potency, undefined)) })} />
               </div> : body ? <span>Material: Attached</span> : <span>Material{' '}

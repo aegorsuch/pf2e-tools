@@ -27,7 +27,7 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
-it('restricts Beastmaster Warden variants without restricting Ranger or legacy focus feats', () => {
+it('restricts Beastmaster Warden variants and removes legacy Heal Animal without restricting Ranger Warden choices', () => {
   const previous = getSettings().disableBeastmasterWardenSpells
   const dedication: ContentEntry = { ...spell('Beastmaster Dedication', 'Initiate'), kind: 'feat', level: 2,
     traits: ['Archetype', 'Dedication'], data: { archetype: 'Beastmaster' } }
@@ -53,7 +53,7 @@ it('restricts Beastmaster Warden variants without restricting Ranger or legacy f
       const offered = eligibleFeats(catalog, c, slot, { includeUnmetPrerequisites })
       expect(offered).toContain(initiate)
       expect(offered).not.toContain(advanced)
-      expect(offered).toContain(legacy)
+      expect(offered).not.toContain(legacy)
       expect(offered).toContain(trance)
     }
     const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={catalog} categories={['archetype']} save={() => {}}
@@ -61,6 +61,7 @@ it('restricts Beastmaster Warden variants without restricting Ranger or legacy f
     expect(render()).toContain('Initiate Warden (Heal Companion)')
     expect(render()).toContain('Initiate Warden (Magic Hide)')
     expect(render()).not.toContain('Initiate Warden (Gravity Weapon)')
+    expect(render()).not.toContain('Heal Animal')
     updateSettings({ disableBeastmasterWardenSpells: false })
     expect(featChoiceOptions(initiate.name, c, catalog, slot.key)).toEqual(['Gravity Weapon', 'Heal Companion', 'Magic Hide'])
     expect(eligibleFeats(catalog, c, slot, { includeUnmetPrerequisites: true })).toContain(advanced)
@@ -502,13 +503,15 @@ it('requests selected legacy Champion oaths alongside remastered Pathfinder feat
   }
   await fetchAonHits('pf2e', fetchFn)
   expect(queries.feat).toMatchObject({ bool: { filter: [{ term: { category: 'feat' } }], must_not: expect.arrayContaining([
-    { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219', 'feat-1669'] } }] } },
+    { bool: { filter: [{ exists: { field: 'remaster_id' } }], must_not: [{ ids: { values: ['feat-219', 'feat-220', 'feat-1669'] } }] } },
   ]) } })
   expect(queries.spell).toEqual({ bool: { filter: [{ term: { category: 'spell' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
   expect(mapAonHit({ _id: 'feat-219', _source: { category: 'feat', name: 'Dragonslayer Oath', url: '/Feats.aspx?ID=219' } }, 'pf2e')?.data.url)
     .toBe('https://2e.aonprd.com/Feats.aspx?ID=219&NoRedirect=1')
   expect(mapAonHit({ _id: 'feat-1669', _source: { category: 'feat', name: 'Esoteric Oath', url: '/Feats.aspx?ID=1669' } }, 'pf2e')?.data.url)
     .toBe('https://2e.aonprd.com/Feats.aspx?ID=1669&NoRedirect=1')
+  expect(mapAonHit({ _id: 'feat-220', _source: { category: 'feat', name: 'Fiendsbane Oath', url: '/Feats.aspx?ID=220' } }, 'pf2e')?.data.url)
+    .toBe('https://2e.aonprd.com/Feats.aspx?ID=220&NoRedirect=1')
   await fetchAonHits('sf2e', fetchFn)
   expect(queries.feat).toEqual({ bool: { filter: [{ term: { category: 'feat' } }], must_not: [{ exists: { field: 'remaster_id' } }] } })
 })

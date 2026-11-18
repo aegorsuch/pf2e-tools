@@ -4,6 +4,7 @@ import { armorModifications } from './inventorArmor'
 
 export const INVENTOR_ARMOR_ID = 'granted-armor:inventor'
 export const HARDWOOD_ARMOR_ID = 'granted-armor:hardwood'
+export const ARMIGER_ARMOR_ID = 'granted-armor:ardent-armiger'
 export const INVENTOR_SUITS = ['Power Suit', 'Subterfuge Suit'] as const
 export const isGrantedArmor = (id: string) => id.startsWith('granted-armor:')
 export const canWearWithAttachedArmor = (armor: OwnedArmor, body?: ContentEntry) =>
@@ -39,6 +40,19 @@ const armorEntry = (id: string, name: string, data: ContentEntry['data'], traits
   id, name, kind: 'armor', systems: ['pf2e'], source: 'official', level: 0, traits, description,
   data: { armor_category: 'Medium', ...data }, effects: [], updatedAt: 1,
 })
+
+export function armigerArmorEntry(c: Character, ranks: Record<string, number>): ContentEntry | undefined {
+  if (!c.systems.includes('pf2e') || !c.feats.some(feat => feat.name === 'Ardent Armiger' && featTakenLevel(feat) <= c.level)
+    || !ranks.Heavy && !ranks.Medium) return undefined
+  const heavy = ranks.Heavy > 0
+  return armorEntry(ARMIGER_ARMOR_ID, heavy ? 'Hellknight Plate' : 'Hellknight Breastplate', {
+    armor_category: heavy ? 'Heavy' : 'Medium', armor_group: 'Plate', ac: heavy ? 6 : 4,
+    dex_cap: heavy ? 0 : 1, check_penalty: heavy ? -3 : -2, speed_penalty: heavy ? -10 : -5,
+    strength: heavy ? 4 : 3, bulk: heavy ? 4 : 2, fixed_material: 'Orichalcum', granted_by: 'Ardent Armiger',
+    url: `https://2e.aonprd.com/Armor.aspx?ID=${heavy ? 25 : 23}`,
+  }, heavy ? ['Bulwark', 'Uncommon'] : ['Uncommon'],
+  'Hellknight armor granted by Ardent Armiger. Ownership and material are locked; fundamental runes improve with character level.')
+}
 
 export function grantedArmorEntries(c: Character, innovation = c.subclass): ContentEntry[] {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)

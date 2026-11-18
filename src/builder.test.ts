@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import type { Character, ContentEntry } from './types'
@@ -2234,6 +2234,74 @@ it('grants Infernal Bulwark order resistance and heavy armor training', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 12, feats }
   expect(featChoiceOptions('Hellknight Dedication', c, [dedication], '')).toContain('Order of the Crucible')
   expect(armorRanks(c, []).Heavy).toBeGreaterThanOrEqual(1)
+})
+
+it.each([['Untrained', 1], ['Trained', 2], ['Expert', 2], ['Master', 3], ['Legendary', 4]])(
+  'limits Infernal Bulwark improvement from %s heavy armor without reducing higher proficiency', (rank, expected) => {
+    const c: Character = { ...base, className: 'Fighter', level: 12,
+      feats: [{ name: 'Infernal Bulwark', type: 'Archetype Feat', level: 10 }] }
+    expect(armorRanks(c, [entry('class', 'Fighter', { heavy_armor_proficiency: rank })]).Heavy).toBe(expected)
+  })
+
+it('applies Bulwark resistance only while armored and keeps damaging Reflex benefits conditional', () => {
+  const armor = entry('armor', 'Breastplate', { armor_category: 'Medium' })
+  const c: Character = { ...base, level: 13, abilities: { ...base.abilities, dex: 12 },
+    feats: [{ name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Pyre' },
+      { name: 'Infernal Bulwark', type: 'Archetype Feat', level: 10 }],
+    armors: [{ id: 'a', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }] }
+  expect(resistances(c, [armor])).toContainEqual({ damage: 'Fire', value: 6, source: 'Infernal Bulwark (Order of the Pyre)' })
+  const reflex = savingThrowBreakdown(c, [armor], 'Reflex', { Reflex: 1 })
+  expect(reflex.total).toBe(16)
+  expect(reflex.notes?.join(' ')).toContain('+18 on damaging Reflex saves')
+  const unarmored = { ...c, armors: [] }
+  expect(resistances(unarmored, [armor]).some(resistance => resistance.source.startsWith('Infernal Bulwark'))).toBe(false)
+  expect(savingThrowBreakdown(unarmored, [armor], 'Reflex').notes?.join(' ') ?? '').not.toContain('Infernal Bulwark')
+  expect(savingThrowBreakdown({ ...c, abilities: { ...c.abilities, dex: 20 } }, [armor], 'Reflex', { Reflex: 1 }).notes?.join(' '))
+    .toContain('+20 on damaging Reflex saves')
+})
+
+it.each(['pf2e', 'sf2e'] as const)('applies Hellknight Mobility to %s heavy armor only when Strength is met', system => {
+  const armor: ContentEntry = { ...entry('armor', 'Test Plate',
+    { armor_category: 'Heavy', strength: 4, speed_penalty: -10 }), systems: [system] }
+  const c: Character = { ...base, systems: [system], level: 10, abilities: { ...base.abilities, str: 16 },
+    feats: [{ name: 'Hellknight Mobility', type: 'Archetype Feat', level: 8 }],
+    armors: [{ id: 'a', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }] }
+  expect(starfinderArmorPenalties(c, [armor]).speed).toBe(-10)
+  const strong = { ...c, abilities: { ...c.abilities, str: 18 } }
+  expect(starfinderArmorPenalties(strong, [armor]).speed).toBe(0)
+  expect(starfinderArmorPenalties({ ...strong, feats: [] }, [armor]).speed).toBe(-5)
+  expect(speed({ ...strong, feats: [...strong.feats, { name: 'Unburdened Iron', type: 'Ancestry Feat', level: 1 }] }, [armor]))
+    .toBe(speed(strong, [armor]) + 5)
+})
+
+it('offers Cross-Training order variants once each while preserving edits and spell or domain variants', () => {
+  const dedication = { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Pyre' }
+  const cross = entry('feat', 'Order Cross-Training', { repeatable: true }, 12, ['Archetype'])
+  const c: Character = { ...base, level: 20, feats: [dedication,
+    { name: cross.name, type: 'Archetype Feat', level: 12, slot: 'bonus:12:0', choice: 'Order of the Gate: Arcane' }] }
+  const options = featChoiceOptions(cross.name, c, [cross], 'bonus:14:0')!
+  expect(options).toContain('Order of the Godclaw: Protection')
+  expect(options).toContain('Order of the Chain')
+  expect(options.some(choice => choice.startsWith('Order of the Gate'))).toBe(false)
+  expect(options).not.toContain('Order of the Pyre')
+  expect(featChoiceOptions(cross.name, c, [cross], 'bonus:12:0')).toContain('Order of the Gate: Arcane')
+  expect(eligibleFeats([cross], c, { key: 'bonus:14:0', category: 'bonus', level: 14 })).toContain(cross)
+})
+
+it('applies Nail movement bonuses to every Speed exactly once and gates Scourge vision by active ownership', () => {
+  const c: Character = { ...base, level: 12, feats: [
+    { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Nail' },
+    { name: 'Order Training', type: 'Archetype Feat', level: 8 },
+    { name: 'Natural Swimmer', type: 'Ancestry Feat', level: 1 },
+  ] }
+  const before = movementSpeeds(c, [])
+  const active = { ...c, activeFeatEffects: ['Trailblazing Stride'] }
+  expect(movementSpeeds(active, []).map(movement => movement.feet)).toEqual(before.map(movement => movement.feet + 10))
+  expect(movementSpeeds({ ...active, feats: [] }, []).find(movement => movement.name === 'Land')?.feet).toBe(25)
+  const scourge = { ...c, feats: [{ ...c.feats[0], choice: 'Order of the Scourge' },
+    { name: 'Advanced Order Training', type: 'Archetype Feat', level: 12 }], activeFeatEffects: ['Seek Injustice'] }
+  expect(senses(scourge, [])).toContainEqual(expect.objectContaining({ source: 'Seek Injustice' }))
+  expect(senses({ ...scourge, level: 11 }, []).some(sense => sense.source === 'Seek Injustice')).toBe(false)
 })
 
 it('gives Hellknight Dedication mental resistance of 1 plus its archetype feats', () => {

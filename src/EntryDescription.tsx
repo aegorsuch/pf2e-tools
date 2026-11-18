@@ -8,6 +8,8 @@ import { adoptedAncestryText, featDisplayName } from './featChoices'
 import { equipmentDisplayName } from './equipmentGroups'
 import { spellDCText } from './builder'
 import { getSettings } from './settings'
+import { hellknightTrainingBenefit } from './hellknight'
+import { domainSpellDescription } from './featSpells'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 function featIndex(entries: ContentEntry[]) {
@@ -62,6 +64,8 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
     && getSettings().singleAnimalCompanion
     ? originalDescription?.replace(/\bone of your (animal )?companions\b/gi, 'your $1companion')
       .replace(/\byour companions['\u2019]/gi, "your companion's") : originalDescription
+  const training = character && active?.kind === 'feat'
+    ? hellknightTrainingBenefit(character, active.name, history.length ? undefined : choice) : undefined
   return (
     <>
       <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${title(name, entry)}` : undefined}
@@ -89,6 +93,10 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
           {' '}Access does not replace prerequisites.
         </p>}
         <p>{text(description || 'Description unavailable. Sync Archives of Nethys content to load it.')}</p>
+        {training && <p><strong>{training.name} ({training.order}):</strong> {training.description}
+          {training.name === 'Dedication to the Five' && training.choice && character && entries
+            && <> {text(domainSpellDescription(character, entries, 'Domain Initiate', training.choice))}</>}
+        </p>}
         {!history.length && descriptionNote && <p>{text(descriptionNote)}</p>}
         {!!leads?.length && <p>Leads to: {leads.map((link, index) => <span key={`${link.url}:${index}`}>
           {index > 0 && ', '}{link.target

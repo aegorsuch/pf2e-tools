@@ -22,6 +22,7 @@ import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineInt
 import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './builder'
 import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { witchwarperParadox } from './witchwarper'
+import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 export const COMMON_LORES = [...new Set([
@@ -119,6 +120,12 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
     <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
       title="Apply favored terrain benefits only while you are in that terrain." />
+    {hellknightTrainingBenefits(c).some(benefit => benefit.name === 'Trailblazing Stride') && <>
+      <label><input type="checkbox" aria-label="Trailblazing Stride active" checked={hellknightBenefitActive(c, 'Trailblazing Stride')}
+        onChange={event => save(featEffectChange(c, 'Trailblazing Stride', event.target.checked))} /> Trailblazing Stride</label>
+      <SourceNote source="Trailblazing Stride"
+        note="Ignore land-based difficult terrain caused by plants, fungi, or uneven ground. Activate +10-foot circumstance bonus to all Speeds after successfully Recalling Knowledge about an animal, beast, fungus, or plant; ends with your turn." />
+    </>}
     {!!activeFeatsNamed(c, "Implement's Flight").length && <FeatEffectToggle c={c} save={save} name="Implement's Flight" label="Implement's Flight active"
       title="Fly while holding your implement." />}
     {isFeatEffectActive(c, 'Favored Terrain') && !terrain
@@ -378,6 +385,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : 'Imitate Fauna'}
             note={athleticRush ? '+2 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
           {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
+          {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
+            <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
           {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
             && <SourceNote source="Tangible Object" note={`${conditionalTotal(1)} against illusions and holograms (+1 circumstance).`} />}
           {isSoldier(c) && c.level >= 3 && ['Athletics', 'Intimidation'].includes(s.name)

@@ -1,7 +1,7 @@
 import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, proficiencyBonus, signed, type Ability } from './builder'
 import { beastmasterAbilities } from './beastmasterFeats'
 import { companionProgressionStage, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
-import type { Character, ContentEntry } from './types'
+import type { Character, CompanionEquipment, ContentEntry } from './types'
 import { getSettings } from './settings'
 
 const SIZES = ['Tiny', 'Small', 'Medium', 'Large', 'Huge', 'Gargantuan']
@@ -25,6 +25,66 @@ export const CONSTRUCT_COMPANION_ENTRY: ContentEntry = {
 
 export const isCompanionEquipmentItem = (entry: ContentEntry) =>
   entry.kind === 'item' && String(entry.data.item_subcategory ?? '').toLowerCase() === 'companion items'
+
+const bardingCatalogs = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+const bardingFamily = (name: string) => /^Barding(?: \((?:Light|Heavy)[^)]*\))?$/i.test(name)
+  ? 'Barding' : name.replace(/^Greater (?=Anti-Dragon Barding$)/i, '')
+
+export function bardingOptions(entries: ContentEntry[], level: number, size = 'Medium'): ContentEntry[] {
+  let catalog = bardingCatalogs.get(entries)
+  if (!catalog) {
+    catalog = new Map()
+    for (const entry of entries) {
+      if (entry.deleted || entry.kind !== 'item' || !entry.systems.includes('pf2e')) continue
+      const family = bardingFamily(entry.name)
+      if (family !== 'Barding' && (!isCompanionEquipmentItem(entry)
+        || !/\bbarding\b/i.test(`${entry.name} ${entry.data.usage ?? ''}`) || /\bsaddle\b/i.test(entry.name))) continue
+      const group = catalog.get(family) ?? []
+      group.push(entry)
+      catalog.set(family, group)
+    }
+    bardingCatalogs.set(entries, catalog)
+  }
+  return [...catalog].flatMap(([family, group]) => {
+    const root = [...group].sort((a, b) => a.id.localeCompare(b.id))[0]
+    return (['Light', 'Heavy'] as const).map(weight => {
+      const large = SIZES.indexOf(size) >= SIZES.indexOf('Large')
+      const grades = [...group].sort((a, b) => a.level - b.level
+        || Number(b.data.price !== undefined) - Number(a.data.price !== undefined))
+      const available = grades.filter(entry => entry.level <= level)
+      const source = family === 'Barding'
+        ? group.find(entry => entry.name === `Barding (${weight}; ${large ? 'Large' : 'Small or Medium'})`) ?? root
+        : family === 'Anti-Dragon Barding' ? available.sort((a, b) => b.level - a.level
+          || Number(b.data.price !== undefined) - Number(a.data.price !== undefined))[0] ?? grades[0] : root
+      const heavy = weight === 'Heavy'
+      const ac = heavy ? 3 : 1, dexCap = heavy ? 3 : 5, strength = heavy ? 5 : 3
+      let description = source.description
+      if (family !== 'Barding') description = description.replace(/\b(?:light|heavy) barding\b/gi, `${weight.toLowerCase()} barding`)
+      if (family === 'Anti-Dragon Barding') {
+        description = description.split(/\n\n(?:Greater )?Anti-Dragon Barding\n/)[0]
+        if (level >= 12) description = description.replace(/\+2 item bonus/g, '+4 item bonus').replace(/\b1d4 piercing/g, '3d4 piercing')
+      }
+      return {
+        ...source, id: `${root.id}:barding:${weight.toLowerCase()}`, name: `${family} (${weight})`,
+        level: family === 'Barding' ? heavy ? large ? 3 : 2 : 0 : source.level,
+        description: `${description}\n\n${weight} barding: +${ac} item bonus to AC; Dexterity cap +${dexCap}; check penalty ${heavy ? -3 : -1}; Speed penalty ${heavy ? -10 : -5} feet; Strength +${strength}.`,
+        data: { ...source.data, item_subcategory: 'Companion Items', barding_family: family, barding_type: weight,
+          ac, dex_cap: dexCap, check_penalty: heavy ? -3 : -1, speed_penalty: heavy ? -10 : -5, strength,
+          ...(family === 'Barding' ? { price: (heavy ? 2500 : 1000) * (large ? 2 : 1), bulk: (heavy ? 4 : 2) * (large ? 2 : 1) } : {}),
+        },
+      }
+    })
+  }).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function equippedBarding(entries: ContentEntry[], level: number, item: CompanionEquipment, size?: string) {
+  const options = bardingOptions(entries, level, size)
+  const selected = options.find(entry => entry.id === item.entryId)
+  if (selected) return selected
+  const legacy = entries.find(entry => entry.id === item.entryId && !entry.deleted)
+  return legacy && options.find(entry => entry.data.barding_family === bardingFamily(legacy.name)
+    && entry.data.barding_type === (/\bheavy\b/i.test(legacy.name) ? 'Heavy' : 'Light'))
+}
 
 export function minionFerocity(c: Character) {
   if (!activeFeatsNamed(c, 'Ferocious Beasts').length) return undefined
@@ -76,10 +136,10 @@ export const COMPANION_SPECS: Record<string, Spec> = {
   Auspice: { mods: { int: 2, wis: 1 }, set: { Religion: 2 } },
   Bully: { mods: { str: 1, cha: 3 }, bump: ['Athletics', 'Intimidation'] },
   Daredevil: { mods: { dex: 1 }, set: { Acrobatics: 3, Unarmored: 2 } },
-  'Deep Diver': { mods: { con: 1 }, set: { Athletics: 3 } },
+  'Deep Diver': { mods: { con: 1 }, set: { Athletics: 3, Barding: 2 } },
   Racer: { mods: { con: 1 }, set: { Fortitude: 4 }, speed: 10 },
   Shade: { mods: {}, set: { Unarmored: 2 } },
-  'Steadfast Strider': { mods: { str: 1 }, set: {} },
+  'Steadfast Strider': { mods: { str: 1 }, set: { Barding: 2 } },
   Tracker: { mods: { wis: 1 }, bump: ['Survival'] },
   'Wildfire Scorcher': { mods: { dex: 1 }, set: { Reflex: 4, Unarmored: 2 } },
   'Wind Chaser': { mods: { dex: 1 }, set: { Acrobatics: 3, Reflex: 4, Unarmored: 2 }, speed: 20 },
@@ -139,7 +199,10 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   if (!entry) return undefined
   const { mature, advanced, specializations } = advancement
   const auspice = specializations.includes('Auspice')
-  const servitor = auspice ? c.companions?.find((companion) => companion.id === companionId)?.auspiceServitor : undefined
+  const championSanctification = c.className === 'Champion' ? deitySanctification(c, entries).selected : undefined
+  const servitor = !auspice ? undefined : c.className === 'Champion'
+    ? championSanctification === 'Holy' ? 'Celestial' : championSanctification === 'Unholy' ? 'Fiend' : 'Monitor'
+    : c.companions?.find((companion) => companion.id === companionId)?.auspiceServitor
   const auspiceTraits = servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []
   const firstCompanion = companionId !== undefined && companionId === c.companions?.[0]?.id
   const has = (name: string) => firstCompanion && c.feats.some((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
@@ -149,7 +212,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ? c.companions?.find(companion => companion.id === companionId)?.paleHorse : undefined
   const paleHorse = paleHorseChoice && ['Fire', 'Poison', 'Void'].includes(paleHorseChoice)
     ? { damage: paleHorseChoice, resistance: 10, retaliation: `${c.level >= 20 ? 3 : c.level >= 16 ? 2 : 1}d6` } : undefined
-  const sanctification = c.className === 'Champion' && has('Faithful Steed') ? deitySanctification(c, entries).selected : undefined
+  const sanctification = has('Faithful Steed') ? championSanctification : undefined
   const steedTraits = sanctification ? [sanctification] : []
   const grantedTraits = [...new Set([...auspiceTraits, ...steedTraits, ...(celestialMount ? ['Celestial'] : []), ...(fiendishMount ? ['Fiend'] : [])])]
   const listedTraits = entry.traits.filter(trait => trait.toLowerCase() !== 'mount')
@@ -238,6 +301,13 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     return feet ? [{ source, feet }] : []
   })
   const companion = c.companions?.find(companion => companion.id === companionId)
+  const barding = companion?.equipment?.Barding && c.systems.includes('pf2e')
+    ? equippedBarding(entries, level, companion.equipment.Barding, size) : undefined
+  const bardingCheckPenalty = barding && mods.str < num(barding.data.strength) ? num(barding.data.check_penalty) : 0
+  const bardingSpeedPenalty = barding ? Math.min(0, num(barding.data.speed_penalty)
+    + (mods.str >= num(barding.data.strength) ? 5 : 0)) : 0
+  const antiDragon = barding?.data.barding_family === 'Anti-Dragon Barding'
+    ? { source: barding.name, bonus: level >= 12 ? 4 : 2, damage: level >= 12 ? '3d4' : '1d4' } : undefined
   const shoes = companion?.equipment?.Shoes
   const shoesEntry = shoes && entries.find(entry => entry.id === shoes.entryId && isCompanionEquipmentItem(entry))
   const horseshoes = shoesEntry && HORSESHOE_EFFECTS[shoesEntry.name]
@@ -246,6 +316,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
+  if (bardingSpeedPenalty) speed = speed.replace(/(\d+)\s*(feet|ft)\b/gi,
+    (_, feet: string, unit: string) => `${Math.max(+feet > 0 ? 5 : 0, +feet + bardingSpeedPenalty)} ${unit}`)
   if (apex) speed = speed.replace(/(\d+)\s*(feet|ft)\b/gi, (_, feet: string, unit: string) => `${+feet + 10} ${unit}`)
   if ((auspice || celestialMount || fiendishMount) && !getSettings().championFormNoFlight) {
     const land = Number(/^\d+/.exec(speed)?.[0])
@@ -270,13 +342,21 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ? `Aspect of ${aspect.name}: ${signed(current + aspect.bonus)} to ${aspect.conditional[skill]} (+${aspect.bonus} status bonus).` : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
-    .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0),
-      note: aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.` : aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis')),
-      noteSource: aspect?.skills.includes(k) || aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
+    .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
+      + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0),
+      note: [
+        aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.`
+          : aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
+        bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? `${signed(bardingCheckPenalty)} check penalty (${barding?.name}).` : undefined,
+      ].filter(Boolean).join(' ') || undefined,
+      noteSource: [
+        aspect?.skills.includes(k) || aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
+        bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? barding?.name : undefined,
+      ].filter(Boolean).join(', ') || undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const horseshoeNote = horseshoes && shoesEntry
-    ? `${shoesEntry.name}: ${signed(total('Athletics', 'str') + (aspect?.skills.includes('Athletics') ? aspect.bonus : 0) + horseshoes.athletics)} to Athletics checks to High Jump and Long Jump (+${horseshoes.athletics} circumstance bonus); when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
+    ? `${shoesEntry.name}: ${signed(total('Athletics', 'str') + (aspect?.skills.includes('Athletics') ? aspect.bonus : 0) + bardingCheckPenalty + horseshoes.athletics)} to Athletics checks to High Jump and Long Jump (+${horseshoes.athletics} circumstance bonus); when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
     : undefined
   const companionSkills = skills.map(skill => skill.name === 'Athletics' && horseshoeNote && shoesEntry
     ? { ...skill, note: [skill.note, horseshoeNote].filter(Boolean).join(' '),
@@ -288,11 +368,14 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
   return {
     entry, level, size, naturalSize, mods, hp, speed,
-    speedBonuses: [...speedBonuses, ...(apex ? [{ source: 'Apex Companion (status)', feet: 10 }] : [])],
+    speedBonuses: [...speedBonuses, ...(bardingSpeedPenalty && barding ? [{ source: barding.name, feet: bardingSpeedPenalty }] : []),
+      ...(apex ? [{ source: 'Apex Companion (status)', feet: 10 }] : [])],
     skills: companionSkills, attacks, traits, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
     apex, temporaryHp: apex ? 30 : 0, reach: apex ? 15 : undefined, ignoreAllDifficultTerrain: apex,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
-    ac: 10 + mods.dex + prof('Unarmored') + magicHide - clumsy,
+    ac: 10 + (barding ? Math.min(mods.dex, num(barding.data.dex_cap)) + proficiencyBonus(rank.Barding ?? 1, level) + num(barding.data.ac)
+      : mods.dex + prof('Unarmored')) + magicHide - clumsy,
+    barding, bardingCheckPenalty, antiDragon,
     magicHide, canopyCrawler, enlarge, clumsy, stealthyCompanion,
     ferocity: type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
       ? minionFerocity(c) : undefined,

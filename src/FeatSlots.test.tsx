@@ -24,6 +24,24 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+it('shows advanced order benefits and persists Seek Injustice daily uses without changing selected feats', () => {
+  const training: ContentEntry = { id: 'advanced-order', name: 'Advanced Order Training', level: 12, systems: ['pf2e'],
+    kind: 'feat', source: 'official', traits: ['Archetype'], data: {}, description: 'Gain your greater order benefit.', effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), level: 12, feats: [
+    { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0', choice: 'Order of the Scourge' },
+    { name: training.name, type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' },
+  ] }
+  const original = JSON.stringify(c.feats)
+  const tree = () => FeatSlots({ c, entries: [training], categories: ['archetype'], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('Seek Injustice (Order of the Scourge)')
+  findButton(tree(), 'Spend Seek Injustice use')!()
+  expect(c.dailyAbilityUses).toEqual({ 'Seek Injustice': true })
+  expect(renderToStaticMarkup(tree())).toContain('Restore Seek Injustice use')
+  findButton(tree(), 'Restore Seek Injustice use')!()
+  expect(c.dailyAbilityUses).toEqual({ 'Seek Injustice': false })
+  expect(JSON.stringify(c.feats)).toBe(original)
+})
+
 it('counts a fixed background feat once and includes temporary granted skill feats', () => {
   const assurance: ContentEntry = { id: 'assurance-count', systems: ['pf2e', 'sf2e'], kind: 'feat', source: 'official',
     name: 'Assurance', level: 1, traits: ['General', 'Skill'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
@@ -1553,7 +1571,7 @@ it('alphabetizes selected feat rows within each level without moving their slot 
     .map(match => match[0]).filter(row => row.includes('L01 Class'))
   expect(levelOneRows).toHaveLength(3)
   expect(levelOneRows.at(-1)).toContain('Add L01 Class feat slot')
-  for (const row of levelOneRows.slice(0, -1)) expect(row).not.toContain('Add L01 Class feat slot')
+  for (const row of levelOneRows) expect(row).toContain('Add L01 Class feat slot')
   expect(markup.slice(markup.indexOf('>Aardvark</button>'))).toContain('Add L02 Class feat slot')
 })
 
@@ -1566,6 +1584,7 @@ it('lists class-granted Shield Block as a non-removable general feat', () => {
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feature]} save={() => {}} categories={['general']} />)
   expect(markup).toContain('>Shield Block <small>(Champion)</small></button>')
   expect(markup).toContain('automatic-feat-row')
+  expect(markup).toContain('aria-label="Add L01 General feat slot"')
   expect(markup).not.toContain('aria-label="Remove Shield Block"')
   expect(c.feats).toEqual([])
 
@@ -1579,6 +1598,7 @@ it('lists class-granted Shield Block as a non-removable general feat', () => {
     entries={[feature, feat, background]} save={() => {}} categories={['general']} />)
   expect(backgroundMarkup).not.toContain('automatic-feat-row')
   expect(backgroundMarkup).toContain('background-feat-row')
+  expect(backgroundMarkup).toContain('aria-label="Add L01 General feat slot"')
 })
 
 it('alphabetizes skill feats from all sources within their acquisition level', () => {
@@ -1964,7 +1984,7 @@ it('adds slots beside a selected feat and removes only the chosen extra slot', (
   expect(c.entryIds).toEqual(['first', 'third'])
 })
 
-it('keeps the level-one add button when a granted Champion feat sorts before the standard slot', () => {
+it('keeps add buttons beside every selected feat and the final empty slot, including granted Champion slots', () => {
   let c: Character = {
     ...emptyRanger(), className: 'Champion', level: 1,
     feats: [
@@ -1974,16 +1994,16 @@ it('keeps the level-one add button when a granted Champion feat sorts before the
     ],
   }
   const tree = () => FeatSlots({ c, entries: [], save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
-  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(2)
   const add = findButton(tree(), 'Add L01 Class feat slot')
   expect(add).toBeDefined()
   add!()
   expect(plannedSlots(c).filter(slot => slot.category === 'class' && slot.level === 1).map(slot => slot.key))
     .toContain('class:1:1')
   expect(c.feats.map(feat => feat.name)).toEqual(['Natural Ambition', 'Alpha', 'Zeal'])
-  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(3)
   c = { ...c, extraSlots: [], feats: c.feats.filter(feat => feat.slot !== 'class:1:0') }
-  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
+  expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(2)
   c = { ...c, dismissedFeatSlots: ['class:1:0'] }
   expect(renderToStaticMarkup(tree()).match(/aria-label="Add L01 Class feat slot"/g)).toHaveLength(1)
   findButton(tree(), 'Add L01 Class feat slot')!()

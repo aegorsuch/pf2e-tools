@@ -137,6 +137,7 @@ export interface SpellGrant {
   tradition?: string
   rank?: number
   heightened?: boolean
+  fixedRank?: boolean
   frequency?: string
   condition?: string
   shared?: boolean
@@ -351,6 +352,7 @@ export interface Character {
   spentFocusPoints?: number[]
   innateSpellUses?: Record<string, number | number[]>
   itemSpellUses?: Record<string, number[]>
+  dailyAbilityUses?: Record<string, boolean>
   animalFeature?: 'Cat Eyes' | 'Claws' | 'Fish Tail' | 'Jaws' | 'Owl Eyes' | 'Wings'
   animalFeatures?: NonNullable<Character['animalFeature']>[]
   untamedShiftEffects?: ('Claws' | 'Jaws' | 'Elemental' | 'Plant' | 'Wings')[]

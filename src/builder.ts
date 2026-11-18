@@ -1,9 +1,10 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { GODCLAW_DOMAINS, ORDER_TRAINING_FEATS, hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
-import { automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
+import { armigerArmorEntry, automaticArmorFundamentals, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
@@ -749,7 +750,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   return available.length ? Math.min(...available) : entry.level
 }
 
-const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed']]
+const EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed'],
+  ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']]
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
 const MECHANIC_EXOCORTEXES = ['Drone', 'Mine', 'Turret']
 
@@ -843,6 +845,14 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           return casting ??= !!classSpellcasting(character, entries)?.traditions.length
             || features.some(feature => /^(?!(?:expert|master|legendary) )[\w &'’-]+ spellcasting$/i.test(feature.name))
         },
+        get classFocusSpells() {
+          const focus = getFocus()
+          return character.className === 'Champion' && focus.points > 0
+            || features.some(feature => /\byou (?:start with|gain) a focus pool\b/i.test(feature.description))
+            || character.feats.some(feat => (feat.slot?.startsWith('class:') || !feat.slot && feat.type === 'Class Feat')
+              && (focus.spells.some(spell => spell.source === feat.name)
+                || hasWardenChoice(feat) && grantedWardenSpells({ ...character, feats: [feat] }, entries).length > 0))
+        },
         get maxSpellRank() {
           return Math.max(value.spellcastingClassFeature ? Math.ceil(character.level / 2) : 0,
             ...getInnateGrants().filter(grant => !grant.entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
@@ -857,6 +867,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         championBlessings: championBlessings(character),
         sanctification: character.className === 'Champion' && byName(entries, 'deity', character.deity)?.data.sanctification
           ? deitySanctification(character, entries).selected ?? 'None' : undefined,
+        deityAlignment: character.deity
+          ? String(byName(entries, 'deity', character.deity)?.data.alignment ?? '') || undefined : 'None',
         legacyTenetsOfGood: character.className === 'Champion' && !!character.legacyTenetsOfGood,
         get devotionSpells() { return getFocus().spells.map(spell => spell.name) },
         championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
@@ -903,6 +915,20 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = check(entry)
     const missing = [...result.missing, ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    for (const group of EXCLUSIVE_FEAT_GROUPS) {
+      if (!group.includes(entry.name)) continue
+      const other = character.feats.find(feat => feat.name !== entry.name && group.includes(feat.name))
+      if (other) missing.push(`${entry.name} cannot be combined with ${other.name}`)
+    }
+    if (ORDER_TRAINING_FEATS.includes(entry.name)) {
+      const selected = c.feats.find(feat => feat.slot === slot.key && feat.name === entry.name)
+      const choices = orderTrainingChoices(character, entry.name)
+      if (entry.name !== 'Order Cross-Training' && !hellknightTrainingBenefit(character, entry.name)) {
+        missing.push('a Hellknight order with a published order benefit')
+      } else if (entry.name === 'Order Cross-Training' && selected?.choice && !choices?.includes(selected.choice)) {
+        missing.push('a different unused Hellknight order')
+      }
+    }
     if (/^Side by Side(?: \(|$)/.test(entry.name) && archetypesOf(entry).includes('Beastmaster')
       && character.feats.some(feat => feat.name === 'Beastmaster Dedication')) {
       for (let i = missing.length - 1; i >= 0; i--) if (missing[i] === 'Animal Companion') missing.splice(i, 1)
@@ -994,7 +1020,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     for (const { entry, traits } of featIndex(entries)) {
       if (!traits.has(classTrait) || traits.has('archetype') || !entry.systems.some(system => c.systems.includes(system))) continue
       const stage = companionProgressionStage(entry.name)
-      if (stage) classCompanionStages.add(stage)
+      if (stage && (stage !== 'specialized' || entry.data.repeatable === true
+        || isRepeatableCompanionSpecialization(entry.name))) classCompanionStages.add(stage)
     }
   }
   const orderExplorerOk = availableOrders(c).length > 0
@@ -1023,6 +1050,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(generalOnly && traits.has('skill'))
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
+      && !(slot.category === 'archetype' && e.source === 'official' && e.name === 'Heal Animal'
+        && archetypesOf(e).includes('Beastmaster'))
       && !(getSettings().disableBeastmasterWardenSpells && slot.category === 'archetype'
         && archetypesOf(e).includes('Beastmaster') && hasWardenChoice(e)
         && !wardenSpellOptions(e, entries, true).length)
@@ -1058,7 +1087,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Exocortex Experimenter' || !taken.has(e.name) || slot.level >= 12
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Expansive Array' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
-      && (!['Exocortex Experimenter', 'Convertible Chassis'].includes(e.name)
+      && (!['Exocortex Experimenter', 'Convertible Chassis', 'Order Cross-Training'].includes(e.name)
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
@@ -1083,8 +1112,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
-        || (e.data.repeatable === true || !['Auspicious Mount', 'Peerless Mascot Companion'].includes(e.name)
-          && isCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
+        || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
@@ -1285,6 +1313,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return ['Ambusher', 'Bully', 'Daredevil', 'Racer', 'Tracker', 'Wrecker'].filter(option => !used.has(option))
   }
   if (name === 'Hellknight Dedication') return HELLKNIGHT_ORDERS
+  if (ORDER_TRAINING_FEATS.includes(name)) return orderTrainingChoices(c, name, index)
   if (name === 'Deflective Plating') return ['Acid', 'Bludgeoning', 'Cold', 'Electricity', 'Fire', 'Piercing', 'Slashing', 'Sonic']
   const ancestryGrant = ancestrySkillGrant(c, entries, name)
   if (SKILLS_TAB_ANCESTRY_GRANTS.includes(name) && (index < 0 || !c.feats[index].choice)) return undefined
@@ -1633,8 +1662,7 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const armor = worn && armorEntry(c, entries, worn.name)
   if (armor && !armor.systems.includes('sf2e')) {
     const base = Math.min(0, num(armor.data.speed_penalty))
-    const meets = num(armor.data.strength) > 0 && (c.abilities.str >= num(armor.data.strength)
-      || isSoldier(c) && c.abilities.con >= num(armor.data.strength))
+    const meets = armorStrengthMet(c, armor)
     const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
     const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
     return { check: 0, speed: Math.min(0, base + iron + (meets ? mobility ? 10 : 5 : 0)) }
@@ -1644,7 +1672,9 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const check = meets ? 0 : Math.min(0, num(armor.data.check_penalty))
   const penalty = Math.min(0, num(armor.data.speed_penalty))
   const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
-  return { check, speed: meets ? heavyConstruction ? 0 : Math.min(0, penalty + 5) : penalty }
+  const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
+  const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
+  return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + (meets ? mobility ? 10 : 5 : 0)) }
 }
 
 type MovementSpeedOptions = { includeUncannyDash?: boolean }
@@ -1671,6 +1701,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
   ].sort((a, b) => b.feet - a.feet)[0]
   const armorPenalty = starfinderArmorPenalties(c, entries).speed
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
+    ...(hellknightBenefitActive(c, 'Trailblazing Stride') ? [{ source: 'Trailblazing Stride (circumstance)', feet: 10 }] : []),
     ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
     ...(status.feet > 0 ? [status] : []),
     ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : []),
@@ -1711,7 +1742,8 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
 }
 
 export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
-  const land = speed(c, entries, options)
+  const trailblazing = hellknightBenefitActive(c, 'Trailblazing Stride') ? 10 : 0
+  const land = speed(trailblazing ? { ...c, activeFeatEffects: c.activeFeatEffects?.filter(name => name !== 'Trailblazing Stride') } : c, entries, options)
   const dash = !!options.includeUncannyDash && activeFeatsNamed(c, 'Uncanny Dash').length > 0
     && activeFeatsNamed(c, 'Gg-os Frame').length > 0
   const armorPenalty = starfinderArmorPenalties(c, entries).speed
@@ -1796,6 +1828,8 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   }
   return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()]
     .sort((a, b) => a.name.localeCompare(b.name)).map(({ name, feet, source }) => ({ name, feet, source }))]
+    .map(movement => trailblazing ? { ...movement, feet: movement.feet + trailblazing,
+      source: [movement.source, 'Trailblazing Stride (+10 circumstance)'].filter(Boolean).join(', ') } : movement)
 }
 
 function parryBonusFromText(text: string) {
@@ -2630,6 +2664,9 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const addVision = (value: string, source: string) => {
     if (!out.some((sense) => sense.value.toLowerCase() === value.toLowerCase())) out.push({ value, source })
   }
+  if (hellknightBenefitActive(c, 'Seek Injustice')) {
+    addVision('See through up to 5 feet of stone, wood, or similar barriers (not metal; 1 minute)', 'Seek Injustice')
+  }
   for (const heritage of characterHeritages(c, entries)) {
     const vision = heritage.data.grants_vision ?? heritage.data.vision
     if (typeof vision === 'string' && vision) addVision(vision, heritage.name)
@@ -2712,6 +2749,11 @@ export function senses(c: Character, entries: ContentEntry[]) {
 const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string }[] = []
+  for (const benefit of hellknightTrainingBenefits(c)) {
+    if (benefit.name === 'Dedication to the Five' && benefit.choice && GODCLAW_DOMAINS.includes(benefit.choice)) {
+      grants.push({ name: 'Domain Initiate', source: benefit.feat.name, level: featTakenLevel(benefit.feat), choice: benefit.choice })
+    }
+  }
   let shieldFeatures = shieldFeaturesCache.get(entries)
   if (!shieldFeatures) {
     shieldFeatures = entries.filter(feature => feature.kind === 'classFeature' && feature.name === 'Shield Block' && !feature.deleted)
@@ -3170,7 +3212,6 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
   if (rogueRackets(c, entries).some(racket => racket === 'Ruffian' || racket === 'Avenger')) ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
   if (activeFeatsNamed(c, 'Animal Skin').length) ranks.Unarmored = Math.max(ranks.Unarmored, 2)
-  if (activeFeatsNamed(c, 'Infernal Bulwark').length) ranks.Heavy = Math.max(ranks.Heavy + (ranks.Heavy ? 1 : 0), 1)
   const granted = new Set<typeof ARMOR_GROUPS[number]>()
   for (const { feat } of proficiencyFeats(c, 'Armor Proficiency')) {
     const prior = baseArmorRanks({ ...c, level: featTakenLevel(feat) }, entries)
@@ -3178,6 +3219,13 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
     if (!group) continue
     granted.add(group)
     ranks[group] = Math.max(ranks[group], c.level >= 13 ? 2 : 1)
+  }
+  const bulwark = activeFeatsNamed(c, 'Infernal Bulwark')[0]
+  if (bulwark) {
+    const level = featTakenLevel(bulwark)
+    const prior = armorRanks({ ...c, level,
+      feats: c.feats.filter(feat => feat.name !== bulwark.name && featTakenLevel(feat) <= level) }, entries).Heavy
+    ranks.Heavy = Math.max(ranks.Heavy, prior ? 2 : 1)
   }
   return ranks
 }
@@ -3207,14 +3255,18 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   }
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
+  const total = parts.reduce((sum, part) => sum + part.value, 0)
+  const bulwark = name === 'Reflex' && armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'
+    : armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined)
   const notes = [
-    ...(name === 'Reflex' && armor && activeFeatsNamed(c, 'Infernal Bulwark').length
-      ? ['Infernal Bulwark gives your armor the bulwark trait: +3 instead of Dexterity on damaging Reflex saves.'] : []),
+    ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(bulwark
+      ? [`${bulwark}: ${signed(total + Math.max(0, 3 - abilityMod(c.abilities.dex)))} on damaging Reflex saves using your armor's bulwark trait (+3 instead of Dexterity, if higher).`] : []),
     ...(researched ? [`Researched Spell Resistance: +1 circumstance against ${researched.traditions.join(', ')} spells and effects; circumstance bonuses do not stack.`] : []),
     ...(activeFeatsNamed(c, 'Hazard Finder').length
       ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),
   ]
-  return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes: notes.length ? notes : undefined }
+  return { total, parts, notes: notes.length ? notes : undefined }
 }
 
 export function defenseSummary(c: Character, entries: ContentEntry[]) {
@@ -3519,6 +3571,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
   if (activeFeatsNamed(c, 'Hazard Finder').length)
     notes.push('Hazard Finder +1 circumstance against hazard attacks; circumstance bonuses do not stack.')
+  notes.push(...hellknightSkillNotes(c, 'AC').map(benefit => `${benefit.name}: ${benefit.description} Circumstance bonuses do not stack.`))
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }
 }
 
@@ -4045,9 +4098,18 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>) {
 }
 
 export function armorEntry(c: Character, entries: ContentEntry[], name: string) {
-  return grantedArmorEntries(c, selectedSubclass(c, entries)).find(entry => entry.name === name)
+  return characterArmorGrants(c, entries).find(entry => entry.name === name)
     ?? byName(entries, 'armor', name)
     ?? namedArmorEntries(entries).find(entry => entry.name === name)
+}
+
+function characterArmorGrants(c: Character, entries: ContentEntry[]) {
+  const grants = grantedArmorEntries(c, selectedSubclass(c, entries))
+  if (activeFeatsNamed(c, 'Ardent Armiger').length) {
+    const armor = armigerArmorEntry(c, armorRanks(c, entries))
+    if (armor) grants.push(armor)
+  }
+  return grants
 }
 
 const namedArmorCache = new WeakMap<ContentEntry[], ContentEntry[]>()
@@ -4065,7 +4127,7 @@ export function shieldEntry(entries: ContentEntry[], name: string) {
 }
 
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
-  const grants = grantedArmorEntries(c, selectedSubclass(c, entries))
+  const grants = characterArmorGrants(c, entries)
   const attached = grants.find(entry => entry.data.attached)
   const best = c.armors ? undefined : c.equipment
     .map((g) => armorEntry(c, entries, g.name))
@@ -4102,14 +4164,13 @@ function scaledMaterial(material: OwnedWeapon['material'], level: number, equipm
 }
 
 export function effectiveArmor(c: Character, entries: ContentEntry[], armor: OwnedArmor): OwnedArmor {
-  const grant = grantedArmorEntries(c, selectedSubclass(c, entries)).find(entry => entry.id === armor.id)
+  const grant = characterArmorGrants(c, entries).find(entry => entry.id === armor.id)
   if (grant) {
     const automatic = automaticArmorFundamentals(c.level, grant)
     const runesAllowed = grant.data.runes_allowed !== false
     const fundamentalsAllowed = runesAllowed && !grant.systems.includes('sf2e')
     return { ...armor, name: grant.name, material: grant.data.fixed_material === 'Duskwood'
-      ? scaledMaterial('Duskwood', c.level, 'Armor') : grant.data.attached
-      ? grant.data.fixed_material === 'Orichalcum' ? 'Orichalcum' : undefined
+      ? scaledMaterial('Duskwood', c.level, 'Armor') : grant.data.fixed_material === 'Orichalcum' ? 'Orichalcum' : grant.data.attached ? undefined
       : scaledMaterial(armor.material, c.level, 'Armor'),
       potency: fundamentalsAllowed ? Math.max(armor.potency, automatic.potency) : 0,
       resilient: fundamentalsAllowed ? Math.max(armor.resilient, automatic.resilient) : 0,

@@ -499,7 +499,9 @@ it('applies Martial Experience to untrained weapons and grants training at level
 it('grants Soaring Armor flight only while the innovation is worn and the feat is active', () => {
   const c: Character = { ...base, level: 14, className: 'Inventor', subclass: 'Armor',
     feats: [feat('Soaring Armor', 14)] }
-  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Soaring Armor' })
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 20, source: 'Soaring Armor' })
+  expect(movementSpeeds({ ...c, abilities: { ...c.abilities, str: 16 } }, []))
+    .toContainEqual({ name: 'Fly', feet: 25, source: 'Soaring Armor' })
   expect(movementSpeeds({ ...c, level: 13 }, []).some(speed => speed.name === 'Fly')).toBe(false)
   expect(movementSpeeds({ ...c, armors: [
     { id: 'granted-armor:inventor', name: 'Power Suit', worn: false, potency: 0, resilient: 0, runes: [] },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
-import { companionAdvancement, companionStats, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
+import { bardingOptions, companionAdvancement, companionStats, equippedBarding, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -21,6 +21,85 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('offers light/heavy base and specific barding with stable automatically scaling anti-dragon choices', () => {
+    const item = (name: string, level = 0, description = '', data: ContentEntry['data'] = {}) =>
+      ({ ...entry('item', name, { item_subcategory: 'Companion Items', ...data }, level), description })
+    const items = [
+      item('Barding', 0, 'Armor for animals.', { item_subcategory: '', item_category: 'Adventuring Gear' }),
+      item('Waverider Barding', 5, 'This light barding has wave patterns.'),
+      item('Barding of the Zephyr', 10, 'This light barding has wind patterns.'),
+      item('Anti-Dragon Barding', 6, 'This light barding grants a +2 item bonus and deals 1d4 piercing damage.', { price: 20000 }),
+      item('Greater Anti-Dragon Barding', 12, 'This light barding grants a +2 item bonus and deals 1d4 piercing damage.', { price: 170000 }),
+      item('Barding Saddle', 7),
+    ]
+    const before = JSON.stringify(items)
+    const low = bardingOptions(items, 11)
+    expect(low.map(entry => entry.name)).toEqual([
+      'Anti-Dragon Barding (Heavy)', 'Anti-Dragon Barding (Light)', 'Barding (Heavy)', 'Barding (Light)',
+      'Barding of the Zephyr (Heavy)', 'Barding of the Zephyr (Light)', 'Waverider Barding (Heavy)', 'Waverider Barding (Light)',
+    ])
+    const dragon = low.find(entry => entry.name === 'Anti-Dragon Barding (Heavy)')!
+    const saved = { entryId: dragon.id, name: dragon.name, qty: 1 }
+    expect(dragon).toMatchObject({ level: 6, data: { price: 20000 } })
+    const scaled = equippedBarding(items, 12, saved)!
+    expect(scaled).toMatchObject({ id: dragon.id, name: dragon.name, level: 12, data: { price: 170000 } })
+    expect(scaled.description).toContain('heavy barding grants a +4 item bonus and deals 3d4 piercing damage.')
+    expect(equippedBarding(items, 11, saved)?.level).toBe(6)
+    expect(equippedBarding(items, 12, { entryId: items[4].id, name: items[4].name, qty: 1 })?.name)
+      .toBe('Anti-Dragon Barding (Light)')
+    expect(equippedBarding([], 12, saved)).toBeUndefined()
+    expect(bardingOptions(items, 12, 'Large').find(entry => entry.name === 'Barding (Heavy)'))
+      .toMatchObject({ level: 3, data: { price: 5000, bulk: 8 } })
+    expect(JSON.stringify(items)).toBe(before)
+  })
+
+  it('applies barding armor, Dexterity caps and Strength-dependent penalties only to its wearer', () => {
+    const barding = entry('item', 'Barding', {}, 0)
+    const entries = [bear, barding]
+    const variants = bardingOptions(entries, 4)
+    const wear = (weight: string): Character => {
+      const selected = variants.find(entry => entry.data.barding_type === weight)!
+      return { ...base, companions: [
+        { id: 'bear', type: 'Bear', name: '', equipment: { Barding: { entryId: selected.id, name: selected.name, qty: 1 } } },
+        { id: 'other', type: 'Bear', name: '' },
+      ] }
+    }
+    const light = companionStats(wear('Light'), entries, 'Bear')!
+    expect(light.ac).toBe(19)
+    expect(light.speed).toBe('35 feet')
+    expect(light.bardingCheckPenalty).toBe(0)
+    const heavy = companionStats(wear('Heavy'), entries, 'Bear')!
+    expect(heavy.ac).toBe(21)
+    expect(heavy.speed).toBe('25 feet')
+    expect(heavy.skills.find(skill => skill.name === 'Athletics')).toMatchObject({ bonus: 6, noteSource: 'Barding (Heavy)' })
+    expect(heavy.skills.find(skill => skill.name === 'Acrobatics')?.bonus).toBe(5)
+    expect(heavy.fortitude).toBe(light.fortitude)
+    const stronger = companionStats(wear('Heavy'), entries, 'Bear', { mature: true, advanced: 'Savage', specializations: [] })!
+    expect(stronger.mods.dex).toBe(4)
+    expect(stronger.ac).toBe(22)
+    expect(stronger.speed).toBe('30 feet')
+    expect(stronger.bardingCheckPenalty).toBe(0)
+    expect(companionStats(wear('Heavy'), entries, 'Bear',
+      { mature: true, advanced: 'Savage', specializations: ['Steadfast Strider'] })?.ac).toBe(24)
+    const other = companionStats(wear('Heavy'), entries, 'Bear', undefined, 'other')!
+    expect(other.ac).toBe(18)
+    expect(other.speed).toBe('35 feet')
+    expect(other.barding).toBeUndefined()
+  })
+
+  it.each([11, 12])('scales anti-dragon conditional defenses and retaliation at level %i without boosting all saves', level => {
+    const barding = entry('item', 'Anti-Dragon Barding', { item_subcategory: 'Companion Items' }, 6)
+    const entries = [bear, barding]
+    const c: Character = { ...base, level, companions: [
+      { id: 'bear', type: 'Bear', name: '', equipment: { Barding: { entryId: barding.id, name: barding.name, qty: 1 } } },
+    ] }
+    const stats = companionStats(c, entries, 'Bear')!
+    const unarmored = companionStats({ ...c, companions: [{ ...c.companions![0], equipment: undefined }] }, entries, 'Bear')!
+    expect(stats.antiDragon).toEqual({ source: 'Anti-Dragon Barding (Light)', bonus: level >= 12 ? 4 : 2, damage: level >= 12 ? '3d4' : '1d4' })
+    expect(stats.fortitude).toBe(unarmored.fortitude)
+    expect(stats.reflex).toBe(unarmored.reflex)
+  })
+
   it.each([
     { native: [], expected: ['Animal', 'Minion'] },
     { native: ['Uncommon'], expected: ['Animal', 'Minion', 'Uncommon'] },
@@ -372,10 +451,15 @@ describe('animal companions', () => {
       ['Fiend', ['Fiend', 'Unholy'], 'Holy 5'],
       ['Monitor', ['Monitor'], undefined],
     ] as const) {
-      const saved: Character = JSON.parse(JSON.stringify({ ...c, companions: [{ ...c.companions![0], auspiceServitor }] }))
-      const changed = companionStats(saved, [bear], 'Bear', companionAdvancement(saved), 'mount')!
+      const deity = entry('deity', 'Patron', { sanctification: 'holy, unholy' })
+      const saved: Character = JSON.parse(JSON.stringify({ ...c, deity: deity.name,
+        sanctification: auspiceServitor === 'Celestial' ? 'Holy' : auspiceServitor === 'Fiend' ? 'Unholy' : undefined,
+        companions: [{ ...c.companions![0], auspiceServitor: 'Celestial' }] }))
+      const before = JSON.stringify(saved)
+      const changed = companionStats(saved, [bear, deity], 'Bear', companionAdvancement(saved), 'mount')!
       expect(changed).toMatchObject({ auspiceTraits: [...traits], weakness, hp: normal.hp + extraHP + (weakness ? 5 : 0) })
       expect(changed.traits).toEqual(expect.arrayContaining(['Animal', 'Minion', ...traits]))
+      expect(JSON.stringify(saved)).toBe(before)
     }
     expect(companionStats(c, [bear], 'Bear', undefined, 'other')!.auspice).toBe(false)
     expect(companionAdvancement({ ...c, level: 15 }).specializations).not.toContain('Auspice')
@@ -465,19 +549,23 @@ describe('animal companions', () => {
     expect(at(1, 'Insight').perceptionNote).toContain('Seek')
   })
 
-  it('allows Beastmaster Heal Animal alongside Heal Companion but not another Heal Animal feat', () => {
+  it('hides legacy Beastmaster Heal Animal while preserving saved selections and native healing', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const heal = entry('feat', 'Heal Animal', { archetype: 'Beastmaster' }, 4, ['Archetype'])
     const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
     const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
-    expect(eligibleFeats([dedication, heal], c, slot)).toContain(heal)
+    expect(eligibleFeats([dedication, heal], c, slot)).not.toContain(heal)
     const owned = { ...c, feats: [...c.feats, feat('Heal Companion', undefined, 'class:2:0')] }
-    expect(eligibleFeats([dedication, heal], owned, slot)).toContain(heal)
+    expect(eligibleFeats([dedication, heal], owned, slot)).not.toContain(heal)
     const companionSpell = entry('spell', 'Heal Companion', { warden_spell_tier: 'Initiate' }, 1, ['Focus', 'Ranger'])
     const warden = { ...c, className: 'Ranger', feats: [...c.feats, feat('Initiate Warden', 'Heal Companion', 'class:2:0')] }
-    expect(eligibleFeats([dedication, heal, companionSpell], warden, slot)).toContain(heal)
+    expect(eligibleFeats([dedication, heal, companionSpell], warden, slot)).not.toContain(heal)
+    const native = entry('feat', 'Heal Animal', {}, 4, ['Druid'])
+    expect(eligibleFeats([native], c, { ...slot, category: 'class' })).toContain(native)
     const duplicate = { ...owned, feats: [...owned.feats, feat('Heal Animal', undefined, 'class:2:1')] }
+    const before = JSON.stringify(duplicate)
     expect(eligibleFeats([dedication, heal], duplicate, slot)).not.toContain(heal)
+    expect(JSON.stringify(duplicate)).toBe(before)
   })
 
   it('hides the Ranger or Druid copy of Side by Side once either is owned', () => {
@@ -496,6 +584,8 @@ describe('animal companions', () => {
     const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
     expect(eligibleFeats([dedication, ranger, druid], c, slot)).toEqual([druid])
     expect(eligibleFeats([dedication, druid, ranger], { ...c, className: 'Champion' }, slot)).toEqual([ranger])
+    expect(eligibleFeats([dedication, druid, ranger], { ...c, className: 'Champion' }, slot,
+      { includeUnmetPrerequisites: true })).toEqual([ranger])
     const saved = { ...c, className: 'Champion', feats: [...c.feats, feat(druid.name, undefined, slot.key)] }
     expect(eligibleFeats([dedication, ranger, druid], saved, slot)).toEqual([druid])
     expect(eligibleFeats([dedication, ranger, druid], { ...c, className: 'Ranger' },
@@ -570,7 +660,10 @@ describe('animal companions', () => {
     try {
       updateSettings({ singleAnimalCompanion: true })
       const offered = eligibleFeats(entries, c, slot)
-      for (const option of archetype) expect(offered).not.toContain(option)
+      for (const option of archetype) {
+        expect(offered.includes(option)).toBe(['Champion', 'Commander'].includes(className)
+          && ['Specialized Beastmaster Companion', 'Specialized Mount'].includes(option.name))
+      }
       expect(offered).toContain(sideBySide)
       for (const option of native) expect(eligibleFeats(entries, c, { ...slot, category: 'class' })).toContain(option)
       expect(eligibleFeats(entries, { ...c, level: 4 }, { ...slot, level: 4, key: 'archetype:4:0' })).not.toContain(archetype[0])
@@ -590,6 +683,36 @@ describe('animal companions', () => {
     const foreign: ContentEntry = { ...entry('feat', 'Loyal Warhorse', {}, 6, ['Champion']), systems: ['sf2e'] }
     const c: Character = { ...base, className: 'Champion', feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
     expect(eligibleFeats([dedication, mature, foreign], c, { key: 'archetype:4:0', category: 'archetype', level: 4 })).toContain(mature)
+  })
+
+  it.each([
+    ['Champion', 'Imposing Destrier', 'Auspicious Mount', 'Auspice'],
+    ['Commander', 'Battle-Hardened Companion', 'Peerless Mascot Companion', 'Ambusher'],
+  ])('lets %s supplement its single native specialization up to three total', (className, advancedName, nativeName, choice) => {
+    const previous = getSettings().singleAnimalCompanion
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const advanced = entry('feat', advancedName, {}, 10, [className])
+    const native = entry('feat', nativeName, { prerequisite: advancedName }, 16, [className])
+    const specialized = entry('feat', 'Specialized Beastmaster Companion',
+      { archetype: 'Beastmaster', prerequisite: 'Incredible Beastmaster Companion', repeatable: true }, 14, ['Archetype'])
+    const entries = [dedication, advanced, native, specialized]
+    const c: Character = { ...base, className, level: 20, feats: [
+      feat(dedication.name, undefined, 'archetype:2:0'), feat(advanced.name, 'Nimble', 'class:10:0'),
+      feat(native.name, choice, 'class:16:0'),
+    ] }
+    const slot = { key: 'archetype:20:0', category: 'archetype' as const, level: 20 }
+    try {
+      updateSettings({ singleAnimalCompanion: true })
+      expect(eligibleFeats(entries, c, slot)).toContain(specialized)
+      const second = { ...c, feats: [...c.feats, feat(specialized.name, 'Racer', 'archetype:18:0')] }
+      expect(eligibleFeats(entries, second, slot)).toContain(specialized)
+      const third = { ...second, feats: [...second.feats, feat(specialized.name, undefined, 'archetype:20:1')] }
+      expect(eligibleFeats(entries, third, slot)).not.toContain(specialized)
+      expect(eligibleFeats(entries, third, { ...slot, key: 'archetype:20:1' })).toContain(specialized)
+      expect(specializationOptions(second, [], second.feats.length)).not.toContain(choice)
+      expect(specializationOptions(second, [], second.feats.length)).not.toContain('Racer')
+      expect(eligibleFeats(entries, third, { ...slot, category: 'class' })).not.toContain(native)
+    } finally { updateSettings({ singleAnimalCompanion: previous }) }
   })
 
   it('offers Beastmaster Side by Side at level 14 without requiring the Druid Animal Companion feat', () => {

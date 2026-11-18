@@ -104,6 +104,8 @@ export function selectedFeatEntry(c: Character, entries: ContentEntry[], name: s
 
 export const isCompanionAdvancement = (name: string) => /^Incredible (?:(?:Animal |Beastmaster )?Companion|Mount)(?: \(|$)/.test(name) || ['Imposing Destrier', 'Battle-Hardened Companion'].includes(name)
 export const isCompanionSpecialization = (name: string) => /^Specialized (?:(?:Animal |Beastmaster )?Companion|Mount)(?: \(|$)/.test(name) || ['Auspicious Mount', 'Peerless Mascot Companion'].includes(name)
+export const isRepeatableCompanionSpecialization = (name: string) =>
+  isCompanionSpecialization(name) && !['Auspicious Mount', 'Peerless Mascot Companion'].includes(name)
 export const companionProgressionStage = (name: string) =>
   /^(?:Mature (?:Animal|Beastmaster) Companion|Impressive Mount)(?: \(|$)/.test(name)
     || ['Loyal Warhorse', 'Battle-Tested Companion'].includes(name) ? 'mature'

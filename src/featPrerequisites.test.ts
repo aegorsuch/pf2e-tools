@@ -21,6 +21,40 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('qualifies Signifer through class spellcasting or class focus spells, not item or archetype-only spells', () => {
+  const signifer = entry('feat', 'Hellknight Signifer Preferment', { prerequisite: 'you have a spellcasting class feature.' })
+  const wizard = entry('class', 'Wizard', { tradition: 'Arcane' })
+  const focus = entry('feat', 'Class Focus Magic', { grants_focus_spells: 'Test Focus' })
+  const entries = [signifer, wizard, focus]
+  for (const className of ['Wizard', 'Druid', 'Champion']) {
+    expect(featPrerequisiteChecker({ ...base, className }, entries)(signifer)).toEqual({ missing: [], manual: [] })
+  }
+  const ranger = { ...base, className: 'Ranger', feats: [selected(focus.name, 1)] }
+  expect(featPrerequisiteChecker(ranger, entries)(signifer)).toEqual({ missing: [], manual: [] })
+  expect(check('spellcasting class feature', ranger, entries).missing).toHaveLength(1)
+  const fromArchetype = { ...ranger, className: 'Fighter',
+    feats: [{ ...ranger.feats[0], type: 'Archetype Feat', slot: 'archetype:2:0' }] }
+  for (const c of [fromArchetype, { ...base, className: 'Fighter', spells: [{ name: 'Light', rank: 1, cantrip: true }] }]) {
+    expect(featPrerequisiteChecker(c, entries)(signifer).missing).toHaveLength(1)
+  }
+  expect(featPrerequisiteChecker({ ...ranger, feats: [selected(focus.name, 8)] }, entries, 6)(signifer).missing).toHaveLength(1)
+})
+
+it.each(['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant'])(
+  'makes %s exclusive with both other preferment paths, even when browsing unmet prerequisites', name => {
+    const feats = ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']
+      .map(name => entry('feat', name, {}, 6, ['Archetype']))
+    const c = { ...base, feats: [{ ...selected(name, 6), slot: 'bonus:6:0' }] }
+    const slot = { key: 'bonus:12:0', category: 'bonus' as const, level: 12 }
+    for (const includeUnmetPrerequisites of [false, true]) {
+      expect(eligibleFeats(feats, c, slot, { includeUnmetPrerequisites })).toEqual([])
+    }
+    expect(featSelectionPrerequisiteChecker(c, feats, { ...slot, key: 'bonus:6:0', level: 6 })(feats.find(feat => feat.name === name)!).missing).toEqual([])
+    for (const other of feats.filter(feat => feat.name !== name)) {
+      expect(featSelectionPrerequisiteChecker(c, feats, slot)(other).missing.join(' ')).toContain(`cannot be combined with ${name}`)
+    }
+  })
+
 it('does not recalculate spell grants for unrelated feat and attribute prerequisites', () => {
   const c: Character = { ...base, feats: [selected('Orc Ferocity')] }
   const grants = vi.spyOn(featSpells, 'grantedFeatSpells')
@@ -385,6 +419,41 @@ it('checks champion sanctification and devotion spell prerequisites from actual 
   const sworn = { ...c, feats: [selected('Oath', 2)] }
   expect(check('Any feat with the oath trait', sworn, [oath], 1).missing).toHaveLength(1)
   expect(check('Any feat with the oath trait', sworn, [oath], 2).missing).toEqual([])
+})
+
+it.each(['Champion', 'Cleric'])('checks Holy Light against the %s deity rather than personal sanctification', className => {
+  const holyLight = entry('feat', 'Holy Light', { prerequisite: 'you follow a good-aligned deity' }, 10, ['Champion', 'Cleric'])
+  const c: Character = { ...base, className, deity: 'Patron', sanctification: 'Holy' }
+  const slot = { key: 'class:10:0', category: 'class' as const, level: 10 }
+  for (const alignment of ['LG', 'NG', 'CG', 'LE', 'NE', 'CE', 'LN', 'N', 'CN']) {
+    const deity = entry('deity', c.deity!, { alignment, sanctification: 'holy, unholy' })
+    const entries = [deity, holyLight]
+    const allowed = alignment.endsWith('G')
+    expect(featPrerequisiteChecker(c, entries)(holyLight))
+      .toEqual({ missing: allowed ? [] : ['you follow a good-aligned deity'], manual: [] })
+    expect(eligibleFeats(entries, c, slot).includes(holyLight)).toBe(allowed)
+    expect(eligibleFeats(entries, { ...c, sanctification: undefined }, slot).includes(holyLight)).toBe(allowed)
+  }
+  expect(featPrerequisiteChecker({ ...c, deity: undefined }, [holyLight])(holyLight).missing)
+    .toEqual(['you follow a good-aligned deity'])
+  expect(featPrerequisiteChecker(c, [holyLight])(holyLight))
+    .toEqual({ missing: [], manual: ['you follow a good-aligned deity'] })
+})
+
+it('requires Fiendsbane Oath and its good tenets for Banishing Blow', () => {
+  const oath = entry('feat', 'Fiendsbane Oath', { prerequisite: 'tenets of good' }, 2, ['Champion', 'Oath'])
+  const blow = entry('feat', 'Banishing Blow', { prerequisite: oath.name }, 20, ['Champion'])
+  const entries = [oath, blow]
+  const c: Character = { ...base, className: 'Champion', subclass: 'Justice', feats: [selected(oath.name, 2)] }
+  const slot = { key: 'class:20:0', category: 'class' as const, level: 20 }
+  expect(eligibleFeats(entries, c, slot)).toContain(blow)
+  expect(featPrerequisiteChecker({ ...c, feats: [] }, entries)(blow))
+    .toEqual({ missing: [oath.name], manual: [] })
+  for (const subclass of ['Obedience', 'Tyrant']) {
+    const tyrant = { ...c, subclass, legacyTenetsOfGood: true }
+    expect(featPrerequisiteChecker(tyrant, entries)(blow)).toEqual({ missing: ['tenets of good'], manual: [] })
+    expect(eligibleFeats(entries, tyrant, slot)).not.toContain(blow)
+  }
 })
 
 it.each([

@@ -28,6 +28,7 @@ export interface PrerequisiteFacts {
   abilities: Character['abilities']
   senses: string[]
   spellcastingClassFeature?: boolean
+  classFocusSpells?: boolean
   canCastSpells?: boolean
   maxSpellRank?: number
   focusPool?: boolean
@@ -40,6 +41,7 @@ export interface PrerequisiteFacts {
   constructCompanion?: boolean
   championBlessings?: string[]
   sanctification?: 'Holy' | 'Unholy' | 'None'
+  deityAlignment?: string
   legacyTenetsOfGood?: boolean
   devotionSpells?: string[]
   championReaction?: 'protective' | 'offensive'
@@ -255,7 +257,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       if (!heritages.length || heritages.every(heritage => ['ancient elf', 'seer elf', 'whisper elf', 'half-elf', 'aiuvarin'].includes(heritage))) return missing(text)
       return manual(text)
     }
-    if (name === 'spellcasting class feature') return resultFor(!!facts.spellcastingClassFeature, text)
+    if (/^(?:you have a )?spellcasting class feature$/.test(name)) return resultFor(!!facts.spellcastingClassFeature
+      || trail.has('hellknight signifer preferment') && !!facts.classFocusSpells, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
@@ -279,6 +282,14 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.className === 'Champion' && ['holy', 'unholy', "you aren't unholy"].includes(name)) {
       if (!facts.sanctification) return manual(text)
       return resultFor(name === "you aren't unholy" ? facts.sanctification !== 'Unholy' : key(facts.sanctification) === name, text)
+    }
+    const deityAlignment = /^you (?:follow|worship) a (good|evil)-aligned deity$/.exec(name)
+    if (deityAlignment) {
+      if (!facts.deityAlignment) return manual(text)
+      const allowed = deityAlignment[1] === 'good'
+        ? ['lg', 'ng', 'cg', 'good', 'lawful good', 'neutral good', 'chaotic good']
+        : ['le', 'ne', 'ce', 'evil', 'lawful evil', 'neutral evil', 'chaotic evil']
+      return resultFor(allowed.includes(key(facts.deityAlignment)), text)
     }
     if (facts.className === 'Champion' && name === "champion's aura") return resultFor(level >= 1, text)
     if (facts.className === 'Champion' && name === 'devotion spells') return resultFor(level >= 1, text)
