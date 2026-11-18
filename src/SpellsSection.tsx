@@ -578,6 +578,25 @@ function RitualsContent({ c, entries, save }: SectionProps) {
   const saveManualNames = (names: string[]) => save({ rituals: names })
   return <section className="innate-spell-group">
     <h5>Rituals</h5>
+    {ritualNames.length > 0 && <>
+      <SpellColumns />
+      <ul>{ritualNames.map(name => {
+        const key = name.toLowerCase()
+        const entry = rituals.find(ritual => ritual.name.toLowerCase() === key)
+        const sources = [...(grantSources.get(key) ?? [])].sort((a, b) => a.localeCompare(b))
+        const manuallyAdded = manualNames.some(ritual => ritual.toLowerCase() === key)
+        return <SpellItem c={c} key={key} name={entry?.name ?? name} entry={entry} rank={entry?.level ?? 0}
+          actionControls={<ActionIcon entry={entry} showOther />}
+          note={sources.length > 0 || !entry ? <>
+            {sources.length > 0 && <span>Granted by {sources.join(', ')}</span>}
+            {!entry && <span role="status">Ritual data unavailable.</span>}
+          </> : undefined}>
+          {manuallyAdded && sources.length === 0 && <button type="button" className="spell-remove"
+            aria-label={`Remove ritual ${entry?.name ?? name}`} title="Remove" onClick={() => confirmRemoval(`ritual "${name}"`,
+              () => saveManualNames(manualNames.filter(ritual => ritual.toLowerCase() !== key)))}>×</button>}
+        </SpellItem>
+      })}</ul>
+    </>}
     {rituals.length > 0
       ? <SearchableSelect label="Add ritual" aria-label="Add ritual" value="" optionCount={rituals.length}
         onChange={event => {
@@ -589,23 +608,6 @@ function RitualsContent({ c, entries, save }: SectionProps) {
           .map(ritual => <option key={ritual.id} value={ritual.name}>{ritual.name} (Ritual {ritual.level})</option>)}
       </SearchableSelect>
       : <small role="status">Ritual data unavailable. Sync Archives of Nethys content to load rituals.</small>}
-    {ritualNames.length > 0 && <ul>{ritualNames.map(name => {
-      const key = name.toLowerCase()
-      const entry = rituals.find(ritual => ritual.name.toLowerCase() === key)
-      const sources = [...(grantSources.get(key) ?? [])].sort((a, b) => a.localeCompare(b))
-      const manuallyAdded = manualNames.some(ritual => ritual.toLowerCase() === key)
-      return <li className="innate-spell-row" key={key}>
-        <div className="innate-spell-name">
-          {entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" entries={entries} character={c} />
-            : <b>{name}</b>}
-          {sources.length > 0 && <small>Granted by {sources.join(', ')}</small>}
-          {!entry && <small role="status">Ritual data unavailable.</small>}
-        </div>
-        {manuallyAdded && sources.length === 0 && <button type="button" className="spell-remove"
-          aria-label={`Remove ritual ${entry?.name ?? name}`} title="Remove" onClick={() => confirmRemoval(`ritual "${name}"`,
-            () => saveManualNames(manualNames.filter(ritual => ritual.toLowerCase() !== key)))}>×</button>}
-      </li>
-    })}</ul>}
   </section>
 }
 
@@ -820,7 +822,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   return (
       <div className="character-section-content">
       <DevotionSpellChoice c={c} entries={entries} save={save} />
-      <RitualsContent c={c} entries={entries} save={save} />
       {casting && <>
       <div className="row">
         {!casting.ability && c.className !== 'Witchwarper' && <label>Casting ability{' '}
@@ -1045,6 +1046,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           })}</ul>
         </section>)}
       </div>}
+      <RitualsContent c={c} entries={entries} save={save} />
       {items.length > 0 && <section className="innate-spell-group">
         <h5>Item Spells</h5>
         <SpellColumns />

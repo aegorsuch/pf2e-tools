@@ -561,7 +561,7 @@ it('sorts innate ranks numerically ascending within each tradition', () => {
   const spells = ['Primal Spell 10', 'Primal Spell 2', 'Primal Spell 1', 'Arcane Spell'].map(name => entry(name, 'spell'))
   const c: Character = { ...base, level: 20, feats: sources.map(source => taken(source.name)) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[...sources, ...spells]} save={() => {}} />)
-  const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'))
+  const innate = markup.slice(markup.indexOf('<b>Innate Spells</b>'), markup.indexOf('<h5>Rituals</h5>'))
   expect([...innate.matchAll(/<h5>([^<]+)<\/h5>/g)].map(match => match[1])).toEqual([
     'Arcane Spell Rank 10', 'Primal Spell Rank 1', 'Primal Spell Rank 2', 'Primal Spell Rank 10',
   ])
@@ -1694,18 +1694,31 @@ it('omits granting-source helper text when a focus spell has no resolved casting
   expect(markup).not.toContain('Check granting source for spellcasting attribute and DC.')
 })
 
-it('shows feat-granted and manually tracked rituals in a separate Spells section', () => {
+it('shows feat-granted and manual rituals as spell rows below focus and innate spells', () => {
   const creator = mapAonHit({ _id: 'feat-9105', _source: { name: 'Undead Creator', category: 'feat', level: 2,
     markdown: '<title>Undead Creator</title>\n\n---\n\nYou learn the [_create undead_](/Rituals.aspx?ID=117) ritual.' } }, 'pf2e')!
   const createUndead = mapAonHit({ _id: 'ritual-117', _source: { name: 'Create Undead', category: 'ritual', level: 2,
-    trait: ['Uncommon', 'Unholy'], url: '/Rituals.aspx?ID=117', markdown: '**Cast** 1 day\n\n---\n\nRitual rules.' } }, 'pf2e')!
+    trait: ['Uncommon', 'Unholy'], actions: '1 day', range: 10, target: '1 dead creature',
+    url: '/Rituals.aspx?ID=117', markdown: '**Cast** 1 day\n\n---\n\nRitual rules.' } }, 'pf2e')!
   const awakenAnimal = entry('Awaken Animal', 'ritual')
-  const entries = [creator, createUndead, awakenAnimal]
+  const magic: ContentEntry = { ...entry('Test Magic', 'feat'), spellGrants: [
+    { kind: 'focus', spells: ['Test Focus'] }, { kind: 'innate', spells: ['Fear'], tradition: 'Occult' },
+  ] }
+  const entries = [creator, createUndead, awakenAnimal, magic, entry('Test Focus', 'spell', {}, ['Focus']), entry('Fear', 'spell')]
   const character: Character = { ...base, className: 'Necromancer', level: 2,
-    feats: [taken('Undead Creator', 2)], rituals: ['Awaken Animal'] }
+    feats: [taken('Undead Creator', 2), taken(magic.name)], rituals: ['Awaken Animal'] }
   const html = renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
-  expect(html).toContain('<h5>Rituals</h5>')
-  expect(html).toContain('Create Undead')
-  expect(html).toContain('Granted by Undead Creator')
-  expect(html).toContain('Awaken Animal')
+  const ritualHeading = html.indexOf('<h5>Rituals</h5>')
+  expect(ritualHeading).toBeGreaterThan(html.indexOf('<b>Focus Spells</b>'))
+  expect(ritualHeading).toBeGreaterThan(html.indexOf('<b>Innate Spells</b>'))
+  const rituals = html.slice(ritualHeading)
+  expect(rituals).toContain('class="spellbook-columns"')
+  expect(rituals).toContain('aria-haspopup="dialog">Create Undead</button>')
+  expect(rituals).toContain('Granted by Undead Creator')
+  expect(rituals).toContain('aria-haspopup="dialog">Awaken Animal</button>')
+  expect(rituals).toContain('<small>Range</small>10 feet')
+  expect(rituals).toContain('<small>Area/Targets</small>1 dead creature')
+  expect(rituals).toContain('1 day')
+  expect(rituals).toContain('aria-label="Remove ritual Awaken Animal"')
+  expect(rituals).not.toContain('aria-label="Remove ritual Create Undead"')
 })
