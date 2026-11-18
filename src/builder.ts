@@ -1794,6 +1794,9 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ...(features.includes('Wings') ? [atLandSpeed('Fly', 'Animal Feature')] : []),
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
+  if (characterHeritages(c, entries).some(heritage => heritage.name === 'Wetlander Lizardfolk')) {
+    movement.push(fixed('Swim', 15, 'Wetlander Lizardfolk'))
+  }
   if (characterHeritages(c, entries).some(heritage => heritage.name === 'Aquatic Elf')) {
     movement.push(fixed('Swim', 30, 'Aquatic Elf'))
   }
