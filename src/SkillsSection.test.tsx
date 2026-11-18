@@ -1371,7 +1371,7 @@ it('shows calculated armor specialization with its source and clickable full rul
     armors: [{ id: 'armor', name: armor.name, worn: true, potency: 3, resilient: 0, runes: [] }],
   }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger, armor, group, feat]} save={() => {}} part="defense" />)
-  expect(markup).toMatch(/Armor Specialization: Wood, 6 Piercing Damage<button[^>]*>\*<\/button> \(Wooden Breastplate via Skins of the Slain feat\)/)
+  expect(markup).toMatch(/Armor Specialization: Wood, 6 Piercing Damage<button[^>]*>\*<\/button>/)
   expect(markup).toContain(group.description)
   expect(markup).toContain('popover="auto"')
 })

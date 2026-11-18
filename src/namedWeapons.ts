@@ -4,6 +4,10 @@ const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Sp
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
 const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
 const BASES: Record<string, string[]> = {
+  "Horselord's Longbow": ['Composite Longbow'],
+  'Splithead Bow': ['Composite Longbow'],
+  "Hunter's Anthem": ['Composite Longbow'],
+  'Mammoth Bow': ['Composite Longbow'],
   Shadowpiercer: ["Dancer's Spear", 'Spear'],
   'Callooh Callay': ['Longsword', 'Shortsword', 'Bastard Sword'],
   'Blade of Fallen Stars': ['Gun Sword (Melee)', 'Gun Sword (Ranged)'],
@@ -132,12 +136,16 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         ...item.traits].map(trait => [trait.toLowerCase(), trait])).values()]
       const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',
         price: item.data.price ?? '', rarity: item.data.rarity ?? 'common', item_category: 'Weapons',
-        artifact_activation_actions: item.data.artifact_activation_actions ?? '',
+        artifact_activation_actions: item.data.artifact_activation_actions ?? item.data.item_activation_actions ?? '',
         item_subcategory: 'Specific Magic Weapons', named_weapon: true, named_weapon_source: item.name, named_weapon_base: base.name,
         named_weapon_material: MATERIALS[item.name] ?? '',
         named_weapon_resolver_only: item.name === 'Serithtial' && !native, ...fixed,
         named_weapon_runes: artifactRunes(item, fixed.named_weapon_runes) }
       if (item.data.bulk !== undefined) data.bulk = item.data.bulk
+      if (item.name === 'Mammoth Bow') {
+        data.range = 180
+        traits.splice(0, traits.length, ...traits.filter(trait => !/^volley\b/i.test(trait)), 'Volley 50 ft.')
+      }
       if (['Axe of the Dwarven Lords', "Spear of the Destroyer's Flame"].includes(item.name)) {
         data.thrown_range = 30
         data.hands = 2
@@ -226,6 +234,17 @@ export function namedWeaponEnhancements(entry?: ContentEntry) {
 
 export function namedWeaponDamage(entry?: ContentEntry) {
   const source = entry?.data.named_weapon_source
+  if (source === 'Mammoth Bow') return [{
+    source, value: '2d6 piercing', note: 'Additional draw-power damage. Requires a Large or larger wielder.',
+  }]
+  if (source === "Horselord's Longbow") return [{
+    source, value: '2 circumstance vs. eligible unmounted targets',
+    note: 'Only while mounted, against unmounted creatures smaller than your mount.',
+  }]
+  if (source === "Hunter's Anthem") return [{
+    source, value: '1d6 sonic vs. hunted prey',
+    note: 'Requires the Hunt Prey class feature. The Thundering rune applies only on Strikes against your prey.',
+  }]
   if (source === 'Shadowpiercer') return [{
     source, value: '2d6 precision vs. incorporeal or shadow creatures',
     note: 'Against creatures with the incorporeal or shadow trait, this weapon ignores immunity and resistance to precision damage.',

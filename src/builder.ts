@@ -1880,14 +1880,7 @@ export function researchedSpellResistance(c: Character, entries: ContentEntry[])
   const feat = activeFeatsNamed(c, 'Researched Spell Resistance')[0]
   if (!feat) return undefined
   const { traditions } = researchedSpellResistanceChoices(c, entries, feat)
-  return traditions.length ? { traditions, bonus: isFeatEffectActive(c, feat.name) ? 1 : 0 } : undefined
-}
-
-export function savingThrowCircumstance(c: Character, entries: ContentEntry[]) {
-  const sources = [
-    ...(researchedSpellResistance(c, entries)?.bonus ? ['Researched Spell Resistance'] : []),
-  ]
-  return sources.length ? { value: 1, source: sources.join(', ') } : undefined
+  return traditions.length ? { traditions, bonus: 1 } : undefined
 }
 
 export function perceptionCircumstance(c: Character) {
@@ -3111,7 +3104,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const rank = ranks[name] ?? 0
   const armor = wornArmor(c, entries)
   const item = armorSaveBonus(c, entries)
-  const circumstance = savingThrowCircumstance(c, entries)
+  const researched = researchedSpellResistance(c, entries)
   const parts: TotalPart[] = [
     { label: ABILITY_LABEL[ability[name]], value: abilityMod(c.abilities[ability[name]]) },
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
@@ -3120,13 +3113,12 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   if (name === 'Fortitude' && hasDivineIntercession(c, 'Asmodeus', 'major-curse')) {
     parts.push({ label: 'Asmodeus Major Curse: drained 4 (condition)', value: -4 })
   }
-  if (circumstance) parts.push({ label: `${circumstance.source} (circumstance)`, value: circumstance.value })
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
   const notes = [
     ...(name === 'Reflex' && armor && activeFeatsNamed(c, 'Infernal Bulwark').length
       ? ['Infernal Bulwark gives your armor the bulwark trait: +3 instead of Dexterity on damaging Reflex saves.'] : []),
-    ...(circumstance ? ['Circumstance bonuses do not stack; apply only against the matching effect.'] : []),
+    ...(researched ? [`Researched Spell Resistance: +1 circumstance against ${researched.traditions.join(', ')} spells and effects; circumstance bonuses do not stack.`] : []),
     ...(activeFeatsNamed(c, 'Hazard Finder').length
       ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),
   ]

@@ -1264,7 +1264,7 @@ it('treats Living Weapons and inherited haft strikes as cold iron and silver wit
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('treated as cold iron and silver')
   expect(markup).toContain('Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.')
-  expect(markup).toMatch(/Material<button[^>]*>\*<\/button> \(Pristine Living Weapon\)/)
+  expect(markup).toMatch(/Material<button[^>]*>\*<\/button>/)
   expect(markup).not.toContain('Damage 2d8+1 S + 1d6')
 })
 
@@ -1783,27 +1783,28 @@ it('explains calculated AC, saves and attacks with capped Dexterity and non-stac
   expect(strike.breakdown.parts.reduce((sum, part) => sum + part.value, 0)).toBe(strike.attack)
 })
 
-it('applies researched resistance only in its matching-effect context and never stacks circumstance save bonuses', () => {
+it('keeps researched resistance conditional without a toggle or blanket save bonuses from old activation state', () => {
   const c: Character = { ...base, level: 13, rankOverrides: { Arcana: 3, Nature: 1 },
     feats: [{ ...feat('Researched Spell Resistance', 13), choice: 'Arcane, Primal' }],
     activeFeatEffects: ['Researched Spell Resistance'] }
   const normal = defenseSummary({ ...c, activeFeatEffects: [] }, [])
   const active = defenseSummary(c, [])
   expect(researchedSpellResistance(c, [])?.traditions).toEqual(['Arcane', 'Primal'])
-  expect(active.fortitude).toBe(normal.fortitude + 1)
-  expect(active.reflex).toBe(normal.reflex + 1)
-  expect(active.will).toBe(normal.will + 1)
+  expect(active.fortitude).toBe(normal.fortitude)
+  expect(active.reflex).toBe(normal.reflex)
+  expect(active.will).toBe(normal.will)
   expect(active.perception).toBe(normal.perception)
   expect(active.ac).toBe(normal.ac)
   const both = { ...c, feats: [...c.feats, feat('Hazard Finder', 8)], activeFeatEffects: [...c.activeFeatEffects!, 'Hazard Finder'] }
-  expect(defenseSummary(both, []).reflex).toBe(normal.reflex + 1)
+  expect(defenseSummary(both, []).reflex).toBe(normal.reflex)
   expect(researchedSpellResistance({ ...c, level: 12 }, [])).toBeUndefined()
   expect(researchedSpellResistance({ ...c, feats: [] }, [])).toBeUndefined()
   expect(researchedSpellResistance({ ...c, rankOverrides: { Arcana: 1, Nature: 1 } }, [])).toBeUndefined()
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
-  expect(markup).toContain('aria-label="Researched spell resistance active" checked=""')
-  expect(markup).toContain('only against Arcane, Primal spells and effects')
-  expect(markup).toContain('<small>Circumstance</small>+1')
+  expect(markup).not.toContain('aria-label="Researched spell resistance active"')
+  expect(markup).not.toContain('Enable only for a matching effect')
+  expect(markup).toContain('against Arcane, Primal spells and effects')
+  expect(markup).not.toContain('<small>Circumstance</small>+1')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, activeFeatEffects: [] }} entries={[]} save={() => {}} part="defense" />))
     .not.toContain('<small>Circumstance</small>+1')
 })
@@ -1905,7 +1906,7 @@ it('targets Canopy Crawler at one creature before rank five and both at rank fiv
   const minions = renderToStaticMarkup(<MinionsSection c={both} entries={[cat]} save={() => {}} />)
   expect(minions).toContain('aria-label="Canopy Crawler on B" checked=""')
   expect(minions).not.toContain('aria-label="Canopy Crawler on A" checked=""')
-  expect(minions).toMatch(/climb 50 feet<button[^>]*>\*<\/button> \(Canopy Crawler\)/)
+  expect(minions).toMatch(/climb 50 feet<button[^>]*>\*<\/button>/)
   const noClimb = { ...cat, data: { ...cat.data, speed_raw: '35 feet, swim 40 feet' } }
   expect(companionStats(both, [noClimb], 'Cat', undefined, 'b')!.speed).toBe('35 feet, swim 40 feet, climb 40 feet')
 })
@@ -2035,7 +2036,7 @@ it('makes Primal Nimbleness available to both classes and scales heritage and Ra
   expect(resistances({ ...base, level: 10, feats: [feat('Poison Resistance', 2)] }, options)).toContainEqual({ damage: 'Poison', value: 5, source: 'Poison Resistance' })
   const markup = renderToStaticMarkup(<SkillsSection c={{ ...base, level: 20, feats: [feat('Poison Resistance', 2)] }}
     entries={options} save={() => {}} part="defense" />)
-  expect(markup).toMatch(/>Poison 10<button[^>]*>\*<\/button> \(Poison Resistance\)/)
+  expect(markup).toMatch(/>Poison 10<button[^>]*>\*<\/button>/)
   expect(markup).toContain('aria-label="Poison Resistance note"')
   expect(markup).toContain('popover="auto"')
   expect(markup).toContain('+1 status bonus to saving throws against poisons.')
@@ -2062,7 +2063,7 @@ it.each([
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
   expect(markup).toContain(damage)
   expect(markup).toContain(`aria-label="${name} note"`)
-  expect(markup).toContain(`*</button> (${name})`)
+  expect(markup).not.toContain(`*</button> (${name})`)
   expect(markup).toContain(note)
   expect(markup).toContain('popover="auto"')
 })

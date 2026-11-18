@@ -1,7 +1,7 @@
 import { resistances,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, researchedSpellResistance, savingThrowCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, skillDownload, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ShieldEquipment, WeaponList } from './GearSection'
@@ -201,7 +201,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const improvisation = untrainedSkillProficiency(c)
   const armorBonus = part === 'defense' ? armorSaveBonus(c, entries) : 0
   const armorCheck = starfinderArmorPenalties(c, entries).check
-  const saveCircumstance = part === 'defense' ? savingThrowCircumstance(c, entries) : undefined
   const hazardFinder = activeFeatsNamed(c, 'Hazard Finder').length > 0
   const assignRank = (name: string, target: number) => {
     if (hasTokenPurchase(name)) return undefined
@@ -334,7 +333,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const preferment = s.name === 'Intimidation' && activeFeatsNamed(c, 'Hellknight Preferment').length && hellknightArmorWorn(c, entries)
       ? { source: 'Hellknight Preferment', value: 1 } : undefined
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
-      : s.kind === 'save' ? saveCircumstance
+      : s.kind === 'save' ? undefined
         : [armorSkill, assistant, preferment].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
@@ -532,7 +531,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       .sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
-    const researched = researchedSpellResistance(c, entries)
     const hpBonuses = hitPointBonuses(c)
     const oaken = oakenResilience(c, entries)
     const divineWeaknesses = divineIntercessionWeaknesses(c)
@@ -572,11 +570,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {skin && <small>Animal Skin: +{skin.itemBonus} item AC; Dexterity cap +{skin.dexCap}.</small>}
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
           && <small>Pioneer Human: {c.pioneerEnvironment.toLowerCase()} environmental effects are one step less extreme. This is not damage resistance.</small>}
-        {researched && <>
-          <FeatEffectToggle c={c} save={save} name="Researched Spell Resistance" label="Researched spell resistance active"
-            title={`Only against spells and effects with these tradition traits: ${researched.traditions.join(', ')}.`} />
-          <small>Researched Spell Resistance: +1 circumstance to saves only against {researched.traditions.join(', ')} spells and effects. Enable only for a matching effect.</small>
-        </>}
         <FeatEffectToggle c={c} save={save} name="Heart of the Kaiju" label="Kaiju form resistance active"
           title="Physical resistance 5 only while in kaiju form. This control does not apply the form's other statistics." />
         <div className="skill-grid" role="table" aria-label="Defense">

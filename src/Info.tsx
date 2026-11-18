@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from 'react'
 
-export function SourceNote({ source, note, inlineSource = true }: { source: string; note: string; inlineSource?: boolean }) {
+export function SourceNote({ source, note, inlineSource = false }: { source: string; note: string; inlineSource?: boolean }) {
   const id = useId()
   const summary = inlineSource ? note : `${note} (${source})`
   return <>

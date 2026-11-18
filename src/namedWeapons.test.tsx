@@ -40,6 +40,45 @@ const c: Character = {
 }
 const owned = (name: string): OwnedWeapon => ({ id: 'bow', name, potency: 0, striking: 0, runes: [] })
 
+it.each([
+  ["Horselord's Longbow", 6, 25000, 2, '+1 striking', 1, [], 100],
+  ['Splithead Bow', 7, 36000, 2, '+1 striking hauling', 1, ['Hauling'], 100],
+  ["Hunter's Anthem", 11, 130000, 2, '+2 striking', 2, [], 100],
+  ['Mammoth Bow', 12, 200000, 4, '+2 striking', 2, [], 180],
+] as const)('implements %s among the four composite longbows without changing its price or magic', (name, level, price, bulk, magic, potency, runes, range) => {
+  const item = mapAonHit({ _id: name, _source: {
+    name, category: 'equipment', level, price, bulk, item_subcategory: 'Specific Magic Weapons',
+    markdown: `**Base Weapon** [${name === 'Mammoth Bow' ? 'Composite Longbow' : 'Longbow'}](/Weapons.aspx?ID=1)\n\nA ${magic} longbow.`,
+  } }, 'pf2e')!
+  const entries = [...catalog, bow('Longbow', true, false), item, rune('Hauling')]
+  const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === name)
+  expect(choices).toHaveLength(1)
+  expect(choices[0]).toMatchObject({ name, level, data: { price, bulk, named_weapon_base: 'Composite Longbow' } })
+  expect(choices[0].traits).toContain('Propulsive')
+  expect(weaponAttack(c, entries, owned(name))).toMatchObject({ damage: '2d8+1 piercing', range })
+  expect(effectiveWeapon(c, entries, owned(name))).toMatchObject({ potency, striking: 1, runes: [...runes] })
+  if (name === 'Mammoth Bow') {
+    const attack = weaponAttack(c, entries, owned(name))
+    expect(attack.traits).toContain('Volley 50 ft.')
+    expect(attack.traits).not.toContain('Volley 30 ft.')
+    expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ value: '2d6 piercing' }))
+  }
+})
+
+it('keeps specific bow activation costs and conditional damage rather than granting blanket bonuses', () => {
+  const anthem = mapAonHit({ _id: 'anthem', _source: {
+    name: "Hunter's Anthem", category: 'equipment', item_subcategory: 'Specific Magic Weapons',
+    markdown: '**Base Weapon** [Longbow](/Weapons.aspx?ID=1)\n\nA +2 striking longbow.\n\n'
+      + '**Activate\u2014Song of the Bow** <actions string="Two Actions" /> **Frequency** once per day; **Effect** DC 28 basic Fortitude save.',
+  } }, 'pf2e')!
+  const entries = [...catalog, anthem]
+  const attack = weaponAttack(c, entries, owned(anthem.name))
+  expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ value: '1d6 sonic vs. hunted prey' }))
+  expect(effectiveWeapon(c, entries, owned(anthem.name)).runes).not.toContain('Thundering')
+  expect(namedWeaponAbilities(weaponEntry(entries, anthem.name)))
+    .toContainEqual(expect.objectContaining({ name: 'Song of the Bow', actions: 'Two Actions' }))
+})
+
 it('offers explicit shortbow and longbow versions with inherited composite traits and unchanged original records', () => {
   const choices = gearPickerEntries(catalog, 'weapon').filter(entry => entry.data.named_weapon)
   expect(choices.map(entry => entry.name)).toEqual(['Wintershot (Shortbow)', 'Wintershot (Longbow)'])
