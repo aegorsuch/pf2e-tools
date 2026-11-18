@@ -328,6 +328,7 @@ export interface Character {
     spentSlots?: string[]
   }
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
+  mageAutomatonCantrip?: string
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   activeSpells?: string[]
   untamedForm?: {

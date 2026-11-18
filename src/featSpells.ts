@@ -4,6 +4,7 @@ import { warmaskSource } from './warmask'
 import { characterHeritages } from './heritages'
 import { divineBoonSpells } from './divineIntercessions'
 import { getSettings } from './settings'
+import { cantripOptions } from './minorMagic'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 
@@ -171,8 +172,17 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+export function mageAutomatonOptions(c: Character, entries: ContentEntry[]) {
+  return c.level >= 1 && c.heritage === 'Mage Automaton' ? cantripOptions(c, spellIndex(entries).spells, 'Arcane') : []
+}
+
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
+  const mageCantrip = c.mageAutomatonCantrip
+    ? mageAutomatonOptions(c, entries).find(entry => entry.name === c.mageAutomatonCantrip) : undefined
+  if (mageCantrip) out.push({ entry: mageCantrip, source: 'Mage Automaton',
+    rule: { kind: 'innate', spells: [mageCantrip.name], tradition: 'arcane', frequency: 'at will', heightened: true },
+    rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', 'Mage Automaton', mageCantrip.name]) })
   for (const grant of divineBoonSpells(c)) {
     const entry = matchingSpells(entries, grant.name).find(spell => spell.systems.some(system => c.systems.includes(system)))
     if (entry) out.push({ entry, source: grant.source,

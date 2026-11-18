@@ -8,7 +8,7 @@ import { grantedWardenSpells, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
-import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { dailyInnateUses, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { featTakenLevel } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
@@ -782,6 +782,22 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         })}
       </div>}
       </>}
+      {c.heritage === 'Mage Automaton' && c.level >= 1 && (() => {
+        const options = mageAutomatonOptions(c, entries)
+        const current = c.mageAutomatonCantrip ?? ''
+        return <SearchableSelect label="Mage Automaton cantrip" aria-label="Mage Automaton cantrip" value={current}
+          onChange={event => {
+            const value = event.target.value
+            if (value && !options.some(entry => entry.name === value)) return
+            const select = () => save({ mageAutomatonCantrip: value || undefined })
+            if (!value && current) confirmRemoval(`Mage Automaton cantrip "${current}"`, select)
+            else select()
+          }}>
+          <option value="">Choose cantrip</option>
+          {current && !options.some(entry => entry.name === current) && <option value={current} disabled>{current} (unavailable)</option>}
+          {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
+        </SearchableSelect>
+      })()}
       {c.feats.map((feat, index) => {
         if (feat.name !== 'First World Magic' || featTakenLevel(feat) > c.level) return null
         const options = featSpellOptions(c, entries, feat) ?? []

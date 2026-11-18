@@ -8,6 +8,10 @@ export function minorMagicOptions(c: Character, entries: ContentEntry[]) {
   const tradition = c.minorMagic?.tradition
   if (!c.feats.some(feat => feat.name === 'Minor Magic' && featTakenLevel(feat) <= c.level)
     || !tradition || !MAGIC_TRADITIONS.includes(tradition)) return []
+  return cantripOptions(c, entries, tradition)
+}
+
+export function cantripOptions(c: Character, entries: ContentEntry[], tradition: MagicTradition) {
   return entries.filter(entry => entry.kind === 'spell' && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
     && entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
