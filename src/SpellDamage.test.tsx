@@ -81,6 +81,60 @@ it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightene
   expect(spellActionRolls('Fireball', 2, fireball)).toEqual([])
 })
 
+it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
+  const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const roll = spellActionRolls(entry.name, rank, entry)[0]
+  expect(roll).toMatchObject({ actions: 'Two Actions', damage: { dice, sides: 6, type: 'piercing' } })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d6 piercing"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(roll.damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(roll.damage)).toBe(dice * 6)
+})
+
+it('does not offer Grisly Growths damage below rank 5', () => {
+  expect(spellDamage('Grisly Growths', 4)).toEqual([])
+})
+
+it.each([[7, 70], [8, 80], [10, 100]])('shows Execute damage at rank %i as %i void or vitality', (rank, amount) => {
+  const entry: ContentEntry = { id: 'execute', name: 'Execute', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 7, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls.map(roll => [roll.actions, roll.damage.type, rollSpellDamage(roll.damage)]))
+    .toEqual([['Two Actions', 'void', amount], ['Two Actions', 'vitality', amount]])
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+  expect(markup).toContain(`title="Two Actions; Void damage: ${amount} void"`)
+  expect(markup).toContain(`title="Two Actions; Vitality damage: ${amount} vitality"`)
+  expect(markup).not.toContain('0d')
+})
+
+it.each([[8, 10], [9, 11], [10, 12]])('rolls Desiccate at rank %i as %id10 void', (rank, dice) => {
+  expect(spellDamage('Desiccate', rank)).toEqual([{ label: 'Damage', dice, sides: 10, type: 'void' }])
+})
+
+it.each([[9, 9, 100], [10, 10, 115]])('shows Massacre rank %i success, failure and backlash damage', (rank, dice, failure) => {
+  const entry: ContentEntry = { id: 'massacre', name: 'Massacre', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 9, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls.map(roll => roll.damage)).toEqual([
+    { label: 'Success', dice, sides: 6, type: 'void' },
+    { label: 'Failure', dice: 0, sides: 0, bonus: failure, type: 'void' },
+    { label: 'Backlash (no kills)', dice: 0, sides: 0, bonus: 30, type: 'void' },
+  ])
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+  expect(markup).toContain(`title="Two Actions; Success: ${dice}d6 void"`)
+  expect(markup).toContain(`title="Two Actions; Failure: ${failure} void"`)
+  expect(markup).toContain('title="Two Actions; Backlash (no kills): 30 void"')
+})
+
+it('does not offer high-rank spell damage below its base rank', () => {
+  expect(spellDamage('Execute', 6)).toEqual([])
+  expect(spellDamage('Desiccate', 7)).toEqual([])
+  expect(spellDamage('Massacre', 8)).toEqual([])
+})
+
 it.each([
   ['Slime Spit', 1, 2, 6], ['Slime Spit', 10, 20, 6],
   ['Warning Stripes', 3, 2, 8], ['Warning Stripes', 4, 2, 8], ['Warning Stripes', 5, 3, 8], ['Warning Stripes', 10, 5, 8],

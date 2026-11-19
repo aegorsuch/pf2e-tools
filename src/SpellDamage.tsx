@@ -8,6 +8,21 @@ export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Grisly Growths':
+      return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
+    case 'Execute':
+      return rank >= 7 ? [
+        { label: 'Void damage', dice: 0, sides: 0, bonus: 10 * rank, type: 'void' },
+        { label: 'Vitality damage', dice: 0, sides: 0, bonus: 10 * rank, type: 'vitality' },
+      ] : []
+    case 'Desiccate':
+      return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
+    case 'Massacre':
+      return rank >= 9 ? [
+        { label: 'Success', dice: rank >= 10 ? 10 : 9, sides: 6, type: 'void' },
+        { label: 'Failure', dice: 0, sides: 0, bonus: rank >= 10 ? 115 : 100, type: 'void' },
+        { label: 'Backlash (no kills)', dice: 0, sides: 0, bonus: 30, type: 'void' },
+      ] : []
     case 'Void Warp':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
     case 'Deathly Scream':
@@ -58,7 +73,9 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
 
 export function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
   const [result, setResult] = useState<ReturnType<typeof rollSpellDamage>>()
-  const formula = `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
+  const formula = damage.dice > 0
+    ? `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
+    : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" className={actions ? 'spell-action-button' : undefined}
       aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}`}

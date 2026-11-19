@@ -92,6 +92,36 @@ it('adds familiar spell benefits without adding Dirge choices or overwriting sav
   expect(c.spellcasting?.prepared?.['familiar-spell-battery:1']).toBe('Harm')
 })
 
+it('uses each prepared slot rank for Grisly Growths damage', () => {
+  const growths = { ...spell('Grisly Growths', 5, 'Primal'), data: { tradition: 'Primal', actions: 'Two Actions' } }
+  const c: Character = { ...base, level: 13, feats: [taken('Expanded Necromancy', 10)],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {},
+      prepared: { '5:0': growths.id, '7:0': growths.id } } }
+  const html = render(c, [growths, spell('Harm')])
+  expect(html).toContain('title="Two Actions; Damage: 10d6 piercing"')
+  expect(html).toContain('title="Two Actions; Damage: 14d6 piercing"')
+})
+
+it('shows Execute damage in the prepared Necromancer spell slot', () => {
+  const execute = { ...spell('Execute', 7, 'Divine'), data: { tradition: 'Divine', actions: 'Two Actions' } }
+  const c: Character = { ...base, level: 13, feats: [taken('Expanded Necromancy', 10)],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {}, prepared: { '7:0': execute.id } } }
+  const html = render(c, [execute, spell('Harm')])
+  expect(html).toContain('title="Two Actions; Void damage: 70 void"')
+  expect(html).toContain('title="Two Actions; Vitality damage: 70 vitality"')
+})
+
+it.each([
+  ['Desiccate', 8, 15, 'title="Two Actions; Damage: 10d10 void"'],
+  ['Massacre', 9, 17, 'title="Two Actions; Failure: 100 void"'],
+] as const)('shows %s damage in its Necromancer spell slot', (name, rank, level, title) => {
+  const entry = { ...spell(name, rank, 'Primal'), data: { tradition: 'Primal', actions: 'Two Actions' } }
+  const c: Character = { ...base, level, feats: [taken('Expanded Necromancy', 10)],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {},
+      prepared: { [`${rank}:0`]: entry.id } } }
+  expect(render(c, [entry, spell('Harm')])).toContain(title)
+})
+
 it('provides separate spell categories with class spells selected initially', () => {
   const html = render(base, [spell('Harm')])
   expect(html).toContain('aria-pressed="true">Class Spells</button>')
