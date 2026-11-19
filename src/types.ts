@@ -183,6 +183,7 @@ export interface Character {
   gearAccessOverrides?: string[]
   className?: string
   subclass?: string
+  fatalMethod?: 'Puppeteer' | 'Reaper'
   heritage?: string
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'
   activeHandPair?: number
@@ -341,6 +342,7 @@ export interface Character {
     repertoire?: Record<string, string>
     signatureSpells?: Record<string, string>
   }
+  beckoningDirge?: { spell?: string; rank?: number; used?: boolean }
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   mageAutomatonCantrip?: string
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
@@ -372,7 +374,7 @@ export interface Character {
   // Companions and their equipped gear
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' }[]
-  familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
+  familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
   pet?: { name?: string; aquatic?: boolean; abilities?: string[] }
   faithfulSteedGranted?: boolean

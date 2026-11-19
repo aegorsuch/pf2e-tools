@@ -1784,7 +1784,7 @@ it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier'])('offers %s as 
     points: 2, spells: expect.arrayContaining([expect.objectContaining({ name }), expect.objectContaining({ name: 'Necrotic Bomb' })]),
   })
   expect(renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />))
-    .toContain(`<h5>Focus Spells Rank 1</h5>`)
+    .toContain(`<h5>Occult Focus Spells Rank 1</h5>`)
   expect(eligibleFeats(entries, { ...character, feats: [] }, { key: 'class:2:0', category: 'class', level: 2 })).toContain(source)
 })
 

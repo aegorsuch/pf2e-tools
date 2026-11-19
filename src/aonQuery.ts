@@ -50,7 +50,7 @@ export const SUBCLASS_CLASSES: Record<string, string> = {
   doctrine: 'Cleric', 'research-field': 'Alchemist', racket: 'Rogue', bloodline: 'Sorcerer',
   patron: 'Witch', 'arcane-school': 'Wizard', mystery: 'Oracle', methodology: 'Investigator',
   innovation: 'Inventor', way: 'Gunslinger', 'hybrid-study': 'Magus', 'conscious-mind': 'Psychic',
-  practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler', 'grim-fascination': 'Necromancer',
+  practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler', 'grim-fascination': 'Necromancer', 'fatal-method': 'Necromancer',
 }
 
 export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
@@ -73,6 +73,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   'animal-companion': 'companion',
   'animal-companion-specialization': 'companionSpec',
   'animal-companion-advanced': 'companionAdv',
+  'familiar-ability': 'familiar',
   ...Object.fromEntries(Object.keys(SUBCLASS_CLASSES).map((category) => [category, 'subclass' as const])),
 }
 
@@ -397,7 +398,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
           if (comp.maneuverActionUrl) s.companion_maneuver_action_url = comp.maneuverActionUrl
         }
-        if (!['feat', 'heritage', 'background', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced'].includes(category) && !SUBCLASS_CLASSES[category]
+        if (!['feat', 'heritage', 'background', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced', 'familiar-ability'].includes(category) && !SUBCLASS_CLASSES[category]
           && !usesFullItemRules(s)) delete s.markdown
       }
       hits.push(hit)

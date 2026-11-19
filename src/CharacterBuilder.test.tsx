@@ -1137,6 +1137,26 @@ it('offers all four Grim Fascinations when adding Necromancer and keeps the sele
   content.entries = []
 })
 
+it('keeps Fatal Method separate from Grim Fascination and displays the persisted choice', () => {
+  content.entries = [
+    mapAonHit({ _id: 'bone', _source: { category: 'grim-fascination', name: 'Bone', markdown: 'Bone rules.' } }, 'pf2e')!,
+    mapAonHit({ _id: 'reaper', _source: { category: 'fatal-method', name: 'Reaper', markdown: 'Reaper rules.' } }, 'pf2e')!,
+  ]
+  const c: Character = { id: 'necromancer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',
+    subclass: 'Bone', fatalMethod: 'Reaper',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Grim Fascination"')
+  expect(markup).toContain('aria-label="Fatal Method"')
+  expect(markup).toContain('<option value="Bone" selected="">Bone</option>')
+  expect(markup).toContain('<option value="Reaper" selected="">Reaper</option>')
+  expect(markup).toContain('Reaper rules.')
+  expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, className: 'Wizard' }} onClose={() => {}} />))
+    .not.toContain('aria-label="Fatal Method"')
+  content.entries = []
+})
+
 it.each([
   ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Edge Ranger'],
   ['cause', 'Champion', 'Justice', 'Champion of Justice'],

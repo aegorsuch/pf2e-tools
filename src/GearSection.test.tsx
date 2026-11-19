@@ -6,7 +6,7 @@ import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 
@@ -1942,6 +1942,22 @@ it('uses automatic handwraps instead of directly configured unarmed runes, poten
   expect(markup).not.toContain('aria-label="Remove Flaming rune"')
   expect(markup).not.toContain('Flaming')
   expect(markup).toContain('Damage 2d4 B')
+})
+
+it.each([false, true])('shows active unarmed property runes but hides fundamentals (displayOnly=%s)', displayOnly => {
+  const c: Character = { ...character([{ name: 'Iruxi Spirit Strike', level: 9, type: 'Ancestry Feat' }]),
+    ancestry: 'Lizardfolk', handwraps: { potency: 2, striking: 1, runes: ['Decaying'] },
+    weapons: [IRUXI_CLAWS, IRUXI_FANGS].map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })) }
+  const entries = [IRUXI_CLAWS, IRUXI_FANGS,
+    { ...shifting, id: 'ghost-touch', name: 'Ghost Touch' },
+    { ...shifting, id: 'decaying', name: 'Decaying' }]
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+  expect(markup).toContain('>Ghost Touch</button>')
+  expect(markup).toContain('>Decaying</button>')
+  expect(markup).not.toContain('aria-label="Fundamental runes"')
+  expect(markup).not.toContain('aria-label="Remove Decaying rune"')
+  expect(markup).not.toContain('aria-label="Remove Ghost Touch rune"')
+  expect(markup).not.toContain('aria-label="Add property rune"')
 })
 
 it('keeps saved hardlight runes inactive and provides grade-based upgrade slots', () => {

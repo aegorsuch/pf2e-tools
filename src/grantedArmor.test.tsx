@@ -108,7 +108,7 @@ it.each(['Unarmored', 'Light', 'Medium', 'Heavy'] as const)('grants Fortificatio
   } else expect(specialized?.benefit).toBeUndefined()
 })
 
-it('preserves Bakuwa rune configuration through replacement, property edits, and category changes', () => {
+it('locks Bakuwa property runes to three proficiency-appropriate automatic families', () => {
   let c: Character = { ...base, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk', className: 'Plate Test', level: 20,
     armors: [{ id: BONY_PLATES_ID, name: 'Bakuwa Plates', material: 'Orichalcum', worn: true,
       potency: 2, resilient: 1, runes: ['Shadow', 'Moonweave', 'Fortification'] },
@@ -126,20 +126,15 @@ it('preserves Bakuwa rune configuration through replacement, property edits, and
   expect(markup).not.toContain('Remove Sunweave')
   expect(markup).not.toContain('Remove Fortification')
   expect(markup).toContain('Granted by Bony Plates')
-  expect(markup).toContain('aria-label="Add property rune"')
+  expect(markup).not.toContain('aria-label="Add property rune"')
   expect(markup).not.toContain('aria-label="Remove Bony Plates"')
   expect(ownedArmors(c, entries).find(armor => armor.id === 'ordinary')?.worn).toBe(false)
-  const editor = find(card, element => Array.isArray(element.props.runes) && typeof element.props.onChange === 'function')!
-  expect(editor.props.runes).toEqual(['Shadow'])
-  ;(editor.props.onChange as (runes: string[]) => void)(['Shadow', 'Slick'])
-  c = JSON.parse(JSON.stringify(c))
-  expect(c.armors?.find(armor => armor.id === 'ordinary')?.worn).toBe(true)
-  expect(c.armors?.find(armor => armor.id === BONY_PLATES_ID)?.runes).toEqual(['Moonweave', 'Fortification', 'Shadow', 'Slick'])
+  expect(wornArmor(c, entries)?.runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
+  expect(c.armors?.find(armor => armor.id === BONY_PLATES_ID)?.runes).toEqual(['Shadow', 'Moonweave', 'Fortification'])
   const unarmored = [plateClass({ unarmored_proficiency: 'Master' })]
-  expect(wornArmor(c, unarmored)?.runes).toEqual(['Shadow', 'Slick', 'Moonweave (Major)', 'Sunweave (Major)'])
-  expect(c.armors?.find(armor => armor.id === BONY_PLATES_ID)?.runes).toContain('Fortification')
+  expect(wornArmor(c, unarmored)?.runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Shadow (Major)'])
   expect(wornArmor({ ...c, heritage: 'Wetlander Lizardfolk', feats: [feat('Bony Plates')] }, entries)?.runes)
-    .toEqual(['Shadow', 'Slick', 'Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
+    .toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
 })
 
 it('grants locked Orichalcum Hellknight armor by wearable category and scales fundamentals without replacing owned gear', () => {

@@ -80,9 +80,11 @@ export function namedWeaponBaseName(entry: ContentEntry) {
 
 function enhancements(item: ContentEntry, family: ContentEntry[], runes: { name: string }[]) {
   const { common, section } = sections(item, family)
-  const match = enchantment.exec(section) ?? enchantment.exec(common)
+  const plain = (text: string) => text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[_*]/g, '')
+  const match = enchantment.exec(plain(section)) ?? enchantment.exec(plain(common))
   let properties = ` ${match?.[2].toLowerCase() ?? ''} `
   properties = properties.replace(/\bspeed\b/g, 'quickstrike').replace(/\bspell-storing\b/g, 'spell reservoir')
+  if (item.name === "Hunter's Dawn") properties = properties.replace(/\bquickstrike\b/g, 'astral')
   const fixed: string[] = []
   for (const legacy of ['Anarchic', 'Axiomatic']) {
     if (properties.includes(` ${legacy.toLowerCase()} `)) {
@@ -100,6 +102,7 @@ function enhancements(item: ContentEntry, family: ContentEntry[], runes: { name:
     fixed.push(rune.name)
     properties = properties.replace(` ${phrase} `, ' ')
   }
+  if (item.name === "Hunter's Dawn" && !fixed.some(rune => rune.toLowerCase() === 'astral')) fixed.push('Astral')
   return {
     named_weapon_potency: match ? Number(match[1]) : 0,
     named_weapon_striking: /\bmythic striking\b/i.test(match?.[2] ?? '') ? 4 : /\bmajor striking\b/i.test(match?.[2] ?? '') ? 3
@@ -124,7 +127,11 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       named_weapon_potency: 4, named_weapon_striking: 3, named_weapon_runes: 'Bane;Impactful (Greater)', named_weapon_rules_missing: false,
     })
     const choices = BASES[item.name] ?? ['Shortbow', 'Longbow'].map(type => `${composite ? 'Composite ' : ''}${type}`)
-    const { common, section } = sections(item, family)
+    const { common: rawCommon, section: rawSection } = sections(item, family)
+    const replaceSpeed = (text: string) => item.name === "Hunter's Dawn"
+      ? text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)') : text
+    const common = replaceSpeed(rawCommon)
+    const section = replaceSpeed(rawSection)
     let alias = false
     return choices.flatMap(baseName => {
       const base = item.name === "Ghosthand's Comet" ? item : entries.find(entry => entry.kind === 'weapon' && !entry.deleted

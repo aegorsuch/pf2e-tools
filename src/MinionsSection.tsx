@@ -15,6 +15,8 @@ import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './com
 import { confirmRemoval } from './confirmRemoval'
 import { DroneFeatures } from './DroneFeatures'
 import { hasDivineIntercession } from './divineIntercessions'
+import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries,
+  familiarAbilityEntry, familiarAbilityUnavailableReason, isFamiliarAbilityRepeatable } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -31,6 +33,11 @@ const PET_ABILITY_NOTES: Record<string, string> = {
   'Manual Dexterity': 'Can use up to two limbs as hands for manipulate actions.',
   Scent: 'Imprecise scent within 30 feet.',
   Tough: 'Maximum HP increases by 2 per level.',
+}
+const UNDEAD_FAMILIAR_TRAIT: ContentEntry = {
+  id: 'undead-familiar-trait', systems: ['pf2e'], name: 'Undead', kind: 'trait', source: 'official', level: 0,
+  traits: [], description: "Immune to bleed, death effects, disease, mental, and poison. Can't choose familiar abilities that change its trait, such as Construct or Dragon. Can be targeted by spells and abilities that target your thralls. If destroyed, can be raised during next daily preparations.",
+  data: {}, effects: [], updatedAt: 0,
 }
 
 function minionSummaryData(c: Character) {
@@ -224,6 +231,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const witchFamiliarAbilities = c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0
   const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + witchFamiliarAbilities
+  const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
   const familiarDefense = familiar || wasp ? (() => {
     const base = (breakdown: TotalBreakdown) => breakdown.parts
       .filter(part => !/\((?:circumstance|status)\)/i.test(part.label)).reduce((sum, part) => sum + part.value, 0)
@@ -515,24 +523,62 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             : familiarCapacity
           const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
             : isCrocodile ? 'Crocodile familiar' : 'Familiar'
-          const familiarAbilities = (data?.abilities ?? []).slice(0, dailyAbilityLimit).filter(Boolean)
-          const familiarTough = familiarAbilities.some(ability => ability.trim().toLowerCase() === 'tough')
+          const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
+          const savedAbilities = (data?.abilities ?? []).map((ability, index) => ({ ability, index })).filter(item => !!item.ability)
+          const activeAbilityChoices = savedAbilities.filter(item => item.index < dailyAbilityLimit)
+          const abilityStatus = (ability: string, index: number) => {
+            const entry = familiarAbilityEntry(ability, familiarAbilityCatalog, c)
+            if (!entry) return { entry, reason: 'Ability rules are unavailable.' }
+            const others = activeAbilityChoices.filter(item => item.index !== index).map(item => item.ability)
+            return { entry, reason: familiarAbilityUnavailableReason(entry, c, others, isUndead) }
+          }
+          const activeAbilities = activeAbilityChoices.flatMap(({ ability, index }) => {
+            const status = abilityStatus(ability, index)
+            return status.entry && !status.reason ? [status.entry.name] : []
+          })
+          const spellcastingModifier = c.spellcasting
+            ? Math.floor((c.abilities[c.spellcasting.ability] - 10) / 2) : 0
+          const familiarEffects = familiarAbilityEffects(activeAbilities, c.level, data?.abilityOptions, spellcastingModifier)
+          const baseSpeeds = [
+            { movement: 'Land', feet: 25 },
+            ...(activeAbilities.some(ability => ability.toLowerCase() === 'amphibious') ? [{ movement: 'Swim', feet: 25 }] : []),
+            ...(activeAbilities.some(ability => ability.toLowerCase() === 'climber') ? [{ movement: 'Climb', feet: 25 }] : []),
+            ...(activeAbilities.some(ability => ability.toLowerCase() === 'flier') ? [{ movement: 'Fly', feet: 25 }] : []),
+          ]
+          const skilledCount = activeAbilities.filter(ability => ability.toLowerCase() === 'skilled').length
+          const resistanceCount = activeAbilities.filter(ability => ability.toLowerCase() === 'resistance').length
           const saveFamiliar = (changes: Partial<NonNullable<Character['familiar']>>) =>
             save(isWasp ? { waspFamiliar: { ...data, ...changes } } : { familiar: { ...data, ...changes } })
-          const abilityNotes = [...(isWasp ? ['Burrower', 'Flier'] : []), ...familiarAbilities]
-            .filter((ability, index, all) => all.findIndex(other => other.trim().toLowerCase() === ability.trim().toLowerCase()) === index)
+          const saveAbilityOptions = (abilityOptions: NonNullable<Character['familiar']>['abilityOptions']) =>
+            saveFamiliar({ abilityOptions: { ...data?.abilityOptions, ...abilityOptions } })
+          const chooseAbility = (event: { target: { value: string } }) => {
+            const ability = familiarAbilityCatalog.find(entry => entry.id === event.target.value)
+            if (!ability || activeAbilityChoices.length >= dailyAbilityLimit
+              || familiarAbilityUnavailableReason(ability, c, savedAbilities.map(item => item.ability), isUndead)) return
+            const abilities = [...(data?.abilities ?? [])]
+            const slot = Array.from({ length: dailyAbilityLimit }, (_, index) => index).find(index => !abilities[index])
+            if (slot === undefined) return
+            abilities[slot] = ability.name
+            saveFamiliar({ abilities })
+          }
+          const abilityOptions = familiarAbilityCatalog.filter(entry => {
+            const alreadySelected = savedAbilities.some(item => item.ability.toLowerCase() === entry.name.toLowerCase())
+            return (!alreadySelected || isFamiliarAbilityRepeatable(entry))
+              && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead)
+          })
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4></summary>
-          <label>Name <input aria-label={isWasp ? 'Wasp familiar name' : `${familiarType} name`} value={data?.name ?? ''}
-            onChange={event => saveFamiliar({ name: event.target.value })} /></label>
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
-          <div><small>Hit Points</small> <b>{c.level * (familiarTough ? 7 : 5)}</b></div>
+          {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
+            const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
+            return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
+              buttonLabel={`Granted ${name}`} /> : <small key={name}>{name}</small>
+          })}</div>}
+          <div><small>Hit Points</small> <b>{familiarEffects.hitPoints}</b></div>
           {isUndead && <>
-            <div className="gear-traits"><span>Undead</span></div>
-            <small>Immune to bleed, death effects, disease, mental, and poison.</small>
-            <small>Can't choose familiar abilities that change its trait, such as Construct or Dragon.</small>
-            <small>Can be targeted by spells and abilities that target your thralls. If destroyed, can be raised during next daily preparations.</small>
+            <div className="gear-traits"><EntryDescription name="Undead" entry={UNDEAD_FAMILIAR_TRAIT}
+              className="gear-trait" entries={entries} character={c} /></div>
           </>}
           {familiarDefense && <>
             <div className="gear-stats">
@@ -550,20 +596,67 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <option value="">Choose ability</option><option>Plant</option><option>Fungus</option>
             </select>
           </label>}
-          <div><small>Daily familiar or master abilities ({familiarAbilities.length}/{dailyAbilityLimit})</small></div>
-          {Array.from({ length: dailyAbilityLimit }, (_, index) => <label key={index}>Ability {index + 1}{' '}
-            <input aria-label={`${isWasp ? 'Wasp familiar' : familiarType} ability ${index + 1}`} value={data?.abilities?.[index] ?? ''}
-              onChange={event => {
-                const abilities = Array.from({ length: Math.max(data?.abilities?.length ?? 0, index + 1) },
-                  (_, i) => data?.abilities?.[i] ?? '')
-                abilities[index] = event.target.value
-                saveFamiliar({ abilities })
-              }} />
-          </label>)}
-          {abilityNotes.flatMap(ability => {
-              const name = PET_ABILITIES.find(option => option.toLowerCase() === ability.trim().toLowerCase())
-              return name && name !== 'Tough' ? [<small key={name}>{name}: {PET_ABILITY_NOTES[name]}</small>] : []
+          <div><small>Daily familiar or master abilities ({activeAbilityChoices.length}/{dailyAbilityLimit})</small></div>
+          <div className="gear-runes">
+            {savedAbilities.map(({ ability, index }) => {
+              const { entry, reason } = abilityStatus(ability, index)
+              return <div key={`${index}:${ability}`} className="rune">
+                <EntryDescription name={entry?.name ?? ability} entry={entry} entries={entries} character={c} />
+                {index >= dailyAbilityLimit && <small> (inactive)</small>}
+                {reason && index < dailyAbilityLimit && <small title={reason}> (unavailable)</small>}
+                <button type="button" aria-label={`Remove ${familiarLabel} ability ${index + 1}`}
+                  onClick={() => confirmRemoval(`familiar ability "${ability}"`, () =>
+                    saveFamiliar({ abilities: (data?.abilities ?? []).filter((_, abilityIndex) => abilityIndex !== index) }))}>×</button>
+              </div>
             })}
+            {activeAbilityChoices.length < dailyAbilityLimit && <SearchableSelect aria-label={`${familiarLabel} ability`}
+              value="" optionCount={abilityOptions.length}
+              renderDetails={value => {
+                const entry = abilityOptions.find(option => option.id === value)
+                return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+              }} onChange={chooseAbility}>
+              <option value="">Choose ability...</option>
+              {abilityOptions.map(entry => <option key={entry.id} value={entry.id}>
+                {entry.name}{entry.data.ability_type ? ` (${entry.data.ability_type})` : ''}
+              </option>)}
+            </SearchableSelect>}
+          </div>
+          <div><small>Speed</small> {familiarEffects.speeds.map(speed => `${speed.movement} ${speed.feet} feet`).join(', ')}</div>
+          {familiarEffects.senses.length > 0 && <div><small>Senses</small> {familiarEffects.senses.join(', ')}</div>}
+          {familiarEffects.resistances.length > 0 && <div><small>Resistances</small> {familiarEffects.resistances
+            .map(resistance => `${resistance.damage} ${resistance.value}`).join(', ')}</div>}
+          {familiarEffects.skilled.length > 0 && <div><small>Skilled</small> {familiarEffects.skilled
+            .map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>}
+          {activeAbilities.some(ability => ability.toLowerCase() === 'fast movement') && <label>Fast Movement{' '}
+            <select aria-label={`${familiarType} Fast Movement speed`} value={data?.abilityOptions?.fastMovement ?? 'Land'}
+              onChange={event => saveAbilityOptions({ fastMovement: event.target.value })}>
+              {baseSpeeds.map(speed => <option key={speed.movement} value={speed.movement}>{speed.movement} ({speed.feet} feet)</option>)}
+            </select>
+          </label>}
+          {Array.from({ length: resistanceCount }, (_, index) => <label key={`resistance-${index}`}>Resistance type {index + 1}{' '}
+            <select aria-label={`${familiarType} resistance type ${index + 1}`}
+              value={data?.abilityOptions?.resistance?.[index] ?? ''} onChange={event => {
+                const resistance = [...(data?.abilityOptions?.resistance ?? [])]
+                resistance[index] = event.target.value
+                saveAbilityOptions({ resistance })
+              }}>
+              <option value="">Choose damage type</option>
+              {FAMILIAR_RESISTANCE_TYPES.map(type => <option key={type} value={type}
+                disabled={data?.abilityOptions?.resistance?.some((other, otherIndex) => otherIndex !== index && other === type)}>{type}</option>)}
+            </select>
+          </label>)}
+          {Array.from({ length: skilledCount }, (_, index) => <label key={`skilled-${index}`}>Skilled ability {index + 1}{' '}
+            <select aria-label={`${familiarType} Skilled ability ${index + 1}`}
+              value={data?.abilityOptions?.skilled?.[index] ?? ''} onChange={event => {
+                const skilled = [...(data?.abilityOptions?.skilled ?? [])]
+                skilled[index] = event.target.value
+                saveAbilityOptions({ skilled })
+              }}>
+              <option value="">Choose skill</option>
+              {FAMILIAR_SKILLS.map(skill => <option key={skill} value={skill}
+                disabled={data?.abilityOptions?.skilled?.some((other, otherIndex) => otherIndex !== index && other === skill)}>{skill}</option>)}
+            </select>
+          </label>)}
           {!isWasp && familiarSecrets && <div className="col">
             <label>Leshy Familiar Secrets{' '}
               <select aria-label="Leshy Familiar Secrets ability" value={c.familiar?.leshySecret ?? ''} onChange={event => {

@@ -26,6 +26,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   }
   const markdown = kind === 'background'
     ? text(s.markdown).replace(/^[\s\S]*?\*\*Source\*\*[^\n]*\n/i, '') : text(s.markdown)
+  const familiarRules = markdown
+    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, '')
+    .replace(/<column\b[^>]*>[\s\S]*?<\/column>/gi, '')
+    .replace(/^\s*\*\*(?:Source|Ability Type)\*\*[^\n]*\n/gim, '')
   if (kind === 'background' && markdown.trim()) data.full_description = true
   for (const f of DATA_FIELDS) {
     const v = s[f]
@@ -68,6 +72,11 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (text(s.resistances)) data.resistances = text(s.resistances)
   if (kind === 'classFeature') data.class = text(s.class)
   if (kind === 'subclass') data.class = SUBCLASS_CLASSES[text(s.category).toLowerCase()]
+  if (kind === 'familiar') {
+    const type = /\*\*Ability Type\*\*\s+([^\n]+)/i.exec(markdown)?.[1]
+    if (type) data.ability_type = plain(type)
+  }
+  if (text(s.category).toLowerCase() === 'fatal-method') data.subclass_type = 'fatal-method'
   if (text(s.category).toLowerCase() === 'grim-fascination') {
     const spell = /\*\*Grave Spell\*\*\s*\[([^\]]+)\]\([^)]*\)/i.exec(markdown)?.[1]
     if (spell) data.grants_focus_spells = plain(spell)
@@ -90,8 +99,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     traits,
     description: kind === 'ancestry' && text(s.about) ? text(s.about)
       : (['feat', 'heritage', 'background', 'spell', 'ritual', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
-      || usesFullItemRules(s)) && markdown.trim()
-      ? markdown.split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
+      || kind === 'familiar' || usesFullItemRules(s)) && markdown.trim()
+      ? (kind === 'familiar' ? familiarRules : markdown).split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
     ...(kind === 'feat' && comparisonMarkdown !== text(s.markdown)
       ? { comparisonRules: comparisonMarkdown.split(/\n\s*\n/).map(plain).join('\n\n') } : {}),
     ...(choiceDescriptions.length ? { choiceDescriptions } : {}),

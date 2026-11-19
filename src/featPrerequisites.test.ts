@@ -106,7 +106,31 @@ it.each(['The Hallowed Dead', 'Hallowed Dead'])('checks only possession of %s fo
   expect(featPrerequisiteChecker(c, entries)(earth)).toEqual({ missing: [], manual: [] })
   expect(featPrerequisiteChecker({ ...c, feats: [] }, entries)(earth).missing).toEqual(['The Hallowed Dead'])
   expect(featPrerequisiteChecker({ ...c, feats: [selected(name, 8)] }, entries, 6)(earth).missing).toEqual(['The Hallowed Dead'])
-  expect(featPrerequisiteChecker(c, entries)(hallowed).manual).toEqual(["You aren't unholy."])
+  expect(featPrerequisiteChecker(c, entries)(hallowed)).toEqual({ missing: [], manual: [] })
+})
+
+it.each([
+  ['The Unholy Dead', 'holy', 'Holy', 'The Hallowed Dead'],
+  ['The Hallowed Dead', 'unholy', 'Unholy', 'The Unholy Dead'],
+] as const)('automatically checks %s against actual sanctification and opposing feat grants', (name, forbidden, sanctification, opposing) => {
+  const prerequisite = `You aren\u2019t ${forbidden}.`
+  const feat = entry('feat', name, { prerequisite }, 1, ['Necromancer'])
+  const c: Character = { ...base, className: 'Necromancer', level: 1 }
+  const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  expect(featPrerequisiteChecker({ ...c, sanctification }, [feat])(feat))
+    .toEqual({ missing: [prerequisite], manual: [] })
+  for (const granted of [opposing, opposing.replace(/^The /, '')]) {
+    const character = { ...c, feats: [{ ...selected(granted), slot: 'bonus:1:0' }] }
+    expect(featPrerequisiteChecker(character, [feat])(feat)).toEqual({ missing: [prerequisite], manual: [] })
+    expect(eligibleFeats([feat], character, slot, { includeUnmetPrerequisites: true })).not.toContain(feat)
+  }
+  const future = { ...c, feats: [selected(opposing, 8)] }
+  expect(featPrerequisiteChecker(future, [feat])(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([feat], future, slot, { includeUnmetPrerequisites: true })).not.toContain(feat)
+  const self = { ...c, feats: [{ ...selected(name), slot: slot.key }] }
+  expect(featSelectionPrerequisiteChecker(self, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
 })
 
 it.each(['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant'])(

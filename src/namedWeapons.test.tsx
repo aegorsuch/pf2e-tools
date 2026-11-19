@@ -4,7 +4,7 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
-import { namedWeaponAbilities } from './namedWeapons'
+import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases } from './namedWeapons'
 import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
 import { gearAccess } from './gearAccess'
@@ -33,7 +33,7 @@ const winter: ContentEntry = {
 const rune = (name: string): ContentEntry => ({ ...winter, id: name, name,
   data: { item_subcategory: 'Weapon Property Runes' }, description: '' })
 const catalog = [bow('Composite Shortbow', false), bow('Composite Longbow', true), winter,
-  rune('Frost'), rune('Greater Frost'), rune('Holy'), rune('Thundering'), rune('Greater Thundering')]
+  rune('Frost'), rune('Greater Frost'), rune('Holy'), rune('Thundering'), rune('Greater Thundering'), rune('Astral')]
 const c: Character = {
   id: 'c', systems: ['pf2e'], name: 'Bow test', level: 1, className: 'Fighter',
   abilities: { str: 14, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
@@ -46,21 +46,29 @@ it.each([
   [16, 3, 2, 'Standard'], [18, 3, 2, 'High'], [19, 3, 3, 'High'],
 ] as const)("locks every Hunter's Dawn form to Peachwood and scales fundamentals at level %i", (level, potency, striking, grade) => {
   const item: ContentEntry = { ...winter, id: 'dawn', name: "Hunter's Dawn", level: 5,
-    description: 'Base Weapon Club. This +1 striking club is carved from peachwood.' }
+   description: "Base Weapon Club. _Hunter's Dawn_ is a _+3 [greater striking](/Equipment.aspx?ID=280) [speed](/Equipment.aspx?ID=304) [ghost touch](/Equipment.aspx?ID=297) [club](/Weapons.aspx?ID=2)_. " }
   const bases: ContentEntry[] = ['Club', 'Dart', 'Javelin'].map(name => ({
     ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: name === 'Club' ? 'Melee' : 'Ranged',
       weapon_category: 'Simple', hands: 1, range: name === 'Club' ? 0 : 20 },
   }))
   const entries = [item, ...bases]
   const options = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === item.name)
-  expect(options).toHaveLength(3)
-  for (const entry of options) {
+  expect(options.map(entry => entry.data.named_weapon_base)).toEqual(['Club'])
+  expect(namedWeaponBases(options[0])).toEqual(['Club', 'Dart', 'Javelin'])
+  const forms = makeNamedWeaponEntries(entries, entries.filter(entry => entry.data.item_subcategory === 'Weapon Property Runes'))
+    .filter(entry => entry.data.named_weapon_source === item.name && !entry.data.named_weapon_resolver_only)
+  expect(forms).toHaveLength(3)
+  expect(forms.find(entry => entry.data.named_weapon_base === 'Dart')?.data.range).toBe(40)
+  for (const entry of forms) {
     const weapon: OwnedWeapon = { ...owned(entry.name), material: 'Orichalcum', runes: ['Flaming'] }
     const character = { ...c, level, weapons: [weapon] }
     const before = JSON.stringify(character)
     expect(effectiveWeapon(character, entries, weapon)).toMatchObject({
-      material: `Peachwood (${grade}-Grade)`, potency, striking, runes: expect.arrayContaining(['Flaming']),
+      material: `Peachwood (${grade}-Grade)`, potency: Math.max(potency, 3), striking: Math.max(striking, 2),
+      runes: expect.arrayContaining(['Flaming']),
     })
+    expect(effectiveWeapon(character, entries, weapon)?.runes).toContain('Astral')
+    expect(effectiveWeapon(character, entries, weapon)?.runes).not.toContain('Quickstrike')
     const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} />)
     expect(markup).toContain(`>Peachwood (${grade}-Grade)</button>`)
     expect(markup).not.toContain('aria-label="Weapon material"')
@@ -68,6 +76,8 @@ it.each([
     expect(markup).not.toContain('<label>Potency')
     expect(markup).not.toContain('<label>Striking')
     expect(markup).toContain('aria-label="Fundamental runes"')
+    expect(markup).toContain('[Astral](/Equipment.aspx?ID=2832)')
+    expect(markup).not.toContain('[speed](/Equipment.aspx?ID=304)')
     expect(JSON.stringify(character)).toBe(before)
   }
 })

@@ -1262,7 +1262,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {summary.form && <small>{summary.form}:</small>}
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
-          {!upgradeWeapon && !fixed && <WeaponFundamentals {...enhanced} entries={entries} />}
+          {!upgradeWeapon && !fixed && !unarmed && <WeaponFundamentals {...enhanced} entries={entries} />}
+          {!upgradeWeapon && !fixed && unarmed && <Runes
+            runes={enhanced.runes.filter(rune => !freeRunes.some(free => runeName(free.name) === runeName(rune)))}
+            entries={entries} options={[]} limit={0} freeRunes={freeRunes}
+            source={strengthSource ? `Animal Strength: ${strengthSource.name}` : `Inherited from ${handwrapItem.name}`} />}
           <AttackUpgrades attack={a} />
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
@@ -1346,7 +1350,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </div>
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
-            {!upgradeWeapon && !fixed && <WeaponFundamentals {...enhanced} entries={entries} />}
+            {!upgradeWeapon && !fixed && !unarmed && <WeaponFundamentals {...enhanced} entries={entries} />}
             <AttackUpgrades attack={a} />
             {namedWeaponNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
@@ -1609,8 +1613,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
     ...next.map(armor => {
       const saved = c.armors?.find(saved => saved.id === armor.id)
       const runes = armor.id === BONY_PLATES_ID
-        ? [...(saved?.runes.filter(rune => BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune))) ?? []),
-          ...armor.runes.filter(rune => !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune)))]
+      ? saved?.runes ?? []
         : armor.runes
       return { ...armor, runes, ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
@@ -1627,6 +1630,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
         const entry = armorEntry(c, entries, a.name)
+        const bonyPlates = a.id === BONY_PLATES_ID
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const runesAllowed = entry?.data.runes_allowed !== false
@@ -1751,13 +1755,13 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
-            {runesAllowed ? <Runes runes={a.runes.filter(rune => !fixedRunes.includes(rune))} entries={entries}
+            {runesAllowed ? <><Runes runes={bonyPlates ? [] : a.runes.filter(rune => !fixedRunes.includes(rune))} entries={entries}
               freeRunes={[...(named?.runes.map(name => ({ name, source: `Built into ${a.name}` })) ?? []),
                 ...automaticRunes.map(name => ({ name, source: 'Granted by Bony Plates' }))]}
-              options={propertyRunes(entries, 'Armor').filter(rune => !fixedRunes.includes(rune.name)
+              options={bonyPlates ? [] : propertyRunes(entries, 'Armor').filter(rune => !fixedRunes.includes(rune.name)
                 && (a.id !== BONY_PLATES_ID || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune.name))))}
-              limit={runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
-              onChange={(runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} />
+              limit={bonyPlates ? 0 : runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
+              onChange={bonyPlates ? undefined : (runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} /></>
               : <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
               onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),

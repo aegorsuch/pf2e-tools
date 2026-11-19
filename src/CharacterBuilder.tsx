@@ -38,6 +38,7 @@ import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundLoreSlots, backgroundVariants, type BackgroundVariant } from './builder'
 import { backgroundLoreOptions, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
 import { getSettings } from './settings'
+import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 
 const NONE: ContentEntry[] = []
 
@@ -443,9 +444,12 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
   const ancestry = named('ancestry', c.ancestry)
   const heritage = named('heritage', c.heritage)
   const klass = named('class', c.className)
-  const subclasses = subclassOptions(c, entries)
+  const subclasses = subclassOptions(c, entries).filter(entry => entry.data.subclass_type !== 'fatal-method')
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
+  const fatalMethods = fatalMethodOptions(entries)
+  const fatalMethod = selectedFatalMethod(c)
+  const fatalMethodEntry = fatalMethods.find(entry => entry.name === fatalMethod)
   const subclassChoice = subclassSkillChoice(c, entries)
   const choiceValue = subclassChoice ? c.subclassSkillChoices?.[subclassChoice.key] ?? '' : ''
   const background = named('background', c.background)
@@ -639,7 +643,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         </summary>
         <div className="character-section-content">
           <div className="row">
-            <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '' })} />
+            <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '', fatalMethod: undefined })} />
             <label>Level <input aria-label="Character level" type="number" min={1} max={20} value={c.level}
               onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
           </div>
@@ -649,6 +653,11 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />
             {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
+          </>}
+          {c.className === 'Necromancer' && <>
+            <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
+              onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />
+            {fatalMethodEntry && <Info label={fatalMethodEntry.name}>{fatalMethodEntry.description}</Info>}
           </>}
           {rogueRackets(c, entries).filter(racket => racket !== subclassName).map(racket => {
             const entry = subclasses.find(candidate => candidate.name === racket)

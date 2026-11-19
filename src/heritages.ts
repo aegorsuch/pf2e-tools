@@ -25,12 +25,17 @@ const VERSATILE_HERITAGES = new Set([
   'Reflection', 'Fadrim', 'Beastkin', 'Cyborg', 'Borai', 'Corpsefolk', 'Gap-touched', 'Prismeni', 'Xenometric Android',
 ].map(slug))
 
+const BAKUWA_PLATES_PICKER_NOTE = 'Bony Plates automatically match your highest armor proficiency among Unarmored, Light, Medium, and Heavy; ties use the heavier category. Unarmored and light plates gain Shadow, while medium and heavy plates gain Fortification.'
+
 export const isVersatileHeritage = (entry: ContentEntry) => VERSATILE_HERITAGES.has(slug(entry.name))
   || entry.data.versatile === true || entry.traits.some(trait => slug(trait) === 'versatile')
 
 export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
   const all = entries.filter((e) => e.kind === 'heritage' && !e.deleted)
-  if (!ancestry) return all
+  const withPickerText = (heritage: ContentEntry) => heritage.name === 'Bakuwa Lizardfolk'
+    ? { ...heritage, description: [heritage.description.trim(), BAKUWA_PLATES_PICKER_NOTE].filter(Boolean).join('\n\n') }
+    : heritage
+  if (!ancestry) return all.map(withPickerText)
   const target = slug(ancestry)
   const names = new Set([target, ...entries.filter((e) => e.kind === 'ancestry' && !e.deleted).map((e) => slug(e.name))])
   return all.filter((e) => {
@@ -45,7 +50,7 @@ export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
     const named = [...names].filter(ancestry => name.endsWith(`-${ancestry}`))
     if (named.length) return named.includes(target)
     return e.source === 'homebrew'
-  })
+  }).map(withPickerText)
 }
 
 export function elfAtavismOptions(c: Character, entries: ContentEntry[]) {

@@ -28,6 +28,7 @@ import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoice
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, elfAtavismOptions, isVersatileHeritage } from './heritages'
+import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
 import { makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
 
@@ -760,7 +761,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
 
 const PREREQUISITE_EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed'],
   ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']]
-const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS, ['Hallowed Dead', 'Unholy Dead']]
+const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS,
+  ['The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead']]
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
 const MECHANIC_EXOCORTEXES = ['Drone', 'Mine', 'Turret']
 
@@ -818,7 +820,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
         ancestryTraits: ancestryFeatTraits(character),
-        subclass, additionalSubclasses, exocortexes: mechanicExocortexes(character),
+        subclass, additionalSubclasses, fatalMethod: selectedFatalMethod(character), exocortexes: mechanicExocortexes(character),
         orders: character.className === 'Druid' ? [
           character.order ?? subclass ?? '',
           ...character.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []),
@@ -828,6 +830,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
         })),
         get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
+          ...fatalMethodGrants(character).features,
           ...automaticFeatGrants(character, entries).map((feat) => feat.name),
           ...tokens(byName(entries, 'background', character.background)?.data.feat),
           ...(character.className === 'Druid' && (character.order ?? subclass) === 'Animal' ? ['Animal Companion'] : []),
@@ -875,8 +878,10 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         get canCastSpells() { return !!(value.spellcastingClassFeature || value.focusPool || character.spells?.length) },
         get untamedForm() { return knowsSpell(character, entries, 'Untamed Form') },
         championBlessings: championBlessings(character),
-        sanctification: character.className === 'Champion' && byName(entries, 'deity', character.deity)?.data.sanctification
-          ? deitySanctification(character, entries).selected ?? 'None' : undefined,
+        sanctification: character.className === 'Champion'
+          ? byName(entries, 'deity', character.deity)?.data.sanctification
+            ? deitySanctification(character, entries).selected ?? 'None' : undefined
+          : character.sanctification ?? 'None',
         deityAlignment: character.deity
           ? String(byName(entries, 'deity', character.deity)?.data.alignment ?? '') || undefined : 'None',
         legacyTenetsOfGood: character.className === 'Champion' && !!character.legacyTenetsOfGood,
@@ -1545,7 +1550,7 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   if (c.className === 'Witchwarper') return witchwarperSpellcasting(c)
   const klass = byName(entries, 'class', c.className)
-  const traditions = c.className === 'Druid' ? ['Primal'] : tokens(klass?.data.tradition)
+  const traditions = c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult'] : tokens(klass?.data.tradition)
   const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
   if (!traditions.length && !focusOnlyCaster) return undefined
 
@@ -1566,7 +1571,7 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
       }
     }
     return Math.max(best, rank)
-  }, c.className === 'Druid' ? c.level >= 19 ? 4 : c.level >= 15 ? 3 : c.level >= 7 ? 2 : 1 : 1)
+  }, ['Druid', 'Necromancer'].includes(c.className ?? '') ? c.level >= 19 ? 4 : c.level >= 15 ? 3 : c.level >= 7 ? 2 : 1 : 1)
   return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
 }
 
@@ -1585,14 +1590,83 @@ export function spellDCText(c: Character, entries: ContentEntry[], text: string)
 
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
-  if (c.className !== 'Druid' || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+  if (!['Druid', 'Necromancer'].includes(c.className ?? '') || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+  const necromancer = c.className === 'Necromancer'
   const slots: Record<number, number> = {}
   if (c.level < 1) return slots
   slots[0] = 5
   for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
-    slots[rank] = c.level === rank * 2 - 1 ? 2 : 3
-  if (c.level >= 19) slots[10] = 1 + (c.level >= 20 && activeFeatsNamed(c, "Hierophant's Power").length ? 1 : 0)
+    slots[rank] = (c.level === rank * 2 - 1 ? 2 : 3) - (necromancer ? 1 : 0)
+  if (c.level >= 19) slots[10] = 1 + (c.level >= 20
+    && activeFeatsNamed(c, necromancer ? 'Mortem Ultimatum' : "Hierophant's Power").length ? 1 : 0)
+  for (const extra of necromancerExtraSlots(c)) slots[extra.rank]++
   return slots
+}
+
+export function necromancerConjurerRank(c: Character) {
+  // Epitaph excludes its 10th-rank slots from abilities that grant additional slots.
+  return selectedFatalMethod(c) === 'Puppeteer' && c.level >= 6 && activeFeatsNamed(c, 'Conjurer of Corpses').length
+    ? Math.min(9, Math.ceil(c.level / 2)) : undefined
+}
+
+export function necromancerExtraSlots(c: Character) {
+  const slots: { key: string; rank: number; spell: string; source: string }[] = []
+  const conjurerRank = necromancerConjurerRank(c)
+  if (conjurerRank !== undefined) slots.push({
+    key: 'conjurer-of-corpses', rank: conjurerRank, spell: 'Summon Undead', source: 'Conjurer of Corpses',
+  })
+  if (c.className === 'Necromancer' && c.level >= 14 && activeFeatsNamed(c, 'Unholy Resurrection').length
+    && c.sanctification !== 'Holy' && !activeFeatsNamed(c, 'The Hallowed Dead').length && !activeFeatsNamed(c, 'Hallowed Dead').length)
+    slots.push({ key: 'unholy-resurrection', rank: Math.min(9, Math.ceil(c.level / 2)), spell: 'Raise Dead', source: 'Unholy Resurrection' })
+  return slots
+}
+
+export function necromancerGrantedDirgeSpells(c: Character) {
+  if (c.className !== 'Necromancer' || c.level < 1) return []
+  const spells = ['Harm', ...necromancerExtraSlots(c).map(slot => slot.spell)]
+  if (c.level >= 10 && activeFeatsNamed(c, 'Expanded Necromancy').length) {
+    for (const [rank, name] of [[5, 'Grisly Growths'], [7, 'Execute'], [8, 'Desiccate'], [9, 'Massacre']] as const)
+      if (rank <= Math.ceil(c.level / 2)) spells.push(name)
+  }
+  return spells
+}
+
+export function necromancerDirgeCanLearn(c: Character, entries: ContentEntry[], candidate: ContentEntry) {
+  if (c.className !== 'Necromancer' || candidate.level > Math.ceil(c.level / 2)
+    || !necromancerSpellList(c, entries).some(entry => entry.id === candidate.id)) return false
+  const known = necromancerDirge(c, entries)
+  if (known.some(entry => entry.name === candidate.name)) return false
+  const granted = new Set(necromancerGrantedDirgeSpells(c))
+  const learned = known.filter(entry => !granted.has(entry.name))
+  const cantrips = learned.filter(entry => entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
+  const rankOne = learned.filter(entry => entry.level === 1 && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
+  const extraLearned = learned.filter(entry => entry.level > 1).length + Math.max(0, cantrips - 8) + Math.max(0, rankOne - 4)
+  const isCantrip = candidate.traits.some(trait => trait.toLowerCase() === 'cantrip')
+  if (isCantrip && cantrips < 8 || !isCantrip && candidate.level === 1 && rankOne < 4) return true
+  return extraLearned < 2 * Math.max(0, c.level - 1)
+}
+
+export function beckoningDirgeMaxRank(c: Character) {
+  return selectedFatalMethod(c) === 'Puppeteer' && c.level >= 16 && activeFeatsNamed(c, 'Beckoning Dirge').length
+    ? Math.min(9, Math.ceil(c.level / 2) - 1) : undefined
+}
+
+export function necromancerSpellList(c: Character, entries: ContentEntry[]) {
+  if (c.className !== 'Necromancer' || c.level < 1) return []
+  const granted = new Set(necromancerGrantedDirgeSpells(c))
+  return entries.filter(entry => entry.kind === 'spell' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system))
+    && !entry.traits.some(trait => trait.toLowerCase() === 'focus')
+    && (granted.has(entry.name) || tokens(entry.data.tradition).some(tradition => tradition.toLowerCase() === 'occult')))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+}
+
+export function necromancerDirge(c: Character, entries: ContentEntry[]) {
+  const knownIds = new Set(c.spells?.flatMap(spell => spell.entryId ? [spell.entryId] : []) ?? [])
+  const knownNames = new Set(c.spells?.filter(spell => !spell.entryId).map(spell => spell.name) ?? [])
+  const granted = new Set(necromancerGrantedDirgeSpells(c))
+  return necromancerSpellList(c, entries.filter(entry => granted.has(entry.name)
+    || knownIds.has(entry.id) || knownNames.has(entry.name)))
 }
 
 export function druidSpellList(c: Character, entries: ContentEntry[]) {
@@ -2348,6 +2422,7 @@ export function subclassOptions(c: Character, entries: ContentEntry[]) {
   const cached = cache.get(key)
   if (cached) return cached
   const options = entries.filter((entry) => entry.kind === 'subclass' && !entry.deleted && entry.data.class === c.className
+    && entry.data.subclass_type !== 'fatal-method'
     && entry.systems.some(system => c.systems.includes(system)))
   const result = [...options, ...(c.systems.includes('sf2e') ? STARFINDER_SUBCLASSES.filter(entry =>
     entry.data.class === c.className && !options.some(existing => existing.name === entry.name && existing.systems.includes('sf2e'))) : [])]
@@ -3291,8 +3366,11 @@ function groupRanks<G extends string>(c: Character, entries: ContentEntry[], gro
   return ranks
 }
 
-const baseWeaponRanks = (c: Character, entries: ContentEntry[]) =>
-  groupRanks(c, entries, WEAPON_GROUPS, 'attack_proficiency', (t) => /weapons?|unarmed attacks?/i.test(t))
+const baseWeaponRanks = (c: Character, entries: ContentEntry[]) => {
+  const ranks = groupRanks(c, entries, WEAPON_GROUPS, 'attack_proficiency', (t) => /weapons?|unarmed attacks?/i.test(t))
+  ranks.Martial = Math.max(ranks.Martial, fatalMethodGrants(c).martialWeapons)
+  return ranks
+}
 const proficiencyFeats = (c: Character, name: string) => c.feats.map((feat, index) => ({ feat, index }))
   .filter(({ feat }) => feat.name === name && featTakenLevel(feat) <= c.level)
   .sort((a, b) => featTakenLevel(a.feat) - featTakenLevel(b.feat) || a.index - b.index)
@@ -3383,6 +3461,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
 
 function baseArmorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = groupRanks(c, entries, ARMOR_GROUPS, 'defense_proficiency', (t) => /armor|unarmored defense/i.test(t))
+  ranks.Medium = Math.max(ranks.Medium, fatalMethodGrants(c).mediumArmor)
   const klass = byName(entries, 'class', c.className)
   for (const group of ARMOR_GROUPS) {
     const key = group === 'Unarmored' ? 'unarmored' : `${group.toLowerCase()}_armor`
@@ -4130,6 +4209,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
 
 export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
   return !!(c.spells?.some((spell) => spell.name === name)
+    || necromancerGrantedDirgeSpells(c).includes(name)
     || c.feats.some(feat => featTakenLevel(feat) <= c.level && hasWardenChoice(feat) && feat.choice === name)
     || grantedFeatSpells(c, entries).some(grant => grant.entry.name === name)
     || minorMagicSpells(c, entries).some(spell => spell.name === name)
@@ -5580,7 +5660,8 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
         .filter((entry): entry is ContentEntry => !!entry) : []),
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
-  return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
+  return pool.filter(entry => !(kind === 'weapon' && entry.data.named_weapon_source === "Hunter's Dawn"
+    && entry.data.named_weapon_base !== 'Club')).map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
     seen.add(entry.name)

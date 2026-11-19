@@ -2,6 +2,29 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion, parseFeatSpellGrants } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('imports full familiar and master ability rules from the familiar-ability source', async () => {
+  const queried: string[] = []
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category ?? ''
+    queried.push(category)
+    const hits = category === 'familiar-ability' ? [
+      { _id: 'familiar-ability-1', _source: { category, name: 'Flier', summary: 'Short index summary',
+        url: '/Familiars.aspx?ID=7', markdown: '**Ability Type** Familiar\n\nIt gains a fly Speed of 25 feet.' } },
+      { _id: 'familiar-ability-2', _source: { category, name: 'Spell Battery', summary: 'Short index summary',
+        url: '/Familiars.aspx?ID=17', markdown: '**Ability Type** Master\n\nYou gain an additional spell slot.' } },
+    ] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+
+  expect(queried).toContain('familiar-ability')
+  expect(entries).toMatchObject([
+    { kind: 'familiar', name: 'Flier', description: 'It gains a fly Speed of 25 feet.', data: { ability_type: 'Familiar' } },
+    { kind: 'familiar', name: 'Spell Battery', description: 'You gain an additional spell slot.', data: { ability_type: 'Master' } },
+  ])
+})
+
 it('fetches and imports all four grim fascinations with their starting focus spells and thrall rules', async () => {
   const choices = [['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']]
   const fetchFn: typeof fetch = async (_input, init) => {

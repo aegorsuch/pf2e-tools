@@ -7,7 +7,8 @@ export const HARDWOOD_ARMOR_ID = 'granted-armor:hardwood'
 export const ARMIGER_ARMOR_ID = 'granted-armor:ardent-armiger'
 export const BONY_PLATES_ID = 'granted-armor:lizardfolk'
 const BONY_PLATE_CATEGORIES = ['Unarmored', 'Light', 'Medium', 'Heavy'] as const
-export const BONY_PLATE_RUNE_FAMILIES = ['Moonweave', 'Sunweave', 'Fortification'] as const
+export const BONY_PLATE_RUNE_FAMILIES = ['Moonweave', 'Sunweave', 'Shadow', 'Fortification'] as const
+export const BONY_PLATE_PROPERTY_RUNE_LIMIT = 3
 const BONY_PLATE_PROFILES = {
   Unarmored: { ac: 0, dex_cap: 5, check_penalty: 0, speed_penalty: 0, strength: 0 },
   Light: { ac: 2, dex_cap: 3, check_penalty: -1, speed_penalty: 0, strength: 1 },
@@ -23,9 +24,10 @@ export const BONY_PLATES_DESCRIPTION = 'Your body is covered in bony plates in t
   + 'Heavy: +6 AC, Dexterity cap +0, check penalty -3, Speed penalty -10 feet, Strength +4.\n\n'
   + 'Use your highest armor proficiency, including unarmored defense, with your plates. You cannot remove your plates or wear other armor. '
   + 'Your fundamental armor runes improve automatically with character level. Moonweave is granted at level 5, greater at 13, and major at 17; '
-  + 'Sunweave is granted at level 7, greater at 11, and major at 18. Medium and heavy plates also gain Fortification at level 12, greater at 18; '
+  + 'Sunweave is granted at level 7, greater at 11, and major at 18. Unarmored and light plates also gain Shadow at level 5, greater at 9, and major at 17. '
+  + 'Medium and heavy plates instead gain Fortification at level 12, greater at 18; '
   + 'Fortification increases their Bulk and Strength requirement by 1. These granted property runes do not count against your rune limit. '
-  + 'You can etch additional property runes onto your plates. '
+  + 'Your plates automatically gain three property-rune families; you cannot etch additional property runes onto them. '
   + 'Having these plates does not satisfy heritage prerequisites; feats requiring Bakuwa Lizardfolk still require that heritage.'
 export const INVENTOR_SUITS = ['Power Suit', 'Subterfuge Suit'] as const
 export const isGrantedArmor = (id: string) => id.startsWith('granted-armor:')
@@ -37,6 +39,10 @@ export const automaticArmorFundamentals = (level: number, entry?: ContentEntry) 
 })
 export const automaticArmorPropertyRunes = (entry?: ContentEntry) =>
   String(entry?.data.automatic_property_runes ?? '').split(';').filter(Boolean)
+
+export function activeBonyPlateRunes(_savedRunes: string[], automaticRunes: string[]) {
+  return automaticRunes.slice(0, BONY_PLATE_PROPERTY_RUNE_LIMIT)
+}
 
 const STARFINDER_ARMOR_GRADES = [
   { name: 'Paragon', level: 20, ac: 3, resilient: 3, upgrades: 3 },
@@ -101,8 +107,10 @@ export function grantedArmorEntries(c: Character, innovation = c.subclass, armor
     const runes = [
       ...(c.level >= 5 ? [c.level >= 17 ? 'Moonweave (Major)' : c.level >= 13 ? 'Moonweave (Greater)' : 'Moonweave'] : []),
       ...(c.level >= 7 ? [c.level >= 18 ? 'Sunweave (Major)' : c.level >= 11 ? 'Sunweave (Greater)' : 'Sunweave'] : []),
+      ...(['Unarmored', 'Light'].includes(category) && c.level >= 5
+        ? [c.level >= 17 ? 'Shadow (Major)' : c.level >= 9 ? 'Shadow (Greater)' : 'Shadow'] : []),
       ...(fortification ? [c.level >= 18 ? 'Fortification (Greater)' : 'Fortification'] : []),
-    ]
+    ].slice(0, BONY_PLATE_PROPERTY_RUNE_LIMIT)
     entries.push({ ...armorEntry(BONY_PLATES_ID, 'Bony Plates', {
       ...BONY_PLATE_PROFILES[category], attached: true, armor_category: category, armor_group: 'Plate',
       highest_armor_proficiency: true, granted_by: bakuwa ? 'Bakuwa Lizardfolk' : 'Bony Plates',

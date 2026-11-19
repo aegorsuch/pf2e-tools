@@ -15,6 +15,7 @@ export interface PrerequisiteFacts {
   ethnicity?: string
   ancestryTraits?: string[]
   subclass?: string
+  fatalMethod?: string
   additionalSubclasses: string[]
   exocortexes?: string[]
   orders: string[]
@@ -65,6 +66,7 @@ const ROLE_CLASSES: Record<string, string> = {
   mystery: 'Oracle', methodology: 'Investigator', innovation: 'Inventor', way: 'Gunslinger',
   'hybrid study': 'Magus', 'conscious mind': 'Psychic', practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler',
   "hunter's edge": 'Ranger', edge: 'Ranger',
+  'fatal method': 'Necromancer',
 }
 const ROLE_PATTERN = new RegExp(`^(.+?) (${Object.keys(ROLE_CLASSES).sort((a, b) => b.length - a.length).join('|')})$`)
 const rankPrefix = /^(untrained|trained|expert|master|legendary)\s+(?:in|with)\s+/i
@@ -286,9 +288,17 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       if (tenets) return missing(text)
       return name === 'tenets of good' && facts.legacyTenetsOfGood ? met() : manual(text)
     }
-    if (facts.className === 'Champion' && ['holy', 'unholy', "you aren't unholy"].includes(name)) {
+    const forbiddenSanctification = /^you (?:aren't|are not) (holy|unholy)$/.exec(name)?.[1]
+    if (forbiddenSanctification) {
+      const forbiddenFeats = forbiddenSanctification === 'holy'
+        ? ['the hallowed dead', 'hallowed dead'] : ['the unholy dead', 'unholy dead']
+      if (facts.feats.some(feat => forbiddenFeats.includes(key(feat.name)))) return missing(text)
       if (!facts.sanctification) return manual(text)
-      return resultFor(name === "you aren't unholy" ? facts.sanctification !== 'Unholy' : key(facts.sanctification) === name, text)
+      return resultFor(key(facts.sanctification) !== forbiddenSanctification, text)
+    }
+    if (facts.className === 'Champion' && ['holy', 'unholy'].includes(name)) {
+      if (!facts.sanctification) return manual(text)
+      return resultFor(key(facts.sanctification) === name, text)
     }
     const deityAlignment = /^you (?:follow|worship) a (good|evil)-aligned deity$/.exec(name)
     if (deityAlignment) {
@@ -394,7 +404,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (/^(?:passed the hellknight test|member of a hellknight order|trained by a hellknight order|lawful alignment|you've refused to take or have failed the hellknight test)\.?$/.test(name)) return met()
     const role = ROLE_PATTERN.exec(name)
     if (role) {
-      const choices = role[2] === 'order' ? facts.orders : [facts.subclass ?? '', ...facts.additionalSubclasses]
+      const choices = role[2] === 'order' ? facts.orders : role[2] === 'fatal method' ? [facts.fatalMethod ?? '']
+        : [facts.subclass ?? '', ...facts.additionalSubclasses]
       const normalize = (value: string) => {
         const name = key(value).replace(/^the /, '').replace(new RegExp(` ${role[2]}$`), '')
         return role[2] === 'order' && name === 'untamed' ? 'wild'
@@ -403,7 +414,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const expected = normalize(role[1])
       const known = role[2] === 'order' ? context.knownOrders.some((order) => normalize(order) === expected)
         : knownEntries(role[1]).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[role[2]])
-      if (known || role[2] === 'cause' && Object.values(CHAMPION_CAUSE_ALIASES).includes(expected)
+      if (known || role[2] === 'fatal method' && ['puppeteer', 'reaper'].includes(expected)
+        || role[2] === 'cause' && Object.values(CHAMPION_CAUSE_ALIASES).includes(expected)
         || choices.some((choice) => normalize(choice) === expected)) {
         return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === expected), text)
       }

@@ -1,0 +1,251 @@
+import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement, type ReactNode } from 'react'
+import { expect, it } from 'vitest'
+import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
+import { mapAonHit } from './aon'
+import { BeckoningDirgeCast, SpellsSection } from './SpellsSection'
+import type { Character, ContentEntry } from './types'
+
+const base: Character = {
+  id: 'necromancer', name: 'Necromancer', className: 'Necromancer', systems: ['pf2e'], level: 1,
+  abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+  feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+}
+const spell = (name: string, level = 1, tradition = 'Occult', traits: string[] = []): ContentEntry => ({
+  id: name, name, kind: 'spell', systems: ['pf2e'], source: 'official', level, traits,
+  data: { tradition }, description: '', effects: [], updatedAt: 0,
+})
+const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat' })
+const render = (c: Character, entries: ContentEntry[]) =>
+  renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
+const choices = (html: string, label: string) =>
+  new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
+
+it.each([
+  [1, [5, 1]], [2, [5, 2]], [3, [5, 2, 1]], [6, [5, 2, 2, 2]], [7, [5, 2, 2, 2, 1]],
+  [17, [5, ...Array(8).fill(2), 1]], [18, [5, ...Array(9).fill(2)]],
+  [19, [5, ...Array(9).fill(2), 1]], [20, [5, ...Array(9).fill(2), 1]],
+])('derives Necromancer slots at level %i without manual settings', (level, counts) => {
+  expect(Object.values(classSpellSlots({ ...base, level })!)).toEqual(counts)
+})
+
+it('gives Mortem Ultimatum its additional rank-ten slot only when acquired', () => {
+  const c = { ...base, level: 20, feats: [taken('Mortem Ultimatum', 20), taken('Mortem Ultimatum', 20)] }
+  expect(classSpellSlots(c)?.[10]).toBe(2)
+  expect(classSpellSlots({ ...c, level: 19 })?.[10]).toBe(1)
+  expect(classSpellSlots({ ...c, feats: [taken('Mortem Ultimatum', 21)] })?.[10]).toBe(1)
+  expect(classSpellSlots({ ...c, className: 'Druid' })?.[10]).toBe(1)
+  expect(classSpellSlots({ ...c, className: 'Wizard' })).toBeUndefined()
+})
+
+it.each([[1, 1], [7, 2], [15, 3], [19, 4]])('fixes Occult Intelligence spellcasting at level %i', (level, rank) => {
+  expect(classSpellcasting({ ...base, level,
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {} } }, []))
+    .toMatchObject({ traditions: ['Occult'], ability: 'int', rank })
+})
+
+it('prepares only learned occult spells plus automatic Harm, while keeping focus spells separate', () => {
+  const harm = spell('Harm', 1, 'Divine')
+  const fear = spell('Fear')
+  const guidance = spell('Guidance', 1, 'Occult', ['Cantrip'])
+  const focus = spell('Bone Spear', 1, 'Occult', ['Focus'])
+  const entries = [harm, fear, guidance, focus, spell('Arcane Only', 1, 'Arcane'),
+    { ...spell('Deleted'), deleted: true }, { ...spell('Other System'), systems: ['sf2e'] as Character['systems'] }]
+  const c: Character = { ...base, spells: [fear, guidance, focus].map(entry =>
+    ({ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: entry === guidance })) }
+  expect(necromancerSpellList(c, entries).map(entry => entry.name)).toEqual(['Fear', 'Guidance', 'Harm'])
+  expect(necromancerDirge(base, entries)).toEqual([harm])
+  expect(necromancerDirge(c, entries)).toEqual([fear, guidance, harm])
+  expect(knowsSpell(base, entries, 'Harm')).toBe(true)
+  const html = render(c, entries)
+  expect(choices(html, 'Spell Rank 1 slot 1')).toContain('value="Harm"')
+  expect(choices(html, 'Spell Rank 1 slot 1')).toContain('value="Fear"')
+  expect(choices(html, 'Cantrip slot 1')).toContain('value="Guidance"')
+  expect(choices(html, 'Spell Rank 1 slot 1')).not.toContain('Bone Spear')
+  expect(choices(render(base, entries), 'Spell Rank 1 slot 1')).not.toContain('value="Fear"')
+  expect(html).toContain('aria-label="Learn dirge spell"')
+  expect(html).not.toContain('Spell slots:')
+  expect(html).not.toContain('Spell Rank 1 slot 2')
+})
+
+it('learns accessible, current-rank occult spells rather than granting the entire tradition', () => {
+  const entries = [spell('Fear'), spell('Rare Magic', 1, 'Occult', ['Rare']),
+    spell('Harm', 1, 'Divine'), spell('Arcane Only', 1, 'Arcane'), spell('Higher Rank', 2),
+    { ...spell('Restricted Magic'), data: { tradition: 'Occult', access: 'Kellid ethnicity' } }]
+  const html = render(base, entries)
+  const learn = choices(html, 'Learn dirge spell')
+  expect(learn).toContain('value="Fear"')
+  expect(learn).toContain('value="Rare Magic"')
+  for (const name of ['Harm', 'Arcane Only', 'Higher Rank', 'Restricted Magic']) expect(learn).not.toContain(`value="${name}"`)
+  expect(choices(render({ ...base, ethnicity: 'Kellid' }, entries), 'Learn dirge spell')).toContain('value="Restricted Magic"')
+})
+
+it('retains and heightens legacy dirge selections without mutating saved manual settings', () => {
+  const fear = { ...spell('Fear'), id: 'canonical-fear' }
+  const c: Character = { ...base, level: 7, spells: [{ name: 'Fear', rank: 1, cantrip: false }],
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 4, slots: { 1: 9, 10: 5 },
+      prepared: { '4:0': 'Fear', '10:0': 'Dormant' }, spentSlots: ['4:0', '10:0'] } }
+  const before = JSON.stringify(c)
+  const html = render(c, [fear])
+  expect(choices(html, 'Spell Rank 4 slot 1')).toContain('value="Fear" selected=""')
+  expect(html).toContain('disabled="" aria-label="Cast spell slot rank 4 slot 1"')
+  expect(html).toContain('aria-label="Reset class spell slots"')
+  expect(html).not.toContain('Spell Rank 10 slot')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it.each([[6, 3, 3], [7, 4, 2], [18, 9, 3], [19, 9, 3], [20, 9, 3]])(
+  'prepares Summon Undead in one locked Conjurer slot at level %i', (level, rank, count) => {
+    const c: Character = { ...base, level, fatalMethod: 'Puppeteer', feats: [taken('Conjurer of Corpses', 6)],
+      spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: {}, spentSlots: ['conjurer-of-corpses'] } }
+    const summon = spell('Summon Undead', 1, 'Arcane, Divine, Occult')
+    const entries = [summon, spell('Fear')]
+    expect(necromancerConjurerRank(c)).toBe(rank)
+    expect(classSpellSlots(c)?.[rank]).toBe(count)
+    expect(classSpellSlots(c)?.[10]).toBe(level >= 19 ? 1 : undefined)
+    expect(necromancerDirge(c, entries)).toEqual([summon])
+    expect(knowsSpell(c, entries, summon.name)).toBe(true)
+    const html = render(c, entries)
+    const label = `Spell Rank ${rank} slot ${count}`
+    expect(choices(html, label)).toContain('value="Summon Undead" selected=""')
+    expect(choices(html, label)).not.toContain('value="Fear"')
+    expect(html).toContain(`disabled="" aria-label="Cast spell slot rank ${rank} slot ${count}"`)
+    expect(html).toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled=""`))
+  },
+)
+
+it('does not activate Conjurer for unselected, future, or mismatched method feats', () => {
+  const c: Character = { ...base, level: 6, fatalMethod: 'Puppeteer', feats: [taken('Conjurer of Corpses', 6)] }
+  const characters: Character[] = [{ ...c, level: 5 }, { ...c, feats: [] }, { ...c, feats: [taken('Conjurer of Corpses', 8)] },
+    { ...c, fatalMethod: 'Reaper' }, { ...c, className: 'Wizard' }]
+  for (const character of characters) {
+    expect(necromancerConjurerRank(character)).toBeUndefined()
+    expect(knowsSpell(character, [], 'Summon Undead')).toBe(false)
+  }
+})
+
+it('treats the imported Conjurer grant as a learned spell, not an innate or grave focus spell', () => {
+  const conjurer = mapAonHit({ _id: 'conjurer', _source: {
+    name: 'Conjurer of Corpses', category: 'feat', level: 6, trait: ['Necromancer'],
+    markdown: '**Prerequisites** [puppeteer fatal method](/FatalMethods.aspx?ID=1)\n\n---\n\n'
+      + 'You learn the [_summon undead_](/Spells.aspx?ID=1706) spell. '
+      + 'You gain an additional spell slot each day at your highest level of necromancer spell slots. '
+      + 'You can prepare only the _summon undead_ spell in this slot.',
+  } }, 'pf2e')!
+  const c: Character = { ...base, level: 6, fatalMethod: 'Puppeteer', feats: [taken(conjurer.name, 6)] }
+  const summon = spell('Summon Undead')
+  expect(necromancerDirge(c, [conjurer, summon])).toEqual([summon])
+  expect(focusSpells(c, [conjurer, summon])).toMatchObject({ points: 1 })
+  expect(focusSpells(c, [conjurer, summon]).spells).not.toContainEqual(expect.objectContaining({ name: summon.name }))
+  expect(choices(render(c, [conjurer, summon]), 'Spell Rank 3 slot 3')).toContain('value="Summon Undead" selected=""')
+})
+
+it.each([
+  ['Conjurer of Corpses', 6, 'Puppeteer'],
+  ['Beckoning Dirge', 16, 'Puppeteer'],
+  ['Bind Heroic Spirit', 6, 'Reaper'],
+] as const)('automatically checks %s against Fatal Method independently of Grim Fascination', (name, level, method) => {
+  const feat: ContentEntry = { ...spell(name), kind: 'feat', level: Number(level), traits: ['Necromancer'],
+    data: { prerequisite: `${String(method).toLowerCase()} fatal method` } }
+  const c: Character = { ...base, level, subclass: 'Bone', fatalMethod: method }
+  const slot = { key: `class:${level}:0`, category: 'class' as const, level: Number(level) }
+  expect(featPrerequisiteChecker(c, [feat])(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  const characters: Character[] = [{ ...c, fatalMethod: undefined, subclass: method },
+    { ...c, fatalMethod: method === 'Reaper' ? 'Puppeteer' : 'Reaper' }, { ...c, className: 'Wizard' }]
+  for (const character of characters) {
+    expect(featPrerequisiteChecker(character, [feat])(feat)).toEqual({ missing: [feat.data.prerequisite], manual: [] })
+    expect(eligibleFeats([feat], character, slot)).not.toContain(feat)
+  }
+})
+
+it.each([[1, 1, 1], [11, 2, 1], [13, 2, 2], [20, 2, 2]])(
+  'applies Reaper martial weapon and medium armor proficiency at level %i', (level, martial, medium) => {
+    const c: Character = { ...base, level, fatalMethod: 'Reaper' }
+    expect(weaponRanks(c, []).Martial).toBe(martial)
+    expect(armorRanks(c, []).Medium).toBe(medium)
+    expect(weaponRanks({ ...c, fatalMethod: 'Puppeteer' }, []).Martial).toBe(0)
+    expect(armorRanks({ ...c, className: 'Wizard' }, []).Medium).toBe(0)
+  },
+)
+
+it('keeps Fatal Methods out of the Grim Fascination picker', () => {
+  const methods: ContentEntry[] = ['Puppeteer', 'Reaper'].map(name => ({
+    ...spell(name), kind: 'subclass', data: { class: 'Necromancer', subclass_type: 'fatal-method' },
+  }))
+  const bone: ContentEntry = { ...spell('Bone'), kind: 'subclass', data: { class: 'Necromancer' } }
+  expect(subclassOptions(base, [...methods, bone])).toEqual([bone])
+})
+
+it.each([[10, ['Grisly Growths']], [12, ['Grisly Growths']], [13, ['Execute', 'Grisly Growths']],
+  [15, ['Desiccate', 'Execute', 'Grisly Growths']], [17, ['Desiccate', 'Execute', 'Grisly Growths', 'Massacre']]])(
+  'adds Expanded Necromancy spells to the occult dirge at level %i', (level, names) => {
+    const c: Character = { ...base, level: Number(level), feats: [taken('Expanded Necromancy', 10)] }
+    const entries = [spell('Grisly Growths', 5, 'Primal'), spell('Execute', 7, 'Divine'),
+      spell('Desiccate', 8, 'Primal'), spell('Massacre', 9, 'Arcane')]
+    expect(necromancerDirge(c, entries).map(entry => entry.name)).toEqual(names)
+    expect(necromancerDirge({ ...c, feats: [] }, entries)).toEqual([])
+    expect(necromancerDirge({ ...c, level: 9 }, entries)).toEqual([])
+    for (const name of names) expect(knowsSpell(c, entries, String(name))).toBe(true)
+  },
+)
+
+it('keeps Conjurer and Unholy Resurrection slots independent and capped below Epitaph rank', () => {
+  const c: Character = { ...base, level: 20, fatalMethod: 'Puppeteer', feats: [
+    taken('Conjurer of Corpses', 6), taken('Unholy Resurrection', 14), taken('Mortem Ultimatum', 20),
+  ], spellcasting: { ability: 'int', tradition: 'Occult', rank: 4, slots: {},
+    spentSlots: ['conjurer-of-corpses'] } }
+  const entries = [spell('Summon Undead'), spell('Raise Dead', 6, 'Divine')]
+  expect(classSpellSlots(c)?.[9]).toBe(4)
+  expect(classSpellSlots(c)?.[10]).toBe(2)
+  expect(necromancerExtraSlots(c).map(slot => [slot.key, slot.rank, slot.spell])).toEqual([
+    ['conjurer-of-corpses', 9, 'Summon Undead'], ['unholy-resurrection', 9, 'Raise Dead'],
+  ])
+  expect(necromancerDirge(c, entries)).toEqual([entries[1], entries[0]])
+  const html = render(c, entries)
+  expect(choices(html, 'Spell Rank 9 slot 3')).toContain('value="Summon Undead" selected=""')
+  expect(choices(html, 'Spell Rank 9 slot 4')).toContain('value="Raise Dead" selected=""')
+  expect(html).toContain('disabled="" aria-label="Cast spell slot rank 9 slot 3"')
+  expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 9 slot 4"')
+  expect(necromancerExtraSlots({ ...c, sanctification: 'Holy' })).toHaveLength(1)
+  expect(necromancerDirge({ ...c, level: 13 }, entries)).toEqual([entries[0]])
+})
+
+function click(tree: ReactNode, label: string) {
+  let clicked = false
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<{ children?: ReactNode; onClick?: () => void; 'aria-label'?: string }>(child)) return
+    if (child.props['aria-label'] === label && child.props.onClick) {
+      child.props.onClick()
+      clicked = true
+    }
+    visit(child.props.children)
+  })
+  visit(tree)
+  expect(clicked).toBe(true)
+}
+
+it('casts Beckoning Dirge once daily from learned spells without spending a prepared slot', () => {
+  let c: Character = { ...base, level: 16, fatalMethod: 'Puppeteer', feats: [taken('Beckoning Dirge', 16)],
+    spells: [{ name: 'Fear', rank: 1, cantrip: false, entryId: 'Fear' }],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 3, slots: {},
+      prepared: { '1:0': 'Harm' }, spentSlots: ['1:0'] },
+    beckoningDirge: { spell: 'Fear', rank: 7 } }
+  const entries = [spell('Fear'), spell('Unlearned'), spell('Too High', 8)]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => BeckoningDirgeCast({ c, entries, save })
+  const originalSlots = c.spellcasting
+  const html = renderToStaticMarkup(tree())
+  expect(choices(html, 'Beckoning Dirge spell')).toContain('value="Fear" selected=""')
+  expect(choices(html, 'Beckoning Dirge spell')).not.toContain('Unlearned')
+  expect(choices(html, 'Beckoning Dirge spell')).not.toContain('Too High')
+  click(tree(), 'Cast Beckoning Dirge')
+  expect(c.beckoningDirge).toEqual({ spell: 'Fear', rank: 7, used: true })
+  expect(c.spellcasting).toBe(originalSlots)
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Cast Beckoning Dirge" disabled=""')
+  click(tree(), 'Reset Beckoning Dirge')
+  expect(c.beckoningDirge?.used).toBe(false)
+  expect(beckoningDirgeMaxRank({ ...c, level: 19 })).toBe(9)
+  expect(beckoningDirgeMaxRank({ ...c, fatalMethod: 'Reaper' })).toBeUndefined()
+  expect(beckoningDirgeMaxRank({ ...c, level: 15 })).toBeUndefined()
+})

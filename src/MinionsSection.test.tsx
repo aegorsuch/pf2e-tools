@@ -5,6 +5,7 @@ import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './Minio
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
 import { armorClass } from './builder'
+import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
@@ -55,6 +56,51 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+const familiarAbility = (name: string, description: string, abilityType = 'Familiar'): ContentEntry => ({
+  id: `familiar:${name}`, systems: ['pf2e'], name, kind: 'familiar', source: 'official', level: 1,
+  traits: [], description, data: { ability_type: abilityType }, effects: [], updatedAt: 0,
+})
+const familiarEntries = [
+  familiarAbility('Amphibious', 'It gains a swim Speed of 25 feet.'),
+  familiarAbility('Burrower', 'It gains a burrow Speed of 5 feet.'),
+  familiarAbility('Climber', 'It gains a climb Speed of 25 feet.'),
+  familiarAbility('Darkvision', 'It gains darkvision.'),
+  familiarAbility('Echolocation', 'It can use hearing as a precise sense within 20 feet.'),
+  familiarAbility('Fast Movement', 'Increase one of the familiar’s Speeds from 25 feet to 40 feet.'),
+  familiarAbility('Flier', 'It gains a fly Speed of 25 feet.'),
+  familiarAbility('Resistance', 'Choose two types; your familiar gains resistance equal to half your level.'),
+  familiarAbility('Greater Resistance', 'Your familiar must have the resistance ability to select this.'),
+  familiarAbility('Major Resistance', 'Your familiar must have the greater resistance ability and you must be at least 8th level.'),
+  familiarAbility('Scent', 'It gains scent (imprecise, 30 feet).'),
+  familiarAbility('Skilled', 'Choose a skill. Your familiar’s modifier is equal to your level plus your key spellcasting ability modifier. You can select this ability repeatedly, choosing a different skill each time.'),
+  familiarAbility('Tough', 'Your familiar’s maximum Hit Points increase by 2 per level.'),
+  familiarAbility('Tremorsense', 'It gains imprecise tremorsense with a range of 30 feet.'),
+  familiarAbility('Wavesense', 'It gains imprecise wavesense with a range of 30 feet.'),
+  familiarAbility('Dragon', 'Your familiar has the dragon trait instead of the animal trait.'),
+  familiarAbility('Constructed', 'Your aeon wyrd is immune to bleed and poison.'),
+]
+
+it('applies familiar ability prerequisites, movement, senses, skills, resistance, and HP', () => {
+  const c: Character = { id: 'abilities', name: 'Test', systems: ['pf2e'], level: 8, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 }, feats: [], equipment: [],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const familiar = familiarAbilityEffects(['Tough', 'Amphibious', 'Fast Movement', 'Echolocation', 'Resistance', 'Greater Resistance', 'Major Resistance', 'Skilled'],
+    c.level, { fastMovement: 'Swim', resistance: ['fire', 'cold'], skilled: ['Arcana'] }, 4)
+  expect(familiar).toMatchObject({
+    hitPoints: 56,
+    speeds: [{ movement: 'Land', feet: 25 }, { movement: 'Swim', feet: 40 }],
+    senses: ['Hearing (precise, 20 feet)'],
+    resistances: [{ damage: 'fire', value: 8 }, { damage: 'cold', value: 8 }],
+    skilled: [{ skill: 'Arcana', modifier: 12 }],
+  })
+  expect(familiarAbilityUnavailableReason(familiarEntries.find(entry => entry.name === 'Greater Resistance')!, c,
+    ['Resistance'])).toBeUndefined()
+  expect(familiarAbilityUnavailableReason(familiarEntries.find(entry => entry.name === 'Major Resistance')!, c,
+    ['Resistance'])).toBe('Requires the greater resistance familiar ability.')
+  expect(familiarAbilityUnavailableReason(familiarEntries.find(entry => entry.name === 'Dragon')!, c, [], true))
+    .toContain('cannot select an ability that changes its trait')
+})
 
 it('shows a plain Mount label only when eligible, without Rider helper text or character changes', () => {
   const c: Character = {
@@ -120,7 +166,7 @@ it('opens Special summaries by name without asterisks and capitalizes attack lab
   expect(JSON.stringify({ c, horse })).toBe(before)
 })
 
-it('removes companion naming controls without erasing saved names or changing familiar naming', () => {
+it('removes companion and familiar naming controls without erasing saved names', () => {
   let c: Character = {
     id: 'named-companions', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -135,11 +181,13 @@ it('removes companion naming controls without erasing saved names or changing fa
   findSelect(tree(), 'Companion type')!({ target: { value: 'Riding Badger' } })
   expect(c.companions?.[0]).toMatchObject({ id: 'first', type: 'Riding Badger', name: '', supportActive: false })
   expect(c.companions?.[1].name).toBe('Whiskers')
-  c = { ...c, className: 'Witch', companions: [{ id: 'construct', type: CONSTRUCT_COMPANION_NAME, name: 'Saved' }] }
+  c = { ...c, className: 'Witch', familiar: { name: 'Saved familiar' },
+    companions: [{ id: 'construct', type: CONSTRUCT_COMPANION_NAME, name: 'Saved' }] }
   const markup = renderToStaticMarkup(tree())
   expect(markup).not.toContain('aria-label="Companion name"')
-  expect(markup).toContain('aria-label="Familiar name"')
+  expect(markup).not.toContain('aria-label="Familiar name"')
   expect(c.companions?.[0].name).toBe('Saved')
+  expect(c.familiar?.name).toBe('Saved familiar')
 })
 
 it('shows Beastmaster Bond range based on Nature proficiency only for animal companions', () => {
@@ -261,7 +309,7 @@ it('shows the same advancement used for companion stats when multiple feats have
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     companions: [{ id: 'cat', type: 'Cat', name: '' }],
   }
-  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('Savage Cat')
   expect(html).toContain('<option value="Savage" selected="">Savage</option>')
   expect(html).not.toContain('<option value="Nimble" selected="">Nimble</option>')
@@ -275,7 +323,7 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     familiar: { leshyAbility: 'Fungus', abilities: ['Flier'] }, pet: { abilities: ['Climber'] },
   }
-  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('Leshy Familiar')
   expect(html).toContain('Daily familiar or master abilities (1/4)')
   expect(html).toContain('Leshy familiar granted ability')
@@ -286,7 +334,7 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
 })
 
-it('shows undead familiar traits, immunities, restrictions, and one daily ability', () => {
+it('shows clickable undead familiar rules and one daily ability', () => {
   const c: Character = {
     id: 'undead-familiar', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -294,15 +342,71 @@ it('shows undead familiar traits, immunities, restrictions, and one daily abilit
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     familiar: { abilities: ['Flier', 'Tough'] },
   }
-  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('<h4>Undead Familiar</h4>')
-  expect(html).toContain('<span>Undead</span>')
+  expect(html).toContain('aria-haspopup="dialog">Undead</button>')
   expect(html).toContain('Immune to bleed, death effects, disease, mental, and poison.')
   expect(html).toContain('change its trait, such as Construct or Dragon.')
   expect(html).toContain('Can be targeted by spells and abilities that target your thralls.')
+  expect(html).toContain('If destroyed, can be raised during next daily preparations.')
   expect(html).toContain('Daily familiar or master abilities (1/1)')
-  expect(html).toContain('aria-label="Undead familiar ability 1"')
-  expect(html).not.toContain('aria-label="Undead familiar ability 2"')
+  expect(html).toContain('aria-label="Remove Undead familiar ability 1"')
+  expect(html).not.toContain('aria-label="Undead familiar name"')
+})
+
+it('selects, details, removes, and applies familiar abilities without exposing stored names', () => {
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('window', { confirm })
+  let c: Character = {
+    id: 'ability-picker', systems: ['pf2e'], name: 'Test', level: 8, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Enhanced Familiar', type: 'Class Feat', level: 2 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { name: 'Kept in storage', abilities: [], abilityOptions: { fastMovement: 'Fly' } },
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 4, slots: { 1: 2, 2: 2, 3: 2, 4: 1 } },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  const choose = (name: string) => {
+    const change = findSelect(tree(), 'Familiar ability')
+    if (!change) throw new Error('Missing familiar ability selector')
+    change({ target: { value: `familiar:${name}` } })
+  }
+
+  expect(findInput(tree(), 'Familiar name')).toBeUndefined()
+  choose('Flier')
+  choose('Tough')
+  choose('Fast Movement')
+  let html = renderToStaticMarkup(tree())
+  expect(c.familiar?.abilities).toEqual(['Flier', 'Tough', 'Fast Movement'])
+  expect(html).toContain('Daily familiar or master abilities (3/4)')
+  expect(html).toContain('<small>Hit Points</small> <b>56</b>')
+  expect(html).toContain('Fly 40 feet')
+  expect(html).toContain('Your familiar’s maximum Hit Points increase by 2 per level.')
+  expect(html).toContain('aria-label="Remove Familiar ability 2"')
+
+  findButton(tree(), 'Remove Familiar ability 2')?.()
+  html = renderToStaticMarkup(tree())
+  expect(confirm).toHaveBeenCalledWith('Remove familiar ability "Tough"?')
+  expect(c.familiar?.abilities).toEqual(['Flier', 'Fast Movement'])
+  expect(c.familiar?.name).toBe('Kept in storage')
+  expect(html).toContain('<small>Hit Points</small> <b>40</b>')
+})
+
+it('keeps saved trait-changing choices dormant and unavailable for an undead familiar', () => {
+  const c: Character = {
+    id: 'undead-restrictions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Undead Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { name: 'Saved', abilities: ['Dragon'] },
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
+  expect(html).toContain('Daily familiar or master abilities (1/1)')
+  expect(html).toContain('Dragon')
+  expect(html).toContain('title="An undead familiar cannot select an ability that changes its trait."')
+  expect(html).not.toContain('value="familiar:Dragon"')
+  expect(html).not.toContain('value="familiar:Constructed"')
+  expect(c.familiar?.abilities).toEqual(['Dragon'])
 })
 
 it('creates a familiar record for Crocodile’s Twin', () => {
@@ -316,7 +420,7 @@ it('creates a familiar record for Crocodile’s Twin', () => {
   expect(html).toContain('Crocodile Familiar')
   expect(html).toContain('Tiny crocodile familiar granted by Crocodile&#x27;s Twin.')
   expect(html).toContain('Daily familiar or master abilities (0/2)')
-  expect(html).toContain('aria-label="Crocodile familiar ability 2"')
+  expect(html).toContain('aria-label="Crocodile familiar ability"')
 })
 
 it('raises undead familiar ability limit to three with Enhanced Undead Familiar', () => {
@@ -329,8 +433,9 @@ it('raises undead familiar ability limit to three with Enhanced Undead Familiar'
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Daily familiar or master abilities (3/3)')
-  expect(html).toContain('aria-label="Undead familiar ability 3"')
-  expect(html).not.toContain('aria-label="Undead familiar ability 4"')
+  expect(html).toContain('aria-label="Remove Undead familiar ability 3"')
+  expect(html).toContain('aria-label="Remove Undead familiar ability 4"')
+  expect(html).toContain('(inactive)')
 })
 
 it.each([
@@ -386,7 +491,7 @@ it('keeps only the primary class familiar traits when multiple classes grant fam
   expect(render(c)).not.toContain('Leshy familiar granted ability')
   expect(render(c)).not.toContain('Leshy Familiar Secrets ability')
   expect(render({ ...c, className: 'Druid' })).toContain('<h4>Leshy Familiar</h4>')
-  expect(render({ ...c, className: 'Druid' })).not.toContain('<span>Undead</span>')
+  expect(render({ ...c, className: 'Druid' })).not.toContain('aria-haspopup="dialog">Undead</button>')
 })
 
 it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
@@ -399,8 +504,8 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
     divineIntercessions: { Calistria: ['moderate-boon'] },
   }
   let saves = 0
-  const tree = () => MinionsContent({ c, entries: [], save: patch => { saves++; c = { ...c, ...patch } } })
-  const markup = () => renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => { saves++ }} />)
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { saves++; c = { ...c, ...patch } } })
+  const markup = () => renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => { saves++ }} />)
   const before = JSON.stringify(c.familiar)
   let html = markup()
   expect(saves).toBe(0)
@@ -413,33 +518,33 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   c = { ...c, feats: [] }
   html = markup()
   expect(html).toContain('Daily familiar or master abilities (0/2)')
-  expect(html).toContain('Burrower: Burrow Speed 5 feet; can dig Tiny holes.')
-  expect(html).toContain('Flier: Fly Speed 25 feet.')
+  expect(html).toContain('aria-label="Granted Burrower: Burrower"')
+  expect(html).toContain('aria-label="Granted Flier: Flier"')
   expect(html).toContain('<small>Hit Points</small> <b>40</b>')
-  findInput(tree(), 'Wasp familiar name')?.({ target: { value: 'Sting' } })
-  findInput(tree(), 'Wasp familiar ability 1')?.({ target: { value: 'Flier' } })
-  findInput(tree(), 'Wasp familiar ability 2')?.({ target: { value: 'Tough' } })
-  expect(c.waspFamiliar).toEqual({ name: 'Sting', abilities: ['Flier', 'Tough'] })
+  expect(findInput(tree(), 'Wasp familiar name')).toBeUndefined()
+  findSelect(tree(), 'Wasp familiar ability')?.({ target: { value: 'familiar:Flier' } })
+  findSelect(tree(), 'Wasp familiar ability')?.({ target: { value: 'familiar:Tough' } })
+  expect(c.waspFamiliar).toEqual({ abilities: ['Flier', 'Tough'] })
   expect(JSON.stringify(c.familiar)).toBe(before)
   html = markup()
   expect(html).toContain('Daily familiar or master abilities (2/2)')
-  expect(html.match(/Flier: Fly Speed 25 feet\./g)).toHaveLength(1)
+  expect(html.match(/fly Speed of 25 feet/g)).toHaveLength(2)
 
   c = { ...c, feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }] }
   expect(markup()).not.toContain('Wasp Familiar')
-  expect(c.waspFamiliar?.name).toBe('Sting')
+  expect(c.waspFamiliar?.name).toBeUndefined()
   c = { ...c, divineIntercessions: { Calistria: [] } }
   html = markup()
   expect(html).not.toContain('Wasp Familiar')
   expect(html).not.toContain('Burrower: Burrow Speed')
-  expect(c.waspFamiliar?.name).toBe('Sting')
+  expect(c.waspFamiliar?.name).toBeUndefined()
   expect(JSON.stringify(c.familiar)).toBe(before)
   c = { ...c, divineIntercessions: { Calistria: ['moderate-boon'] }, deity: 'Erastil' }
   expect(markup()).not.toContain('Wasp Familiar')
   c = { ...c, deity: 'Calistria', feats: [] }
   html = markup()
   expect(html).toContain('Wasp Familiar')
-  expect(html).toContain('value="Sting"')
+  expect(html).not.toContain('aria-label="Wasp familiar name"')
   expect(html).toContain('Daily familiar or master abilities (2/2)')
   expect(html).not.toContain('Leshy Familiar')
   expect(JSON.stringify(c.familiar)).toBe(before)
@@ -544,13 +649,14 @@ it('applies active familiar Tough and displays recognized daily ability effects'
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     familiar: { abilities: ['Flier', '', 'tough', 'Climber'] },
   }
-  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(markup).toContain('<small>Hit Points</small> <b>56</b>')
-  expect(markup).toContain('Flier: Fly Speed 25 feet.')
-  expect(markup).toContain('Climber: Climb Speed 25 feet.')
-  const reduced = renderToStaticMarkup(<MinionsSection c={{ ...c, feats: c.feats.slice(0, 1) }} entries={[]} save={() => {}} />)
+  expect(markup).toContain('fly Speed of 25 feet')
+  expect(markup).toContain('climb Speed of 25 feet')
+  const reduced = renderToStaticMarkup(<MinionsSection c={{ ...c, feats: c.feats.slice(0, 1) }} entries={familiarEntries} save={() => {}} />)
   expect(reduced).toContain('<small>Hit Points</small> <b>40</b>')
-  expect(reduced).not.toContain('Climber: Climb Speed 25 feet.')
+  expect(reduced).toContain('climb Speed of 25 feet')
+  expect(reduced).toContain('(inactive)')
   expect(c.familiar?.abilities).toEqual(['Flier', '', 'tough', 'Climber'])
 })
 
