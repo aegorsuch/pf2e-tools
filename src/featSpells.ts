@@ -351,7 +351,9 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     const rules = [...source?.spellGrants ?? [], ...orderTrainingRules(c, entries, feat)]
-      .map(rule => ['Bone Investiture', 'Fossil Rider'].includes(feat.name) && rule.kind === 'innate'
+      .map(rule => feat.name === 'Ancestral Form' && rule.kind === 'innate'
+        ? { ...rule, tradition: 'primal', heightened: true, fixedRank: false, condition: 'Must target yourself; crocodile form only' }
+        : ['Bone Investiture', 'Fossil Rider'].includes(feat.name) && rule.kind === 'innate'
         ? { ...rule, tradition: 'primal', condition: rule.condition ?? 'Must target yourself' } : rule)
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {

@@ -1,4 +1,5 @@
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor } from './types'
+import { BONY_PLATES_DESCRIPTION } from './grantedArmor'
 
 export function removeColdIronTusks(c: Character): Character {
   const feats = c.feats.filter(feat => feat.name !== 'Cold Iron Tusks')
@@ -204,6 +205,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
   return [
     ...rangerCopies,
+    homebrewFeat('bony-plates', 'Bony Plates', 1, ['Lizardfolk'], BONY_PLATES_DESCRIPTION),
     { ...homebrewFeat('nimble-athlete', 'Nimble Athlete', 4, nimbleClasses,
       'Homebrew class feat. You use the higher of your Strength or Dexterity modifiers for Athletics checks and Athletics DCs. This includes combat maneuvers such as Grapple, Trip, Shove, Disarm, and Reposition, as well as climbing, swimming, and jumping.\n\nThis does not change your damage, carrying capacity, or Strength prerequisites.',
       { class: nimbleClasses.join(', '), prerequisite: 'expert in Athletics' }), systems: ['pf2e', 'sf2e'] },

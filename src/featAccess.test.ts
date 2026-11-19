@@ -13,6 +13,23 @@ const feat: ContentEntry = {
   traits: ['Human', 'Uncommon'], data: { access: 'Kellid ethnicity' }, description: '', effects: [], updatedAt: 1,
 }
 
+it('grants Spirit Coffin through Bakuwa heritage or Tian Xia origin independently', () => {
+  const coffin: ContentEntry = { ...feat, id: 'spirit-coffin', name: 'Spirit Coffin', traits: ['Lizardfolk', 'Uncommon'],
+    data: { access: 'bakuwa lizardfolk heritage  or Tian Xia origin' } }
+  const bakuwa: Character = { ...character, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk', achievements: [] }
+  expect(featAccess(bakuwa, coffin)).toMatchObject({ automatic: true, source: 'ancestry' })
+  expect(featSelectionPrerequisiteChecker(bakuwa, [coffin], { key: 'ancestry:1:0', category: 'ancestry', level: 1 })(coffin))
+    .toEqual({ missing: [], manual: [] })
+  const wetlander = { ...bakuwa, heritage: 'Wetlander Lizardfolk' }
+  expect(featAccess(wetlander, coffin)?.automatic).toBe(false)
+  expect(featAccess({ ...wetlander, feats: [{ name: 'Bony Plates', type: 'Ancestry Feat', level: 1 }] }, coffin)?.automatic).toBe(false)
+  expect(featAccess({ ...wetlander, achievements: ['Tian Xia origin'] }, coffin))
+    .toMatchObject({ automatic: true, source: 'achievement' })
+  const requiredBoth = { ...coffin, data: { access: 'Bakuwa Lizardfolk heritage and Tian Xia origin' } }
+  expect(featAccess(bakuwa, requiredBoth)?.automatic).toBe(false)
+  expect(featAccess({ ...wetlander, achievements: ['Tian Xia origin'] }, requiredBoth)?.automatic).toBe(false)
+})
+
 it('offers Old Cheliax access for Hellknight Dedication', () => {
   const hellknight: ContentEntry = { ...feat, name: 'Hellknight Dedication', level: 2, traits: ['Archetype', 'Dedication', 'Uncommon'],
     data: { archetype: 'Hellknight', access: "You're from Old Cheliax.", prerequisite: 'trained by a Hellknight Order' } }

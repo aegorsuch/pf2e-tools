@@ -5,6 +5,28 @@ import { armorModifications } from './inventorArmor'
 export const INVENTOR_ARMOR_ID = 'granted-armor:inventor'
 export const HARDWOOD_ARMOR_ID = 'granted-armor:hardwood'
 export const ARMIGER_ARMOR_ID = 'granted-armor:ardent-armiger'
+export const BONY_PLATES_ID = 'granted-armor:lizardfolk'
+const BONY_PLATE_CATEGORIES = ['Unarmored', 'Light', 'Medium', 'Heavy'] as const
+export const BONY_PLATE_RUNE_FAMILIES = ['Moonweave', 'Sunweave', 'Fortification'] as const
+const BONY_PLATE_PROFILES = {
+  Unarmored: { ac: 0, dex_cap: 5, check_penalty: 0, speed_penalty: 0, strength: 0 },
+  Light: { ac: 2, dex_cap: 3, check_penalty: -1, speed_penalty: 0, strength: 1 },
+  Medium: { ac: 4, dex_cap: 1, check_penalty: -2, speed_penalty: -5, strength: 3 },
+  Heavy: { ac: 6, dex_cap: 0, check_penalty: -3, speed_penalty: -10, strength: 4 },
+}
+export const BONY_PLATES_DESCRIPTION = 'Your body is covered in bony plates in the plate armor group with the aquadynamic and comfort traits. '
+  + 'Their category automatically matches your highest proficiency among unarmored defense, light, medium, and heavy armor. Ties use the heavier category. '
+  + 'If you are untrained in all categories, your plates use the unarmored profile.\n\n'
+  + 'Unarmored: +0 AC, Dexterity cap +5, no check or Speed penalty, no Strength requirement.\n\n'
+  + 'Light: +2 AC, Dexterity cap +3, check penalty -1, no Speed penalty, Strength +1.\n\n'
+  + 'Medium: +4 AC, Dexterity cap +1, check penalty -2, Speed penalty -5 feet, Strength +3.\n\n'
+  + 'Heavy: +6 AC, Dexterity cap +0, check penalty -3, Speed penalty -10 feet, Strength +4.\n\n'
+  + 'Use your highest armor proficiency, including unarmored defense, with your plates. You cannot remove your plates or wear other armor. '
+  + 'Your fundamental armor runes improve automatically with character level. Moonweave is granted at level 5, greater at 13, and major at 17; '
+  + 'Sunweave is granted at level 7, greater at 11, and major at 18. Medium and heavy plates also gain Fortification at level 12, greater at 18; '
+  + 'Fortification increases their Bulk and Strength requirement by 1. These granted property runes do not count against your rune limit. '
+  + 'You can etch additional property runes onto your plates. '
+  + 'Having these plates does not satisfy heritage prerequisites; feats requiring Bakuwa Lizardfolk still require that heritage.'
 export const INVENTOR_SUITS = ['Power Suit', 'Subterfuge Suit'] as const
 export const isGrantedArmor = (id: string) => id.startsWith('granted-armor:')
 export const canWearWithAttachedArmor = (armor: OwnedArmor, body?: ContentEntry) =>
@@ -13,6 +35,8 @@ export const automaticArmorFundamentals = (level: number, entry?: ContentEntry) 
   potency: entry?.data.automatic_fundamentals === false ? 0 : level >= 18 ? 3 : level >= 11 ? 2 : level >= 5 ? 1 : 0,
   resilient: entry?.data.automatic_fundamentals === false ? 0 : level >= 20 ? 3 : level >= 14 ? 2 : level >= 8 ? 1 : 0,
 })
+export const automaticArmorPropertyRunes = (entry?: ContentEntry) =>
+  String(entry?.data.automatic_property_runes ?? '').split(';').filter(Boolean)
 
 const STARFINDER_ARMOR_GRADES = [
   { name: 'Paragon', level: 20, ac: 3, resilient: 3, upgrades: 3 },
@@ -29,7 +53,6 @@ export const starfinderArmorGrade = (level: number) =>
 
 const BODY_ARMOR = [
   { ancestry: 'Automaton', feat: 'Reinforced Chassis', name: 'Reinforced Chassis', url: 'Feats.aspx?ID=3095' },
-  { ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk', name: 'Bakuwa Plates', url: 'Heritages.aspx?ID=377' },
   { ancestry: 'Conrasu', heritage: 'Rite of Reinforcement', name: 'Reinforced Exoskeleton', url: 'Heritages.aspx?ID=164' },
   { ancestry: 'Kashrishi', feat: 'Tough Skin', name: 'Tough Skin', url: 'Feats.aspx?ID=3969' },
   { ancestry: 'Surki', heritage: 'Hardshell Surki', name: 'Hardshell Carapace', url: 'Heritages.aspx?ID=311' },
@@ -54,7 +77,7 @@ export function armigerArmorEntry(c: Character, ranks: Record<string, number>): 
   'Hellknight armor granted by Ardent Armiger. Ownership and material are locked; fundamental runes improve with character level.')
 }
 
-export function grantedArmorEntries(c: Character, innovation = c.subclass): ContentEntry[] {
+export function grantedArmorEntries(c: Character, innovation = c.subclass, armorProficiencies: Record<string, number> = {}): ContentEntry[] {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const body = c.systems.includes('pf2e') ? BODY_ARMOR.find(source =>
     'feat' in source ? ancestryFeatTraits(c).includes(source.ancestry.toLowerCase()) && active.some(feat => feat.name === source.feat)
@@ -66,8 +89,27 @@ export function grantedArmorEntries(c: Character, innovation = c.subclass): Cont
     dex_cap: 1, check_penalty: chassis ? 0 : -2, speed_penalty: chassis ? 0 : -5,
     url: `https://2e.aonprd.com/${body.url}`,
     ...(chassis ? { fixed_material: 'Orichalcum' } : { strength: 3 }),
-  }, chassis ? [] : body.ancestry === 'Lizardfolk' ? ['Aquadynamic', 'Comfort'] : ['Comfort'],
+  }, chassis ? [] : ['Comfort'],
   'Attached medium plate armor. Cannot be removed or worn with other armor; accepts armor runes.')] : []
+  const bakuwa = c.ancestry === 'Lizardfolk' && c.heritage === 'Bakuwa Lizardfolk'
+  const plates = active.find(feat => feat.name === 'Bony Plates')
+  if (c.systems.includes('pf2e') && (bakuwa || plates && ancestryFeatTraits(c).includes('lizardfolk'))) {
+    const category = BONY_PLATE_CATEGORIES.reduce((best, category) =>
+      (armorProficiencies[category] ?? 0) > 0
+        && (armorProficiencies[category] ?? 0) >= (armorProficiencies[best] ?? 0) ? category : best, 'Unarmored')
+    const fortification = ['Medium', 'Heavy'].includes(category) && c.level >= 12
+    const runes = [
+      ...(c.level >= 5 ? [c.level >= 17 ? 'Moonweave (Major)' : c.level >= 13 ? 'Moonweave (Greater)' : 'Moonweave'] : []),
+      ...(c.level >= 7 ? [c.level >= 18 ? 'Sunweave (Major)' : c.level >= 11 ? 'Sunweave (Greater)' : 'Sunweave'] : []),
+      ...(fortification ? [c.level >= 18 ? 'Fortification (Greater)' : 'Fortification'] : []),
+    ]
+    entries.push({ ...armorEntry(BONY_PLATES_ID, 'Bony Plates', {
+      ...BONY_PLATE_PROFILES[category], attached: true, armor_category: category, armor_group: 'Plate',
+      highest_armor_proficiency: true, granted_by: bakuwa ? 'Bakuwa Lizardfolk' : 'Bony Plates',
+      automatic_property_runes: runes.join(';'),
+      ...(fortification ? { bulk: 1, strength: BONY_PLATE_PROFILES[category].strength + 1 } : {}),
+    }, ['Aquadynamic', 'Comfort'], BONY_PLATES_DESCRIPTION), source: 'homebrew' })
+  }
   if (hardwoodActive(c)) {
     const kineticist = c.className === 'Kineticist'
     entries.push(armorEntry(HARDWOOD_ARMOR_ID, kineticist ? 'Hardwood Armor' : 'Wooden Breastplate', {

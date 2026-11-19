@@ -333,7 +333,63 @@ it('raises undead familiar ability limit to three with Enhanced Undead Familiar'
   expect(html).not.toContain('aria-label="Undead familiar ability 4"')
 })
 
-it('derives Calistria’s wasp and bonus abilities separately from existing familiar choices', () => {
+it.each([
+  ['Necromancer', 'Undead Familiar', 'Undead Familiar', 1],
+  ['Witch', undefined, 'Familiar', 4],
+  ['Wizard', 'Familiar', 'Familiar', 2],
+  ['Druid', 'Leshy Familiar', 'Leshy Familiar', 2],
+] as const)('prioritizes %s class familiar over Crocodile’s Twin without duplicating familiars or changing saved choices', (className, classFeat, label, abilities) => {
+  const c: Character = {
+    id: 'class-familiar', systems: ['pf2e'], name: 'Test', level: 1, className,
+    ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Crocodile's Twin", type: 'Ancestry Feat', level: 1 },
+      ...(classFeat ? [{ name: classFeat, type: 'Class Feat', level: 1 }] : [])],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { name: 'Companion', abilities: ['Flier', 'Tough'] },
+  }
+  const before = JSON.stringify(c)
+  const save = vi.fn()
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={save} />)
+  expect(html).toContain(`<h4>${label}</h4>`)
+  expect(html.match(/<h4>(?:Undead |Leshy |Crocodile )?Familiar<\/h4>/g)).toHaveLength(1)
+  expect(html).not.toContain('Crocodile Familiar')
+  expect(html).not.toContain('Tiny crocodile familiar')
+  expect(html).toContain(`Daily familiar or master abilities (${Math.min(2, abilities)}/${abilities})`)
+  expect(JSON.stringify(c)).toBe(before)
+  expect(save).not.toHaveBeenCalled()
+})
+
+it('keeps the ancestry familiar until the class familiar feat is active', () => {
+  const c: Character = {
+    id: 'future-familiar', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Crocodile's Twin", type: 'Ancestry Feat', level: 1 },
+      { name: 'Undead Familiar', type: 'Class Feat', level: 1, takenLevel: 5 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const render = (c: Character) => renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(render(c)).toContain('<h4>Crocodile Familiar</h4>')
+  expect(render({ ...c, level: 5 })).toContain('<h4>Undead Familiar</h4>')
+  expect(render({ ...c, level: 5 })).not.toContain('Crocodile Familiar')
+})
+
+it('keeps only the primary class familiar traits when multiple classes grant familiars', () => {
+  const c: Character = {
+    id: 'multiclass-familiar', systems: ['pf2e'], name: 'Test', level: 10, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: ['Undead Familiar', 'Leshy Familiar', 'Leshy Familiar Secrets'].map(name => ({ name, type: 'Class Feat', level: 1 })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const render = (c: Character) => renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(render(c)).toContain('<h4>Undead Familiar</h4>')
+  expect(render(c)).not.toContain('Leshy familiar granted ability')
+  expect(render(c)).not.toContain('Leshy Familiar Secrets ability')
+  expect(render({ ...c, className: 'Druid' })).toContain('<h4>Leshy Familiar</h4>')
+  expect(render({ ...c, className: 'Druid' })).not.toContain('<span>Undead</span>')
+})
+
+it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   let c: Character = {
     id: 'wasp', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid', deity: 'Calistria',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -348,18 +404,18 @@ it('derives Calistria’s wasp and bonus abilities separately from existing fami
   const before = JSON.stringify(c.familiar)
   let html = markup()
   expect(saves).toBe(0)
-  expect(html).toContain('Leshy Familiar, Wasp Familiar')
-  expect(html).toContain('Daily familiar or master abilities (0/2)')
-  expect(html).toContain('Burrower')
-  expect(html).toContain('Flier')
-  expect(html).not.toContain('Burrower and Flier as bonus abilities')
-  expect(html).toContain('Burrower: Burrow Speed 5 feet; can dig Tiny holes.')
-  expect(html).toContain('Flier: Fly Speed 25 feet.')
+  expect(html).toContain('<h4>Leshy Familiar</h4>')
+  expect(html).not.toContain('Wasp Familiar')
+  expect(html).not.toContain('Burrower')
   expect(html).toContain('aria-label="Leshy familiar granted ability"')
   expect(html).toContain('<small>Hit Points</small> <b>56</b>')
   expect(html).not.toContain('(includes Tough)')
+  c = { ...c, feats: [] }
+  html = markup()
+  expect(html).toContain('Daily familiar or master abilities (0/2)')
+  expect(html).toContain('Burrower: Burrow Speed 5 feet; can dig Tiny holes.')
+  expect(html).toContain('Flier: Fly Speed 25 feet.')
   expect(html).toContain('<small>Hit Points</small> <b>40</b>')
-
   findInput(tree(), 'Wasp familiar name')?.({ target: { value: 'Sting' } })
   findInput(tree(), 'Wasp familiar ability 1')?.({ target: { value: 'Flier' } })
   findInput(tree(), 'Wasp familiar ability 2')?.({ target: { value: 'Tough' } })
@@ -369,6 +425,9 @@ it('derives Calistria’s wasp and bonus abilities separately from existing fami
   expect(html).toContain('Daily familiar or master abilities (2/2)')
   expect(html.match(/Flier: Fly Speed 25 feet\./g)).toHaveLength(1)
 
+  c = { ...c, feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }] }
+  expect(markup()).not.toContain('Wasp Familiar')
+  expect(c.waspFamiliar?.name).toBe('Sting')
   c = { ...c, divineIntercessions: { Calistria: [] } }
   html = markup()
   expect(html).not.toContain('Wasp Familiar')

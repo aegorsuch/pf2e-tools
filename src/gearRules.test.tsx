@@ -20,6 +20,8 @@ import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './bui
 import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
+import { crocodileBattleForm } from './battleForms'
+import { activeBattleForm, spellActiveChange } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -271,6 +273,62 @@ it.each([
   expect(offense).not.toContain('Longsword')
   expect(ownedWeapons(natural, entries).some(weapon => weapon.id === main.id)).toBe(true)
   expect(dinosaurForm({ ...c, spells: [] }, entries)).toBeUndefined()
+})
+
+it.each([
+  [2, 16, 5, 9, 1, 9, 'Medium', 5, '2d8 piercing'],
+  [3, 17, 10, 14, 5, 14, 'Medium', 5, '2d8 piercing'],
+  [4, 18, 15, 16, 9, 16, 'Large', 10, '2d8 piercing'],
+  [5, 18, 20, 18, 7, 20, 'Huge', 15, '4d8 piercing'],
+  [10, 18, 20, 18, 7, 20, 'Huge', 15, '4d8 piercing'],
+] as const)('uses the crocodile battle-form statistics at rank %i', (rank, ac, temporaryHp, attack, damageBonus, athletics, size, reach, damage) => {
+  const form = crocodileBattleForm(rank, 20)
+  expect(form).toMatchObject({ ac: ac + 20, temporaryHp, attack, damageBonus, athletics, size, speed: 25, swimSpeed: 30 })
+  expect(form?.attacks[0].data).toMatchObject({ reach, damage })
+})
+
+it.each([9, 20])('applies and dismisses crocodile Animal Form without changing equipment at level %i', level => {
+  const source: ContentEntry = { ...content('feat', 'Ancestral Form', {}, 9, ['Lizardfolk']),
+    spellGrants: [{ kind: 'innate', spells: ['Animal Form'], rank: 3, tradition: 'primal', frequency: 'once per day' }] }
+  const spell = content('spell', 'Animal Form', { actions: 'Two Actions' }, 2, ['Polymorph'])
+  const dinosaur = content('spell', 'Dinosaur Form', {}, 4)
+  const entries = [source, spell, dinosaur, sword]
+  const c: Character = { ...base, level, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk',
+    feats: [{ name: source.name, type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' }],
+    activeSpells: ['Animal Form'], weapons: [main], handwraps: { potency: 3, striking: 3, runes: ['Flaming'] },
+    spells: [{ name: dinosaur.name, rank: 4, cantrip: false }], dinosaurForm: { form: 'Tyrannosaurus', rank: 4 } }
+  const before = JSON.stringify(c)
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Crocodile', rank: Math.ceil(level / 2), temporaryHp: 20, size: 'Huge' })
+  expect(armorClass(c, entries)).toBe(level + 18)
+  expect(movementSpeeds(c, entries)).toEqual([
+    { name: 'Land', feet: 25, source: 'Animal Form', status: 0 }, { name: 'Swim', feet: 30, source: 'Animal Form', status: 0 },
+  ])
+  expect(senses(c, entries)).toEqual(expect.arrayContaining([
+    { value: 'Low-light vision', source: 'Animal Form' }, { value: 'Scent (imprecise) 30 feet', source: 'Animal Form' },
+  ]))
+  const attacks = ownedWeapons(c, entries)
+  expect(attacks.map(attack => attack.name)).toEqual(['Crocodile Jaws', 'Crocodile Tail'])
+  const normal = { ...c, ...spellActiveChange(c, 'Animal Form', false) }
+  const ownAttack = weaponAttack(normal, entries, ownedWeapons(normal, entries).find(weapon => weapon.name === 'Fist')!).attack
+  expect(weaponAttack(c, entries, attacks[0])).toMatchObject({ damage: '4d8+7 piercing', reach: 15,
+    attack: Math.max(18, ownAttack), item: 0, additionalDamage: [] })
+  expect(weaponAttack(c, entries, attacks[1])).toMatchObject({ damage: '2d8+7 bludgeoning', multipleAttackPenalties: [0, -4, -8] })
+  expect(effectiveWeapon(c, entries, attacks[0])).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="skills" />))
+    .toMatch(/class="skill-name">Athletics.*?<b>\+20/)
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
+  expect(defense).toContain('<small>Temporary Hit Points</small><b>20')
+  expect(defense).toContain('hold your breath')
+  const inventory = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(inventory).toContain('Longsword')
+  expect(inventory).not.toContain('Crocodile Jaws')
+  expect(ownedWeapons(normal, entries).some(weapon => weapon.id === main.id)).toBe(true)
+  expect(activeBattleForm(normal, entries)).toBeUndefined()
+  expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
+  const transformed = { ...c, ...spellActiveChange(c, 'Dinosaur Form', true) }
+  expect(transformed.activeSpells).toEqual(['Dinosaur Form'])
+  expect(activeBattleForm(transformed, entries)?.name).toBe('Tyrannosaurus')
+  expect(JSON.stringify(c)).toBe(before)
 })
 
 it('switches Dinosaur battle forms, reach, agile attacks, persistent damage and Athletics', () => {

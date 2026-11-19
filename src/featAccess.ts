@@ -188,13 +188,17 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
   const ethnicity = !!c.ethnicity && accessEthnicities(access).some(name => ethnicityKey(name) === ethnicityKey(c.ethnicity!))
   const key = achievementKey(narrative)
   const background = key === RIVETHUN_MEMBERSHIP.toLowerCase() && c.background?.toLowerCase() === 'rivethun adherent'
+  const alternatives = access.toLowerCase().split(/\s+or\s+/)
+  const heritage = c.heritage?.toLowerCase()
   const ancestry = key === DWARVEN_DEFENDER.toLowerCase() && c.ancestry?.toLowerCase() === 'dwarf'
+    || !!heritage && alternatives.some(alternative => alternative.replace(/[.!?]+$/, '') === `${heritage} heritage`)
   const achievements = new Set(c.achievements?.map(achievementKey))
-  const achievement = key === ALKENSTAR_OR_MANA_WASTES
+  const achievement = (key === ALKENSTAR_OR_MANA_WASTES
     ? achievements.has(key) || achievements.has(achievementKey(ALKENSTAR)) || achievements.has(achievementKey(MANA_WASTES))
       || blackPowderFeat(entry) && achievements.has(achievementKey(NIXBRIX_CHALLENGE))
     : isAchievementRequirement(narrative) && (achievements.has(key)
-      || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase() && achievements.has(achievementKey(ALKENSTAR)))
+      || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase() && achievements.has(achievementKey(ALKENSTAR))))
+    || alternatives.some(alternative => isAchievementRequirement(alternative) && achievements.has(achievementKey(alternative)))
   return {
     requirement: trainingLabel(key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : narrative, key),
     automatic: ethnicity || background || ancestry || !!achievement,

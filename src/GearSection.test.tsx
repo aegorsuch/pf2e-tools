@@ -874,8 +874,8 @@ it('automates shield weapon enhancements without helper text and preserves edita
   const gear = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} />)
   expect(gear).not.toContain('(from Steel Shield)')
   expect(gear).not.toContain('Cold Iron (Low-Grade)')
-  expect(gear).not.toContain('Potency')
-  expect(gear).not.toContain('Striking')
+  expect(gear).not.toContain('<label>Potency')
+  expect(gear).not.toContain('<label>Striking')
   expect(gear).not.toContain('aria-label="Weapon material"')
   expect(gear).toContain('Flaming')
   vi.mocked(window.confirm).mockReturnValueOnce(false)
@@ -1016,7 +1016,7 @@ it('omits ruleset badges from owned armor cards', () => {
   expect(markup).not.toContain('>PF2E</small>')
 })
 
-it('displays locked Living Weapon fundamentals as rune text while retaining genuinely editable upgrades', () => {
+it('shows automatically scaling fundamentals as clickable inline tags without editable controls', () => {
   const c: Character = { ...character([{ name: 'Living Weapon', type: 'Class Feat', level: 1 }], true), level: 20 }
   const render = (character: Character) => {
     const card = findElement(WeaponList({ c: character, entries: [weapon], save: () => {} }),
@@ -1024,16 +1024,37 @@ it('displays locked Living Weapon fundamentals as rune text while retaining genu
     return renderToStaticMarkup(card)
   }
   const locked = render(c)
-  expect(locked).toContain('<span>Potency <b>+3</b></span>')
-  expect(locked).toContain('<span>Striking <b>Major Striking</b></span>')
+  expect(locked).toContain('role="group" aria-label="Fundamental runes"')
+  expect(locked).toContain('class="gear-trait" aria-haspopup="dialog">+3 Potency</button>')
+  expect(locked).toContain('class="gear-trait" aria-haspopup="dialog">Striking (Major)</button>')
   expect(locked).not.toContain('<label>Potency')
   expect(locked).not.toContain('<label>Striking')
-  const upgradeable = render({ ...c, level: 10 })
-  expect(upgradeable).toContain('<label>Potency <select')
-  expect(upgradeable).toContain('<label>Striking <select')
+  for (const level of [1, 10]) {
+    const automatic = render({ ...c, level })
+    expect(automatic).toContain('aria-label="Fundamental runes"')
+    expect(automatic).not.toContain('<label>Potency')
+    expect(automatic).not.toContain('<label>Striking')
+  }
   const ordinary = render({ ...c, feats: [] })
   expect(ordinary).toContain('<label>Potency <select')
   expect(ordinary).toContain('<label>Striking <select')
+})
+
+it('shows fundamental rune descriptions beneath weapon traits in equipment and offense', () => {
+  const potency: ContentEntry = { ...shifting, id: 'potency', name: 'Weapon Potency (+3)',
+    description: 'Gain a +3 item bonus to attack rolls.', data: { item_subcategory: 'Weapon Fundamental Runes' } }
+  const striking: ContentEntry = { ...potency, id: 'striking', name: 'Striking (Greater)',
+    description: 'This weapon deals three weapon damage dice.' }
+  const c: Character = { ...character([]), weapons: [{ id: 'w', name: weapon.name, potency: 3, striking: 2, runes: [] }] }
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[{ ...weapon, traits: ['Versatile P'] }, potency, striking]}
+      save={() => {}} displayOnly={displayOnly} />).split('>Longsword</button>')[1]
+    expect(markup.indexOf('aria-label="Fundamental runes"')).toBeGreaterThan(markup.indexOf('>Versatile P</button>'))
+    expect(markup).toContain('>+3 Potency</button>')
+    expect(markup).toContain('>Striking (Greater)</button>')
+    expect(markup).toContain(potency.description)
+    expect(markup).toContain(striking.description)
+  }
 })
 
 it('tracks loaded ammunition for capacity weapons and clamps controls to capacity', () => {
@@ -1356,13 +1377,10 @@ it('syncs Living Weapon fundamentals and property edits across weapons and inher
   assertShared(2, 1, ['Flaming', 'Frost'])
   propertyEditor()(['Frost'])
   assertShared(2, 1, ['Frost'])
-  const potency = findElement(card(second.name), (element) => element.props.label === 'Potency')
-  if (!potency) throw new Error('Missing potency')
-  ;(potency.props.onChange as (value: number) => void)(3)
-  assertShared(3, 1, ['Frost'])
-  const striking = findElement(card(second.name), (element) => element.props.label === 'Striking')
-  if (!striking) throw new Error('Missing striking')
-  ;(striking.props.onChange as (value: number) => void)(3)
+  expect(findElement(card(second.name), element => element.props.label === 'Potency' || element.props.label === 'Striking')).toBeUndefined()
+  c = { ...c, level: 12 }
+  assertShared(2, 2, ['Frost'])
+  c = { ...c, level: 20 }
   assertShared(3, 3, ['Frost'])
   const tag = findElement(card(second.name), (element) => element.props['aria-label'] === 'Living Weapon: grant Shifting rune')
   if (!tag) throw new Error('Missing Living Weapon toggle')
@@ -1419,7 +1437,7 @@ it('adds free Shifting only when Living Weapon is selected on the weapon', () =>
   const enabled = renderToStaticMarkup(<WeaponList c={character([feat], true)} entries={[weapon, shifting]} save={() => {}} />)
   expect(enabled).toContain('aria-label="Living Weapon: grant Shifting rune" checked=""')
   expect(enabled.indexOf('aria-label="Weapon material"')).toBeLessThan(enabled.indexOf('aria-label="Living Weapon: grant Shifting rune"'))
-  expect(enabled.indexOf('aria-label="Living Weapon: grant Shifting rune"')).toBeLessThan(enabled.indexOf('<label>Potency'))
+  expect(enabled).not.toContain('<label>Potency')
   expect(enabled).toContain('title="Granted by Living Weapon"')
   expect(enabled).not.toContain('<option value="Shifting">')
 
@@ -1774,16 +1792,17 @@ it('configures shared handwraps without copying inherited runes into stored atta
   expect(renderToStaticMarkup(tree())).not.toContain(`aria-label="Remove ${HANDWRAPS.name}"`)
   const card = findElement(tree(), (element) => element.type === 'details' && element.props['aria-label'] === HANDWRAPS.name)
   if (!card) throw new Error('Missing handwrap card')
-  const potency = findElement(card, (element) => element.props.label === 'Potency')
-  if (!potency) throw new Error('Missing shared potency control')
-  ;(potency.props.onChange as (value: number) => void)(2)
-  expect(c.handwraps).toEqual({ potency: 2, striking: 1, runes: [] })
+  expect(findElement(card, element => element.props.label === 'Potency' || element.props.label === 'Striking')).toBeUndefined()
+  const properties = findElement(card, element => Array.isArray(element.props.runes) && typeof element.props.onChange === 'function')
+  if (!properties) throw new Error('Missing shared property rune control')
+  ;(properties.props.onChange as (runes: string[]) => void)(['Frost'])
+  expect(c.handwraps).toEqual({ potency: 2, striking: 1, runes: ['Frost'] })
   const sword = findElement(weapons(), (element) => element.type === 'details' && element.props['aria-label'] === 'Longsword')
   const striking = findElement(sword, (element) => element.props.label === 'Striking')
   if (!striking) throw new Error('Missing sword striking control')
   ;(striking.props.onChange as (value: number) => void)(2)
   expect(c.weapons?.find((attack) => attack.name === 'Fist')).toMatchObject({ potency: 0, striking: 0, runes: [] })
-  expect(c.handwraps).toEqual({ potency: 2, striking: 1, runes: [] })
+  expect(c.handwraps).toEqual({ potency: 2, striking: 1, runes: ['Frost'] })
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={save} />)
   expect(markup).not.toContain(`inherited from ${HANDWRAPS.name}`)
   expect(markup).toContain('Fist attack +14: show breakdown')

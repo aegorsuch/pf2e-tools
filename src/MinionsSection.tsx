@@ -38,12 +38,19 @@ function minionSummaryData(c: Character) {
   const advancement = companionAdvancement(c)
   const constructAdvancement = constructCompanionAdvancement(c)
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
-  const leshy = activeFeatsNamed(c, 'Leshy Familiar').length > 0
-  const undeadFamiliar = activeFeatsNamed(c, 'Undead Familiar').length > 0
-  const crocodileFamiliar = activeFeatsNamed(c, "Crocodile's Twin").length > 0
-  const familiar = leshy || undeadFamiliar || crocodileFamiliar || c.className === 'Witch'
+  const leshyGrant = activeFeatsNamed(c, 'Leshy Familiar').length > 0
+  const undeadGrant = activeFeatsNamed(c, 'Undead Familiar').length > 0
+  const classFamiliar = c.className === 'Witch' ? 'normal'
+    : c.className === 'Druid' && leshyGrant ? 'leshy'
+    : undeadGrant ? 'undead' : leshyGrant ? 'leshy'
+    : activeFeatsNamed(c, 'Familiar').some(feat => /^(?:Class|Archetype) Feat$/i.test(feat.type)
+      || /^(?:class|archetype):/.test(feat.slot ?? '')) ? 'normal' : undefined
+  const leshy = classFamiliar === 'leshy'
+  const undeadFamiliar = classFamiliar === 'undead'
+  const crocodileFamiliar = !classFamiliar && activeFeatsNamed(c, "Crocodile's Twin").length > 0
+  const familiar = !!classFamiliar || crocodileFamiliar
     || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
-  const wasp = hasDivineIntercession(c, 'Calistria', 'moderate-boon')
+  const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
@@ -224,7 +231,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     return { ac: base(armorClassBreakdown(c, entries)), fortitude: base(savingThrowBreakdown(c, entries, 'Fortitude', ranks)),
       reflex: base(savingThrowBreakdown(c, entries, 'Reflex', ranks)), will: base(savingThrowBreakdown(c, entries, 'Will', ranks)) }
   })() : undefined
-  const familiarSecrets = familiar && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
+  const familiarSecrets = leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
   const oaken = leshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 ? oakenResilience(c, entries, 'familiar') : undefined
   const highestSlot = Math.max(c.className === 'Druid' ? Math.ceil(c.level / 2) : 0,
     ...Object.entries(c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)

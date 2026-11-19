@@ -58,6 +58,19 @@ it('derives castable equipment spells without changing learned spells or retaini
   expect(itemSpells(c, [{ ...charm, deleted: true }, { ...other, systems: ['sf2e'] }, heal])).toEqual([])
 })
 
+it('keeps item-spell triggers in source rules rather than inline helper text', () => {
+  const source = make("Hunter's Dawn", 'item')
+  const condition = "You hit a creature with a ranged Strike with Hunter's Dawn"
+  source.spellGrants = [{ kind: 'innate', spells: ['Command'], rank: 1, condition, frequency: 'once per day' }]
+  const spell = make('Command', 'spell')
+  const entries = [source, spell]
+  const c = { ...base, equipment: [{ name: source.name, qty: 1 }] }
+  expect(itemSpells(c, entries)[0]).toMatchObject({ condition })
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('>Command</button>')
+  expect(html).not.toContain(condition)
+})
+
 it('does not turn triggers, casting bonuses, crafting requirements, or spell-effect references into item spells', () => {
   const references = make('Reference Charm', 'item',
     'Whenever you cast heal, increase healing.\n\nActivate Reaction; Trigger You are hit by force barrage; Effect Gain resistance as if you cast heal.\n\nCraft Requirements Supply one casting of heal.')

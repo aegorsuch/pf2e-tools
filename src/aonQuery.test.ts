@@ -20,7 +20,7 @@ it('fetches and imports all four grim fascinations with their starting focus spe
     && entry.description.includes('Thrall Enhancement Full thrall rules.'))).toBe(true)
 })
 
-it.each(['Song of the Soul', 'Deathly Scream'])('parses %s as a granted grave focus spell', name => {
+it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier', 'Necrotic Bomb'])('parses %s as a granted grave focus spell', name => {
   const markdown = `<title>Feat</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.`
   expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])
 })

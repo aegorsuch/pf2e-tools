@@ -42,6 +42,37 @@ const c: Character = {
 const owned = (name: string): OwnedWeapon => ({ id: 'bow', name, potency: 0, striking: 0, runes: [] })
 
 it.each([
+  [1, 1, 1, 'Standard'], [10, 2, 1, 'Standard'], [12, 2, 2, 'Standard'],
+  [16, 3, 2, 'Standard'], [18, 3, 2, 'High'], [19, 3, 3, 'High'],
+] as const)("locks every Hunter's Dawn form to Peachwood and scales fundamentals at level %i", (level, potency, striking, grade) => {
+  const item: ContentEntry = { ...winter, id: 'dawn', name: "Hunter's Dawn", level: 5,
+    description: 'Base Weapon Club. This +1 striking club is carved from peachwood.' }
+  const bases: ContentEntry[] = ['Club', 'Dart', 'Javelin'].map(name => ({
+    ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: name === 'Club' ? 'Melee' : 'Ranged',
+      weapon_category: 'Simple', hands: 1, range: name === 'Club' ? 0 : 20 },
+  }))
+  const entries = [item, ...bases]
+  const options = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === item.name)
+  expect(options).toHaveLength(3)
+  for (const entry of options) {
+    const weapon: OwnedWeapon = { ...owned(entry.name), material: 'Orichalcum', runes: ['Flaming'] }
+    const character = { ...c, level, weapons: [weapon] }
+    const before = JSON.stringify(character)
+    expect(effectiveWeapon(character, entries, weapon)).toMatchObject({
+      material: `Peachwood (${grade}-Grade)`, potency, striking, runes: expect.arrayContaining(['Flaming']),
+    })
+    const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} />)
+    expect(markup).toContain(`>Peachwood (${grade}-Grade)</button>`)
+    expect(markup).not.toContain('aria-label="Weapon material"')
+    expect(markup).not.toContain(`aria-label="Remove Peachwood (${grade}-Grade) material"`)
+    expect(markup).not.toContain('<label>Potency')
+    expect(markup).not.toContain('<label>Striking')
+    expect(markup).toContain('aria-label="Fundamental runes"')
+    expect(JSON.stringify(character)).toBe(before)
+  }
+})
+
+it.each([
   ["Horselord's Longbow", 6, 25000, 2, '+1 striking', 1, [], 100],
   ['Splithead Bow', 7, 36000, 2, '+1 striking hauling', 1, ['Hauling'], 100],
   ["Hunter's Anthem", 11, 130000, 2, '+2 striking', 2, [], 100],

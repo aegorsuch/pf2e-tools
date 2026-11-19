@@ -21,7 +21,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
-import { DINOSAUR_FORMS } from './dinosaurForm'
+import { DINOSAUR_FORMS } from './battleForms'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
@@ -214,6 +214,15 @@ export function DinosaurFormOptions({ c, save, rank }: Pick<SectionProps, 'c' | 
   </fieldset>
 }
 
+export function CrocodileFormToggle({ c, entries, save }: SectionProps) {
+  const active = isSpellActive(c, entries, 'Animal Form')
+  const label = active ? 'Dismiss Crocodile Form' : 'Cast Crocodile Form'
+  return <button type="button" className="spell-action-button" aria-label={label} aria-pressed={active}
+    title={`Two Actions; ${label}`} onClick={() => save(spellActiveChange(c, 'Animal Form', !active))}>
+    <ActionIcon actions="Two Actions" />
+  </button>
+}
+
 function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.level / 2) }: SectionProps & {
   entry?: ContentEntry
   name: 'Animal Feature' | 'Untamed Shift' | 'Untamed Form' | 'Dinosaur Form'
@@ -331,7 +340,9 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
     <li className="innate-spell-row">
       <div className="innate-spell-name">
         <div className="spell-title"><EntryDescription name={name} entry={entry} />
-          {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form'].includes(name) && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
+          {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form'].includes(name)
+            && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
+            && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote
@@ -399,7 +410,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
     durationNote: persistent && name === 'Animal Feature' && !getSettings().championFormNoFlight ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : name === 'Warning Stripes' ? 'Self or 30 feet'
-      : ['Athletic Rush', 'Dinosaur Form', 'Enduring Might', 'Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Athletic Rush', 'Animal Form', 'Dinosaur Form', 'Enduring Might', 'Speak with Plants', 'Speak with Stones', 'Gravity Weapon', 'Keen Smell', 'Animal Feature', "Hunter's Luck", 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || tracks && range === '—' ? 'Self'
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
@@ -410,7 +421,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       : name === 'Warning Stripes' ? 'Yourself or your animal companion'
       : name === 'Canopy Crawler' && rank >= 5 ? 'Yourself and your animal companion'
       : name === 'Mask of Terror' && rank >= 8 ? 'Up to 5 creatures'
-      : ['Athletic Rush', 'Dinosaur Form', 'Enduring Might', 'Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
+      : ['Athletic Rush', 'Animal Form', 'Dinosaur Form', 'Enduring Might', 'Animal Feature', 'Gravity Weapon', 'Keen Smell', "Hunter's Luck", 'Speak with Plants', 'Speak with Stones', 'One with Stone', 'Seek the Stars', 'Seek The Stars'].includes(name)
       || targets === '—' && ['Sure Strike', 'True Strike', 'Vanishing Tracks'].includes(name) ? 'Self' : targets,
   }
 }
@@ -730,6 +741,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   </>
   const inlineControls = (name: string, rank = Math.ceil(c.level / 2)) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
+    : name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length
+    ? <CrocodileFormToggle c={c} entries={entries} save={save} />
     : name === 'Shield'
     ? <label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
@@ -1054,8 +1067,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <SpellColumns />
         <ul>{items.map((spell, index) => {
           const uses = itemSpellUses(c, spell)
-          const note = [(!uses || !/\bper day\b/i.test(spell.frequency ?? '')) && spell.frequency, spell.condition]
-            .filter(Boolean).join('; ')
+          const note = (!uses || !/\bper day\b/i.test(spell.frequency ?? '')) ? spell.frequency : undefined
           return <SpellItem c={c} key={`${spell.source.id}:${index}`}
           name={spell.name} entry={spell.entry} rank={spell.rank}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}

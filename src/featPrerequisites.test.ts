@@ -67,6 +67,23 @@ it('qualifies Wetlander Lizardfolk for Marsh Runner through its swim Speed', () 
   expect(featPrerequisiteChecker(wetlander, [heritage, marshRunner])(marshRunner)).toEqual({ missing: [], manual: [] })
 })
 
+it('plans feat-derived prerequisites only from selected build feats without activating future benefits', () => {
+  const swimmer = entry('feat', 'Swift Swimmer', {}, 5, ['Lizardfolk'])
+  const marsh = entry('feat', 'Marsh Runner', { prerequisite: 'You have a swim Speed' }, 1, ['Lizardfolk'])
+  const entries = [swimmer, marsh]
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  const c: Character = { ...base, level: 1, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk',
+    feats: [{ ...selected(swimmer.name, 5), type: 'Ancestry Feat', slot: 'ancestry:5:0' }] }
+  const saved = JSON.stringify(c)
+  expect(movementSpeeds(c, entries).some(speed => speed.name === 'Swim')).toBe(false)
+  expect(featPrerequisiteChecker(c, entries)(marsh).missing).toEqual(['You have a swim Speed'])
+  expect(featSelectionPrerequisiteChecker(c, entries, slot)(marsh)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(entries, c, slot)).toContain(marsh)
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot)).not.toContain(marsh)
+  expect(eligibleFeats(entries, { ...c, feats: [{ ...c.feats[0], slot: slot.key }] }, slot)).not.toContain(marsh)
+  expect(JSON.stringify(c)).toBe(saved)
+})
+
 it('grants Ride from Reptile Rider', () => {
   const c: Character = { ...base, feats: [selected('Reptile Rider')] }
   expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Ride', source: 'Reptile Rider', level: 1 })
@@ -239,6 +256,8 @@ it('uses later allocated skills only in planning mode and leaves other prerequis
     expect(featSelectionPrerequisiteChecker({ ...c, level: 15 }, [nimble], slot)(nimble).missing).toEqual([])
     updateSettings({ planSkillPrerequisites: false })
     expect(featSelectionPrerequisiteChecker(c, [nimble], slot)(nimble).missing).toContain('expert in Athletics')
+    expect(featSelectionPrerequisiteChecker({ ...c, feats: [selected('Swift Swimmer', 9)] }, [nimble], slot)(nimble).missing)
+      .toContain('expert in Athletics')
     expect(featSelectionPrerequisiteChecker({ ...c, rankOverrides: { Athletics: 2 } }, [nimble], slot)(nimble).missing).toEqual([])
   } finally { updateSettings({ planSkillPrerequisites: previous }) }
 })
@@ -299,15 +318,16 @@ it.each(['Machine Heart', 'Mortal Heart'])('optionally excludes the other Cyborg
   } finally { updateSettings({ exclusiveCyborgHearts: previous }) }
 })
 
-it('checks Enhanced Senses before its own effects and before later sense-granting feats', () => {
+it('plans Enhanced Senses from selected sense-granting feats but never its own effects', () => {
   const feat = { ...entry('feat', 'Enhanced Senses', { prerequisite: 'a sense with a listed range' }, 1, ['Ysoki']),
     systems: ['sf2e' as const] }
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki',
     feats: [{ name: 'Enhanced Olfactory System', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }] }
   const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
   expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat))
-    .toEqual({ missing: ['a sense with a listed range'], manual: [] })
-  expect(eligibleFeats([feat], c, slot)).not.toContain(feat)
+    .toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  expect(eligibleFeats([feat], { ...c, feats: [] }, slot)).not.toContain(feat)
   expect(featSelectionPrerequisiteChecker(c, [feat], { ...slot, level: 5 })(feat))
     .toEqual({ missing: [], manual: [] })
   const self = { ...feat, data: { ...feat.data, grants_vision: 'Scent (imprecise) 30 feet' } }
@@ -1192,7 +1212,7 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats([steed], c, slot, { includeUnmetPrerequisites: true })).toContain(steed)
   })
 
-  it('enforces feat chains, their instinct prerequisites, selection levels, and self-exclusion', () => {
+  it('plans selected feat chains while enforcing their prerequisites and self-exclusion', () => {
     const giant = entry('subclass', 'Giant', { class: 'Barbarian' })
     const parent = entry('feat', "Giant's Stature", { prerequisite: 'Giant instinct' }, 6, ['Barbarian'])
     const child = entry('feat', "Titan's Stature", { prerequisite: "Giant's Stature" }, 12, ['Barbarian'])
@@ -1202,7 +1222,7 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats(data, base, slot)).not.toContain(child)
     expect(eligibleFeats(data, c, slot)).toContain(child)
     expect(eligibleFeats(data, { ...c, subclass: 'Fury' }, slot)).not.toContain(child)
-    expect(eligibleFeats(data, { ...c, feats: [selected(parent.name, 14)] }, slot)).not.toContain(child)
+    expect(eligibleFeats(data, { ...c, feats: [selected(parent.name, 14)] }, slot)).toContain(child)
     expect(featPrerequisiteChecker(c, data, 12, 0)(child).missing).toEqual([parent.name])
     expect(c.feats).toEqual([selected(parent.name, 6)])
   })

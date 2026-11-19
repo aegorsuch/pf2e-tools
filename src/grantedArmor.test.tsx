@@ -1,10 +1,10 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { armorClass, armorEntry, armorGauntlet, armorSpecialization, blessedShieldBenefit, defenseSummary, effectiveWeapon, equippedShield, hardwoodShield, inventorBuckler, isLockedWeapon, ownedArmors, ownedWeapons, shieldChange, shieldEquipChange, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
+import { armorClass, armorEntry, armorGauntlet, armorProficiencyRank, armorSpecialization, blessedShieldBenefit, defenseSummary, effectiveWeapon, eligibleFeats, equippedShield, featChoiceOptions, featPrerequisiteChecker, hardwoodShield, inventorBuckler, isLockedWeapon, ownedArmors, ownedWeapons, perceptionItemBonus, shieldChange, shieldEquipChange, shieldMaterial, shieldMaterialOptions, shieldRaisedChange, shieldStats, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { SkillsSection } from './SkillsSection'
-import { ARMIGER_ARMOR_ID, grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
+import { ARMIGER_ARMOR_ID, BONY_PLATES_ID, grantedArmorEntries, HARDWOOD_ARMOR_ID, INVENTOR_ARMOR_ID } from './grantedArmor'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -16,6 +16,131 @@ const base: Character = {
 }
 const feat = (name: string, choice?: string, level = 1): Character['feats'][number] =>
   ({ name, choice, level, type: 'Ancestry Feat' })
+const plateClass = (data: ContentEntry['data']): ContentEntry => ({
+  id: 'plate-class', kind: 'class', name: 'Plate Test', systems: ['pf2e'], source: 'official',
+  level: 1, traits: [], description: '', data, effects: [], updatedAt: 0,
+})
+
+it.each([
+  [{ unarmored_proficiency: 'Expert', light_armor_proficiency: 'Trained' }, 'Unarmored', 0, 5, 0, 0, 0, 2, 19],
+  [{ unarmored_proficiency: 'Trained', light_armor_proficiency: 'Trained' }, 'Light', 2, 3, -1, 0, 1, 1, 18],
+  [{ light_armor_proficiency: 'Expert', medium_armor_proficiency: 'Expert', heavy_armor_proficiency: 'Trained' }, 'Medium', 4, 1, -2, -5, 3, 2, 20],
+  [{ unarmored_proficiency: 'Trained', medium_armor_proficiency: 'Trained', heavy_armor_proficiency: 'Trained' }, 'Heavy', 6, 0, -3, -10, 4, 1, 19],
+  [{}, 'Unarmored', 0, 5, 0, 0, 0, 0, 14],
+] as const)('automatically assigns Bony Plates profile %s as %s without a category choice', (data, category, ac, dex, check, speed, strength, rank, total) => {
+  const c: Character = { ...base, ancestry: 'Lizardfolk', heritage: 'Wetlander Lizardfolk',
+    className: 'Plate Test', feats: [feat('Bony Plates')] }
+  const entries = [plateClass(data)]
+  const armor = armorEntry(c, entries, 'Bony Plates')!
+  expect(armor).toMatchObject({ id: BONY_PLATES_ID, source: 'homebrew', traits: ['Aquadynamic', 'Comfort'],
+    data: { armor_category: category, armor_group: 'Plate', ac, dex_cap: dex, check_penalty: check,
+      speed_penalty: speed, strength, attached: true, highest_armor_proficiency: true } })
+  expect(armorProficiencyRank(c, entries, armor)).toBe(rank)
+  expect(armorClass(c, entries)).toBe(total)
+  expect(featChoiceOptions('Bony Plates', c, entries, 'ancestry:1:0')).toBeUndefined()
+  expect(armorSpecialization(c, entries)).toBeUndefined()
+})
+
+it('reassigns plate categories when class proficiency progresses without storing a category', () => {
+  const klass = plateClass({ light_armor_proficiency: 'Trained', medium_armor_proficiency: 'Trained', heavy_armor_proficiency: 'Trained' })
+  const expertise: ContentEntry = { ...klass, id: 'expertise', kind: 'classFeature', name: 'Unarmored Expertise', level: 7,
+    data: { class: klass.name }, description: 'Your proficiency rank for unarmored defense increases to expert.' }
+  const entries = [klass, expertise]
+  const c: Character = { ...base, className: klass.name, ancestry: 'Lizardfolk', feats: [feat('Bony Plates')] }
+  expect(armorEntry(c, entries, 'Bony Plates')?.data.armor_category).toBe('Heavy')
+  expect(armorEntry({ ...c, level: 7 }, entries, 'Bony Plates')?.data.armor_category).toBe('Unarmored')
+  expect(armorEntry({ ...c, level: 6 }, entries, 'Bony Plates')?.data.armor_category).toBe('Heavy')
+})
+
+it('offers Bony Plates to other Lizardfolk without granting Bakuwa feat eligibility', () => {
+  const entries = homebrewCharacterOptions([])
+  const plates = entries.find(entry => entry.id === 'homebrew:bony-plates')!
+  const c: Character = { ...base, ancestry: 'Lizardfolk', heritage: 'Wetlander Lizardfolk' }
+  const slot = { category: 'ancestry' as const, key: 'ancestry:1:0', level: 1 }
+  expect(eligibleFeats(entries, c, slot)).toContain(plates)
+  expect(eligibleFeats(entries, { ...c, ancestry: 'Human' }, slot)).not.toContain(plates)
+  expect(eligibleFeats(entries, { ...c, heritage: 'Bakuwa Lizardfolk' }, slot)).not.toContain(plates)
+  const bakuwa: ContentEntry = { ...plates, id: 'bakuwa', kind: 'heritage', name: 'Bakuwa Lizardfolk' }
+  const mooneater: ContentEntry = { ...plates, id: 'mooneater', name: 'Mooneater', level: 17,
+    data: { prerequisite: 'Bakuwa Lizardfolk heritage' } }
+  expect(featPrerequisiteChecker({ ...c, level: 20, feats: [feat('Bony Plates')] }, [...entries, bakuwa, mooneater])(mooneater).missing)
+    .toEqual(['Bakuwa Lizardfolk heritage'])
+  expect(featPrerequisiteChecker({ ...c, level: 20, heritage: bakuwa.name }, [...entries, bakuwa, mooneater])(mooneater))
+    .toEqual({ missing: [], manual: [] })
+  expect(grantedArmorEntries({ ...c, feats: [feat('Bony Plates', undefined, 5)] })).toEqual([])
+  expect(grantedArmorEntries({ ...c, systems: ['sf2e'], feats: [feat('Bony Plates')] })).toEqual([])
+})
+
+it.each([
+  [4, 0, 0, [], 0],
+  [5, 1, 0, ['Moonweave'], 0],
+  [7, 1, 0, ['Moonweave', 'Sunweave'], 1],
+  [8, 1, 1, ['Moonweave', 'Sunweave'], 1],
+  [11, 2, 1, ['Moonweave', 'Sunweave (Greater)'], 2],
+  [12, 2, 1, ['Moonweave', 'Sunweave (Greater)', 'Fortification'], 2],
+  [13, 2, 1, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification'], 2],
+  [14, 2, 2, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification'], 2],
+  [17, 2, 2, ['Moonweave (Major)', 'Sunweave (Greater)', 'Fortification'], 2],
+  [18, 3, 2, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'], 3],
+  [20, 3, 3, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'], 3],
+] as const)('scales plate fundamentals and granted property runes at level %i without persisting grants', (level, potency, resilient, runes, perception) => {
+  const c: Character = { ...base, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk', className: 'Plate Test', level }
+  const entries = [plateClass({ medium_armor_proficiency: 'Trained' })]
+  const before = JSON.stringify(c)
+  expect(wornArmor(c, entries)).toMatchObject({ id: BONY_PLATES_ID, name: 'Bony Plates', material: undefined, potency, resilient, runes })
+  expect(perceptionItemBonus(c, entries)).toBe(perception)
+  expect(armorEntry(c, entries, 'Bony Plates')?.data.strength).toBe(level >= 12 ? 4 : 3)
+  expect(JSON.stringify(c)).toBe(before)
+})
+
+it.each(['Unarmored', 'Light', 'Medium', 'Heavy'] as const)('grants Fortification only to medium or heavy plates, not %s', category => {
+  const key = category === 'Unarmored' ? 'unarmored_proficiency' : `${category.toLowerCase()}_armor_proficiency`
+  const c: Character = { ...base, className: 'Plate Test', ancestry: 'Lizardfolk', feats: [feat('Bony Plates')], level: 20 }
+  const entries = [plateClass({ [key]: 'Master' })]
+  expect(wornArmor(c, entries)?.runes.includes('Fortification (Greater)')).toBe(['Medium', 'Heavy'].includes(category))
+  const specialization: ContentEntry = { ...entries[0], id: 'spec', kind: 'feat', name: 'Armor Specialization',
+    data: { grants_armor_specialization: true } }
+  const plate: ContentEntry = { ...specialization, id: 'plate', name: 'Plate', kind: 'armorGroup', data: {} }
+  expect(armorSpecialization(c, [...entries, specialization, plate])).toBeUndefined()
+  const specialized = armorSpecialization({ ...c, feats: [...c.feats, feat(specialization.name)] }, [...entries, specialization, plate])
+  if (category === 'Medium' || category === 'Heavy') {
+    expect(specialized?.benefit).toMatchObject({ damage: 'Slashing', value: category === 'Heavy' ? 5 : 4 })
+  } else expect(specialized?.benefit).toBeUndefined()
+})
+
+it('preserves Bakuwa rune configuration through replacement, property edits, and category changes', () => {
+  let c: Character = { ...base, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk', className: 'Plate Test', level: 20,
+    armors: [{ id: BONY_PLATES_ID, name: 'Bakuwa Plates', material: 'Orichalcum', worn: true,
+      potency: 2, resilient: 1, runes: ['Shadow', 'Moonweave', 'Fortification'] },
+    { id: 'ordinary', name: 'Chain Mail', worn: true, potency: 1, resilient: 1, runes: [] }] }
+  const entries = [plateClass({ medium_armor_proficiency: 'Master' })]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => ArmorList({ c, entries, save })
+  const card = find(tree(), element => element.type === 'article'
+    && !!find(element.props.children as ReactNode, child => child.props.name === 'Bony Plates'))!
+  const markup = renderToStaticMarkup(card)
+  expect(markup).not.toContain('Material')
+  expect(markup).not.toContain('Potency')
+  expect(markup).not.toContain('Resilient')
+  expect(markup).not.toContain('Remove Moonweave')
+  expect(markup).not.toContain('Remove Sunweave')
+  expect(markup).not.toContain('Remove Fortification')
+  expect(markup).toContain('Granted by Bony Plates')
+  expect(markup).toContain('aria-label="Add property rune"')
+  expect(markup).not.toContain('aria-label="Remove Bony Plates"')
+  expect(ownedArmors(c, entries).find(armor => armor.id === 'ordinary')?.worn).toBe(false)
+  const editor = find(card, element => Array.isArray(element.props.runes) && typeof element.props.onChange === 'function')!
+  expect(editor.props.runes).toEqual(['Shadow'])
+  ;(editor.props.onChange as (runes: string[]) => void)(['Shadow', 'Slick'])
+  c = JSON.parse(JSON.stringify(c))
+  expect(c.armors?.find(armor => armor.id === 'ordinary')?.worn).toBe(true)
+  expect(c.armors?.find(armor => armor.id === BONY_PLATES_ID)?.runes).toEqual(['Moonweave', 'Fortification', 'Shadow', 'Slick'])
+  const unarmored = [plateClass({ unarmored_proficiency: 'Master' })]
+  expect(wornArmor(c, unarmored)?.runes).toEqual(['Shadow', 'Slick', 'Moonweave (Major)', 'Sunweave (Major)'])
+  expect(c.armors?.find(armor => armor.id === BONY_PLATES_ID)?.runes).toContain('Fortification')
+  expect(wornArmor({ ...c, heritage: 'Wetlander Lizardfolk', feats: [feat('Bony Plates')] }, entries)?.runes)
+    .toEqual(['Shadow', 'Slick', 'Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
+})
 
 it('grants locked Orichalcum Hellknight armor by wearable category and scales fundamentals without replacing owned gear', () => {
   const klass: ContentEntry = { id: 'armiger-class', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger',
@@ -190,7 +315,6 @@ function find(node: ReactNode, predicate: (element: ReactElement<Record<string, 
 
 it.each([
   ['Automaton', undefined, 'Reinforced Chassis', 'Reinforced Chassis'],
-  ['Lizardfolk', 'Bakuwa Lizardfolk', undefined, 'Bakuwa Plates'],
   ['Conrasu', 'Rite of Reinforcement', undefined, 'Reinforced Exoskeleton'],
   ['Kashrishi', 'Lethoci', 'Tough Skin', 'Tough Skin'],
   ['Surki', 'Hardshell Surki', undefined, 'Hardshell Carapace'],
@@ -229,16 +353,17 @@ it('uses body armor AC, Dexterity cap, and actual medium armor proficiency', () 
 })
 
 it('preserves ordinary armor and dormant granted configuration when eligibility changes', () => {
-  let c: Character = { ...base, ancestry: 'Automaton', feats: [feat('Reinforced Chassis')],
+  let c: Character = { ...base, level: 11, ancestry: 'Automaton', feats: [feat('Reinforced Chassis')],
     armors: [{ id: 'purchased', name: 'Chain Mail', worn: true, potency: 1, resilient: 1, runes: ['Shadow'] }] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   expect(ownedArmors(c, []).find(armor => armor.id === 'purchased')?.worn).toBe(false)
   const bodyCard = find(ArmorList({ c, entries: [], save }), element => element.type === 'article'
     && !!find(element.props.children as ReactNode, child => typeof child.props.name === 'string'
       && child.props.name.includes('Reinforced Chassis')))
-  const potency = find(bodyCard, element => element.props.label === 'Potency')
-  if (!potency) throw new Error('Missing body armor fundamentals')
-  ;(potency.props.onChange as (value: number) => void)(2)
+  expect(find(bodyCard, element => element.props.label === 'Potency')).toBeUndefined()
+  const runes = find(bodyCard, element => Array.isArray(element.props.runes) && typeof element.props.onChange === 'function')
+  if (!runes) throw new Error('Missing body armor property runes')
+  ;(runes.props.onChange as (value: string[]) => void)(['Shadow'])
   expect(c.armors?.find(armor => armor.id === 'purchased')?.worn).toBe(true)
   c = { ...c, feats: [] }
   expect(ownedArmors(c, [])).toMatchObject([{ id: 'purchased', worn: true }])
@@ -247,7 +372,7 @@ it('preserves ordinary armor and dormant granted configuration when eligibility 
   ;(ordinaryPotency.props.onChange as (value: number) => void)(2)
   c = { ...c, feats: [feat('Reinforced Chassis')] }
   expect(wornArmor(c)?.potency).toBe(2)
-  expect(ownedArmors({ ...c, feats: [feat('Reinforced Chassis', undefined, 5)] }, [])).toHaveLength(1)
+  expect(ownedArmors({ ...c, feats: [feat('Reinforced Chassis', undefined, 12)] }, [])).toHaveLength(1)
   expect(ownedArmors({ ...c, ancestry: 'Human' }, [])).toHaveLength(1)
 })
 

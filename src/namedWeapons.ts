@@ -188,6 +188,10 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
 export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: OwnedWeapon, level?: number) {
   if (!entry?.data.named_weapon) return entry
   const source = entry.data.named_weapon_source
+  if (source === "Hunter's Dawn") {
+    return { ...entry, data: { ...entry.data,
+      named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
+  }
   if (source === 'Coldstar Pistols') {
     const merged = weapon.coldstarForm === 'Merged'
     return { ...entry, data: { ...entry.data, hands: !weapon.coldstarForm || weapon.coldstarForm === 'Paired' ? 2 : 1,

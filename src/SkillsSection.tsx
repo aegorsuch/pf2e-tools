@@ -1,4 +1,4 @@
-import { resistances, dinosaurForm,
+import { resistances, activeBattleForm,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
@@ -338,8 +338,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const medicalTraining = s.name === 'Medicine' && activeFeatsNamed(c, "Officer's Medical Training").length > 0
     const ability = medicalTraining && c.abilities.int > c.abilities.wis ? 'int' : s.ability
     const abil = abilityMod(c.abilities[ability])
-    const dinosaur = dinosaurForm(c, entries)
-    const armorPenalty = !dinosaur && s.kind === 'skill' && (ability === 'str' || ability === 'dex') ? armorCheck : 0
+    const form = activeBattleForm(c, entries)
+    const armorPenalty = !form && s.kind === 'skill' && (ability === 'str' || ability === 'dex') ? armorCheck : 0
     const improvised = s.kind === 'skill' && rank === 0 ? improvisation : undefined
     const prof = improvised?.bonus ?? proficiencyBonus(rank, c.level)
     const warmaskBonus = warmaskSource(c)?.skill === s.name ? warmaskItemBonus(c) : 0
@@ -368,7 +368,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const ownTotal = abil + prof + item + armorPenalty - clumsyPenalty
-    const formAthletics = s.name === 'Athletics' && dinosaur ? dinosaur.athletics : undefined
+    const formAthletics = s.name === 'Athletics' && form ? form.athletics : undefined
     const total = Math.max(ownTotal, formAthletics ?? ownTotal) + status + (circumstance?.value ?? 0)
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
@@ -393,7 +393,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(total)}{formAthletics !== undefined && formAthletics > ownTotal
-          && <SourceNote source="Dinosaur Form" note={`Athletics ${signed(formAthletics)} unless your own modifier is higher.`} />}{!!armorPenalty
+          && <SourceNote source={form?.source ?? ''} note={`Athletics ${signed(formAthletics)} unless your own modifier is higher.`} />}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : 'Imitate Fauna'}
             note={athleticRush ? '+2 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
@@ -591,7 +591,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
     const hpBonuses = hitPointBonuses(c, entries)
-    const dinosaur = dinosaurForm(c, entries)
+    const form = activeBattleForm(c, entries)
     const oaken = oakenResilience(c, entries)
     const divineWeaknesses = divineIntercessionWeaknesses(c)
     return (
@@ -607,11 +607,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>
-        {dinosaur && <div className="defense-summary">
-          <span><small>Temporary Hit Points</small><b>{dinosaur.temporaryHp}
-            <SourceNote source="Dinosaur Form" note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>
-          <span><small>Size</small><b>{dinosaur.size}
-            <SourceNote source="Dinosaur Form" note="Gain the animal and dinosaur traits. Only the form's unarmed attacks can Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands." inlineSource={false} /></b></span>
+        {form && <div className="defense-summary">
+          <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
+            <SourceNote source={form.source} note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>
+          <span><small>Size</small><b>{form.size}
+            <SourceNote source={form.source} note={`${form.source === 'Animal Form'
+              ? 'Gain the animal trait. Can hold your breath throughout the transformation.'
+              : 'Gain the animal and dinosaur traits.'} Only the form's unarmed attacks can Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.`} inlineSource={false} /></b></span>
         </div>}
         <ShieldEquipment c={c} entries={entries} save={save} />
         {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <label>

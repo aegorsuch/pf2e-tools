@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import {
-  propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, dinosaurForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
+  propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -21,7 +21,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus } from './builder'
-import { automaticArmorFundamentals, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
+import { automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
@@ -494,6 +494,19 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
   )
 }
 
+function WeaponFundamentals({ potency, striking, entries }: { potency: number; striking: number; entries: ContentEntry[] }) {
+  const runes = [
+    ...(potency ? [{ name: `+${potency} Potency`, names: [`Weapon Potency (+${potency})`, `+${potency} Weapon Potency`] }] : []),
+    ...(striking ? [{ name: runeName(STRIKING_LABEL[striking]), names: [STRIKING_LABEL[striking]] }] : []),
+  ]
+  if (!runes.length) return null
+  return <div className="gear-traits" role="group" aria-label="Fundamental runes">
+    {runes.map(rune => <EntryDescription key={rune.name} name={rune.name} className="gear-trait"
+      entry={entries.find(entry => entry.kind === 'item' && !entry.deleted
+        && rune.names.some(name => runeName(entry.name) === runeName(name)))} />)}
+  </div>
+}
+
 function ShieldRune({ rune, granted, locked, entries, onChange }: {
   rune: OwnedShield['reinforcingRune']; granted?: OwnedShield['reinforcingRune']; locked?: boolean; entries: ContentEntry[]; onChange: (rune: OwnedShield['reinforcingRune']) => void
 }) {
@@ -566,12 +579,8 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
           }}>
             {grades.map((grade) => <option key={grade} disabled={grades.indexOf(grade) < grades.indexOf(minimumGrade)}>{grade}</option>)}
           </select>
-        </label> : <div className="row">
-          <Level label="Potency" value={handwraps.potency} options={POTENCY} minimum={automatic.potency} format={(n) => n ? `+${n}` : 'None'}
-            onChange={(potency) => save({ handwraps: { ...handwraps, potency, runes: handwraps.runes.slice(0, maxPropertyRunes(potency)) } })} />
-          <Level label="Striking" value={handwraps.striking} options={POTENCY} minimum={automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
-            onChange={(striking) => save({ handwraps: { ...handwraps, striking } })} />
-        </div>}
+        </label> : null}
+        {handwraps.kind !== 'hardlight' && <WeaponFundamentals {...handwraps} entries={entries} />}
         {handwraps.kind === 'hardlight' ? <>
           {!!handwraps.runes.length && <small role="status">Saved runes are inactive on hardlight handwraps.</small>}
           <WeaponUpgrades entries={entries} weapon={{ ...HARDLIGHT_HANDWRAPS, kind: 'weapon',
@@ -964,8 +973,8 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
 }
 
 export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
-  if (!displayOnly && dinosaurForm(c, entries)) return <WeaponList
-    c={{ ...c, activeSpells: c.activeSpells?.filter(name => name !== 'Dinosaur Form') }} entries={entries} save={save} />
+  if (!displayOnly && activeBattleForm(c, entries)) return <WeaponList
+    c={withoutBattleForm(c)} entries={entries} save={save} />
   const weapons = ownedWeapons(c, entries)
   const gauntlet = armorGauntlet(c, entries)
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
@@ -1083,7 +1092,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const builtIn = namedWeaponEnhancements(a.entry)
         const namedSource = String(a.entry?.data.named_weapon_source ?? '')
         const namedBases = namedWeaponBases(a.entry)
-        const automaticBase = hasAutomaticWeaponFundamentals(c, entries, w) ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
+        const automaticFundamentals = hasAutomaticWeaponFundamentals(c, entries, w)
+        const lockFundamentals = automaticFundamentals || !!plate && isGrantedArmor(plate.id)
+          && armorEntry(c, entries, plate.name)?.data.automatic_fundamentals !== false
+        const automaticBase = automaticFundamentals ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
         const automatic = { potency: Math.max(automaticBase.potency, builtIn?.potency ?? 0),
           striking: Math.max(automaticBase.striking, builtIn?.striking ?? 0) }
         const grantedClanWeapon = isGrantedDwarfClanWeapon(c, entries, w)
@@ -1250,6 +1262,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {summary.form && <small>{summary.form}:</small>}
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
+          {!upgradeWeapon && !fixed && <WeaponFundamentals {...enhanced} entries={entries} />}
           <AttackUpgrades attack={a} />
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
@@ -1333,6 +1346,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </div>
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
+            {!upgradeWeapon && !fixed && <WeaponFundamentals {...enhanced} entries={entries} />}
             <AttackUpgrades attack={a} />
             {namedWeaponNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
@@ -1391,12 +1405,12 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               </>}
               {canUseLivingWeapon && <label><input type="checkbox" aria-label="Living Weapon: grant Shifting rune" checked={!!w.livingWeapon}
                 onChange={(e) => update(w.id, { livingWeapon: e.target.checked })} /> Living Weapon</label>}
-              {!upgradeWeapon && <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
+              {!upgradeWeapon && !lockFundamentals && <Level label="Potency" value={enhanced.potency} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(w.id, { potency, runes: shared.runes
                   .filter(rune => !decaying || runeBaseName(rune) !== 'Decaying' && enhanced.runes.includes(rune))
                   .slice(0, maxPropertyRunes(potency, enhanced.material, runeCapacity)) })} />
               }
-              {!upgradeWeapon && <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
+              {!upgradeWeapon && !lockFundamentals && <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />}
             </div>}
             {upgradeWeapon && a.entry && !linkedSource && <>
@@ -1592,8 +1606,14 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
   const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
   const saveArmors = (next: OwnedArmor[], extra?: Partial<Character>) => save({ armors: [
     ...(c.armors ?? []).filter(armor => isGrantedArmor(armor.id) && !armors.some(current => current.id === armor.id)),
-    ...next.map(armor => !canWearWithAttachedArmor(armor, attached)
-      ? { ...armor, worn: c.armors?.find(saved => saved.id === armor.id)?.worn ?? armor.worn } : armor),
+    ...next.map(armor => {
+      const saved = c.armors?.find(saved => saved.id === armor.id)
+      const runes = armor.id === BONY_PLATES_ID
+        ? [...(saved?.runes.filter(rune => BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune))) ?? []),
+          ...armor.runes.filter(rune => !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune)))]
+        : armor.runes
+      return { ...armor, runes, ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
+    }),
   ], ...extra })
   const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   const shield = c.shield
@@ -1611,12 +1631,15 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const runesAllowed = entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
+        const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
         const modifications = a.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
         const capacity = modifications.some(mod => mod.name === 'Rune Capacity') ? 1 : 0
         const runeLimit = (potency: number, material: OwnedArmor['material']) => maxPropertyRunes(potency, material, capacity > 0)
         const starfinder = granted && entry?.systems.includes('sf2e') ? entry : undefined
         const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
         const named = namedArmorEnhancements(entry)
+        const automaticRunes = automaticArmorPropertyRunes(entry)
+        const fixedRunes = [...(named?.runes ?? []), ...automaticRunes]
         const automatic = named ?? (granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 })
         const strengthRequirement = Number(entry?.data.strength)
         const hasStrengthRequirement = entry?.data.strength !== undefined && entry.data.strength !== null
@@ -1712,7 +1735,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   : typeof entry?.data.granted_by === 'string' ? entry.data.granted_by : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>
                     update(a.id, { material: undefined, runes: a.runes.slice(0, runeLimit(a.potency, undefined)) })} />
-              </div> : body ? <span>Material: Attached</span> : <span>Material{' '}
+              </div> : body ? null : <span>Material{' '}
                 <SearchableSelect aria-label="Armor material" value="" onChange={(e) => {
                   if (isWoodArmor(entries, a)) return
                   const material = ARMOR_MATERIALS.find((name) => name === e.target.value)
@@ -1723,14 +1746,16 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
-              {runesAllowed && !starfinder && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
+              {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
-              {runesAllowed && !starfinder && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
+              {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
-            {runesAllowed ? <Runes runes={a.runes.filter(rune => !named?.runes.includes(rune))} entries={entries}
-              freeRunes={named?.runes.map(name => ({ name, source: `Built into ${a.name}` }))}
-              options={propertyRunes(entries, 'Armor').filter(rune => !named?.runes.includes(rune.name))}
+            {runesAllowed ? <Runes runes={a.runes.filter(rune => !fixedRunes.includes(rune))} entries={entries}
+              freeRunes={[...(named?.runes.map(name => ({ name, source: `Built into ${a.name}` })) ?? []),
+                ...automaticRunes.map(name => ({ name, source: 'Granted by Bony Plates' }))]}
+              options={propertyRunes(entries, 'Armor').filter(rune => !fixedRunes.includes(rune.name)
+                && (a.id !== BONY_PLATES_ID || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune.name))))}
               limit={runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
               onChange={(runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} />
               : <small>Armor runes cannot be etched onto this shell.</small>}

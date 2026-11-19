@@ -7,6 +7,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
+import { withoutBattleForm } from './builder'
 
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
@@ -17,7 +18,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const targets = c.className === 'Champion' && c.level >= 3 ? blessedArmamentTargets(c, entries) : []
   const target = blessedArmamentTarget(c, entries)
   const sanctification = deitySanctification(c, entries)
-  const weapons = ownedWeapons({ ...c, activeSpells: c.activeSpells?.filter(name => name !== 'Dinosaur Form') }, entries)
+  const weapons = ownedWeapons(withoutBattleForm(c), entries)
   const giant = isGiantInstinct(c, entries)
   const instinct = barbarianInstinct(c, entries)
   const verdant = c.systems.includes('pf2e') && ['Verdant Weapon', 'Verdant Weapon Jousting']

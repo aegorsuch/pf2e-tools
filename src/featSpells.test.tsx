@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, DevotionSpellChoice, DinosaurFormOptions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -182,6 +182,35 @@ it('casts and dismisses a selected Dinosaur Form from its two-action control at 
   expect(c.dinosaurForm).toBeUndefined()
 })
 
+it.each([9, 20])('auto-heightens and toggles only the Ancestral Form crocodile at level %i', level => {
+  const source = feat('Ancestral Form',
+    'You can cast [_animal form_](/Spells.aspx?ID=1440) as a 3rd-rank primal innate spell once per day. You can only target yourself and only take crocodile form.', 9)
+  const spell = { ...entry('Animal Form', 'spell', { actions: 'Two Actions', duration: '1 minute' }), level: 2 }
+  const entries = [source, spell]
+  let c: Character = { ...base, level, ancestry: 'Lizardfolk', heritage: 'Bakuwa Lizardfolk',
+    feats: [taken(source.name, 9)], activeSpells: ['Dinosaur Form', 'Shield'] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const grant = grantedFeatSpells(c, entries)[0]
+  expect(grant).toMatchObject({ rank: Math.ceil(level / 2), rule: { tradition: 'primal', heightened: true } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(render()).toContain(`Primal Spell Rank ${Math.ceil(level / 2)}`)
+  const title = render().match(/<div class="spell-title">[\s\S]*?<\/div>/)?.[0] ?? ''
+  expect(title.match(/class="action-cost"/g)).toHaveLength(1)
+  expect(title).toMatch(/<button[^>]*aria-label="Cast Crocodile Form"[^>]*aria-pressed="false"[^>]*><span class="action-cost" aria-label="Two Actions"/)
+  expect(render()).toContain('<small>Range</small>Self')
+  expect(render()).toContain('<small>Area/Targets</small>Self')
+  const toggle = () => CrocodileFormToggle({ c, entries, save })
+  findUseButton(toggle(), 'Cast Crocodile Form')!.onClick()
+  expect(c.activeSpells).toEqual(['Shield', 'Animal Form'])
+  expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Crocodile Jaws', 'Crocodile Tail'])
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(render()).toContain('aria-label="Dismiss Crocodile Form" aria-pressed="true"')
+  findUseButton(toggle(), 'Dismiss Crocodile Form')!.onClick()
+  expect(c.activeSpells).toEqual(['Shield'])
+  expect(ownedWeapons(c, entries).some(weapon => weapon.name === 'Crocodile Jaws')).toBe(false)
+})
+
 it.each([7, 8, 10])('shows Mask of Terror heightened targets at rank %i', rank => {
   const source = feat('Fossil Rider', `You can cast [_mask of terror_](/Spells.aspx?ID=1) on yourself as a ${rank}th-rank innate spell once per day.`, 17)
   const spell = { ...entry('Mask of Terror', 'spell', { range: 30, targets: '1 creature' }), level: 7 }
@@ -193,17 +222,24 @@ it.each([7, 8, 10])('shows Mask of Terror heightened targets at rank %i', rank =
 })
 
 it.each([['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']])(
-  'grants the %s Grim Fascination focus spell at level 1 and removes it when the choice changes',
+  'grants Necrotic Bomb and the %s fascination spell with two Focus Points at level 1',
   (subclass, name) => {
     const entries = [...necromancerFascinations(), entry('Necromancer', 'class', { tradition: 'Occult', attribute: 'Intelligence' }),
-      entry(name, 'spell', {}, ['Focus', 'Necromancer'])]
+      entry(name, 'spell', {}, ['Focus', 'Necromancer']),
+      entry('Necrotic Bomb', 'spell', { actions: 'Two Actions', saving_throw: 'basic Fortitude' }, ['Focus', 'Necromancer'])]
     const c: Character = { ...base, level: 1, className: 'Necromancer', subclass, feats: [] }
-    expect(focusSpells(c, entries)).toEqual({ points: 1, spells: [{ name, source: `${subclass} grim fascination` }] })
+    expect(focusSpells(c, entries)).toEqual({ points: 2, spells: [
+      { name, source: `${subclass} grim fascination` }, { name: 'Necrotic Bomb', source: 'Grave Spells' },
+    ] })
     expect(knowsSpell(c, entries, name)).toBe(true)
+    expect(knowsSpell(c, entries, 'Necrotic Bomb')).toBe(true)
     const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
     expect(markup).toContain(name)
+    expect(markup).toContain('>Necrotic Bomb</button>')
     expect(markup).toContain('Occult Focus Spells Rank 1')
-    expect(focusSpells({ ...c, subclass: '' }, entries)).toEqual({ points: 0, spells: [] })
+    expect(focusSpells({ ...c, subclass: '' }, entries)).toEqual({
+      points: 1, spells: [{ name: 'Necrotic Bomb', source: 'Grave Spells' }],
+    })
     expect(focusSpells({ ...c, className: 'Wizard' }, entries)).toEqual({ points: 0, spells: [] })
     expect(focusSpells({ ...c, systems: ['sf2e'] }, entries)).toEqual({ points: 0, spells: [] })
   })
@@ -235,11 +271,11 @@ it('limits Widespread Fascination to other grim fascinations and preserves valid
     .toEqual(['Blood', 'Bone', 'Flesh', 'Spirit'])
   expect(grantedFeatSpells(c, entries).map(grant => grant.entry.name)).toEqual(['Blood Infusion', 'Bone Spear'])
   expect(focusSpells({ ...c, subclass: undefined, feats: [c.feats[0]] }, entries)).toEqual({
-    points: 1, spells: [{ name: 'Blood Infusion', source: 'Widespread Fascination' }],
+    points: 2, spells: [{ name: 'Blood Infusion', source: 'Widespread Fascination' }, { name: 'Necrotic Bomb', source: 'Grave Spells' }],
   })
   expect(focusSpells(c, entries)).toMatchObject({
-    points: 3, spells: [expect.objectContaining({ name: 'Blood Infusion' }), expect.objectContaining({ name: 'Bone Spear' }),
-      expect.objectContaining({ name: 'Life Tap' })],
+    points: 3, spells: expect.arrayContaining([expect.objectContaining({ name: 'Blood Infusion' }), expect.objectContaining({ name: 'Bone Spear' }),
+      expect.objectContaining({ name: 'Life Tap' }), expect.objectContaining({ name: 'Necrotic Bomb' })]),
   })
   for (const choice of ['Spirit', 'Life Tap', 'Deathly Scream', 'Song of the Soul']) {
     expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice }] }, entries)).toEqual([])
@@ -339,7 +375,7 @@ it('offers As Mutable as Nature only after acquiring the ability to cast Untamed
   ] }, slot)).not.toContain(mutable)
   expect(featSelectionPrerequisiteChecker({ ...c, feats: [
     { ...c.feats[0], slot: 'class:14:0' },
-  ] }, [mutable], slot)(mutable)).toEqual({ missing: ['You can cast untamed form'], manual: [] })
+  ] }, [mutable], slot)(mutable)).toEqual({ missing: [], manual: [] })
   expect(mutable.data).toMatchObject({ actions: 'Single Action', class: 'Druid' })
 })
 
@@ -1735,7 +1771,7 @@ it.each(['Champion', 'Monk', 'Ranger'])('scales actual %s spell proficiency inde
   expect(classSpellcasting({ ...base, className, level: 17 }, entries)?.rank).toBe(3)
 })
 
-it.each(['Song of the Soul', 'Deathly Scream'])('grants %s as a Necromancer focus spell', name => {
+it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier'])('offers %s as a class feat granting its Necromancer focus spell', name => {
   const source = mapAonHit({ _id: `feat-${name}`, _source: { name, category: 'feat', level: 2, trait: ['Necromancer'],
     markdown: `<title>${name}</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.` } }, 'pf2e')!
   const spell = entry(name, 'spell', {}, ['Focus', 'Necromancer'])
@@ -1744,9 +1780,21 @@ it.each(['Song of the Soul', 'Deathly Scream'])('grants %s as a Necromancer focu
   expect(grantedFeatSpells(character, entries)).toMatchObject([
     { entry: { name }, source: name, rule: { kind: 'focus', spells: [name.toLowerCase()], heightened: true } },
   ])
-  expect(focusSpells(character, entries)).toMatchObject({ points: 1, spells: [expect.objectContaining({ name })] })
+  expect(focusSpells(character, entries)).toMatchObject({
+    points: 2, spells: expect.arrayContaining([expect.objectContaining({ name }), expect.objectContaining({ name: 'Necrotic Bomb' })]),
+  })
   expect(renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />))
     .toContain(`<h5>Focus Spells Rank 1</h5>`)
+  expect(eligibleFeats(entries, { ...character, feats: [] }, { key: 'class:2:0', category: 'class', level: 2 })).toContain(source)
+})
+
+it('grants Necrotic Bomb through the separate Necrotic Bomber archetype feat', () => {
+  const source = feat('Necrotic Bomber', 'You gain the [_necrotic bomb_](/Spells.aspx?ID=2903) grave spell.', 4)
+  const spell = entry('Necrotic Bomb', 'spell', {}, ['Focus', 'Necromancer'])
+  const entries = [source, spell]
+  const c: Character = { ...base, className: 'Fighter', level: 4, feats: [taken(source.name, 4)] }
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: spell.name }, rule: { kind: 'focus' }, rank: 2 }])
+  expect(focusSpells(c, entries)).toMatchObject({ points: 1, spells: [expect.objectContaining({ name: spell.name })] })
 })
 
 it.each([[1, 1], [6, 1], [7, 2], [14, 2], [15, 3], [18, 3], [19, 4], [20, 4]])(
