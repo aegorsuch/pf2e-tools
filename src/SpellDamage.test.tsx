@@ -100,6 +100,23 @@ it('shows Needle Darts critical damage and heightened persistent bleed with its 
   expect(markup).toContain('17 piercing; critical: 34 piercing + 5 persistent bleed')
 })
 
+it.each([[2, 1], [3, 1], [4, 2], [9, 4], [10, 5]])('rolls Blood Runs Cold at rank %i as %id6 persistent cold', (rank, dice) => {
+  const entry: ContentEntry = { id: 'blood', name: 'Blood Runs Cold', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 2, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ dice, sides: 6, type: 'persistent cold' })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d6 persistent cold"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(dice * 6)
+})
+
+it('does not offer Blood Runs Cold damage below rank 2', () => {
+  expect(spellDamage('Blood Runs Cold', 1)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

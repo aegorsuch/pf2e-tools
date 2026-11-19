@@ -10,6 +10,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Needle Darts':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing', criticalBleed: rank }] : []
+    case 'Blood Runs Cold':
+      return rank >= 2 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 2) / 2), sides: 6, type: 'persistent cold' }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':

@@ -145,6 +145,13 @@ it('shows Execute damage in the prepared Necromancer spell slot', () => {
   expect(html).toContain('title="Two Actions; Damage: 70 vitality or void"')
 })
 
+it('uses the prepared slot rank for Blood Runs Cold persistent damage', () => {
+  const blood = { ...spell('Blood Runs Cold', 2), data: { tradition: 'Occult', actions: 'Two Actions' } }
+  const c: Character = { ...base, level: 7, spells: [{ name: blood.name, entryId: blood.id, rank: 2, cantrip: false }],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {}, prepared: { '4:0': blood.id } } }
+  expect(render(c, [blood, spell('Harm')])).toContain('title="Two Actions; Damage: 2d6 persistent cold"')
+})
+
 it.each([
   ['Desiccate', 8, 15, 'title="Two Actions; Damage: 10d10 void"'],
   ['Massacre', 9, 17, 'title="Two Actions; Success: 9d6 void"'],
