@@ -124,6 +124,17 @@ it('uses each prepared slot rank for Grisly Growths damage', () => {
   expect(html).toContain('title="Two Actions; Damage: 14d6 piercing"')
 })
 
+it('uses prepared slot rank for Grim Tendrils void and bleed damage', () => {
+  const tendrils = { ...spell('Grim Tendrils'), data: { tradition: 'Occult', actions: 'Two Actions' } }
+  const c: Character = { ...base, level: 7,
+    spells: [{ name: tendrils.name, entryId: tendrils.id, rank: 1, cantrip: false }],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {},
+      prepared: { '1:0': tendrils.id, '4:0': tendrils.id } } }
+  const html = render(c, [tendrils, spell('Harm')])
+  expect(html).toContain('title="Two Actions; Damage: 2d4 void + 1 persistent bleed"')
+  expect(html).toContain('title="Two Actions; Damage: 8d4 void + 4 persistent bleed"')
+})
+
 it('opens False Vitality controls at each prepared slot rank', () => {
   const vitality = { ...spell('False Vitality', 2), data: { tradition: 'Occult', actions: 'Two Actions' } }
   const c: Character = { ...base, level: 9,

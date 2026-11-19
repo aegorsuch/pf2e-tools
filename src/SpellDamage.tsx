@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
-type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number }
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
@@ -10,6 +10,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Needle Darts':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing', criticalBleed: rank }] : []
+    case 'Grim Tendrils':
+      return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
     case 'Blood Runs Cold':
       return rank >= 2 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 2) / 2), sides: 6, type: 'persistent cold' }] : []
     case 'Grisly Growths':
@@ -75,12 +77,14 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" className={actions ? 'spell-action-button' : undefined}
-      aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}`}
+      aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.persistentBleed !== undefined ? ` + ${damage.persistentBleed} persistent bleed` : ''}`}
       onClick={() => setResult(rollSpellDamage(damage))}>
       {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${formula}`}
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
       {' '}{result} {damage.type}
+      {damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed; success: {Math.floor(result / 2)} {damage.type};
+        {' '}critical failure: {result * 2} {damage.type} + {damage.persistentBleed * 2} persistent bleed</>}
       {damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
   </span>
