@@ -248,6 +248,26 @@ it('shows Devouring Void basic save outcomes', () => {
   expect(spellDamage('Devouring Void', 6)).toEqual([])
 })
 
+it.each([8, 9, 10])('rolls Canticle of Everlasting Grief at rank %i as 10d6 mental', rank => {
+  const entry: ContentEntry = { id: 'canticle', name: 'Canticle of Everlasting Grief', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 8, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ dice: 10, sides: 6, type: 'mental', basicSave: true })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain('title="Two Actions; Damage: 10d6 mental"')
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(10)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(60)
+})
+
+it('shows Canticle of Everlasting Grief save damage', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Canticle of Everlasting Grief" damage={spellDamage('Canticle of Everlasting Grief', 8)[0]} actions="Two Actions" />))
+    .toContain('17 mental; success: 8 mental; critical failure: 34 mental')
+  expect(spellDamage('Canticle of Everlasting Grief', 7)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
