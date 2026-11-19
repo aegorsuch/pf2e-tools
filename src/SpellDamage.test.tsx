@@ -124,6 +124,36 @@ it('shows only the rolled Telekinetic Projectile damage', () => {
   expect(markup).not.toContain('critical:')
 })
 
+it.each([[1, 1], [2, 1], [3, 2], [5, 3], [10, 5]])('rolls Injury Echo at rank %i with %i dice per damage type', (rank, dice) => {
+  const entry: ContentEntry = { id: 'injury-echo', name: 'Injury Echo', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls).toHaveLength(1)
+  expect(rolls[0].damage).toEqual({ label: 'Damage', dice, sides: 8, type: 'B/P/S',
+    additional: { label: 'Conditional persistent bleed', dice, sides: 4, type: 'bleed' } })
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+  expect(markup.match(/<button /g)).toHaveLength(1)
+  expect(markup).toContain(`title="Two Actions; Damage: ${dice}d8 B/P/S; Conditional persistent bleed: ${dice}d4 bleed"`)
+  expect(spellDamage(entry.name, 0)).toEqual([])
+})
+
+it('rolls Injury Echo damage and conditional bleed independently with one click', () => {
+  const damage = spellDamage('Injury Echo', 3)[0]
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: 'Injury Echo', damage, actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Injury Echo roll')
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0.999999)
+  random.mockReturnValueOnce(0).mockReturnValueOnce(0)
+  button.props.onClick()
+  expect(random).toHaveBeenCalledTimes(4)
+  expect(save).toHaveBeenCalledWith({ primary: 2, additional: 8 })
+  vi.mocked(useState).mockReturnValueOnce([{ primary: 2, additional: 8 }, vi.fn()])
+  const markup = renderToStaticMarkup(<DamageRoll name="Injury Echo" damage={damage} actions="Two Actions" />)
+  expect(markup).toContain('Damage: 2 B/P/S; Conditional persistent bleed: 8 bleed')
+})
+
 it.each([[1, 1], [2, 1], [3, 2], [5, 3], [10, 5]])('rolls Haunting Hymn at rank %i as %id8 sonic', (rank, dice) => {
   const entry: ContentEntry = { id: 'haunting-hymn', name: 'Haunting Hymn', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
