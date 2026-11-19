@@ -124,7 +124,7 @@ it('shows a plain Mount label only when eligible, without Rider helper text or c
   expect(render()).toContain('<h5>Special</h5><div>None</div>')
   expect(render()).toContain('<span>Animal</span><span>Minion</span>')
   const plant = render(c, { ...bird, traits: ['Plant', 'Minion'] })
-  expect(plant).toContain('<span>Plant</span><span>Minion</span>')
+  expect(plant).toContain('<span>Minion</span><span>Plant</span>')
   expect(plant).not.toContain('<span>Animal</span>')
   const large = render(c, { ...bird, data: { ...bird.data, size: 'Large' } })
   expect(large).toContain('<h5>Special</h5><div>Mount</div>')
@@ -841,7 +841,7 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<b>Support Benefit</b>'))
   expect(markup.indexOf('<h5>Skills</h5>')).toBeLessThan(markup.indexOf('<h5>Special</h5>'))
   expect(markup.indexOf('<h5>Special</h5>')).toBeLessThan(markup.indexOf('<h5>Speed</h5>'))
-  expect(markup).toContain('<span>Animal</span><span>Minion</span>')
+  expect(markup).toContain('<span>Animal</span><span>Medium</span><span>Minion</span>')
   const skills = markup.slice(markup.indexOf('<h5>Skills</h5>'), markup.indexOf('<h5>Speed</h5>'))
   expect(skills).toContain('<div>Acrobatics +18 (T)</div>')
   expect(skills).toContain('<div>Athletics +18 (T)</div>')
@@ -891,6 +891,19 @@ it.each([
   expect(details).not.toContain('your spell DC')
   const unknown = renderToStaticMarkup(<MinionsSection c={{ ...c, className: undefined }} entries={entries} save={() => {}} />)
   expect(unknown).toContain('basic Fortitude save against spell DC (unavailable)')
+})
+
+it.each([[8, 4], [19, 9], [20, 10]])('rolls Hellfire Gaze at companion level %i', (level, dice) => {
+  const c: Character = { id: 'thrune', systems: ['pf2e'], name: 'Test', level,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'thrune', type: 'Thruneosaurus Rex', name: '' }] }
+  const companion: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'thrune', name: 'Thruneosaurus Rex',
+    traits: ['Beast'], data: { size: 'Medium', hp: 6, companion_maneuver: 'Hellfire Gaze',
+      companion_maneuver_actions: 'Two Actions', companion_maneuver_description: 'Basic Reflex save.' } }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Roll Hellfire Gaze: Damage"')
+  expect(markup).toContain(`title="Two Actions; Damage: ${dice}d6 fire"`)
 })
 
 it('shows horseshoe rules in the Athletics source note instead of beneath Speed', () => {

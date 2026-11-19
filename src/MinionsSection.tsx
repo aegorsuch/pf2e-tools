@@ -298,7 +298,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const maneuvers = [
                 ...(stats?.maneuver ? [{ name: stats.maneuver, actions: stats.maneuverActions, traits: stats.maneuverTraits,
                   requirements: stats.maneuverRequirements,
-                  damage: undefined,
+                  damage: comp.type === 'Thruneosaurus Rex' && stats.maneuver === 'Hellfire Gaze' && c.level >= 2
+                    ? { label: 'Damage', dice: Math.floor(c.level / 2), sides: 6, type: 'fire' } : undefined,
                   description: stats.maneuverDescription || 'Description unavailable from Archives of Nethys.' }] : []),
                 ...(stats?.beastmasterManeuvers ?? []).map(maneuver => ({ ...maneuver, traits: maneuver.traits ?? '', requirements: maneuver.requirements,
                   damage: undefined })),

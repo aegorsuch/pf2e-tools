@@ -5291,6 +5291,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       !/\bgrenade\b/i.test(`${entry?.name} ${entry?.data.weapon_group ?? ''}`) ? " Primary Target: before the area attack, make a free Strike without increasing MAP; a hit changes that target's successful area save to failure." : ' Grenades and grenade launchers cannot use Primary Target.'}${
       style?.name === 'Bombard' ? ` Exclude up to ${Math.max(0, Math.floor(abilityMod(c.abilities.con) / 2))} allies.` : ''}${style ? ` ${style.description}` : ''}` }))
   const natural = withoutBattleForm(c)
+  const thruneosaurusSupport = !ranged && (c.companions ?? []).reduce((dice, companion, index) =>
+    companion.type === 'Thruneosaurus Rex' && companion.supportActive
+      ? Math.max(dice, index === 0 && !!companionAdvancement(c).advanced ? 2 : 1) : dice, 0)
+  const supportDamage = thruneosaurusSupport ? [{ source: 'Thruneosaurus Support Benefit',
+    value: `${thruneosaurusSupport}d6 persistent fire`, note: "Applies when the damaged target is in the thruneosaurus's reach, until the start of your next turn." }] : []
   const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(natural, entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
     .map((weapon): number => weaponAttack(natural, entries, weapon).attack)) : 0
@@ -5302,11 +5307,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     pristineLivingWeapon,
     rageDamage,
     areaAttacks,
-    additionalDamage: formAttack ? formAttack.data.persistent_bleed && form
+    additionalDamage: [...supportDamage, ...(formAttack ? formAttack.data.persistent_bleed && form
       ? [{ source: form.source, value: `${formAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
-        note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])],
+        note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])])],
     traits: [...new Set([...(entry?.traits ?? []),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),

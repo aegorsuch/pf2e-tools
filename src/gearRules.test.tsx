@@ -29,6 +29,29 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('adds active Thruneosaurus support damage to melee strikes at the companion advancement', () => {
+  const melee: ContentEntry = { id: 'blade', systems: ['pf2e'], name: 'Blade', kind: 'weapon', source: 'official',
+    level: 0, traits: [], description: '', data: { damage: '1d8 slashing', weapon_type: 'Melee' }, effects: [], updatedAt: 0 }
+  const ranged: ContentEntry = { ...melee, id: 'bow', name: 'Bow', data: { ...melee.data, weapon_type: 'Ranged', range: 60 } }
+  const blade: OwnedWeapon = { id: 'blade', name: 'Blade', potency: 0, striking: 0, runes: [] }
+  const bow: OwnedWeapon = { ...blade, id: 'bow', name: 'Bow' }
+  const companion = { id: 'thrune', type: 'Thruneosaurus Rex', name: '', supportActive: true }
+  const c: Character = { ...base, companions: [companion], weapons: [blade, bow] }
+  const entries = [melee, ranged]
+  const damage = (character: Character, weapon = blade) => weaponAttack(character, entries, weapon).additionalDamage
+  expect(damage(c)).toMatchObject([{ source: 'Thruneosaurus Support Benefit', value: '1d6 persistent fire' }])
+  expect(damage(c, bow)).toEqual([])
+  for (const choice of ['Nimble', 'Savage']) {
+    const advanced = { ...c, feats: [{ name: 'Incredible Companion', type: 'Class Feat', level: 8, choice }] }
+    expect(damage(advanced)).toMatchObject([{ value: '2d6 persistent fire' }])
+    expect(renderToStaticMarkup(<WeaponList c={advanced} entries={entries} save={() => {}} displayOnly />))
+      .toContain('2d6 persistent fire')
+  }
+  expect(damage({ ...c, companions: [{ ...companion, supportActive: false }] })).toEqual([])
+  expect(damage({ ...c, companions: [{ ...companion, type: 'Wolf' }] })).toEqual([])
+  expect(damage({ ...c, companions: [] })).toEqual([])
+})
+
 it.each([
   [16, 'Master', false, false, 3],
   [16, 'Master', true, false, 2],
