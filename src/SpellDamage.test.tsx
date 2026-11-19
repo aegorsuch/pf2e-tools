@@ -168,6 +168,25 @@ it('shows only the rolled Bonewall Bulwark damage', () => {
   expect(markup).not.toContain('critical:')
 })
 
+it.each([[3, 2, 4], [4, 3, 6], [10, 9, 18]])("rolls Moth's Supper at rank %i as %id4 healing and %id4 Treat Wounds bonus", (rank, healing, wounds) => {
+  const entry: ContentEntry = { id: 'moths-supper', name: "Moth's Supper", systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls.map(roll => roll.damage)).toEqual([
+    { label: '10-minute healing', dice: healing, sides: 4, type: 'HP' },
+    { label: 'Treat Wounds bonus', dice: wounds, sides: 4, type: 'HP' },
+  ])
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+  expect(markup.match(/<button /g)).toHaveLength(2)
+  expect(markup).toContain(`title="Two Actions; 10-minute healing: ${healing}d4 HP"`)
+  expect(markup).toContain(`title="Two Actions; Treat Wounds bonus: ${wounds}d4 HP"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([healing, wounds])
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([healing * 4, wounds * 4])
+  expect(spellDamage(entry.name, 2)).toEqual([])
+})
+
 it.each([[1, 2, 1], [4, 8, 4], [10, 20, 10]])('rolls Grim Tendrils rank %i as %id4 void and %i persistent bleed', (rank, dice, bleed) => {
   const entry: ContentEntry = { id: 'grim', name: 'Grim Tendrils', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

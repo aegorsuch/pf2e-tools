@@ -17,6 +17,11 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 1 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 8, type: 'sonic' }] : []
     case 'Bonewall Bulwark':
       return rank >= 3 ? [{ label: 'Wall attack', dice: rank, sides: 10, type: 'bludgeoning' }] : []
+    case "Moth's Supper":
+      return rank >= 3 ? [
+        { label: '10-minute healing', dice: rank - 1, sides: 4, type: 'HP' },
+        { label: 'Treat Wounds bonus', dice: 2 * (rank - 1), sides: 4, type: 'HP' },
+      ] : []
     case 'Grim Tendrils':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
     case 'Shadow Army':
