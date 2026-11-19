@@ -1259,7 +1259,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           name={spell.name} entry={spell.entry} rank={spell.rank}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
           inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
-          actionControls={spell.actions ? <ActionIcon actions={spell.actions} showOther />
+          actionControls={spell.actions ? <ActionIcon actions={spell.actions}
+            showOther={!(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
             : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} />}
           note={spell.entry ? note || undefined : <>{note && `${note}; `}
             <span role="status">Spell data unavailable. Sync Archives of Nethys content to load it.</span>

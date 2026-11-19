@@ -168,6 +168,25 @@ it('renders innate-style item rows with actions and usage dots, without rank lab
   expect(html).not.toContain('Fear active')
 })
 
+it('hides the one-minute activation beside item Creation without changing other activations', () => {
+  const source = make('Creation Charm', 'item',
+    'Activate 1 minute; Frequency once per day; Effect You cast a 5th-rank creation spell.')
+  const other = make('Other Charm', 'item',
+    'Activate 1 minute; Frequency once per day; Effect You cast a 2nd-rank fear spell.')
+  const creation = make('Creation', 'spell')
+  const fear = make('Fear', 'spell')
+  const entries = [source, other, creation, fear]
+  const c = { ...base, equipment: [{ name: source.name, qty: 1 }, { name: other.name, qty: 1 }] }
+  expect(itemSpells(c, entries).find(spell => spell.name === 'Creation')?.actions).toBe('1 minute')
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  const rows = html.match(/<li class="innate-spell-row">[\s\S]*?<\/li>/g) ?? []
+  expect(rows.find(row => row.includes('>Creation</button>'))).not.toContain('1 minute')
+  expect(rows.find(row => row.includes('>Fear</button>'))).toContain('1 minute')
+  const faster = { ...source, description: source.description.replace('1 minute', 'Two Actions') }
+  const fasterHtml = renderToStaticMarkup(<SpellsSection c={c} entries={[faster, creation]} save={() => {}} />)
+  expect(fasterHtml).toContain('aria-label="Two Actions"')
+})
+
 it('saves and restores item uses separately from innate uses, sharing alternatives but not other activations or items', () => {
   const source = make('Choice Charm', 'item',
     'Activate Two Actions; Frequency once per day; Effect You cast fear or heal.\n\nActivate Single Action; Frequency twice per day; Effect You cast light.')
