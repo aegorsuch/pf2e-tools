@@ -1047,21 +1047,27 @@ it('shows automatically scaling fundamentals as clickable inline tags without ed
   expect(ordinary).toContain('<label>Striking <select')
 })
 
-it('shows fundamental rune descriptions beneath weapon traits in equipment and offense', () => {
+it('shows fundamental rune descriptions in equipment but not offense', () => {
   const potency: ContentEntry = { ...shifting, id: 'potency', name: 'Weapon Potency (+3)',
     description: 'Gain a +3 item bonus to attack rolls.', data: { item_subcategory: 'Weapon Fundamental Runes' } }
   const striking: ContentEntry = { ...potency, id: 'striking', name: 'Striking (Greater)',
     description: 'This weapon deals three weapon damage dice.' }
   const c: Character = { ...character([]), weapons: [{ id: 'w', name: weapon.name, potency: 3, striking: 2, runes: [] }] }
-  for (const displayOnly of [false, true]) {
-    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[{ ...weapon, traits: ['Versatile P'] }, potency, striking]}
-      save={() => {}} displayOnly={displayOnly} />).split('>Longsword</button>')[1]
-    expect(markup.indexOf('aria-label="Fundamental runes"')).toBeGreaterThan(markup.indexOf('>Versatile P</button>'))
-    expect(markup).toContain('>+3 Potency</button>')
-    expect(markup).toContain('>Striking (Greater)</button>')
-    expect(markup).toContain(potency.description)
-    expect(markup).toContain(striking.description)
-  }
+  const render = (displayOnly: boolean) => renderToStaticMarkup(<WeaponList c={c}
+    entries={[{ ...weapon, traits: ['Versatile P'] }, potency, striking]} save={() => {}} displayOnly={displayOnly} />)
+    .split('>Longsword</button>')[1]
+  const gear = render(false)
+  expect(gear.indexOf('aria-label="Fundamental runes"')).toBeGreaterThan(gear.indexOf('>Versatile P</button>'))
+  expect(gear).toContain('>+3 Potency</button>')
+  expect(gear).toContain('>Striking (Greater)</button>')
+  expect(gear).toContain(potency.description)
+  expect(gear).toContain(striking.description)
+  const offense = render(true)
+  expect(offense).toContain('>Versatile P</button>')
+  expect(offense).not.toContain('aria-label="Fundamental runes"')
+  expect(offense).not.toContain('>+3 Potency</button>')
+  expect(offense).not.toContain('>Striking (Greater)</button>')
+  expect(offense).toContain('3d8')
 })
 
 it('tracks loaded ammunition for capacity weapons and clamps controls to capacity', () => {

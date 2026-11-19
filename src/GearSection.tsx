@@ -1255,7 +1255,6 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {summary.form && <small>{summary.form}:</small>}
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
-          {!upgradeWeapon && !fixed && !unarmed && <WeaponFundamentals {...enhanced} entries={entries} />}
           {!upgradeWeapon && !fixed && unarmed && <Runes
             runes={enhanced.runes.filter(rune => !freeRunes.some(free => runeName(free.name) === runeName(rune)))}
             entries={entries} options={[]} limit={0} freeRunes={freeRunes}
