@@ -384,6 +384,10 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   expect(html).toContain('Fly 40 feet')
   expect(html).toContain('Your familiar’s maximum Hit Points increase by 2 per level.')
   expect(html).toContain('aria-label="Remove Familiar ability 2"')
+  expect(html.indexOf('aria-haspopup="dialog">Fast Movement</button>'))
+    .toBeLessThan(html.indexOf('aria-haspopup="dialog">Flier</button>'))
+  expect(html.indexOf('aria-haspopup="dialog">Flier</button>'))
+    .toBeLessThan(html.indexOf('aria-haspopup="dialog">Tough</button>'))
 
   findButton(tree(), 'Remove Familiar ability 2')?.()
   html = renderToStaticMarkup(tree())

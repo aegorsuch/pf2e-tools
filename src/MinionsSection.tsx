@@ -582,7 +582,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             </select>
           </label>}
           <div className="gear-runes">
-            {savedAbilities.map(({ ability, index }) => {
+            {[...savedAbilities].sort((a, b) => a.ability.localeCompare(b.ability, undefined, { sensitivity: 'base' }) || a.index - b.index)
+              .map(({ ability, index }) => {
               const { entry, reason } = abilityStatus(ability, index)
               return <div key={`${index}:${ability}`} className="rune">
                 <EntryDescription name={entry?.name ?? ability} entry={entry} entries={entries} character={c} />
