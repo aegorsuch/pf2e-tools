@@ -439,7 +439,7 @@ it.each([false, true])('persists Briar points, rejects invalid inputs, and remov
   expect(save).not.toHaveBeenCalled()
   changeControl(render(), 'Briar Sharpness Points', '25')
   saved = JSON.parse(JSON.stringify(saved))
-  expect(saved.weapons[0].briarSharpness).toBe(25)
+  expect(saved.weapons[0].briarSharpness).toBe(20)
   expect(effectiveWeapon(saved, entries, saved.weapons[0]).runes).toEqual(['Shifting', 'Vorpal', 'Grievous'])
   changeControl(render(), 'Briar Sharpness Points', '0')
   expect(effectiveWeapon(saved, entries, saved.weapons[0])).toMatchObject({ potency: 3, striking: 2, runes: ['Grievous'] })

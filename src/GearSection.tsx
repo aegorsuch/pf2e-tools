@@ -1147,10 +1147,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         const equipControls = <>
             {namedSource === 'Briar' && <label>Sharpness Points{' '}
-              <input aria-label="Briar Sharpness Points" type="number" min={0} step={1} value={w.briarSharpness ?? 0}
+              <input aria-label="Briar Sharpness Points" type="number" min={0} max={20} step={1} value={w.briarSharpness ?? 0}
                 onChange={event => {
                   const points = event.target.valueAsNumber
-                  if (Number.isSafeInteger(points) && points >= 0) update(w.id, { briarSharpness: points })
+                  if (Number.isSafeInteger(points) && points >= 0) update(w.id, { briarSharpness: Math.min(points, 20) })
                 }} />
             </label>}
             {namedSource === 'Azlanti Diamond' && <label>Bond duration{' '}
