@@ -24,7 +24,7 @@ import { spellAccessGranted } from './featAccess'
 import { crocodileBattleForm, DINOSAUR_FORMS } from './battleForms'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight']
 
 const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
   && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
@@ -272,11 +272,14 @@ function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.
     </button>
     <dialog ref={dialog} id={dialogId} className="entry-dialog" aria-labelledby={titleId}
       onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-      <h4 id={titleId} tabIndex={-1}>{form ? `${name} options` : `${name} effects`}</h4>
+      <h4 id={titleId} tabIndex={-1}>{form ? `${name} options` : `${name} effects`} (Rank {name === 'Untamed Form' ? c.untamedForm?.rank ?? rank : rank})</h4>
+      {name === 'Untamed Form' && <label><input type="checkbox" aria-label="Untamed Form active"
+        checked={isSpellActive(c, entries, name)} onChange={event => save(spellActiveChange(c, name, event.target.checked))} /> Active</label>}
       {name === 'Dinosaur Form' ? <DinosaurFormOptions c={c} save={save} rank={rank} />
         : form ? <UntamedFormOptions c={c} entries={entries} save={save} />
         : name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />
         : <UntamedShiftOptions c={c} entries={entries} save={save} />}
+      <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
       <form method="dialog"><button autoFocus>Close</button></form>
     </dialog>
   </>
@@ -338,6 +341,28 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   </div>
 }
 
+function ActiveSpellActions({ name, entry, rank, children }: {
+  name: string; entry?: ContentEntry; rank?: number; children: ReactNode
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const actions = typeof entry?.data.actions === 'string' ? entry.data.actions : ''
+  return <>
+    <button type="button" className="spell-action-button" aria-label={`${name} options`} aria-haspopup="dialog"
+      onClick={() => { dialog.current?.showModal(); dialog.current?.querySelector('h4')?.focus() }}>
+      {actions ? <ActionIcon actions={actions} showOther /> : 'Options'}
+    </button>
+    <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
+      <h4 id={titleId} tabIndex={-1}>{name}{rank === undefined ? '' : ` (Rank ${rank})`}</h4>
+      {children}
+      {name === 'Mountain Resilience' && rank !== undefined && rank >= 4 && <p>Resistance {Math.min(20, 5 * Math.floor((rank - 2) / 2))} to physical damage, except adamantine.</p>}
+      <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
+      <form method="dialog"><button autoFocus>Close</button></form>
+    </dialog>
+  </>
+}
+
 function SpellColumns() {
   return <div className="spellbook-columns" aria-hidden="true">
     <span>Spell</span><span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>
@@ -358,13 +383,15 @@ function spellSave(save: string, dc?: number) {
   return dc !== undefined && /\b(?:Fortitude|Reflex|Will)\b/i.test(save) && !/\bDC\s+\d+/i.test(save) ? `${save} DC ${dc}` : save
 }
 
-function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, rank, saveDC, actionControls }: {
+function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, effectControls, effectRank, rank, saveDC, actionControls }: {
   c: Character
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
   activeLabel?: string
   children?: ReactNode
   inlineControls?: ReactNode
+  effectControls?: ReactNode
+  effectRank?: number
   actionControls?: ReactNode
   rank: number
   saveDC?: number
@@ -378,9 +405,12 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
         <div className="spell-title"><EntryDescription name={name} entry={entry} />
           {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
             onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
-          {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form'].includes(name)
+          {onToggle ? <ActiveSpellActions name={name} entry={entry} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
+            {activeToggle}{effectControls}
+          </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form',
+            'Shield', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
-            && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
+            && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}</div>
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote
@@ -473,7 +503,7 @@ function spellResolution(entry: ContentEntry) {
   }
 }
 
-function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, children, saveDC }: {
+function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, effectControls, effectRank, children, saveDC }: {
   c: Character
   grant: ReturnType<typeof grantedFeatSpells>[number]
   note?: ReactNode
@@ -481,11 +511,13 @@ function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineC
   onToggle?: (value: boolean) => void
   activeLabel?: string
   inlineControls?: ReactNode
+  effectControls?: ReactNode
+  effectRank?: number
   children?: ReactNode
   saveDC?: number
 }) {
   return <SpellItem c={c} name={grant.entry.name} entry={grant.entry} rank={grant.rank} note={note}
-    active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} saveDC={saveDC}>
+    active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} effectControls={effectControls} effectRank={effectRank} saveDC={saveDC}>
     {children}
   </SpellItem>
 }
@@ -777,9 +809,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       && entry.systems.some(system => c.systems.includes(system)) && spellResolution(entry).attack)
       && attackDamage.map(damage => <small key={damage.source}>+{damage.value} <SourceNote inlineSource={false}
         source={damage.source} note={damage.note} /></small>)}
-    {(name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion')
-      && <CompanionSpellOptions c={c} entries={entries} save={save} name={name} hideToggle />}
-    {name === 'Oaken Resilience' && (grownOfOakSpell
+    {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
+      && <SpellDamageRolls name={name} rank={rank} />}
+  </>
+  const effectControls = (name: string) => name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank}</small>
       : <label>Cast rank{' '}
       <select aria-label="Oaken Resilience cast rank" value={c.oakenResilienceRank ?? ''} onChange={(event) => {
@@ -789,21 +822,23 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <option value="">Choose cast rank</option>
         {Array.from({ length: 9 }, (_, i) => i + 2).map(value => <option key={value} value={value}>{value}</option>)}
       </select>
-    </label>)}
-    {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
-      && <SpellDamageRolls name={name} rank={rank} />}
-  </>
+    </label>)
+  const activeRank = (name: string) => name === 'Oaken Resilience' ? grownOfOakSpell?.rank ?? c.oakenResilienceRank
+    : name === 'Mountain Resilience' || name === 'Cairn Form'
+      ? featSpells.find(grant => grant.entry.name === name)?.rank ?? Math.ceil(c.level / 2) : undefined
   const inlineControls = (name: string, rank = Math.ceil(c.level / 2)) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
     : name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length
     ? <CrocodileFormActions c={c} entries={entries} save={save} rank={rank} />
     : name === 'Shield'
-    ? <label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
+    ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)
-    </label>
+    </label></ActiveSpellActions>
     : name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion'
-      ? <CompanionSpellOptions c={c} entries={entries} save={save} name={name} toggleOnly /> : undefined
+      ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}>
+        <CompanionSpellOptions c={c} entries={entries} save={save} name={name} />
+      </ActiveSpellActions> : undefined
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting) return
     save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch, rank: casting.rank, ...(casting.ability ? { ability: casting.ability } : {}) } })
@@ -884,7 +919,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       const rank = necromancer && !entry?.traits.some(trait => trait.toLowerCase() === 'cantrip')
         ? entry?.level ?? 1 : Math.ceil(c.level / 2)
       return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
-        inlineControls={inlineControls(spell.name)} {...buffProps(spell.name)}
+        inlineControls={inlineControls(spell.name, rank)} effectControls={effectControls(spell.name)}
+        effectRank={activeRank(spell.name)} {...buffProps(spell.name)}
         onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== spell.index),
           activeSpells: c.activeSpells?.filter(name => name !== spell.name) }) : undefined}>
         {controls(spell.name, rank)}
@@ -1134,6 +1170,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+              effectControls={effectControls(grant.entry.name)}
+              effectRank={activeRank(grant.entry.name)}
               {...buffProps(grant.entry.name)}>
               {controls(grant.entry.name, grant.rank)}
             </InnateSpellRow>
@@ -1160,7 +1198,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   : <span role="status">Check the granting rules for this spell's spellcasting attribute and proficiency.</span>
                 : undefined
               return <SpellItem c={c} key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
-                note={note} saveDC={details ? details.dc : !casting && beastmasterCasting ? 10 + abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) : classSpellDC} {...buffProps(s.name)}
+                note={note} effectControls={effectControls(s.name)}
+                effectRank={activeRank(s.name)}
+                saveDC={details ? details.dc : !casting && beastmasterCasting ? 10 + abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) : classSpellDC} {...buffProps(s.name)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== s.index),
                   activeSpells: c.activeSpells?.filter(name => name !== s.name) }) : undefined}>
                 {controls(s.name)}

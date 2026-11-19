@@ -898,7 +898,7 @@ it('hides Untamed Shift Wings without consuming an effect slot or suppressing St
   expect(JSON.stringify(c)).toBe(before)
 })
 
-it('puts saved Untamed Form settings behind the two-action button next to the active toggle', () => {
+it('puts saved Untamed Form settings and active toggle behind the two-action button', () => {
   const c: Character = { ...base, className: 'Druid', order: 'Wild', level: 20,
     feats: [taken('Untamed Form'), taken('Dragon Shape', 12)],
     activeSpells: ['Untamed Form'], spentFocusPoints: [0],
@@ -916,7 +916,8 @@ it('puts saved Untamed Form settings behind the two-action button next to the ac
   expect(options).toContain('aria-label="Untamed Form cast rank" disabled=""')
   expect(options).toContain('aria-label="Untamed Form shape" disabled="" value="Red Dragon"')
   expect(options).toContain('selected="">unlimited</option>')
-  expect(html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).toContain('aria-label="Untamed Form active" checked=""')
+  expect(dialog).toContain('aria-label="Untamed Form active" checked=""')
+  expect(html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).not.toContain('aria-label="Untamed Form active"')
 })
 
 it('shows the class spell attack modifier for Impaling Briars without an Attack trait', () => {
@@ -1255,7 +1256,7 @@ it('keeps Clan Crystal Form at its fixed sixth rank at higher character levels',
     .toContain('aria-label="Cairn Form active" checked=""')
 })
 
-it('keeps all buff Active toggles on the spell-name line without duplicates', () => {
+it('puts buff Active toggles in spell action dialogs without duplicates', () => {
   const names = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
   const c: Character = { ...base, className: 'Ranger',
     spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Imitate Fauna', 'Keen Smell'] }
@@ -1264,11 +1265,25 @@ it('keeps all buff Active toggles on the spell-name line without duplicates', ()
   const titles = html.match(/<div class="spell-title">[\s\S]*?<\/div>/g) ?? []
   for (const name of names) {
     const title = titles.find(title => title.includes(`aria-haspopup="dialog">${name}</button>`))
-    expect(title).toContain(`aria-label="${name} active"`)
+    expect(title).toContain('aria-haspopup="dialog"')
     expect(html.match(new RegExp(`aria-label="${name} active"`, 'g'))).toHaveLength(1)
   }
+  const visible = html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')
+  for (const name of names) expect(visible).not.toContain(`aria-label="${name} active"`)
   expect(html).toContain('aria-label="Imitate Fauna active" checked=""')
   expect(html).toContain('aria-label="Keen Smell active" checked=""')
+})
+
+it('shows Mountain Resilience activation and heightened resistance inside its action dialog', () => {
+  const spell = { ...entry('Mountain Resilience', 'spell', { actions: 'Two Actions' }), level: 4,
+    description: 'Gain resistance. Heightened (+2) Increase resistance by 5.' }
+  const c: Character = { ...base, level: 15, spells: [{ name: spell.name, rank: 4, cantrip: false, entryId: spell.id }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('aria-label="Mountain Resilience options" aria-haspopup="dialog"')
+  expect(html).toContain('Mountain Resilience (Rank 8)')
+  expect(html).toContain('Resistance 15 to physical damage, except adamantine.')
+  expect(html).toContain('Heightened (+2) Increase resistance by 5.')
+  expect(html.replace(/<dialog\b[\s\S]*?<\/dialog>/g, '')).not.toContain('aria-label="Mountain Resilience active"')
 })
 
 it('toggles Athletic Rush granted by a focus-spell source without a manually selected spell', () => {
