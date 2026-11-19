@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { familiarAbilityEffects, familiarAbilityEntries, familiarAbilityUnavailableReason } from './familiarAbilities'
+import { familiarAbilityEffects, familiarAbilityEntries, familiarAbilityUnavailableReason, familiarSpellBenefits } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -63,4 +63,29 @@ it('uses automatic Necromancer spellcasting for familiar ability requirements', 
   expect(familiarAbilityUnavailableReason(spellcasting, necromancer, [])).toBeUndefined()
   expect(familiarAbilityUnavailableReason(spellcasting, { ...necromancer, level: 9 }, []))
     .toContain('Requires spell slots of rank 6')
+})
+
+it('activates spell benefits only for valid familiar choices within the daily limit', () => {
+  const entries = [
+    { ...ability('Cantrip Connection', 'You must be able to prepare cantrips or add them to your repertoire.'), data: { ability_type: 'Master' } },
+    { ...ability('Spell Battery', 'You must be able to cast 4th-rank spells using spell slots.'), data: { ability_type: 'Master' } },
+  ]
+  const c: Character = { ...character, className: 'Necromancer', level: 8,
+    feats: [{ name: 'Undead Familiar', type: 'Class Feat', level: 1 }],
+    familiar: { abilities: ['Cantrip Connection', 'Spell Battery'] } }
+  const slots = { 0: 5, 1: 2, 4: 2 }
+  expect(familiarSpellBenefits(c, entries, slots)).toEqual({ cantrip: true, batteryRank: undefined })
+  const enhanced = { ...c, feats: [...c.feats, { name: 'Enhanced Undead Familiar', type: 'Class Feat', level: 2 }] }
+  expect(familiarSpellBenefits(enhanced, entries, slots)).toEqual({ cantrip: true, batteryRank: 1 })
+  expect(familiarSpellBenefits({ ...enhanced, level: 6 }, entries, { 0: 5, 3: 2 }))
+    .toEqual({ cantrip: true, batteryRank: undefined })
+  expect(familiarSpellBenefits({ ...enhanced, level: 19 }, entries, { 0: 5, 9: 2, 10: 1 }).batteryRank).toBe(6)
+  expect(familiarSpellBenefits({ ...enhanced, feats: [] }, entries, slots))
+    .toEqual({ cantrip: false, batteryRank: undefined })
+  expect(familiarSpellBenefits(enhanced, [], slots)).toEqual({ cantrip: false, batteryRank: undefined })
+  const manual = { ...character, className: 'Wizard', feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }],
+    familiar: { abilities: ['Cantrip Connection', 'Spell Battery'] } }
+  expect(familiarSpellBenefits(manual, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: true, batteryRank: 1 })
+  expect(familiarSpellBenefits({ ...manual, familiar: { abilities: ['Spell Battery', 'Spell Battery'] } }, entries, slots))
+    .toEqual({ cantrip: false, batteryRank: undefined })
 })

@@ -1,5 +1,6 @@
 import type { Character, ContentEntry } from './types'
-import { classSpellcasting, classSpellSlots } from './builder'
+import { activeFeatsNamed, classSpellcasting, classSpellSlots } from './builder'
+import { hasDivineIntercession } from './divineIntercessions'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
 export const FAMILIAR_SKILLS = [
@@ -8,6 +9,54 @@ export const FAMILIAR_SKILLS = [
 ]
 
 const key = (name: string) => name.trim().toLocaleLowerCase()
+
+export function familiarSelection(c: Character) {
+  const leshyGrant = activeFeatsNamed(c, 'Leshy Familiar').length > 0
+  const undeadGrant = activeFeatsNamed(c, 'Undead Familiar').length > 0
+  const classFamiliar = c.className === 'Witch' ? 'normal'
+    : c.className === 'Druid' && leshyGrant ? 'leshy'
+    : undeadGrant ? 'undead' : leshyGrant ? 'leshy'
+    : activeFeatsNamed(c, 'Familiar').some(feat => /^(?:Class|Archetype) Feat$/i.test(feat.type)
+      || /^(?:class|archetype):/.test(feat.slot ?? '')) ? 'normal' : undefined
+  const leshy = classFamiliar === 'leshy'
+  const undeadFamiliar = classFamiliar === 'undead'
+  const crocodileFamiliar = !classFamiliar && activeFeatsNamed(c, "Crocodile's Twin").length > 0
+  const familiar = !!classFamiliar || crocodileFamiliar
+    || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
+  const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
+  const witchAbilities = c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0
+  const dailyAbilityLimit = (undeadFamiliar
+    ? activeFeatsNamed(c, 'Enhanced Undead Familiar').length
+      ? c.level >= 10 && activeFeatsNamed(c, 'Incredible Undead Familiar').length ? 5 : 3 : 1
+    : activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
+    + witchAbilities
+  return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, dailyAbilityLimit }
+}
+
+export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
+  const state = familiarSelection(c)
+  if (!state.familiar && !state.wasp) return []
+  const data = state.wasp ? c.waspFamiliar : c.familiar
+  const choices = (data?.abilities ?? []).slice(0, state.dailyAbilityLimit)
+  const catalog = familiarAbilityEntries(entries, c)
+  return choices.flatMap((name, index) => {
+    const entry = familiarAbilityEntry(name, catalog, c)
+    if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
+    const others = choices.filter((_, otherIndex) => otherIndex !== index)
+    return familiarAbilityUnavailableReason(entry, c, others, state.undeadFamiliar, entries) ? [] : [entry.name]
+  })
+}
+
+export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slots: Record<number, number>) {
+  const active = activeFamiliarAbilities(c, entries).map(key)
+  const highestRank = Math.max(0, ...Object.entries(slots)
+    .filter(([rank, count]) => Number(rank) > 0 && count > 0
+      && !(c.className === 'Necromancer' && Number(rank) === 10)).map(([rank]) => Number(rank)))
+  return {
+    cantrip: active.includes('cantrip connection') && (slots[0] ?? 0) > 0,
+    batteryRank: active.includes('spell battery') && highestRank >= 4 ? highestRank - 3 : undefined,
+  }
+}
 
 export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
   const seen = new Set<string>()

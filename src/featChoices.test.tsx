@@ -710,7 +710,7 @@ it('combines all Warden tiers without changing ordinary spell rank groups', () =
   ]
   const c: Character = { ...base, spells: spells.map((s) => ({ name: s.name, rank: 5, cantrip: false, entryId: s.id })) }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup.match(/<h5>Primal Focus Spells Rank 1<\/h5>/g)).toHaveLength(1)
+  expect(markup).not.toContain('Focus Spells Rank')
   expect(markup).not.toMatch(/<h5>(?:Initiate|Advanced|Master|Peerless) Warden<\/h5>/)
   const focus = markup.slice(markup.indexOf('<b>Focus Spells</b>'))
   for (const spell of spells.slice(0, -1)) expect(focus).toContain(`aria-haspopup="dialog">${spell.name}</button>`)

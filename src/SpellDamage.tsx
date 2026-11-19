@@ -6,6 +6,14 @@ type Damage = { label: string; dice: number; sides: number; type: string; bonus?
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
+    case 'Fireball':
+      return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Void Warp':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
+    case 'Deathly Scream':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'mental' }] : []
+    case 'Harm':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Heal Animal':
     case 'Heal Companion':
       return rank >= 1 ? [
@@ -37,6 +45,9 @@ export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
 
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry) {
   const rolls = spellDamage(name, rank)
+  if (name === 'Harm') return rolls.flatMap(damage =>
+    ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
+      ({ damage: { ...damage, label: `${index + 1}-action damage` }, actions })))
   if (name === 'Heal Animal' || name === 'Heal Companion') return rolls.map((damage, index) => ({
     damage, actions: index === 0 ? 'One Action' : 'Two Actions',
   }))
@@ -63,8 +74,8 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
 export function SpellActions({ name, rank, entry }: { name: string; rank: number; entry?: ContentEntry }) {
   const rolls = spellActionRolls(name, rank, entry)
   return rolls.length ? <>{rolls.map(({ damage, actions }) =>
-    <DamageRoll key={`${damage.label}:${damage.dice}`} name={name} damage={damage} actions={actions}
-      showLabel={rolls.length > 1 && name !== 'Heal Animal' && name !== 'Heal Companion'} />)}</>
+    <DamageRoll key={`${damage.label}:${damage.dice}:${actions}`} name={name} damage={damage} actions={actions}
+      showLabel={rolls.length > 1 && name !== 'Heal Animal' && name !== 'Heal Companion' && name !== 'Harm'} />)}</>
     : <ActionIcon entry={entry} />
 }
 

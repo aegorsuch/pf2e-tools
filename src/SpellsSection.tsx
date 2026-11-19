@@ -22,6 +22,7 @@ import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
 import { crocodileBattleForm, DINOSAUR_FORMS } from './battleForms'
+import { familiarSpellBenefits } from './familiarAbilities'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight']
@@ -555,13 +556,16 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
       c.achievements, c.featAccessOverrides, spellIndex])
   const paradox = witchwarperParadox(c)
   const casting = classSpellcasting(c, entries)
-  const slots = classSpellSlots(c)
-  if (!paradox || !casting?.ability || !slots) return null
-  const sc = { ...c.spellcasting, ability: casting.ability, tradition: paradox.tradition, rank: casting.rank, slots }
+  const baseSlots = classSpellSlots(c)
+  if (!paradox || !casting?.ability || !baseSlots) return null
+  const benefits = familiarSpellBenefits(c, entries, baseSlots)
+  const slots = { ...baseSlots }
+  if (benefits.batteryRank !== undefined) slots[benefits.batteryRank] = (slots[benefits.batteryRank] ?? 0) + 1
+  const sc = { ...c.spellcasting, ability: casting.ability, tradition: paradox.tradition, rank: casting.rank, slots: baseSlots }
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => save({ spellcasting: { ...sc, ...patch } })
   const dc = spellDifficultyClass(c, entries)
   const selected = new Set<string>()
-  const known = witchwarperRepertoireSlots(c).map(slot => {
+  const known = witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => {
     const entry = slot.granted ? spellIndex.byName.get(slot.granted)
       : spellIndex.byId.get(slot.value) ?? spellIndex.byName.get(slot.value)
     const key = `${slot.rank}:${entry?.name}`
@@ -694,15 +698,21 @@ function RitualsContent({ c, entries, save }: SectionProps) {
 
 export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'entries'> & { data?: ReturnType<typeof spellSummaryData> }) {
   const { manualSpells, granted, focus, innate, items } = data ?? spellSummaryData(c, entries)
-  const slots = classSpellSlots(c)
+  const baseSlots = classSpellSlots(c)
+  const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
+  const slots = baseSlots ? { ...baseSlots } : undefined
+  if (slots && benefits.cantrip && !witchwarperParadox(c)) slots[0] = (slots[0] ?? 0) + 1
+  if (slots && benefits.batteryRank !== undefined) slots[benefits.batteryRank] = (slots[benefits.batteryRank] ?? 0) + 1
   const extraSlots = slots ? necromancerExtraSlots(c) : []
   const prepared = Object.entries(c.spellcasting?.prepared ?? {}).filter(([key, value]) => {
+    if (key === 'familiar-cantrip-connection') return value && benefits.cantrip
+    if (key.startsWith('familiar-spell-battery:')) return value && key === `familiar-spell-battery:${benefits.batteryRank}`
     const [rank, index] = key.split(':').map(Number)
     return value && Number.isInteger(index) && index >= 0
-      && index < (slots?.[rank] ?? 0) - extraSlots.filter(slot => slot.rank === rank).length
+      && index < (baseSlots?.[rank] ?? 0) - extraSlots.filter(slot => slot.rank === rank).length
   })
   const classSpells = witchwarperParadox(c)
-    ? new Set(witchwarperRepertoireSlots(c).flatMap(slot => slot.granted ? [slot.granted] : slot.value ? [slot.value] : [])).size
+    ? new Set(witchwarperRepertoireSlots(c, benefits.cantrip).flatMap(slot => slot.granted ? [slot.granted] : slot.value ? [slot.value] : [])).size
     : slots ? new Set([...prepared.map(([, value]) => value), ...extraSlots.map(slot =>
       entries.find(entry => entry.kind === 'spell' && entry.name === slot.spell
         && !entry.deleted && entry.systems.some(system => c.systems.includes(system)))?.id ?? slot.spell)]).size : manualSpells.length
@@ -738,6 +748,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const sc: Character['spellcasting'] = ['Druid', 'Necromancer'].includes(c.className ?? '') ? { ...c.spellcasting,
     ability: necromancer ? 'int' : 'wis', tradition: necromancer ? 'Occult' : 'Primal', rank: casting?.rank ?? 1,
     slots: automaticSlots ?? c.spellcasting?.slots ?? {} } : c.spellcasting
+  const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const traditions = casting?.traditions ?? []
   const spellIndex = useMemo(() => {
     const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
@@ -907,18 +918,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }, [druidAvailable, dirge, c.spells, preparedClass, selectedTradition, spellIndex])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
-    count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0))),
+    count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
+      + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank),
   })).filter(item => item.count > 0)
   const allFocus = [...otherFocus.map(spell => ({ name: spell.name, entryId: undefined, index: -1 })),
     ...listedSpells.filter(spell => spell.group === 'Focus Spells')].sort((a, b) => a.name.localeCompare(b.name))
-  const focusTraditions = [...new Set(allFocus.flatMap(spell => {
-    const entry = spellEntry(spell.name, spell.entryId)
-    const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === spell.name)
-    const fallback = entry?.traits.includes('Ranger') || ['Ranger', 'Druid'].includes(c.className ?? '')
-      ? 'Primal' : selectedTradition || (c.className === 'Champion' ? 'Divine' : '')
-    return String(grant?.rule.tradition || entry?.data.tradition || fallback).split(',')
-      .map(tradition => tradition.trim().replace(/^[a-z]/, initial => initial.toUpperCase())).filter(Boolean)
-  }))]
   const renderSpellGroup = (group: string) => <section className="innate-spell-group" key={group}>
     <h5>{group}</h5>
     <SpellColumns />
@@ -1038,7 +1042,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]
               const restricted = !!extra
-              const slotKey = extra?.key ?? `${rank}:${index}`
+              const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
+                - extras.length
+              const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
+                ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
+                  ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
               const selectedValue = extra ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
                 : sc.prepared?.[slotKey] ?? ''
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
@@ -1200,7 +1208,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <div>
           <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} /></div>
           {allFocus.length > 0 && <section className="innate-spell-group">
-            <h5>{focusTraditions.length > 0 && `${focusTraditions.join(' / ')} `}Focus Spells Rank {Math.ceil(c.level / 2)}</h5>
             <SpellColumns />
             <ul>
             {allFocus.map((s) => {

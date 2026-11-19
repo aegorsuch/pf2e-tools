@@ -250,7 +250,7 @@ it.each([['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead We
     const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
     expect(markup).toContain(name)
     expect(markup).toContain('>Necrotic Bomb</button>')
-    expect(markup).toContain('Occult Focus Spells Rank 1')
+    expect(markup).not.toContain('Focus Spells Rank')
     expect(focusSpells({ ...c, subclass: '' }, entries)).toEqual({
       points: 1, spells: [{ name: 'Necrotic Bomb', source: 'Grave Spells' }],
     })
@@ -554,7 +554,7 @@ it('gives champions a focus point before choosing their devotion spell and saves
   findSelect(tree)!({ target: { value: 'Lay on Hands' } })
   expect(c.devotionSpell).toBe('Lay on Hands')
   expect(focusSpells(c, entries)).toEqual({ spells: [{ name: 'Lay on Hands', source: 'Devotion Spells' }], points: 1 })
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Divine Focus Spells Rank 1')
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).toContain('Lay on Hands')
   expect(JSON.parse(JSON.stringify(c)).devotionSpell).toBe('Lay on Hands')
 })
 
@@ -1698,7 +1698,7 @@ it('shows Warden and other focus metadata with class proficiency and source-spec
     feats: [taken('Initiate Warden', 1, 'Warden Test'), taken(source.name)] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('<small>Save</small>Will DC 42')
-  expect(html).toContain('<h5>Primal Focus Spells Rank 10</h5>')
+  expect(html).not.toContain('Focus Spells Rank')
   expect(html).toContain('<small>Save</small>Will DC 38')
   expect(html.match(/<small>Duration<\/small>1 minute/g)).toHaveLength(2)
   expect(html.match(/<small>Range<\/small>30 feet/g)).toHaveLength(2)
@@ -1710,16 +1710,17 @@ it('shows Warden and other focus metadata with class proficiency and source-spec
 })
 
 it.each([
-  ['Ranger', 19, undefined, 'Primal Focus Spells Rank 10'],
-  ['Champion', 9, undefined, 'Divine Focus Spells Rank 5'],
-  ['Wizard', 9, 'occult', 'Occult Focus Spells Rank 5'],
-] as const)('labels %s focus spells with their tradition and automatic rank', (className, level, tradition, heading) => {
+  ['Ranger', 19, undefined],
+  ['Champion', 9, undefined],
+  ['Wizard', 9, 'occult'],
+] as const)('shows %s focus spells without a redundant rank heading', (className, level, tradition) => {
   const source: ContentEntry = { ...entry('Focus Gift', 'feat'),
     spellGrants: [{ kind: 'focus', spells: ['Focus Test'], tradition }] }
   const c: Character = { ...base, className, level, feats: [taken(source.name)] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source,
     entry('Wizard', 'class', { tradition: 'Arcane' }), entry('Focus Test', 'spell', {}, ['Focus'])]} save={() => {}} />)
-  expect(html).toContain(`<h5>${heading}</h5>`)
+  expect(html).toContain('>Focus Test</button>')
+  expect(html).not.toContain('Focus Spells Rank')
 })
 
 it('uses class DC and selected slot rank for prepared spell metadata', () => {
@@ -1813,7 +1814,7 @@ it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier'])('offers %s as 
     points: 2, spells: expect.arrayContaining([expect.objectContaining({ name }), expect.objectContaining({ name: 'Necrotic Bomb' })]),
   })
   expect(renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />))
-    .toContain(`<h5>Occult Focus Spells Rank 1</h5>`)
+    .toContain(`>${name}</button>`)
   expect(eligibleFeats(entries, { ...character, feats: [] }, { key: 'class:2:0', category: 'class', level: 2 })).toContain(source)
 })
 

@@ -69,6 +69,29 @@ it('prepares only learned occult spells plus automatic Harm, while keeping focus
   expect(html).not.toContain('Spell Rank 1 slot 2')
 })
 
+it('adds familiar spell benefits without adding Dirge choices or overwriting saved slots', () => {
+  const master = (name: string, description: string): ContentEntry => ({
+    ...spell(name), kind: 'familiar', description, data: { ability_type: 'Master' },
+  })
+  const entries = [spell('Harm'), spell('Guidance', 1, 'Occult', ['Cantrip']),
+    master('Cantrip Connection', 'You must be able to prepare cantrips or add them to your repertoire.'),
+    master('Spell Battery', 'You must be able to cast 4th-rank spells using spell slots.')]
+  const c: Character = { ...base, level: 8,
+    feats: [taken('Undead Familiar', 1), taken('Enhanced Undead Familiar', 2)],
+    familiar: { abilities: ['Cantrip Connection', 'Spell Battery'] },
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {},
+      prepared: { 'familiar-cantrip-connection': 'Guidance', 'familiar-spell-battery:1': 'Harm' } },
+    spells: [{ name: 'Guidance', entryId: 'Guidance', rank: 1, cantrip: true }],
+  }
+  const html = render(c, entries)
+  expect(html).toContain('aria-label="Cast spell slot rank 1 slot 3"')
+  expect(html).toContain('aria-label="Clear Guidance spell slot"')
+  expect(necromancerDirge(c, entries).map(entry => entry.name)).toEqual(['Guidance', 'Harm'])
+  const advanced = render({ ...c, level: 9 }, entries)
+  expect(advanced).toContain('aria-label="Cast spell slot rank 2 slot 3"')
+  expect(c.spellcasting?.prepared?.['familiar-spell-battery:1']).toBe('Harm')
+})
+
 it('provides separate spell categories with class spells selected initially', () => {
   const html = render(base, [spell('Harm')])
   expect(html).toContain('aria-pressed="true">Class Spells</button>')

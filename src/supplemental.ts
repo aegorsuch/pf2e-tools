@@ -206,6 +206,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
   return [
     ...rangerCopies,
     homebrewFeat('bony-plates', 'Bony Plates', 1, ['Lizardfolk'], BONY_PLATES_DESCRIPTION),
+    homebrewFeat('incredible-undead-familiar', 'Incredible Undead Familiar', 10, ['Necromancer'],
+      'You infuse your undead familiar with even more void energy. You can select five familiar or master abilities each day, instead of three.',
+      { class: 'Necromancer', prerequisite: 'Enhanced Undead Familiar' }),
     { ...homebrewFeat('nimble-athlete', 'Nimble Athlete', 4, nimbleClasses,
       'Homebrew class feat. You use the higher of your Strength or Dexterity modifiers for Athletics checks and Athletics DCs. This includes combat maneuvers such as Grapple, Trip, Shove, Disarm, and Reposition, as well as climbing, swimming, and jumping.\n\nThis does not change your damage, carrying capacity, or Strength prerequisites.',
       { class: nimbleClasses.join(', '), prerequisite: 'expert in Athletics' }), systems: ['pf2e', 'sf2e'] },

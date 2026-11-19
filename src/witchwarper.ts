@@ -93,7 +93,7 @@ export function witchwarperSpellSlots(c: Character): Record<number, number> | un
   return slots
 }
 
-export function witchwarperRepertoireSlots(c: Character) {
+export function witchwarperRepertoireSlots(c: Character, extraCantrip = false) {
   const paradox = witchwarperParadox(c)
   const slots = witchwarperSpellSlots(c)
   if (!paradox || !slots) return []
@@ -104,7 +104,10 @@ export function witchwarperRepertoireSlots(c: Character) {
       granted: index === 0 && rank < 10 ? paradox.spells[rank] : undefined,
       value: c.spellcasting?.repertoire?.[`${rank}:${index}`] ?? '',
     }))
-  })
+  }).concat(extraCantrip ? [{
+    key: 'familiar-cantrip-connection', rank: 0, granted: undefined,
+    value: c.spellcasting?.repertoire?.['familiar-cantrip-connection'] ?? '',
+  }] : [])
 }
 
 export function witchwarperSpellOptions(c: Character, entries: ContentEntry[], rank: number) {

@@ -14,9 +14,8 @@ import { SearchableSelect } from './SearchableSelect'
 import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneFeatures } from './DroneFeatures'
-import { hasDivineIntercession } from './divineIntercessions'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityEntry, familiarAbilityUnavailableReason, isFamiliarAbilityRepeatable } from './familiarAbilities'
+  familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -45,19 +44,7 @@ function minionSummaryData(c: Character) {
   const advancement = companionAdvancement(c)
   const constructAdvancement = constructCompanionAdvancement(c)
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
-  const leshyGrant = activeFeatsNamed(c, 'Leshy Familiar').length > 0
-  const undeadGrant = activeFeatsNamed(c, 'Undead Familiar').length > 0
-  const classFamiliar = c.className === 'Witch' ? 'normal'
-    : c.className === 'Druid' && leshyGrant ? 'leshy'
-    : undeadGrant ? 'undead' : leshyGrant ? 'leshy'
-    : activeFeatsNamed(c, 'Familiar').some(feat => /^(?:Class|Archetype) Feat$/i.test(feat.type)
-      || /^(?:class|archetype):/.test(feat.slot ?? '')) ? 'normal' : undefined
-  const leshy = classFamiliar === 'leshy'
-  const undeadFamiliar = classFamiliar === 'undead'
-  const crocodileFamiliar = !classFamiliar && activeFeatsNamed(c, "Crocodile's Twin").length > 0
-  const familiar = !!classFamiliar || crocodileFamiliar
-    || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
-  const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
+  const { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp } = familiarSelection(c)
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
@@ -228,9 +215,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       : animalCompanionGrant ? 'Animal Companion' : beastmaster ? 'Beastmaster Dedication' : undefined
   const companionLimit = beastmaster && !getSettings().singleAnimalCompanion ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
     + activeFeatsNamed(c, 'Additional Companion').length) : 1
-  const witchFamiliarAbilities = c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0
-  const familiarCapacity = (activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
-    + witchFamiliarAbilities
+  const familiarCapacity = familiarSelection(c).dailyAbilityLimit
   const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
   const familiarDefense = familiar || wasp ? (() => {
     const base = (breakdown: TotalBreakdown) => breakdown.parts
@@ -518,9 +503,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const isLeshy = leshy && !isWasp
           const isUndead = undeadFamiliar && !isWasp
           const isCrocodile = crocodileFamiliar && !isWasp && !isUndead && !isLeshy
-          const dailyAbilityLimit = isUndead
-            ? (activeFeatsNamed(c, 'Enhanced Undead Familiar').length ? 3 : 1) + witchFamiliarAbilities
-            : familiarCapacity
+          const dailyAbilityLimit = familiarCapacity
           const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
             : isCrocodile ? 'Crocodile familiar' : 'Familiar'
           const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
@@ -570,7 +553,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           })
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
-            : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4></summary>
+            : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length}/{dailyAbilityLimit})</summary>
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
@@ -598,7 +581,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <option value="">Choose ability</option><option>Plant</option><option>Fungus</option>
             </select>
           </label>}
-          <div><small>Daily familiar or master abilities ({activeAbilityChoices.length}/{dailyAbilityLimit})</small></div>
           <div className="gear-runes">
             {savedAbilities.map(({ ability, index }) => {
               const { entry, reason } = abilityStatus(ability, index)
@@ -618,7 +600,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c}
                   buttonLabel="Details" className="picker-details" />
               }} onChange={chooseAbility}>
-              <option value="">Choose ability...</option>
+              <option value="">+</option>
               {['Familiar', 'Master'].map(type => {
                 const options = abilityOptions.filter(entry =>
                   String(entry.data.ability_type ?? 'Familiar').toLowerCase() === type.toLowerCase())

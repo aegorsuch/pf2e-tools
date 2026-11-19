@@ -296,9 +296,14 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       if (!facts.sanctification) return manual(text)
       return resultFor(key(facts.sanctification) !== forbiddenSanctification, text)
     }
-    if (facts.className === 'Champion' && ['holy', 'unholy'].includes(name)) {
+    const requiredSanctification = /^you are (holy|unholy)$/.exec(name)?.[1]
+      ?? (facts.className === 'Champion' && ['holy', 'unholy'].includes(name) ? name : undefined)
+    if (requiredSanctification) {
+      const grantingFeats = requiredSanctification === 'holy'
+        ? ['the hallowed dead', 'hallowed dead'] : ['the unholy dead', 'unholy dead']
+      if (facts.feats.some(feat => grantingFeats.includes(key(feat.name)))) return met()
       if (!facts.sanctification) return manual(text)
-      return resultFor(key(facts.sanctification) === name, text)
+      return resultFor(key(facts.sanctification) === requiredSanctification, text)
     }
     const deityAlignment = /^you (?:follow|worship) a (good|evil)-aligned deity$/.exec(name)
     if (deityAlignment) {

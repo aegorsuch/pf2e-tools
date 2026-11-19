@@ -81,6 +81,15 @@ describe('Witchwarper class setup', () => {
     expect(classSpellSlots({ ...base, level: 19, feats: [feat] })?.[10]).toBe(1)
   })
 
+  it('adds a familiar cantrip to the repertoire without adding a ranked spell choice', () => {
+    const c = { ...base, spellcasting: { ability: 'int' as const, tradition: 'Arcane', rank: 1, slots: {},
+      repertoire: { 'familiar-cantrip-connection': 'Spare Cantrip' } } }
+    const slots = witchwarperRepertoireSlots(c, true)
+    expect(slots.filter(slot => slot.rank === 0)).toHaveLength(6)
+    expect(slots.filter(slot => slot.rank === 1)).toHaveLength(3)
+    expect(slots.at(-1)).toMatchObject({ key: 'familiar-cantrip-connection', value: 'Spare Cantrip' })
+  })
+
   it('limits repertoire options to valid tradition, rank and access without including focus spells', () => {
     const entries = [
       magic('Arcane Bolt'), magic('Rare Bolt', 1, 'Arcane', ['Rare']),

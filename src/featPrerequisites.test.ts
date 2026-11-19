@@ -133,6 +133,22 @@ it.each([
   expect(featSelectionPrerequisiteChecker(self, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
 })
 
+it('checks Soul Thief against selected or feat-granted unholy sanctification', () => {
+  const soulThief = entry('feat', 'Soul Thief', { prerequisite: 'You are unholy.' }, 20, ['Necromancer', 'Unholy'])
+  const unholy = entry('feat', 'The Unholy Dead', { prerequisite: "You aren't holy." }, 1, ['Necromancer'])
+  const entries = [soulThief, unholy]
+  const c: Character = { ...base, className: 'Necromancer', level: 20 }
+  expect(featPrerequisiteChecker(c, entries)(soulThief)).toEqual({ missing: ['You are unholy.'], manual: [] })
+  expect(featPrerequisiteChecker({ ...c, sanctification: 'Unholy' }, entries)(soulThief))
+    .toEqual({ missing: [], manual: [] })
+  for (const name of ['The Unholy Dead', 'Unholy Dead']) {
+    expect(featPrerequisiteChecker({ ...c, feats: [selected(name)] }, entries)(soulThief))
+      .toEqual({ missing: [], manual: [] })
+  }
+  expect(featPrerequisiteChecker({ ...c, sanctification: 'Holy' }, entries)(soulThief).missing)
+    .toEqual(['You are unholy.'])
+})
+
 it.each(['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant'])(
   'makes %s exclusive with both other preferment paths, even when browsing unmet prerequisites', name => {
     const feats = ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']

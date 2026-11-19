@@ -4,12 +4,13 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
-import { armorClass } from './builder'
+import { armorClass, eligibleFeats, featPrerequisiteChecker } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
+import { homebrewCharacterOptions } from './supplemental'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let found: ((event: { target: { value: string } }) => void) | undefined
@@ -268,7 +269,7 @@ it('shows granted Ferocity on each eligible minion without consuming familiar or
   expect(html).toContain('One reaction per round, usable only for Orc Ferocity')
   expect(html.match(/One reaction per round, usable only for Orc Ferocity\. Gain 13 temporary HP when using Orc Ferocity\.<\/p>/g)).toHaveLength(4)
   expect(html).toContain('aria-label="Reaction"')
-  expect(html).toContain('Daily familiar or master abilities (1/2)')
+  expect(html).toContain('</h4> (1/2)')
   expect(html).toContain('<option selected="">Climber</option>')
   const adopted = render({ ...c, ancestry: 'Human', feats: [
     ...c.feats, { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
@@ -325,7 +326,7 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('Leshy Familiar')
-  expect(html).toContain('Daily familiar or master abilities (1/4)')
+  expect(html).toContain('</h4> (1/4)')
   expect(html).toContain('Leshy familiar granted ability')
   expect(html).toContain('Aquatic Pet')
   expect(html).toContain('HP 56')
@@ -349,7 +350,7 @@ it('shows clickable undead familiar rules and one daily ability', () => {
   expect(html).toContain('change its trait, such as Construct or Dragon.')
   expect(html).toContain('Can be targeted by spells and abilities that target your thralls.')
   expect(html).toContain('If destroyed, can be raised during next daily preparations.')
-  expect(html).toContain('Daily familiar or master abilities (1/1)')
+  expect(html).toContain('</h4> (1/1)')
   expect(html).toContain('aria-label="Remove Undead familiar ability 1"')
   expect(html).not.toContain('aria-label="Undead familiar name"')
 })
@@ -378,7 +379,7 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   choose('Fast Movement')
   let html = renderToStaticMarkup(tree())
   expect(c.familiar?.abilities).toEqual(['Flier', 'Tough', 'Fast Movement'])
-  expect(html).toContain('Daily familiar or master abilities (3/4)')
+  expect(html).toContain('</h4> (3/4)')
   expect(html).toContain('<small>Hit Points</small> <b>56</b>')
   expect(html).toContain('Fly 40 feet')
   expect(html).toContain('Your familiar’s maximum Hit Points increase by 2 per level.')
@@ -406,6 +407,7 @@ it('groups familiar and master options without showing pet abilities', () => {
   expect(html).toContain('<optgroup label="Familiar"><option value="familiar:Flier">Flier</option></optgroup>')
   expect(html).toContain('<optgroup label="Master"><option value="familiar:Spell Battery">Spell Battery</option></optgroup>')
   expect(html).not.toContain('pet:flier')
+  expect(html).toContain('<option value="" selected="">+</option>')
 })
 
 it('offers usable generic familiar abilities and applies Necromancer spellcasting without saved slots', () => {
@@ -434,7 +436,7 @@ it('keeps saved trait-changing choices dormant and unavailable for an undead fam
     familiar: { name: 'Saved', abilities: ['Dragon'] },
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
-  expect(html).toContain('Daily familiar or master abilities (1/1)')
+  expect(html).toContain('</h4> (1/1)')
   expect(html).toContain('Dragon')
   expect(html).toContain('title="An undead familiar cannot select an ability that changes its trait."')
   expect(html).not.toContain('value="familiar:Dragon"')
@@ -452,7 +454,7 @@ it('creates a familiar record for Crocodile’s Twin', () => {
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Crocodile Familiar')
   expect(html).toContain('Tiny crocodile familiar granted by Crocodile&#x27;s Twin.')
-  expect(html).toContain('Daily familiar or master abilities (0/2)')
+  expect(html).toContain('</h4> (0/2)')
   expect(html).toContain('aria-label="Crocodile familiar ability"')
 })
 
@@ -465,10 +467,34 @@ it('raises undead familiar ability limit to three with Enhanced Undead Familiar'
     familiar: { abilities: ['Flier', 'Tough', 'Darkvision', 'Climber'] },
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
-  expect(html).toContain('Daily familiar or master abilities (3/3)')
+  expect(html).toContain('</h4> (3/3)')
   expect(html).toContain('aria-label="Remove Undead familiar ability 3"')
   expect(html).toContain('aria-label="Remove Undead familiar ability 4"')
   expect(html).toContain('(inactive)')
+})
+
+it('offers Incredible Undead Familiar with its prerequisite and activates five choices at level 10', () => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Incredible Undead Familiar')!
+  const prerequisite: ContentEntry = { ...feat, id: 'enhanced-undead', name: 'Enhanced Undead Familiar', level: 2,
+    source: 'official', data: { class: 'Necromancer', prerequisite: 'Undead Familiar' } }
+  const undead: ContentEntry = { ...prerequisite, id: 'undead', name: 'Undead Familiar', level: 1, data: { class: 'Necromancer' } }
+  const entries = [feat, prerequisite, undead, ...familiarEntries]
+  const c: Character = { id: 'incredible-undead', systems: ['pf2e'], name: 'Test', level: 10, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 }, equipment: [], lores: [], languages: [],
+    entryIds: [], extraSlots: [], updatedAt: 0,
+    feats: [{ name: 'Undead Familiar', type: 'Class Feat', level: 1 },
+      { name: 'Enhanced Undead Familiar', type: 'Class Feat', level: 2 }],
+    familiar: { abilities: ['Flier', 'Tough', 'Darkvision', 'Climber', 'Scent'] } }
+  const slot = { key: 'class:10:0', category: 'class' as const, level: 10 }
+  expect(eligibleFeats(entries, c, slot)).toContain(feat)
+  expect(featPrerequisiteChecker({ ...c, feats: [c.feats[0]] }, entries)(feat).missing)
+    .toContain('Enhanced Undead Familiar')
+  expect(eligibleFeats(entries, c, { ...slot, level: 8 })).not.toContain(feat)
+  const selected = { ...c, feats: [...c.feats, { name: feat.name, type: 'Class Feat', level: 10 }] }
+  expect(renderToStaticMarkup(<MinionsSection c={selected} entries={entries} save={() => {}} />))
+    .toContain('<h4>Undead Familiar</h4> (5/5)')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...selected, level: 9 }} entries={entries} save={() => {}} />))
+    .toContain('<h4>Undead Familiar</h4> (3/3)')
 })
 
 it.each([
@@ -493,7 +519,7 @@ it.each([
   expect(html.match(/<h4>(?:Undead |Leshy |Crocodile )?Familiar<\/h4>/g)).toHaveLength(1)
   expect(html).not.toContain('Crocodile Familiar')
   expect(html).not.toContain('Tiny crocodile familiar')
-  expect(html).toContain(`Daily familiar or master abilities (${Math.min(2, abilities)}/${abilities})`)
+  expect(html).toContain(`</h4> (${Math.min(2, abilities)}/${abilities})`)
   expect(JSON.stringify(c)).toBe(before)
   expect(save).not.toHaveBeenCalled()
 })
@@ -550,7 +576,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   expect(html).not.toContain('(includes Tough)')
   c = { ...c, feats: [] }
   html = markup()
-  expect(html).toContain('Daily familiar or master abilities (0/2)')
+  expect(html).toContain('</h4> (0/2)')
   expect(html).toContain('aria-label="Granted Burrower: Burrower"')
   expect(html).toContain('aria-label="Granted Flier: Flier"')
   expect(html).toContain('<small>Hit Points</small> <b>40</b>')
@@ -560,7 +586,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   expect(c.waspFamiliar).toEqual({ abilities: ['Flier', 'Tough'] })
   expect(JSON.stringify(c.familiar)).toBe(before)
   html = markup()
-  expect(html).toContain('Daily familiar or master abilities (2/2)')
+  expect(html).toContain('</h4> (2/2)')
   expect(html.match(/fly Speed of 25 feet/g)).toHaveLength(2)
 
   c = { ...c, feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }] }
@@ -578,7 +604,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   html = markup()
   expect(html).toContain('Wasp Familiar')
   expect(html).not.toContain('aria-label="Wasp familiar name"')
-  expect(html).toContain('Daily familiar or master abilities (2/2)')
+  expect(html).toContain('</h4> (2/2)')
   expect(html).not.toContain('Leshy Familiar')
   expect(JSON.stringify(c.familiar)).toBe(before)
   c = { ...c, divineIntercessions: { Calistria: [] } }

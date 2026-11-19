@@ -65,6 +65,22 @@ it('uses a spell action icon for a supported damage roll and keeps non-rolling s
   expect(multiple).toContain('8d8 sonic')
 })
 
+it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightened ranks', () => {
+  const fireball: ContentEntry = { id: 'fireball', name: 'Fireball', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], data: { actions: 'Two Actions' }, effects: [], updatedAt: 1,
+    description: 'A roaring blast detonates, dealing 6d6 fire damage.\n\nHeightened (+1) The damage increases by 2d6.' }
+  expect(spellActionRolls('Fireball', 5, fireball)).toMatchObject([
+    { actions: 'Two Actions', damage: { dice: 10, sides: 6, type: 'fire' } },
+  ])
+  expect(renderToStaticMarkup(<SpellActions name="Fireball" rank={5} entry={fireball} />))
+    .toContain('title="Two Actions; Damage: 10d6 fire"')
+  expect(spellDamage('Void Warp', 5)).toMatchObject([{ dice: 6, sides: 4, type: 'void' }])
+  expect(spellDamage('Deathly Scream', 5)).toMatchObject([{ dice: 5, sides: 4, type: 'mental' }])
+  expect(spellActionRolls('Harm', 5).map(roll => [roll.actions, roll.damage.dice]))
+    .toEqual([['One Action', 5], ['Two Actions', 5], ['Three Actions', 5]])
+  expect(spellActionRolls('Fireball', 2, fireball)).toEqual([])
+})
+
 it.each([
   ['Slime Spit', 1, 2, 6], ['Slime Spit', 10, 20, 6],
   ['Warning Stripes', 3, 2, 8], ['Warning Stripes', 4, 2, 8], ['Warning Stripes', 5, 3, 8], ['Warning Stripes', 10, 5, 8],
