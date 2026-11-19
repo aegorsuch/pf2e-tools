@@ -13,6 +13,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
     case 'Telekinetic Projectile':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 6, type: 'B/P/S' }] : []
+    case 'Haunting Hymn':
+      return rank >= 1 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 8, type: 'sonic' }] : []
     case 'Grim Tendrils':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
     case 'Shadow Army':
