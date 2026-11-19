@@ -758,9 +758,7 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
   return { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items: itemSpells(c, entries) }
 }
 
-function RitualsContent({ c, entries, save }: SectionProps) {
-  const rituals = entries.filter(entry => entry.kind === 'ritual' && !entry.deleted
-    && entry.systems.some(system => c.systems.includes(system))).sort((a, b) => a.name.localeCompare(b.name))
+function characterRituals(c: Character, entries: ContentEntry[]) {
   const manualNames = c.rituals ?? []
   const grantedNames = new Set<string>()
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
@@ -769,6 +767,13 @@ function RitualsContent({ c, entries, save }: SectionProps) {
   }
   const ritualNames = [...new Map([...manualNames, ...grantedNames].map(name => [name.toLowerCase(), name])).values()]
     .sort((a, b) => a.localeCompare(b))
+  return { manualNames, grantedNames, ritualNames }
+}
+
+function RitualsContent({ c, entries, save }: SectionProps) {
+  const { manualNames, grantedNames, ritualNames } = characterRituals(c, entries)
+  const rituals = entries.filter(entry => entry.kind === 'ritual' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system))).sort((a, b) => a.name.localeCompare(b.name))
   if (!ritualNames.length) return null
   const saveManualNames = (names: string[]) => save({ rituals: names })
   return <section className="innate-spell-group">
@@ -871,6 +876,16 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()))
   const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
+  const focusOnlyClass = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
+  const hasClassSpells = !!automaticSlots || !!witchwarper || manualSpells.length > 0
+    || !focusOnlyClass && (!!casting?.traditions.length
+      || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0))
+  const hasRituals = characterRituals(c, entries).ritualNames.length > 0
+  const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'],
+    ['items', 'Item Spells'], ['rituals', 'Rituals']] as const)
+    .filter(([value]) => value !== 'class' || hasClassSpells)
+    .filter(([value]) => value !== 'rituals' || hasRituals)
+  const activeCategory = categories.some(([value]) => value === category) ? category : categories[0][0]
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
   const unresolved = unresolvedFeatSpells(c, entries)
@@ -1078,12 +1093,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   return (
       <div className="character-section-content">
       <div className="gear-tabs spell-category-tabs" role="group" aria-label="Spell categories">
-        {([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'],
-          ['items', 'Item Spells'], ['rituals', 'Rituals']] as const).map(([value, label]) =>
-          <button key={value} type="button" className={category === value ? 'on' : ''}
-            aria-pressed={category === value} onClick={() => setCategory(value)}>{label}</button>)}
+        {categories.map(([value, label]) =>
+          <button key={value} type="button" className={activeCategory === value ? 'on' : ''}
+            aria-pressed={activeCategory === value} onClick={() => setCategory(value)}>{label}</button>)}
       </div>
-      <div hidden={category !== 'class'}>
+      <div hidden={activeCategory !== 'class'}>
       {necromancer && c.level >= 1 && <>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
           onClose={event => { if (event.target === event.currentTarget) setDirgeOpen(false) }}
@@ -1250,7 +1264,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
       {!necromancer && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
       </div>
-      <div hidden={category !== 'innate'}>
+      <div hidden={activeCategory !== 'innate'}>
       {c.heritage === 'Mage Automaton' && c.level >= 1 && (() => {
         const options = mageAutomatonOptions(c, entries)
         const current = c.mageAutomatonCantrip ?? ''
@@ -1336,7 +1350,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </section>)}
       </div>}
       </div>
-      <div hidden={category !== 'focus'}>
+      <div hidden={activeCategory !== 'focus'}>
       {spellcastingSummary}
       <DevotionSpellChoice c={c} entries={entries} save={save} />
       {(focusPoints > 0 || allFocus.length > 0) && (
@@ -1368,7 +1382,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </div>
       )}
       </div>
-      <div hidden={category !== 'items'}>
+      <div hidden={activeCategory !== 'items'}>
       {items.length > 0 && <section className="innate-spell-group">
         <h5>Item Spells</h5>
         <SpellColumns />
@@ -1392,7 +1406,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         })}</ul>
       </section>}
       </div>
-      <div hidden={category !== 'rituals'}>
+      <div hidden={activeCategory !== 'rituals'}>
       <RitualsContent c={c} entries={entries} save={save} />
       </div>
       {unresolved.map((grant, index) => <p key={`${grant.source?.id}:${grant.name}:${index}`} className="feat-prerequisite-note" role="status">

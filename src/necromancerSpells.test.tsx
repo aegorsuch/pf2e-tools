@@ -219,9 +219,35 @@ it.each([
 it('provides separate spell categories with class spells selected initially', () => {
   const html = render(base, [spell('Harm')])
   expect(html).toContain('aria-pressed="true">Class Spells</button>')
-  for (const label of ['Focus Spells', 'Innate Spells', 'Item Spells', 'Rituals'])
+  for (const label of ['Focus Spells', 'Innate Spells', 'Item Spells'])
     expect(html).toContain(`aria-pressed="false">${label}</button>`)
+  expect(html).not.toContain('>Rituals</button>')
   expect((html.match(/<div hidden="">/g) ?? [])).toHaveLength(4)
+})
+
+it('hides class spells for focus-only classes and selects focus spells initially', () => {
+  for (const className of ['Champion', 'Monk', 'Ranger', 'Fighter']) {
+    const html = render({ ...base, className }, [])
+    expect(html).not.toContain('>Class Spells</button>')
+    expect(html).toContain('aria-pressed="true">Focus Spells</button>')
+    expect(html).not.toContain('>Rituals</button>')
+  }
+  expect(render({ ...base, className: 'Druid' }, [])).toContain('aria-pressed="true">Class Spells</button>')
+  expect(render({ ...base, className: 'Champion', spellcasting: {
+    ability: 'cha', tradition: 'Divine', rank: 1, slots: { 1: 2 },
+  } }, [])).not.toContain('>Class Spells</button>')
+  expect(render({ ...base, className: 'Champion', spells: [{ name: 'Fear', rank: 1, cantrip: false }] }, [spell('Fear')]))
+    .toContain('aria-pressed="true">Class Spells</button>')
+})
+
+it('shows ritual tab for known or feat-granted rituals and falls back when none remain', () => {
+  const creator: ContentEntry = { ...spell('Undead Creator'), kind: 'feat', ritualGrants: ['Create Undead'] }
+  const champion = { ...base, className: 'Champion' }
+  expect(render({ ...champion, rituals: ['Awaken Animal'] }, [])).toContain('>Rituals</button>')
+  expect(render({ ...champion, feats: [taken('Undead Creator', 1)] }, [creator])).toContain('>Rituals</button>')
+  expect(render({ ...champion, feats: [taken('Undead Creator', 2)] }, [creator])).not.toContain('>Rituals</button>')
+  vi.mocked(useState).mockReturnValueOnce(['rituals', vi.fn()])
+  expect(render(champion, [])).toContain('aria-pressed="true">Focus Spells</button>')
 })
 
 it('shows the same tradition and spellcasting DC in class and focus tabs', () => {
