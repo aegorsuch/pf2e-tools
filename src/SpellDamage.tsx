@@ -11,10 +11,7 @@ export function spellDamage(name: string, rank: number): Damage[] {
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
-      return rank >= 7 ? [
-        { label: 'Void damage', dice: 0, sides: 0, bonus: 10 * rank, type: 'void' },
-        { label: 'Vitality damage', dice: 0, sides: 0, bonus: 10 * rank, type: 'vitality' },
-      ] : []
+      return rank >= 7 ? [{ label: 'Damage', dice: 0, sides: 0, bonus: 10 * rank, type: 'vitality or void' }] : []
     case 'Desiccate':
       return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
     case 'Massacre':

@@ -118,8 +118,7 @@ it('shows Execute damage in the prepared Necromancer spell slot', () => {
   const c: Character = { ...base, level: 13, feats: [taken('Expanded Necromancy', 10)],
     spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {}, prepared: { '7:0': execute.id } } }
   const html = render(c, [execute, spell('Harm')])
-  expect(html).toContain('title="Two Actions; Void damage: 70 void"')
-  expect(html).toContain('title="Two Actions; Vitality damage: 70 vitality"')
+  expect(html).toContain('title="Two Actions; Damage: 70 vitality or void"')
 })
 
 it.each([

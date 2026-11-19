@@ -103,11 +103,17 @@ it.each([[7, 70], [8, 80], [10, 100]])('shows Execute damage at rank %i as %i vo
     source: 'official', level: 7, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const rolls = spellActionRolls(entry.name, rank, entry)
   expect(rolls.map(roll => [roll.actions, roll.damage.type, rollSpellDamage(roll.damage)]))
-    .toEqual([['Two Actions', 'void', amount], ['Two Actions', 'vitality', amount]])
+    .toEqual([['Two Actions', 'vitality or void', amount]])
   const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
-  expect(markup).toContain(`title="Two Actions; Void damage: ${amount} void"`)
-  expect(markup).toContain(`title="Two Actions; Vitality damage: ${amount} vitality"`)
+  expect(markup).toContain(`title="Two Actions; Damage: ${amount} vitality or void"`)
+  expect(markup.match(/<button /g)).toHaveLength(1)
   expect(markup).not.toContain('0d')
+})
+
+it('shows Execute damage and both possible types after rolling', () => {
+  vi.mocked(useState).mockReturnValueOnce([70, vi.fn()])
+  const markup = renderToStaticMarkup(<DamageRoll name="Execute" damage={spellDamage('Execute', 7)[0]} actions="Two Actions" />)
+  expect(markup).toContain('> 70 vitality or void</output>')
 })
 
 it.each([[8, 10], [9, 11], [10, 12]])('rolls Desiccate at rank %i as %id10 void', (rank, dice) => {
