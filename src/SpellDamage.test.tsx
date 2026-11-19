@@ -328,22 +328,61 @@ it('shows Phantasmal Calamity damage without save outcomes', () => {
   expect(spellDamage('Phantasmal Calamity', 5)).toEqual([])
 })
 
-it('rolls Tear the Veil using the distinct damage dice for each save', () => {
+it('rolls Tear the Veil once and shows damage for each save', () => {
   const entry: ContentEntry = { id: 'tear', name: 'Tear the Veil', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 10, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
   const rolls = spellActionRolls(entry.name, 10, entry)
-  expect(rolls.map(roll => [roll.damage.label, roll.damage.dice, roll.damage.sides])).toEqual([
-    ['Success', 5, 12], ['Failure', 10, 12], ['Critical failure', 20, 12],
-  ])
+  expect(rolls).toHaveLength(1)
   const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={10} entry={entry} />)
-  for (const [label, dice] of [['Success', 5], ['Failure', 10], ['Critical failure', 20]] as const) {
-    expect(markup).toContain(`title="Three Actions; ${label}: ${dice}d12 void"`)
-  }
-  vi.spyOn(Math, 'random').mockReturnValue(0)
-  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([5, 10, 20])
-  vi.mocked(Math.random).mockReturnValue(0.999999)
-  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([60, 120, 240])
+  expect(markup.match(/<button /g)).toHaveLength(1)
+  expect(markup).toContain('title="Three Actions; Damage: 5d12 / 10d12 / 20d12 void"')
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: entry.name, damage: rolls[0].damage, actions: rolls[0].actions })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Tear the Veil roll')
+  const random = vi.spyOn(Math, 'random')
+  for (let i = 0; i < 5; i++) random.mockReturnValueOnce(0)
+  for (let i = 0; i < 5; i++) random.mockReturnValueOnce(1 / 12)
+  for (let i = 0; i < 10; i++) random.mockReturnValueOnce(2 / 12)
+  button.props.onClick()
+  expect(random).toHaveBeenCalledTimes(20)
+  expect(save).toHaveBeenCalledWith([5, 15, 45])
+  vi.mocked(useState).mockReturnValueOnce([[5, 15, 45], vi.fn()])
+  const output = renderToStaticMarkup(<DamageRoll name={entry.name} damage={rolls[0].damage} actions="Three Actions" />)
+  expect(output).toContain('Success: 5 void')
+  expect(output).toContain('Failure: 15 void')
+  expect(output).toContain('Critical failure: 45 void')
   expect(spellDamage(entry.name, 9)).toEqual([])
+})
+
+it.each([[4, 2], [5, 2], [6, 3], [10, 5]])('rolls Whispers of the Void at rank %i using %id8 for success', (rank, successDice) => {
+  const entry: ContentEntry = { id: 'whispers', name: 'Whispers of the Void', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 4, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls).toHaveLength(1)
+  expect(rolls[0].damage).toMatchObject({ dice: 2 * successDice, sides: 8, type: 'persistent void',
+    outcomes: [{ label: 'Success', dice: successDice }, { label: 'Failure or critical failure', dice: 2 * successDice }] })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${successDice}d8 / ${2 * successDice}d8 persistent void"`)
+  expect(spellDamage(entry.name, 3)).toEqual([])
+})
+
+it('rolls both Whispers of the Void damage pools with one action', () => {
+  const damage = spellDamage('Whispers of the Void', 4)[0]
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: 'Whispers of the Void', damage, actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Whispers of the Void roll')
+  vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0)
+    .mockReturnValueOnce(0.999999).mockReturnValueOnce(0.999999)
+  button.props.onClick()
+  expect(save).toHaveBeenCalledWith([2, 18])
+  vi.mocked(useState).mockReturnValueOnce([[2, 18], vi.fn()])
+  const markup = renderToStaticMarkup(<DamageRoll name="Whispers of the Void" damage={damage} actions="Two Actions" />)
+  expect(markup).toContain('Success: 2 persistent void')
+  expect(markup).toContain('Failure or critical failure: 18 persistent void')
 })
 
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {

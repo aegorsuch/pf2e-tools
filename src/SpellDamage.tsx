@@ -3,7 +3,7 @@ import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
 type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number
-  additional?: { dice: number; sides: number; type: string } }
+  additional?: { dice: number; sides: number; type: string }; outcomes?: { label: string; dice: number }[] }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
@@ -39,11 +39,16 @@ export function spellDamage(name: string, rank: number): Damage[] {
     case 'Phantasmal Calamity':
       return rank >= 6 ? [{ label: 'Damage', dice: 11 + 2 * (rank - 6), sides: 6, type: 'mental' }] : []
     case 'Tear the Veil':
-      return rank >= 10 ? [
-        { label: 'Success', dice: 5, sides: 12, type: 'void' },
-        { label: 'Failure', dice: 10, sides: 12, type: 'void' },
-        { label: 'Critical failure', dice: 20, sides: 12, type: 'void' },
-      ] : []
+      return rank >= 10 ? [{ label: 'Damage', dice: 20, sides: 12, type: 'void', outcomes: [
+        { label: 'Success', dice: 5 }, { label: 'Failure', dice: 10 }, { label: 'Critical failure', dice: 20 },
+      ] }] : []
+    case 'Whispers of the Void': {
+      if (rank < 4) return []
+      const success = 2 + Math.floor((rank - 4) / 2)
+      return [{ label: 'Damage', dice: 2 * success, sides: 8, type: 'persistent void', outcomes: [
+        { label: 'Success', dice: success }, { label: 'Failure or critical failure', dice: 2 * success },
+      ] }]
+    }
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
@@ -102,22 +107,30 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
 }
 
 export function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
-  const [result, setResult] = useState<number | { primary: number; additional: number }>()
-  const formula = damage.dice > 0
+  const [result, setResult] = useState<number | number[] | { primary: number; additional: number }>()
+  const formula = damage.outcomes ? `${damage.outcomes.map(outcome => `${outcome.dice}d${damage.sides}`).join(' / ')} ${damage.type}`
+    : damage.dice > 0
     ? `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" className={actions ? 'spell-action-button' : undefined}
       aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.persistentBleed !== undefined ? ` + ${damage.persistentBleed} persistent bleed` : ''}${damage.additional ? ` + ${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}`}
       onClick={() => {
+        if (damage.outcomes) {
+          const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
+          setResult(damage.outcomes.map(outcome => dice.slice(0, outcome.dice).reduce((sum, roll) => sum + roll, 0)))
+          return
+        }
         const primary = rollSpellDamage(damage)
         setResult(damage.additional ? { primary, additional: rollSpellDamage({ label: damage.label, ...damage.additional }) } : primary)
       }}>
       {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${formula}`}
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
-      {' '}{typeof result === 'number' ? result : result.primary} {damage.type}
-      {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}
+      {Array.isArray(result) ? <> {damage.outcomes?.map((outcome, index) =>
+        <span key={outcome.label}>{index > 0 && '; '}{outcome.label}: {result[index]} {damage.type}</span>)}</>
+        : <> {typeof result === 'number' ? result : result.primary} {damage.type}
+          {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}</>}
       {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed</>}
       {typeof result === 'number' && damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
