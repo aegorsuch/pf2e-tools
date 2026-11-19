@@ -514,7 +514,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       : name === 'Canopy Crawler' && rank >= 5 ? '1 hour'
       : name === 'Speak with Stones' && rank >= 6 ? '8 hours'
       : unit && seconds !== undefined ? `${seconds / unit[0]} ${unit[1]}${seconds / unit[0] === 1 ? '' : 's'}`
-      : seconds === 0 ? '—' : duration,
+      : entry && (seconds === 0 || duration === '—') ? 'Instant' : duration,
     durationNote: persistent && name === 'Animal Feature' && !getSettings().championFormNoFlight ? "Wings retain the spell's normal duration." : undefined,
     range: name === 'Pulverizing Wake' ? '15-foot cone'
       : name === 'Warning Stripes' ? 'Self or 30 feet'

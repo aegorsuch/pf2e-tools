@@ -732,6 +732,23 @@ it('shows original duration units, touch range and Sure Strike self-targeting wi
   expect(c.activeSpells).toEqual(['Invisibility'])
 })
 
+it('shows Instant for spells without a listed duration while preserving explicit durations', () => {
+  const spells = [
+    entry('Unlisted Duration', 'spell'),
+    entry('Zero Duration', 'spell', { duration: 0 }),
+    entry('Blank Duration', 'spell', { duration_text: '  ' }),
+    entry('Varied Duration', 'spell', { duration_text: 'varies' }),
+    entry('Timed Duration', 'spell', { duration: 60 }),
+  ]
+  const source: ContentEntry = { ...entry('Duration Magic', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: spells.map(spell => spell.name), rank: 2, tradition: 'arcane', frequency: 'once per day' }] }
+  const c: Character = { ...base, feats: [taken(source.name)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, ...spells]} save={() => {}} />)
+  expect(markup.match(/<small>Duration<\/small>Instant/g)).toHaveLength(3)
+  expect(markup).toContain('<small>Duration</small>Varies')
+  expect(markup).toContain('<small>Duration</small>1 minute')
+})
+
 it('sorts innate ranks numerically ascending within each tradition', () => {
   const sources: ContentEntry[] = [10, 2, 1].map(rank => ({
     ...entry(`Primal Magic ${rank}`, 'feat'),
