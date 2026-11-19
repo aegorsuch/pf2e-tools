@@ -29,6 +29,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'freeArchetype', label: 'Free Archetype' },
   { key: 'gauntletFinesse', label: 'Gauntlet and Spiked Gauntlet Gain Finesse' },
   { key: 'generalFeatsOnly', label: 'General Feats Only' },
+  { key: 'ignoreArchetypeFeatMinimums', label: 'Ignore Archetype Feat Minimums' },
   { key: 'singleTrainingFeats', label: 'Advanced General Training and General Training: Once Each' },
   { key: 'innateHighestMental', label: 'Innate Spells Use Highest Mental Attribute',
     description: 'Innate spell attacks and DCs use the highest of Intelligence, Wisdom or Charisma. Class and focus spell abilities are unchanged.' },

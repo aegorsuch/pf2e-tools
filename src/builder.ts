@@ -664,7 +664,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
       const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
       return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
     }
-    if (ignoreDedicationLock) return []
+    if (ignoreDedicationLock || getSettings().ignoreArchetypeFeatMinimums) return []
     return dedications.flatMap(({ entry: dedication, feat }) => {
       if (shares(dedication)) return []
       if (feat.slot && exemptSlots.has(feat.slot) && homebrewDedication(feat.slot)?.name === feat.name) return []

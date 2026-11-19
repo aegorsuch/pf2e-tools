@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncOrderExplorerFeats } from './builder'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
@@ -1072,6 +1072,8 @@ describe('shared prerequisite enforcement', () => {
     ['Ranger', 'Cavalier Dedication', 'Cavalier', 'rangerCavalier', 'archetype:2:g96'],
   ] as const)('exempts only the active locked %s dedication from the dedication lock', (className, name, archetype, setting, lockedSlot) => {
     const previous = getSettings()[setting]
+    const previousMinimums = getSettings().ignoreArchetypeFeatMinimums
+    updateSettings({ ignoreArchetypeFeatMinimums: false })
     const dedication = entry('feat', name, { archetype }, 2, ['Archetype', 'Dedication'])
     const followup = entry('feat', 'Archetype Training', { archetype }, 4, ['Archetype'])
     const medic = entry('feat', 'Medic Dedication', { archetype: 'Medic', prerequisite: 'trained in Medicine' }, 2, ['Archetype', 'Dedication'])
@@ -1093,7 +1095,7 @@ describe('shared prerequisite enforcement', () => {
       updateSettings({ [setting]: false })
       expect(featSelectionPrerequisiteChecker(c, data, slot)(medic).missing)
         .toContain(`2 more ${archetype} archetype feats before another dedication`)
-    } finally { updateSettings({ [setting]: previous }) }
+    } finally { updateSettings({ [setting]: previous, ignoreArchetypeFeatMinimums: previousMinimums }) }
   })
 
   it('requires actual warden spells, specific warden choices, and acquisition-level availability', () => {
@@ -1167,6 +1169,9 @@ describe('shared prerequisite enforcement', () => {
   })
 
   it('grants Multitalented only second-level multiclass dedications, bypassing dedication locks but preserving other prerequisites', () => {
+    const previous = getSettings().ignoreArchetypeFeatMinimums
+    onTestFinished(() => updateSettings({ ignoreArchetypeFeatMinimums: previous }))
+    updateSettings({ ignoreArchetypeFeatMinimums: false })
     const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const wizard = entry('feat', 'Wizard Dedication', { archetype: 'Wizard', prerequisite: 'Intelligence +2; trained in Arcana' }, 2,
       ['Archetype', 'Dedication', 'Multiclass'])
@@ -1252,7 +1257,28 @@ describe('shared prerequisite enforcement', () => {
       .toEqual({ missing: ['Nidalese ethnicity'], manual: [] })
   })
 
+  it('toggles dedication feat minimums without bypassing other prerequisites', () => {
+    const previous = getSettings().ignoreArchetypeFeatMinimums
+    onTestFinished(() => updateSettings({ ignoreArchetypeFeatMinimums: previous }))
+    const hellknight = entry('feat', 'Hellknight Dedication', { archetype: 'Hellknight' }, 2, ['Archetype', 'Dedication'])
+    const medic = entry('feat', 'Medic Dedication', { archetype: 'Medic', prerequisite: 'trained in Medicine' }, 2, ['Archetype', 'Dedication'])
+    const medicFeat = entry('feat', 'Medic Training', { archetype: 'Medic' }, 4, ['Archetype'])
+    const c: Character = { ...base, level: 6, feats: [selected(hellknight.name, 2)] }
+    const data = [hellknight, medic, medicFeat]
+    const slot = { key: 'archetype:6:0', category: 'archetype' as const, level: 6 }
+    updateSettings({ ignoreArchetypeFeatMinimums: true })
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(medic).missing).toEqual(['trained in Medicine'])
+    expect(featSelectionPrerequisiteChecker({ ...c, skillPicks: ['Medicine'] }, data, slot)(medic).missing).toEqual([])
+    expect(featSelectionPrerequisiteChecker(c, data, slot)(medicFeat).missing).toContain('Medic Dedication')
+    updateSettings({ ignoreArchetypeFeatMinimums: false })
+    expect(featSelectionPrerequisiteChecker({ ...c, skillPicks: ['Medicine'] }, data, slot)(medic).missing)
+      .toContain('2 more Hellknight archetype feats before another dedication')
+  })
+
   it('explains dedication locks while allowing pickers to include unmet options', () => {
+    const previous = getSettings().ignoreArchetypeFeatMinimums
+    onTestFinished(() => updateSettings({ ignoreArchetypeFeatMinimums: previous }))
+    updateSettings({ ignoreArchetypeFeatMinimums: false })
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const other = entry('feat', 'Defend Mount', { archetype: 'Cavalier' }, 4, ['Archetype'])
     const medic = entry('feat', 'Medic Dedication', { archetype: 'Medic' }, 2, ['Archetype', 'Dedication'])

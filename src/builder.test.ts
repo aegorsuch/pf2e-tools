@@ -2130,9 +2130,12 @@ describe('archetype rules', () => {
   const names = (c: Character) => eligibleFeats([ded, other, ded2], c, slot).map((e) => e.name)
   it('needs the Dedication before other archetype feats', () => {
     expect(names(has())).toEqual(['Medic Dedication', 'Wild Hunter Dedication'])
-    expect(names(has('Wild Hunter Dedication'))).toEqual(['Living Weapon'])
+    expect(names(has('Wild Hunter Dedication'))).toEqual(['Living Weapon', 'Medic Dedication'])
   })
   it('accepts shared Cavalier feats through either dedication and counts them toward dedication requirements', () => {
+    const previous = getSettings().ignoreArchetypeFeatMinimums
+    onTestFinished(() => updateSettings({ ignoreArchetypeFeatMinimums: previous }))
+    updateSettings({ ignoreArchetypeFeatMinimums: false })
     const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const unicorn = entry('feat', 'Unicorn Rider Dedication', { archetype: 'Unicorn Rider' }, 2, ['Archetype', 'Dedication'])
     const shared = entry('feat', 'Defend Mount', { archetype: 'Cavalier, Unicorn Rider' }, 6, ['Archetype'])

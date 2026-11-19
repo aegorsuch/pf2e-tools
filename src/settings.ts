@@ -16,6 +16,7 @@ export interface Settings {
   deityLore: boolean
   // Variant rule: Free Archetype grants an archetype feat at every even level
   freeArchetype: boolean
+  ignoreArchetypeFeatMinimums: boolean
   // House rule: Rangers get Snarecrafter Dedication for free at level 2, locked in the Dedications section
   rangerSnarecrafter: boolean
   // House rules: Champions, Druids, and Rangers get Cavalier Dedication for free at level 2
@@ -54,7 +55,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false, championCavalier: false, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, gauntletFinesse: true, bucklerMeleeFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 
