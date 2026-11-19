@@ -118,13 +118,53 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
   </span>
 }
 
-export function InnateSpellUses({ c, save, grant }: Pick<SectionProps, 'c' | 'save'> & {
+export function InnateSpellUses({ c, save, grant, additionalGrants = [] }: Pick<SectionProps, 'c' | 'save'> & {
   grant: ReturnType<typeof grantedFeatSpells>[number]
+  additionalGrants?: ReturnType<typeof grantedFeatSpells>
 }) {
   const uses = dailyInnateUses(c, grant)
   if (!uses) return null
+  if (additionalGrants.length) {
+    const pools = [grant, ...additionalGrants].flatMap(item => {
+      const pool = dailyInnateUses(c, item)
+      return pool ? [{ grant: item, uses: pool }] : []
+    })
+    const remaining = pools.reduce((sum, pool) => sum + pool.uses.remaining, 0)
+    const limit = pools.reduce((sum, pool) => sum + pool.uses.limit, 0)
+    return <span className="focus-tracker" role="group" aria-label={`${remaining} of ${limit} uses remaining`}>
+      {pools.flatMap(pool => Array.from({ length: pool.uses.limit }, (_, index) => {
+        const spent = pool.uses.spent.includes(index)
+        const label = `${spent ? 'Restore' : 'Spend'} ${pool.grant.entry.name} (${pool.grant.source}) use ${index + 1}`
+        return <button key={`${pool.uses.key}:${index}`} type="button" className="focus-point"
+          aria-label={label} title={label} aria-pressed={!spent} onClick={() => {
+            const next = new Set(pool.uses.spent)
+            if (next.has(index)) next.delete(index)
+            else next.add(index)
+            save({ innateSpellUses: { ...c.innateSpellUses, [pool.uses.key]: [...next] } })
+          }} />
+      }))}
+    </span>
+  }
   return spellUseTracker(`${grant.entry.name} (${grant.source})`, uses,
     spent => save({ innateSpellUses: { ...c.innateSpellUses, [uses.key]: spent } }), grant.rule.shared)
+}
+
+function groupedInnateSpells(c: Character, grants: ReturnType<typeof grantedFeatSpells>) {
+  const grouped: ReturnType<typeof grantedFeatSpells>[] = []
+  for (const grant of grants) {
+    const compatible = !grant.rule.shared && !grant.rule.condition && !!dailyInnateUses(c, grant)
+    const match = compatible && grouped.find(group => {
+      const first = group[0]
+      return !first.rule.shared && !first.rule.condition && !!dailyInnateUses(c, first)
+        && first.entry.name.toLowerCase() === grant.entry.name.toLowerCase()
+        && first.rank === grant.rank && first.rule.tradition?.toLowerCase() === grant.rule.tradition?.toLowerCase()
+        && first.rule.ability === grant.rule.ability && first.rule.dc === grant.rule.dc
+        && !group.some(existing => existing.usageKey === grant.usageKey)
+    })
+    if (match) match.push(grant)
+    else grouped.push([grant])
+  }
+  return grouped
 }
 
 export function ItemSpellUses({ c, save, spell }: Pick<SectionProps, 'c' | 'save'> & { spell: ItemSpell }) {
@@ -815,7 +855,8 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
         return !!extra || !!c.spellcasting?.prepared?.[key]
       })
     }).flat() : []
-  const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length + items.length
+  const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size
+    + groupedInnateSpells(c, innate).length + items.length
   const selected = (slots || witchwarper ? choices.filter(Boolean).length : manualSpells.length) + otherSpells
   const total = choices.length + otherSpells
   return <summary className="character-section-summary">
@@ -1016,8 +1057,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const groupOrder = ['Focus Spells', 'Cantrips', ...Array.from({ length: 10 }, (_, i) => `Rank ${i + 1}`)]
   const groups = [...new Set(listedSpells.map((s) => s.group))]
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
-  const innateGroups: { key: string; tradition: string; rank: number; grants: typeof innate }[] = []
-  for (const grant of innate) {
+  const innateGroups: { key: string; tradition: string; rank: number; grants: (typeof innate)[] }[] = []
+  for (const grants of groupedInnateSpells(c, innate)) {
+    const grant = grants[0]
     const tradition = grant.rule.tradition ? grant.rule.tradition[0].toUpperCase() + grant.rule.tradition.slice(1) : 'Innate'
     const key = `${tradition}:${grant.rank}`
     let group = innateGroups.find(item => item.key === key)
@@ -1025,7 +1067,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       group = { key, tradition, rank: grant.rank, grants: [] }
       innateGroups.push(group)
     }
-    group.grants.push(grant)
+    group.grants.push(grants)
   }
   innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.rank - b.rank)
   const preparedOptions = useMemo(() => {
@@ -1338,13 +1380,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         {innateGroups.map(group => <section className="innate-spell-group" key={group.key}>
           <h5>{group.tradition} Spell Rank {group.rank}</h5>
           <SpellColumns />
-          <ul>{group.grants.map(grant => {
+          <ul>{group.grants.map(grants => {
+            const grant = grants[0]
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
               actionControls={grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
                 && grant.rule.condition?.startsWith('Self only. Fire resistance is at least ')
                 ? <PyreResistEnergyActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
-              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant}
+                additionalGrants={grants.slice(1)} /></>}
               effectControls={effectControls(grant.entry.name)}
               effectRank={activeRank(grant.entry.name)}
               {...buffProps(grant.entry.name)}>

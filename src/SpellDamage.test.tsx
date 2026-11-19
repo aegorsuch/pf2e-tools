@@ -12,6 +12,50 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it.each([[1, 2], [5, 6], [10, 11]])('scales Electric Arc, Frostbite, and Gouging Claw at rank %i', (rank, dice) => {
+  for (const [name, sides, type] of [
+    ['Electric Arc', 4, 'electricity'], ['Frostbite', 4, 'cold'], ['Gouging Claw', 6, 'piercing or slashing'],
+  ] as const) {
+    const entry: ContentEntry = { id: name, name, systems: ['pf2e'], kind: 'spell',
+      source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+    const damage = spellDamage(name, rank)[0]
+    expect(damage).toMatchObject({ dice, sides, type })
+    expect(spellDamage(name, 0)).toEqual([])
+    expect(renderToStaticMarkup(<SpellActions name={name} rank={rank} entry={entry} />))
+      .toContain(`${dice}d${sides} ${type}`)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollSpellDamage(damage)).toBe(dice)
+    vi.mocked(Math.random).mockReturnValue(0.999999)
+    expect(rollSpellDamage(damage)).toBe(dice * sides)
+    vi.restoreAllMocks()
+  }
+  expect(spellDamage('Frostbite', rank)[0].note).toContain(`weakness ${rank}`)
+  expect(spellDamage('Gouging Claw', rank)[0].note).toContain(`${rank + 1} persistent bleed`)
+})
+
+it('rolls every Cataclysm component once with conditional damage identified', () => {
+  const entry: ContentEntry = { id: 'cataclysm', name: 'Cataclysm', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 10, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 9)).toEqual([])
+  const rolls = spellActionRolls(entry.name, 10, entry)
+  expect(rolls).toHaveLength(1)
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: entry.name, damage: rolls[0].damage, actions: rolls[0].actions })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing Cataclysm roll')
+  const random = vi.spyOn(Math, 'random')
+  for (let i = 0; i < 21; i++) random.mockReturnValueOnce(Math.floor(i / 3) / 10)
+  button.props.onClick()
+  expect(random).toHaveBeenCalledTimes(21)
+  expect(save).toHaveBeenCalledWith([3, 6, 9, 12, 15, 18, 21])
+  vi.mocked(useState).mockReturnValueOnce([[3, 6, 9, 12, 15, 18, 21], vi.fn()])
+  const html = renderToStaticMarkup(<DamageRoll name={entry.name} damage={rolls[0].damage} actions="Two Actions" />)
+  for (const text of ['3 acid', '6 bludgeoning (grounded)', '9 cold', '12 electricity',
+    '15 bludgeoning (flying)', '18 bludgeoning (tsunami; double if swimming)', '21 fire',
+    'Treat resistances as 10 lower']) expect(html).toContain(text)
+})
+
 it('rolls and rerolls all ten Primal Howl dice when its two-action button is clicked and announces the total', () => {
   const damage = { label: 'Damage', dice: 10, sides: 6, type: 'sonic' }
   const setResult = vi.fn()

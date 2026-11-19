@@ -919,6 +919,14 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },
+        get gnomePrimalInnateSpell() {
+          const heritage = characterHeritages(character, entries).some(entry =>
+            (entry.name.toLowerCase().endsWith(' gnome') || String(entry.data.ancestry ?? '').toLowerCase() === 'gnome')
+            && /\bprimal innate (?:spell|cantrip)/i.test(entry.description))
+          return heritage || getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal'
+            && character.feats.some(feat => feat.name === grant.source
+              && selectedFeatEntry(character, entries, feat.name, feat.sourceId)?.traits.some(trait => trait.toLowerCase() === 'gnome')))
+        },
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
           || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
           || features.some(feature => /\blimited telepathy\b/i.test(`${feature.name} ${feature.description}`))

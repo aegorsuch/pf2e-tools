@@ -40,6 +40,7 @@ export interface PrerequisiteFacts {
   companionTypes?: string[]
   familiar?: boolean
   primalInnateSpell?: boolean
+  gnomePrimalInnateSpell?: boolean
   limitedTelepathy?: boolean
   constructCompanion?: boolean
   championBlessings?: string[]
@@ -267,6 +268,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (/^kijimuna gnome(?: heritage)?,? or at least one primal innate spell from a gnome heritage or feat$/.test(name))
+      return resultFor([facts.heritage, ...(facts.heritages ?? [])].some(heritage => key(heritage ?? '') === 'kijimuna gnome')
+        || !!facts.gnomePrimalInnateSpell, text)
     if (name === 'arctic elf, cavern elf, desert elf, woodland elf, or any other elf heritage based on adapting to an environment') {
       const heritages = [facts.heritage ?? '', ...(facts.heritages ?? [])].map(key).filter(Boolean)
       if (heritages.some(heritage => ['arctic elf', 'cavern elf', 'desert elf', 'woodland elf', 'aquatic elf'].includes(heritage))) return met()
@@ -284,6 +288,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return resultFor(facts.feats.some(feat => ['the hallowed dead', 'hallowed dead'].includes(key(feat.name))), text)
     if (name === 'a familiar' || name === 'familiar') return resultFor(!!facts.familiar, text)
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
+    if (name === 'at least one primal innate spell from a gnome heritage or feat')
+      return resultFor(!!facts.gnomePrimalInnateSpell, text)
+    if (name === 'kijimuna gnome')
+      return resultFor([facts.heritage, ...(facts.heritages ?? [])].some(heritage => key(heritage ?? '') === name), text)
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)
     if (key(facts.deity ?? '') === 'laws of mortality'
       && (name === 'you follow the laws of mortality' || name === "can't have a patron deity")) return met()

@@ -1225,6 +1225,43 @@ it('persists individual daily-use dots and restores them without ending active s
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)).not.toContain('Reset daily innate uses')
 })
 
+it('combines matching daily innate spells without merging their saved use pools', () => {
+  const first = feat('First Magic', 'You can cast [invisibility](/Spells.aspx?ID=1) as a 2nd-rank primal innate spell once per day.')
+  const second = feat('Second Magic', 'You can cast [invisibility](/Spells.aspx?ID=1) as a 2nd-rank primal innate spell once per day.')
+  const entries = [first, second, entry('Invisibility', 'spell')]
+  let c: Character = { ...base, feats: [taken(first.name), taken(second.name)] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const grants = () => grantedFeatSpells(c, entries)
+  const tracker = () => InnateSpellUses({ c, save, grant: grants()[0], additionalGrants: grants().slice(1) })
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+    .match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(1)
+  expect(renderToStaticMarkup(tracker())).toContain('2 of 2 uses remaining')
+  findUseButton(tracker(), 'Spend Invisibility (Second Magic) use 1')!.onClick()
+  expect(dailyInnateUses(c, grants()[0])?.remaining).toBe(1)
+  expect(dailyInnateUses(c, grants()[1])?.remaining).toBe(0)
+  expect(renderToStaticMarkup(tracker())).toContain('1 of 2 uses remaining')
+  findUseButton(tracker(), 'Restore Invisibility (Second Magic) use 1')!.onClick()
+  expect(dailyInnateUses(c, grants()[1])?.remaining).toBe(1)
+  const differentlyRanked = { ...second, spellGrants: second.spellGrants?.map(rule => ({ ...rule, rank: 4 })) }
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[first, differentlyRanked, entries[2]]} save={save} />)
+    .match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(2)
+  const restricted = { ...second, spellGrants: second.spellGrants?.map(rule => ({ ...rule, condition: 'Only at night' })) }
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[first, restricted, entries[2]]} save={save} />)
+    .match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(2)
+})
+
+it('grants Kijimuna Whistle as a rank 5 primal innate spell once per day', () => {
+  const source = entry('Kijimuna Whistle', 'feat')
+  const spell = entry('Summon Plant or Fungus', 'spell')
+  const c: Character = { ...base, level: 13, feats: [taken(source.name, 13)] }
+  const [grant] = grantedFeatSpells(c, [source, spell])
+  expect(grant).toMatchObject({ entry: spell, rank: 5, rule: { tradition: 'primal', frequency: 'once per day',
+    fixedRank: true, condition: 'This casting loses the manipulate trait; cast by whistling' } })
+  expect(dailyInnateUses(c, grant)?.remaining).toBe(1)
+  expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: spell.name }])
+  expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
+})
+
 it('shares alternative daily spells but keeps each-spell and different-source pools independent', () => {
   const shared = feat('Shared Magic', 'Once per day, you can cast either [calm emotions](/Spells.aspx?ID=1) or [sanctuary](/Spells.aspx?ID=2) as an innate occult spell.')
   const separate = feat('Separate Magic', 'You can cast [calm emotions](/Spells.aspx?ID=1) and [sanctuary](/Spells.aspx?ID=2) as occult innate spells once per day each.')

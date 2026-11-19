@@ -21,6 +21,28 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('checks Kijimuna or primal magic from a gnome heritage or feat', () => {
+  const prerequisite = 'Kijimuna Gnome heritage or at least one primal innate spell from a gnome heritage or feat'
+  const magic = mapAonHit({ _id: 'first-world', _source: { name: 'First World Magic', category: 'feat', level: 1, trait: ['Gnome'],
+    markdown: 'Header\n\n---\n\nChoose one cantrip from the [primal](/SpellLists.aspx?Tradition=4) spell list. You can cast this cantrip as an innate spell at will.' } }, 'pf2e')!
+  const light = entry('spell', 'Light', { tradition: 'primal' }, 1, ['Cantrip'])
+  const heritage = { ...entry('heritage', 'Fey-Touched Gnome'), description: 'You can cast this spell as a primal innate spell at will.' }
+  const otherMagic = { ...magic, id: 'other', name: 'Other Magic', traits: ['Elf'] }
+  const c: Character = { ...base, ancestry: 'Gnome', level: 13,
+    feats: [{ ...selected(magic.name, 1), type: 'Ancestry Feat', choice: light.name }] }
+  const entries = [magic, otherMagic, light, heritage]
+  for (const name of ['Arboreal Conversationalist', 'Kijimuna Whistle']) {
+    const feat = entry('feat', name, { prerequisite }, 13, ['Gnome'])
+    const result = (character: Character) => featPrerequisiteChecker(character, [...entries, feat])(feat)
+    expect(result(c)).toEqual({ missing: [], manual: [] })
+    expect(result({ ...c, feats: [], heritage: 'Kijimuna Gnome' })).toEqual({ missing: [], manual: [] })
+    expect(result({ ...c, feats: [], heritage: heritage.name })).toEqual({ missing: [], manual: [] })
+    expect(result({ ...c, feats: [] }).missing).toHaveLength(1)
+    expect(result({ ...c, feats: [{ ...c.feats[0], name: otherMagic.name }] }).missing).toHaveLength(1)
+    expect(result({ ...c, feats: [{ ...c.feats[0], choice: undefined }] }).missing).toHaveLength(1)
+  }
+})
+
 it.each(['Disarming Intercept', 'Intercept Attack'])('recognizes Guardian class action prerequisite %s', prerequisite => {
   const interceptor = entry('feat', 'Energy Interceptor', { prerequisite }, 2, ['Guardian'])
   expect(featPrerequisiteChecker({ ...base, className: 'Guardian' }, [interceptor])(interceptor))

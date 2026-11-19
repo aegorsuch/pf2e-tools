@@ -249,6 +249,14 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Kijimuna Whistle' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Summon Plant or Fungus').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'once per day',
+          fixedRank: true, condition: 'This casting loses the manipulate trait; cast by whistling' },
+        rank: 5, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) {
       const spell: ContentEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Divine Decree'
         && entry.systems.includes('sf2e')) ?? {
@@ -432,6 +440,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       return [{ name: `${training.choice} domain focus spell`, source }]
     }
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
+    if (feat.name === 'Kijimuna Whistle' && c.systems.includes('pf2e')) {
+      return matchingSpells(entries, 'Summon Plant or Fungus').some(entry => entry.systems.includes('pf2e'))
+        ? [] : [{ name: 'Summon Plant or Fungus', source }]
+    }
     if (feat.name === 'Grown of Oak' && !entries.some(entry => entry.kind === 'spell' && !entry.deleted
       && entry.name === 'Oaken Resilience' && entry.systems.some(system => c.systems.includes(system)))) {
       return [{ name: 'Oaken Resilience', source }]

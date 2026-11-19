@@ -515,6 +515,10 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       : [])
   const featSlots = plannedSlots(c, entries)
   const featGrants = featSectionGrants(c, entries, ['skill', 'general'], featSlots)
+  const ancestryGrants = featSectionGrants(c, entries, ['ancestry'], featSlots)
+  const ancestrySlots = featSlots.filter(slot => slot.category === 'ancestry')
+  const ancestryGranted = ancestryGrants.backgroundFeats.length + ancestryGrants.automaticFeats.length + ancestryGrants.memories.length
+  const ancestryFilled = ancestrySlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length + ancestryGranted
   const classSlots = featSlots.filter(slot => slot.category === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
 
@@ -568,7 +572,8 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
-          <span>{ancestryLabel(c.ancestry, c.heritage) || 'Choose ancestry'}</span>
+          <span>{ancestryLabel(c.ancestry, c.heritage) || 'Choose ancestry'}
+            {ancestrySlots.length + ancestryGranted > 0 && ` (${ancestryFilled}/${ancestrySlots.length + ancestryGranted})`}</span>
         </summary>
         <div className="character-section-content">
           <div className="row">

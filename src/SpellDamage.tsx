@@ -3,10 +3,28 @@ import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
 type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number
-  additional?: { dice: number; sides: number; type: string; label?: string }; outcomes?: { label: string; dice: number }[] }
+  additional?: { dice: number; sides: number; type: string; label?: string }; outcomes?: { label: string; dice: number }[]
+  components?: { dice: number; sides: number; type: string }[]; note?: string }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
+    case 'Electric Arc':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'electricity' }] : []
+    case 'Frostbite':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'cold',
+        note: `Critical failure: weakness ${rank} to bludgeoning until the start of your next turn` }] : []
+    case 'Gouging Claw':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 6, type: 'piercing or slashing',
+        note: `${rank + 1} persistent bleed; double damage and bleed on a critical success` }] : []
+    case 'Cataclysm':
+      return rank >= 10 ? [{ label: 'Damage', dice: 3, sides: 10, type: 'acid', components: [
+        { dice: 3, sides: 10, type: 'bludgeoning (grounded)' },
+        { dice: 3, sides: 10, type: 'cold' },
+        { dice: 3, sides: 10, type: 'electricity' },
+        { dice: 3, sides: 10, type: 'bludgeoning (flying)' },
+        { dice: 3, sides: 10, type: 'bludgeoning (tsunami; double if swimming)' },
+        { dice: 3, sides: 10, type: 'fire' },
+      ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Needle Darts':
@@ -129,7 +147,7 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" className={actions ? 'spell-action-button' : undefined}
-      aria-label={`Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}`}
+      aria-label={`Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`}
       onClick={() => {
         if (damage.outcomes) {
           const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
@@ -137,13 +155,20 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
           return
         }
         const primary = rollSpellDamage(damage)
+        if (damage.components) {
+          setResult([primary, ...damage.components.map(component => rollSpellDamage({ label: damage.label, ...component }))])
+          return
+        }
         setResult(damage.additional ? { primary, additional: rollSpellDamage({ label: damage.label, ...damage.additional }) } : primary)
       }}>
       {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${formula}`}
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
-      {Array.isArray(result) ? <> {damage.outcomes?.map((outcome, index) =>
-        <span key={outcome.label}>{index > 0 && '; '}{outcome.label}: {result[index]} {damage.type}</span>)}</>
+      {Array.isArray(result) ? damage.components
+        ? <> {[{ type: damage.type }, ...damage.components].map((component, index) =>
+          <span key={index}>{index > 0 && '; '}{result[index]} {component.type}</span>)}</>
+        : <> {damage.outcomes?.map((outcome, index) =>
+          <span key={outcome.label}>{index > 0 && '; '}{outcome.label}: {result[index]} {damage.type}</span>)}</>
         : <> {damage.additional?.label && `${damage.label}: `}{typeof result === 'number' ? result : result.primary} {damage.type}
           {typeof result !== 'number' && damage.additional && <>{damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}{result.additional} {damage.additional.type}</>}</>}
     </output>}
