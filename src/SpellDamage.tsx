@@ -3,7 +3,7 @@ import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
 type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; persistentBleed?: number
-  additional?: { dice: number; sides: number; type: string }; outcomes?: { label: string; dice: number }[] }
+  additional?: { dice: number; sides: number; type: string; label?: string }; outcomes?: { label: string; dice: number }[] }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
@@ -18,10 +18,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
     case 'Bonewall Bulwark':
       return rank >= 3 ? [{ label: 'Wall attack', dice: rank, sides: 10, type: 'bludgeoning' }] : []
     case "Moth's Supper":
-      return rank >= 3 ? [
-        { label: '10-minute healing', dice: rank - 1, sides: 4, type: 'HP' },
-        { label: 'Treat Wounds bonus', dice: 2 * (rank - 1), sides: 4, type: 'HP' },
-      ] : []
+      return rank >= 3 ? [{ label: '10-minute healing', dice: rank - 1, sides: 4, type: 'HP',
+        additional: { label: 'Treat Wounds bonus', dice: 2 * (rank - 1), sides: 4, type: 'HP' } }] : []
     case 'Grim Tendrils':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
     case 'Shadow Army':
@@ -125,7 +123,7 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" className={actions ? 'spell-action-button' : undefined}
-      aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.persistentBleed !== undefined ? ` + ${damage.persistentBleed} persistent bleed` : ''}${damage.additional ? ` + ${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}`}
+      aria-label={`Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.persistentBleed !== undefined ? ` + ${damage.persistentBleed} persistent bleed` : ''}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}`}
       onClick={() => {
         if (damage.outcomes) {
           const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
@@ -140,8 +138,8 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
       {Array.isArray(result) ? <> {damage.outcomes?.map((outcome, index) =>
         <span key={outcome.label}>{index > 0 && '; '}{outcome.label}: {result[index]} {damage.type}</span>)}</>
-        : <> {typeof result === 'number' ? result : result.primary} {damage.type}
-          {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}</>}
+        : <> {damage.additional?.label && `${damage.label}: `}{typeof result === 'number' ? result : result.primary} {damage.type}
+          {typeof result !== 'number' && damage.additional && <>{damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}{result.additional} {damage.additional.type}</>}</>}
       {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed</>}
     </output>}
   </span>

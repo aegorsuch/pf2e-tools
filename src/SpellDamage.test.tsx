@@ -173,18 +173,31 @@ it.each([[3, 2, 4], [4, 3, 6], [10, 9, 18]])("rolls Moth's Supper at rank %i as 
     source: 'official', level: 3, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const rolls = spellActionRolls(entry.name, rank, entry)
   expect(rolls.map(roll => roll.damage)).toEqual([
-    { label: '10-minute healing', dice: healing, sides: 4, type: 'HP' },
-    { label: 'Treat Wounds bonus', dice: wounds, sides: 4, type: 'HP' },
+    { label: '10-minute healing', dice: healing, sides: 4, type: 'HP',
+      additional: { label: 'Treat Wounds bonus', dice: wounds, sides: 4, type: 'HP' } },
   ])
   const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
-  expect(markup.match(/<button /g)).toHaveLength(2)
-  expect(markup).toContain(`title="Two Actions; 10-minute healing: ${healing}d4 HP"`)
-  expect(markup).toContain(`title="Two Actions; Treat Wounds bonus: ${wounds}d4 HP"`)
-  vi.spyOn(Math, 'random').mockReturnValue(0)
-  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([healing, wounds])
-  vi.mocked(Math.random).mockReturnValue(0.999999)
-  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([healing * 4, wounds * 4])
+  expect(markup.match(/<button /g)).toHaveLength(1)
+  expect(markup).toContain('10-minute healing and Treat Wounds bonus')
+  expect(markup).toContain(`title="Two Actions; 10-minute healing: ${healing}d4 HP; Treat Wounds bonus: ${wounds}d4 HP"`)
   expect(spellDamage(entry.name, 2)).toEqual([])
+})
+
+it("rolls Moth's Supper healing independently with one click", () => {
+  const damage = spellDamage("Moth's Supper", 3)[0]
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: "Moth's Supper", damage, actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing healing roll')
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0.999999)
+  random.mockReturnValueOnce(0).mockReturnValueOnce(0)
+  button.props.onClick()
+  expect(random).toHaveBeenCalledTimes(6)
+  expect(save).toHaveBeenCalledWith({ primary: 2, additional: 16 })
+  vi.mocked(useState).mockReturnValueOnce([{ primary: 2, additional: 16 }, vi.fn()])
+  const markup = renderToStaticMarkup(<DamageRoll name="Moth's Supper" damage={damage} actions="Two Actions" />)
+  expect(markup).toContain('10-minute healing: 2 HP; Treat Wounds bonus: 16 HP')
 })
 
 it.each([[1, 2, 1], [4, 8, 4], [10, 20, 10]])('rolls Grim Tendrils rank %i as %id4 void and %i persistent bleed', (rank, dice, bleed) => {
