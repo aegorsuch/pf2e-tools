@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { blessedShieldBenefit, canEquipShield, championBlessings, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
+import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { Info, SourceNote } from './Info'
@@ -1042,6 +1042,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const shieldSource = shieldAttachmentSource(c, w)
         const scaleRunes = scaleOfIgroonWeaponRunes(c, shieldSource, w).map(rune =>
           enhanced.runes.find(existing => runeBaseName(existing) === runeBaseName(rune)) ?? rune)
+        const clanRunes = clanPistolRunes(c, w).map(rune =>
+          enhanced.runes.find(existing => runeBaseName(existing) === runeBaseName(rune)) ?? rune)
+        const grantedWeaponRunes = [...scaleRunes, ...clanRunes]
         const sourceWeapon = w.attachedTo ? weapons.find(weapon => weapon.id === w.attachedTo) : undefined
         const attachmentSource = shieldSource ?? sourceWeapon
         const attachmentName = shieldSource ? specificMagicItemName(shieldEntry(entries, shieldSource.name), shieldSource.name, true)
@@ -1096,12 +1099,13 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const grantedClanWeapon = isGrantedDwarfClanWeapon(c, entries, w)
         const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
-          : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : [...w.runes, ...scaleRunes] })
+          : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : [...w.runes, ...grantedWeaponRunes] })
         const iruxiGranted = unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
           && !effectiveWeapon({ ...c, feats: c.feats.filter(feat => feat.name !== 'Iruxi Spirit Strike') }, entries, w)
             .runes.some(rune => runeName(rune) === 'Ghost Touch')
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...scaleRunes.map(name => ({ name, source: 'Granted by Scale of Igroon' })),
+          ...clanRunes.map(name => ({ name, source: 'Granted by Clan Pistol' })),
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
           ...(iruxiGranted ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
@@ -1422,13 +1426,13 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
                 && (!iruxiGranted || runeName(rune) !== 'Ghost Touch')
                 && (!decaying || runeBaseName(rune) !== 'Decaying')
-                && !scaleRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))
+                && !grantedWeaponRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))
                 && !builtIn?.runes.includes(rune))}
               entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
-              limit={Math.max(0, maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity) - (builtIn?.runes.length ?? 0) - scaleRunes.length)} freeRunes={freeRunes}
+              limit={Math.max(0, maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity) - (builtIn?.runes.length ?? 0) - grantedWeaponRunes.length)} freeRunes={freeRunes}
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : linkedSource ? `Inherited from ${linkedSource.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || linkedSource ? undefined : (runes) => update(w.id, { runes: [
-                ...runes, ...w.runes.filter(rune => scaleRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))),
+                ...runes, ...w.runes.filter(rune => grantedWeaponRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))),
               ] })} />}
             <div className="row">
               {canUseInnovation && <label><input type="checkbox" aria-label={`Weapon Innovation: ${w.name}`} checked={!!w.inventorInnovation}

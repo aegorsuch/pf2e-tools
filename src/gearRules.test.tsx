@@ -1925,6 +1925,44 @@ it('grants a locked Dwarf clan dagger and adds a pistol only with the Clan Pisto
   }
 })
 
+it.each([
+  [7, []],
+  [8, ['Flaming']],
+  [9, ['Ashen', 'Flaming']],
+  [10, ['Ashen', 'Flaming', 'Impactful']],
+  [15, ['Ashen', 'Flaming (Greater)', 'Impactful']],
+  [16, ['Ashen (Greater)', 'Flaming (Greater)', 'Impactful']],
+  [17, ['Ashen (Greater)', 'Flaming (Greater)', 'Impactful (Greater)']],
+  [20, ['Ashen (Greater)', 'Flaming (Greater)', 'Impactful (Greater)', 'Impossible']],
+] as const)('scales granted Clan Pistol property runes at level %i', (level, runes) => {
+  const c: Character = { ...base, level, feats: [feat('Clan Pistol', 1)] }
+  const entries = [CLAN_PISTOL]
+  const pistol = ownedWeapons(c, entries).find(weapon => weapon.name === CLAN_PISTOL.name)!
+  expect(effectiveWeapon(c, entries, pistol).runes).toEqual(runes)
+  expect(weaponAttack(c, entries, pistol).range).toBe(level >= 20 ? 160 : 80)
+  const manual = { ...pistol, id: 'independent' }
+  expect(effectiveWeapon(c, entries, manual).runes).toEqual([])
+  expect(effectiveWeapon({ ...c, feats: [] }, entries, pistol).runes).toEqual([])
+})
+
+it('keeps Clan Pistol granted runes locked and retains previously saved runes', () => {
+  const entries = [CLAN_PISTOL]
+  let c: Character = { ...base, level: 10, feats: [feat('Clan Pistol', 1)] }
+  const pistol = ownedWeapons(c, entries).find(weapon => weapon.name === CLAN_PISTOL.name)!
+  c = { ...c, weapons: [{ ...pistol, stowed: false, runes: ['Greater Ashen', 'Flaming', 'Shock'] }] }
+  const effective = effectiveWeapon(c, entries, c.weapons![0])
+  expect(effective.runes).toEqual(['Shock', 'Ashen (Greater)', 'Flaming', 'Impactful'])
+  expect(c.weapons![0].runes).toEqual(['Greater Ashen', 'Flaming', 'Shock'])
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Granted by Clan Pistol')
+  expect(html).not.toContain('aria-label="Remove Ashen (Greater) rune"')
+  expect(html).not.toContain('aria-label="Remove Flaming rune"')
+  const offense = renderToStaticMarkup(<WeaponList c={{ ...c, level: 20 }} entries={entries} save={() => {}} displayOnly />)
+  expect(offense).toContain('1d8 persistent fire')
+  expect(offense).toContain('1d6 force')
+  expect(offense).toContain('160')
+})
+
 it('grants adopted Dwarves a clan dagger only while the house rule and adoption are active', () => {
   const old = getSettings()
   try {

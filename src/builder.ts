@@ -5019,6 +5019,16 @@ export function scaleOfIgroonWeaponRunes(c: Character, shield?: OwnedShield, wea
   return ['Shoving', 'Grievous', ...(c.level >= 10 ? [c.level >= 17 ? 'Impactful (Greater)' : 'Impactful'] : [])]
 }
 
+export function clanPistolRunes(c: Character, weapon: OwnedWeapon) {
+  if (weapon.id !== DWARF_CLAN_PISTOL_ID || !activeFeatsNamed(c, 'Clan Pistol').length) return []
+  return [
+    ...(c.level >= 9 ? [c.level >= 16 ? 'Ashen (Greater)' : 'Ashen'] : []),
+    ...(c.level >= 8 ? [c.level >= 15 ? 'Flaming (Greater)' : 'Flaming'] : []),
+    ...(c.level >= 10 ? [c.level >= 17 ? 'Impactful (Greater)' : 'Impactful'] : []),
+    ...(c.level >= 20 ? ['Impossible'] : []),
+  ]
+}
+
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (BATTLE_FORM_WEAPONS.some(entry => entry.id === weapon.id))
     return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
@@ -5047,7 +5057,15 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   }
   if (weapon.id === OVERSIZED_THROW.id) return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
   const clanGrant = dwarfClanWeaponGrants(c, entries).find(grant => grant.id === weapon.id)
-  if (clanGrant) weapon = { ...weapon, name: clanGrant.name, material: 'Orichalcum' }
+  if (clanGrant) {
+    const granted = clanPistolRunes(c, weapon)
+    const runes = [...weapon.runes.filter(rune => !granted.some(grant => runeBaseName(grant) === runeBaseName(rune))),
+      ...granted.map(rune => {
+        const greater = weapon.runes.find(saved => runeBaseName(saved) === runeBaseName(rune) && /\(Greater\)$/.test(runeName(saved)))
+        return greater ? runeName(greater) : rune
+      })]
+    weapon = { ...weapon, name: clanGrant.name, material: 'Orichalcum', runes }
+  }
   const forms = combinationForms(entries, weapon.name)
   const form = forms.find(entry => entry.name.endsWith(`(${weapon.combinationForm})`))
   if (form) {
