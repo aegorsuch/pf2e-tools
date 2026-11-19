@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
-type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number }
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Needle Darts':
-      return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing', criticalBleed: rank }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
@@ -82,6 +82,7 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
       {' '}{result} {damage.type}
+      {damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
   </span>
 }
