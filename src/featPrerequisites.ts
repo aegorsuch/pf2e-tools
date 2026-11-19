@@ -56,6 +56,12 @@ const met = (): PrerequisiteCheck => ({ missing: [], manual: [] })
 const missing = (text: string): PrerequisiteCheck => ({ missing: [text], manual: [] })
 const manual = (text: string): PrerequisiteCheck => ({ missing: [], manual: [text] })
 const satisfied = (result: PrerequisiteCheck) => !result.missing.length && !result.manual.length
+const prerequisiteText = (entry: ContentEntry) => {
+  const text = typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : ''
+  return entry.kind === 'feat' && key(entry.name) === 'numb to death'
+    ? text.split(';').filter(part => key(part).replace(/\.$/, '') !== 'you have died at least once').join(';')
+    : text
+}
 const rankSatisfied = (actual: number, required: number) => required === 0 ? actual === 0 : actual >= required
 const RANKS = ['untrained', 'trained', 'expert', 'master', 'legendary']
 const ABILITIES: Record<string, keyof Character['abilities']> = {
@@ -457,7 +463,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
           className: facts.className, ancestry: facts.ancestry, heritage: facts.heritage,
           ancestryTraits: facts.ancestryTraits, name: feat.name, category: feat.category, entryIds: context.entryIds,
         })
-        const requirements = [...new Set(sources.map((entry) => String(entry.data.prerequisite ?? '')))]
+        const requirements = [...new Set(sources.map(prerequisiteText))]
         return requirements.length > 1 ? manual(`Verify source version of ${text}`)
           : evaluate(requirements[0] ?? '', feat.level, next, undefined, sources.some(snarecrafter))
       })
@@ -522,7 +528,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   return (entry: ContentEntry): PrerequisiteCheck => {
     let result = results.get(entry)
     if (!result) {
-      result = evaluate(typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : '', context.level,
+      result = evaluate(prerequisiteText(entry), context.level,
         new Set([key(entry.name)]), undefined, snarecrafter(entry))
       results.set(entry, result)
     }

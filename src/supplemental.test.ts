@@ -151,7 +151,8 @@ it('offers Weapon Innovation Jousting to Inventors with an acquired weapon innov
   expect(eligibleFeats(entries, { ...c, subclass: 'Armor' }, slot)).not.toContain(feat)
   const secondary: Character = { ...c, subclass: 'Armor',
     feats: [{ name: 'Second Innovation', type: 'Class Feat', level: 8, choice: 'Weapon' }] }
-  expect(eligibleFeats(entries, secondary, slot)).not.toContain(feat)
+  expect(eligibleFeats(entries, secondary, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...secondary, feats: [] }, slot)).not.toContain(feat)
   expect(eligibleFeats(entries, secondary, { ...slot, key: 'class:8:0', level: 8 })).toContain(feat)
 })
 

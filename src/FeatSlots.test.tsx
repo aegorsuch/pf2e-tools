@@ -2361,6 +2361,24 @@ it('labels narrative prerequisites for manual review instead of claiming they ar
     .toContain('Winged Warrior Dedication (check prerequisites)')
 })
 
+it('does not request manual prerequisite review for Numb to Death', () => {
+  const diehard: ContentEntry = {
+    id: 'diehard', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Diehard', level: 1,
+    traits: ['General'], data: {}, description: '', effects: [], updatedAt: 1,
+  }
+  const numb: ContentEntry = { ...diehard, id: 'numb', name: 'Numb to Death', level: 7,
+    data: { prerequisite: 'Diehard; you have died at least once' } }
+  const c: Character = { ...emptyRanger(), level: 7,
+    feats: [{ name: 'Diehard', type: 'General Feat', level: 3, slot: 'general:3:0' }] }
+  const entries = [diehard, numb]
+  const available = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['general']} />)
+  expect(available).toContain('Numb to Death')
+  expect(available).not.toContain('Numb to Death (check prerequisites)')
+  const selected = { ...c, feats: [...c.feats, { name: numb.name, type: 'General Feat', level: 7, slot: 'general:7:0' }] }
+  expect(renderToStaticMarkup(<FeatSlots c={selected} entries={entries} save={() => {}} categories={['general']} />))
+    .not.toContain('Check prerequisites manually')
+})
+
 it.each([
   ['class', 'Druid', 'Human', 'Current Spell', 'Elementalist Dedication'],
   ['ancestry', 'Ranger', 'Dragonblood', 'Draconic Scent', 'Dragon Disciple Dedication'],

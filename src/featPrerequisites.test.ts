@@ -53,6 +53,20 @@ it('does not let Consult the Stars satisfy permanent skill prerequisites', () =>
   expect(check('trained in Deception', consult).missing).not.toEqual([])
 })
 
+it('omits Numb to Death narrative verification while retaining Diehard and other prerequisites', () => {
+  const diehard = entry('feat', 'Diehard', {}, 1, ['General'])
+  const numb = entry('feat', 'Numb to Death', { prerequisite: 'Diehard; you have died at least once; trained in Medicine' }, 7, ['General'])
+  const dependent = entry('feat', 'Deathly Follow-up', { prerequisite: 'Numb to Death' }, 9, ['General'])
+  const entries = [diehard, numb, dependent]
+  const c: Character = { ...base, level: 9, feats: [selected('Diehard')], skillPicks: ['Medicine'] }
+  expect(featPrerequisiteChecker(c, entries)(numb)).toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...c, feats: [] }, entries)(numb).missing).toEqual(['Diehard'])
+  expect(featPrerequisiteChecker({ ...c, skillPicks: [] }, entries)(numb).missing).toEqual(['trained in Medicine'])
+  expect(featPrerequisiteChecker({ ...c, feats: [...c.feats, selected('Numb to Death', 7)] }, entries)(dependent))
+    .toEqual({ missing: [], manual: [] })
+  expect(check('you have died at least once', c, entries).manual).toEqual(['you have died at least once'])
+})
+
 it('checks swim-Speed prerequisites against automatically calculated movement', () => {
   const swimmer: Character = { ...base, level: 4, className: 'Druid', feats: [selected('Natural Swimmer', 4)] }
   expect(check('You have a swim Speed', swimmer)).toEqual({ missing: [], manual: [] })
