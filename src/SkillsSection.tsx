@@ -397,6 +397,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : 'Imitate Fauna'}
             note={athleticRush ? '+2 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
+          {circumstance?.source === 'Hellknight Preferment' && <SourceNote source={circumstance.source}
+            note={`+${circumstance.value} circumstance bonus to Intimidation while wearing Hellknight armor.`} />}
           {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
             <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
@@ -543,7 +545,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         <span className="skill-part"><small>{ABILITY_LABEL[ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
         <span className="skill-part"><small>Item</small>{signed(item)}</span>
-        {circumstance && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
+        {circumstance && circumstance.source !== 'Hellknight Preferment' && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
       </div>
     )
   })

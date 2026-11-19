@@ -205,6 +205,22 @@ it.each([false, true])('shows Eye for Treasure as a conditional Crafting total d
     entries={[ranger]} save={() => {}} />)).not.toContain('aria-label="Eye for Treasure note"')
 })
 
+it('shows Hellknight Preferment at the Intimidation total instead of a separate circumstance column', () => {
+  const plate: ContentEntry = { ...ranger, id: 'hellknight', kind: 'armor', name: 'Hellknight Plate',
+    data: { armor_category: 'Heavy', armor_group: 'Plate' } }
+  const c: Character = { ...base, level: 7, feats: [{ name: 'Hellknight Preferment', type: 'Archetype Feat', level: 6 }],
+    armors: [{ id: 'armor', name: plate.name, worn: true, potency: 0, resilient: 0, runes: [] }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger, plate]} save={() => {}} />)
+  const markup = render(c)
+  expect(markup).toContain('Intimidation <b>+12<button')
+  expect(markup).toContain('aria-label="Hellknight Preferment note"')
+  expect(markup).toContain('+1 circumstance bonus to Intimidation while wearing Hellknight armor.')
+  expect(markup).not.toContain('<small>Circumstance</small>+1')
+  const notWorn = render({ ...c, armors: [{ ...c.armors![0], worn: false }] })
+  expect(notWorn).toContain('Intimidation <b>+11')
+  expect(notWorn).not.toContain('aria-label="Hellknight Preferment note"')
+})
+
 it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 5 plus your Intelligence modifier' } }
