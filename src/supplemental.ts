@@ -21,6 +21,11 @@ export const DISARMING_RUNE: ContentEntry = {
   description: "Curved markings guide this weapon around an opponent's grip. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the disarm trait. Attempt Disarm with the weapon's reach without needing a free hand, and add its item bonus to attack rolls to the Athletics check. On a critical failure, you may drop the weapon to take a failure instead.",
 }
 
+export const SHOVING_RUNE: ContentEntry = {
+  ...GRAPPLING_RUNE, id: 'homebrew:shoving-rune', name: 'Shoving',
+  description: "Forceful markings help drive opponents back. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the shove trait. Attempt to Shove with the weapon's reach without needing a free hand, and add its item bonus to attack rolls to the Athletics check. On a critical failure, you may drop the weapon to take a failure instead.",
+}
+
 export const PARRYING_RUNE: ContentEntry = {
   ...GRAPPLING_RUNE, id: 'homebrew:parrying-rune', name: 'Parrying',
   description: 'Defensive markings guide this weapon into a guarding position. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the parry trait. If you are trained or better with this weapon, you can spend one action while wielding it to gain a +1 circumstance bonus to AC until the start of your next turn. This bonus does not stack with other circumstance bonuses to AC.',

@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Character, ContentEntry } from './types'
-import { DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, removeColdIronTusks } from './supplemental'
+import { DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, removeColdIronTusks } from './supplemental'
 
 export const db = new Dexie('2e-builder') as Dexie & {
   characters: EntityTable<Character, 'id'>
@@ -40,10 +40,10 @@ export async function ensureSupplementalContent() {
       const group = groups.find(candidate => candidate.id === gear.data.group && candidate.kind === `${gear.kind}Group`)
       if (group && !gear.data[field]) await db.content.put({ ...gear, data: { ...gear.data, [field]: group.name }, updatedAt: Date.now() })
     }
-    for (const entry of [DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, KILLERS_BELT_MAJOR, ...HUNTERS_ARROWHEADS, ...homebrewCompanions(bases), ...homebrewWeapons(bases), ...homebrewCharacterOptions(bases)]) {
+    for (const entry of [DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, SHOVING_RUNE, KILLERS_BELT_MAJOR, ...HUNTERS_ARROWHEADS, ...homebrewCompanions(bases), ...homebrewWeapons(bases), ...homebrewCharacterOptions(bases)]) {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
-      else if (['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, KILLERS_BELT_MAJOR.id,
+      else if (['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, SHOVING_RUNE.id, KILLERS_BELT_MAJOR.id,
         'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
         'homebrew:persistent-magic-hide'].includes(entry.id)

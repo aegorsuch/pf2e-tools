@@ -4623,7 +4623,7 @@ export function armorGauntlet(c: Character, entries: ContentEntry[]) {
 export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking', 'Mythic Striking']
 export const WEAPON_PROPERTY_RUNES = [
   'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disarming', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
-  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Parrying', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Speed', 'Thundering',
+  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Parrying', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Shoving', 'Speed', 'Thundering',
   'Unholy', 'Vorpal', 'Wounding',
 ]
 export const ARMOR_PROPERTY_RUNES = [
@@ -4675,6 +4675,7 @@ const FALLBACK_RUNE_USAGE: Record<string, string> = {
   Disarming: 'etched onto a melee weapon',
   Parrying: 'etched onto a melee weapon',
   Grappling: 'etched onto a melee weapon',
+  Shoving: 'etched onto a melee weapon',
   Wounding: 'etched onto a piercing or slashing melee weapon',
   Returning: 'etched onto a thrown weapon',
   Shifting: 'etched onto a melee weapon',
@@ -5005,6 +5006,11 @@ export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], w
   })
 }
 
+export function scaleOfIgroonWeaponRunes(c: Character, shield?: OwnedShield, weapon?: OwnedWeapon) {
+  if (!shield || !isScaleOfIgroonShield(shield.name) || !weapon || weapon.name === SHIELD_BASH.name) return []
+  return ['Shoving', 'Grievous', ...(c.level >= 10 ? [c.level >= 17 ? 'Impactful (Greater)' : 'Impactful'] : [])]
+}
+
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (BATTLE_FORM_WEAPONS.some(entry => entry.id === weapon.id))
     return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
@@ -5016,9 +5022,13 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
       : shieldAllowsUpgrades(shield) ? shield.material?.name : undefined
     if (weapon.name === SHIELD_BASH.name) return { ...weapon, material, potency: 0, striking: 0, runes: [] }
     const automatic = automaticWeaponFundamentals(c.level)
+    const granted = scaleOfIgroonWeaponRunes(c, shield, weapon)
+    const runes = [...weapon.runes.filter(rune => !granted.some(grant => runeBaseName(grant) === runeBaseName(rune))),
+      ...granted.map(rune => rune === 'Impactful' && weapon.runes.some(saved => runeName(saved) === 'Impactful (Greater)')
+        ? 'Impactful (Greater)' : rune)]
     return withBlessedArmament(c, entries, { ...weapon, material,
       potency: Math.max(weapon.potency, automatic.potency),
-      striking: Math.max(weapon.striking, automatic.striking) })
+      striking: Math.max(weapon.striking, automatic.striking), runes })
   }
   if (weapon.attachedTo) {
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
@@ -5320,6 +5330,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && !traits.includes('grapple') ? ['Grapple'] : []),
       ...(w.runes.some((rune) => runeName(rune) === 'Disarming') && weaponRuneApplies(entries, w, 'Disarming')
         && !traits.includes('disarm') ? ['Disarm'] : []),
+      ...(w.runes.some((rune) => runeName(rune) === 'Shoving') && weaponRuneApplies(entries, w, 'Shoving')
+        && !traits.includes('shove') ? ['Shove'] : []),
       ...(w.runes.some((rune) => runeName(rune) === 'Parrying') && weaponRuneApplies(entries, w, 'Parrying')
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(activeFeatsNamed(c, 'Raise Haft').length > 0 && weaponHands(entries, w, c) === 2

@@ -6,7 +6,7 @@ import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 
@@ -897,6 +897,46 @@ it('automates shield weapon enhancements without helper text and preserves edita
   expect(c.shield?.attachedWeapon).toBeUndefined()
 })
 
+it.each(['Scale of Igroon', 'Scale of Igroon (Fortress Shield)'])('grants scaling runes to %s attachments without changing saved runes', shieldName => {
+  const boss: ContentEntry = { ...weapon, id: 'boss', name: 'Shield Boss', traits: ['Attached'],
+    data: { hands: 1, damage: '1d6 bludgeoning', weapon_group: 'Shield' } }
+  const entries = [boss, SHOVING_RUNE]
+  let c: Character = { ...character([]), level: 9, weapons: [],
+    shield: { id: 'scale', name: shieldName, hardness: 20, hp: 160, damage: 0, raised: false,
+      attachedWeapon: { id: 'boss', name: 'Shield Boss', potency: 0, striking: 0, runes: ['Shoving', 'Flaming'] } } }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const attached = () => ownedWeapons(c, entries).find(w => w.id === 'boss')!
+  const effective = () => effectiveWeapon(c, entries, attached())
+  expect(effective().runes).toEqual(['Flaming', 'Shoving', 'Grievous'])
+  expect(weaponAttack(c, entries, attached()).traits).toContain('Shove')
+  const render = (displayOnly = false) => renderToStaticMarkup(<WeaponList c={c} entries={entries} save={save} displayOnly={displayOnly} />)
+  expect(render()).toContain('Granted by Scale of Igroon')
+  expect(render()).not.toContain('aria-label="Remove Shoving rune"')
+  expect(render()).not.toContain('aria-label="Remove Grievous rune"')
+  expect(c.shield?.attachedWeapon?.runes).toEqual(['Shoving', 'Flaming'])
+  c = { ...c, level: 10 }
+  expect(effective().runes).toContain('Impactful')
+  expect(render(true)).toContain('1d6 force')
+  c = { ...c, level: 17 }
+  expect(effective().runes).toContain('Impactful (Greater)')
+  expect(effective().runes).not.toContain('Impactful')
+  c = { ...c, level: 10, shield: { ...c.shield!, attachedWeapon: { ...c.shield!.attachedWeapon!,
+    runes: ['Greater Impactful', 'Shoving', 'Flaming'] } } }
+  expect(effective().runes).toContain('Impactful (Greater)')
+  expect(effective().runes.filter(rune => /Impactful/i.test(rune))).toHaveLength(1)
+  const card = findElement(WeaponList({ c, entries, save }), e => e.props['aria-label'] === `Shield Boss (Attached to ${shieldName} Shield)`)
+    ?? findElement(WeaponList({ c, entries, save }), e => typeof e.props['aria-label'] === 'string'
+      && e.props['aria-label'].startsWith('Shield Boss (Attached to'))
+  const controls = findElement(card, e => Array.isArray(e.props.runes) && typeof e.props.onChange === 'function')!
+  ;(controls.props.onChange as (runes: string[]) => void)([])
+  expect(c.shield!.attachedWeapon!.runes).toEqual(['Greater Impactful', 'Shoving'])
+  c = { ...c, shield: { ...c.shield!, name: 'Steel Shield' } }
+  expect(effective().runes).toEqual(['Greater Impactful', 'Shoving'])
+  c = { ...c, shield: { ...c.shield!, name: shieldName, attachedWeapon: undefined } }
+  const bash = ownedWeapons(c, entries).find(w => w.attachedTo === 'scale')!
+  expect(effectiveWeapon(c, entries, bash).runes).toEqual([])
+})
+
 it('defaults to Shield Bash without extra hands or weapon enhancements', () => {
   const c: Character = { ...character([]), level: 20, weapons: [],
     shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false,
@@ -1582,7 +1622,7 @@ it('omits rune names from multiple damage notes in editable and display-only vie
   }
 })
 
-it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple'], ['Disarming', 'Disarm']])('adds %s %s trait without extra damage or duplicating a natural trait', (rune, trait) => {
+it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple'], ['Disarming', 'Disarm'], ['Shoving', 'Shove']])('adds %s %s trait without extra damage or duplicating a natural trait', (rune, trait) => {
   const c = character([])
   c.weapons![0].runes = [rune]
   for (const traits of [[], [trait]]) {
@@ -1598,6 +1638,7 @@ it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple'], ['Disarming', 'Disarm']])
 it.each([
   { rune: GRAPPLING_RUNE, trait: 'Grapple', note: 'you can attempt to Grapple the target as a reaction' },
   { rune: DISARMING_RUNE, trait: 'Disarm', note: 'The weapon gains the disarm trait.' },
+  { rune: SHOVING_RUNE, trait: 'Shove', note: 'The weapon gains the shove trait.' },
 ])('offers $rune.name only for melee weapons and shows its homebrew rules', ({ rune, trait, note }) => {
   const c = character([])
   c.weapons![0].runes = []
