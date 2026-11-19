@@ -127,6 +127,8 @@ describe('Witchwarper class setup', () => {
     expect(html).toContain('Spell Repertoire')
     expect(html).toContain('Spell Rank 1 (3/4 slots)')
     expect(html).toContain('aria-label="Cast rank for Arcane Bolt"')
+    expect(html.indexOf('>Arcane Bolt</button>')).toBeLessThan(html.indexOf('>Sure Strike</button>'))
+    expect(html).toContain('aria-label="Signature spell rank 1 choice 2"')
     expect(html).toContain('value="2">Rank 2')
     expect(html).toContain('Warp Probability')
     const rankOneChoices = /<select aria-label="Witchwarper rank 1 spell 3"[^>]*>([\s\S]*?)<\/select>/.exec(html)?.[1] ?? ''

@@ -113,6 +113,30 @@ it('uses each prepared slot rank for Grisly Growths damage', () => {
   expect(html).toContain('title="Two Actions; Damage: 14d6 piercing"')
 })
 
+it('sorts prepared spells by name within each rank without changing slot identities', () => {
+  const zap = spell('Zap', 1, 'Occult', ['Cantrip'])
+  const needle = { ...spell('Needle Darts', 1, 'Occult', ['Cantrip']),
+    data: { tradition: 'Occult', actions: 'Two Actions' } }
+  const fear = spell('Fear')
+  const bane = spell('Bane')
+  const entries = [zap, needle, fear, bane, spell('Harm')]
+  const c: Character = { ...base, level: 3,
+    spells: [zap, needle, fear, bane].map(entry => ({ name: entry.name, entryId: entry.id,
+      rank: entry.level, cantrip: entry.traits.includes('Cantrip') })),
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: {},
+      prepared: { '0:0': 'Zap', '0:2': 'Needle Darts', '1:0': 'Fear', '1:1': 'Bane' },
+      spentSlots: ['1:0'] } }
+  const before = JSON.stringify(c)
+  const html = render(c, entries)
+  const slots = html.slice(html.indexOf('<b>Class Spell Slots</b>'))
+  expect(slots.indexOf('>Needle Darts</button>')).toBeLessThan(slots.indexOf('>Zap</button>'))
+  expect(slots.indexOf('>Bane</button>')).toBeLessThan(slots.indexOf('>Fear</button>'))
+  expect(slots).toContain('title="Two Actions; Damage: 4d4 piercing"')
+  expect(slots).toMatch(/aria-label="Cast spell slot rank 1 slot 1"[^>]*disabled|disabled="" aria-label="Cast spell slot rank 1 slot 1"/)
+  expect(slots).toContain('aria-label="Cast spell slot rank 1 slot 2"')
+  expect(JSON.stringify(c)).toBe(before)
+})
+
 it('shows Execute damage in the prepared Necromancer spell slot', () => {
   const execute = { ...spell('Execute', 7, 'Divine'), data: { tradition: 'Divine', actions: 'Two Actions' } }
   const c: Character = { ...base, level: 13, feats: [taken('Expanded Necromancy', 10)],

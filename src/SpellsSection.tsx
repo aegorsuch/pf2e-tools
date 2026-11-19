@@ -370,6 +370,10 @@ function SpellColumns() {
   </div>
 }
 
+function compareSelectedSpells(a: string, b: string) {
+  return a && b ? a.localeCompare(b) : a ? -1 : b ? 1 : 0
+}
+
 export function SelectedSlotSpell({ name, entry, onClear, disabled = false, source }: {
   name: string; entry?: ContentEntry; onClear?: () => void; disabled?: boolean; source?: string
 }) {
@@ -586,7 +590,10 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
         <h5>{rank === 0 ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})`
           : `Spell Rank ${rank} (${available}/${slots[rank]} slots)`}</h5>
         <SpellColumns />
-        <ul>{known.filter(slot => slot.rank === rank).map((slot, index) => {
+        <ul>{known.filter(slot => slot.rank === rank).map((slot, index) => ({ slot, index }))
+          .sort((a, b) => compareSelectedSpells(a.slot.entry?.name ?? a.slot.granted ?? a.slot.value,
+            b.slot.entry?.name ?? b.slot.granted ?? b.slot.value))
+          .map(({ slot, index }) => {
           const choices = uniqueSpellNames([
             ...(slot.entry && options[rank].some(entry => entry.id === slot.entry?.id) ? [slot.entry] : []),
             ...options[rank].filter(entry => !known.some(other => other.key !== slot.key
@@ -1045,7 +1052,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]
-              const restricted = !!extra
               const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
                 - extras.length
               const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
@@ -1056,6 +1062,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
               const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
                 : spellIndex.byId.get(selectedValue) ?? spellIndex.byName.get(selectedValue)
+              return { index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }
+            }).sort((a, b) => compareSelectedSpells(a.selectedSpell?.name ?? a.selectedEntry?.name ?? a.selectedValue,
+              b.selectedSpell?.name ?? b.selectedEntry?.name ?? b.selectedValue))
+              .map(({ index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }) => {
+              const restricted = !!extra
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
               const spent = sc.spentSlots?.includes(slotKey) ?? false
               const selectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
