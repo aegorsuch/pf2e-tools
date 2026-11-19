@@ -393,6 +393,8 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
         }
         if (category === 'animal-companion' && typeof s.markdown === 'string') {
           const comp = parseCompanion(s.markdown)
+          const about = parseDeityAbout(s.markdown)
+          if (about) s.about = about
           if (comp.attacks) s.companion_attacks = comp.attacks
           if (comp.support) s.companion_support = comp.support
           if (comp.maneuver) s.companion_maneuver = comp.maneuver

@@ -617,6 +617,7 @@
 .companion-action-group, .companion-action { display: grid; gap: 0.25rem; }
 .companion-action-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .companion-description, .companion-action-description, .companion-action-requirements { margin: 0; text-align: left; }
+.companion-description { white-space: pre-line; }
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .rune { display: inline-flex; align-items: center; }

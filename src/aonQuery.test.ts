@@ -335,6 +335,21 @@ it('parses the linked action record for a companion advanced maneuver', () => {
   })
 })
 
+it('imports full companion introductions while keeping stat blocks separate', async () => {
+  const markdown = '<title>Example</title>\n\n**Source** Sample Book\n\nFirst full paragraph.\n\nSecond paragraph.\n\n<column gap="tiny">\n**Size** Small\n</column>'
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'animal-companion' ? [{ _id: 'example',
+      _source: { category, name: 'Example', summary: 'First...', markdown } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries[0].description).toBe('First full paragraph.\n\nSecond paragraph.')
+  expect(mapAonHit({ _source: { category: 'animal-companion', name: 'Example', summary: 'Fallback' } }, 'pf2e')?.description)
+    .toBe('Fallback')
+})
+
 it('loads companion maneuver action costs, requirements, and descriptions from AoN', async () => {
   const fetchFn: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {

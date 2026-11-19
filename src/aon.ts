@@ -97,7 +97,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     name,
     level,
     traits,
-    description: kind === 'ancestry' && text(s.about) ? text(s.about)
+    description: (kind === 'ancestry' || kind === 'companion') && text(s.about) ? text(s.about)
       : (['feat', 'heritage', 'background', 'spell', 'ritual', 'trait', 'classFeature', 'armorGroup', 'companionSpec', 'companionAdv', 'subclass'].includes(kind)
       || kind === 'familiar' || usesFullItemRules(s)) && markdown.trim()
       ? (kind === 'familiar' ? familiarRules : markdown).split(/\n\s*\n/).map(plain).filter(Boolean).join('\n\n') : text(s.summary),
