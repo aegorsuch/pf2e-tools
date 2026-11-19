@@ -399,6 +399,12 @@ export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: b
   }
   return change
 }
+export function shieldCoverAcBonus(entries: ContentEntry[], shield: OwnedShield) {
+  if (/\btower shield\b/i.test(shield.name) || /\bfortress shield\b/i.test(shield.name)) return 4
+  const description = shieldEntry(entries, shield.name)?.description ?? ''
+  const match = /(?:take cover[^.\n]*\+(\d+)[^.\n]*(?:bonus|AC)|\+(\d+)[^.\n]*(?:bonus|AC)[^.\n]*take cover)/i.exec(description)
+  return match ? Number(match[1] ?? match[2]) : 0
+}
 export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   const shield = equippedShield(c)
   if (!shield) return 0
@@ -406,8 +412,9 @@ export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   const bonus = num(entry?.data.ac)
   const normal = bonus > 0 ? bonus : isBucklerShield(shield.name) ? 1 : 2
   const elegant = isBucklerShield(shield.name) && normal === 1 && activeFeatsNamed(c, 'Elegant Buckler').length ? 1 : 0
-  const cover = shield.name === SCALE_OF_IGROON_FORTRESS && shieldRaised(c) && shield.takingCover ? 1 : 0
-  return normal + elegant + cover
+  const cover = shieldRaised(c) && (shield.takingCover || activeFeatsNamed(c, 'Great Shield Mastery').length > 0)
+    ? shieldCoverAcBonus(entries, shield) : 0
+  return Math.max(normal + elegant, cover)
 }
 export const isBucklerShield = (name: string) => /buckler/i.test(name)
 export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {

@@ -124,6 +124,28 @@ it('builds a Fortress Shield variant that retains Scale of Igroon effects and ad
   expect(markup).toContain('Take Cover (+1 AC)')
 })
 
+it('automatically applies Great Shield Mastery while eligible shields are raised', () => {
+  const feat = { name: 'Great Shield Mastery', type: 'Class Feat', level: 20 }
+  const tower: ContentEntry = { ...fortressShield, id: 'tower', name: 'Tower Shield', data: { ac: 2 } }
+  const other: ContentEntry = { ...tower, id: 'other', name: 'Custom Cover Shield',
+    description: 'Take Cover behind this shield to gain a +5 circumstance bonus to AC.' }
+  const ordinary: ContentEntry = { ...tower, id: 'ordinary', name: 'Steel Shield' }
+  const allEntries = [...entries, tower, other, ordinary]
+  for (const [name, base, cover] of [[tower.name, 2, 4], [fortressShield.name, 3, 4],
+    [SCALE_OF_IGROON_FORTRESS, 3, 4], [other.name, 2, 5], [ordinary.name, 2, 2]] as const) {
+    const shield: OwnedShield = { id: name, name, hardness: 6, hp: 24, damage: 0, equipped: true, raised: true }
+    const c = { ...character, shield, feats: [feat] }
+    expect(shieldAcBonus(c, allEntries)).toBe(cover)
+    expect(shieldAcBonus({ ...c, shield: { ...shield, raised: false } }, allEntries)).toBe(base)
+    expect(shieldAcBonus({ ...c, feats: [] }, allEntries)).toBe(base)
+    expect(shieldAcBonus({ ...c, level: 19 }, allEntries)).toBe(base)
+    expect(armorClass(c, allEntries) - armorClass({ ...c, shield: { ...shield, raised: false } }, allEntries)).toBe(cover)
+  }
+  const c = { ...character, shield: { ...shield, name: SCALE_OF_IGROON_FORTRESS, raised: true }, feats: [feat] }
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={allEntries} save={() => {}} part="shield" />))
+    .not.toContain('aria-label="Taking Cover behind Fortress Shield"')
+})
+
 it('applies passive armor defenses only while worn, including legacy equipment-only saves', () => {
   for (const [name, damage, value, resilient] of [[embrace.name, 'Negative', 25, 3], [bane.name, 'Poison', 10, 2], [artifact.name, 'Poison', 15, 3]] as const) {
     const c = { ...character, armors: [owned(name)], equipment: [{ name, qty: 1 }] }

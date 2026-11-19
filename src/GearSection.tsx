@@ -1812,7 +1812,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               +4 HP
             </button>}
           </div>
-          {shield.name === SCALE_OF_IGROON_FORTRESS && <label>
+          {shield.name === SCALE_OF_IGROON_FORTRESS && !activeFeatsNamed(c, 'Great Shield Mastery').length && <label>
             <input type="checkbox" aria-label="Taking Cover behind Fortress Shield"
               checked={equipped?.id === shield.id && !!shield.takingCover}
               disabled={equipped?.id !== shield.id || !shieldRaised(c)}
