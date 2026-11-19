@@ -1714,8 +1714,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 note="Land Speed gains hover; Fly Speed 10 feet while worn." />}
             <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
-            {entry?.description && !entry.data.named_armor && <Info label="Summary">{entry.description}</Info>}
-            <NamedArmorAbilities entry={entry} />
+            {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
+            <NamedArmorAbilities entry={entry} inlineSummary />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
             {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
 import { classSpellcasting, classSpellSlots, druidSpellList } from './builder'
-import { SelectedSlotSpell, SpellsSection } from './SpellsSection'
+import { SelectedSlotSpell, SpellsSection, SpellsSummary } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -19,6 +19,17 @@ const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must not rewrite character data') }} />)
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
+
+it('shows selected and available spell slots until all are filled', () => {
+  const summary = (c: Character) => renderToStaticMarkup(<SpellsSummary c={c} entries={[]} />)
+  expect(summary(base)).toContain('0/7 spells')
+  const spellcasting = { ability: 'wis' as const, tradition: 'Primal', rank: 1, slots: {},
+    prepared: { '0:0': 'Light', '0:1': 'Light', '1:0': 'Heal', '1:9': 'Stale' } }
+  expect(summary({ ...base, spellcasting })).toContain('3/7 spells')
+  expect(summary({ ...base, spellcasting: { ...spellcasting, prepared: {
+    '0:0': 'Light', '0:1': 'Light', '0:2': 'A', '0:3': 'B', '0:4': 'C', '1:0': 'Heal', '1:1': 'Heal',
+  } } })).toContain('7 spells')
+})
 
 it('opens selected spells by name and confirms clearing without affecting locked slots', () => {
   const clear = vi.fn()

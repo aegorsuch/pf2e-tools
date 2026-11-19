@@ -78,12 +78,23 @@ it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Per
   expect(perceptionItemBonus({ ...c, armors: [{ ...c.armors[0], worn: false }] }, entries)).toBe(0)
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
   expect(html).toContain('>Ancestral Embrace Leather Armor</button>')
+  expect(html).toContain('<small>This +4 major resilient leather armor grants negative resistance 25 when invested.</small>')
+  expect(html).not.toContain('<summary>Summary')
+  expect(html).toContain('<summary>Activation')
   expect(html).toContain('Moonweave (Major)')
   expect(html).toContain('Sunweave (Major)')
   expect(html).not.toContain('aria-label="Remove Moonweave (Major) rune"')
   expect(html).not.toContain('aria-label="Remove Sunweave (Major) rune"')
   expect(c.armors[0].name).toBe('Ancestral Embrace')
   expect(c.armors[0].runes).toEqual([])
+})
+
+it('shows ordinary armor descriptions without a Summary toggle', () => {
+  const described = { ...leather, description: 'Flexible leather armor.' }
+  const c = { ...character, armors: [owned(described.name)] }
+  const html = renderToStaticMarkup(<ArmorList c={c} entries={[described]} save={() => {}} part="armor" />)
+  expect(html).toContain('<small>Flexible leather armor.</small>')
+  expect(html).not.toContain('<summary>Summary</summary>')
 })
 
 it('derives named armor bases, fundamental runes, elven construction, and immutable source metadata', () => {

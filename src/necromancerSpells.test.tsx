@@ -98,6 +98,7 @@ it('adds familiar spell benefits without adding Dirge choices or overwriting sav
   }
   const html = render(c, entries)
   expect(html).toContain('aria-label="Cast spell slot rank 1 slot 3"')
+  expect(html).toContain('<strong>Spells</strong><span>3/16 spells</span>')
   expect(html).toContain('aria-label="Clear Guidance spell slot"')
   expect(necromancerDirge(c, entries).map(entry => entry.name)).toEqual(['Guidance', 'Harm'])
   const advanced = render({ ...c, level: 9 }, entries)

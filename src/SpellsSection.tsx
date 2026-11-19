@@ -798,25 +798,29 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const { manualSpells, granted, focus, innate, items } = data ?? spellSummaryData(c, entries)
   const baseSlots = classSpellSlots(c)
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
-  const slots = baseSlots ? { ...baseSlots } : undefined
-  if (slots && benefits.cantrip && !witchwarperParadox(c)) slots[0] = (slots[0] ?? 0) + 1
-  if (slots && benefits.batteryRank !== undefined) slots[benefits.batteryRank] = (slots[benefits.batteryRank] ?? 0) + 1
-  const extraSlots = slots ? necromancerExtraSlots(c) : []
-  const prepared = Object.entries(c.spellcasting?.prepared ?? {}).filter(([key, value]) => {
-    if (key === 'familiar-cantrip-connection') return value && benefits.cantrip
-    if (key.startsWith('familiar-spell-battery:')) return value && key === `familiar-spell-battery:${benefits.batteryRank}`
-    const [rank, index] = key.split(':').map(Number)
-    return value && Number.isInteger(index) && index >= 0
-      && index < (baseSlots?.[rank] ?? 0) - extraSlots.filter(slot => slot.rank === rank).length
-  })
-  const classSpells = witchwarperParadox(c)
-    ? new Set(witchwarperRepertoireSlots(c, benefits.cantrip).flatMap(slot => slot.granted ? [slot.granted] : slot.value ? [slot.value] : [])).size
-    : slots ? new Set([...prepared.map(([, value]) => value), ...extraSlots.map(slot =>
-      entries.find(entry => entry.kind === 'spell' && entry.name === slot.spell
-        && !entry.deleted && entry.systems.some(system => c.systems.includes(system)))?.id ?? slot.spell)]).size : manualSpells.length
+  const witchwarper = witchwarperParadox(c)
+  const slots = baseSlots ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
+  const extraSlots = baseSlots ? necromancerExtraSlots(c) : []
+  const choices = witchwarper ? witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => !!(slot.granted || slot.value))
+    : slots ? Array.from({ length: 11 }, (_, rank) => {
+      const baseCount = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
+      const extras = extraSlots.filter(slot => slot.rank === rank)
+      const count = baseCount + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank)
+      const normalCount = baseCount - extras.length
+      return Array.from({ length: count }, (_, index) => {
+        const extra = extras[index - (count - extras.length)]
+        const key = extra?.key ?? (index === normalCount && rank === 0 && benefits.cantrip
+          ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
+            ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
+        return !!extra || !!c.spellcasting?.prepared?.[key]
+      })
+    }).flat() : []
+  const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length + items.length
+  const selected = (slots || witchwarper ? choices.filter(Boolean).length : manualSpells.length) + otherSpells
+  const total = choices.length + otherSpells
   return <summary className="character-section-summary">
     <strong>Spells</strong>
-    <span>{classSpells + new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size + innate.length + items.length} spells
+    <span>{choices.length && selected < total ? `${selected}/${total}` : selected} spells
       {c.className === 'Champion' && c.level >= 1 && !focus.some(spell => spell.source === 'Devotion Spells') && ' · Choose devotion spell'}</span>
   </summary>
 }

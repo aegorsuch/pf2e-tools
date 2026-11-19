@@ -5,7 +5,7 @@ import type { Character, ContentEntry } from './types'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSetup, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
 import { additionalSkillCount, automaticFeatGrants, classSpellcasting, classSpellSlots, focusSpells, speed } from './builder'
 import { mapAonHit } from './aon'
-import { SpellsSection } from './SpellsSection'
+import { SpellsSection, SpellsSummary } from './SpellsSection'
 
 const base: Character = {
   id: 'witchwarper', name: 'Witchwarper', className: 'Witchwarper', subclass: 'Analyst',
@@ -15,6 +15,14 @@ const base: Character = {
 }
 
 describe('Witchwarper class setup', () => {
+  it('counts granted and selected repertoire slots alongside unfilled choices', () => {
+    const render = (c: Character) => renderToStaticMarkup(createElement(SpellsSummary, { c, entries: [] }))
+    expect(render(base)).toContain('3/9 spells')
+    const c = { ...base, spellcasting: { ability: 'int' as const, tradition: 'Arcane', rank: 1, slots: {},
+      repertoire: { '0:1': 'chosen', '1:1': 'chosen' } } }
+    expect(render(c)).toContain('5/9 spells')
+  })
+
   it.each([
     ['Analyst', 'Computers', 'Arcane', 'Warp Probability'],
     ['Anomaly', 'Deception', 'Arcane', 'Warp Terrain'],
