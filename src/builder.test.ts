@@ -2132,6 +2132,21 @@ describe('archetype rules', () => {
     expect(names(has())).toEqual(['Medic Dedication', 'Wild Hunter Dedication'])
     expect(names(has('Wild Hunter Dedication'))).toEqual(['Living Weapon', 'Medic Dedication'])
   })
+  it('grants both Commander dedications through their independent house rules', () => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    const commander = { ...base, className: 'Commander', level: 2 }
+    updateSettings({ commanderBeastmaster: true, commanderCavalier: true, freeArchetype: true })
+    expect(activeHomebrewDedications(commander).map(rule => rule.name)).toEqual(['Beastmaster Dedication', 'Cavalier Dedication'])
+    expect(plannedSlots(commander).map(slot => slot.key)).toEqual(expect.arrayContaining(['archetype:2:g93', 'archetype:2:g91']))
+    expect(plannedSlots(commander).map(slot => slot.key)).not.toContain('archetype:2:0')
+    updateSettings({ commanderCavalier: false })
+    expect(activeHomebrewDedications(commander).map(rule => rule.name)).toEqual(['Beastmaster Dedication'])
+    updateSettings({ commanderCavalier: true, commanderBeastmaster: false, freeArchetype: false })
+    expect(activeHomebrewDedications(commander).map(rule => rule.name)).toEqual(['Cavalier Dedication'])
+    expect(activeHomebrewDedications({ ...commander, level: 1 })).toEqual([])
+    expect(activeHomebrewDedications({ ...commander, className: 'Fighter' })).toEqual([])
+  })
   it('accepts shared Cavalier feats through either dedication and counts them toward dedication requirements', () => {
     const previous = getSettings().ignoreArchetypeFeatMinimums
     onTestFinished(() => updateSettings({ ignoreArchetypeFeatMinimums: previous }))

@@ -434,6 +434,7 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'championBeastmaster', className: 'Champion', name: 'Beastmaster Dedication', slot: 'archetype:2:g94', replacesFreeArchetype: true },
   { setting: 'commanderBeastmaster', className: 'Commander', name: 'Beastmaster Dedication', slot: 'archetype:2:g93', replacesFreeArchetype: true },
   { setting: 'druidBeastmaster', className: 'Druid', name: 'Beastmaster Dedication', slot: 'archetype:2:g92', replacesFreeArchetype: true },
+  { setting: 'commanderCavalier', className: 'Commander', name: 'Cavalier Dedication', slot: 'archetype:2:g91', replacesFreeArchetype: true },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>

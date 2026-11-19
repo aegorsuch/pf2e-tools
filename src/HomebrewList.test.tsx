@@ -100,6 +100,10 @@ it('includes every saved rule in its own searchable category even without homebr
   expect(getSettings().innateAutoHeighten).toBe(true)
   expect(getSettings().ignoreArchetypeFeatMinimums).toBe(true)
   expect(render('Ignore Archetype Feat Minimums')).toContain('checked=""')
+  expect(getSettings().commanderBeastmaster).toBe(true)
+  expect(getSettings().commanderCavalier).toBe(true)
+  expect(render('Commander Beastmaster Dedication')).toContain('checked=""')
+  expect(render('Commander Cavalier Dedication')).toContain('checked=""')
   expect(render('Auto-Heighten Innate and Item Spells')).toContain('checked=""')
   expect(render('Auto-Heighten Innate and Item Spells')).toContain('Auto-Heighten Innate and Item Spells')
   expect(render('highest mental')).toContain('open=""')
@@ -137,7 +141,7 @@ it.each([
   { enabled: false, accepted: false },
   { enabled: false, accepted: true },
   { enabled: true, accepted: false },
-].flatMap(test => (['freeArchetype', 'rangerCavalier', 'deityLore', 'ignoreArchetypeFeatMinimums'] as const).map(key => ({ ...test, key }))))('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted, key }) => {
+].flatMap(test => (['freeArchetype', 'rangerCavalier', 'commanderCavalier', 'deityLore', 'ignoreArchetypeFeatMinimums'] as const).map(key => ({ ...test, key }))))('confirms only rule disabling and preserves settings on cancellation: %j', ({ enabled, accepted, key }) => {
   const previous = getSettings()
   const confirm = vi.fn(() => accepted)
   vi.stubGlobal('window', { confirm })
