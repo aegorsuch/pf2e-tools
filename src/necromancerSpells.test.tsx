@@ -1,9 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { useState } from 'react'
+import { expect, it, vi } from 'vitest'
 import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
+
+vi.mock('react', async importOriginal => {
+  const react = await importOriginal<typeof import('react')>()
+  return { ...react, useState: vi.fn(react.useState) }
+})
 
 const base: Character = {
   id: 'necromancer', name: 'Necromancer', className: 'Necromancer', systems: ['pf2e'], level: 1,
@@ -17,6 +23,11 @@ const spell = (name: string, level = 1, tradition = 'Occult', traits: string[] =
 const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat' })
 const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
+const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number) => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, false, rank])
+    vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
+  return render(c, entries)
+}
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
 
@@ -168,26 +179,37 @@ it('deduplicates granted and saved dirge spells while keeping learned spells alp
   expect(dirge.indexOf('>Harm</button>')).toBeLessThan(dirge.indexOf('>Summon Undead</button>'))
 })
 
-it('groups learnable dirge spells by rank and alphabetizes each group', () => {
+it('filters learned and learnable dirge spells by the selected rank', () => {
   const entries = [spell('Zap', 1, 'Occult', ['Cantrip']), spell('Slow', 3), spell('Fear'), spell('Blindness', 2),
     spell('Aid', 1, 'Occult', ['Cantrip']), spell('Bane'), spell('Blur', 2), spell('Harm', 1, 'Divine')]
-  const learn = choices(render({ ...base, level: 5 }, entries), 'Learn dirge spell')
-  expect(learn).toMatch(/<optgroup label="Cantrips"><option value="Aid">Aid<\/option><option value="Zap">Zap<\/option><\/optgroup>/)
-  expect(learn).toMatch(/<optgroup label="Rank 1"><option value="Bane">Bane<\/option><option value="Fear">Fear<\/option><\/optgroup>/)
-  expect(learn).toMatch(/<optgroup label="Rank 2"><option value="Blindness">Blindness<\/option><option value="Blur">Blur<\/option><\/optgroup>/)
-  expect(learn).toContain('<optgroup label="Rank 3"><option value="Slow">Slow</option></optgroup>')
+  const c: Character = { ...base, level: 5, spells: [{ name: 'Fear', entryId: 'Fear', rank: 1, cantrip: false }] }
+  const cantrips = renderAtDirgeRank(c, entries, 0)
+  expect(cantrips).toContain('aria-label="Cantrips" aria-pressed="true"')
+  expect(cantrips).toContain('aria-label="Rank 10" aria-pressed="false"')
+  expect(choices(cantrips, 'Learn dirge spell')).toMatch(/<option value="Aid">Aid<\/option><option value="Zap">Zap<\/option>/)
+  expect(cantrips).toContain('<div class="dirge-rank" hidden=""><section class="innate-spell-group"><h5>Rank 1</h5>')
+  const rank1 = renderAtDirgeRank(c, entries, 1)
+  expect(rank1).toContain('aria-label="Rank 1" aria-pressed="true"')
+  expect(rank1).toContain('<div class="dirge-rank"><section class="innate-spell-group"><h5>Rank 1</h5>')
+  expect(choices(rank1, 'Learn dirge spell')).toContain('value="Bane"')
+  expect(choices(rank1, 'Learn dirge spell')).not.toContain('value="Aid"')
+  expect(choices(rank1, 'Learn dirge spell')).not.toContain('value="Blur"')
+  const rank2 = choices(renderAtDirgeRank(c, entries, 2), 'Learn dirge spell')
+  expect(rank2).toMatch(/<option value="Blindness">Blindness<\/option><option value="Blur">Blur<\/option>/)
+  expect(choices(renderAtDirgeRank(c, entries, 3), 'Learn dirge spell')).toContain('<option value="Slow">Slow</option>')
+  expect(choices(renderAtDirgeRank(c, entries, 10), 'Learn dirge spell')).not.toContain('value="Slow"')
 })
 
 it('learns accessible, current-rank occult spells rather than granting the entire tradition', () => {
   const entries = [spell('Fear'), spell('Rare Magic', 1, 'Occult', ['Rare']),
     spell('Harm', 1, 'Divine'), spell('Arcane Only', 1, 'Arcane'), spell('Higher Rank', 2),
     { ...spell('Restricted Magic'), data: { tradition: 'Occult', access: 'Kellid ethnicity' } }]
-  const html = render(base, entries)
+  const html = renderAtDirgeRank(base, entries, 1)
   const learn = choices(html, 'Learn dirge spell')
   expect(learn).toContain('value="Fear"')
   expect(learn).toContain('value="Rare Magic"')
   for (const name of ['Harm', 'Arcane Only', 'Higher Rank', 'Restricted Magic']) expect(learn).not.toContain(`value="${name}"`)
-  expect(choices(render({ ...base, ethnicity: 'Kellid' }, entries), 'Learn dirge spell')).toContain('value="Restricted Magic"')
+  expect(choices(renderAtDirgeRank({ ...base, ethnicity: 'Kellid' }, entries, 1), 'Learn dirge spell')).toContain('value="Restricted Magic"')
 })
 
 it('retains and heightens legacy dirge selections without mutating saved manual settings', () => {

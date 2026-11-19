@@ -736,6 +736,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [dirgeOpen, setDirgeOpen] = useState(false)
+  const [dirgeRank, setDirgeRank] = useState(0)
   const dirgeDialog = useRef<HTMLDialogElement>(null)
   const dirgeTitleId = useId()
   const casting = classSpellcasting(c, entries)
@@ -771,6 +772,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const dirgeOptions = useMemo(() => necromancer ? uniqueSpellNames(necromancerSpellList(c, spellIndex.spells)
     .filter(entry => spellAccessGranted(c, entry) && necromancerDirgeCanLearn(c, spellIndex.spells, entry))) : [],
     [necromancer, c, spellIndex, dirge])
+  const rankedDirgeOptions = dirgeOptions.filter(entry => dirgeRank === 0
+    ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+    : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
   const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
@@ -961,24 +965,24 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
           onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
           <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
-          <SearchableSelect aria-label="Learn dirge spell" value="" optionCount={dirgeOptions.length}
+          <div className="gear-tabs spell-category-tabs" role="group" aria-label="Dirge spell ranks">
+            {Array.from({ length: 11 }, (_, rank) => <button key={rank} type="button"
+              aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={dirgeRank === rank}
+              className={dirgeRank === rank ? 'on' : ''} onClick={() => setDirgeRank(rank)}>{rank}</button>)}
+          </div>
+          <SearchableSelect aria-label="Learn dirge spell" value="" optionCount={rankedDirgeOptions.length}
             onPrepare={() => setDirgeOpen(true)} onChange={event => {
-              const entry = dirgeOptions.find(option => option.id === event.target.value)
+              const entry = rankedDirgeOptions.find(option => option.id === event.target.value)
               if (!entry) return
               save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
                 cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
             }}>
             <option value="">Learn spell</option>
-            {(dirgeOptions.length <= 10 || dirgeOpen) && Array.from({ length: 11 }, (_, rank) => {
-              const options = dirgeOptions.filter(entry => rank === 0
-                ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
-                : entry.level === rank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-              return options.length > 0 && <optgroup key={rank} label={rank === 0 ? 'Cantrips' : `Rank ${rank}`}>
-                {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-              </optgroup>
-            })}
+            {(rankedDirgeOptions.length <= 10 || dirgeOpen)
+              && rankedDirgeOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </SearchableSelect>
-          {groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
+          {groups.filter(group => group !== 'Focus Spells').map(group =>
+            <div className="dirge-rank" key={group} hidden={group !== (dirgeRank === 0 ? 'Cantrips' : `Rank ${dirgeRank}`)}>{renderSpellGroup(group)}</div>)}
           <form method="dialog"><button autoFocus>Close</button></form>
         </dialog>
       </>}
