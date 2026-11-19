@@ -24,22 +24,34 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('shows advanced order benefits and persists Seek Injustice daily uses without changing selected feats', () => {
+it('shows Seek Injustice three-action icon inside its feat button without trackers', () => {
   const training: ContentEntry = { id: 'advanced-order', name: 'Advanced Order Training', level: 12, systems: ['pf2e'],
     kind: 'feat', source: 'official', traits: ['Archetype'], data: {}, description: 'Gain your greater order benefit.', effects: [], updatedAt: 0 }
-  let c: Character = { ...emptyRanger(), level: 12, feats: [
+  const c: Character = { ...emptyRanger(), level: 12, dailyAbilityUses: { 'Seek Injustice': true }, activeFeatEffects: ['Seek Injustice'], feats: [
     { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0', choice: 'Order of the Scourge' },
     { name: training.name, type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' },
   ] }
-  const original = JSON.stringify(c.feats)
-  const tree = () => FeatSlots({ c, entries: [training], categories: ['archetype'], save: patch => { c = { ...c, ...patch } } })
-  expect(renderToStaticMarkup(tree())).toContain('Seek Injustice (Order of the Scourge)')
-  findButton(tree(), 'Spend Seek Injustice use')!()
-  expect(c.dailyAbilityUses).toEqual({ 'Seek Injustice': true })
-  expect(renderToStaticMarkup(tree())).toContain('Restore Seek Injustice use')
-  findButton(tree(), 'Restore Seek Injustice use')!()
-  expect(c.dailyAbilityUses).toEqual({ 'Seek Injustice': false })
-  expect(JSON.stringify(c.feats)).toBe(original)
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[training]} categories={['archetype']} save={() => {}} />)
+  expect(markup).toContain('Seek Injustice (Order of the Scourge)')
+  expect(markup).toMatch(/<button[^>]*class="feat-name"[^>]*>Advanced Order Training[^<]* <span class="action-cost" aria-label="Three Actions"/)
+  expect(markup).not.toContain('Seek Injustice active')
+  expect(markup).not.toContain('Seek Injustice use')
+  expect(markup).not.toContain('focus-point')
+})
+
+it('shows cross-training action cost inside the feat button for the chosen order', () => {
+  const training: ContentEntry = { id: 'cross-training', name: 'Order Cross-Training', level: 10, systems: ['pf2e'],
+    kind: 'feat', source: 'official', traits: ['Archetype'], data: {}, description: '', effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), level: 12, feats: [
+    { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Scourge' },
+    { name: training.name, type: 'Archetype Feat', level: 10, slot: 'archetype:10:0', choice: 'Order of the Chain' },
+  ] }
+  const render = (character: Character) => renderToStaticMarkup(<FeatSlots c={character} entries={[training]} categories={['archetype']} save={() => {}} />)
+  expect(render(c)).toMatch(/<button[^>]*class="feat-name"[^>]*>Order Cross-Training[^<]* <span class="action-cost" aria-label="Two Actions"/)
+  const passive = { ...c, feats: [c.feats[0], { ...c.feats[1], choice: 'Order of the Rack' }] }
+  expect(render(passive)).not.toContain('aria-label="Two Actions"')
+  const torrent = { ...c, feats: [c.feats[0], { ...c.feats[1], choice: 'Order of the Torrent' }] }
+  expect(render(torrent)).toMatch(/<button[^>]*class="feat-name"[^>]*>Order Cross-Training[^<]* <span class="action-cost" aria-label="Reaction"/)
 })
 
 it('counts a fixed background feat once and includes temporary granted skill feats', () => {

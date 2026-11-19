@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, SKILL_GRANT_REPLACEMENT_FEATS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, SKILL_GRANT_REPLACEMENT_FEATS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -14,7 +14,7 @@ import type { Character, ContentEntry, FeatSlotCategory } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { getSettings } from './settings'
 import { TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
-import { hellknightBenefitActive, hellknightTrainingBenefit, ORDER_TRAINING_FEATS } from './hellknight'
+import { hellknightTrainingBenefit, ORDER_TRAINING_FEATS } from './hellknight'
 
 interface FeatSlotsProps extends SectionProps {
   categories?: FeatSlotCategory[]
@@ -450,7 +450,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const granted = isGrantedSlot(s.key)
           const training = selection && featTakenLevel(selection) <= c.level
             ? hellknightTrainingBenefit(c, selection.name, selection.choice) : undefined
-          const seekUsed = !!c.dailyAbilityUses?.['Seek Injustice']
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
           const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : undefined
@@ -509,6 +508,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
+                  buttonActions={training?.actions}
                   descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                     : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                       ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -591,15 +591,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 && !widespreadFascinationOptions(c, entries, selection)
                   .some(entry => entry.name === selection.choice || entry.data.grants_focus_spells === selection.choice)
                 && <small role="status">Saved Widespread Fascination choice is unavailable. Select a different grim fascination.</small>}
-              {training?.name === 'Seek Injustice' && <>
-                <span className="focus-tracker" role="group" aria-label={`${seekUsed ? 0 : 1} of 1 uses remaining`}>
-                  <button type="button" className="focus-point" aria-pressed={!seekUsed}
-                    aria-label={`${seekUsed ? 'Restore' : 'Spend'} Seek Injustice use`}
-                    onClick={() => save({ dailyAbilityUses: { ...c.dailyAbilityUses, 'Seek Injustice': !seekUsed } })} />
-                </span>
-                <label><input type="checkbox" aria-label="Seek Injustice active" checked={hellknightBenefitActive(c, 'Seek Injustice')}
-                  onChange={event => save(featEffectChange(c, 'Seek Injustice', event.target.checked))} /> Active</label>
-              </>}
               {access && !access.automatic && !access.approved && <div className="feat-access-controls">
                 <small>Access: {access.requirement}</small>
                 {!access.automatic && currentEntry && <label>

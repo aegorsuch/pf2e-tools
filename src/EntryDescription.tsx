@@ -29,8 +29,8 @@ function featIndex(entries: ContentEntry[]) {
   return index
 }
 
-export function EntryDescription({ name, entry, choice, className, prerequisites, access, buttonLabel, buttonSuffix, grantSource, descriptionNote, entries, character }: {
-  name: string; entry?: ContentEntry; choice?: string; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; buttonSuffix?: string; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
+export function EntryDescription({ name, entry, choice, className, prerequisites, access, buttonLabel, buttonSuffix, buttonActions, grantSource, descriptionNote, entries, character }: {
+  name: string; entry?: ContentEntry; choice?: string; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; buttonSuffix?: string; buttonActions?: string; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -75,7 +75,8 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
         }}>
         {buttonLabel ?? title(name, entry)}{buttonSuffix}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
           aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
-        {entry?.kind === 'feat' && typeof entry.data.actions === 'string' && entry.data.actions.trim() && !buttonLabel && <> <ActionIcon entry={entry} /></>}
+        {!buttonLabel && (buttonActions || entry?.kind === 'feat' && typeof entry.data.actions === 'string' && entry.data.actions.trim())
+          && <> <ActionIcon entry={entry} actions={buttonActions} /></>}
         {grantSource && <> <small>({text(grantSource)})</small></>}
       </button>
       <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}

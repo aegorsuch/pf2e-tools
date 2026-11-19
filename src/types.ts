@@ -349,6 +349,7 @@ export interface Character {
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   rituals?: string[]
   activeSpells?: string[]
+  pyreResistEnergy?: { damage: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'; value?: number }
   boneShieldRaised?: boolean
   dinosaurForm?: { form: string; rank: number }
   untamedForm?: {
@@ -376,7 +377,7 @@ export interface Character {
   apexCompanionId?: string
   // Companions and their equipped gear
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
-    auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' }[]
+    auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceSubtype?: 'Angel' | 'Devil'; auspiceLanguage?: string; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
   pet?: { name?: string; aquatic?: boolean; abilities?: string[] }

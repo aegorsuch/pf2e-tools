@@ -1228,15 +1228,51 @@ it('derives Auspice servitor from Champion sanctification only while Auspicious 
   c = { ...c, sanctification: 'Unholy' }
   expect(renderToStaticMarkup(tree())).toContain('<span>Fiend</span>')
   expect(renderToStaticMarkup(tree())).toContain('Weakness: Holy 5')
+  findSelect(tree(), 'Auspice servitor type')!({ target: { value: 'Devil' } })
+  expect(c.companions![0].auspiceSubtype).toBe('Devil')
+  let languageMarkup = renderToStaticMarkup(tree())
+  expect(languageMarkup).toContain('<span>Devil</span>')
+  expect(languageMarkup).toContain('Language: ')
+  expect(languageMarkup).toContain('<summary>Diabolic</summary>')
+  expect(languageMarkup).toContain('Speakers: Devils')
+  c = { ...c, sanctification: 'Holy' }
+  expect(renderToStaticMarkup(tree())).not.toContain('<summary>Diabolic</summary>')
+  findSelect(tree(), 'Auspice servitor type')!({ target: { value: 'Angel' } })
+  languageMarkup = renderToStaticMarkup(tree())
+  expect(languageMarkup).toContain('<span>Angel</span>')
+  expect(languageMarkup).toContain('<summary>Empyrean</summary>')
+  expect(languageMarkup).toContain('Speakers: Angels and other celestials')
   c = { ...c, sanctification: undefined }
   expect(renderToStaticMarkup(tree())).toContain('<span>Monitor</span>')
   expect(renderToStaticMarkup(tree())).not.toContain('Weakness:')
+  expect(renderToStaticMarkup(tree())).not.toContain('<summary>Empyrean</summary>')
   c = { ...c, level: 15 }
   expect(renderToStaticMarkup(tree())).not.toContain('Companion specialization')
   expect(renderToStaticMarkup(tree())).not.toContain('Auspice servitor')
   expect(c.feats[0].choice).toBe('Auspice')
   c = { ...c, level: 16 }
   expect(renderToStaticMarkup(tree())).toContain('<option value="Auspice" selected="">Auspice</option>')
+})
+
+it('derives Auspice languages from existing angel and devil companion traits', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 16, className: 'Champion', deity: 'Patron',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Auspicious Mount', type: 'Class Feat', level: 16, choice: 'Auspice' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'mount', type: 'Horse', name: '' }],
+  }
+  const horse: ContentEntry = {
+    id: 'horse', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Horse', level: 1,
+    traits: ['Angel'], description: '', data: { size: 'Large' }, effects: [], updatedAt: 1,
+  }
+  const deity: ContentEntry = { ...horse, id: 'patron', kind: 'deity', name: 'Patron',
+    traits: [], data: { sanctification: 'holy, unholy' } }
+  const render = (character: Character, companion: ContentEntry) =>
+    renderToStaticMarkup(MinionsContent({ c: character, entries: [companion, deity], save: () => {} }))
+  expect(render({ ...c, sanctification: 'Holy' }, horse)).toContain('<summary>Empyrean</summary>')
+  expect(render({ ...c, sanctification: 'Unholy' }, { ...horse, traits: ['Devil'] })).toContain('<summary>Diabolic</summary>')
+  expect(render({ ...c, sanctification: 'Unholy', level: 15 }, { ...horse, traits: ['Devil'] })).not.toContain('<summary>Diabolic</summary>')
 })
 
 it('removes Enlarge size choices for Large companions and disables casting on Huge companions', () => {

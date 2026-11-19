@@ -2,7 +2,7 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrad
 import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, crocodileBattleForm, dinosaurBattleForm } from './battleForms'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
-import { GODCLAW_DOMAINS, ORDER_TRAINING_FEATS, hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
+import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { armigerArmorEntry, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
@@ -867,6 +867,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         },
         get armor() { return armor ??= armorRanks(character, entries) },
         get weapons() { return weapons ??= weaponRanks(character, entries) },
+        hellknightWeapons: HELLKNIGHT_FAVORED_WEAPONS[hellknightOrder(character) ?? ''],
         weaponRank: name => weaponEntry(entries, name) ? weaponAttack(character, entries,
           { id: 'prerequisite', name, potency: 0, striking: 0, runes: [] }).rank : undefined,
         abilities: character.abilities,
@@ -2897,9 +2898,6 @@ export function senses(c: Character, entries: ContentEntry[]) {
     addVision('Low-light vision', form.source)
     addVision('Scent (imprecise) 30 feet', form.source)
   }
-  if (hellknightBenefitActive(c, 'Seek Injustice')) {
-    addVision('See through up to 5 feet of stone, wood, or similar barriers (not metal; 1 minute)', 'Seek Injustice')
-  }
   for (const heritage of characterHeritages(c, entries)) {
     const vision = heritage.data.grants_vision ?? heritage.data.vision
     if (typeof vision === 'string' && vision) addVision(vision, heritage.name)
@@ -3726,6 +3724,13 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
   const oaken = oakenResilience(c, entries)
   if (oaken) for (const damage of ['bludgeoning', 'piercing']) out.push({ damage, value: oaken.resistance, source: 'Oaken Resilience' })
+  const pyre = c.pyreResistEnergy
+  if (pyre && PYRE_ENERGY_TYPES.some(type => type === pyre.damage)
+    && typeof pyre.value === 'number' && Number.isSafeInteger(pyre.value) && pyre.value > 0
+    && (pyre.damage !== 'fire' || pyre.value >= c.level)
+    && hellknightTrainingBenefits(c).some(benefit => benefit.name === 'Righteous Resistance')) {
+    out.push({ damage: pyre.damage, value: pyre.value, source: 'Resist Energy' })
+  }
   const cairn = cairnForm(c, entries)
   if (cairn) out.push({ damage: 'physical (except adamantine)', value: cairn.resistance, source: 'Cairn Form' })
   if (isSpellActive(c, entries, 'Mountain Resilience')) {
@@ -5779,21 +5784,36 @@ export function isMagicItem(e: ContentEntry) {
 
 const titleCase = (v: string) => v.trim().replace(/\b\w/g, (ch) => ch.toUpperCase())
 
-// [language, who speaks it]
-export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
+// [language, speakers or regions]
+const CORE_LANGUAGES: Record<string, [string, string][]> = {
   Common: [
     ['Common', 'Humans, dwarves, elves, halflings, and other common ancestries'], ['Draconic', 'Dragons, reptilian humanoids'],
     ['Dwarven', 'Dwarves'], ['Elven', 'Elves, aiuvarins'], ['Fey', 'Fey, centaurs, plant and fungus creatures'],
     ['Gnomish', 'Gnomes'], ['Goblin', 'Goblins, hobgoblins, bugbears'], ['Halfling', 'Halflings'],
-    ['Jotun', 'Giants, ogres, trolls, cyclopes'], ['Orcish', 'Orcs, dromaars'], ['Sakvroth', 'Subterranean civilizations, serpentfolk'],
+    ['Jotun', 'Giants, ogres, trolls, ettins, cyclopes'], ['Orcish', 'Orcs, dromaars'], ['Sakvroth', 'Subterranean civilizations, serpentfolk'],
   ],
   Uncommon: [
-    ['Aklo', 'Evil fey, otherworldly monsters'], ['Amurrun', 'Catfolk'], ['Anugobu', 'Anugobu'], ['Aquan', 'Water elementals'],
-    ['Auran', 'Air elementals'], ['Chthonian', 'Demons'], ['Diabolic', 'Devils'], ['Empyrean', 'Angels and other celestials'],
-    ['Ignan', 'Fire elementals'], ['Iruxi', 'Lizardfolk'], ['Kholo', 'The hyena-like kholos'], ['Kitsune', 'Kitsune'],
-    ['Muan', 'Wood elemental creatures'], ['Nagaji', 'Nagaji'], ['Necril', 'Ghouls, intelligent undead'], ['Petran', 'Metal elementals'],
-    ['Shadowtongue', 'Nidalese, shadow creatures'], ['Terran', 'Earth elementals'],
+    ['Aklo', 'Evil fey, otherworldly monsters'], ['Chthonian', 'Demons'], ['Diabolic', 'Devils'],
+    ['Empyrean', 'Angels and other celestials'], ['Kholo', 'The hyena-like kholos'], ['Necril', 'Ghouls, intelligent undead'],
+    ['Petran', 'Earth elemental creatures'], ['Pyric', 'Fire elemental creatures'], ['Shadowtongue', 'Nidalese, Netherworld creatures'],
+    ['Sussuran', 'Air elemental creatures, flying creatures'], ['Thalassic', 'Aquatic creatures, water elemental creatures'],
+    ['Muan', 'Wood elemental creatures'], ['Talican', 'Metal elemental creatures'],
   ],
+  Regional: [
+    ['Hallit', 'Broken Lands, Eye of Dread, Saga Lands'], ['Kelish', 'Golden Road'],
+    ['Mwangi', 'Mwangi Expanse, the Shackles, Thuvia, Vidrian'],
+    ['Osiriani', 'Geb, Katapesh, Mana Wastes, Nex, Osirion, Rahadoum, Thuvia'],
+    ['Shoanti', 'Hold of Belkzen, Varisia'], ['Skald', 'Irrisen, Lands of the Linnorm Kings'],
+    ['Tien', 'Lands of the Linnorm Kings, Realm of the Mammoth Lords, Tian Xia'],
+    ['Varisian', 'Brevoy, the Gravelands, Nidal, Nirmathas, Ustalav, Varisia'],
+    ['Vudrani', 'Jalmeray, Katapesh, Nex, Vudra'],
+  ],
+}
+export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
+  ...CORE_LANGUAGES,
+  Uncommon: [...CORE_LANGUAGES.Uncommon, ['Amurrun', 'Catfolk'], ['Anugobu', 'Anugobu'], ['Aquan', 'Water elementals'],
+    ['Auran', 'Air elementals'], ['Ignan', 'Fire elementals'], ['Iruxi', 'Lizardfolk'], ['Kitsune', 'Kitsune'],
+    ['Nagaji', 'Nagaji'], ['Terran', 'Earth elementals']],
   Secret: [['Wildsong', 'Druids']],
   Rare: [
     ['Anadi', 'Anadi'], ['Androffan', 'Androids'], ['Goloma', 'Goloma'], ['Grioth', 'Grioth'], ['Kovintal', 'Kovintus'],
@@ -5804,12 +5824,12 @@ export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
 }
 const RARITY_ORDER = ['Common', 'Uncommon', 'Secret', 'Rare']
 
-// Languages synced from AoN, grouped by rarity; the built-in list is the fallback until content has loaded
 export function languageGroups(entries: ContentEntry[]): Record<string, [string, string][]> {
-  const synced = entries.filter((e) => e.kind === 'language')
-  if (!synced.length) return Object.fromEntries(Object.entries(LANGUAGE_CATEGORIES).sort(([a], [b]) => a.localeCompare(b)))
-  const groups: Record<string, [string, string][]> = {}
-  const seen = new Set<string>()
+  const synced = entries.filter((e) => e.kind === 'language' && !e.deleted)
+  const defaults = synced.length ? CORE_LANGUAGES : LANGUAGE_CATEGORIES
+  const groups: Record<string, [string, string][]> = Object.fromEntries(
+    Object.entries(defaults).map(([category, languages]) => [category, [...languages]]))
+  const seen = new Set(Object.values(groups).flat().map(([name]) => name.toLowerCase()))
   for (const e of synced) {
     const key = e.name.toLowerCase()
     if (seen.has(key)) continue
@@ -5821,7 +5841,11 @@ export function languageGroups(entries: ContentEntry[]): Record<string, [string,
     ;(groups[rarity] ??= []).push([e.name, who])
   }
   for (const list of Object.values(groups)) list.sort((a, b) => a[0].localeCompare(b[0]))
-  return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)))
+  const order = ['Common', 'Uncommon', 'Regional', 'Secret', 'Rare']
+  return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => {
+    const ai = order.indexOf(a), bi = order.indexOf(b)
+    return (ai < 0 ? order.length : ai) - (bi < 0 ? order.length : bi) || a.localeCompare(b)
+  }))
 }
 const allLanguages = (entries: ContentEntry[]) => Object.values(languageGroups(entries)).flat().map(([name]) => name)
 // Languages a class always teaches

@@ -26,6 +26,7 @@ export interface PrerequisiteFacts {
   armor: Record<string, number>
   weapons: Record<string, number>
   weaponRank?: (name: string) => number | undefined
+  hellknightWeapons?: string[]
   abilities: Character['abilities']
   senses: string[]
   swimSpeed?: boolean
@@ -397,6 +398,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         return resultFor(rankSatisfied(facts.armor[group[0].toUpperCase() + group.slice(1)] ?? 0, rank), text)
       }
       if (/^clan daggers?$/.test(subject)) return resultFor(rankSatisfied(facts.weapons.Simple ?? 0, rank), text)
+      if (/^(?:your )?order'?s favored weapons?$/.test(subject)) {
+        if (!facts.hellknightWeapons?.length || !facts.weaponRank) return manual(text)
+        const ranks = facts.hellknightWeapons.map(weapon => facts.weaponRank!(weapon))
+        if (ranks.some(value => value !== undefined && rankSatisfied(value, rank))) return met()
+        return ranks.some(value => value === undefined) ? manual(text) : missing(text)
+      }
       if (weapon) {
         const group = weapon[1] ?? weapon[2]
         return resultFor(rankSatisfied(facts.weapons[group[0].toUpperCase() + group.slice(1)] ?? 0, rank), text)

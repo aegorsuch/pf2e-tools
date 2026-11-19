@@ -23,6 +23,7 @@ import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions
 import { spellAccessGranted } from './featAccess'
 import { crocodileBattleForm, DINOSAUR_FORMS } from './battleForms'
 import { familiarSpellBenefits } from './familiarAbilities'
+import { PYRE_ENERGY_TYPES } from './hellknight'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight']
@@ -389,6 +390,36 @@ export function BoneShieldActions({ c, save, entry, rank, actions, disabled }: P
   </ActiveSpellActions>
 }
 
+export function PyreResistEnergyActions({ c, save, entry, rank }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number
+}) {
+  const selected = c.pyreResistEnergy
+  const baseResistance = rank >= 7 ? 15 : rank >= 4 ? 10 : 5
+  return <ActiveSpellActions name="Resist Energy" entry={entry} rank={rank} actions="Two Actions">
+    <label>Resistance{' '}
+      <select aria-label="Resist Energy type" value={selected?.damage ?? ''} onChange={event => {
+        const damage = PYRE_ENERGY_TYPES.find(type => type === event.target.value)
+        save({ pyreResistEnergy: damage ? { damage, value: damage === 'fire' ? Math.max(c.level, baseResistance) : baseResistance } : undefined })
+      }}>
+        <option value="">None</option>
+        {PYRE_ENERGY_TYPES.map(type => <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
+      </select>
+    </label>
+    {selected && <label>Amount{' '}
+      <input type="number" min={selected.damage === 'fire' ? c.level : 1} step="1" aria-label="Resist Energy amount"
+        aria-invalid={selected.damage === 'fire' && selected.value !== undefined && selected.value < c.level || undefined}
+        value={selected.value ?? ''}
+        onChange={event => {
+          const value = Number(event.target.value)
+          save({ pyreResistEnergy: { ...selected,
+            value: event.target.value && Number.isSafeInteger(value) && value > 0 ? value : undefined } })
+        }} />
+      {selected.damage === 'fire' && selected.value !== undefined && selected.value < c.level
+        && <span role="alert">Fire resistance must be at least {c.level}.</span>}
+    </label>}
+  </ActiveSpellActions>
+}
+
 export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void }) {
   return <ul className="dirge-options">
     {options.map(entry => <li key={entry.id}>
@@ -555,7 +586,7 @@ function spellResolution(entry: ContentEntry) {
   }
 }
 
-function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, effectControls, effectRank, children, saveDC }: {
+function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, effectControls, effectRank, actionControls, children, saveDC }: {
   c: Character
   grant: ReturnType<typeof grantedFeatSpells>[number]
   note?: ReactNode
@@ -565,11 +596,12 @@ function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineC
   inlineControls?: ReactNode
   effectControls?: ReactNode
   effectRank?: number
+  actionControls?: ReactNode
   children?: ReactNode
   saveDC?: number
 }) {
   return <SpellItem c={c} name={grant.entry.name} entry={grant.entry} rank={grant.rank} note={note}
-    active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} effectControls={effectControls} effectRank={effectRank} saveDC={saveDC}>
+    active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} effectControls={effectControls} effectRank={effectRank} actionControls={actionControls} saveDC={saveDC}>
     {children}
   </SpellItem>
 }
@@ -865,6 +897,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           && /^Must target yourself(?:; crocodile form only)?$/.test(grant.rule.condition))
         && grant.rule.condition !== 'Only within your claimed territory'
         && grant.rule.condition !== 'Only through barriers of earth or stone'
+        && !(grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
+          && /^Self only\. Fire resistance is at least \d+\.$/.test(grant.rule.condition))
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
       stats && `${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`,
       higherDC && resolution.save && classDC === undefined
@@ -1287,6 +1321,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <ul>{group.grants.map(grant => {
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
+              actionControls={grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
+                && grant.rule.condition?.startsWith('Self only. Fire resistance is at least ')
+                ? <PyreResistEnergyActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               effectControls={effectControls(grant.entry.name)}
               effectRank={activeRank(grant.entry.name)}

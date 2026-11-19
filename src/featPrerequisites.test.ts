@@ -655,6 +655,28 @@ it('checks proficiency in sawtooth sabers, including weapon familiarity', () => 
   expect(check('trained in sawtooth sabers', c, [rogue]).manual).toEqual(['trained in sawtooth sabers'])
 })
 
+it('checks proficiency in a selected Hellknight order favored weapon without requiring ownership', () => {
+  const weapons = [
+    entry('weapon', 'Mace', { weapon_category: 'Simple' }, 0),
+    entry('weapon', 'Whip', { weapon_category: 'Martial' }, 0),
+    entry('weapon', 'Scourge', { weapon_category: 'Martial' }, 0),
+    entry('weapon', 'Flail', { weapon_category: 'Martial' }, 0),
+    entry('weapon', 'Spiked Chain', { weapon_category: 'Martial' }, 0),
+  ]
+  const wizard = entry('class', 'Wizard', { attack_proficiency: 'Expert in simple weapons, Trained in martial weapons' })
+  const dedication = { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Scourge' }
+  const c: Character = { ...base, className: 'Wizard', level: 12, feats: [dedication], weapons: [] }
+  const requirement = "expert in at least one of your order's favored weapons"
+  expect(check(requirement, c, [wizard, ...weapons])).toEqual({ missing: [], manual: [] })
+  const chain = { ...c, feats: [{ ...dedication, choice: 'Order of the Chain' }] }
+  expect(check(requirement, chain, [wizard, ...weapons]).missing).toEqual([requirement])
+  expect(check("trained in your order's favored weapon", chain, [wizard, ...weapons])).toEqual({ missing: [], manual: [] })
+  expect(check(requirement, c, [wizard, ...weapons.filter(weapon => weapon.name !== 'Mace')]).manual).toEqual([requirement])
+  expect(check(requirement, { ...c, feats: [] }, [wizard, ...weapons]).manual).toEqual([requirement])
+  expect(check(requirement, { ...c, feats: [{ ...dedication, choice: 'Order of the Crucible' }] }, [wizard, ...weapons]).manual).toEqual([requirement])
+  expect(check(requirement, { ...c, level: 1 }, [wizard, ...weapons]).manual).toEqual([requirement])
+})
+
 it('grants Free Heart background skills and feat without its attribute boosts', () => {
   const background = entry('background', 'Performer', { skill: 'Performance, Theater Lore', feat: 'Fascinating Performance', ability: 'Charisma' })
   const rare = entry('background', 'Secret', { rarity: 'rare' })

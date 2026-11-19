@@ -636,6 +636,9 @@
 .gear-results .gear-access { flex-basis: 100%; order: 1; }
 .language-picker fieldset { border: 1px solid var(--border, #2c3340); border-radius: 8px; }
 .language-grid { display: grid; grid-template-columns: 1fr; gap: 0.25rem 1rem; }
+.language-table { width: 100%; border-collapse: collapse; }
+.language-table th, .language-table td { text-align: left; vertical-align: top; padding: 0.2rem 0.5rem 0.2rem 0; }
+.language-table th:first-child { width: 35%; }
 
 .settings-panel label { display: block; }
 .settings-panel { padding: 0.5rem 0.75rem; border: 1px solid var(--border, #2c3340); border-radius: 8px; margin-bottom: 0.5rem; }

@@ -3,12 +3,26 @@ import { featTakenLevel } from './featChoices'
 
 export const GODCLAW_DOMAINS = ['Duty', 'Might', 'Perfection', 'Protection']
 export const HELLKNIGHT_TRADITIONS = ['Arcane', 'Divine', 'Occult', 'Primal']
+export const PYRE_ENERGY_TYPES = ['acid', 'cold', 'electricity', 'fire', 'sonic'] as const
+
+export const HELLKNIGHT_FAVORED_WEAPONS: Record<string, string[]> = {
+  'Order of the Chain': ['Flail', 'Spiked Chain'],
+  'Order of the Gate': ['Dagger'],
+  'Order of the Godclaw': ['Morningstar'],
+  'Order of the Nail': ['Halberd', 'Lance'],
+  'Order of the Pyre': ['Glaive'],
+  'Order of the Rack': ['Longsword', 'Whip'],
+  'Order of the Scourge': ['Mace', 'Whip', 'Scourge'],
+  'Order of the Torrent': ['Halberd', 'Longbow'],
+  'Order of the Pike': ['Longspear'],
+}
 
 export const ORDER_TRAINING_FEATS = ['Order Training', 'Advanced Order Training', 'Order Cross-Training']
-type OrderBenefit = { name: string; description: string }
+type OrderBenefit = { name: string; description: string; actions?: string }
 const ORDER_BENEFITS: Record<string, OrderBenefit> = {
   'Order of the Chain': {
     name: 'Shackles of Law',
+    actions: 'Two Actions',
     description: 'Two actions (flourish): make a melee Strike, then attempt to Grapple if it hits and deals damage. Apply your current multiple attack penalty to both attacks before increasing it. With a flail or spiked chain, no free hand is required and a successful Grapple becomes a critical success.',
   },
   'Order of the Gate': {
@@ -33,10 +47,12 @@ const ORDER_BENEFITS: Record<string, OrderBenefit> = {
   },
   'Order of the Scourge': {
     name: 'Fear No Law, Fear No One',
+    actions: 'One Action',
     description: 'One action: Strike a creature. On a damaging hit, allies who can see you within 20 feet reduce frightened by 1, or by 2 if your target caused their fear.',
   },
   'Order of the Torrent': {
     name: 'Free the Bound',
+    actions: 'Reaction',
     description: 'React when an ally within your reach is about to Escape. They gain +1 circumstance to that check and, unless they critically fail, can react to Strike a reachable enemy. Increase their multiple attack penalty only after both attacks.',
   },
   'Order of the Pike': {
@@ -56,6 +72,7 @@ const GREATER_ORDER_BENEFITS: Record<string, OrderBenefit> = {
   },
   'Order of the Godclaw': {
     name: 'Blessing of the Five',
+    actions: 'Three Actions',
     description: 'Three actions, once per day: cast the three-action Heal at a rank equal to half your level, rounded up, minus 1. You can exclude up to five creatures. Alternatively, restore a creature within 30 feet that died in the last round to 1 HP and doomed 1. Both options share the same daily use.',
   },
   'Order of the Nail': {
@@ -64,14 +81,17 @@ const GREATER_ORDER_BENEFITS: Record<string, OrderBenefit> = {
   },
   'Order of the Pyre': {
     name: 'Spiritual Disruption',
+    actions: 'Two Actions',
     description: 'Two actions: make a melee Strike that counts as two attacks for your multiple attack penalty. On a hit, deal 1d6 persistent spirit damage and make the target stupefied 1 until that persistent damage ends.',
   },
   'Order of the Rack': {
     name: 'Silence Heresy',
+    actions: 'Two Actions',
     description: 'Two actions: make a melee Strike. On a hit, the target can only whisper for 1 round, cannot use most voice-based auditory effects, and must pass a DC 5 flat check to Cast a Spell. On a critical hit, it cannot speak for 1 round and can only whisper for 1 minute afterward. It is then immune to this ability for 1 minute.',
   },
   'Order of the Scourge': {
     name: 'Seek Injustice',
+    actions: 'Three Actions',
     description: 'Three actions, once per day: for 1 minute, see through up to 5 feet of stone, wood, or similar barriers. Metal and denser barriers still block your vision.',
   },
   'Order of the Torrent': {
@@ -80,6 +100,7 @@ const GREATER_ORDER_BENEFITS: Record<string, OrderBenefit> = {
   },
   'Order of the Pike': {
     name: 'The Harder They Fall',
+    actions: 'One Action',
     description: 'One action: choose a visible Huge or larger creature. Gain +1 circumstance to AC and saves against that creature for 1 round.',
   },
 }

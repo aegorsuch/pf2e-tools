@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FalseVitalityActions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FalseVitalityActions, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -329,6 +329,58 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
   _id: name, _source: { name, category: 'feat', level, markdown: `Header\n\n---\n\n${markdown}` },
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
+
+it('applies and clears Pyre Resist Energy selections, including heightened defaults', () => {
+  let c: Character = { ...base, level: 12, feats: [
+    taken('Hellknight Dedication', 2, 'Order of the Gate'), taken('Order Cross-Training', 12, 'Order of the Pyre'),
+  ] }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  type Control = { value?: string | number; onChange: (event: { target: { value: string } }) => void }
+  const find = (label: string, rank: number): Control => {
+    const search = (node: ReactNode): Control | undefined => {
+      for (const child of Children.toArray(node)) {
+        if (!isValidElement<{ children?: ReactNode; 'aria-label'?: string } & Control>(child)) continue
+        if (child.props['aria-label'] === label) return child.props
+        const found = search(child.props.children)
+        if (found) return found
+      }
+    }
+    const control = search(PyreResistEnergyActions({ c, save, rank }).props.children)
+    if (!control) throw Error(`Missing ${label}`)
+    return control
+  }
+  for (const type of ['acid', 'cold', 'electricity', 'fire', 'sonic']) {
+    find('Resist Energy type', 2).onChange({ target: { value: type } })
+    expect(resistances(c, [])).toContainEqual({ damage: type[0].toUpperCase() + type.slice(1), value: type === 'fire' ? 12 : 5, source: 'Resist Energy' })
+  }
+  find('Resist Energy type', 4).onChange({ target: { value: 'cold' } })
+  expect(c.pyreResistEnergy).toEqual({ damage: 'cold', value: 10 })
+  find('Resist Energy type', 7).onChange({ target: { value: 'fire' } })
+  expect(c.pyreResistEnergy).toEqual({ damage: 'fire', value: 15 })
+  find('Resist Energy amount', 7).onChange({ target: { value: '5' } })
+  expect(resistances(c, [])).not.toContainEqual(expect.objectContaining({ source: 'Resist Energy' }))
+  find('Resist Energy amount', 7).onChange({ target: { value: '20' } })
+  expect(resistances(c, [])).toContainEqual({ damage: 'Fire', value: 20, source: 'Resist Energy' })
+  expect(resistances({ ...c, feats: c.feats.slice(0, 1) }, [])).not.toContainEqual(expect.objectContaining({ source: 'Resist Energy' }))
+  expect(resistances({ ...c, feats: [c.feats[0], { ...c.feats[1], choice: 'Order of the Chain' }] }, []))
+    .not.toContainEqual(expect.objectContaining({ source: 'Resist Energy' }))
+  find('Resist Energy amount', 7).onChange({ target: { value: '' } })
+  expect(resistances(c, [])).not.toContainEqual(expect.objectContaining({ source: 'Resist Energy' }))
+  find('Resist Energy type', 7).onChange({ target: { value: '' } })
+  expect(c.pyreResistEnergy).toBeUndefined()
+})
+
+it('renders a clickable Pyre Resist Energy action without its restriction helper text', () => {
+  const spell = { ...entry('Resist Energy', 'spell', { actions: 'Two Actions' }), level: 2 }
+  const c: Character = { ...base, level: 12, feats: [
+    taken('Hellknight Dedication', 2, 'Order of the Chain'), taken('Order Cross-Training', 12, 'Order of the Pyre'),
+  ] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('aria-label="Resist Energy type"')
+  expect(html).not.toContain('Self only. Fire resistance is at least 12.')
+  expect(html.match(/aria-label="Resist Energy options"/g)).toHaveLength(1)
+  expect(html).toContain('aria-label="Two Actions"')
+})
 
 it('toggles Bone Shield and clears its raised state when ending the spell', () => {
   let c: Character = { ...base, activeSpells: ['Keen Smell', 'Shield'], boneShieldRaised: true }

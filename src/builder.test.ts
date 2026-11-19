@@ -1844,10 +1844,16 @@ describe('languageAllowance', () => {
 })
 
 describe('languageGroups', () => {
-  it('groups synced AoN languages by rarity in order and falls back when none are synced', () => {
-    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' }), entry('language', 'Sussuran', { rarity: 'Secret' })]
-    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Rare', 'Secret', 'Uncommon'])
+  it('keeps listed speakers and regional languages while including other synced languages', () => {
+    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' }), entry('language', 'Sussuran', { rarity: 'Secret' }), entry('language', 'Anadi', { rarity: 'Secret' })]
+    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Uncommon', 'Regional', 'Secret', 'Rare'])
     expect(languageGroups(synced).Secret.map(([n]) => n)).toEqual(['Wildsong'])
+    expect(languageGroups(synced).Rare.map(([n]) => n)).toEqual(['Anadi'])
+    expect(languageGroups(synced).Uncommon).toContainEqual(['Sussuran', 'Air elemental creatures, flying creatures'])
+    expect(languageGroups(synced).Uncommon).toContainEqual(['Petran', 'Earth elemental creatures'])
+    expect(languageGroups(synced).Regional).toContainEqual(['Hallit', 'Broken Lands, Eye of Dread, Saga Lands'])
+    expect(languageGroups(synced).Regional).toHaveLength(9)
+    expect(languageGroups(synced).Common.filter(([n]) => n === 'Elven')).toHaveLength(1)
     expect(Object.keys(languageGroups([]))).toContain('Rare')
   })
 })
@@ -2437,7 +2443,7 @@ it('offers Cross-Training order variants once each while preserving edits and sp
   expect(eligibleFeats([cross], c, { key: 'bonus:14:0', category: 'bonus', level: 14 })).toContain(cross)
 })
 
-it('applies Nail movement bonuses to every Speed exactly once and gates Scourge vision by active ownership', () => {
+it('applies Nail movement bonuses and ignores stale Scourge activation', () => {
   const c: Character = { ...base, level: 12, feats: [
     { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Nail' },
     { name: 'Order Training', type: 'Archetype Feat', level: 8 },
@@ -2449,7 +2455,7 @@ it('applies Nail movement bonuses to every Speed exactly once and gates Scourge 
   expect(movementSpeeds({ ...active, feats: [] }, []).find(movement => movement.name === 'Land')?.feet).toBe(25)
   const scourge = { ...c, feats: [{ ...c.feats[0], choice: 'Order of the Scourge' },
     { name: 'Advanced Order Training', type: 'Archetype Feat', level: 12 }], activeFeatEffects: ['Seek Injustice'] }
-  expect(senses(scourge, [])).toContainEqual(expect.objectContaining({ source: 'Seek Injustice' }))
+  expect(senses(scourge, []).some(sense => sense.source === 'Seek Injustice')).toBe(false)
   expect(senses({ ...scourge, level: 11 }, []).some(sense => sense.source === 'Seek Injustice')).toBe(false)
 })
 

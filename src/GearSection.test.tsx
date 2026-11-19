@@ -29,6 +29,13 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it.each([false, true])('does not add conditional Blade of Law damage to weapon damage (displayOnly=%s)', displayOnly => {
+  const c = character([])
+  const trained = { ...c, feats: [{ name: 'Blade of Law', type: 'Archetype Feat', level: 10 }] }
+  const render = (value: Character) => renderToStaticMarkup(<WeaponList c={value} entries={[weapon]} save={() => {}} displayOnly={displayOnly} />)
+  expect(render(trained)).toBe(render(c))
+})
+
 it.each([
   { traits: [], grace: false, step: 5 },
   { traits: ['Agile'], grace: false, step: 4 },

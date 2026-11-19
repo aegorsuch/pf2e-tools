@@ -1,9 +1,9 @@
 import { Fragment } from 'react'
-import { SourceNote } from './Info'
+import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -372,10 +372,29 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         {['Celestial', 'Fiend', 'Monitor'].map((type) => <option key={type}>{type}</option>)}
                       </select>
                     </label>}
-                    <label>Servitor language{' '}
+                    {(stats.servitor === 'Celestial' || stats.servitor === 'Fiend') && <label>Servitor type{' '}
+                      <select aria-label="Auspice servitor type" value={stats.subtype ?? ''} onChange={(e) => {
+                        const subtype = (['Angel', 'Devil'] as const).find(type => type === e.target.value)
+                        update(comp.id, { auspiceSubtype: subtype })
+                      }}>
+                        <option value="">Other</option>
+                        <option>{stats.servitor === 'Celestial' ? 'Angel' : 'Devil'}</option>
+                      </select>
+                    </label>}
+                    {!stats.subtype && <label>Servitor language{' '}
                       <input aria-label="Auspice servitor language" value={comp.auspiceLanguage ?? ''}
                         onChange={(e) => update(comp.id, { auspiceLanguage: e.target.value })} />
-                    </label>
+                    </label>}
+                  </div>}
+                  {stats.auspiceLanguage && <div>Language:{' '}
+                    <Info label={stats.auspiceLanguage}>
+                      {(() => {
+                        const language = stats.auspiceLanguage!.toLowerCase()
+                        const speakers = Object.values(LANGUAGE_CATEGORIES).flat().find(([name]) => name.toLowerCase() === language)?.[1]
+                          || entries.find(entry => entry.kind === 'language' && entry.name.toLowerCase() === language)?.description
+                        return speakers ? `Speakers: ${speakers.replace(/\.$/, '')}` : 'Speakers unavailable.'
+                      })()}
+                    </Info>
                   </div>}
                   <div className="gear-traits">
                     <span>{isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')

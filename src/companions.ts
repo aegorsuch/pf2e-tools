@@ -199,11 +199,17 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   if (!entry) return undefined
   const { mature, advanced, specializations } = advancement
   const auspice = specializations.includes('Auspice')
+  const companion = c.companions?.find(companion => companion.id === companionId)
   const championSanctification = c.className === 'Champion' ? deitySanctification(c, entries).selected : undefined
   const servitor = !auspice ? undefined : c.className === 'Champion'
     ? championSanctification === 'Holy' ? 'Celestial' : championSanctification === 'Unholy' ? 'Fiend' : 'Monitor'
-    : c.companions?.find((companion) => companion.id === companionId)?.auspiceServitor
-  const auspiceTraits = servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []
+    : companion?.auspiceServitor
+  const subtype = servitor === 'Celestial' && (companion?.auspiceSubtype === 'Angel' || entry.traits.some(trait => trait.toLowerCase() === 'angel'))
+    ? 'Angel' : servitor === 'Fiend' && (companion?.auspiceSubtype === 'Devil' || entry.traits.some(trait => trait.toLowerCase() === 'devil'))
+      ? 'Devil' : undefined
+  const auspiceLanguage = subtype === 'Angel' ? 'Empyrean' : subtype === 'Devil' ? 'Diabolic' : auspice ? companion?.auspiceLanguage?.trim() : undefined
+  const auspiceTraits = [...(servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []),
+    ...(subtype ? [subtype] : [])]
   const firstCompanion = companionId !== undefined && companionId === c.companions?.[0]?.id
   const has = (name: string) => firstCompanion && c.feats.some((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
   const celestialMount = has('Celestial Mount')
@@ -300,7 +306,6 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     const feet = COMPANION_SPECS[source]?.speed
     return feet ? [{ source, feet }] : []
   })
-  const companion = c.companions?.find(companion => companion.id === companionId)
   const barding = companion?.equipment?.Barding && c.systems.includes('pf2e')
     ? equippedBarding(entries, level, companion.equipment.Barding, size) : undefined
   const bardingCheckPenalty = barding && mods.str < num(barding.data.strength) ? num(barding.data.check_penalty) : 0
@@ -370,7 +375,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     entry, level, size, naturalSize, mods, hp, speed,
     speedBonuses: [...speedBonuses, ...(bardingSpeedPenalty && barding ? [{ source: barding.name, feet: bardingSpeedPenalty }] : []),
       ...(apex ? [{ source: 'Apex Companion (status)', feet: 10 }] : [])],
-    skills: companionSkills, attacks, traits, auspice, auspiceTraits, grantedTraits, weakness, paleHorse,
+    skills: companionSkills, attacks, traits, auspice, servitor, subtype, auspiceLanguage, auspiceTraits, grantedTraits, weakness, paleHorse,
     apex, temporaryHp: apex ? 30 : 0, reach: apex ? 15 : undefined, ignoreAllDifficultTerrain: apex,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + (barding ? Math.min(mods.dex, num(barding.data.dex_cap)) + proficiencyBonus(rank.Barding ?? 1, level) + num(barding.data.ac)

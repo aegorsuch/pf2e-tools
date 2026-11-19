@@ -13,7 +13,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   const picked = (migration?.languages ?? c.languages).filter((l) => !lockedKeys.has(l.toLowerCase()))
   const custom = picked.filter((l) => !listed.has(l.toLowerCase()) && (!q || l.toLowerCase().includes(q)))
   const shown = Object.entries(groups).map(([category, langs]) => ({
-    category, langs: langs.filter(([lang, who]) => !q || `${lang} ${who}`.toLowerCase().includes(q)),
+    category, langs: langs.filter(([lang, who]) => !q || `${lang} ${who} ${sources[lang.toLowerCase()] ?? ''}`.toLowerCase().includes(q)),
   })).filter(group => group.langs.length)
   const grantOnly = new Set(['wildsong'])
   const left = slots - picked.length
@@ -32,17 +32,20 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
       {shown.map(({ category, langs }) => (
         <fieldset key={category}>
           <legend>{category} Languages</legend>
-          <div className="language-grid">
+          <table className="language-table">
+            <thead><tr><th scope="col">Language</th><th scope="col">{category === 'Regional' ? 'Regions' : 'Speakers'}</th></tr></thead>
+            <tbody>
             {langs.map(([lang, who]) => {
               const isLocked = lockedKeys.has(lang.toLowerCase())
               const on = isLocked || picked.some((l) => l.toLowerCase() === lang.toLowerCase())
               return (
-                <label key={lang}>
-                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && (left <= 0 || category !== 'Common' && unrestrictedLeft <= 0))} onChange={() => toggle(lang)} /> {lang} {sources[lang.toLowerCase()] ? <small>({sources[lang.toLowerCase()]})</small> : who && who !== lang && <small>({who})</small>}
-                </label>
+                <tr key={lang}><td><label>
+                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && (left <= 0 || category !== 'Common' && unrestrictedLeft <= 0))} onChange={() => toggle(lang)} /> {lang} {sources[lang.toLowerCase()] && <small>({sources[lang.toLowerCase()]})</small>}
+                </label></td><td>{who}</td></tr>
               )
             })}
-          </div>
+            </tbody>
+          </table>
         </fieldset>
       ))}
       {custom.length > 0 && (
