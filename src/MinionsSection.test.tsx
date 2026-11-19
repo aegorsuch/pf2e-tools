@@ -1210,6 +1210,29 @@ it('alphabetizes companion advancement, size, specializations, and traits togeth
     .toEqual(['Auspice', 'Beast', 'Bully', 'Devil', 'Fiend', 'Large', 'Minion', 'Rare', 'Savage', 'Unholy', 'Wrecker'])
 })
 
+it('offers Peerless Mascot and its language and banner controls', () => {
+  const companion: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'bear', name: 'Bear',
+    traits: ['Animal'], data: { size: 'Medium', hp: 6, speed_raw: '35 feet' } }
+  let c: Character = { id: 'mascot', systems: ['pf2e'], name: 'Test', level: 20, className: 'Commander',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Peerless Mascot Companion', type: 'Class Feat', level: 16 },
+      { name: 'Glorious Banner', type: 'Class Feat', level: 20 }],
+    equipment: [], lores: [], languages: ['Dwarven'], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'bear', type: 'Bear', name: '' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => MinionsContent({ c, entries: [companion], save })
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Peerless Mascot">Peerless Mascot</option>')
+  findSelect(tree(), 'Companion specialization 1')!({ target: { value: 'Peerless Mascot' } })
+  expect(renderToStaticMarkup(tree())).toContain('30-foot aura')
+  expect(findSelect(tree(), 'Peerless Mascot language')).toBeTypeOf('function')
+  findSelect(tree(), 'Peerless Mascot language')!({ target: { value: 'Dwarven' } })
+  expect(c.companions?.[0].mascotLanguage).toBe('Dwarven')
+  findToggle(tree(), 'Banner affixed to Bear')!({ target: { checked: true } })
+  expect(renderToStaticMarkup(tree())).toContain('100-foot aura')
+  expect(renderToStaticMarkup(MinionsContent({ c: { ...c, level: 19 }, entries: [companion], save })))
+    .toContain('60-foot aura')
+})
+
 it('grants a Beastmaster Dedication companion and extra companions only with Additional Companion', () => {
   let c: Character = {
     id: 'beastmaster', systems: ['pf2e'], name: 'Test', level: 4, className: 'Fighter',

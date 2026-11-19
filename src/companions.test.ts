@@ -748,6 +748,31 @@ describe('animal companions', () => {
       { key: 'class:20:0', category: 'class', level: 20 })).not.toContain(specialized)
   })
 
+  it('offers and applies Peerless Mascot only through its Commander feat', () => {
+    const c: Character = { ...base, className: 'Commander', level: 16,
+      feats: [feat('Battle-Hardened Companion', 'Savage'), feat('Peerless Mascot Companion')],
+      companions: [{ id: 'bear', type: 'Bear', name: '' }] }
+    expect(specializationOptions(c, [], 1)).toContain('Peerless Mascot')
+    expect(specializationOptions({ ...c, className: 'Ranger' }, [], 1)).not.toContain('Peerless Mascot')
+    expect(specializationOptions({ ...c, feats: [c.feats[0], feat('Specialized Companion')] }, [], 1))
+      .not.toContain('Peerless Mascot')
+    const selected = { ...c, feats: [c.feats[0], { ...c.feats[1], choice: 'Peerless Mascot' }] }
+    const other = { ...selected, feats: [selected.feats[0], { ...selected.feats[1], choice: 'Ambusher' }] }
+    const source = { ...bear, data: { ...bear.data, speed_raw: '35 feet, fly 60 feet, swim 20 feet' } }
+    for (const [level, bonus] of [[16, 20], [18, 25], [20, 30]]) {
+      const peerless = companionStats({ ...selected, level }, [source], 'Bear', companionAdvancement({ ...selected, level }))!
+      const standard = companionStats({ ...other, level }, [source], 'Bear', companionAdvancement({ ...other, level }))!
+      expect(peerless.hp - standard.hp).toBe(bonus)
+      expect(peerless.mods.int).toBe(standard.mods.int + 2)
+      expect(peerless.mods.wis).toBe(standard.mods.wis + 1)
+      expect(peerless.traits).toContain('Beast')
+      expect(peerless.skills.find(skill => skill.name === 'Warfare Lore')).toMatchObject({ rank: 2, bonus: level + 4 + peerless.mods.int })
+      expect(peerless.speed).toBe('60 feet, fly 60 feet, swim 60 feet, climb 60 feet')
+    }
+    expect(companionAdvancement({ ...selected, className: 'Ranger' }).specializations).not.toContain('Peerless Mascot')
+    expect(companionStats({ ...selected, level: 3 }, [source], 'Bear', companionAdvancement({ ...selected, level: 3 }))?.peerlessMascot).toBe(false)
+  })
+
   it('hides Mature and Incredible Beastmaster Companion but lets class advancement unlock Specialized', () => {
     const mature = entry('feat', 'Mature Beastmaster Companion', {}, 4, ['Archetype'])
     const incredible = entry('feat', 'Incredible Beastmaster Companion', {}, 10, ['Archetype'])

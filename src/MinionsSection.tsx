@@ -3,7 +3,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -292,6 +292,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const specials = [
                 ...(stats?.mount ? [{ name: 'Mount', note: undefined }] : []),
                 ...(stats?.beastmasterSpecial ?? []),
+                ...(stats?.peerlessMascot ? [{ name: 'Peerless Mascot',
+                  note: `The companion provides your banner's benefits in a ${comp.mascotBannerAffixed
+                    ? activeFeatsNamed(c, 'Glorious Banner').length ? 100 : 60 : 30}-foot aura.` }] : []),
                 ...(!isConstruct && activeFeatsNamed(c, 'Beastmaster Bond').length ? [{ name: 'Beastmaster Bond',
                   note: `Communicate telepathically with this animal companion ${ranksAt(c, entries).Nature >= 4 ? 'anywhere on the planet' : 'within 100 feet'}.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
@@ -324,6 +327,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     {['Insight', 'Might', 'Swiftness'].map(aspect => <option key={aspect} value={aspect}>Aspect of {aspect}</option>)}
                   </select>
                 </label> }] : []),
+                ...(stats?.peerlessMascot ? [{ name: 'Banner affixed', element: <label><input type="checkbox"
+                  aria-label={`Banner affixed to ${comp.name || comp.type}`} checked={!!comp.mascotBannerAffixed}
+                  onChange={event => update(comp.id, { mascotBannerAffixed: event.target.checked })} /> Banner affixed</label> }] : []),
                 ...(index === 0 && activeFeatsNamed(c, 'Faithful Steed').length > 0 && activeFeatsNamed(c, 'Pale Horse').length > 0
                   ? [{ name: 'Pale Horse', element: <label>Pale Horse{' '}
                     <select aria-label="Pale Horse mounted damage type" value={comp.paleHorse ?? ''} onChange={event => {
@@ -397,6 +403,18 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       })()}
                     </Info>
                   </div>}
+                  {stats.peerlessMascot && (() => {
+                    const known = [...new Map([...languageAllowance(c, entries).locked,
+                      ...(migrateAncestralLinguistics(c)?.languages ?? c.languages)]
+                      .map(language => [language.toLowerCase(), language])).values()].sort((a, b) => a.localeCompare(b))
+                    return <label>Language{' '}
+                      <select aria-label="Peerless Mascot language" value={known.includes(comp.mascotLanguage ?? '') ? comp.mascotLanguage : ''}
+                        onChange={event => update(comp.id, { mascotLanguage: known.find(language => language === event.target.value) })}>
+                        <option value="">Choose language...</option>
+                        {known.map(language => <option key={language}>{language}</option>)}
+                      </select>
+                    </label>
+                  })()}
                   <div className="gear-traits">
                     {[
                       { name: (isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
