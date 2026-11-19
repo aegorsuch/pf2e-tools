@@ -22,6 +22,13 @@ beforeEach(() => {
 })
 afterEach(() => updateSettings({ innateAutoHeighten: previousAutoHeighten }))
 
+function necromancerFascinations() {
+  return [['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']]
+    .map(([name, spell]) => mapAonHit({ _id: `grim-fascination-${name}`, _source: {
+      category: 'grim-fascination', name, markdown: `**Grave Spell** [${spell}](/Spells.aspx?ID=1)`,
+    } }, 'pf2e')!)
+}
+
 it('grants lesser, greater, and cross-trained order spells with correct ranks, restrictions, and independent daily uses', () => {
   const entries = ['Locate', 'Summon Fiend', 'Resist Energy', 'Heal', 'Unfettered Movement']
     .map(name => ({ ...entry(name, 'spell'), level: name === 'Summon Fiend' ? 5 : name === 'Locate' ? 3 : name === 'Unfettered Movement' ? 4 : name === 'Resist Energy' ? 2 : 1 }))
@@ -185,27 +192,63 @@ it.each([7, 8, 10])('shows Mask of Terror heightened targets at rank %i', rank =
   expect(markup).toContain(`<small>Area/Targets</small>${rank >= 8 ? 'Up to 5 creatures' : '1 creature'}`)
 })
 
-it('lets Necromancers choose distinct additional rank-1 grave spells through Widespread Fascination', () => {
+it.each([['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']])(
+  'grants the %s Grim Fascination focus spell at level 1 and removes it when the choice changes',
+  (subclass, name) => {
+    const entries = [...necromancerFascinations(), entry('Necromancer', 'class', { tradition: 'Occult', attribute: 'Intelligence' }),
+      entry(name, 'spell', {}, ['Focus', 'Necromancer'])]
+    const c: Character = { ...base, level: 1, className: 'Necromancer', subclass, feats: [] }
+    expect(focusSpells(c, entries)).toEqual({ points: 1, spells: [{ name, source: `${subclass} grim fascination` }] })
+    expect(knowsSpell(c, entries, name)).toBe(true)
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+    expect(markup).toContain(name)
+    expect(markup).toContain('Occult Focus Spells Rank 1')
+    expect(focusSpells({ ...c, subclass: '' }, entries)).toEqual({ points: 0, spells: [] })
+    expect(focusSpells({ ...c, className: 'Wizard' }, entries)).toEqual({ points: 0, spells: [] })
+    expect(focusSpells({ ...c, systems: ['sf2e'] }, entries)).toEqual({ points: 0, spells: [] })
+  })
+
+it('limits Widespread Fascination to other grim fascinations and preserves valid legacy spell selections', () => {
   const widespread = entry('Widespread Fascination', 'feat')
   const spells = [
     entry('Blood Infusion', 'spell', {}, ['Focus', 'Necromancer']),
     entry('Bone Spear', 'spell', {}, ['Focus', 'Necromancer']),
+    entry('Dead Weight', 'spell', {}, ['Focus', 'Necromancer']),
+    entry('Life Tap', 'spell', {}, ['Focus', 'Necromancer']),
     entry('Create Thrall', 'spell', {}, ['Cantrip', 'Necromancer']),
-    { ...entry('Deathly Scream', 'spell', {}, ['Focus', 'Necromancer']), level: 2 },
+    entry('Deathly Scream', 'spell', {}, ['Focus', 'Necromancer']),
+    entry('Song of the Soul', 'spell', {}, ['Focus', 'Necromancer']),
     { ...entry('Other Focus', 'spell', {}, ['Focus', 'Necromancer']), systems: ['sf2e' as const] },
   ]
-  const c: Character = { ...base, level: 8, className: 'Necromancer', feats: [
-    { name: widespread.name, type: 'Class Feat', level: 4, choice: 'Blood Infusion', slot: 'class:4:0' },
+  const c: Character = { ...base, level: 8, className: 'Necromancer', subclass: 'Spirit', feats: [
+    { name: widespread.name, type: 'Class Feat', level: 4, choice: 'Blood', slot: 'class:4:0' },
     { name: widespread.name, type: 'Class Feat', level: 8, choice: 'Bone Spear', slot: 'class:8:0' },
   ] }
-  const entries = [widespread, ...spells]
+  const entries = [widespread, ...necromancerFascinations(), ...spells]
   expect(c.feats.map(feat => featSpellOptions(c, entries, feat)?.map(spell => spell.name))).toEqual([
-    ['Blood Infusion'], ['Bone Spear'],
+    ['Blood Infusion', 'Dead Weight'], ['Bone Spear', 'Dead Weight'],
   ])
+  expect(c.feats.map(feat => featChoiceOptions(feat.name, c, entries, feat.slot!))).toEqual([
+    ['Blood', 'Flesh'], ['Bone', 'Flesh'],
+  ])
+  expect(featChoiceOptions(widespread.name, { ...c, subclass: '', feats: [] }, entries, 'class:1:0'))
+    .toEqual(['Blood', 'Bone', 'Flesh', 'Spirit'])
   expect(grantedFeatSpells(c, entries).map(grant => grant.entry.name)).toEqual(['Blood Infusion', 'Bone Spear'])
-  expect(focusSpells(c, entries)).toMatchObject({
-    points: 2, spells: [expect.objectContaining({ name: 'Blood Infusion' }), expect.objectContaining({ name: 'Bone Spear' })],
+  expect(focusSpells({ ...c, subclass: undefined, feats: [c.feats[0]] }, entries)).toEqual({
+    points: 1, spells: [{ name: 'Blood Infusion', source: 'Widespread Fascination' }],
   })
+  expect(focusSpells(c, entries)).toMatchObject({
+    points: 3, spells: [expect.objectContaining({ name: 'Blood Infusion' }), expect.objectContaining({ name: 'Bone Spear' }),
+      expect.objectContaining({ name: 'Life Tap' })],
+  })
+  for (const choice of ['Spirit', 'Life Tap', 'Deathly Scream', 'Song of the Soul']) {
+    expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice }] }, entries)).toEqual([])
+  }
+  const standalone = ['Deathly Scream', 'Song of the Soul'].map(name =>
+    feat(name, `You learn the [${name}](/Spells.aspx?ID=1) grave spell.`, 2))
+  const separate = { ...c, feats: standalone.map(source => taken(source.name, 2)) }
+  expect(grantedFeatSpells(separate, [...entries, ...standalone]).map(grant => grant.entry.name))
+    .toEqual(['Deathly Scream', 'Song of the Soul'])
 })
 
 it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and DCs and restores source rules when disabled', highest => {

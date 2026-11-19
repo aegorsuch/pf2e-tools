@@ -50,7 +50,7 @@ export const SUBCLASS_CLASSES: Record<string, string> = {
   doctrine: 'Cleric', 'research-field': 'Alchemist', racket: 'Rogue', bloodline: 'Sorcerer',
   patron: 'Witch', 'arcane-school': 'Wizard', mystery: 'Oracle', methodology: 'Investigator',
   innovation: 'Inventor', way: 'Gunslinger', 'hybrid-study': 'Magus', 'conscious-mind': 'Psychic',
-  practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler',
+  practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler', 'grim-fascination': 'Necromancer',
 }
 
 export const CATEGORY_TO_KIND: Record<string, EntryKind> = {

@@ -73,6 +73,10 @@ export function ArmorProficiency({ c, entries }: Pick<SectionProps, 'c' | 'entri
   return <ProficiencyBadges groups={ARMOR_GROUPS} ranks={armorRanks(c, entries)} />
 }
 
+export function WeaponProficiency({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  return <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
+}
+
 export function SkillsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   return <summary className="character-section-summary">
     <strong>Skills</strong>
@@ -550,7 +554,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   if (part === 'offense') {
     return (
       <>
-        <ProficiencyBadges groups={WEAPON_GROUPS} ranks={weaponRanks(c, entries)} />
+        <WeaponProficiency c={c} entries={entries} />
         {testSubjectAdaptation(c) === 'Radioactive' && <label>
           <input type="checkbox" checked={!!c.ysokiDailyUses?.contaminate}
             onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, contaminate: event.target.checked } })} />

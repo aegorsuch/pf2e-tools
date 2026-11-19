@@ -2,6 +2,24 @@ import { expect, it } from 'vitest'
 import { fetchAonHits, parseCompanion, parseFeatSpellGrants } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 
+it('fetches and imports all four grim fascinations with their starting focus spells and thrall rules', async () => {
+  const choices = [['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']]
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: { term: { category: string } }[] } } }
+    const category = body.query.bool.filter[0].term.category
+    const hits = category === 'grim-fascination' ? choices.map(([name, spell]) => ({
+      _id: `grim-fascination-${name}`, _source: { category, name,
+        markdown: `**Grave Spell** [${spell}](/Spells.aspx?ID=1)\n\n**Thrall Enhancement** Full thrall rules.` },
+    })) : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries).toHaveLength(4)
+  expect(entries.map(entry => [entry.name, entry.data.grants_focus_spells])).toEqual(choices)
+  expect(entries.every(entry => entry.kind === 'subclass' && entry.data.class === 'Necromancer'
+    && entry.description.includes('Thrall Enhancement Full thrall rules.'))).toBe(true)
+})
+
 it.each(['Song of the Soul', 'Deathly Scream'])('parses %s as a granted grave focus spell', name => {
   const markdown = `<title>Feat</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.`
   expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])

@@ -8,6 +8,7 @@ import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
+import { subclassOptions } from './builder'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -332,7 +333,7 @@ it('labels Rogue subclass as Racket without duplicating an additional Mastermind
   } finally { content.entries = [] }
 })
 
-it('shows armor proficiency badges in Equipment directly above Armor', () => {
+it('shows armor and weapon proficiency badges in Equipment directly above their headings', () => {
   content.entries = []
   const c: Character = {
     id: 'armor-proficiency', systems: ['pf2e'], name: 'Test', level: 1, className: 'Wizard',
@@ -347,6 +348,12 @@ it('shows armor proficiency badges in Equipment directly above Armor', () => {
   const deityStart = markup.indexOf('<strong>Deity</strong>')
   expect(proficiency).toBeGreaterThan(equipmentStart)
   expect(proficiency).toBeLessThan(armorHeading)
+  const weaponsHeading = markup.indexOf('<h4>Weapons</h4>', equipmentStart)
+  const weaponProficiency = markup.lastIndexOf('<div class="prof-badges">', weaponsHeading)
+  expect(weaponProficiency).toBeGreaterThan(armorHeading)
+  const weaponBadges = markup.slice(weaponProficiency, weaponsHeading)
+  for (const name of ['Advanced', 'Martial', 'Simple', 'Unarmed']) expect(weaponBadges).toContain(name)
+  expect(weaponBadges).not.toContain('Unarmored')
   expect(markup.slice(defenseStart, deityStart)).not.toContain('class="prof-badges"')
 })
 
@@ -1115,11 +1122,27 @@ it('defers unused picker choices while retaining saved values and deity labels',
   } finally { content.entries = [] }
 })
 
+it('offers all four Grim Fascinations when adding Necromancer and keeps the selected fascination', () => {
+  content.entries = ['Blood', 'Bone', 'Flesh', 'Spirit'].map(name =>
+    mapAonHit({ _id: `grim-${name}`, _source: { category: 'grim-fascination', name, markdown: `${name} rules.` } }, 'pf2e')!)
+  const c: Character = { id: 'necromancer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character = c) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+  expect(render()).toContain('aria-label="Grim Fascination"')
+  expect(subclassOptions(c, content.entries).map(entry => entry.name)).toEqual(['Blood', 'Bone', 'Flesh', 'Spirit'])
+  const saved = render({ ...c, subclass: 'Spirit' })
+  expect(saved).toContain('<option value="Spirit" selected="">Spirit</option>')
+  expect(saved).toContain('Spirit rules.')
+  content.entries = []
+})
+
 it.each([
   ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Edge Ranger'],
   ['cause', 'Champion', 'Justice', 'Champion of Justice'],
   ['instinct', 'Barbarian', 'Giant', 'Giant Instinct Barbarian'],
   ['innovation', 'Inventor', 'Construct', 'Construct Inventor'],
+  ['grim-fascination', 'Necromancer', 'Bone', 'Bone Necromancer'],
 ])('imports %s choices and shows selected subclass in the class subtitle', (category, className, name, label) => {
   const subclass = mapAonHit({ _id: 'subclass', _source: { category, name, markdown: 'Full subclass rules.' } }, 'pf2e')
   if (!subclass) throw new Error('Missing subclass mapping')
@@ -1135,5 +1158,6 @@ it.each([
   expect(markup).toContain(`<option value="${name}" selected="">${name}</option>`)
   if (className === 'Barbarian') expect(markup).toContain('>Instinct</label>')
   if (className === 'Inventor') expect(markup).toContain('>Innovation</label>')
+  if (className === 'Necromancer') expect(markup).toContain('>Grim Fascination</label>')
   content.entries = []
 })

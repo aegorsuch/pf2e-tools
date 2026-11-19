@@ -13,7 +13,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, commonLoreOptions, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, WeaponProficiency, commonLoreOptions, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { effectiveHandwraps, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
@@ -644,7 +644,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
               onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
           </div>
           {c.className !== 'Druid' && subclasses.length > 0 && <>
-            <Pick label={c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
+            <Pick label={c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
               kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />
@@ -779,6 +779,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <EquipmentGroup {...section} group="Throat" rows={equipmentGroups.Throat} />
           <EquipmentGroup {...section} group="Torso" rows={equipmentGroups.Torso} />
+          <WeaponProficiency c={c} entries={entries} />
           <h4>Weapons</h4>
           <WeaponList {...section} />
           <EquipmentGroup {...section} group="Wrists" rows={equipmentGroups.Wrists} />

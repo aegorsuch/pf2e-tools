@@ -133,15 +133,25 @@ export function ancestralMagicAvailable(c: Character, entries: ContentEntry[], f
   return !!ancestralMagicRules(c, entries, feat)?.spells.length
 }
 
+export function widespreadFascinationOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (c.className !== 'Necromancer' || !c.systems.includes('pf2e')) return []
+  const used = new Set([c.subclass, ...c.feats.filter(other => other.name === 'Widespread Fascination'
+    && featTakenLevel(other) <= c.level
+    && (feat.slot ? other.slot !== feat.slot : other !== feat)).map(other => other.choice)])
+  return entries.filter(entry => entry.kind === 'subclass' && !entry.deleted && entry.systems.includes('pf2e')
+    && entry.data.class === 'Necromancer' && typeof entry.data.grants_focus_spells === 'string'
+    && !used.has(entry.name) && !used.has(entry.data.grants_focus_spells))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (feat.name === 'Widespread Fascination' && c.className === 'Necromancer' && c.systems.includes('pf2e')) {
-    const used = new Set(c.feats.filter(other => other.name === feat.name
-      && (feat.slot ? other.slot !== feat.slot : other !== feat)).flatMap(other => other.choice ? [other.choice.toLowerCase()] : []))
+    const names = new Set(widespreadFascinationOptions(c, entries, feat).map(entry => entry.data.grants_focus_spells))
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
       && spell.level === 1 && spell.traits.some(trait => trait.toLowerCase() === 'focus')
       && spell.traits.some(trait => trait.toLowerCase() === 'necromancer')
       && !spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
-      && !used.has(spell.name.toLowerCase()))
+      && names.has(spell.name))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
   if (feat.name === 'Bone Magic') {
@@ -283,7 +293,10 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (feat.name === 'Widespread Fascination') {
-      const spell = feat.choice && featSpellOptions(c, entries, feat)?.find(entry => entry.name === feat.choice)
+      const fascination = widespreadFascinationOptions(c, entries, feat)
+        .find(entry => entry.name === feat.choice || entry.data.grants_focus_spells === feat.choice)
+      const spell = fascination && featSpellOptions(c, entries, feat)
+        ?.find(entry => entry.name === fascination.data.grants_focus_spells)
       if (spell) out.push({ entry: spell, source: feat.name,
         rule: { kind: 'focus', spells: [spell.name], heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, spell.name.toLowerCase()]) })

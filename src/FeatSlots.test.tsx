@@ -812,6 +812,36 @@ it('offers additional Bard muses as distinct options', () => {
   expect(renderToStaticMarkup(tree())).toContain('Polymath muse description.')
 })
 
+it('offers only four named Widespread Fascination variants, excluding the primary fascination and other selections', () => {
+  const feat: ContentEntry = { id: 'widespread', name: 'Widespread Fascination', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Necromancer'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const fascinations = [['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']]
+    .map(([name, spell]): ContentEntry => ({ ...feat, id: name, name, kind: 'subclass',
+      data: { class: 'Necromancer', grants_focus_spells: spell } }))
+  const spells = [...fascinations.map(fascination => String(fascination.data.grants_focus_spells)), 'Deathly Scream', 'Song of the Soul']
+    .map((name): ContentEntry => ({ ...feat, id: name, name, kind: 'spell', traits: ['Necromancer', 'Focus'], data: {} }))
+  const entries = [feat, ...fascinations, ...spells]
+  let c: Character = { ...emptyRanger(), className: 'Necromancer', level: 8 }
+  const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } } })
+  const markup = renderToStaticMarkup(tree())
+  for (const name of ['Blood', 'Bone', 'Flesh', 'Spirit']) expect(markup).toContain(`Widespread Fascination (${name})`)
+  for (const name of spells.map(spell => spell.name)) expect(markup).not.toContain(`Widespread Fascination (${name})`)
+  c = { ...c, subclass: 'Bone' }
+  expect(renderToStaticMarkup(tree())).not.toContain('Widespread Fascination (Bone)')
+  findSelect(tree(), 'L02 Class feat')!({ target: { value: JSON.stringify([feat.name, 'Flesh']) } })
+  c = JSON.parse(JSON.stringify(c)) as Character
+  expect(c.feats[0]).toMatchObject({ name: feat.name, choice: 'Flesh' })
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Dead Weight' } }])
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={() => {}} index={0} />)).toBe('')
+  expect(featChoiceOptions(feat.name, c, entries, 'class:4:0')).toEqual(['Blood', 'Spirit'])
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Dead Weight' }] }
+  expect(renderToStaticMarkup(tree())).toContain('Widespread Fascination (Flesh)')
+  expect(renderToStaticMarkup(tree())).not.toContain('Saved Widespread Fascination choice is unavailable')
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Deathly Scream' }] }
+  expect(renderToStaticMarkup(tree())).toContain('Saved Widespread Fascination choice is unavailable')
+  expect(grantedFeatSpells(c, entries)).toEqual([])
+})
+
 it('preserves legacy and qualified Shobhad selections in the weapon selector', () => {
   const pf: ContentEntry = { id: 'pf', name: 'Shobhad Longrifle', kind: 'weapon', systems: ['pf2e'], source: 'official',
     level: 1, traits: [], description: '', data: { weapon_category: 'Martial', rarity: 'rare' }, effects: [], updatedAt: 0 }

@@ -68,6 +68,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (text(s.resistances)) data.resistances = text(s.resistances)
   if (kind === 'classFeature') data.class = text(s.class)
   if (kind === 'subclass') data.class = SUBCLASS_CLASSES[text(s.category).toLowerCase()]
+  if (text(s.category).toLowerCase() === 'grim-fascination') {
+    const spell = /\*\*Grave Spell\*\*\s*\[([^\]]+)\]\([^)]*\)/i.exec(markdown)?.[1]
+    if (spell) data.grants_focus_spells = plain(spell)
+  }
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
   if (usesFullItemRules(s)) {
     const actions = text(s.markdown).split(/\n\s*\n/)

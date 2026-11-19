@@ -9,7 +9,7 @@ import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySugges
 import { actionOptionLabel } from './actionCost'
 import { adoptedAncestryText, compareFeatSelections, featDisplayName } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
-import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip } from './featSpells'
+import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip, widespreadFascinationOptions } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { getSettings } from './settings'
@@ -163,6 +163,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       ? 'Rats' : option.replace(/^[a-z]/, char => char.toUpperCase()))
   }
   const choiceLabel = (name: string, choice: string) => name === 'Clan Lore' ? clanLoreLabel(choice)
+    : name === 'Widespread Fascination' ? entries.find(entry => entry.kind === 'subclass'
+      && entry.data.class === 'Necromancer' && entry.data.grants_focus_spells === choice)?.name ?? choice
     : name === 'Bone Magic' ? choice.replace(/^occult\|Void Warp$/, 'primal|Void Warp')
       .replace(/^(occult|primal)\|/, (_, tradition: string) => `${tradition[0].toUpperCase()}${tradition.slice(1)}: `)
     : name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : choice
@@ -585,6 +587,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 || ORDER_TRAINING_FEATS.includes(selection.name) && !selectedChoices.includes(selection.choice)
                 || selection.name === 'Technomagical Scrapper' && !selectedChoices.includes(selection.choice))
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
+              {selection?.name === 'Widespread Fascination' && selection.choice
+                && !widespreadFascinationOptions(c, entries, selection)
+                  .some(entry => entry.name === selection.choice || entry.data.grants_focus_spells === selection.choice)
+                && <small role="status">Saved Widespread Fascination choice is unavailable. Select a different grim fascination.</small>}
               {training?.name === 'Seek Injustice' && <>
                 <span className="focus-tracker" role="group" aria-label={`${seekUsed ? 0 : 1} of 1 uses remaining`}>
                   <button type="button" className="focus-point" aria-pressed={!seekUsed}

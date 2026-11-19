@@ -1,7 +1,7 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { DINOSAUR_WEAPONS, dinosaurBattleForm } from './dinosaurForm'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells } from './featSpells'
+import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, ORDER_TRAINING_FEATS, hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -1473,6 +1473,9 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   }
   if (name === 'First World Magic' || name === 'Ancestral Magic' || name === 'Ancestral Cantrip') return undefined
   if (name === 'Bone Magic') return boneMagicChoiceOptions(c, entries, { name, type: '', level: 1 })
+  if (name === 'Widespread Fascination') return [...new Set(widespreadFascinationOptions(
+    { ...c, subclass: selectedSubclass(c, entries) }, entries, c.feats[index]?.name === name ? c.feats[index]
+      : { name, type: '', level: 1, slot: slotKey }).map(entry => entry.name))]
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
@@ -2201,6 +2204,12 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  if (c.className === 'Necromancer' && c.systems.includes('pf2e') && c.level >= 1) {
+    const fascination = subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries))
+    if (typeof fascination?.data.grants_focus_spells === 'string') {
+      for (const spell of fascination.data.grants_focus_spells.split(', ')) add(spell, `${fascination.name} grim fascination`)
+    }
+  }
   const paradox = witchwarperParadox(c)
   if (paradox) add(paradox.initialWarpSpell, `${paradox.name} paradox`)
   const champion = c.className === 'Champion' && c.level >= 1
@@ -2288,7 +2297,7 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Multifarious Muse'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
     const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [normalizeDruidOrder(feat.choice)] : []))
