@@ -741,6 +741,9 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-category-tabs { flex-wrap: wrap; }
 .dirge-icon { width: 1em; height: 1em; vertical-align: -0.15em; }
 .dirge-dialog { width: min(60rem, 90vw); }
+.dirge-options { list-style: none; margin: 0.5rem 0; padding: 0; }
+.dirge-options li { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border); padding: 0.25rem 0; }
+.dirge-options button { min-width: 2rem; min-height: 2rem; }
 .class-spell-slots, .innate-spell-group { margin-top: 0.5rem; }
 .spell-slot-group, .innate-spell-group { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .spell-slot-group + .spell-slot-group, .innate-spell-group + .innate-spell-group { margin-top: 0.5rem; }

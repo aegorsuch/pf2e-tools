@@ -379,6 +379,15 @@ export function FalseVitalityActions({ c, save, entry, rank, actions, disabled }
   </ActiveSpellActions>
 }
 
+export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void }) {
+  return <ul className="dirge-options">
+    {options.map(entry => <li key={entry.id}>
+      <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
+      <span>{entry.name}</span>
+    </li>)}
+  </ul>
+}
+
 function SpellColumns() {
   return <div className="spellbook-columns" aria-hidden="true">
     <span>Spell</span><span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>
@@ -761,6 +770,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [dirgeOpen, setDirgeOpen] = useState(false)
   const [dirgeRank, setDirgeRank] = useState(0)
+  const [dirgeQuery, setDirgeQuery] = useState('')
   const dirgeDialog = useRef<HTMLDialogElement>(null)
   const dirgeTitleId = useId()
   const casting = classSpellcasting(c, entries)
@@ -796,9 +806,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const dirgeOptions = useMemo(() => necromancer ? uniqueSpellNames(necromancerSpellList(c, spellIndex.spells)
     .filter(entry => spellAccessGranted(c, entry) && necromancerDirgeCanLearn(c, spellIndex.spells, entry))) : [],
     [necromancer, c, spellIndex, dirge])
-  const rankedDirgeOptions = dirgeOptions.filter(entry => dirgeRank === 0
+  const rankedDirgeOptions = dirgeOptions.filter(entry => (dirgeRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+    && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()))
   const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
@@ -994,13 +1005,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <div hidden={category !== 'class'}>
       {necromancer && c.level >= 1 && <>
         <button type="button" aria-haspopup="dialog" onClick={() => {
+          setDirgeOpen(true)
           dirgeDialog.current?.showModal()
           dirgeDialog.current?.querySelector('h4')?.focus()
         }}><svg className="dirge-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none"
           stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 6c-2-2-5-3-9-3v15c4 0 7 1 9 3 2-2 5-3 9-3V3c-4 0-7 1-9 3ZM12 6v15" />
         </svg> Dirge</button>
-        <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
+        <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId} onClose={() => setDirgeOpen(false)}
           onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
           <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
           <div className="gear-tabs spell-category-tabs" role="group" aria-label="Dirge spell ranks">
@@ -1008,19 +1020,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={dirgeRank === rank}
               className={dirgeRank === rank ? 'on' : ''} onClick={() => setDirgeRank(rank)}>{rank}</button>)}
           </div>
-          <SearchableSelect aria-label="Learn dirge spell" value="" optionCount={rankedDirgeOptions.length}
-            onPrepare={() => setDirgeOpen(true)} onChange={event => {
-              const entry = rankedDirgeOptions.find(option => option.id === event.target.value)
-              if (!entry) return
-              save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
-                cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
-            }}>
-            <option value="">Learn spell</option>
-            {(rankedDirgeOptions.length <= 10 || dirgeOpen)
-              && rankedDirgeOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-          </SearchableSelect>
           {groups.filter(group => group !== 'Focus Spells').map(group =>
             <div className="dirge-rank" key={group} hidden={group !== (dirgeRank === 0 ? 'Cantrips' : `Rank ${dirgeRank}`)}>{renderSpellGroup(group)}</div>)}
+          <label>Search spells{' '}<input type="search" aria-label="Search dirge spells" value={dirgeQuery}
+            onChange={event => setDirgeQuery(event.target.value)} /></label>
+          {dirgeOpen && <DirgeLearnOptions options={rankedDirgeOptions} onLearn={entry => {
+            if (!rankedDirgeOptions.some(option => option.id === entry.id)) return
+            save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
+              cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
+          }} />}
           <form method="dialog"><button autoFocus>Close</button></form>
         </dialog>
       </>}
