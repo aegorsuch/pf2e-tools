@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
-type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number; basicSave?: boolean
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number
   additional?: { dice: number; sides: number; type: string } }
 
 export function spellDamage(name: string, rank: number): Damage[] {
@@ -25,13 +25,13 @@ export function spellDamage(name: string, rank: number): Damage[] {
         additional: { dice, sides: 6, type: 'persistent bleed (failure only)' } }]
     }
     case 'Blood-Feasting Breath':
-      return rank >= 5 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'void', basicSave: true }] : []
+      return rank >= 5 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'void' }] : []
     case "Poltergeist's Fury":
-      return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'piercing', basicSave: true }] : []
+      return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'piercing' }] : []
     case 'Devouring Void':
-      return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void', basicSave: true }] : []
+      return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Canticle of Everlasting Grief':
-      return rank >= 8 ? [{ label: 'Damage', dice: 10, sides: 6, type: 'mental', basicSave: true }] : []
+      return rank >= 8 ? [{ label: 'Damage', dice: 10, sides: 6, type: 'mental' }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
@@ -105,10 +105,7 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
       {' '}{typeof result === 'number' ? result : result.primary} {damage.type}
       {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}
-      {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed; success: {Math.floor(result / 2)} {damage.type};
-        {' '}critical failure: {result * 2} {damage.type} + {damage.persistentBleed * 2} persistent bleed</>}
-      {typeof result === 'number' && damage.basicSave && <>; success: {Math.floor(result / 2)} {damage.type};
-        {' '}critical failure: {result * 2} {damage.type}</>}
+      {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed</>}
       {typeof result === 'number' && damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
   </span>

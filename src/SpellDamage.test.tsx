@@ -113,11 +113,10 @@ it.each([[1, 2, 1], [4, 8, 4], [10, 20, 10]])('rolls Grim Tendrils rank %i as %i
   expect(rollSpellDamage(damage)).toBe(dice * 4)
 })
 
-it('shows Grim Tendrils outcomes using one damage roll', () => {
+it('shows Grim Tendrils damage and persistent bleed without save outcomes', () => {
   vi.mocked(useState).mockReturnValueOnce([7, vi.fn()])
   const html = renderToStaticMarkup(<DamageRoll name="Grim Tendrils" damage={spellDamage('Grim Tendrils', 3)[0]} actions="Two Actions" />)
-  expect(html).toContain('7 void + 3 persistent bleed; success: 3 void;')
-  expect(html).toContain('critical failure: 14 void + 6 persistent bleed')
+  expect(html).toContain('7 void + 3 persistent bleed</output>')
   expect(spellDamage('Grim Tendrils', 0)).toEqual([])
 })
 
@@ -192,7 +191,7 @@ it.each([[5, 5], [6, 6], [10, 10]])('rolls Blood-Feasting Breath at rank %i as %
   const entry: ContentEntry = { id: 'blood-feasting', name: 'Blood-Feasting Breath', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
   const damage = spellDamage(entry.name, rank)[0]
-  expect(damage).toMatchObject({ dice, sides: 6, type: 'void', basicSave: true })
+  expect(damage).toMatchObject({ dice, sides: 6, type: 'void' })
   expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
     .toContain(`title="Three Actions; Damage: ${dice}d6 void"`)
   vi.spyOn(Math, 'random').mockReturnValue(0)
@@ -201,10 +200,10 @@ it.each([[5, 5], [6, 6], [10, 10]])('rolls Blood-Feasting Breath at rank %i as %
   expect(rollSpellDamage(damage)).toBe(dice * 6)
 })
 
-it('shows Blood-Feasting Breath basic save outcomes', () => {
+it('shows Blood-Feasting Breath damage without save outcomes', () => {
   vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
   expect(renderToStaticMarkup(<DamageRoll name="Blood-Feasting Breath" damage={spellDamage('Blood-Feasting Breath', 5)[0]} actions="Three Actions" />))
-    .toContain('17 void; success: 8 void; critical failure: 34 void')
+    .toContain('17 void</output>')
   expect(spellDamage('Blood-Feasting Breath', 4)).toEqual([])
 })
 
@@ -212,7 +211,7 @@ it.each([[6, 6], [7, 7], [10, 10]])("rolls Poltergeist's Fury at rank %i as %id4
   const entry: ContentEntry = { id: 'poltergeist', name: "Poltergeist's Fury", systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 6, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
   const damage = spellDamage(entry.name, rank)[0]
-  expect(damage).toMatchObject({ dice, sides: 4, type: 'piercing', basicSave: true })
+  expect(damage).toMatchObject({ dice, sides: 4, type: 'piercing' })
   expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
     .toContain(`title="Three Actions; Damage: ${dice}d4 piercing"`)
   vi.spyOn(Math, 'random').mockReturnValue(0)
@@ -221,10 +220,10 @@ it.each([[6, 6], [7, 7], [10, 10]])("rolls Poltergeist's Fury at rank %i as %id4
   expect(rollSpellDamage(damage)).toBe(dice * 4)
 })
 
-it("shows Poltergeist's Fury basic save outcomes", () => {
+it("shows Poltergeist's Fury damage without save outcomes", () => {
   vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
   expect(renderToStaticMarkup(<DamageRoll name="Poltergeist's Fury" damage={spellDamage("Poltergeist's Fury", 6)[0]} actions="Three Actions" />))
-    .toContain('17 piercing; success: 8 piercing; critical failure: 34 piercing')
+    .toContain('17 piercing</output>')
   expect(spellDamage("Poltergeist's Fury", 5)).toEqual([])
 })
 
@@ -232,7 +231,7 @@ it.each([[7, 7], [8, 8], [10, 10]])('rolls Devouring Void at rank %i as %id8 voi
   const entry: ContentEntry = { id: 'devouring-void', name: 'Devouring Void', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 7, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
   const damage = spellDamage(entry.name, rank)[0]
-  expect(damage).toMatchObject({ dice, sides: 8, type: 'void', basicSave: true })
+  expect(damage).toMatchObject({ dice, sides: 8, type: 'void' })
   expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
     .toContain(`title="Three Actions; Damage: ${dice}d8 void"`)
   vi.spyOn(Math, 'random').mockReturnValue(0)
@@ -241,10 +240,10 @@ it.each([[7, 7], [8, 8], [10, 10]])('rolls Devouring Void at rank %i as %id8 voi
   expect(rollSpellDamage(damage)).toBe(dice * 8)
 })
 
-it('shows Devouring Void basic save outcomes', () => {
+it('shows Devouring Void damage without save outcomes', () => {
   vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
   expect(renderToStaticMarkup(<DamageRoll name="Devouring Void" damage={spellDamage('Devouring Void', 7)[0]} actions="Three Actions" />))
-    .toContain('17 void; success: 8 void; critical failure: 34 void')
+    .toContain('17 void</output>')
   expect(spellDamage('Devouring Void', 6)).toEqual([])
 })
 
@@ -252,7 +251,7 @@ it.each([8, 9, 10])('rolls Canticle of Everlasting Grief at rank %i as 10d6 ment
   const entry: ContentEntry = { id: 'canticle', name: 'Canticle of Everlasting Grief', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 8, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const damage = spellDamage(entry.name, rank)[0]
-  expect(damage).toMatchObject({ dice: 10, sides: 6, type: 'mental', basicSave: true })
+  expect(damage).toMatchObject({ dice: 10, sides: 6, type: 'mental' })
   expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
     .toContain('title="Two Actions; Damage: 10d6 mental"')
   vi.spyOn(Math, 'random').mockReturnValue(0)
@@ -261,10 +260,10 @@ it.each([8, 9, 10])('rolls Canticle of Everlasting Grief at rank %i as 10d6 ment
   expect(rollSpellDamage(damage)).toBe(60)
 })
 
-it('shows Canticle of Everlasting Grief save damage', () => {
+it('shows Canticle of Everlasting Grief damage without save outcomes', () => {
   vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
   expect(renderToStaticMarkup(<DamageRoll name="Canticle of Everlasting Grief" damage={spellDamage('Canticle of Everlasting Grief', 8)[0]} actions="Two Actions" />))
-    .toContain('17 mental; success: 8 mental; critical failure: 34 mental')
+    .toContain('17 mental</output>')
   expect(spellDamage('Canticle of Everlasting Grief', 7)).toEqual([])
 })
 
