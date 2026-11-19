@@ -196,7 +196,8 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
 export function boneMagicChoiceOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   return [...new Set((featSpellOptions(c, entries, feat) ?? []).flatMap(spell =>
     (['occult', 'primal'] as const)
-      .filter(tradition => String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+      .filter(tradition => spell.name === 'Void Warp' ? tradition === 'primal'
+        : String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
       .map(tradition => `${tradition}|${spell.name}`)))]
 }
 
@@ -271,13 +272,11 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (feat.name === 'Bone Magic') {
+      const selectedChoice = feat.choice === 'occult|Void Warp' ? 'primal|Void Warp' : feat.choice
       const choices = boneMagicChoiceOptions(c, entries, feat)
-        .filter(choice => choice === feat.choice || !!feat.choice && choice.endsWith(`|${feat.choice}`))
+        .filter(choice => choice === selectedChoice || !!selectedChoice && choice.endsWith(`|${selectedChoice}`))
       const [tradition, name] = choices.length === 1 ? choices[0].split('|', 2) : []
-      const spell = ['occult', 'primal'].includes(tradition ?? '')
-        ? featSpellOptions(c, entries, feat)?.find(entry => entry.name === name
-          && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
-        : undefined
+      const spell = featSpellOptions(c, entries, feat)?.find(entry => entry.name === name)
       if (spell && tradition) out.push({ entry: spell, source: feat.name,
         rule: { kind: 'innate', spells: [spell.name], tradition, frequency: 'at will', heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, tradition, spell.name.toLowerCase()]) })

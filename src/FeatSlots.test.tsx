@@ -881,18 +881,24 @@ it('saves Bone Magic spell and tradition in one variant and grants the selected 
   let c: Character = { ...emptyRanger(), ancestry: 'Lizardfolk', level: 20 }
   const tree = () => FeatSlots({ c, entries, save: patch => { c = { ...c, ...patch } }, categories: ['ancestry'] })
   const markup = renderToStaticMarkup(tree())
-  expect(markup).toContain('Bone Magic (Occult: Void Warp)')
+  expect(markup).toContain('Bone Magic (Primal: Void Warp)')
+  expect(markup).not.toContain('Bone Magic (Occult: Void Warp)')
   expect(markup).toContain('Bone Magic (Occult: Shared Cantrip)')
   expect(markup).toContain('Bone Magic (Primal: Shared Cantrip)')
-  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: JSON.stringify([source.name, 'occult|Void Warp']) } })
+  findSelect(tree(), 'L01 Ancestry feat')!({ target: { value: JSON.stringify([source.name, 'primal|Void Warp']) } })
   c = JSON.parse(JSON.stringify(c)) as Character
-  expect(c.feats[0]).toMatchObject({ name: source.name, choice: 'occult|Void Warp' })
-  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Void Warp' }, rank: 10, rule: { tradition: 'occult' } }])
+  expect(c.feats[0]).toMatchObject({ name: source.name, choice: 'primal|Void Warp' })
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{ entry: { name: 'Void Warp' }, rank: 10, rule: { tradition: 'primal' } }])
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={() => {}} index={0} />)).toBe('')
   expect(renderToStaticMarkup(tree())).not.toContain('Bone Magic tradition and cantrip')
-  expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'Void Warp' }] }, entries))
-    .toMatchObject([{ entry: { name: 'Void Warp' }, rank: 10, rule: { tradition: 'occult' } }])
-  expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'primal|Void Warp' }] }, entries)).toEqual([])
+  for (const choice of ['Void Warp', 'occult|Void Warp']) {
+    const saved = { ...c, feats: [{ ...c.feats[0], choice }] }
+    expect(grantedFeatSpells(saved, entries))
+      .toMatchObject([{ entry: { name: 'Void Warp' }, rank: 10, rule: { tradition: 'primal' } }])
+    expect(renderToStaticMarkup(<FeatSlots c={saved} entries={entries} save={() => {}} categories={['ancestry']} />))
+      .not.toContain('Bone Magic (Occult: Void Warp)')
+  }
+  expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'arcane|Void Warp' }] }, entries)).toEqual([])
   expect(grantedFeatSpells({ ...c, feats: [{ ...c.feats[0], choice: 'Shared Cantrip' }] }, entries)).toEqual([])
 })
 
