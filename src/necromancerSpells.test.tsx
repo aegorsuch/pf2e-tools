@@ -147,7 +147,7 @@ it('shows Execute damage in the prepared Necromancer spell slot', () => {
 
 it.each([
   ['Desiccate', 8, 15, 'title="Two Actions; Damage: 10d10 void"'],
-  ['Massacre', 9, 17, 'title="Two Actions; Failure: 100 void"'],
+  ['Massacre', 9, 17, 'title="Two Actions; Success: 9d6 void"'],
 ] as const)('shows %s damage in its Necromancer spell slot', (name, rank, level, title) => {
   const entry = { ...spell(name, rank, 'Primal'), data: { tradition: 'Primal', actions: 'Two Actions' } }
   const c: Character = { ...base, level, feats: [taken('Expanded Necromancy', 10)],

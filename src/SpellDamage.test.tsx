@@ -139,17 +139,17 @@ it.each([[8, 10], [9, 11], [10, 12]])('rolls Desiccate at rank %i as %id10 void'
   expect(spellDamage('Desiccate', rank)).toEqual([{ label: 'Damage', dice, sides: 10, type: 'void' }])
 })
 
-it.each([[9, 9, 100], [10, 10, 115]])('shows Massacre rank %i success and failure damage', (rank, dice, failure) => {
+it.each([[9, 9], [10, 10]])('shows only Massacre rank %i success damage', (rank, dice) => {
   const entry: ContentEntry = { id: 'massacre', name: 'Massacre', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 9, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const rolls = spellActionRolls(entry.name, rank, entry)
   expect(rolls.map(roll => roll.damage)).toEqual([
     { label: 'Success', dice, sides: 6, type: 'void' },
-    { label: 'Failure', dice: 0, sides: 0, bonus: failure, type: 'void' },
   ])
   const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
   expect(markup).toContain(`title="Two Actions; Success: ${dice}d6 void"`)
-  expect(markup).toContain(`title="Two Actions; Failure: ${failure} void"`)
+  expect(markup.match(/<button /g)).toHaveLength(1)
+  expect(markup).not.toContain('Failure')
   expect(markup).not.toContain('Backlash')
 })
 

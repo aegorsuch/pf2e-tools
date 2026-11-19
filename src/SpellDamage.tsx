@@ -17,10 +17,7 @@ export function spellDamage(name: string, rank: number): Damage[] {
     case 'Desiccate':
       return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
     case 'Massacre':
-      return rank >= 9 ? [
-        { label: 'Success', dice: rank >= 10 ? 10 : 9, sides: 6, type: 'void' },
-        { label: 'Failure', dice: 0, sides: 0, bonus: rank >= 10 ? 115 : 100, type: 'void' },
-      ] : []
+      return rank >= 9 ? [{ label: 'Success', dice: rank >= 10 ? 10 : 9, sides: 6, type: 'void' }] : []
     case 'Void Warp':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
     case 'Deathly Scream':
