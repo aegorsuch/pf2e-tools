@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
-type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; persistentBleed?: number
   additional?: { dice: number; sides: number; type: string }; outcomes?: { label: string; dice: number }[] }
 
 export function spellDamage(name: string, rank: number): Damage[] {
@@ -10,7 +10,7 @@ export function spellDamage(name: string, rank: number): Damage[] {
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Needle Darts':
-      return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing', criticalBleed: rank }] : []
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
     case 'Grim Tendrils':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
     case 'Shadow Army':
@@ -132,7 +132,6 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
         : <> {typeof result === 'number' ? result : result.primary} {damage.type}
           {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}</>}
       {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed</>}
-      {typeof result === 'number' && damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
   </span>
 }

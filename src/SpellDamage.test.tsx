@@ -85,7 +85,7 @@ it.each([[1, 3], [5, 7], [10, 12]])('scales Needle Darts at rank %i to %id4 pier
   const entry: ContentEntry = { id: 'needle', name: 'Needle Darts', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const damage = spellDamage(entry.name, rank)[0]
-  expect(damage).toMatchObject({ dice, sides: 4, type: 'piercing', criticalBleed: rank })
+  expect(damage).toEqual({ label: 'Damage', dice, sides: 4, type: 'piercing' })
   expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
     .toContain(`title="Two Actions; Damage: ${dice}d4 piercing"`)
   vi.spyOn(Math, 'random').mockReturnValue(0)
@@ -94,10 +94,12 @@ it.each([[1, 3], [5, 7], [10, 12]])('scales Needle Darts at rank %i to %id4 pier
   expect(rollSpellDamage(damage)).toBe(dice * 4)
 })
 
-it('shows Needle Darts critical damage and heightened persistent bleed with its roll', () => {
+it('shows only the rolled Needle Darts damage', () => {
   vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
   const markup = renderToStaticMarkup(<DamageRoll name="Needle Darts" damage={spellDamage('Needle Darts', 5)[0]} actions="Two Actions" />)
-  expect(markup).toContain('17 piercing; critical: 34 piercing + 5 persistent bleed')
+  expect(markup).toContain('17 piercing</output>')
+  expect(markup).not.toContain('critical:')
+  expect(markup).not.toContain('persistent bleed')
 })
 
 it.each([[1, 2, 1], [4, 8, 4], [10, 20, 10]])('rolls Grim Tendrils rank %i as %id4 void and %i persistent bleed', (rank, dice, bleed) => {
