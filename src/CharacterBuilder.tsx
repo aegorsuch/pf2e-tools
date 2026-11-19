@@ -739,9 +739,6 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="defense" />
-          <ArmorProficiency c={c} entries={entries} />
-          <h4>Armor</h4>
-          <ArmorList {...section} part="armor" />
         </div>
       </DeferredDetails>
       <DeferredDetails>

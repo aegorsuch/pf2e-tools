@@ -4,7 +4,7 @@ import { resistances, activeBattleForm,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
-import { ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { PROFESSION_LORES } from './backgrounds'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
@@ -615,6 +615,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               ? 'Gain the animal trait. Can hold your breath throughout the transformation.'
               : 'Gain the animal and dinosaur traits.'} Only the form's unarmed attacks can Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.`} inlineSource={false} /></b></span>
         </div>}
+        <ArmorProficiency c={c} entries={entries} />
+        <h4>Armor</h4>
+        <ArmorList c={c} entries={entries} save={save} part="armor" />
         <ShieldEquipment c={c} entries={entries} save={save} />
         {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <label>
           <input type="checkbox" checked={!!c.dermalPlating?.raised && !c.dermalPlating.damaged}

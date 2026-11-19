@@ -339,6 +339,7 @@ it('shows armor and weapon proficiency badges in Equipment directly above their 
     id: 'armor-proficiency', systems: ['pf2e'], name: 'Test', level: 1, className: 'Wizard',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, raised: false, damage: 0 },
   }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   const equipmentStart = markup.indexOf('<strong>Equipment</strong>')
@@ -358,6 +359,8 @@ it('shows armor and weapon proficiency badges in Equipment directly above their 
   expect(defense).toContain('class="prof-badges"')
   expect(defense).toContain('<h4>Armor</h4>')
   expect(defense).toContain('Add Armor')
+  expect(defense).toContain('Equipped Steel Shield')
+  expect(defense.indexOf('Add Armor')).toBeLessThan(defense.indexOf('Equipped Steel Shield'))
 })
 
 it('renders characters with many unrelated feats without blocking editor startup', () => {
