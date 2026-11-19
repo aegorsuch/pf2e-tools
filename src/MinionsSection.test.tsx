@@ -1174,6 +1174,29 @@ it('adds Beastmaster specialization slots beside existing companion specializati
   expect(findSelect(earlier, 'Companion specialization 4')).toBeUndefined()
 })
 
+it('alphabetizes companion advancement, size, specializations, and traits together', () => {
+  const companion: ContentEntry = {
+    id: 'beast', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Beast', level: 1,
+    traits: ['Beast', 'Rare'], description: '', data: { size: 'Medium' }, effects: [], updatedAt: 0,
+  }
+  const c: Character = {
+    id: 'badges', systems: ['pf2e'], name: 'Test', level: 20, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Incredible Companion', type: 'Class Feat', level: 8, choice: 'Savage' },
+      { name: 'Auspicious Mount', type: 'Class Feat', level: 16, choice: 'Auspice' },
+      { name: 'Specialized Companion', type: 'Class Feat', level: 14, choice: 'Bully' },
+      { name: 'Specialized Beastmaster Companion', type: 'Archetype Feat', level: 16, choice: 'Wrecker' },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'beast', type: 'Beast', name: '', auspiceServitor: 'Fiend', auspiceSubtype: 'Devil' }],
+  }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={() => {}} />)
+  const badges = markup.match(/<div class="gear-traits">([\s\S]*?)<\/div>/)?.[1] ?? ''
+  expect([...badges.matchAll(/<span>([^<]+)<\/span>/g)].map(match => match[1]))
+    .toEqual(['Auspice', 'Beast', 'Bully', 'Devil', 'Fiend', 'Large', 'Minion', 'Rare', 'Savage', 'Unholy', 'Wrecker'])
+})
+
 it('grants a Beastmaster Dedication companion and extra companions only with Additional Companion', () => {
   let c: Character = {
     id: 'beastmaster', systems: ['pf2e'], name: 'Test', level: 4, className: 'Fighter',

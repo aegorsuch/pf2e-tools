@@ -397,12 +397,16 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     </Info>
                   </div>}
                   <div className="gear-traits">
-                    <span>{isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
-                      : index === 0 ? stage : 'Young'}</span>                      <span>{stats.size}{enlargeNote
+                    {[
+                      { name: (isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
+                        : index === 0 ? stage : 'Young') ?? '' },
+                      { name: stats.size, size: true },
+                      ...(!isConstruct && index === 0 ? advancement.specializations.map(name => ({ name })) : []),
+                      ...stats.traits.map(name => ({ name })),
+                    ].filter(badge => badge.name).sort((a, b) => a.name.localeCompare(b.name)).map((badge, badgeIndex) =>
+                      <span key={`${badge.name}:${badgeIndex}`}>{badge.name}{badge.size && enlargeNote
                         && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}
-                        {stats.apex && <SourceNote source="Apex Companion" note="Huge for 1 minute; requires room to expand." inlineSource={false} />}</span>
-                    {!isConstruct && index === 0 && [...advancement.specializations].sort((a, b) => a.localeCompare(b)).map((s) => <span key={s}>{s}</span>)}
-                    {stats.traits.map((trait) => <span key={trait}>{trait}</span>)}
+                        {badge.size && stats.apex && <SourceNote source="Apex Companion" note="Huge for 1 minute; requires room to expand." inlineSource={false} />}</span>)}
                   </div>
                   <div className="gear-stats">
                     {ABILITIES.map(k => <span key={k}><small>{ABILITY_LABEL[k]}</small>{signed(stats.mods[k])}</span>)}
