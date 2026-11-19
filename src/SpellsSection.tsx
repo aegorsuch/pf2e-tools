@@ -1017,11 +1017,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <span className="skill-part"><small>Item</small>{signed(0)}</span>
     </div>
   )
-  const openDirge = (rank?: number) => {
-    if (rank !== undefined) {
-      setDirgeRank(rank)
-      setDirgeQuery('')
-    }
+  const openDirge = (rank: number) => {
+    setDirgeRank(rank)
+    setDirgeQuery('')
     setDirgeOpen(true)
     dirgeDialog.current?.showModal()
     dirgeDialog.current?.querySelector('h4')?.focus()
@@ -1037,7 +1035,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>
       <div hidden={category !== 'class'}>
       {necromancer && c.level >= 1 && <>
-        <button type="button" aria-haspopup="dialog" onClick={() => openDirge()}><DirgeIcon /> Dirge</button>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId} onClose={() => setDirgeOpen(false)}
           onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
           <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
