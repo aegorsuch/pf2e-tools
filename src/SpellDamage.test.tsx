@@ -161,6 +161,53 @@ it('does not offer Blood Runs Cold damage below rank 2', () => {
   expect(spellDamage('Blood Runs Cold', 1)).toEqual([])
 })
 
+it.each([[4, 2], [5, 2], [6, 3], [10, 5]])('rolls Bloodspray Curse rank %i with %id6 for each applicable damage type', (rank, dice) => {
+  const entry: ContentEntry = { id: 'bloodspray', name: 'Bloodspray Curse', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 4, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const roll = spellActionRolls(entry.name, rank, entry)[0]
+  expect(roll.damage).toMatchObject({ dice, sides: 6, type: 'piercing or slashing',
+    additional: { dice, sides: 6, type: 'persistent bleed (failure only)' } })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Strike bonus: ${dice}d6 piercing or slashing + ${dice}d6 persistent bleed (failure only)"`)
+})
+
+it('rolls Bloodspray Curse strike and failure bleed damage separately', () => {
+  const damage = spellDamage('Bloodspray Curse', 4)[0]
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: 'Bloodspray Curse', damage, actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Bloodspray Curse roll')
+  vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0)
+    .mockReturnValueOnce(0.999999).mockReturnValueOnce(0.999999)
+  button.props.onClick()
+  expect(save).toHaveBeenCalledWith({ primary: 2, additional: 12 })
+  vi.mocked(useState).mockReturnValueOnce([{ primary: 2, additional: 12 }, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Bloodspray Curse" damage={damage} actions="Two Actions" />))
+    .toContain('2 piercing or slashing + 12 persistent bleed (failure only)')
+  expect(spellDamage('Bloodspray Curse', 3)).toEqual([])
+})
+
+it.each([[5, 5], [6, 6], [10, 10]])('rolls Blood-Feasting Breath at rank %i as %id6 void', (rank, dice) => {
+  const entry: ContentEntry = { id: 'blood-feasting', name: 'Blood-Feasting Breath', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 5, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ dice, sides: 6, type: 'void', basicSave: true })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Three Actions; Damage: ${dice}d6 void"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(dice * 6)
+})
+
+it('shows Blood-Feasting Breath basic save outcomes', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Blood-Feasting Breath" damage={spellDamage('Blood-Feasting Breath', 5)[0]} actions="Three Actions" />))
+    .toContain('17 void; success: 8 void; critical failure: 34 void')
+  expect(spellDamage('Blood-Feasting Breath', 4)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

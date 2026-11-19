@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
-type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number; basicSave?: boolean
   additional?: { dice: number; sides: number; type: string } }
 
 export function spellDamage(name: string, rank: number): Damage[] {
@@ -18,6 +18,14 @@ export function spellDamage(name: string, rank: number): Damage[] {
         additional: { dice: 3, sides: 10, type: 'bludgeoning' } }] : []
     case 'Blood Runs Cold':
       return rank >= 2 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 2) / 2), sides: 6, type: 'persistent cold' }] : []
+    case 'Bloodspray Curse': {
+      if (rank < 4) return []
+      const dice = 2 + Math.floor((rank - 4) / 2)
+      return [{ label: 'Strike bonus', dice, sides: 6, type: 'piercing or slashing',
+        additional: { dice, sides: 6, type: 'persistent bleed (failure only)' } }]
+    }
+    case 'Blood-Feasting Breath':
+      return rank >= 5 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'void', basicSave: true }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
@@ -93,6 +101,8 @@ export function DamageRoll({ name, damage, actions, showLabel }: { name: string;
       {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}
       {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed; success: {Math.floor(result / 2)} {damage.type};
         {' '}critical failure: {result * 2} {damage.type} + {damage.persistentBleed * 2} persistent bleed</>}
+      {typeof result === 'number' && damage.basicSave && <>; success: {Math.floor(result / 2)} {damage.type};
+        {' '}critical failure: {result * 2} {damage.type}</>}
       {typeof result === 'number' && damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
   </span>
