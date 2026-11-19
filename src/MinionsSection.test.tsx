@@ -392,6 +392,23 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   expect(html).toContain('<small>Hit Points</small> <b>40</b>')
 })
 
+it('offers usable generic familiar abilities and applies Necromancer spellcasting without saved slots', () => {
+  let c: Character = { id: 'necro-familiar', name: 'Test', systems: ['pf2e'], level: 11, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Undead Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const specific = familiarAbility('Infernal Temptation', '', 'Specific Familiar - Imp')
+  const entries = [...familiarEntries, specific]
+  const tree = () => MinionsContent({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).not.toContain('value="familiar:Infernal Temptation"')
+  findSelect(tree(), 'Undead familiar ability')?.({ target: { value: specific.id } })
+  expect(c.familiar?.abilities).toBeUndefined()
+  findSelect(tree(), 'Undead familiar ability')?.({ target: { value: 'familiar:Skilled' } })
+  expect(c.familiar?.abilities).toEqual(['Skilled'])
+  findSelect(tree(), 'Undead familiar Skilled ability 1')?.({ target: { value: 'Occultism' } })
+  expect(renderToStaticMarkup(tree())).toContain('Occultism +15')
+})
+
 it('keeps saved trait-changing choices dormant and unavailable for an undead familiar', () => {
   const c: Character = {
     id: 'undead-restrictions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Necromancer',

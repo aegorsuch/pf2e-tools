@@ -1,9 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
-import { BeckoningDirgeCast, SpellsSection } from './SpellsSection'
+import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -64,8 +63,31 @@ it('prepares only learned occult spells plus automatic Harm, while keeping focus
   expect(choices(html, 'Spell Rank 1 slot 1')).not.toContain('Bone Spear')
   expect(choices(render(base, entries), 'Spell Rank 1 slot 1')).not.toContain('value="Fear"')
   expect(html).toContain('aria-label="Learn dirge spell"')
+  expect(html).toContain('aria-haspopup="dialog"><svg class="dirge-icon"')
+  expect(html.indexOf('class="dirge-icon"')).toBeLessThan(html.indexOf('<b>Class Spell Slots</b>'))
   expect(html).not.toContain('Spell slots:')
   expect(html).not.toContain('Spell Rank 1 slot 2')
+})
+
+it('provides separate spell categories with class spells selected initially', () => {
+  const html = render(base, [spell('Harm')])
+  expect(html).toContain('aria-pressed="true">Class Spells</button>')
+  for (const label of ['Focus Spells', 'Innate Spells', 'Item Spells', 'Rituals'])
+    expect(html).toContain(`aria-pressed="false">${label}</button>`)
+  expect((html.match(/<div hidden="">/g) ?? [])).toHaveLength(4)
+})
+
+it('groups learned dirge spells by cantrip and spell rank', () => {
+  const guidance = spell('Guidance', 1, 'Occult', ['Cantrip'])
+  const fear = spell('Fear')
+  const blindness = spell('Blindness', 2)
+  const c: Character = { ...base, level: 3, spells: [guidance, fear, blindness].map(entry =>
+    ({ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: entry === guidance })) }
+  const html = render(c, [guidance, fear, blindness, spell('Harm')])
+  const dirge = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'), html.indexOf('<b>Class Spell Slots</b>'))
+  expect(dirge).toMatch(/<h5>Cantrips<\/h5>[\s\S]*?>Guidance<\/button>/)
+  expect(dirge).toMatch(/<h5>Rank 1<\/h5>[\s\S]*?>Fear<\/button>/)
+  expect(dirge).toMatch(/<h5>Rank 2<\/h5>[\s\S]*?>Blindness<\/button>/)
 })
 
 it('learns accessible, current-rank occult spells rather than granting the entire tradition', () => {
@@ -87,7 +109,7 @@ it('retains and heightens legacy dirge selections without mutating saved manual 
       prepared: { '4:0': 'Fear', '10:0': 'Dormant' }, spentSlots: ['4:0', '10:0'] } }
   const before = JSON.stringify(c)
   const html = render(c, [fear])
-  expect(choices(html, 'Spell Rank 4 slot 1')).toContain('value="Fear" selected=""')
+  expect(html).toContain('aria-label="Clear Fear spell slot"')
   expect(html).toContain('disabled="" aria-label="Cast spell slot rank 4 slot 1"')
   expect(html).toContain('aria-label="Reset class spell slots"')
   expect(html).not.toContain('Spell Rank 10 slot')
@@ -106,11 +128,9 @@ it.each([[6, 3, 3], [7, 4, 2], [18, 9, 3], [19, 9, 3], [20, 9, 3]])(
     expect(necromancerDirge(c, entries)).toEqual([summon])
     expect(knowsSpell(c, entries, summon.name)).toBe(true)
     const html = render(c, entries)
-    const label = `Spell Rank ${rank} slot ${count}`
-    expect(choices(html, label)).toContain('value="Summon Undead" selected=""')
-    expect(choices(html, label)).not.toContain('value="Fear"')
+    expect(html).toContain('title="Conjurer of Corpses"')
+    expect(html).not.toContain('aria-label="Clear Summon Undead spell slot"')
     expect(html).toContain(`disabled="" aria-label="Cast spell slot rank ${rank} slot ${count}"`)
-    expect(html).toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled=""`))
   },
 )
 
@@ -137,7 +157,7 @@ it('treats the imported Conjurer grant as a learned spell, not an innate or grav
   expect(necromancerDirge(c, [conjurer, summon])).toEqual([summon])
   expect(focusSpells(c, [conjurer, summon])).toMatchObject({ points: 1 })
   expect(focusSpells(c, [conjurer, summon]).spells).not.toContainEqual(expect.objectContaining({ name: summon.name }))
-  expect(choices(render(c, [conjurer, summon]), 'Spell Rank 3 slot 3')).toContain('value="Summon Undead" selected=""')
+  expect(render(c, [conjurer, summon])).toContain('title="Conjurer of Corpses"')
 })
 
 it.each([
@@ -168,6 +188,26 @@ it.each([[1, 1, 1], [11, 2, 1], [13, 2, 2], [20, 2, 2]])(
     expect(armorRanks({ ...c, className: 'Wizard' }, []).Medium).toBe(0)
   },
 )
+
+it.each([
+  ['Become as Spirit', 'Spirit'],
+  ['Reinforced Skeleton', 'Bone'],
+  ['Sanguine Mastery', 'Blood'],
+  ['Thick Skin', 'Flesh'],
+])('checks %s against the selected grim fascination', (name, fascination) => {
+  const feat: ContentEntry = { ...spell(name), kind: 'feat', level: 12, traits: ['Necromancer'],
+    data: { prerequisite: `${fascination.toLowerCase()} grim fascination` } }
+  const slot = { key: 'class:12:0', category: 'class' as const, level: 12 }
+  const c: Character = { ...base, level: 12, subclass: fascination }
+  expect(featPrerequisiteChecker(c, [feat])(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  for (const other of [undefined, 'Other']) {
+    const character = { ...c, subclass: other }
+    expect(featPrerequisiteChecker(character, [feat])(feat).missing).toEqual([feat.data.prerequisite])
+    expect(eligibleFeats([feat], character, slot)).not.toContain(feat)
+  }
+  expect(featPrerequisiteChecker({ ...c, className: 'Wizard' }, [feat])(feat).missing).toEqual([feat.data.prerequisite])
+})
 
 it('keeps Fatal Methods out of the Grim Fascination picker', () => {
   const methods: ContentEntry[] = ['Puppeteer', 'Reaper'].map(name => ({
@@ -203,48 +243,25 @@ it('keeps Conjurer and Unholy Resurrection slots independent and capped below Ep
   ])
   expect(necromancerDirge(c, entries)).toEqual([entries[1], entries[0]])
   const html = render(c, entries)
-  expect(choices(html, 'Spell Rank 9 slot 3')).toContain('value="Summon Undead" selected=""')
-  expect(choices(html, 'Spell Rank 9 slot 4')).toContain('value="Raise Dead" selected=""')
+  expect(html).toContain('title="Conjurer of Corpses"')
+  expect(html).toContain('title="Unholy Resurrection"')
   expect(html).toContain('disabled="" aria-label="Cast spell slot rank 9 slot 3"')
   expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 9 slot 4"')
   expect(necromancerExtraSlots({ ...c, sanctification: 'Holy' })).toHaveLength(1)
   expect(necromancerDirge({ ...c, level: 13 }, entries)).toEqual([entries[0]])
 })
 
-function click(tree: ReactNode, label: string) {
-  let clicked = false
-  const visit = (node: ReactNode) => Children.forEach(node, child => {
-    if (!isValidElement<{ children?: ReactNode; onClick?: () => void; 'aria-label'?: string }>(child)) return
-    if (child.props['aria-label'] === label && child.props.onClick) {
-      child.props.onClick()
-      clicked = true
-    }
-    visit(child.props.children)
-  })
-  visit(tree)
-  expect(clicked).toBe(true)
-}
-
-it('casts Beckoning Dirge once daily from learned spells without spending a prepared slot', () => {
-  let c: Character = { ...base, level: 16, fatalMethod: 'Puppeteer', feats: [taken('Beckoning Dirge', 16)],
+it('does not show a separate Beckoning Dirge control in spells or alter saved state', () => {
+  const c: Character = { ...base, level: 16, fatalMethod: 'Puppeteer', feats: [taken('Beckoning Dirge', 16)],
     spells: [{ name: 'Fear', rank: 1, cantrip: false, entryId: 'Fear' }],
     spellcasting: { ability: 'int', tradition: 'Occult', rank: 3, slots: {},
       prepared: { '1:0': 'Harm' }, spentSlots: ['1:0'] },
     beckoningDirge: { spell: 'Fear', rank: 7 } }
-  const entries = [spell('Fear'), spell('Unlearned'), spell('Too High', 8)]
-  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const tree = () => BeckoningDirgeCast({ c, entries, save })
-  const originalSlots = c.spellcasting
-  const html = renderToStaticMarkup(tree())
-  expect(choices(html, 'Beckoning Dirge spell')).toContain('value="Fear" selected=""')
-  expect(choices(html, 'Beckoning Dirge spell')).not.toContain('Unlearned')
-  expect(choices(html, 'Beckoning Dirge spell')).not.toContain('Too High')
-  click(tree(), 'Cast Beckoning Dirge')
-  expect(c.beckoningDirge).toEqual({ spell: 'Fear', rank: 7, used: true })
-  expect(c.spellcasting).toBe(originalSlots)
-  expect(renderToStaticMarkup(tree())).toContain('aria-label="Cast Beckoning Dirge" disabled=""')
-  click(tree(), 'Reset Beckoning Dirge')
-  expect(c.beckoningDirge?.used).toBe(false)
+  const before = JSON.stringify(c)
+  const html = render(c, [spell('Fear')])
+  expect(html).not.toContain('aria-label="Cast Beckoning Dirge"')
+  expect(html).not.toContain('aria-label="Beckoning Dirge spell"')
+  expect(JSON.stringify(c)).toBe(before)
   expect(beckoningDirgeMaxRank({ ...c, level: 19 })).toBe(9)
   expect(beckoningDirgeMaxRank({ ...c, fatalMethod: 'Reaper' })).toBeUndefined()
   expect(beckoningDirgeMaxRank({ ...c, level: 15 })).toBeUndefined()

@@ -735,6 +735,9 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-remove { padding: 0.1rem 0.4rem; }
 .spell-slot-counts { flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .spell-slot-counts label { white-space: nowrap; }
+.spell-category-tabs { flex-wrap: wrap; }
+.dirge-icon { width: 1em; height: 1em; vertical-align: -0.15em; }
+.dirge-dialog { width: min(60rem, 90vw); }
 .class-spell-slots, .innate-spell-group { margin-top: 0.5rem; }
 .spell-slot-group, .innate-spell-group { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .spell-slot-group + .spell-slot-group, .innate-spell-group + .innate-spell-group { margin-top: 0.5rem; }

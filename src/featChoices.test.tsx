@@ -712,7 +712,7 @@ it('combines all Warden tiers without changing ordinary spell rank groups', () =
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(markup.match(/<h5>Primal Focus Spells Rank 1<\/h5>/g)).toHaveLength(1)
   expect(markup).not.toMatch(/<h5>(?:Initiate|Advanced|Master|Peerless) Warden<\/h5>/)
-  const focus = markup.slice(markup.indexOf('<b>Focus Spells</b>'), markup.indexOf('<h5>Rank 5</h5>'))
+  const focus = markup.slice(markup.indexOf('<b>Focus Spells</b>'))
   for (const spell of spells.slice(0, -1)) expect(focus).toContain(`aria-haspopup="dialog">${spell.name}</button>`)
   expect(markup).toContain('<h5>Rank 5</h5>')
   expect(markup).not.toContain('(Peerless Warden)')
@@ -787,7 +787,7 @@ it('opens prepared Druid spells in description dialogs without duplicating commo
     ...heal, id: 'druid', kind: 'class', name: 'Druid', description: '', data: { tradition: 'Primal' },
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[druid, heal]} save={() => {}} />)
-  expect(markup).toContain('aria-haspopup="dialog">Details</button>')
+  expect(markup).toContain('aria-haspopup="dialog">Heal</button>')
   expect(markup.match(/<p>Healing spell description.<\/p>/g)).toHaveLength(1)
   expect(markup).not.toContain('aria-label="Remove Heal"')
   expect(markup).toContain('href="https://2e.aonprd.com/"')

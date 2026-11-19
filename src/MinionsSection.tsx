@@ -3,7 +3,7 @@ import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, magicHideChange, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -530,14 +530,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             const entry = familiarAbilityEntry(ability, familiarAbilityCatalog, c)
             if (!entry) return { entry, reason: 'Ability rules are unavailable.' }
             const others = activeAbilityChoices.filter(item => item.index !== index).map(item => item.ability)
-            return { entry, reason: familiarAbilityUnavailableReason(entry, c, others, isUndead) }
+            return { entry, reason: familiarAbilityUnavailableReason(entry, c, others, isUndead, entries) }
           }
           const activeAbilities = activeAbilityChoices.flatMap(({ ability, index }) => {
             const status = abilityStatus(ability, index)
             return status.entry && !status.reason ? [status.entry.name] : []
           })
-          const spellcastingModifier = c.spellcasting
-            ? Math.floor((c.abilities[c.spellcasting.ability] - 10) / 2) : 0
+          const castingAbility = classSpellcasting(c, entries)?.ability ?? c.spellcasting?.ability
+          const spellcastingModifier = castingAbility ? Math.floor((c.abilities[castingAbility] - 10) / 2) : 0
           const familiarEffects = familiarAbilityEffects(activeAbilities, c.level, data?.abilityOptions, spellcastingModifier)
           const baseSpeeds = [
             { movement: 'Land', feet: 25 },
@@ -554,7 +554,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const chooseAbility = (event: { target: { value: string } }) => {
             const ability = familiarAbilityCatalog.find(entry => entry.id === event.target.value)
             if (!ability || activeAbilityChoices.length >= dailyAbilityLimit
-              || familiarAbilityUnavailableReason(ability, c, savedAbilities.map(item => item.ability), isUndead)) return
+              || /^specific familiar\b/i.test(String(ability.data.ability_type ?? ''))
+              || familiarAbilityUnavailableReason(ability, c, savedAbilities.map(item => item.ability), isUndead, entries)) return
             const abilities = [...(data?.abilities ?? [])]
             const slot = Array.from({ length: dailyAbilityLimit }, (_, index) => index).find(index => !abilities[index])
             if (slot === undefined) return
@@ -563,8 +564,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           }
           const abilityOptions = familiarAbilityCatalog.filter(entry => {
             const alreadySelected = savedAbilities.some(item => item.ability.toLowerCase() === entry.name.toLowerCase())
-            return (!alreadySelected || isFamiliarAbilityRepeatable(entry))
-              && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead)
+            return !/^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))
+              && (!alreadySelected || isFamiliarAbilityRepeatable(entry))
+              && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead, entries)
           })
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
@@ -613,7 +615,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               value="" optionCount={abilityOptions.length}
               renderDetails={value => {
                 const entry = abilityOptions.find(option => option.id === value)
-                return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+                return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c}
+                  buttonLabel="Details" className="picker-details" />
               }} onChange={chooseAbility}>
               <option value="">Choose ability...</option>
               {abilityOptions.map(entry => <option key={entry.id} value={entry.id}>

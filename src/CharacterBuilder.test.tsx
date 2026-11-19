@@ -354,7 +354,10 @@ it('shows armor and weapon proficiency badges in Equipment directly above their 
   const weaponBadges = markup.slice(weaponProficiency, weaponsHeading)
   for (const name of ['Advanced', 'Martial', 'Simple', 'Unarmed']) expect(weaponBadges).toContain(name)
   expect(weaponBadges).not.toContain('Unarmored')
-  expect(markup.slice(defenseStart, deityStart)).not.toContain('class="prof-badges"')
+  const defense = markup.slice(defenseStart, deityStart)
+  expect(defense).toContain('class="prof-badges"')
+  expect(defense).toContain('<h4>Armor</h4>')
+  expect(defense).toContain('Add Armor')
 })
 
 it('renders characters with many unrelated feats without blocking editor startup', () => {

@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
+import { Children, isValidElement, type ReactNode } from 'react'
+import { expect, it, vi } from 'vitest'
 import { classSpellcasting, classSpellSlots, druidSpellList } from './builder'
-import { SpellsSection } from './SpellsSection'
+import { SelectedSlotSpell, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -18,6 +19,30 @@ const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must not rewrite character data') }} />)
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
+
+it('opens selected spells by name and confirms clearing without affecting locked slots', () => {
+  const clear = vi.fn()
+  const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+  vi.stubGlobal('window', { confirm })
+  try {
+    const tree = SelectedSlotSpell({ name: 'Heal', entry: spell('Heal'), onClear: clear })
+    const html = renderToStaticMarkup(tree)
+    expect(html).toContain('aria-haspopup="dialog">Heal</button>')
+    expect(html).toContain('aria-label="Clear Heal spell slot"')
+    let remove: (() => void) | undefined
+    Children.forEach(tree.props.children as ReactNode, child => {
+      if (isValidElement<{ 'aria-label'?: string; onClick?: () => void }>(child)
+        && child.props['aria-label'] === 'Clear Heal spell slot') remove = child.props.onClick
+    })
+    expect(remove).toBeDefined()
+    remove?.()
+    expect(clear).not.toHaveBeenCalled()
+    remove?.()
+    expect(clear).toHaveBeenCalledOnce()
+    expect(renderToStaticMarkup(SelectedSlotSpell({ name: 'Heal', entry: spell('Heal') })))
+      .not.toContain('aria-label="Clear Heal spell slot"')
+  } finally { vi.unstubAllGlobals() }
+})
 
 it.each([
   [1, [5, 2]],
@@ -104,10 +129,11 @@ it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choi
     spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': selected } } }
   const before = JSON.stringify(c)
   const html = render(c, entries)
-  expect(choices(html, 'Spell Rank 1 slot 1').match(/>Heal<\/option>/g)).toHaveLength(1)
+  if (!selected) expect(choices(html, 'Spell Rank 1 slot 1').match(/>Heal<\/option>/g)).toHaveLength(1)
   expect(choices(html, 'Cantrip slot 1').match(/>Guidance<\/option>/g)).toHaveLength(1)
   if (selected) {
-    expect(choices(html, 'Spell Rank 1 slot 1')).toContain(`value="${selected}" selected=""`)
+    expect(html).toContain('aria-label="Clear Heal spell slot"')
+    expect(html).not.toContain('aria-label="Details: Heal"')
     expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
   }
   expect(html).not.toContain('(unavailable)')
@@ -123,7 +149,7 @@ it('retains saved preparations and spent slots while deriving valid current-leve
   } }
   const before = JSON.stringify(c)
   const html = render(c, [heal, arcane])
-  expect(html).toContain('Arcane Only (unavailable)')
+  expect(html).toContain('aria-label="Clear Arcane Only spell slot"')
   expect(html).toContain('Selected spell unavailable for your current spell list or slot rank.')
   expect(html).toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
   expect(html).toContain('disabled="" aria-label="Cast spell slot rank 1 slot 2"')
@@ -138,7 +164,7 @@ it('preserves name-based legacy preparations without requiring saved entry IDs',
   const c: Character = { ...base, spells: [{ name: 'Heal', rank: 1, cantrip: false }],
     spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': 'Heal' } } }
   const html = render(c, [heal])
-  expect(choices(html, 'Spell Rank 1 slot 1')).toContain('value="Heal" selected=""')
+  expect(html).toContain('aria-label="Clear Heal spell slot"')
   expect(html).not.toContain('Heal (unavailable)')
   expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
 })
@@ -149,8 +175,8 @@ it('keeps large closed spell pickers small and selected spells visible', () => {
     spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': 'Primal 50' } } }
   const html = render(c, entries)
   expect(html).toContain('aria-expanded="false"')
-  expect(html).toContain('value="Primal 50" selected=""')
-  expect(html.match(/<option/g)).toHaveLength(34)
+  expect(html).toContain('aria-label="Clear Primal 50 spell slot"')
+  expect(html.match(/<option/g)).toHaveLength(32)
   expect(html).not.toContain('value="Primal 199"')
   expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
 })

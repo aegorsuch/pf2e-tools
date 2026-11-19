@@ -1,4 +1,5 @@
 import type { Character, ContentEntry } from './types'
+import { classSpellcasting, classSpellSlots } from './builder'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
 export const FAMILIAR_SKILLS = [
@@ -32,7 +33,10 @@ function changesCreatureTrait(entry: ContentEntry) {
     || /\btrait instead of the\b/i.test(entry.description)
 }
 
-export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Character, selected: string[], undead = false) {
+export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Character, selected: string[], undead = false,
+  entries: ContentEntry[] = []) {
+  const spellcasting = classSpellcasting(c, entries) ?? c.spellcasting
+  const slots = classSpellSlots(c) ?? c.spellcasting?.slots
   if (undead && (/^(?:constructed?|dragon)$/i.test(entry.name) || changesCreatureTrait(entry))) {
     return 'An undead familiar cannot select an ability that changes its trait.'
   }
@@ -46,19 +50,20 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
   if (missingAbility) return `Requires the ${missingAbility} familiar ability.`
   const level = /\byou must be at least (\d+)(?:st|nd|rd|th) level\b/i.exec(entry.description)
   if (level && c.level < Number(level[1])) return `Requires level ${level[1]}.`
-  if (/\byou must be able to cast (\d+)(?:st|nd|rd|th)-level spells using spell slots\b/i.test(entry.description)) {
-    const requiredRank = Number(/\byou must be able to cast (\d+)(?:st|nd|rd|th)-level spells using spell slots\b/i.exec(entry.description)?.[1])
-    const hasRank = Object.entries(c.spellcasting?.slots ?? {}).some(([rank, count]) => Number(rank) >= requiredRank && count > 0)
+  const spellRank = /\byou must be able to cast (\d+)(?:st|nd|rd|th)-(?:level|rank) spells using spell slots\b/i.exec(entry.description)
+  if (spellRank) {
+    const requiredRank = Number(spellRank[1])
+    const hasRank = Object.entries(slots ?? {}).some(([rank, count]) => Number(rank) >= requiredRank && count > 0)
     if (!hasRank) return `Requires spell slots of rank ${requiredRank} or higher.`
   }
   if (/\byou must have quick alchemy\b/i.test(entry.description)
     && c.className !== 'Alchemist' && !c.feats.some(feat => feat.name === 'Quick Alchemy')) {
     return 'Requires Quick Alchemy.'
   }
-  if (/\byou must be able to prepare cantrips or add them to your repertoire\b/i.test(entry.description) && !c.spellcasting) {
+  if (/\byou must be able to prepare cantrips or add them to your repertoire\b/i.test(entry.description) && !spellcasting) {
     return 'Requires spellcasting that prepares cantrips or has a repertoire.'
   }
-  if (key(entry.name) === 'skilled' && !c.spellcasting) return 'Requires a spellcasting ability modifier.'
+  if (key(entry.name) === 'skilled' && !spellcasting?.ability) return 'Requires a spellcasting ability modifier.'
   if (/\byour familiar must be an animal\b/i.test(entry.description)
     && (undead || c.feats.some(feat => ['Leshy Familiar', 'Undead Familiar'].includes(feat.name)))) {
     return 'Requires an animal familiar.'

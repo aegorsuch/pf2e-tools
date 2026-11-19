@@ -13,7 +13,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { beckoningDirgeMaxRank, classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerExtraSlots, necromancerSpellList, spellDifficultyClass } from './builder'
+import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerExtraSlots, necromancerSpellList, spellDifficultyClass } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -21,7 +21,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
-import { DINOSAUR_FORMS } from './battleForms'
+import { crocodileBattleForm, DINOSAUR_FORMS } from './battleForms'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
@@ -216,11 +216,37 @@ export function DinosaurFormOptions({ c, save, rank }: Pick<SectionProps, 'c' | 
 
 export function CrocodileFormToggle({ c, entries, save }: SectionProps) {
   const active = isSpellActive(c, entries, 'Animal Form')
-  const label = active ? 'Dismiss Crocodile Form' : 'Cast Crocodile Form'
-  return <button type="button" className="spell-action-button" aria-label={label} aria-pressed={active}
-    title={`Two Actions; ${label}`} onClick={() => save(spellActiveChange(c, 'Animal Form', !active))}>
-    <ActionIcon actions="Two Actions" />
-  </button>
+  return <label><input type="checkbox" aria-label="Crocodile Form active" checked={active}
+    onChange={event => save(spellActiveChange(c, 'Animal Form', event.target.checked))} /> Active</label>
+}
+
+function CrocodileFormActions({ c, entries, save, rank }: SectionProps & { rank: number }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const dialogId = useId()
+  const form = crocodileBattleForm(rank, c.level)
+  return <>
+    <button type="button" className="spell-action-button" aria-label="Crocodile Form options"
+      aria-haspopup="dialog" aria-controls={dialogId} title="Two Actions; Crocodile Form options"
+      onClick={() => { dialog.current?.showModal(); dialog.current?.querySelector('h4')?.focus() }}>
+      <ActionIcon actions="Two Actions" />
+    </button>
+    <dialog ref={dialog} id={dialogId} className="entry-dialog" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
+      <h4 id={titleId} tabIndex={-1}>Crocodile Form (Rank {rank})</h4>
+      <CrocodileFormToggle c={c} entries={entries} save={save} />
+      {form ? <>
+        <p>{form.size} animal battle form for 1 minute. Speed {form.speed} feet; swim {form.swimSpeed} feet.
+          Hold your breath for the transformation. Low-light vision and imprecise scent 30 feet.</p>
+        <p>AC {form.ac}; temporary HP {form.temporaryHp}; attack {signed(form.attack)};
+          damage bonus {signed(form.damageBonus)}; Athletics {signed(form.athletics)}.
+          Ignore armor check and Speed penalties. Use your own unarmed attack or Athletics modifier if higher.
+          Only the form's unarmed attacks can be used to Strike.</p>
+        <p>{form.attacks.map(attack => `${attack.name.replace('Crocodile ', '')}: ${String(attack.data.damage)}${attack.traits.includes('Agile') ? ' (agile)' : ''}, reach ${attack.data.reach} feet`).join('; ')}.</p>
+      </> : <p role="status">Crocodile Form is unavailable at this spell rank.</p>}
+      <form method="dialog"><button autoFocus>Close</button></form>
+    </dialog>
+  </>
 }
 
 function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.level / 2) }: SectionProps & {
@@ -318,6 +344,16 @@ function SpellColumns() {
   </div>
 }
 
+export function SelectedSlotSpell({ name, entry, onClear, disabled = false, source }: {
+  name: string; entry?: ContentEntry; onClear?: () => void; disabled?: boolean; source?: string
+}) {
+  return <span className="rune" title={source}>
+    <EntryDescription name={name} entry={entry} />
+    {onClear && <button type="button" aria-label={`Clear ${name} spell slot`} title="Clear spell slot"
+      disabled={disabled} onClick={() => confirmRemoval(`spell "${name}"`, onClear)}>×</button>}
+  </span>
+}
+
 function spellSave(save: string, dc?: number) {
   return dc !== undefined && /\b(?:Fortitude|Reflex|Will)\b/i.test(save) && !/\bDC\s+\d+/i.test(save) ? `${save} DC ${dc}` : save
 }
@@ -340,6 +376,8 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
     <li className="innate-spell-row">
       <div className="innate-spell-name">
         <div className="spell-title"><EntryDescription name={name} entry={entry} />
+          {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
+            onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
           {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
             && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
@@ -350,10 +388,8 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
       <span><small>Range</small>{metadata.range}</span>
       <span><small>Save</small>{spellSave(metadata.save, saveDC)}</span>
       <span><small>Area/Targets</small>{metadata.targets}</span>
-      {(children || onRemove) && <div className="innate-spell-controls">
+      {children && <div className="innate-spell-controls">
         {children}
-        {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
-          onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
       </div>}
     </li>
   )
@@ -533,6 +569,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
             <div className="spellbook-slot">
               {slot.granted ? <><EntryDescription name={slot.granted} entry={slot.entry} />
                 <SourceNote source={`${paradox.name} paradox`} note="Granted repertoire spell; does not use a free spell choice." /></>
+                : slot.value ? <SelectedSlotSpell name={slot.entry?.name ?? slot.value} entry={slot.entry}
+                  onClear={() => setSc({ repertoire: { ...sc.repertoire, [slot.key]: '' } })} />
                 : <SearchableSelect aria-label={`Witchwarper ${rank === 0 ? 'cantrip' : `rank ${rank} spell`} ${index + 1}`}
                   value={value} onChange={event => {
                     const value = event.target.value
@@ -546,8 +584,6 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                     && <option value={slot.value} disabled={!slot.valid}>{slot.entry?.name ?? slot.value}{!slot.valid && ' (unavailable)'}</option>}
                   {choices.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </SearchableSelect>}
-              {slot.entry && !slot.granted && <EntryDescription name={slot.entry.name} entry={slot.entry}
-                buttonLabel="Details" className="picker-details" />}
               {rank > 0 && <button type="button" disabled={!slot.valid || !freeSlot}
                 aria-label={`Cast ${slot.entry?.name ?? 'unselected spell'} at rank ${castRank}`}
                 onClick={() => {
@@ -591,61 +627,6 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
     && !focus.some(grant => grant.name === s.name))
   return { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items: itemSpells(c, entries) }
-}
-
-export function BeckoningDirgeCast({ c, entries, save }: SectionProps) {
-  const maximum = beckoningDirgeMaxRank(c)
-  if (maximum === undefined) return null
-  const options = uniqueSpellNames(necromancerDirge(c, entries).filter(entry => entry.level <= maximum
-    && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip')))
-  const state = c.beckoningDirge
-  const selected = options.find(entry => entry.id === state?.spell || entry.name === state?.spell)
-  const rank = typeof state?.rank === 'number' && Number.isInteger(state.rank)
-    && state.rank >= (selected?.level ?? 1) && state.rank <= maximum ? state.rank : maximum
-  const metadata = spellMetadata(selected, rank, c)
-  const source = entries.find(entry => entry.kind === 'feat' && !entry.deleted && entry.name === 'Beckoning Dirge')
-  return <section className="spell-slot-group">
-    <div className="row">
-      <EntryDescription name="Beckoning Dirge" entry={source} />
-      <ActionIcon entry={source} showOther />
-      {state?.used && <button type="button" aria-label="Reset Beckoning Dirge"
-        onClick={() => save({ beckoningDirge: { ...state, used: false } })}>Reset</button>}
-    </div>
-    <SpellColumns />
-    <ul><li className="spellbook-row">
-      <div className="spellbook-slot">
-        <button type="button" aria-label="Cast Beckoning Dirge" disabled={!selected || !!state?.used}
-          onClick={() => {
-            if (selected && !state?.used) save({ beckoningDirge: { spell: selected.id, rank, used: true } })
-          }}>Cast</button>
-        <SearchableSelect aria-label="Beckoning Dirge spell" value={selected?.id ?? state?.spell ?? ''} disabled={state?.used}
-          onChange={event => {
-            const entry = options.find(option => option.id === event.target.value)
-            if (state?.used || event.target.value && !entry) return
-            save({ beckoningDirge: { ...state, spell: entry?.id, rank: maximum } })
-          }}>
-          <option value="">Not Selected</option>
-          {state?.spell && !selected && <option value={state.spell} disabled>{state.spell} (unavailable)</option>}
-          {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-        </SearchableSelect>
-        <select aria-label="Beckoning Dirge rank" value={rank} disabled={!selected || state?.used}
-          onChange={event => {
-            const value = Number(event.target.value)
-            if (selected && !state?.used && Number.isInteger(value) && value >= selected.level && value <= maximum)
-              save({ beckoningDirge: { ...state, rank: value } })
-          }}>
-          {Array.from({ length: maximum - (selected?.level ?? 1) + 1 }, (_, index) => (selected?.level ?? 1) + index)
-            .map(value => <option key={value} value={value}>Rank {value}</option>)}
-        </select>
-        {selected && <EntryDescription name={selected.name} entry={selected} buttonLabel="Details" className="picker-details" />}
-      </div>
-      <span><small>Duration</small>{metadata.duration}</span>
-      <span><small>Range</small>{metadata.range}</span>
-      <span><small>Save</small>{spellSave(metadata.save, spellDifficultyClass(c, entries))}</span>
-      <span><small>Area/Targets</small>{metadata.targets}</span>
-      {state?.spell && !selected && <small role="status">Selected spell unavailable for Beckoning Dirge.</small>}
-    </li></ul>
-  </section>
 }
 
 function RitualsContent({ c, entries, save }: SectionProps) {
@@ -709,9 +690,12 @@ export function SpellsSection(props: SectionProps) {
 }
 
 export function SpellsContent({ c, entries, save, data }: SectionProps & { data?: ReturnType<typeof spellSummaryData> }) {
+  const [category, setCategory] = useState<'class' | 'focus' | 'innate' | 'items' | 'rituals'>('class')
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [dirgeOpen, setDirgeOpen] = useState(false)
+  const dirgeDialog = useRef<HTMLDialogElement>(null)
+  const dirgeTitleId = useId()
   const casting = classSpellcasting(c, entries)
   const automaticSlots = classSpellSlots(c)
   const witchwarper = witchwarperParadox(c)
@@ -767,6 +751,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       || grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience' ? [] : [
       frequency && `${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`,
       grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask')
+        && !(['Ancestral Form', 'Bone Investiture', 'Fossil Rider'].includes(grant.source)
+          && /^Must target yourself(?:; crocodile form only)?$/.test(grant.rule.condition))
         && grant.rule.condition !== 'Only within your claimed territory'
         && grant.rule.condition !== 'Only through barriers of earth or stone'
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
@@ -810,7 +796,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const inlineControls = (name: string, rank = Math.ceil(c.level / 2)) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
     : name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length
-    ? <CrocodileFormToggle c={c} entries={entries} save={save} />
+    ? <CrocodileFormActions c={c} entries={entries} save={save} rank={rank} />
     : name === 'Shield'
     ? <label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
@@ -840,7 +826,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const listedSpells = [
     ...granted.map((s) => ({ name: s.name, entryId: s.id, group: 'Focus Spells', index: -1 })),
     ...dirge?.filter(entry => !c.spells?.some(spell => spell.name === entry.name))
-      .map(entry => ({ name: entry.name, entryId: entry.id, group: `Rank ${entry.level}`, index: -1 })) ?? [],
+      .map(entry => ({ name: entry.name, entryId: entry.id,
+        group: groupLabel(entry.name, entry.id, entry.level, entry.traits.some(trait => trait.toLowerCase() === 'cantrip')), index: -1 })) ?? [],
     ...spells.flatMap((s, index) => manualSpells.includes(s)
       && (!druid || !isCommonSpell(spellEntry(s.name, s.entryId)))
       ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
@@ -907,7 +894,39 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
 
   return (
       <div className="character-section-content">
-      <DevotionSpellChoice c={c} entries={entries} save={save} />
+      <div className="gear-tabs spell-category-tabs" role="group" aria-label="Spell categories">
+        {([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'],
+          ['items', 'Item Spells'], ['rituals', 'Rituals']] as const).map(([value, label]) =>
+          <button key={value} type="button" className={category === value ? 'on' : ''}
+            aria-pressed={category === value} onClick={() => setCategory(value)}>{label}</button>)}
+      </div>
+      <div hidden={category !== 'class'}>
+      {necromancer && c.level >= 1 && <>
+        <button type="button" aria-haspopup="dialog" onClick={() => {
+          dirgeDialog.current?.showModal()
+          dirgeDialog.current?.querySelector('h4')?.focus()
+        }}><svg className="dirge-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+          stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 6c-2-2-5-3-9-3v15c4 0 7 1 9 3 2-2 5-3 9-3V3c-4 0-7 1-9 3ZM12 6v15" />
+        </svg> Dirge</button>
+        <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
+          onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
+          <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
+          <SearchableSelect aria-label="Learn dirge spell" value="" optionCount={dirgeOptions.length}
+            onPrepare={() => setDirgeOpen(true)} onChange={event => {
+              const entry = dirgeOptions.find(option => option.id === event.target.value)
+              if (!entry) return
+              save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
+                cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
+            }}>
+            <option value="">Learn spell</option>
+            {(dirgeOptions.length <= 10 || dirgeOpen) && dirgeOptions.map(entry =>
+              <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </SearchableSelect>
+          {groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
+          <form method="dialog"><button autoFocus>Close</button></form>
+        </dialog>
+      </>}
       {casting && <>
       <div className="row">
         {!casting.ability && c.className !== 'Witchwarper' && <label>Casting ability{' '}
@@ -973,7 +992,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 : sc.prepared?.[slotKey] ?? ''
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
               const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
-                : spellIndex.byId.get(selectedValue)
+                : spellIndex.byId.get(selectedValue) ?? spellIndex.byName.get(selectedValue)
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
               const spent = sc.spentSlots?.includes(slotKey) ?? false
               const selectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
@@ -992,7 +1011,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                       if (!valid || spent) return
                       setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), slotKey])] })
                     }}>Cast</button>}
-                  <SearchableSelect aria-label={`${cantrip ? 'Cantrip' : `Spell Rank ${rank}`} slot ${index + 1}`}
+                  {selectedValue ? <SelectedSlotSpell name={selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}
+                    entry={selectedEntry} disabled={spent} source={extra?.source}
+                    onClear={restricted ? undefined : () => {
+                      const prepared = { ...sc.prepared }
+                      delete prepared[slotKey]
+                      setSc({ prepared })
+                    }} />
+                  : <SearchableSelect aria-label={`${cantrip ? 'Cantrip' : `Spell Rank ${rank}`} slot ${index + 1}`}
                     value={selectedValue} optionCount={slotOptions.length} disabled={spent || restricted}
                     title={extra?.source} onPrepare={() => setPreparedSlot(slotKey)}
                     onChange={event => {
@@ -1012,9 +1038,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     {selectedValue && (!valid || !showOptions || (displayedSelection?.entryId ?? displayedSelection?.name) !== selectedValue)
                       && <option value={selectedValue} disabled={!valid}>{selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}{!valid && ' (unavailable)'}</option>}
                     {showOptions && slotOptions.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>{spell.name}</option>)}
-                  </SearchableSelect>
-                  {selectedEntry && <EntryDescription name={selectedEntry.name} entry={selectedEntry}
-                    buttonLabel="Details" className="picker-details" />}
+                  </SearchableSelect>}
                   {selectedEntry && (selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
                     : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />)}
@@ -1033,7 +1057,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         })}
       </div>}
       </>}
-      <BeckoningDirgeCast c={c} entries={entries} save={save} />
+      {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
+      {!necromancer && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
+      </div>
+      <div hidden={category !== 'innate'}>
       {c.heritage === 'Mage Automaton' && c.level >= 1 && (() => {
         const options = mageAutomatonOptions(c, entries)
         const current = c.mageAutomatonCantrip ?? ''
@@ -1097,6 +1124,25 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           {controls(entry.name)}
         </SpellItem>)}</ul>
       </div>}
+      {innate.length > 0 && <div>
+        <div className="row"><b>Innate Spells</b>
+        </div>
+        {innateGroups.map(group => <section className="innate-spell-group" key={group.key}>
+          <h5>{group.tradition} Spell Rank {group.rank}</h5>
+          <SpellColumns />
+          <ul>{group.grants.map(grant => {
+            const details = grantDetails(grant)
+            return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
+              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+              {...buffProps(grant.entry.name)}>
+              {controls(grant.entry.name, grant.rank)}
+            </InnateSpellRow>
+          })}</ul>
+        </section>)}
+      </div>}
+      </div>
+      <div hidden={category !== 'focus'}>
+      <DevotionSpellChoice c={c} entries={entries} save={save} />
       {(focusPoints > 0 || allFocus.length > 0) && (
         <div>
           <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} /></div>
@@ -1124,23 +1170,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           </section>}
         </div>
       )}
-      {innate.length > 0 && <div>
-        <div className="row"><b>Innate Spells</b>
-        </div>
-        {innateGroups.map(group => <section className="innate-spell-group" key={group.key}>
-          <h5>{group.tradition} Spell Rank {group.rank}</h5>
-          <SpellColumns />
-          <ul>{group.grants.map(grant => {
-            const details = grantDetails(grant)
-            return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
-              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
-              {...buffProps(grant.entry.name)}>
-              {controls(grant.entry.name, grant.rank)}
-            </InnateSpellRow>
-          })}</ul>
-        </section>)}
-      </div>}
-      <RitualsContent c={c} entries={entries} save={save} />
+      </div>
+      <div hidden={category !== 'items'}>
       {items.length > 0 && <section className="innate-spell-group">
         <h5>Item Spells</h5>
         <SpellColumns />
@@ -1158,26 +1189,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           </>} />
         })}</ul>
       </section>}
+      </div>
+      <div hidden={category !== 'rituals'}>
+      <RitualsContent c={c} entries={entries} save={save} />
+      </div>
       {unresolved.map((grant, index) => <p key={`${grant.source?.id}:${grant.name}:${index}`} className="feat-prerequisite-note" role="status">
         Spell data unavailable: {grant.name} (<EntryDescription name={grant.sourceName ?? grant.source?.name ?? 'Granting feat'} entry={grant.source} entries={entries} />).
         {' '}Review source rules; this spell is not automated.
       </p>)}
-      {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
-      {necromancer && c.level >= 1 && <div className="row">
-        <b>Dirge</b>
-        <SearchableSelect aria-label="Learn dirge spell" value="" optionCount={dirgeOptions.length}
-          onPrepare={() => setDirgeOpen(true)} onChange={event => {
-            const entry = dirgeOptions.find(option => option.id === event.target.value)
-            if (!entry) return
-            save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
-              cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
-          }}>
-          <option value="">Learn spell</option>
-          {(dirgeOptions.length <= 10 || dirgeOpen) && dirgeOptions.map(entry =>
-            <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-        </SearchableSelect>
-      </div>}
-      {groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
       </div>
   )
 }

@@ -46,3 +46,13 @@ it('enforces explicit ability prerequisites, repeatability, and undead trait res
   expect(familiarAbilityUnavailableReason(dragon, character, [], true)).toContain('changes its trait')
   expect(familiarAbilityUnavailableReason(constructed, character, [], true)).toContain('changes its trait')
 })
+
+it('uses automatic Necromancer spellcasting for familiar ability requirements', () => {
+  const necromancer: Character = { ...character, className: 'Necromancer', level: 11, spellcasting: undefined }
+  const skilled = ability('Skilled', 'Choose a skill.')
+  const spellcasting = ability('Spellcasting', 'You must be able to cast 6th-rank spells using spell slots to select this.')
+  expect(familiarAbilityUnavailableReason(skilled, necromancer, [])).toBeUndefined()
+  expect(familiarAbilityUnavailableReason(spellcasting, necromancer, [])).toBeUndefined()
+  expect(familiarAbilityUnavailableReason(spellcasting, { ...necromancer, level: 9 }, []))
+    .toContain('Requires spell slots of rank 6')
+})

@@ -160,6 +160,7 @@ it('casts and dismisses a selected Dinosaur Form from its two-action control at 
   expect(render()).toContain('Primal Spell Rank 5')
   expect(render()).toContain('<small>Range</small>Self')
   expect(render()).toContain('<small>Area/Targets</small>Self')
+  expect(render()).not.toContain('Must target yourself')
   updateSettings({ innateAutoHeighten: true })
   expect(render()).toContain('Primal Spell Rank 10')
   const tree = () => DinosaurFormOptions({ c, save, rank: grantedFeatSpells(c, entries)[0].rank })
@@ -197,16 +198,28 @@ it.each([9, 20])('auto-heightens and toggles only the Ancestral Form crocodile a
   expect(render()).toContain(`Primal Spell Rank ${Math.ceil(level / 2)}`)
   const title = render().match(/<div class="spell-title">[\s\S]*?<\/div>/)?.[0] ?? ''
   expect(title.match(/class="action-cost"/g)).toHaveLength(1)
-  expect(title).toMatch(/<button[^>]*aria-label="Cast Crocodile Form"[^>]*aria-pressed="false"[^>]*><span class="action-cost" aria-label="Two Actions"/)
+  expect(title).toMatch(/<button[^>]*aria-label="Crocodile Form options"[^>]*><span class="action-cost" aria-label="Two Actions"/)
+  expect(render()).toContain(`Crocodile Form (Rank ${Math.ceil(level / 2)})`)
+  expect(render()).toContain('Huge animal battle form')
+  expect(render()).toContain(`AC ${level + 18}; temporary HP 20`)
+  expect(render()).toContain('Jaws: 4d8 piercing')
+  expect(render()).toContain('Tail: 2d8 bludgeoning (agile), reach 15 feet')
   expect(render()).toContain('<small>Range</small>Self')
   expect(render()).toContain('<small>Area/Targets</small>Self')
+  expect(render()).not.toContain('Must target yourself; crocodile form only')
   const toggle = () => CrocodileFormToggle({ c, entries, save })
-  findUseButton(toggle(), 'Cast Crocodile Form')!.onClick()
+  const setActive = (checked: boolean) => {
+    const input = Children.toArray(toggle().props.children).find(child =>
+      isValidElement(child) && child.type === 'input')
+    if (!isValidElement<{ onChange: (event: { target: { checked: boolean } }) => void }>(input)) throw Error('Missing toggle')
+    input.props.onChange({ target: { checked } })
+  }
+  setActive(true)
   expect(c.activeSpells).toEqual(['Shield', 'Animal Form'])
   expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Crocodile Jaws', 'Crocodile Tail'])
   c = JSON.parse(JSON.stringify(c)) as Character
-  expect(render()).toContain('aria-label="Dismiss Crocodile Form" aria-pressed="true"')
-  findUseButton(toggle(), 'Dismiss Crocodile Form')!.onClick()
+  expect(render()).toContain('aria-label="Crocodile Form active" checked=""')
+  setActive(false)
   expect(c.activeSpells).toEqual(['Shield'])
   expect(ownedWeapons(c, entries).some(weapon => weapon.name === 'Crocodile Jaws')).toBe(false)
 })
@@ -219,6 +232,7 @@ it.each([7, 8, 10])('shows Mask of Terror heightened targets at rank %i', rank =
   expect(grantedFeatSpells(c, entries)[0]).toMatchObject({ rank, rule: { tradition: 'primal', condition: 'Must target yourself' } })
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain(`<small>Area/Targets</small>${rank >= 8 ? 'Up to 5 creatures' : '1 creature'}`)
+  expect(markup).not.toContain('Must target yourself')
 })
 
 it.each([['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']])(
@@ -713,8 +727,8 @@ it('renders prepared class spell slots with slot selection, metadata, casting, a
   expect(html).toContain('Class Spell Slots')
   expect(html).toContain('Cantrips (Heightened Level 3)')
   expect(html).toContain('Spell Rank 3')
-  expect(html).toContain('aria-label="Cantrip slot 1"')
-  expect(html).toContain('aria-label="Spell Rank 3 slot 1"')
+  expect(html).toContain('aria-label="Clear Electric Arc spell slot"')
+  expect(html).toContain('aria-label="Clear Haste spell slot"')
   expect(html).toContain('disabled="" aria-label="Cast spell slot rank 3 slot 1"')
   expect(html).toContain('aria-label="Reset class spell slots"')
   expect(html).toContain('1 minute')
@@ -1103,14 +1117,14 @@ it('preserves legacy spent counts and does not refund uses when a daily allowanc
     .toMatchObject({ spent: [0], used: 1, remaining: 0 })
 })
 
-it('places Warden focus spells before innate spells without showing granting-source links', () => {
+it('separates Warden focus and innate spells without showing granting-source links', () => {
   const source: ContentEntry = { ...entry('Daily Magic', 'feat'),
     spellGrants: [{ kind: 'innate', spells: ['Invisibility'], tradition: 'arcane', frequency: 'once per day' }] }
   const c: Character = { ...base, className: 'Ranger', feats: [taken('Initiate Warden', 1, 'Gravity Weapon'), taken(source.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, entry('Invisibility', 'spell'),
     entry('Gravity Weapon', 'spell', { warden_spell_tier: 'Initiate' })]} save={() => {}} />)
   expect(markup).toContain('<b>Focus Spells</b>')
-  expect(markup.indexOf('<b>Focus Spells</b>')).toBeLessThan(markup.indexOf('<b>Innate Spells</b>'))
+  expect(markup).toContain('<b>Innate Spells</b>')
   expect(markup).not.toContain('aria-haspopup="dialog">Daily Magic</button>')
   expect(markup).not.toContain('>Refocus</button>')
 })
@@ -1345,7 +1359,7 @@ it('uses Persistent durations in prepared and innate spell tables too', () => {
     spells: [{ name: spell.name, rank: 1, cantrip: false, entryId: spell.id }],
     spellcasting: { ability: 'int', rank: 1, slots: { 1: 1 }, tradition: 'Arcane', prepared: { '1:0': spell.id } } }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry('Wizard', 'class', { tradition: 'Arcane' }), spell, source]} save={() => {}} />)
-  expect(html).toContain('aria-label="Spell Rank 1 slot 1"')
+  expect(html).toContain('aria-label="Clear Gravity Weapon spell slot"')
   expect(html).toContain('<b>Innate Spells</b>')
   expect(html.match(/<small>Duration<\/small>Until next daily preparations/g)).toHaveLength(3)
 })

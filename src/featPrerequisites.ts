@@ -66,7 +66,7 @@ const ROLE_CLASSES: Record<string, string> = {
   mystery: 'Oracle', methodology: 'Investigator', innovation: 'Inventor', way: 'Gunslinger',
   'hybrid study': 'Magus', 'conscious mind': 'Psychic', practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler',
   "hunter's edge": 'Ranger', edge: 'Ranger',
-  'fatal method': 'Necromancer',
+  'fatal method': 'Necromancer', 'grim fascination': 'Necromancer',
 }
 const ROLE_PATTERN = new RegExp(`^(.+?) (${Object.keys(ROLE_CLASSES).sort((a, b) => b.length - a.length).join('|')})$`)
 const rankPrefix = /^(untrained|trained|expert|master|legendary)\s+(?:in|with)\s+/i
@@ -415,6 +415,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       const known = role[2] === 'order' ? context.knownOrders.some((order) => normalize(order) === expected)
         : knownEntries(role[1]).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[role[2]])
       if (known || role[2] === 'fatal method' && ['puppeteer', 'reaper'].includes(expected)
+        || role[2] === 'grim fascination' && ['blood', 'bone', 'flesh', 'spirit'].includes(expected)
         || role[2] === 'cause' && Object.values(CHAMPION_CAUSE_ALIASES).includes(expected)
         || choices.some((choice) => normalize(choice) === expected)) {
         return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === expected), text)
