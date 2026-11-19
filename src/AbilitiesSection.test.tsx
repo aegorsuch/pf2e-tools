@@ -48,7 +48,8 @@ describe('ability score boost controls', () => {
     expect(markup.match(/<details class="boost-panel character-subsection">/g)).toHaveLength(4)
     expect(markup).not.toContain('open=""')
     expect(markup).not.toContain('<select')
-    expect(markup.match(/type="checkbox"/g)).toHaveLength(25)
+    expect(markup.match(/type="checkbox"/g)).toHaveLength(24)
+    expect(markup).not.toContain('Alternate Ancestry Boost')
   })
 
   it('shows fixed class boosts in ability scores', () => {
@@ -171,8 +172,10 @@ describe('ability score boost controls', () => {
     let c: Character = { ...character, ancestry: 'Lizardfolk', boosts: { 'ancestry:2': 'int' } }
     const props = () => ({ c, entries: [lizard], save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
     const toggle = findElement(AbilityBoostChoices({ ...props(), groups: ['ancestry'] }),
-      (type, p) => type === 'input' && p['aria-label'] === 'Alternate ancestry boosts')
+      (type, p) => type === 'input' && typeof p.onChange === 'function' && 'checked' in p
+        && !('aria-label' in p))
     expect(toggle).toBeDefined()
+    expect(renderToStaticMarkup(<AbilityBoostChoices {...props()} groups={['ancestry']} />)).toContain('Alternate Ancestry Boost')
     ;(toggle!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
     checkbox(props(), ['ancestry'], 'Ancestry Boosts: Intelligence').onChange()
     expect(c.boosts).toEqual({ 'ancestry:2': 'int', 'ancestryAlternate:0': 'int' })
@@ -184,5 +187,14 @@ describe('ability score boost controls', () => {
     ;(toggle!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
     expect(computeAbilities(c, [lizard]).int).toBe(12)
     expect(otherCharacter.alternateAncestryBoosts).toBe(false)
+  })
+
+  it('uses normal free boosts when switching to an ancestry that already has two', () => {
+    const human = entry('ancestry', 'Human', 'Free, Free')
+    const c: Character = { ...character, alternateAncestryBoosts: true,
+      boosts: { 'ancestry:0': 'wis', 'ancestry:1': 'str', 'ancestryAlternate:0': 'int' } }
+    const markup = renderToStaticMarkup(<AbilityBoostChoices c={c} entries={[human]} save={() => {}} groups={['ancestry']} />)
+    expect(markup).not.toContain('Alternate Ancestry Boost')
+    expect(computeAbilities(c, [human])).toMatchObject({ wis: 12, str: 12, int: 10 })
   })
 })

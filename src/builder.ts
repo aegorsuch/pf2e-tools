@@ -161,10 +161,17 @@ export interface BoostSlot {
 
 export const BOOST_LEVELS = [5, 10, 15, 20]
 
+export function canUseAlternateAncestryBoosts(c: Character, entries: ContentEntry[]) {
+  const ancestry = byName(entries, 'ancestry', c.ancestry)
+  const boosts = ancestryBoosts(ancestry?.data.attribute)
+  return !!ancestry?.systems.includes('pf2e') && boosts.length > 0
+    && boosts.filter(boost => /^free$/i.test(boost)).length < 2
+}
+
 export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   const slots: BoostSlot[] = []
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  if (ancestry && c.alternateAncestryBoosts && ancestry.systems.includes('pf2e')) {
+  if (c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries)) {
     for (let i = 0; i < 2; i++) slots.push({ key: `ancestryAlternate:${i}`, label: 'Ancestry (free)', group: 'ancestry' })
   } else {
     ancestryBoosts(ancestry?.data.attribute).forEach((t, i) => {
@@ -195,7 +202,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
 
 export const ancestryFlaws = (c: Character, entries: ContentEntry[]) => {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  return c.alternateAncestryBoosts && ancestry?.systems.includes('pf2e') ? [] : parseAbilities(ancestry?.data.attribute_flaw)
+  return c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries) ? [] : parseAbilities(ancestry?.data.attribute_flaw)
 }
 
 // A boost is +2 below 18, otherwise +1

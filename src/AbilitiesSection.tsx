@@ -1,4 +1,4 @@
-import { ABILITIES, ABILITY_LABEL, abilityMod, boostSlots, computeAbilities, duplicateBoosts, signed, type Ability, type BoostSlot, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, boostSlots, canUseAlternateAncestryBoosts, computeAbilities, duplicateBoosts, signed, type Ability, type BoostSlot, type SectionProps } from './builder'
 
 const GROUP_TITLE: Record<string, string> = { ancestry: 'Ancestry Boosts', background: 'Background Boosts', class: 'Class Boost', free1: 'L01 Boosts' }
 const groupTitle = (g: string) => GROUP_TITLE[g] ?? `L${g.slice(3).padStart(2, '0')} Boosts`
@@ -34,9 +34,9 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
       {groups.map(([group, gs]) => (
         <details key={group} className="boost-panel character-subsection">
           <summary><h4>{groupTitle(group)}</h4></summary>
-          {group === 'ancestry' && c.ancestry && entries.some(entry => entry.kind === 'ancestry' && entry.name === c.ancestry && entry.systems.includes('pf2e')) &&
-            <label><input type="checkbox" aria-label="Alternate ancestry boosts" checked={!!c.alternateAncestryBoosts}
-              onChange={event => save({ alternateAncestryBoosts: event.target.checked })} /> Two free ancestry boosts</label>}
+          {group === 'ancestry' && canUseAlternateAncestryBoosts(c, entries) &&
+            <label><input type="checkbox" checked={!!c.alternateAncestryBoosts}
+              onChange={event => save({ alternateAncestryBoosts: event.target.checked })} /> Alternate Ancestry Boost</label>}
           <div className="boost-checks">
             {ABILITIES.map((a) => {
               const fixed = gs.some((s) => s.fixed === a)
