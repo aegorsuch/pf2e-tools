@@ -70,6 +70,9 @@ it('grants chosen Godclaw domain spells through native training or cross-trainin
     expect(grantedFeatSpells(c, [spell])).toHaveLength(1)
     expect(grantedFeatSpells(c, [spell])[0]).toMatchObject({ entry: { name: spell.name }, rank: 6,
       rule: { kind: 'focus', condition: 'Casting this domain spell grants 12 temporary HP for 1 round.' } })
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+    expect(markup).not.toContain('Casting this domain spell grants 12 temporary HP for 1 round.')
+    expect(markup).not.toContain('aria-label="Swear Oath active"')
     expect(focusSpells(c, [spell])).toMatchObject({ points: 1, spells: [expect.objectContaining({ name: spell.name })] })
     expect(unresolvedFeatSpells(c, [])).toContainEqual(expect.objectContaining({ name: 'Duty domain focus spell' }))
     expect(grantedFeatSpells({ ...c, level: 7 }, [spell])).toEqual([])

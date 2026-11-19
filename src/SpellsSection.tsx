@@ -899,6 +899,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         && grant.rule.condition !== 'Only through barriers of earth or stone'
         && !(grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
           && /^Self only\. Fire resistance is at least \d+\.$/.test(grant.rule.condition))
+        && !(['Order Training', 'Order Cross-Training'].includes(grant.source) && grant.rule.kind === 'focus'
+          && /^Casting this domain spell grants \d+ temporary HP for 1 round\.$/.test(grant.rule.condition))
         && !(grant.entry.name === 'Command' && grant.rule.condition === 'This effect loses the linguistic trait') && grant.rule.condition,
       stats && `${!higherDC && ability ? `${ABILITY_LABEL[ability]} ` : ''}${stats}`,
       higherDC && resolution.save && classDC === undefined
