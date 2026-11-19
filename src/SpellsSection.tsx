@@ -951,6 +951,17 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </SpellItem>
     })}</ul>
   </section>
+  const spellcastingSummary = casting && (c.className === 'Witchwarper' ? casting.ability : sc || casting.ability) && (
+    <div className="skill-row with-item spell-dc-row">
+      <span className="skill-name">{selectedTradition && `${selectedTradition} `}DC {10 + mod} <small>(Attack {signed(mod)})</small></span>
+      <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${RANK_NAMES[casting.rank]}`} title={RANK_NAMES[casting.rank]}>
+        {['T', 'E', 'M', 'L'].map((letter, i) => <button key={letter} type="button" tabIndex={-1} disabled className={casting.rank >= i + 1 ? 'on' : ''}>{letter}</button>)}
+      </span>
+      <span className="skill-part"><small>{castAbility ? ABILITY_LABEL[castAbility] : ''}</small>{signed(castAbility ? abilityMod(c.abilities[castAbility]) : 0)}</span>
+      <span className="skill-part"><small>Prof</small>{signed(proficiencyBonus(casting.rank, c.level))}</span>
+      <span className="skill-part"><small>Item</small>{signed(0)}</span>
+    </div>
+  )
 
   return (
       <div className="character-section-content">
@@ -994,7 +1005,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </dialog>
       </>}
       {casting && <>
-      <div className="row">
+      {(!casting.ability && c.className !== 'Witchwarper' || traditions.length > 1) && <div className="row">
         {!casting.ability && c.className !== 'Witchwarper' && <label>Casting ability{' '}
           <select value={sc?.ability ?? ''} onChange={(e) => setSc({ ability: e.target.value as never })}>
             <option value="">none</option>
@@ -1007,19 +1018,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 {traditions.map((t) => <option key={t}>{t}</option>)}
               </select>
             </label>}
-        {traditions.length === 1 && <b>{traditions[0]} tradition</b>}
-      </div>
-      {(c.className === 'Witchwarper' ? casting.ability : sc || casting.ability) && (
-        <div className="skill-row with-item spell-dc-row">
-          <span className="skill-name">DC {10 + mod} <small>(Attack {signed(mod)})</small></span>
-          <span className="rank-dots" role="img" aria-label={`Spellcasting proficiency: ${RANK_NAMES[casting.rank]}`} title={RANK_NAMES[casting.rank]}>
-            {['T', 'E', 'M', 'L'].map((letter, i) => <button key={letter} type="button" tabIndex={-1} disabled className={casting.rank >= i + 1 ? 'on' : ''}>{letter}</button>)}
-          </span>
-          <span className="skill-part"><small>{castAbility ? ABILITY_LABEL[castAbility] : ''}</small>{signed(castAbility ? abilityMod(c.abilities[castAbility]) : 0)}</span>
-          <span className="skill-part"><small>Prof</small>{signed(proficiencyBonus(casting.rank, c.level))}</span>
-          <span className="skill-part"><small>Item</small>{signed(0)}</span>
-        </div>
-      )}
+      </div>}
+      {spellcastingSummary}
       {sc && traditions.length > 0 && !automaticSlots && (
         <div className="row spell-slot-counts">
           <small>Spell slots:</small>
@@ -1036,12 +1036,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </small>}
       {witchwarper && <WitchwarperRepertoire c={c} entries={entries} save={save} />}
       {!witchwarper && sc && traditions.length > 0 && classSlotRanks.length > 0 && <div className="class-spell-slots">
-        <div className="row">
-          <b>Class Spell Slots</b>
-          {(sc.spentSlots?.length ?? 0) > 0 && <button type="button" aria-label="Reset class spell slots"
+        {(sc.spentSlots?.length ?? 0) > 0 && <div className="row">
+          <button type="button" aria-label="Reset class spell slots"
             title="Restore class spell slots during daily preparations."
-            onClick={() => setSc({ spentSlots: [] })}>Reset slots</button>}
-        </div>
+            onClick={() => setSc({ spentSlots: [] })}>Reset slots</button>
+        </div>}
         {classSlotRanks.map(({ rank, count }) => {
           const cantrip = rank === 0
           const title = cantrip ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})` : `Spell Rank ${rank}`
@@ -1218,6 +1217,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>}
       </div>
       <div hidden={category !== 'focus'}>
+      {spellcastingSummary}
       <DevotionSpellChoice c={c} entries={entries} save={save} />
       {(focusPoints > 0 || allFocus.length > 0) && (
         <div>

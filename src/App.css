@@ -582,8 +582,11 @@
 .total-breakdown-parts { display: block; margin-top: 0.5rem; }
 .total-breakdown-part { display: flex; justify-content: space-between; gap: 1rem; }
 .total-breakdown-note { display: block; margin-top: 0.5rem; }
-.spell-dc-row { grid-template-columns: minmax(0, 1fr) auto 2.6rem 2.6rem 2.6rem; }
 .skill-row.with-item { grid-template-columns: minmax(0, 1fr) auto 2.2rem 2.2rem 2.2rem; }
+.skill-row.with-item.spell-dc-row { display: flex; flex-wrap: wrap; gap: 0.4rem 0.75rem; }
+.spell-dc-row .skill-name { flex: 1 1 12rem; }
+.spell-dc-row .rank-dots { flex: 0 0 auto; }
+.spell-dc-row .skill-part { min-width: max-content; }
 .gear-list { gap: 0.5rem; }
 .equipment-name { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; text-align: left; text-decoration: underline; text-underline-offset: 0.15em; overflow-wrap: anywhere; }
 .companion-choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }

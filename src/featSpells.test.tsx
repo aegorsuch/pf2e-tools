@@ -724,7 +724,7 @@ it('renders prepared class spell slots with slot selection, metadata, casting, a
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[
     { ...wizard, id: 'wizard' }, { ...electricArc, id: 'electric-arc' }, { ...haste, id: 'haste' },
   ]} save={() => {}} />)
-  expect(html).toContain('Class Spell Slots')
+  expect(html).not.toContain('Class Spell Slots')
   expect(html).toContain('Cantrips (Heightened Level 3)')
   expect(html).toContain('Spell Rank 3')
   expect(html).toContain('aria-label="Clear Electric Arc spell slot"')

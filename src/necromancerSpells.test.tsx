@@ -75,7 +75,7 @@ it('prepares only learned occult spells plus automatic Harm, while keeping focus
   expect(choices(render(base, entries), 'Spell Rank 1 slot 1')).not.toContain('value="Fear"')
   expect(html).toContain('aria-label="Learn dirge spell"')
   expect(html).toContain('aria-haspopup="dialog"><svg class="dirge-icon"')
-  expect(html.indexOf('class="dirge-icon"')).toBeLessThan(html.indexOf('<b>Class Spell Slots</b>'))
+  expect(html.indexOf('class="dirge-icon"')).toBeLessThan(html.indexOf('class="class-spell-slots"'))
   expect(html).not.toContain('Spell slots:')
   expect(html).not.toContain('Spell Rank 1 slot 2')
 })
@@ -128,7 +128,7 @@ it('sorts prepared spells by name within each rank without changing slot identit
       spentSlots: ['1:0'] } }
   const before = JSON.stringify(c)
   const html = render(c, entries)
-  const slots = html.slice(html.indexOf('<b>Class Spell Slots</b>'))
+  const slots = html.slice(html.indexOf('class="class-spell-slots"'))
   expect(slots.indexOf('>Needle Darts</button>')).toBeLessThan(slots.indexOf('>Zap</button>'))
   expect(slots.indexOf('>Bane</button>')).toBeLessThan(slots.indexOf('>Fear</button>'))
   expect(slots).toContain('title="Two Actions; Damage: 4d4 piercing"')
@@ -164,6 +164,15 @@ it('provides separate spell categories with class spells selected initially', ()
   expect((html.match(/<div hidden="">/g) ?? [])).toHaveLength(4)
 })
 
+it('shows the same tradition and spellcasting DC in class and focus tabs', () => {
+  const c: Character = { ...base, level: 20, abilities: { ...base.abilities, int: 22 } }
+  const html = render(c, [spell('Harm')])
+  expect(html.match(/Occult DC 44 <small>\(Attack \+34\)<\/small>/g)).toHaveLength(2)
+  expect(html.match(/Spellcasting proficiency: Legendary/g)).toHaveLength(2)
+  expect(html).not.toContain('Occult tradition')
+  expect(html).not.toContain('Class Spell Slots')
+})
+
 it('groups learned dirge spells by cantrip and spell rank', () => {
   const guidance = spell('Guidance', 1, 'Occult', ['Cantrip'])
   const fear = spell('Fear')
@@ -171,7 +180,7 @@ it('groups learned dirge spells by cantrip and spell rank', () => {
   const c: Character = { ...base, level: 3, spells: [guidance, fear, blindness].map(entry =>
     ({ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: entry === guidance })) }
   const html = render(c, [guidance, fear, blindness, spell('Harm')])
-  const dirge = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'), html.indexOf('<b>Class Spell Slots</b>'))
+  const dirge = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'), html.indexOf('class="class-spell-slots"'))
   expect(dirge).toMatch(/<h5>Cantrips<\/h5>[\s\S]*?>Guidance<\/button>/)
   expect(dirge).toMatch(/<h5>Rank 1<\/h5>[\s\S]*?>Fear<\/button>/)
   expect(dirge).toMatch(/<h5>Rank 2<\/h5>[\s\S]*?>Blindness<\/button>/)
@@ -195,7 +204,7 @@ it('deduplicates granted and saved dirge spells while keeping learned spells alp
     .toBe('alternate-harm')
   expect(necromancerDirge(c, entries).map(entry => entry.name)).toEqual(['Fear', 'Harm', 'Summon Undead'])
   const html = render(c, entries)
-  const dirge = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'), html.indexOf('<b>Class Spell Slots</b>'))
+  const dirge = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'), html.indexOf('class="class-spell-slots"'))
   expect(dirge.match(/>Harm<\/button>/g)).toHaveLength(1)
   expect(dirge.match(/>Summon Undead<\/button>/g)).toHaveLength(1)
   expect(dirge.indexOf('>Fear</button>')).toBeLessThan(dirge.indexOf('>Harm</button>'))
