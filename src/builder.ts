@@ -10,7 +10,7 @@ export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntr
 import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { companionAdvancement } from './companions'
-import { contentAccessGranted, featRarity } from './featAccess'
+import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
@@ -21,7 +21,8 @@ import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
-import { witchwarperParadox, witchwarperSpellcasting, witchwarperSpellSlots } from './witchwarper'
+import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
+import { familiarSpellBenefits } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
@@ -4226,8 +4227,33 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   return available
 }
 
+function selectedShieldCantrip(c: Character, entries: ContentEntry[]) {
+  const slots = classSpellSlots(c)
+  if (!slots || !(slots[0] > 0)) return false
+  const saved = c.className === 'Witchwarper' ? c.spellcasting?.repertoire : c.spellcasting?.prepared
+  if (!saved) return false
+  const shield = entries.filter(entry => entry.kind === 'spell' && entry.name === 'Shield' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system))
+    && entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+  if (!shield.length || !Object.values(saved).some(value => value === 'Shield' || shield.some(entry => entry.id === value))) return false
+  const extraCantrip = familiarSpellBenefits(c, entries, slots).cantrip
+  if (c.className === 'Witchwarper') {
+    const options = witchwarperSpellOptions(c, shield, 0)
+    return witchwarperRepertoireSlots(c, extraCantrip).some(slot => slot.rank === 0
+      && options.some(entry => entry.id === slot.value || entry.name === slot.value))
+  }
+  if (c.className !== 'Druid') return false
+  const options = druidSpellList(c, shield).filter(entry => spellAccessGranted(c, entry))
+  return Object.entries(saved).some(([key, value]) => {
+    const match = /^0:(\d+)$/.exec(key)
+    const validSlot = match ? Number(match[1]) < slots[0] : key === 'familiar-cantrip-connection' && extraCantrip
+    return validSlot && options.some(entry => entry.id === value || entry.name === value)
+  })
+}
+
 export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
   return !!(c.spells?.some((spell) => spell.name === name)
+    || name === 'Shield' && selectedShieldCantrip(c, entries)
     || necromancerGrantedDirgeSpells(c).includes(name)
     || c.feats.some(feat => featTakenLevel(feat) <= c.level && hasWardenChoice(feat) && feat.choice === name)
     || grantedFeatSpells(c, entries).some(grant => grant.entry.name === name)

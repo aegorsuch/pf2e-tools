@@ -8,7 +8,7 @@ import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
-import { subclassOptions } from './builder'
+import { armorClass, isSpellActive, spellActiveChange, subclassOptions } from './builder'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -1058,6 +1058,46 @@ it('shows defense summary context toggles only for equipped shields or parry wea
     const stowed = renderToStaticMarkup(<CharacterBuilder character={{ ...parryFeat,
       weapons: [{ id: 'parry', name: parryWeapon.name, potency: 0, striking: 0, runes: [], stowed: true }] }} onClose={() => {}} />)
     expect(stowed).not.toContain('Parry active (summary)')
+  } finally { content.entries = [] }
+})
+
+it('offers Shield cantrip in Defense and applies its existing non-stacking AC bonus', () => {
+  const shield: ContentEntry = { id: 'shield-cantrip', systems: ['pf2e', 'sf2e'], kind: 'spell',
+    source: 'official', name: 'Shield', level: 1, traits: ['Cantrip'],
+    description: '', data: { tradition: 'Arcane, Occult, Primal' }, effects: [], updatedAt: 0 }
+  const base: Character = { id: 'shield-test', name: 'Test', systems: ['pf2e'], level: 1, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '0:2': shield.id } } }
+  content.entries = [shield]
+  try {
+    const render = (c: Character) => renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    const html = render(base)
+    expect(html).toContain('aria-label="Raise Shield Cantrip (summary)"')
+    const raised = { ...base, ...spellActiveChange(base, 'Shield', true) }
+    expect(isSpellActive(raised, content.entries, 'Shield')).toBe(true)
+    expect(armorClass(raised, content.entries)).toBe(armorClass(base, content.entries) + 1)
+    expect(render(raised)).toMatch(/aria-label="Raise Shield Cantrip \(summary\)" checked=""/)
+    expect(isSpellActive({ ...raised, ...spellActiveChange(raised, 'Shield', false) }, content.entries, 'Shield')).toBe(false)
+    const equipped = { ...raised, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+    expect(armorClass(equipped, content.entries)).toBe(armorClass(base, content.entries) + 2)
+    expect(render({ ...base, spellcasting: { ...base.spellcasting!, prepared: { '0:7': shield.id } } }))
+      .not.toContain('Raise Shield Cantrip (summary)')
+    const familiarAbility: ContentEntry = { ...shield, id: 'cantrip-connection', kind: 'familiar',
+      name: 'Cantrip Connection', traits: [], data: { ability_type: 'Master' } }
+    content.entries = [shield, familiarAbility]
+    const familiar: Character = { ...base, feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }],
+      familiar: { abilities: ['Cantrip Connection'] },
+      spellcasting: { ...base.spellcasting!, prepared: { 'familiar-cantrip-connection': shield.id } } }
+    expect(render(familiar)).toContain('Raise Shield Cantrip (summary)')
+    expect(render({ ...familiar, familiar: { abilities: [] } })).not.toContain('Raise Shield Cantrip (summary)')
+    const witchwarper: Character = { ...base, systems: ['sf2e'], className: 'Witchwarper', subclass: 'Analyst',
+      boosts: { class: 'int' }, spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {}, repertoire: { '0:1': shield.id } } }
+    expect(render(witchwarper)).toContain('Raise Shield Cantrip (summary)')
+    expect(isSpellActive({ ...witchwarper, activeSpells: ['Shield'] }, content.entries, 'Shield')).toBe(true)
+    expect(render({ ...base, spellcasting: undefined })).not.toContain('Raise Shield Cantrip (summary)')
+    expect(render({ ...base, spellcasting: undefined, spells: [{ name: 'Shield', rank: 1, cantrip: true }] }))
+      .toContain('Raise Shield Cantrip (summary)')
   } finally { content.entries = [] }
 })
 
