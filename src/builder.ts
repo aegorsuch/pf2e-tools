@@ -5680,14 +5680,18 @@ export function skillRankRequirements(c: Character, entries: ContentEntry[], ski
   const sources = new Map<string, ContentEntry>(skillRequirementSources(c, entries).map(source => [source.id, source]))
   for (const feat of c.feats.filter(feat => featTakenLevel(feat) <= c.level)) {
     const category = feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase()
-    if (!['class', 'ancestry', 'archetype'].includes(category) || /\bdedication$/i.test(feat.name)) continue
+    if (!['class', 'ancestry', 'archetype', 'skill'].includes(category) || /\bdedication$/i.test(feat.name)) continue
     const selectedSources = featPrerequisiteSources(entries, { ...c, name: feat.name,
       entryIds: feat.sourceId ? [feat.sourceId] : c.entryIds, ancestryTraits: ancestryFeatTraits(c),
       category })
-    for (const source of selectedSources) sources.set(source.id, source)
+    for (const source of selectedSources) {
+      if (category !== 'skill' || source.traits.some(trait => /^archetype$/i.test(trait))) sources.set(source.id, source)
+    }
   }
   for (const source of sources.values()) {
-    if (source.traits.some(trait => /^(?:skill|general|dedication)$/i.test(trait)) || /\bdedication$/i.test(source.name)) continue
+    const archetype = source.traits.some(trait => /^archetype$/i.test(trait))
+    if (source.traits.some(trait => /^(?:general|dedication)$/i.test(trait)
+      || /^skill$/i.test(trait) && !archetype) || /\bdedication$/i.test(source.name)) continue
     const text = String(source.data.prerequisite ?? '')
     const clauses = text.matchAll(/\b(trained|expert|master|legendary)\s+(?:in|with)\s+([\s\S]*?)(?=\b(?:untrained|trained|expert|master|legendary)\s+(?:in|with)\s+|$)/gi)
     for (const clause of clauses) {

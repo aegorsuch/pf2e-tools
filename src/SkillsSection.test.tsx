@@ -516,6 +516,25 @@ it('shows available Fighter and ancestry skill requirements before selection and
   expect(c.feats).toEqual([])
 })
 
+it('shows archetype skill feat rank requirements before and after selection', () => {
+  const dedication: ContentEntry = { ...ranger, kind: 'feat', id: 'cavalier', name: 'Cavalier Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], data: { archetype: 'Cavalier' } }
+  const quick: ContentEntry = { ...dedication, id: 'quick', name: 'Quick Mount', level: 4, traits: ['Archetype', 'Skill'],
+    data: { archetype: 'Cavalier, Mammoth Lord', prerequisite: 'Cavalier Dedication; Expert in Nature' } }
+  const entries = [ranger, dedication, quick]
+  const c: Character = { ...base, level: 6, feats: [
+    { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} />)
+  expect(render({ ...c, feats: [] })).not.toContain('Quick Mount: Cavalier Dedication; Expert in Nature')
+  expect(render(c)).toContain('aria-label="Nature Expert prerequisites note"')
+  expect(render(c)).toContain('Quick Mount: Cavalier Dedication; Expert in Nature')
+  const selected: Character = { ...c, feats: [...c.feats,
+    { name: quick.name, type: 'Skill Feat', level: 4, slot: 'skill:4:0' }] }
+  expect(render(selected)).toContain('Quick Mount: Cavalier Dedication; Expert in Nature')
+  expect(render({ ...selected, level: 3 })).not.toContain('Quick Mount: Cavalier Dedication; Expert in Nature')
+})
+
 it('applies only the highest owned Killer belt bonus and removes it when gear is removed', () => {
   const ordinary: ContentEntry = { ...KILLERS_BELT_MAJOR, id: 'ordinary-belt', name: "Killer's Belt",
     source: 'official', level: 4, effects: [] }
