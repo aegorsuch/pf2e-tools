@@ -624,7 +624,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               </option>)}
             </SearchableSelect>}
           </div>
-          <div><small>Speed</small> {familiarEffects.speeds.map(speed => `${speed.movement} ${speed.feet} feet`).join(', ')}</div>
+          <div><small>Speed</small> {familiarEffects.speeds.map(speed =>
+            `${speed.movement === 'Land' ? '' : `${speed.movement} `}${speed.feet} feet`).join(', ')}</div>
           {familiarEffects.senses.length > 0 && <div><small>Senses</small> {familiarEffects.senses.join(', ')}</div>}
           {familiarEffects.resistances.length > 0 && <div><small>Resistances</small> {familiarEffects.resistances
             .map(resistance => `${resistance.damage} ${resistance.value}`).join(', ')}</div>}

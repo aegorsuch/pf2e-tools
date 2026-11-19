@@ -668,6 +668,7 @@ it('applies active familiar Tough and displays recognized daily ability effects'
   }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(markup).toContain('<small>Hit Points</small> <b>56</b>')
+  expect(markup).toContain('<small>Speed</small> 25 feet, Climb 25 feet, Fly 25 feet')
   expect(markup).toContain('fly Speed of 25 feet')
   expect(markup).toContain('climb Speed of 25 feet')
   const reduced = renderToStaticMarkup(<MinionsSection c={{ ...c, feats: c.feats.slice(0, 1) }} entries={familiarEntries} save={() => {}} />)
