@@ -164,10 +164,14 @@ export const BOOST_LEVELS = [5, 10, 15, 20]
 export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   const slots: BoostSlot[] = []
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  ancestryBoosts(ancestry?.data.attribute).forEach((t, i) => {
-    const fixed = ABILITY_NAMES[t.toLowerCase()]
-    slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed, group: 'ancestry' })
-  })
+  if (ancestry && c.alternateAncestryBoosts && ancestry.systems.includes('pf2e')) {
+    for (let i = 0; i < 2; i++) slots.push({ key: `ancestryAlternate:${i}`, label: 'Ancestry (free)', group: 'ancestry' })
+  } else {
+    ancestryBoosts(ancestry?.data.attribute).forEach((t, i) => {
+      const fixed = ABILITY_NAMES[t.toLowerCase()]
+      slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed, group: 'ancestry' })
+    })
+  }
   const bg = byName(entries, 'background', c.background)
   if (bg) {
     const opts = parseAbilities(bg.data.attribute)
@@ -189,8 +193,10 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   return slots
 }
 
-export const ancestryFlaws = (c: Character, entries: ContentEntry[]) =>
-  parseAbilities(byName(entries, 'ancestry', c.ancestry)?.data.attribute_flaw)
+export const ancestryFlaws = (c: Character, entries: ContentEntry[]) => {
+  const ancestry = byName(entries, 'ancestry', c.ancestry)
+  return c.alternateAncestryBoosts && ancestry?.systems.includes('pf2e') ? [] : parseAbilities(ancestry?.data.attribute_flaw)
+}
 
 // A boost is +2 below 18, otherwise +1
 export function computeAbilities(c: Character, entries: ContentEntry[]): Character['abilities'] {

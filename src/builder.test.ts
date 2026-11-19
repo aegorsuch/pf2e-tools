@@ -1457,6 +1457,17 @@ describe('ancestryLabel', () => {
 })
 
 describe('computeAbilities', () => {
+  it('reaches 21 Intelligence with the Lizardfolk flaw or 22 with alternate ancestry boosts at level 20', () => {
+    const lizard = entry('ancestry', 'Lizardfolk', { attribute: 'Strength, Wisdom, Free', attribute_flaw: 'Intelligence' })
+    const necromancer = entry('class', 'Necromancer', { attribute: 'Intelligence' })
+    const background = entry('background', 'Scholar', { attribute: 'Intelligence' })
+    const c: Character = { ...base, level: 20, ancestry: 'Lizardfolk', className: 'Necromancer', background: 'Scholar',
+      boosts: { 'ancestry:2': 'int', 'ancestryAlternate:0': 'int', 'background:0': 'int',
+        'free1:0': 'int', 'lvl5:0': 'int', 'lvl10:0': 'int', 'lvl15:0': 'int', 'lvl20:0': 'int' } }
+    expect(computeAbilities(c, [lizard, necromancer, background]).int).toBe(21)
+    expect(computeAbilities({ ...c, alternateAncestryBoosts: true }, [lizard, necromancer, background]).int).toBe(22)
+  })
+
   it('applies flaw, fixed and chosen boosts, slowing past 18', () => {
     const c = { ...base, boosts: { 'ancestry:2': 'dex', 'background:0': 'int', 'background:1': 'wis', 'free1:0': 'int', 'free1:1': 'int' } as Character['boosts'] }
     const a = computeAbilities(c, entries)

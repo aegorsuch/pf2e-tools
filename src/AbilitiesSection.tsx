@@ -34,6 +34,9 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
       {groups.map(([group, gs]) => (
         <details key={group} className="boost-panel character-subsection">
           <summary><h4>{groupTitle(group)}</h4></summary>
+          {group === 'ancestry' && c.ancestry && entries.some(entry => entry.kind === 'ancestry' && entry.name === c.ancestry && entry.systems.includes('pf2e')) &&
+            <label><input type="checkbox" aria-label="Alternate ancestry boosts" checked={!!c.alternateAncestryBoosts}
+              onChange={event => save({ alternateAncestryBoosts: event.target.checked })} /> Two free ancestry boosts</label>}
           <div className="boost-checks">
             {ABILITIES.map((a) => {
               const fixed = gs.some((s) => s.fixed === a)

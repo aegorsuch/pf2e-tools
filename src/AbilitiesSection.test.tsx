@@ -48,7 +48,7 @@ describe('ability score boost controls', () => {
     expect(markup.match(/<details class="boost-panel character-subsection">/g)).toHaveLength(4)
     expect(markup).not.toContain('open=""')
     expect(markup).not.toContain('<select')
-    expect(markup.match(/type="checkbox"/g)).toHaveLength(24)
+    expect(markup.match(/type="checkbox"/g)).toHaveLength(25)
   })
 
   it('shows fixed class boosts in ability scores', () => {
@@ -162,5 +162,27 @@ describe('ability score boost controls', () => {
     clearDuplicates()
     expect(c.boosts).toEqual({ 'free1:0': 'wis' })
     expect(computeAbilities(c, elfEntries).dex).toBe(12)
+  })
+
+  it('switches Lizardfolk ancestry boosts without losing previous choices', () => {
+    const lizard = { ...entry('ancestry', 'Lizardfolk', 'Strength, Wisdom, Free'), data: {
+      attribute: 'Strength, Wisdom, Free', attribute_flaw: 'Intelligence',
+    } }
+    let c: Character = { ...character, ancestry: 'Lizardfolk', boosts: { 'ancestry:2': 'int' } }
+    const props = () => ({ c, entries: [lizard], save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
+    const toggle = findElement(AbilityBoostChoices({ ...props(), groups: ['ancestry'] }),
+      (type, p) => type === 'input' && p['aria-label'] === 'Alternate ancestry boosts')
+    expect(toggle).toBeDefined()
+    ;(toggle!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+    checkbox(props(), ['ancestry'], 'Ancestry Boosts: Intelligence').onChange()
+    expect(c.boosts).toEqual({ 'ancestry:2': 'int', 'ancestryAlternate:0': 'int' })
+    expect(computeAbilities(c, [lizard]).int).toBe(12)
+    const otherCharacter = { ...c, alternateAncestryBoosts: false }
+    expect(computeAbilities(otherCharacter, [lizard]).int).toBe(10)
+    ;(toggle!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+    expect(computeAbilities(c, [lizard]).int).toBe(10)
+    ;(toggle!.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+    expect(computeAbilities(c, [lizard]).int).toBe(12)
+    expect(otherCharacter.alternateAncestryBoosts).toBe(false)
   })
 })

@@ -329,6 +329,7 @@ export interface Character {
   entryIds: string[]
   // Ability boost choices keyed by boost slot (e.g. 'ancestry:2', 'lvl5:0'); when set, abilities are derived from them
   boosts?: Record<string, keyof Character['abilities']>
+  alternateAncestryBoosts?: boolean
   // Trained skill picks and skill increases keyed by level
   skillPicks?: string[]
   skillIncreases?: Record<string, string>
