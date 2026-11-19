@@ -70,17 +70,29 @@ const armorEntry = (id: string, name: string, data: ContentEntry['data'], traits
   data: { armor_category: 'Medium', ...data }, effects: [], updatedAt: 1,
 })
 
+const weaveRunes = (level: number) => [
+  ...(level >= 5 ? [level >= 17 ? 'Moonweave (Major)' : level >= 13 ? 'Moonweave (Greater)' : 'Moonweave'] : []),
+  ...(level >= 7 ? [level >= 18 ? 'Sunweave (Major)' : level >= 11 ? 'Sunweave (Greater)' : 'Sunweave'] : []),
+]
+const fortificationRune = (level: number) => level >= 18 ? 'Fortification (Greater)' : 'Fortification'
+
 export function armigerArmorEntry(c: Character, ranks: Record<string, number>): ContentEntry | undefined {
   if (!c.systems.includes('pf2e') || !c.feats.some(feat => feat.name === 'Ardent Armiger' && featTakenLevel(feat) <= c.level)
     || !ranks.Heavy && !ranks.Medium) return undefined
   const heavy = ranks.Heavy > 0
+  const fortification = c.level >= 12
+  const runes = [...weaveRunes(c.level),
+    ...(fortification ? [fortificationRune(c.level)] : []),
+    ...(c.level >= 9 ? [c.level >= 16 ? 'Advancing (Greater)' : 'Advancing'] : [])]
   return armorEntry(ARMIGER_ARMOR_ID, heavy ? 'Hellknight Plate' : 'Hellknight Breastplate', {
     armor_category: heavy ? 'Heavy' : 'Medium', armor_group: 'Plate', ac: heavy ? 6 : 4,
     dex_cap: heavy ? 0 : 1, check_penalty: heavy ? -3 : -2, speed_penalty: heavy ? -10 : -5,
-    strength: heavy ? 4 : 3, bulk: heavy ? 4 : 2, fixed_material: 'Orichalcum', granted_by: 'Ardent Armiger',
+    strength: (heavy ? 4 : 3) + (fortification ? 1 : 0), bulk: (heavy ? 4 : 2) + (fortification ? 1 : 0),
+    fixed_material: 'Orichalcum', granted_by: 'Ardent Armiger', automatic_property_runes: runes.join(';'),
     url: `https://2e.aonprd.com/Armor.aspx?ID=${heavy ? 25 : 23}`,
   }, heavy ? ['Bulwark', 'Uncommon'] : ['Uncommon'],
-  'Hellknight armor granted by Ardent Armiger. Ownership and material are locked; fundamental runes improve with character level.')
+  'Hellknight armor granted by Ardent Armiger. Ownership and material are locked; fundamental runes improve with character level. '
+    + 'Moonweave, Sunweave, Fortification, and Advancing runes are granted and improve at their item levels.')
 }
 
 export function grantedArmorEntries(c: Character, innovation = c.subclass, armorProficiencies: Record<string, number> = {}): ContentEntry[] {
@@ -105,11 +117,10 @@ export function grantedArmorEntries(c: Character, innovation = c.subclass, armor
         && (armorProficiencies[category] ?? 0) >= (armorProficiencies[best] ?? 0) ? category : best, 'Unarmored')
     const fortification = ['Medium', 'Heavy'].includes(category) && c.level >= 12
     const runes = [
-      ...(c.level >= 5 ? [c.level >= 17 ? 'Moonweave (Major)' : c.level >= 13 ? 'Moonweave (Greater)' : 'Moonweave'] : []),
-      ...(c.level >= 7 ? [c.level >= 18 ? 'Sunweave (Major)' : c.level >= 11 ? 'Sunweave (Greater)' : 'Sunweave'] : []),
+      ...weaveRunes(c.level),
       ...(['Unarmored', 'Light'].includes(category) && c.level >= 5
         ? [c.level >= 17 ? 'Shadow (Major)' : c.level >= 9 ? 'Shadow (Greater)' : 'Shadow'] : []),
-      ...(fortification ? [c.level >= 18 ? 'Fortification (Greater)' : 'Fortification'] : []),
+      ...(fortification ? [fortificationRune(c.level)] : []),
     ].slice(0, BONY_PLATE_PROPERTY_RUNE_LIMIT)
     entries.push({ ...armorEntry(BONY_PLATES_ID, 'Bony Plates', {
       ...BONY_PLATE_PROFILES[category], attached: true, armor_category: category, armor_group: 'Plate',

@@ -21,7 +21,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus } from './builder'
-import { automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
+import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
@@ -1089,7 +1089,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const namedBases = namedWeaponBases(a.entry)
         const automaticFundamentals = hasAutomaticWeaponFundamentals(c, entries, w)
         const lockFundamentals = automaticFundamentals || !!plate && isGrantedArmor(plate.id)
-          && armorEntry(c, entries, plate.name)?.data.automatic_fundamentals !== false
+          && armorEntry(c, entries, plate.name, plate.id)?.data.automatic_fundamentals !== false
         const automaticBase = automaticFundamentals ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
         const automatic = { potency: Math.max(automaticBase.potency, builtIn?.potency ?? 0),
           striking: Math.max(automaticBase.striking, builtIn?.striking ?? 0) }
@@ -1605,14 +1605,19 @@ export function WarmaskGear({ c, entries }: SectionProps) {
 
 export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
   const armors = ownedArmors(c, entries)
-  const attached = armors.map(armor => armorEntry(c, entries, armor.name)).find(entry => entry?.data.attached)
+  const attached = armors.map(armor => armorEntry(c, entries, armor.name, armor.id)).find(entry => entry?.data.attached)
   const saveArmors = (next: OwnedArmor[], extra?: Partial<Character>) => save({ armors: [
     ...(c.armors ?? []).filter(armor => isGrantedArmor(armor.id) && !armors.some(current => current.id === armor.id)),
     ...next.map(armor => {
       const saved = c.armors?.find(saved => saved.id === armor.id)
+      const automaticRunes = armor.id === ARMIGER_ARMOR_ID
+        ? automaticArmorPropertyRunes(armorEntry(c, entries, armor.name, armor.id)) : []
+      const isAutomaticFamily = (rune: string) => automaticRunes.some(automatic => runeBaseName(automatic) === runeBaseName(rune))
       const runes = armor.id === BONY_PLATES_ID
-      ? saved?.runes ?? []
-        : armor.runes
+        ? saved?.runes ?? []
+        : armor.id === ARMIGER_ARMOR_ID
+          ? [...armor.runes.filter(rune => !isAutomaticFamily(rune)), ...(saved?.runes.filter(isAutomaticFamily) ?? [])]
+          : armor.runes
       return { ...armor, runes, ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
   ], ...extra })
@@ -1627,7 +1632,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       {part !== 'shield' && <><Search c={c} save={save} entries={entries} kind="armor" label="Add Armor"
         onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
-        const entry = armorEntry(c, entries, a.name)
+        const entry = armorEntry(c, entries, a.name, a.id)
         const bonyPlates = a.id === BONY_PLATES_ID
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
@@ -1753,10 +1758,13 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
-            {runesAllowed ? <><Runes runes={bonyPlates ? [] : a.runes.filter(rune => !fixedRunes.includes(rune))} entries={entries}
+            {runesAllowed ? <><Runes runes={bonyPlates ? [] : a.runes.filter(rune => !fixedRunes.includes(rune)
+              && (a.id !== ARMIGER_ARMOR_ID || !automaticRunes.some(fixed => runeBaseName(fixed) === runeBaseName(rune))))} entries={entries}
               freeRunes={[...(named?.runes.map(name => ({ name, source: `Built into ${a.name}` })) ?? []),
-                ...automaticRunes.map(name => ({ name, source: 'Granted by Bony Plates' }))]}
+                ...automaticRunes.map(name => ({ name, source: bonyPlates ? 'Granted by Bony Plates'
+                  : `Granted by ${String(entry?.data.granted_by ?? a.name)}` }))]}
               options={bonyPlates ? [] : propertyRunes(entries, 'Armor').filter(rune => !fixedRunes.includes(rune.name)
+                && (a.id !== ARMIGER_ARMOR_ID || !automaticRunes.some(fixed => runeBaseName(fixed) === runeBaseName(rune.name)))
                 && (a.id !== BONY_PLATES_ID || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune.name))))}
               limit={bonyPlates ? 0 : runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
               onChange={bonyPlates ? undefined : (runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} /></>

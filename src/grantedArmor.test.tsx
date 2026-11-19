@@ -149,7 +149,8 @@ it('grants locked Orichalcum Hellknight armor by wearable category and scales fu
   const upgraded: Character = { ...c, level: 11, feats: [...c.feats, feat('Armor Proficiency', undefined, 5)],
     armors: [...c.armors!, { ...armor, worn: false, runes: ['Shadow'] }] }
   expect(ownedArmors(upgraded, [klass]).find(armor => armor.id === ARMIGER_ARMOR_ID))
-    .toMatchObject({ name: 'Hellknight Plate', potency: 2, resilient: 1, material: 'Orichalcum', runes: ['Shadow'] })
+    .toMatchObject({ name: 'Hellknight Plate', potency: 2, resilient: 1, material: 'Orichalcum',
+      runes: ['Shadow', 'Moonweave', 'Sunweave (Greater)', 'Advancing'] })
   expect(ownedArmors({ ...upgraded, level: 20 }, [klass]).find(armor => armor.id === ARMIGER_ARMOR_ID))
     .toMatchObject({ potency: 3, resilient: 3 })
   const markup = renderToStaticMarkup(<ArmorList c={upgraded} entries={[klass]} save={() => {}} part="armor" />)
@@ -159,6 +160,60 @@ it('grants locked Orichalcum Hellknight armor by wearable category and scales fu
   expect(ownedArmors({ ...c, feats: [] }, [klass]).some(armor => armor.id === ARMIGER_ARMOR_ID)).toBe(false)
   expect(ownedArmors(c, []).some(armor => armor.id === ARMIGER_ARMOR_ID)).toBe(false)
   expect(JSON.stringify(c)).toBe(before)
+})
+
+it.each([
+  [4, []],
+  [5, ['Moonweave']],
+  [7, ['Moonweave', 'Sunweave']],
+  [9, ['Moonweave', 'Sunweave', 'Advancing']],
+  [11, ['Moonweave', 'Sunweave (Greater)', 'Advancing']],
+  [12, ['Moonweave', 'Sunweave (Greater)', 'Fortification', 'Advancing']],
+  [13, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification', 'Advancing']],
+  [16, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification', 'Advancing (Greater)']],
+  [17, ['Moonweave (Major)', 'Sunweave (Greater)', 'Fortification', 'Advancing (Greater)']],
+  [18, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)', 'Advancing (Greater)']],
+] as const)('scales Ardent Armiger armor runes at level %i', (level, runes) => {
+  for (const [proficiency, name, strength, bulk] of [
+    ['medium_armor_proficiency', 'Hellknight Breastplate', 3, 2],
+    ['heavy_armor_proficiency', 'Hellknight Plate', 4, 4],
+  ] as const) {
+    const klass = plateClass({ [proficiency]: 'Trained' })
+    const c: Character = { ...base, level, className: klass.name, feats: [feat('Ardent Armiger', undefined, 4)] }
+    const armor = ownedArmors(c, [klass]).find(item => item.id === ARMIGER_ARMOR_ID)!
+    expect(armor.runes).toEqual(runes)
+    expect(armorEntry(c, [klass], name, armor.id)?.data).toMatchObject({
+      strength: strength + (level >= 12 ? 1 : 0), bulk: bulk + (level >= 12 ? 1 : 0),
+    })
+    expect(perceptionItemBonus(c, [klass])).toBe(level >= 18 ? 3 : level >= 11 ? 2 : level >= 7 ? 1 : 0)
+  }
+})
+
+it('keeps granted runes locked and saved duplicates dormant without affecting ordinary Hellknight armor', () => {
+  const klass = plateClass({ heavy_armor_proficiency: 'Trained' })
+  const plate: ContentEntry = { ...klass, id: 'plate', kind: 'armor', name: 'Hellknight Plate',
+    data: { armor_category: 'Heavy', armor_group: 'Plate', strength: 4, bulk: 4, ac: 6 } }
+  const saved = { id: ARMIGER_ARMOR_ID, name: plate.name, material: 'Orichalcum' as const,
+    worn: false, potency: 0, resilient: 0, runes: ['Moonweave (Greater)', 'Shadow'] }
+  const ordinary = { ...saved, id: 'ordinary', worn: true, runes: [] }
+  const c: Character = { ...base, level: 12, className: klass.name, feats: [feat('Ardent Armiger', undefined, 4)],
+    armors: [saved, ordinary] }
+  const all = [klass, plate]
+  const granted = ownedArmors(c, all).find(armor => armor.id === ARMIGER_ARMOR_ID)!
+  expect(granted.runes).toEqual(['Shadow', 'Moonweave', 'Sunweave (Greater)', 'Fortification', 'Advancing'])
+  expect(armorEntry(c, all, plate.name, ordinary.id)?.data).toMatchObject({ strength: 4, bulk: 4 })
+  expect(armorEntry(c, all, plate.name, granted.id)?.data).toMatchObject({ strength: 5, bulk: 5 })
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={all} save={() => {}} part="armor" />)
+  expect(markup).toContain('Granted by Ardent Armiger')
+  expect(markup).not.toContain('aria-label="Remove Moonweave rune"')
+  expect(saved.runes).toEqual(['Moonweave (Greater)', 'Shadow'])
+  let patch: Partial<Character> = {}
+  const tree = ArmorList({ c, entries: all, save: change => { patch = change }, part: 'armor' })
+  const toggle = find(tree, element => element.type === 'input' && element.props['aria-label'] === 'Worn Hellknight Plate')!
+  ;(toggle.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(patch.armors?.find(armor => armor.id === ARMIGER_ARMOR_ID)?.runes).toEqual(['Shadow', 'Moonweave (Greater)'])
+  expect(ownedArmors({ ...c, level: 4 }, all).find(armor => armor.id === ARMIGER_ARMOR_ID)?.runes)
+    .toEqual(['Moonweave (Greater)', 'Shadow'])
 })
 
 it.each([

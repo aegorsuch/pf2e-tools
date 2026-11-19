@@ -1808,7 +1808,7 @@ export function armorBulk(c: Character, armor: ContentEntry, worn: boolean) {
 
 export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
-  const armor = worn && armorEntry(c, entries, worn.name)
+  const armor = worn && armorEntry(c, entries, worn.name, worn.id)
   if (armor && !armor.systems.includes('sf2e')) {
     const base = Math.min(0, num(armor.data.speed_penalty))
     const meets = armorStrengthMet(c, armor)
@@ -1860,7 +1860,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : []),
     ...(fortressShieldPenalty ? [{ source: 'Fortress Shield', feet: fortressShieldPenalty }] : []),
     ...(activeFeatsNamed(c, 'Hellknight Mobility').length && activeFeatsNamed(c, 'Unburdened Iron').length
-      && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '')) === 'Heavy' && wornArmor(c, entries)
+      && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '', wornArmor(c, entries)?.id)) === 'Heavy' && wornArmor(c, entries)
       ? [{ source: 'Hellknight Mobility', feet: 5 }] : [])]
     .filter(bonus => !form || /\((?:status|circumstance)\)$/.test(bonus.source))
 }
@@ -3543,7 +3543,7 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
 
 export function armorSaveBonus(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
-  return Math.max(worn?.resilient ?? 0, num(worn && armorEntry(c, entries, worn.name)?.data.grade_save_bonus))
+  return Math.max(worn?.resilient ?? 0, num(worn && armorEntry(c, entries, worn.name, worn.id)?.data.grade_save_bonus))
 }
 
 export type TotalPart = { label: string; value: number; note?: string }
@@ -3569,11 +3569,11 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const total = parts.reduce((sum, part) => sum + part.value, 0)
   const mightyBulwark = name === 'Reflex' && activeFeatsNamed(c, 'Mighty Bulwark').length > 0
   const bulwark = name === 'Reflex' && (mightyBulwark ? 'Mighty Bulwark' : armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'
-    : armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined))
+    : armorEntry(c, entries, armor.name, armor.id)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined))
   const guardianArmorBonus = name === 'Reflex' && armor && c.className === 'Guardian'
     && classFeatures(entries, c).some(feature => feature.name === 'Guardian Mastery')
-    ? num(armorEntry(c, entries, armor.name)?.data.ac) + (armor.potency ?? 0)
-      + (armorEntry(c, entries, armor.name)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? 1 : 0)
+    ? num(armorEntry(c, entries, armor.name, armor.id)?.data.ac) + (armor.potency ?? 0)
+      + (armorEntry(c, entries, armor.name, armor.id)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? 1 : 0)
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
@@ -3628,13 +3628,13 @@ export const isHellknightArmor = (armor?: ContentEntry) => /^Hellknight (?:Breas
 
 export function hellknightArmorWorn(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
-  return !!worn && isHellknightArmor(armorEntry(c, entries, worn.name))
+  return !!worn && isHellknightArmor(armorEntry(c, entries, worn.name, worn.id))
 }
 
 export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
   if (!worn) return undefined
-  const armor = armorEntry(c, entries, worn.name)
+  const armor = armorEntry(c, entries, worn.name, worn.id)
   const groups = tokens(armor?.data.armor_group).map((g) => g.toLowerCase())
   const category = String(armor?.data.armor_category ?? '').toLowerCase()
   // Class features apply to every group; feats may limit it to named groups and armor categories
@@ -3687,7 +3687,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
     ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
-    wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name) : undefined,
+    wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name, wornArmor(c, entries)!.id) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
@@ -3840,7 +3840,7 @@ const armorCategory_ = (e: ContentEntry) => e.data.armor_category === 'Special' 
 function equippedArmorEntry(c: Character, entries: ContentEntry[]) {
   const worn = wornArmor(c, entries)
   return worn
-    ? armorEntry(c, entries, worn.name)
+    ? armorEntry(c, entries, worn.name, worn.id)
     : c.armors
       ? undefined
       : c.equipment
@@ -4528,8 +4528,8 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>) {
   return `${material} ${base}`.trim()
 }
 
-export function armorEntry(c: Character, entries: ContentEntry[], name: string) {
-  return characterArmorGrants(c, entries).find(entry => entry.name === name)
+export function armorEntry(c: Character, entries: ContentEntry[], name: string, armorId?: string) {
+  return characterArmorGrants(c, entries).find(entry => entry.name === name && (!armorId || entry.id === armorId))
     ?? byName(entries, 'armor', name)
     ?? namedArmorEntries(entries).find(entry => entry.name === name)
 }
@@ -4608,11 +4608,12 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
       : scaledMaterial(armor.material, c.level, 'Armor'),
       potency: fundamentalsAllowed ? Math.max(armor.potency, automatic.potency) : 0,
       resilient: fundamentalsAllowed ? Math.max(armor.resilient, automatic.resilient) : 0,
-      runes: runesAllowed ? [...armor.runes.filter(rune => grant.id !== BONY_PLATES_ID
-        || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune))), ...automaticRunes] : [] }
+      runes: runesAllowed ? [...armor.runes.filter(rune => grant.id === BONY_PLATES_ID
+        ? !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune))
+        : !automaticRunes.some(automaticRune => runeBaseName(automaticRune) === runeBaseName(rune))), ...automaticRunes] : [] }
   }
   const material = scaledMaterial(isWoodArmor(entries, armor) ? 'Duskwood' : armor.material, c.level, 'Armor')
-  const named = namedArmorEnhancements(armorEntry(c, entries, armor.name))
+  const named = namedArmorEnhancements(armorEntry(c, entries, armor.name, armor.id))
   if (named) return { ...armor, material, potency: Math.max(armor.potency, named.potency),
     resilient: Math.max(armor.resilient, named.resilient), runes: [...new Set([...named.runes, ...armor.runes])] }
   return material === armor.material ? armor : { ...armor, material }

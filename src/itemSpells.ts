@@ -81,7 +81,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
     addRunes(weapon.runes)
   }
   for (const armor of ownedArmors(c, entries)) if (armor.worn) {
-    add(armorEntry(c, entries, armor.name))
+    add(armorEntry(c, entries, armor.name, armor.id))
     addRunes(armor.runes)
   }
   for (const shield of ownedShields(c)) add(shieldEntry(entries, shield.name))
