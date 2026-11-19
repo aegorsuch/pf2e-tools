@@ -12,7 +12,8 @@ const key = (name: string) => name.trim().toLocaleLowerCase()
 export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
   const seen = new Set<string>()
   return [...entries].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)).filter(entry => {
-    if (entry.deleted || entry.kind !== 'familiar' || !entry.systems.some(system => c.systems.includes(system))) return false
+    if (entry.deleted || entry.kind !== 'familiar' || /^pet\b/i.test(String(entry.data.ability_type ?? ''))
+      || !entry.systems.some(system => c.systems.includes(system))) return false
     const identity = `${key(entry.name)}:${key(String(entry.data.ability_type ?? 'familiar'))}`
     if (seen.has(identity)) return false
     seen.add(identity)

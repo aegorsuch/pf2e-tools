@@ -619,9 +619,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   buttonLabel="Details" className="picker-details" />
               }} onChange={chooseAbility}>
               <option value="">Choose ability...</option>
-              {abilityOptions.map(entry => <option key={entry.id} value={entry.id}>
-                {entry.name}{entry.data.ability_type ? ` (${entry.data.ability_type})` : ''}
-              </option>)}
+              {['Familiar', 'Master'].map(type => {
+                const options = abilityOptions.filter(entry =>
+                  String(entry.data.ability_type ?? 'Familiar').toLowerCase() === type.toLowerCase())
+                return options.length > 0 && <optgroup key={type} label={type}>
+                  {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                </optgroup>
+              })}
             </SearchableSelect>}
           </div>
           <div><small>Speed</small> {familiarEffects.speeds.map(speed =>

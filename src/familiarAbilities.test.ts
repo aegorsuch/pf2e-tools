@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
+import { familiarAbilityEffects, familiarAbilityEntries, familiarAbilityUnavailableReason } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -12,6 +12,14 @@ const character: Character = {
 const ability = (name: string, description: string): ContentEntry => ({
   id: `familiar:${name}`, systems: ['pf2e'], name, kind: 'familiar', source: 'official', level: 1,
   traits: [], description, data: { ability_type: 'Familiar' }, effects: [], updatedAt: 0,
+})
+
+it('excludes pet abilities while retaining familiar and master abilities', () => {
+  const flier = ability('Flier', 'Fly speed.')
+  const petFlier = { ...flier, id: 'pet:flier', data: { ability_type: 'Pet' } }
+  const petOnly = { ...ability('Pet Only', ''), data: { ability_type: 'Pet' } }
+  const battery = { ...ability('Spell Battery', ''), data: { ability_type: 'Master' } }
+  expect(familiarAbilityEntries([petFlier, battery, petOnly, flier], character)).toEqual([flier, battery])
 })
 
 it('derives familiar HP, movement, senses, resistance, and skilled modifiers from selected abilities', () => {

@@ -392,6 +392,22 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   expect(html).toContain('<small>Hit Points</small> <b>40</b>')
 })
 
+it('groups familiar and master options without showing pet abilities', () => {
+  const c: Character = {
+    id: 'grouped-familiar', systems: ['pf2e'], name: 'Test', level: 8, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 4, slots: { 4: 1 } },
+  }
+  const petFlier = { ...familiarAbility('Flier', '', 'Pet'), id: 'pet:flier' }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[
+    petFlier, familiarAbility('Flier', 'Fly speed.'), familiarAbility('Spell Battery', '', 'Master'),
+  ]} save={() => {}} />)
+  expect(html).toContain('<optgroup label="Familiar"><option value="familiar:Flier">Flier</option></optgroup>')
+  expect(html).toContain('<optgroup label="Master"><option value="familiar:Spell Battery">Spell Battery</option></optgroup>')
+  expect(html).not.toContain('pet:flier')
+})
+
 it('offers usable generic familiar abilities and applies Necromancer spellcasting without saved slots', () => {
   let c: Character = { id: 'necro-familiar', name: 'Test', systems: ['pf2e'], level: 11, className: 'Necromancer',
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
