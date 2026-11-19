@@ -69,9 +69,9 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
             && <li className="feat-modal-level">{option.group}</li>}
           <li className="picker-option-row">
             {primaryDetails ? <>
-              {renderDetails?.(option.value) ?? <span className="picker-spell-name">{option.label}</span>}
               <button type="button" className="picker-add" aria-label={`Select ${option.label}`}
                 disabled={option.disabled} onClick={() => choose(option.value)}>+</button>
+              {renderDetails?.(option.value) ?? <span className="picker-spell-name">{option.label}</span>}
             </> : <>
               <button type="button" aria-label={`${props['aria-label']}: ${option.label}`} disabled={option.disabled}
                 className={option.value === value ? 'active' : undefined} onClick={() => choose(option.value)}>{option.label}</button>

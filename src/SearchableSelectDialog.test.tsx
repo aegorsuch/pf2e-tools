@@ -58,6 +58,7 @@ it('keeps spell details separate from the plus selection action', () => {
   expect(found.find(item => item.type === EntryDescription)?.props.name).toBe('fear')
   const add = found.find(item => item.type === 'button' && item.props['aria-label'] === 'Select +2 Fear')
   expect(add).toBeDefined()
+  expect(found.indexOf(add!)).toBeLessThan(found.findIndex(item => item.type === EntryDescription))
   expect(select.dispatchEvent).not.toHaveBeenCalled()
   ;(add!.props.onClick as () => void)()
   expect(select.value).toBe('fear')
