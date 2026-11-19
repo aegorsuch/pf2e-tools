@@ -737,7 +737,9 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-title { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
 .spell-title > button, .spellbook-slot > button { font: inherit; padding: 0.1rem 0.2rem; }
 .spell-title label { white-space: nowrap; }
-.spell-action-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; min-width: 32px; min-height: 32px; padding: 0.1rem 0.2rem; font: inherit; }
+.spell-action-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; min-width: 32px; min-height: 32px; padding: 0.1rem 0.2rem; font: inherit; vertical-align: middle; }
+.spell-title > button, .spell-title .spell-action-button, .spellbook-slot > button,
+.spellbook-slot > .rune > button, .spellbook-slot .spell-action-button { min-height: 2.5rem; }
 .spell-remove { padding: 0.1rem 0.4rem; }
 .spell-slot-counts { flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
 .spell-slot-counts label { white-space: nowrap; }

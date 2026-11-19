@@ -28,6 +28,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 5 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'void', basicSave: true }] : []
     case "Poltergeist's Fury":
       return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'piercing', basicSave: true }] : []
+    case 'Devouring Void':
+      return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void', basicSave: true }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':

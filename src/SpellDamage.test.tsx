@@ -228,6 +228,26 @@ it("shows Poltergeist's Fury basic save outcomes", () => {
   expect(spellDamage("Poltergeist's Fury", 5)).toEqual([])
 })
 
+it.each([[7, 7], [8, 8], [10, 10]])('rolls Devouring Void at rank %i as %id8 void', (rank, dice) => {
+  const entry: ContentEntry = { id: 'devouring-void', name: 'Devouring Void', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 7, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ dice, sides: 8, type: 'void', basicSave: true })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Three Actions; Damage: ${dice}d8 void"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(dice * 8)
+})
+
+it('shows Devouring Void basic save outcomes', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Devouring Void" damage={spellDamage('Devouring Void', 7)[0]} actions="Three Actions" />))
+    .toContain('17 void; success: 8 void; critical failure: 34 void')
+  expect(spellDamage('Devouring Void', 6)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
