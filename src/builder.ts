@@ -5305,8 +5305,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const thruneosaurusSupport = !ranged && (c.companions ?? []).reduce((dice, companion, index) =>
     companion.type === 'Thruneosaurus Rex' && companion.supportActive
       ? Math.max(dice, index === 0 && !!companionAdvancement(c).advanced ? 2 : 1) : dice, 0)
-  const supportDamage = thruneosaurusSupport ? [{ source: 'Thruneosaurus Support Benefit',
-    value: `${thruneosaurusSupport}d6 persistent fire`, note: "Applies when the damaged target is in the thruneosaurus's reach, until the start of your next turn." }] : []
+  const drakeSupport = (c.companions ?? []).reduce((dice, companion, index) =>
+    companion.type === 'Riding Drake' && companion.supportActive
+      ? Math.max(dice, index === 0 && !!companionAdvancement(c).advanced ? 2 : 1) : dice, 0)
+  const supportDamage = [
+    ...(thruneosaurusSupport ? [{ source: 'Thruneosaurus Support Benefit',
+      value: `${thruneosaurusSupport}d6 persistent fire`, note: "Applies when the damaged target is in the thruneosaurus's reach, until the start of your next turn." }] : []),
+    ...(drakeSupport ? [{ source: 'Riding Drake Support Benefit',
+      value: `${drakeSupport}d4 fire`, note: "Applies while riding the drake when the target is in its reach, until the start of your next turn." }] : []),
+  ]
   const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(natural, entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
     .map((weapon): number => weaponAttack(natural, entries, weapon).attack)) : 0

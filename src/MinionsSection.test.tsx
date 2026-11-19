@@ -928,6 +928,23 @@ it.each([[8, 4], [19, 9], [20, 10]])('rolls Hellfire Gaze at companion level %i'
   expect(markup).toContain(`title="Two Actions; Damage: ${dice}d6 fire"`)
 })
 
+it.each([[2, 1], [8, 4], [19, 9], [20, 10]])('rolls Riding Drake Fire Breath at companion level %i', (level, dice) => {
+  const c: Character = { id: 'drake', systems: ['pf2e'], name: 'Test', level,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'drake', type: 'Riding Drake', name: '' }] }
+  const drake: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'drake', name: 'Riding Drake',
+    traits: ['Dragon'], data: { size: 'Large', hp: 8, companion_maneuver: 'Fire Breath',
+      companion_maneuver_actions: 'Two Actions', companion_maneuver_description: 'Basic Reflex save.' } }
+  const render = (character: Character, companion = drake) =>
+    renderToStaticMarkup(<MinionsSection c={character} entries={[companion]} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Roll Fire Breath: Damage"')
+  expect(render(c)).toContain(`title="Two Actions; Damage: ${dice}d6 fire"`)
+  expect(render({ ...c, level: 1 })).not.toContain('aria-label="Roll Fire Breath: Damage"')
+  expect(render(c, { ...drake, data: { ...drake.data, companion_maneuver: 'Other' } }))
+    .not.toContain('aria-label="Roll Fire Breath: Damage"')
+})
+
 it('shows horseshoe rules in the Athletics source note instead of beneath Speed', () => {
   const c: Character = {
     id: 'horse-note', systems: ['pf2e'], name: 'Test', level: 8, className: 'Champion',

@@ -52,6 +52,30 @@ it('adds active Thruneosaurus support damage to melee strikes at the companion a
   expect(damage({ ...c, companions: [] })).toEqual([])
 })
 
+it('adds active Riding Drake support damage to strikes while riding and in reach', () => {
+  const melee: ContentEntry = { id: 'blade', systems: ['pf2e'], name: 'Blade', kind: 'weapon', source: 'official',
+    level: 0, traits: [], description: '', data: { damage: '1d8 slashing', weapon_type: 'Melee' }, effects: [], updatedAt: 0 }
+  const ranged: ContentEntry = { ...melee, id: 'bow', name: 'Bow', data: { ...melee.data, weapon_type: 'Ranged', range: 60 } }
+  const blade: OwnedWeapon = { id: 'blade', name: 'Blade', potency: 0, striking: 0, runes: [] }
+  const bow: OwnedWeapon = { ...blade, id: 'bow', name: 'Bow' }
+  const drake = { id: 'drake', type: 'Riding Drake', name: '', supportActive: true }
+  const c: Character = { ...base, companions: [drake], weapons: [blade, bow] }
+  const entries = [melee, ranged]
+  const damage = (character: Character, weapon = blade) => weaponAttack(character, entries, weapon).additionalDamage
+  for (const w of [blade, bow]) expect(damage(c, w)).toMatchObject([{ source: 'Riding Drake Support Benefit',
+    value: '1d4 fire', note: expect.stringContaining('while riding the drake') }])
+  for (const choice of ['Nimble', 'Savage']) {
+    const advanced = { ...c, feats: [{ name: 'Incredible Companion', type: 'Class Feat', level: 8, choice }] }
+    expect(damage(advanced)).toMatchObject([{ value: '2d4 fire' }])
+    expect(renderToStaticMarkup(<WeaponList c={advanced} entries={entries} save={() => {}} displayOnly />)).toContain('2d4 fire')
+  }
+  expect(damage({ ...c, companions: [{ ...drake, supportActive: false }] })).toEqual([])
+  expect(damage({ ...c, companions: [{ ...drake, type: 'Wolf' }] })).toEqual([])
+  expect(damage({ ...c, companions: [{ ...drake, id: 'other', type: 'Bear', supportActive: false }, drake],
+    feats: [{ name: 'Incredible Companion', type: 'Class Feat', level: 8, choice: 'Nimble' }] }))
+    .toMatchObject([{ value: '1d4 fire' }])
+})
+
 it.each([
   [16, 'Master', false, false, 3],
   [16, 'Master', true, false, 2],
