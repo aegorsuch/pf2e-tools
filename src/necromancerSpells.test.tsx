@@ -185,7 +185,7 @@ it('orders preparation choices by heightening, then name, and marks selected hei
   const options = choices(html, 'Spell Rank 3 slot 1')
   expect(options).toMatch(/>Bone Moth&#x27;s Kiss<\/option>[\s\S]*>Ghost Rush<\/option>[\s\S]*>\+1 Blood Runs Cold<\/option>[\s\S]*>\+1 False Vitality<\/option>[\s\S]*>\+2 Grim Tendrils<\/option>/)
   expect(options).not.toContain('Zap')
-  expect(html).toMatch(/\+1 <button[^>]*>False Vitality<\/button>/)
+  expect(html).toMatch(/<button[^>]*>False Vitality \(\+1\)<\/button>/)
   expect(choices(html, 'Cantrip slot 1')).not.toContain('+')
 })
 

@@ -41,6 +41,9 @@ it('opens selected spells by name and confirms clearing without affecting locked
     expect(clear).toHaveBeenCalledOnce()
     expect(renderToStaticMarkup(SelectedSlotSpell({ name: 'Heal', entry: spell('Heal') })))
       .not.toContain('aria-label="Clear Heal spell slot"')
+    const heightened = renderToStaticMarkup(SelectedSlotSpell({ name: 'Summon Undead', entry: spell('Summon Undead'), heightened: 8 }))
+    expect(heightened).toContain('aria-haspopup="dialog">Summon Undead (+8)</button>')
+    expect(heightened).toMatch(/<h4[^>]*>Summon Undead<small>/)
   } finally { vi.unstubAllGlobals() }
 })
 

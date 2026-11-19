@@ -415,8 +415,7 @@ export function SelectedSlotSpell({ name, entry, onClear, disabled = false, sour
   name: string; entry?: ContentEntry; onClear?: () => void; disabled?: boolean; source?: string; heightened?: number
 }) {
   return <span className="rune" title={source}>
-    {heightened > 0 && `+${heightened} `}
-    <EntryDescription name={name} entry={entry} />
+    <EntryDescription name={name} entry={entry} buttonSuffix={heightened > 0 ? ` (+${heightened})` : undefined} />
     {onClear && <button type="button" aria-label={`Clear ${name} spell slot`} title="Clear spell slot"
       disabled={disabled} onClick={() => confirmRemoval(`spell "${name}"`, onClear)}>×</button>}
   </span>
