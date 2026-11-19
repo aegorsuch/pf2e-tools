@@ -308,6 +308,26 @@ it('shows Necrotize damage without save outcomes', () => {
   expect(spellDamage('Necrotize', 5)).toEqual([])
 })
 
+it.each([[6, 11], [7, 13], [10, 19]])('rolls Phantasmal Calamity at rank %i as %id6 mental', (rank, dice) => {
+  const entry: ContentEntry = { id: 'phantasmal', name: 'Phantasmal Calamity', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 6, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ dice, sides: 6, type: 'mental' })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d6 mental"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(dice * 6)
+})
+
+it('shows Phantasmal Calamity damage without save outcomes', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Phantasmal Calamity" damage={spellDamage('Phantasmal Calamity', 6)[0]} actions="Two Actions" />))
+    .toContain('17 mental</output>')
+  expect(spellDamage('Phantasmal Calamity', 5)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

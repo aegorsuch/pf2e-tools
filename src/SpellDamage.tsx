@@ -36,6 +36,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 9 ? [{ label: 'Damage', dice: 12, sides: 6, type: 'void' }] : []
     case 'Necrotize':
       return rank >= 6 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'void' }] : []
+    case 'Phantasmal Calamity':
+      return rank >= 6 ? [{ label: 'Damage', dice: 11 + 2 * (rank - 6), sides: 6, type: 'mental' }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
