@@ -388,6 +388,19 @@ export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[
   </ul>
 }
 
+function DirgeIcon() {
+  return <svg className="dirge-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none"
+    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 6c-2-2-5-3-9-3v15c4 0 7 1 9 3 2-2 5-3 9-3V3c-4 0-7 1-9 3ZM12 6v15" />
+  </svg>
+}
+
+export function DirgeRankButton({ rank, onOpen }: { rank: number; onOpen: (rank: number) => void }) {
+  const label = rank === 0 ? 'Open Dirge cantrips' : `Open Dirge rank ${rank}`
+  return <button type="button" className="dirge-rank-button" aria-label={label} title={label}
+    aria-haspopup="dialog" onClick={() => onOpen(rank)}><DirgeIcon /></button>
+}
+
 function SpellColumns() {
   return <div className="spellbook-columns" aria-hidden="true">
     <span>Spell</span><span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>
@@ -1004,6 +1017,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <span className="skill-part"><small>Item</small>{signed(0)}</span>
     </div>
   )
+  const openDirge = (rank?: number) => {
+    if (rank !== undefined) {
+      setDirgeRank(rank)
+      setDirgeQuery('')
+    }
+    setDirgeOpen(true)
+    dirgeDialog.current?.showModal()
+    dirgeDialog.current?.querySelector('h4')?.focus()
+  }
 
   return (
       <div className="character-section-content">
@@ -1015,14 +1037,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>
       <div hidden={category !== 'class'}>
       {necromancer && c.level >= 1 && <>
-        <button type="button" aria-haspopup="dialog" onClick={() => {
-          setDirgeOpen(true)
-          dirgeDialog.current?.showModal()
-          dirgeDialog.current?.querySelector('h4')?.focus()
-        }}><svg className="dirge-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none"
-          stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 6c-2-2-5-3-9-3v15c4 0 7 1 9 3 2-2 5-3 9-3V3c-4 0-7 1-9 3ZM12 6v15" />
-        </svg> Dirge</button>
+        <button type="button" aria-haspopup="dialog" onClick={() => openDirge()}><DirgeIcon /> Dirge</button>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId} onClose={() => setDirgeOpen(false)}
           onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
           <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
@@ -1086,7 +1101,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title}</h5>
+            <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}</h5>
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]

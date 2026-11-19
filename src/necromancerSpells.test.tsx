@@ -3,7 +3,7 @@ import { Children, isValidElement, useState, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
 import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
-import { DirgeLearnOptions, SpellsSection } from './SpellsSection'
+import { DirgeLearnOptions, DirgeRankButton, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 vi.mock('react', async importOriginal => {
@@ -243,6 +243,18 @@ it('groups learned dirge spells by cantrip and spell rank', () => {
   expect(dirge).toMatch(/<h5>Cantrips<\/h5>[\s\S]*?>Guidance<\/button>/)
   expect(dirge).toMatch(/<h5>Rank 1<\/h5>[\s\S]*?>Fear<\/button>/)
   expect(dirge).toMatch(/<h5>Rank 2<\/h5>[\s\S]*?>Blindness<\/button>/)
+})
+
+it('offers a Dirge shortcut at each available spell rank', () => {
+  const c: Character = { ...base, level: 5 }
+  const html = render(c, [spell('Harm')])
+  for (const label of ['Open Dirge cantrips', 'Open Dirge rank 1', 'Open Dirge rank 2', 'Open Dirge rank 3'])
+    expect(html).toContain(`aria-label="${label}"`)
+  expect(html).not.toContain('aria-label="Open Dirge rank 4"')
+  const open = vi.fn()
+  const button = DirgeRankButton({ rank: 3, onOpen: open })
+  button.props.onClick()
+  expect(open).toHaveBeenCalledWith(3)
 })
 
 it('deduplicates granted and saved dirge spells while keeping learned spells alphabetized by rank', () => {

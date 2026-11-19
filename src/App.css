@@ -743,6 +743,7 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-slot-counts label { white-space: nowrap; }
 .spell-category-tabs { flex-wrap: wrap; }
 .dirge-icon { width: 1em; height: 1em; vertical-align: -0.15em; }
+.dirge-rank-button { min-width: 2rem; min-height: 2rem; padding: 0.1rem; vertical-align: middle; }
 .dirge-dialog { width: min(60rem, 90vw); }
 .dirge-options { list-style: none; margin: 0.5rem 0; padding: 0; }
 .dirge-options li { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border); padding: 0.25rem 0; }
