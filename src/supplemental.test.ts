@@ -99,6 +99,17 @@ it('offers Rider as a level-one companion-class feat and grants Ride without cre
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('offers Mounted Parry as a Cavalier feat requiring its dedication', () => {
+  const mountedParry = homebrewCharacterOptions([]).find(entry => entry.name === 'Mounted Parry')!
+  const dedication: ContentEntry = { ...mountedParry, id: 'cavalier', name: 'Cavalier Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], data: { archetype: 'Cavalier' } }
+  const slot = { key: 'archetype:6:0', category: 'archetype' as const, level: 6 }
+  const c: Character = { ...base, level: 6, feats: [{ name: dedication.name, type: 'Class Feat', level: 2 }] }
+  expect(mountedParry).toMatchObject({ source: 'homebrew', level: 6, data: { archetype: 'Cavalier', prerequisite: 'Cavalier Dedication' } })
+  expect(eligibleFeats([mountedParry, dedication], c, slot)).toContain(mountedParry)
+  expect(eligibleFeats([mountedParry, dedication], { ...c, feats: [] }, slot)).not.toContain(mountedParry)
+})
+
 it('offers Persistent Magic Hide through Beastmaster at level ten without opening other Ranger persistent feats', () => {
   const persistent = homebrewCharacterOptions([])
   const hide = persistent.find(entry => entry.name === 'Persistent Magic Hide')!

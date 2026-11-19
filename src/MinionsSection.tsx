@@ -286,8 +286,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1)' : undefined
               const acNote = [stats?.barding ? `+${stats.barding.data.ac} Item (${stats.barding.name}); Dexterity cap +${stats.barding.data.dex_cap}` : undefined,
                 stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
+                stats?.mountedParry ? `+${stats.mountedParry} Circumstance (Mounted Parry)` : undefined,
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
               const acSource = [stats?.barding?.name, stats?.magicHide ? 'Magic Hide' : undefined,
+                stats?.mountedParry ? 'Mounted Parry' : undefined,
                 stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
               const specials = [
                 ...(stats?.mount ? [{ name: 'Mount', note: undefined }] : []),
@@ -312,6 +314,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
+                ...(activeFeatsNamed(c, 'Mounted Parry').length ? [{ name: 'Mounted', element: <label><input type="checkbox"
+                  aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
+                  onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined })} /> Mounted</label> }] : []),
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
                   aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
                   onChange={event => save(magicHideChange(c, event.target.checked, comp.id))} /> Magic Hide</label> }] : []),

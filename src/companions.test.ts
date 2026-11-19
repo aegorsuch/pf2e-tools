@@ -21,6 +21,25 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('shares an active parry only with the selected mount when Mounted Parry is active', () => {
+    const weapon = entry('weapon', 'Parrying Sword', { weapon_type: 'Melee', hands: 1 }, 0, ['Parry'])
+    const expert = { ...entry('feat', 'Parry Expert', {}, 8), description: 'You gain a +2 circumstance bonus to AC when you parry.' }
+    const entries = [bear, weapon, expert]
+    const c: Character = { ...base, level: 8, parrying: true, mountedCompanionId: 'bear',
+      weapons: [{ id: 'sword', name: weapon.name, potency: 0, striking: 0, runes: [] }],
+      feats: [{ ...feat('Mounted Parry'), level: 6 }, { ...feat('Parry Expert'), level: 8 }],
+      companions: [{ id: 'bear', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }] }
+    const stats = (character: Character, id = 'bear') => companionStats(character, entries, 'Bear', undefined, id)!
+    const baseline = stats({ ...c, parrying: false })
+    expect(stats(c).ac).toBe(baseline.ac + 2)
+    expect(stats(c).mountedParry).toBe(2)
+    expect(stats(c, 'other').mountedParry).toBe(0)
+    expect(stats({ ...c, mountedCompanionId: undefined }).ac).toBe(baseline.ac)
+    expect(stats({ ...c, weapons: [] }).ac).toBe(baseline.ac)
+    expect(stats({ ...c, feats: [c.feats[1]] }).ac).toBe(baseline.ac)
+    expect(stats({ ...c, level: 5 }).mountedParry).toBe(0)
+  })
+
   it('offers light/heavy base and specific barding with stable automatically scaling anti-dragon choices', () => {
     const item = (name: string, level = 0, description = '', data: ContentEntry['data'] = {}) =>
       ({ ...entry('item', name, { item_subcategory: 'Companion Items', ...data }, level), description })

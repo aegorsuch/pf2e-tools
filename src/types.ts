@@ -375,6 +375,7 @@ export interface Character {
   enlargeCompanionSize?: 'Large' | 'Huge'
   enlargeCompanionId?: string
   apexCompanionId?: string
+  mountedCompanionId?: string
   // Companions and their equipped gear
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceSubtype?: 'Angel' | 'Devil'; auspiceLanguage?: string;

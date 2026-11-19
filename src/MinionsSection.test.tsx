@@ -58,6 +58,28 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
 
 afterEach(() => vi.unstubAllGlobals())
 
+it('selects one mounted companion for Mounted Parry and shows its AC source', () => {
+  const animal: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'bear', name: 'Bear', traits: ['Animal'] }
+  const weapon: ContentEntry = { ...animal, id: 'sword', name: 'Sword', kind: 'weapon', traits: ['Parry'],
+    data: { weapon_type: 'Melee', hands: 1 } }
+  let c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 6, className: 'Champion',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Mounted Parry', type: 'Class Feat', level: 6 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    parrying: true, weapons: [{ id: 'sword', name: 'Sword', potency: 0, striking: 0, runes: [] }],
+    companions: [{ id: 'a', type: 'Bear', name: 'A' }, { id: 'b', type: 'Bear', name: 'B' }] }
+  const entries = [animal, weapon]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = () => MinionsContent({ c, entries, save })
+  findToggle(content(), 'Mounted on A')!({ target: { checked: true } })
+  expect(c.mountedCompanionId).toBe('a')
+  expect(renderToStaticMarkup(content())).toContain('Mounted Parry')
+  findToggle(content(), 'Mounted on B')!({ target: { checked: true } })
+  expect(c.mountedCompanionId).toBe('b')
+  findToggle(content(), 'Mounted on B')!({ target: { checked: false } })
+  expect(c.mountedCompanionId).toBeUndefined()
+  expect(renderToStaticMarkup(MinionsContent({ c: { ...c, feats: [] }, entries, save }))).not.toContain('Mounted on A')
+})
+
 const familiarAbility = (name: string, description: string, abilityType = 'Familiar'): ContentEntry => ({
   id: `familiar:${name}`, systems: ['pf2e'], name, kind: 'familiar', source: 'official', level: 1,
   traits: [], description, data: { ability_type: abilityType }, effects: [], updatedAt: 0,
