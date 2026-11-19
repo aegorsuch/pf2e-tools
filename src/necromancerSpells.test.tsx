@@ -171,6 +171,24 @@ it('sorts prepared spells by name within each rank without changing slot identit
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('orders preparation choices by heightening, then name, and marks selected heightened spells', () => {
+  const entries = [spell("Bone Moth's Kiss", 3), spell('Ghost Rush', 3), spell('Blood Runs Cold', 2),
+    spell('False Vitality', 2), spell('Grim Tendrils'), spell('Harm', 1, 'Divine'),
+    spell('Zap', 1, 'Occult', ['Cantrip'])]
+  const c: Character = { ...base, level: 6,
+    spells: entries.filter(entry => entry.name !== 'Harm').map(entry => ({
+      name: entry.name, entryId: entry.id, rank: entry.level, cantrip: entry.traits.includes('Cantrip'),
+    })),
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: {},
+      prepared: { '3:1': 'False Vitality' } } }
+  const html = render(c, entries)
+  const options = choices(html, 'Spell Rank 3 slot 1')
+  expect(options).toMatch(/>Bone Moth&#x27;s Kiss<\/option>[\s\S]*>Ghost Rush<\/option>[\s\S]*>\+1 Blood Runs Cold<\/option>[\s\S]*>\+1 False Vitality<\/option>[\s\S]*>\+2 Grim Tendrils<\/option>/)
+  expect(options).not.toContain('Zap')
+  expect(html).toMatch(/\+1 <button[^>]*>False Vitality<\/button>/)
+  expect(choices(html, 'Cantrip slot 1')).not.toContain('+')
+})
+
 it('shows Execute damage in the prepared Necromancer spell slot', () => {
   const execute = { ...spell('Execute', 7, 'Divine'), data: { tradition: 'Divine', actions: 'Two Actions' } }
   const c: Character = { ...base, level: 13, feats: [taken('Expanded Necromancy', 10)],

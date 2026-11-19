@@ -109,6 +109,13 @@ it('prepares accessible primal spells without a manually populated spellbook or 
   expect(html).toContain('<span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>')
 })
 
+it('orders Druid preparation by actual spell rank and labels heightened choices', () => {
+  const entries = [spell('Zap', 1), spell('Alpha', 2), spell('Beta', 2), spell('Gamma', 3)]
+  const html = render({ ...base, level: 5 }, entries)
+  const options = choices(html, 'Spell Rank 3 slot 1')
+  expect(options).toMatch(/>Gamma<\/option>[\s\S]*>\+1 Alpha<\/option>[\s\S]*>\+1 Beta<\/option>[\s\S]*>\+2 Zap<\/option>/)
+})
+
 it('retains explicit learned access to uncommon spells', () => {
   const rare = { ...spell('Rare Magic', 1, 'Primal', ['Rare']), data: { tradition: 'Primal', access: 'Kellid ethnicity' } }
   const c = { ...base, spells: [{ name: rare.name, entryId: rare.id, rank: 1, cantrip: false }] }

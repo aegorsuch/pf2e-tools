@@ -10,13 +10,14 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   onClear?: () => void
   optionCount?: number
   alwaysSearchable?: boolean
+  primaryDetails?: boolean
   renderDetails?: (value: string) => ReactNode
   searchText?: (value: string) => string
 }
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, renderDetails, searchText, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, primaryDetails = false, renderDetails, searchText, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -29,7 +30,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const activeQuery = searchable ? query.trim() : ''
   const filtered = activeQuery ? searchSelectOptions(children, activeQuery, value, searchText) : { children, matches: 0 }
   const options = useMemo(() => selectOptionList(children), [children])
-  const matching = activeQuery ? selectOptionList(filtered.children) : options
+  const matching = (activeQuery ? selectOptionList(filtered.children) : options).filter(option => !primaryDetails || option.value)
   const shown = matching.slice(0, limit)
   const choose = (next: string) => {
     const control = select.current
@@ -67,9 +68,15 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
           {option.group && (index === 0 || shown[index - 1].group !== option.group)
             && <li className="feat-modal-level">{option.group}</li>}
           <li className="picker-option-row">
-            <button type="button" aria-label={`${props['aria-label']}: ${option.label}`} disabled={option.disabled}
-              className={option.value === value ? 'active' : undefined} onClick={() => choose(option.value)}>{option.label}</button>
-            {renderDetails?.(option.value)}
+            {primaryDetails ? <>
+              {renderDetails?.(option.value) ?? <span className="picker-spell-name">{option.label}</span>}
+              <button type="button" className="picker-add" aria-label={`Select ${option.label}`}
+                disabled={option.disabled} onClick={() => choose(option.value)}>+</button>
+            </> : <>
+              <button type="button" aria-label={`${props['aria-label']}: ${option.label}`} disabled={option.disabled}
+                className={option.value === value ? 'active' : undefined} onClick={() => choose(option.value)}>{option.label}</button>
+              {renderDetails?.(option.value)}
+            </>}
           </li>
         </Fragment>)}
       </ul>

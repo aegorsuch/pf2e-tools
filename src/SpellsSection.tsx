@@ -398,10 +398,11 @@ function compareSelectedSpells(a: string, b: string) {
   return a && b ? a.localeCompare(b) : a ? -1 : b ? 1 : 0
 }
 
-export function SelectedSlotSpell({ name, entry, onClear, disabled = false, source }: {
-  name: string; entry?: ContentEntry; onClear?: () => void; disabled?: boolean; source?: string
+export function SelectedSlotSpell({ name, entry, onClear, disabled = false, source, heightened = 0 }: {
+  name: string; entry?: ContentEntry; onClear?: () => void; disabled?: boolean; source?: string; heightened?: number
 }) {
   return <span className="rune" title={source}>
+    {heightened > 0 && `+${heightened} `}
     <EntryDescription name={name} entry={entry} />
     {onClear && <button type="button" aria-label={`Clear ${name} spell slot`} title="Clear spell slot"
       disabled={disabled} onClick={() => confirmRemoval(`spell "${name}"`, onClear)}>×</button>}
@@ -639,7 +640,10 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 : slot.value ? <SelectedSlotSpell name={slot.entry?.name ?? slot.value} entry={slot.entry}
                   onClear={() => setSc({ repertoire: { ...sc.repertoire, [slot.key]: '' } })} />
                 : <SearchableSelect aria-label={`Witchwarper ${rank === 0 ? 'cantrip' : `rank ${rank} spell`} ${index + 1}`}
-                  value={value} onChange={event => {
+                  value={value} alwaysSearchable primaryDetails renderDetails={choice => {
+                    const entry = spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)
+                    return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} /></span>
+                  }} onChange={event => {
                     const value = event.target.value
                     if (value && !choices.some(entry => entry.id === value)) return
                     const select = () => setSc({ repertoire: { ...sc.repertoire, [slot.key]: value } })
@@ -943,8 +947,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }
   innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.rank - b.rank)
   const preparedOptions = useMemo(() => {
-    const available = (druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
-      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') })) ?? c.spells ?? []
+    const available = ((druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') })) ?? c.spells ?? [])
+      .map(spell => {
+        const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
+        const baseRank = entry && Number.isInteger(entry.level) && entry.level >= 1 && entry.level <= 10
+          ? entry.level : spell.rank
+        return { ...spell, baseRank }
+      })
     return Array.from({ length: 11 }, (_, rank) => {
       const options = available
       .filter(spell => rank === 0 ? spell.cantrip : !spell.cantrip && spell.rank <= rank)
@@ -953,7 +963,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)
         return preparedClass || !selectedTradition || !entry || traditions.includes(selectedTradition.toLowerCase())
       })
-      .sort((a, b) => a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
+      .sort((a, b) => (rank === 0 ? 0 : b.baseRank - a.baseRank)
+        || a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
       return { options, choices: preparedClass ? uniqueSpellNames(options) : options }
     })
   }, [druidAvailable, dirge, c.spells, preparedClass, selectedTradition, spellIndex])
@@ -1114,13 +1125,22 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     }}>Cast</button>}
                   {selectedValue ? <SelectedSlotSpell name={selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}
                     entry={selectedEntry} disabled={spent} source={extra?.source}
+                    heightened={!cantrip && selectedOption ? Math.max(0, rank - selectedOption.baseRank) : 0}
                     onClear={restricted ? undefined : () => {
                       const prepared = { ...sc.prepared }
                       delete prepared[slotKey]
                       setSc({ prepared })
                     }} />
                   : <SearchableSelect aria-label={`${cantrip ? 'Cantrip' : `Spell Rank ${rank}`} slot ${index + 1}`}
-                    value={selectedValue} optionCount={slotOptions.length} disabled={spent || restricted}
+                    value={selectedValue} optionCount={slotOptions.length} disabled={spent || restricted} alwaysSearchable primaryDetails
+                    renderDetails={value => {
+                      const option = slotOptions.find(spell => (spell.entryId ?? spell.name) === value)
+                      const entry = option && spellEntry(option.name, option.entryId)
+                      return entry && <span className="picker-spell-name">
+                        {!cantrip && rank > option.baseRank ? `+${rank - option.baseRank} ` : ''}
+                        <EntryDescription name={entry.name} entry={entry} />
+                      </span>
+                    }}
                     title={extra?.source} onPrepare={() => setPreparedSlot(slotKey)}
                     onChange={event => {
                       if (restricted) return
@@ -1138,7 +1158,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     <option value="">Not Selected</option>
                     {selectedValue && (!valid || !showOptions || (displayedSelection?.entryId ?? displayedSelection?.name) !== selectedValue)
                       && <option value={selectedValue} disabled={!valid}>{selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}{!valid && ' (unavailable)'}</option>}
-                    {showOptions && slotOptions.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>{spell.name}</option>)}
+                    {showOptions && slotOptions.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>
+                      {!cantrip && rank > spell.baseRank ? `+${rank - spell.baseRank} ` : ''}{spell.name}
+                    </option>)}
                   </SearchableSelect>}
                   {selectedEntry && (selectedEntry.name === 'False Vitality'
                     ? <FalseVitalityActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />

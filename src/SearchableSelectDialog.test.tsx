@@ -2,6 +2,7 @@ import { Children, isValidElement, useId, useMemo, useRef, useState, type ReactN
 import { expect, it, vi } from 'vitest'
 import { PickerDialog } from './PickerDialog'
 import { SearchableSelect } from './SearchableSelect'
+import { EntryDescription } from './EntryDescription'
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
@@ -24,6 +25,7 @@ it('opens a searchable picker in the enclosing native dialog', () => {
       if (result || !isValidElement<Record<string, unknown>>(child)) return
       result = child.type === type ? child.props : find(child.props.children as ReactNode, type)
     })
+
     return result
   }
   const trigger = find(SearchableSelect(props), 'button')
@@ -33,4 +35,32 @@ it('opens a searchable picker in the enclosing native dialog', () => {
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([dialog, vi.fn()])
   expect(find(SearchableSelect(props), PickerDialog)?.container).toBe(dialog)
+})
+
+it('keeps spell details separate from the plus selection action', () => {
+  const setOpen = vi.fn()
+  const select = { value: '', dispatchEvent: vi.fn() }
+  vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, setOpen])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: select })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const props = { 'aria-label': 'Spell Rank 3 slot 1', value: '', alwaysSearchable: true, primaryDetails: true,
+    children: <><option value="">Not Selected</option><option value="fear">+2 Fear</option></>,
+    renderDetails: (value: string) => <EntryDescription name={value} /> }
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect(props))
+  expect(found.find(item => item.type === EntryDescription)?.props.name).toBe('fear')
+  const add = found.find(item => item.type === 'button' && item.props['aria-label'] === 'Select +2 Fear')
+  expect(add).toBeDefined()
+  expect(select.dispatchEvent).not.toHaveBeenCalled()
+  ;(add!.props.onClick as () => void)()
+  expect(select.value).toBe('fear')
+  expect(select.dispatchEvent).toHaveBeenCalledOnce()
+  expect(setOpen).toHaveBeenCalledWith(false)
 })
