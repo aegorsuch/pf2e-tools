@@ -146,6 +146,28 @@ it('shows only the rolled Haunting Hymn damage', () => {
   expect(markup).not.toContain('critical:')
 })
 
+it.each([[3, 3], [4, 4], [10, 10]])('rolls Bonewall Bulwark at rank %i as %id10 bludgeoning', (rank, dice) => {
+  const entry: ContentEntry = { id: 'bonewall-bulwark', name: 'Bonewall Bulwark', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls).toHaveLength(1)
+  expect(rolls[0].damage).toEqual({ label: 'Wall attack', dice, sides: 10, type: 'bludgeoning' })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Wall attack: ${dice}d10 bludgeoning"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(rolls[0].damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(rolls[0].damage)).toBe(dice * 10)
+  expect(spellDamage(entry.name, 2)).toEqual([])
+})
+
+it('shows only the rolled Bonewall Bulwark damage', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  const markup = renderToStaticMarkup(<DamageRoll name="Bonewall Bulwark" damage={spellDamage('Bonewall Bulwark', 5)[0]} actions="Two Actions" />)
+  expect(markup).toContain('17 bludgeoning</output>')
+  expect(markup).not.toContain('critical:')
+})
+
 it.each([[1, 2, 1], [4, 8, 4], [10, 20, 10]])('rolls Grim Tendrils rank %i as %id4 void and %i persistent bleed', (rank, dice, bleed) => {
   const entry: ContentEntry = { id: 'grim', name: 'Grim Tendrils', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
