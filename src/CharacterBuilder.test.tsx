@@ -414,6 +414,8 @@ it('imports druidic orders as subclass descriptions without adding a second prim
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     expect(markup).toContain('aria-label="Druidic Order"')
     expect(markup).not.toContain('aria-label="Subclass"')
+    expect(markup).toContain('aria-label="Animal rules"')
+    expect(markup).toContain('Animal order description.')
   } finally { content.entries = [] }
 })
 
@@ -1157,6 +1159,28 @@ it('keeps Fatal Method separate from Grim Fascination and displays the persisted
   content.entries = []
 })
 
+it('shows selected Puppeteer rules and its free action without expanding a description', () => {
+  content.entries = []
+  const c: Character = { id: 'puppeteer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',
+    fatalMethod: 'Puppeteer', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Puppeteer rules"')
+  expect(markup).toContain('<strong>Consume Thrall</strong> <span class="action-cost" aria-label="Free Action"')
+  expect(markup).toContain('at least one thrall within 30 feet')
+  expect(markup).toContain('only on a grave spell')
+  expect(markup).toContain('<strong>Thrall Proliferation</strong>')
+  expect(markup).not.toContain('aria-label="Reaper rules"')
+  const unselected = renderToStaticMarkup(<CharacterBuilder character={{ ...c, fatalMethod: undefined }} onClose={() => {}} />)
+  expect(unselected).not.toContain('aria-label="Puppeteer rules"')
+  const reaper = renderToStaticMarkup(<CharacterBuilder character={{ ...c, fatalMethod: 'Reaper' }} onClose={() => {}} />)
+  expect(reaper).toContain('aria-label="Reaper rules"')
+  expect(reaper).toContain('within your melee reach')
+  expect(reaper).not.toContain('aria-label="Puppeteer rules"')
+  const otherClass = renderToStaticMarkup(<CharacterBuilder character={{ ...c, className: 'Wizard' }} onClose={() => {}} />)
+  expect(otherClass).not.toContain('aria-label="Puppeteer rules"')
+})
+
 it.each([
   ['hunters-edge', 'Ranger', 'Outwit', 'Outwit Edge Ranger'],
   ['cause', 'Champion', 'Justice', 'Champion of Justice'],
@@ -1176,6 +1200,8 @@ it.each([
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup).toContain(`<strong>Class</strong><span>${label}, 0/1</span>`)
   expect(markup).toContain(`<option value="${name}" selected="">${name}</option>`)
+  expect(markup).toContain(`aria-label="${name} rules"`)
+  expect(markup).toContain('Full subclass rules.')
   if (className === 'Barbarian') expect(markup).toContain('>Instinct</label>')
   if (className === 'Inventor') expect(markup).toContain('>Innovation</label>')
   if (className === 'Necromancer') expect(markup).toContain('>Grim Fascination</label>')

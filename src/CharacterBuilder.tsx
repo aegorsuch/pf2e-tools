@@ -42,6 +42,18 @@ import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fat
 
 const NONE: ContentEntry[] = []
 
+function SelectedSubclassRules({ entry, label = entry.name }: { entry: ContentEntry, label?: string }) {
+  return <section aria-label={`${entry.name} rules`}>
+    <strong>{label}</strong>
+    {entry.description.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => {
+      const label = /^([^:.\n]{1,60}):\s+/.exec(paragraph)
+      return <p key={index}>{label && <><strong>{label[1]}</strong>
+        {entry.data.subclass_type === 'fatal-method' && label[1] === 'Consume Thrall' && <> <ActionIcon actions="Free Action" /></>}
+        {' '}</>}{label ? paragraph.slice(label[0].length) : paragraph}</p>
+    })}
+  </section>
+}
+
 const deityLabel = (deity: ContentEntry) => {
   const epithet = deity.name === 'Lao Shu Po' && deity.source === 'official' ? 'Grandmother Rat' : deity.data.epithet
   return typeof epithet === 'string' && epithet.trim()
@@ -652,16 +664,16 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
               kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />
-            {subclass && <Info label={subclass.name}>{subclass.description}</Info>}
+            {subclass && <SelectedSubclassRules entry={subclass} />}
           </>}
           {c.className === 'Necromancer' && <>
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
               onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />
-            {fatalMethodEntry && <Info label={fatalMethodEntry.name}>{fatalMethodEntry.description}</Info>}
+            {fatalMethodEntry && <SelectedSubclassRules entry={fatalMethodEntry} />}
           </>}
           {rogueRackets(c, entries).filter(racket => racket !== subclassName).map(racket => {
             const entry = subclasses.find(candidate => candidate.name === racket)
-            return entry ? <Info key={racket} label={`${racket} racket (Versatile Rogue)`}>{entry.description}</Info> : null
+            return entry ? <SelectedSubclassRules key={racket} entry={entry} label={`${racket} racket (Versatile Rogue)`} /> : null
           })}
           {classSkills(klass).choices.length > 0 && (
               <SearchableSelect label="Class skill" aria-label="Class skill" value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
@@ -697,6 +709,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
                 {Object.keys(DRUID_ORDERS).filter((o) => o === subclassName || !c.feats.some((f) => f.name === 'Order Explorer' && (f.choice === o || o === 'Wild' && f.choice === 'Untamed'))).sort((a, b) => (a === 'Wild' ? 'Untamed' : a).localeCompare(b === 'Wild' ? 'Untamed' : b)).map((o) => <option key={o} value={o}>{o === 'Wild' ? 'Untamed' : o}</option>)}
               </SearchableSelect>
           )}
+          {c.className === 'Druid' && subclass && <SelectedSubclassRules entry={subclass} />}
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />

@@ -5,8 +5,10 @@ export type FatalMethod = NonNullable<Character['fatalMethod']>
 const METHODS: FatalMethod[] = ['Puppeteer', 'Reaper']
 
 const fallbackDescriptions: Record<FatalMethod, string> = {
-  Puppeteer: 'Consume Thrall: Once per day, destroy a nearby thrall to regain a Focus Point for a grave spell when you have none.\n\nThrall Proliferation: Once per round, create an additional thrall when casting create thrall.',
-  Reaper: "Reaper's Edge: Trained in martial weapons and medium armor; expert in martial weapons at 11th level and medium armor at 13th.\n\nThrall Teamwork: Once per round after casting create thrall, make a melee Strike against a creature adjacent to a thrall.",
+  Puppeteer: 'You prefer to study life and death from afar. You gain the Consume Thrall action and the thrall proliferation ability.\n\n'
+    + 'Consume Thrall: Once per day, if you have no Focus Points and at least one thrall within 30 feet, destroy one thrall within 30 feet to regain 1 Focus Point. This Focus Point can be spent only on a grave spell.\n\n'
+    + 'Thrall Proliferation: Once per round when you cast create thrall, you can create one additional thrall in range.',
+  Reaper: "Reaper's Edge: Trained in martial weapons and medium armor; expert in martial weapons at 11th level and medium armor at 13th.\n\nThrall Teamwork: Once per round after casting create thrall, make a melee Strike against a creature within your melee reach and adjacent to one of your thralls.",
 }
 
 export function fatalMethodOptions(entries: ContentEntry[]): ContentEntry[] {
