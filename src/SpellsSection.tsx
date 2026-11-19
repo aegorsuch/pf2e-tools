@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
@@ -379,11 +379,21 @@ export function FalseVitalityActions({ c, save, entry, rank, actions, disabled }
   </ActiveSpellActions>
 }
 
+export function BoneShieldActions({ c, save, entry, rank, actions, disabled }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number; actions?: string; disabled?: boolean
+}) {
+  const active = boneShieldActive(c)
+  return <ActiveSpellActions name="Bone Shield" entry={entry} rank={rank} actions={actions}>
+    <label><input type="checkbox" aria-label="Bone Shield active" checked={active}
+      disabled={!active && disabled} onChange={event => save(boneShieldChange(c, event.target.checked))} /> Active</label>
+  </ActiveSpellActions>
+}
+
 export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void }) {
   return <ul className="dirge-options">
     {options.map(entry => <li key={entry.id}>
       <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
-      <span>{entry.name}</span>
+      <EntryDescription name={entry.name} entry={entry} />
     </li>)}
   </ul>
 }
@@ -450,7 +460,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
           {onToggle ? <ActiveSpellActions name={name} entry={entry} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
             {activeToggle}{effectControls}
           </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form',
-            'Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
+            'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
             && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}</div>
         {note && <small>{note}</small>}
@@ -683,7 +693,9 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 onChange={event => setCastRanks({ ...castRanks, [slot.key]: Number(event.target.value) })}>
                 {allowedRanks.map(value => <option key={value} value={value}>Rank {value}</option>)}
               </select>}
-              {slot.entry && (slot.entry.name === 'False Vitality'
+              {slot.entry && (slot.entry.name === 'Bone Shield'
+                ? <BoneShieldActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : slot.entry.name === 'False Vitality'
                 ? <FalseVitalityActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />)}
             </div>
@@ -898,9 +910,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? <CrocodileFormActions c={c} entries={entries} save={save} rank={rank} />
     : name === 'False Vitality'
     ? <FalseVitalityActions c={c} save={save} entry={spellEntry(name)} rank={rank} />
+    : name === 'Bone Shield'
+    ? <BoneShieldActions c={c} save={save} entry={spellEntry(name)} rank={rank} />
     : name === 'Shield'
     ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
+        disabled={boneShieldActive(c) && !isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)
     </label></ActiveSpellActions>
     : name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion'
@@ -1173,7 +1188,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                       {!cantrip && rank > spell.baseRank ? `+${rank - spell.baseRank} ` : ''}{spell.name}
                     </option>)}
                   </SearchableSelect>}
-                  {selectedEntry && (selectedEntry.name === 'False Vitality'
+                  {selectedEntry && (selectedEntry.name === 'Bone Shield'
+                    ? <BoneShieldActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
+                    : selectedEntry.name === 'False Vitality'
                     ? <FalseVitalityActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
@@ -1322,7 +1339,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           name={spell.name} entry={spell.entry} rank={spell.rank}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
           inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
-          actionControls={spell.name === 'False Vitality'
+          actionControls={spell.name === 'Bone Shield'
+            ? <BoneShieldActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
+            : spell.name === 'False Vitality'
             ? <FalseVitalityActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
             : spell.actions ? <ActionIcon actions={spell.actions}
             showOther={!(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />

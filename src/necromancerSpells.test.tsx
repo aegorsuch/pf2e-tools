@@ -335,6 +335,18 @@ it('adds spells with inline plus buttons without opening another picker', () => 
   expect(html).not.toContain('role="dialog"')
   expect(html).toContain('aria-label="Learn Bane"')
   expect(html).toContain('aria-label="Learn Fear"')
+  expect(html).toContain('aria-haspopup="dialog">Bane</button>')
+  expect(html).toContain('aria-haspopup="dialog">Fear</button>')
+})
+
+it('offers Bone Shield activation from its prepared slot', () => {
+  const bone = { ...spell('Bone Shield'), data: { tradition: 'Occult', actions: 'Single Action' } }
+  const c: Character = { ...base, spells: [{ name: bone.name, entryId: bone.id, rank: 1, cantrip: false }],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: {}, prepared: { '1:0': bone.id } } }
+  const html = render(c, [bone, spell('Harm', 1, 'Divine')])
+  expect(html).toContain('aria-label="Bone Shield options"')
+  expect(html).toContain('aria-label="Bone Shield active"')
+  expect(html).toContain('aria-label="Single Action"')
 })
 
 it('retains and heightens legacy dirge selections without mutating saved manual settings', () => {

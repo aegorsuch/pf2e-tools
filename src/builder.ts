@@ -3874,10 +3874,12 @@ export function armorProficiencyRank(c: Character, entries: ContentEntry[], armo
 
 export function armorClassBreakdown(c: Character, entries: ContentEntry[]): TotalBreakdown {
   const form = activeBattleForm(c, entries)
+  const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   if (form) {
     const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
-    return { total: form.ac + shield, parts: [{ label: form.source, value: form.ac },
-      ...(shield ? [{ label: 'Shield cantrip (circumstance)', value: shield }] : [])], notes: [] }
+    const best = Math.max(shield, raisedBoneShield)
+    return { total: form.ac + best, parts: [{ label: form.source, value: form.ac },
+      ...(best ? [{ label: raisedBoneShield ? 'Raise Bone Shield (circumstance)' : 'Shield cantrip (circumstance)', value: best }] : [])], notes: [] }
   }
   const worn = wornArmor(c, entries)
   const armor = equippedArmorEntry(c, entries)
@@ -3894,6 +3896,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Raised dermal plating', value: activeFeatsNamed(c, 'Thresher Ko-1 Frame').length
       && c.dermalPlating?.raised && !c.dermalPlating.damaged ? 1 : 0 },
     { label: 'Raise Shield cantrip', value: raisedCantrip },
+    { label: 'Raise Bone Shield', value: raisedBoneShield },
     { label: 'Parry', value: parry },
   ].filter(candidate => candidate.value > 0)
   const best = Math.max(0, ...candidates.map(candidate => candidate.value))
@@ -4335,6 +4338,14 @@ export function companionSpellTarget(c: Character, savedId?: string) {
 export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
     && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])] }
+}
+
+export const boneShieldActive = (c: Character) => !!c.activeSpells?.includes('Bone Shield')
+
+export function boneShieldChange(c: Character, active: boolean): Partial<Character> {
+  const change = spellActiveChange(c, 'Bone Shield', active)
+  return { activeSpells: active ? change.activeSpells?.filter(spell => spell !== 'Shield') : change.activeSpells,
+    boneShieldRaised: false }
 }
 
 export function canopyCrawlerTarget(c: Character) {

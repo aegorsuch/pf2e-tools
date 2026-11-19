@@ -349,6 +349,7 @@ export interface Character {
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   rituals?: string[]
   activeSpells?: string[]
+  boneShieldRaised?: boolean
   dinosaurForm?: { form: string; rank: number }
   untamedForm?: {
     form?: string

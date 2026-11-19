@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FalseVitalityActions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FalseVitalityActions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -329,6 +329,29 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
   _id: name, _source: { name, category: 'feat', level, markdown: `Header\n\n---\n\n${markdown}` },
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
+
+it('toggles Bone Shield and clears its raised state when ending the spell', () => {
+  let c: Character = { ...base, activeSpells: ['Keen Smell', 'Shield'], boneShieldRaised: true }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const spell = entry('Bone Shield', 'spell', { actions: 'Single Action' })
+  const toggle = () => {
+    const tree = BoneShieldActions({ c, save, rank: 1, entry: spell })
+    const label = Children.only(tree.props.children)
+    if (!isValidElement<{ children: ReactNode }>(label)) throw Error('Missing toggle')
+    const input = Children.toArray(label.props.children).find(child => isValidElement(child) && child.type === 'input')
+    if (!isValidElement<{ checked: boolean; onChange: (event: { target: { checked: boolean } }) => void }>(input)) throw Error('Missing input')
+    return input.props
+  }
+  expect(toggle().checked).toBe(false)
+  toggle().onChange({ target: { checked: true } })
+  expect(c.activeSpells).toEqual(['Keen Smell', 'Bone Shield'])
+  expect(c.boneShieldRaised).toBe(false)
+  c.boneShieldRaised = true
+  expect(toggle().checked).toBe(true)
+  toggle().onChange({ target: { checked: false } })
+  expect(c.activeSpells).toEqual(['Keen Smell'])
+  expect(c.boneShieldRaised).toBe(false)
+})
 
 it('toggles False Vitality HP at its cast rank and preserves the effect across saves', () => {
   let c: Character = { ...base, activeSpells: ['Keen Smell'] }

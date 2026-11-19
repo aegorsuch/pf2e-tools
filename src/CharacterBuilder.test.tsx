@@ -1101,6 +1101,32 @@ it('offers Shield cantrip in Defense and applies its existing non-stacking AC bo
   } finally { content.entries = [] }
 })
 
+it('offers Raise Bone Shield while active and applies its non-stacking +2 AC', () => {
+  const shield: ContentEntry = { id: 'shield', systems: ['pf2e'], kind: 'spell', source: 'official',
+    name: 'Shield', level: 1, traits: ['Cantrip'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const bone: ContentEntry = { ...shield, id: 'bone-shield', name: 'Bone Shield', traits: [], data: { actions: 'Single Action' } }
+  const base: Character = { id: 'bone-shield-test', name: 'Test', systems: ['pf2e'], level: 1, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spells: [{ name: 'Shield', rank: 1, cantrip: true }, { name: 'Bone Shield', rank: 1, cantrip: false }] }
+  content.entries = [shield, bone]
+  try {
+    const render = (c: Character) => renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(render(base)).toContain('Raise Shield Cantrip (summary)')
+    expect(render(base)).not.toContain('Raise Bone Shield (summary)')
+    const active = { ...base, activeSpells: ['Bone Shield'] }
+    expect(render(active)).toContain('Raise Bone Shield (summary)')
+    expect(render(active)).not.toContain('Raise Shield Cantrip (summary)')
+    expect(armorClass(active, content.entries)).toBe(armorClass(base, content.entries))
+    const raised = { ...active, boneShieldRaised: true }
+    expect(render(raised)).toMatch(/aria-label="Raise Bone Shield \(summary\)" checked=""/)
+    expect(armorClass(raised, content.entries)).toBe(armorClass(base, content.entries) + 2)
+    const equipped = { ...raised, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+    expect(armorClass(equipped, content.entries)).toBe(armorClass(base, content.entries) + 2)
+    expect(armorClass({ ...raised, activeSpells: [] }, content.entries)).toBe(armorClass(base, content.entries))
+  } finally { content.entries = [] }
+})
+
 it('shows official deity epithets in the subtitle and picker while retaining canonical saved names', () => {
   const deity = mapAonHit({ _id: 'deity-285', _source: { category: 'deity', name: 'Iomedae', epithet: 'The Inheritor', skill: ['Intimidation'] } }, 'pf2e')
   if (!deity) throw new Error('Missing deity mapping')

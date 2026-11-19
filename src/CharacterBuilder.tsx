@@ -16,7 +16,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, commonLoreOptions, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
-import { effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, twinnedDefenseActive } from './builder'
+import { boneShieldActive, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
@@ -504,6 +504,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
   const stanceParry = twinnedDefenseActive(c, entries)
   const shield = equippedShield(c)
   const shieldCantrip = knowsSpell(c, entries, 'Shield')
+  const boneShield = boneShieldActive(c)
   const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
   const handsUsed = equippedHands(c, entries)
@@ -723,11 +724,13 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
-          {(shield || shieldCantrip || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
+          {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
                 onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
-            {shieldCantrip && <label><input type="checkbox" aria-label="Raise Shield Cantrip (summary)"
+            {boneShield ? <label><input type="checkbox" aria-label="Raise Bone Shield (summary)"
+              checked={!!c.boneShieldRaised} onChange={event => save({ boneShieldRaised: event.target.checked })} /> Raise Bone Shield (+2 AC)</label>
+            : shieldCantrip && <label><input type="checkbox" aria-label="Raise Shield Cantrip (summary)"
               checked={isSpellActive(c, entries, 'Shield')}
               onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label>}
             {parryWeapon && parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying || stanceParry}
