@@ -53,6 +53,24 @@ it('does not let Consult the Stars satisfy permanent skill prerequisites', () =>
   expect(check('trained in Deception', consult).missing).not.toEqual([])
 })
 
+it('recognizes Laws of Mortality for Godless Healing and Mortal Healing without bypassing other prerequisites', () => {
+  const battle = entry('feat', 'Battle Medicine', {}, 1, ['General', 'Skill'])
+  const godless = entry('feat', 'Godless Healing', { prerequisite: 'Battle Medicine; can’t have a patron deity' }, 2, ['General', 'Skill'])
+  const mortal = entry('feat', 'Mortal Healing', { prerequisite: 'Expert in Medicine; you follow the Laws of Mortality' }, 2, ['General', 'Skill'])
+  const entries = [battle, godless, mortal]
+  const c: Character = { ...base, level: 5, deity: 'Laws of Mortality', skillPicks: ['Medicine'],
+    skillIncreases: { 3: 'Medicine' }, feats: [selected('Battle Medicine')] }
+  const checkFeat = (character: Character, feat: ContentEntry) => featPrerequisiteChecker(character, entries)(feat)
+  expect(checkFeat(c, godless)).toEqual({ missing: [], manual: [] })
+  expect(checkFeat(c, mortal)).toEqual({ missing: [], manual: [] })
+  expect(checkFeat({ ...c, feats: [] }, godless).missing).toEqual(['Battle Medicine'])
+  expect(checkFeat({ ...c, skillIncreases: {} }, mortal).missing).toEqual(['Expert in Medicine'])
+  for (const deity of [undefined, 'Iomedae']) {
+    expect(checkFeat({ ...c, deity }, godless).manual).toEqual(['can’t have a patron deity'])
+    expect(checkFeat({ ...c, deity }, mortal).manual).toEqual(['you follow the Laws of Mortality'])
+  }
+})
+
 it('omits Numb to Death narrative verification while retaining Diehard and other prerequisites', () => {
   const diehard = entry('feat', 'Diehard', {}, 1, ['General'])
   const numb = entry('feat', 'Numb to Death', { prerequisite: 'Diehard; you have died at least once; trained in Medicine' }, 7, ['General'])

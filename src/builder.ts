@@ -897,7 +897,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         },
         get canCastSpells() { return !!(value.spellcastingClassFeature || value.focusPool || character.spells?.length) },
         get untamedForm() { return knowsSpell(character, entries, 'Untamed Form') },
-        championBlessings: championBlessings(character),
+        championBlessings: championBlessings(character), deity: character.deity,
         sanctification: character.className === 'Champion'
           ? byName(entries, 'deity', character.deity)?.data.sanctification
             ? deitySanctification(character, entries).selected ?? 'None' : undefined
