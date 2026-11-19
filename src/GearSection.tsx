@@ -22,7 +22,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus } from './builder'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
-import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, OVERSIZED_THROW, UNTAMED_CLAWS } from './supplemental'
+import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { TransmutativeCasing } from './TransmutativeCasing'
@@ -1001,8 +1001,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
       } })
     } else saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   }
-  const sorted = weapons.filter(weapon => !weapon.attachedTo || weaponEquipped(c, entries, weapon))
-    .sort((x, y) => equipmentDisplayName(x.name).localeCompare(equipmentDisplayName(y.name)))
+  const sparkFist = weapons.some(weapon => weapon.name === SPARK_FIST.name)
+  const sorted = weapons.filter(weapon => (!sparkFist || ![FIST.name, IRON_FIST.name].includes(weapon.name))
+    && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
+    .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
+      .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
@@ -1035,7 +1038,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           <Material name={alloy} entries={entries} equipment="Weapon" source="Granted by Alloyed Attacks" />
         </div>
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
-        const plainName = enhanced.name === 'Iron Fist' ? 'Fists'
+        const plainName = enhanced.name === SPARK_FIST.name ? FIST.name
+          : enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name
               : specificMagicItemName(a.entry, combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, ''), true)

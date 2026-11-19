@@ -143,6 +143,8 @@ it.each([
   for (const displayOnly of [true, false]) {
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly={displayOnly} />)
     expect(markup).toContain('Spark Fist')
+    expect(markup.match(/>Fist<\/button>/g)).toHaveLength(1)
+    expect(markup).not.toContain('>Spark Fist</button>')
     expect(markup).toContain(`${dice} fire`)
     expect(markup).toContain(`also deals ${dice} fire damage to you`)
     expect(markup).toContain('once per minute')
@@ -150,6 +152,20 @@ it.each([
   expect(ownedWeapons({ ...c, level: 4, weapons: [spark] }, []).some(weapon => weapon.name === spark.name)).toBe(false)
   expect(ownedWeapons({ ...c, feats: [], weapons: [spark] }, []).some(weapon => weapon.name === spark.name)).toBe(false)
   expect(JSON.stringify(c)).toBe(before)
+})
+
+it('hides Fist and Iron Fists only while Spark Fist is available', () => {
+  const c: Character = { ...base, level: 5, feats: [
+    { name: 'Spark Fist', type: 'Ancestry Feat', level: 5 }, { name: 'Iron Fists', type: 'Ancestry Feat', level: 1 }] }
+  for (const displayOnly of [false, true]) {
+    const render = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[]} save={() => {}} displayOnly={displayOnly} />)
+    const active = render(c)
+    expect(active.match(/>Fist<\/button>/g)).toHaveLength(1)
+    expect(active).not.toContain('>Spark Fist</button>')
+    expect(active).not.toContain('>Fists</button>')
+    expect(render({ ...c, level: 4 })).toContain('>Fists</button>')
+    expect(render({ ...c, feats: [] })).toContain('>Fist</button>')
+  }
 })
 
 it('retains Iron Fists traits and Cairn Form dice for Spark Fist', () => {
