@@ -104,14 +104,14 @@ it('adds familiar spell benefits without adding Dirge choices or overwriting sav
   expect(c.spellcasting?.prepared?.['familiar-spell-battery:1']).toBe('Harm')
 })
 
-it('adds Spell Battery to rank 7 when a level 20 Necromancer has a rank 10 slot', () => {
+it('excludes the Epitaph slot when granting Spell Battery at level 20', () => {
   const battery = { ...spell('Spell Battery'), kind: 'familiar' as const,
     description: 'You must be able to cast 4th-rank spells using spell slots.', data: { ability_type: 'Master' } }
   const c: Character = { ...base, level: 20,
     feats: [taken('Undead Familiar', 1)], familiar: { abilities: ['Spell Battery'] } }
   const html = render(c, [battery, spell('Harm')])
-  expect(html).toContain('aria-label="Cast spell slot rank 7 slot 3"')
-  expect(html).not.toContain('aria-label="Cast spell slot rank 6 slot 3"')
+  expect(html).toContain('aria-label="Cast spell slot rank 6 slot 3"')
+  expect(html).not.toContain('aria-label="Cast spell slot rank 7 slot 3"')
 })
 
 it('uses each prepared slot rank for Grisly Growths damage', () => {

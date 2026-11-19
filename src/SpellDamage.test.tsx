@@ -121,6 +121,29 @@ it('shows Grim Tendrils outcomes using one damage roll', () => {
   expect(spellDamage('Grim Tendrils', 0)).toEqual([])
 })
 
+it('rolls Shadow Army mental and bludgeoning damage separately from one action', () => {
+  const entry: ContentEntry = { id: 'shadow-army', name: 'Shadow Army', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 10, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, 10, entry)
+  expect(rolls).toHaveLength(1)
+  expect(spellDamage(entry.name, 9)).toEqual([])
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={10} entry={entry} />)
+  expect(markup).toContain('title="Three Actions; Damage: 3d10 mental + 3d10 bludgeoning"')
+  expect(markup.match(/<button /g)).toHaveLength(1)
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: entry.name, damage: rolls[0].damage, actions: rolls[0].actions })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Shadow Army roll')
+  vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValueOnce(0)
+    .mockReturnValueOnce(0.999999).mockReturnValueOnce(0.999999).mockReturnValueOnce(0.999999)
+  button.props.onClick()
+  expect(save).toHaveBeenCalledWith({ primary: 3, additional: 30 })
+  vi.mocked(useState).mockReturnValueOnce([{ primary: 3, additional: 30 }, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name={entry.name} damage={rolls[0].damage} actions="Three Actions" />))
+    .toContain('3 mental + 30 bludgeoning')
+})
+
 it.each([[2, 1], [3, 1], [4, 2], [9, 4], [10, 5]])('rolls Blood Runs Cold at rank %i as %id6 persistent cold', (rank, dice) => {
   const entry: ContentEntry = { id: 'blood', name: 'Blood Runs Cold', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 2, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

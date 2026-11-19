@@ -50,7 +50,8 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
 export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slots: Record<number, number>) {
   const active = activeFamiliarAbilities(c, entries).map(key)
   const highestRank = Math.max(0, ...Object.entries(slots)
-    .filter(([rank, count]) => Number(rank) > 0 && count > 0).map(([rank]) => Number(rank)))
+    .filter(([rank, count]) => Number(rank) > 0 && count > 0
+      && !(c.className === 'Necromancer' && Number(rank) === 10)).map(([rank]) => Number(rank)))
   return {
     cantrip: active.includes('cantrip connection') && (slots[0] ?? 0) > 0,
     batteryRank: active.includes('spell battery') && highestRank >= 4 ? highestRank - 3 : undefined,

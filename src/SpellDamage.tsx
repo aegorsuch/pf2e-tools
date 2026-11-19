@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
-type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number }
+type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number; criticalBleed?: number; persistentBleed?: number
+  additional?: { dice: number; sides: number; type: string } }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
@@ -12,6 +13,9 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing', criticalBleed: rank }] : []
     case 'Grim Tendrils':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
+    case 'Shadow Army':
+      return rank >= 10 ? [{ label: 'Damage', dice: 3, sides: 10, type: 'mental',
+        additional: { dice: 3, sides: 10, type: 'bludgeoning' } }] : []
     case 'Blood Runs Cold':
       return rank >= 2 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 2) / 2), sides: 6, type: 'persistent cold' }] : []
     case 'Grisly Growths':
@@ -71,21 +75,25 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
 }
 
 export function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
-  const [result, setResult] = useState<ReturnType<typeof rollSpellDamage>>()
+  const [result, setResult] = useState<number | { primary: number; additional: number }>()
   const formula = damage.dice > 0
     ? `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" className={actions ? 'spell-action-button' : undefined}
-      aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.persistentBleed !== undefined ? ` + ${damage.persistentBleed} persistent bleed` : ''}`}
-      onClick={() => setResult(rollSpellDamage(damage))}>
+      aria-label={`Roll ${name}: ${damage.label}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.persistentBleed !== undefined ? ` + ${damage.persistentBleed} persistent bleed` : ''}${damage.additional ? ` + ${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}`}
+      onClick={() => {
+        const primary = rollSpellDamage(damage)
+        setResult(damage.additional ? { primary, additional: rollSpellDamage({ label: damage.label, ...damage.additional }) } : primary)
+      }}>
       {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${formula}`}
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
-      {' '}{result} {damage.type}
-      {damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed; success: {Math.floor(result / 2)} {damage.type};
+      {' '}{typeof result === 'number' ? result : result.primary} {damage.type}
+      {typeof result !== 'number' && damage.additional && <> + {result.additional} {damage.additional.type}</>}
+      {typeof result === 'number' && damage.persistentBleed !== undefined && <> + {damage.persistentBleed} persistent bleed; success: {Math.floor(result / 2)} {damage.type};
         {' '}critical failure: {result * 2} {damage.type} + {damage.persistentBleed * 2} persistent bleed</>}
-      {damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
+      {typeof result === 'number' && damage.criticalBleed !== undefined && <>; critical: {result * 2} {damage.type} + {damage.criticalBleed} persistent bleed</>}
     </output>}
   </span>
 }
