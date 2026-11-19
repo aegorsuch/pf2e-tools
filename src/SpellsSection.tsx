@@ -331,7 +331,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
     <li className="innate-spell-row">
       <div className="innate-spell-name">
         <div className="spell-title"><EntryDescription name={name} entry={entry} />
-          {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form'].includes(name) && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
+          {actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form'].includes(name) && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}{activeToggle}</div>
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote

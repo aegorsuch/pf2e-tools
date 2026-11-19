@@ -147,6 +147,9 @@ it('casts and dismisses a selected Dinosaur Form from its two-action control at 
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const render = () => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
   expect(render()).toContain('aria-label="Choose Dinosaur Form"')
+  const title = render().match(/<div class="spell-title">[\s\S]*?<\/div>/)?.[0] ?? ''
+  expect(title.match(/class="action-cost"/g)).toHaveLength(1)
+  expect(title).toMatch(/<button[^>]*aria-label="Choose Dinosaur Form"[^>]*><span class="action-cost" aria-label="Two Actions"/)
   expect(render()).toContain('Primal Spell Rank 5')
   expect(render()).toContain('<small>Range</small>Self')
   expect(render()).toContain('<small>Area/Targets</small>Self')
