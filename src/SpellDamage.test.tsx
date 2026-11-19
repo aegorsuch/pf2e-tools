@@ -328,6 +328,24 @@ it('shows Phantasmal Calamity damage without save outcomes', () => {
   expect(spellDamage('Phantasmal Calamity', 5)).toEqual([])
 })
 
+it('rolls Tear the Veil using the distinct damage dice for each save', () => {
+  const entry: ContentEntry = { id: 'tear', name: 'Tear the Veil', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 10, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, 10, entry)
+  expect(rolls.map(roll => [roll.damage.label, roll.damage.dice, roll.damage.sides])).toEqual([
+    ['Success', 5, 12], ['Failure', 10, 12], ['Critical failure', 20, 12],
+  ])
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={10} entry={entry} />)
+  for (const [label, dice] of [['Success', 5], ['Failure', 10], ['Critical failure', 20]] as const) {
+    expect(markup).toContain(`title="Three Actions; ${label}: ${dice}d12 void"`)
+  }
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([5, 10, 20])
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([60, 120, 240])
+  expect(spellDamage(entry.name, 9)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
