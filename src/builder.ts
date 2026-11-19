@@ -1678,8 +1678,14 @@ export function necromancerDirge(c: Character, entries: ContentEntry[]) {
   const knownIds = new Set(c.spells?.flatMap(spell => spell.entryId ? [spell.entryId] : []) ?? [])
   const knownNames = new Set(c.spells?.filter(spell => !spell.entryId).map(spell => spell.name) ?? [])
   const granted = new Set(necromancerGrantedDirgeSpells(c))
-  return necromancerSpellList(c, entries.filter(entry => granted.has(entry.name)
+  const candidates = necromancerSpellList(c, entries.filter(entry => granted.has(entry.name)
     || knownIds.has(entry.id) || knownNames.has(entry.name)))
+  const byName = new Map<string, ContentEntry>()
+  for (const entry of candidates) {
+    const key = entry.name.toLowerCase()
+    if (!byName.has(key) || knownIds.has(entry.id) && !knownIds.has(byName.get(key)!.id)) byName.set(key, entry)
+  }
+  return [...byName.values()]
 }
 
 export function druidSpellList(c: Character, entries: ContentEntry[]) {

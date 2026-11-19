@@ -858,7 +858,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     return spellWardenLabel(entry?.data.warden_spell_tier) || entry?.traits.some(trait => trait.toLowerCase() === 'focus')
       ? 'Focus Spells' : cantrip ? 'Cantrips' : `Rank ${rank}`
   }
-  const listedSpells = [
+  const listedSpellCandidates = [
     ...granted.map((s) => ({ name: s.name, entryId: s.id, group: 'Focus Spells', index: -1 })),
     ...dirge?.filter(entry => !c.spells?.some(spell => spell.name === entry.name))
       .map(entry => ({ name: entry.name, entryId: entry.id,
@@ -867,6 +867,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       && (!druid || !isCommonSpell(spellEntry(s.name, s.entryId)))
       ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
+  const seenDirgeNames = new Set<string>()
+  const listedSpells = listedSpellCandidates.filter(spell => {
+    if (!necromancer || spell.group === 'Focus Spells') return true
+    const key = spell.name.toLowerCase()
+    if (seenDirgeNames.has(key)) return false
+    seenDirgeNames.add(key)
+    return true
+  })
   const groupOrder = ['Focus Spells', 'Cantrips', ...Array.from({ length: 10 }, (_, i) => `Rank ${i + 1}`)]
   const groups = [...new Set(listedSpells.map((s) => s.group))]
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
@@ -921,7 +929,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
         inlineControls={inlineControls(spell.name, rank)} effectControls={effectControls(spell.name)}
         effectRank={activeRank(spell.name)} {...buffProps(spell.name)}
-        onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== spell.index),
+        onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((saved, index) => necromancer
+          ? saved.name.toLowerCase() !== spell.name.toLowerCase() : index !== spell.index),
           activeSpells: c.activeSpells?.filter(name => name !== spell.name) }) : undefined}>
         {controls(spell.name, rank)}
       </SpellItem>
@@ -956,8 +965,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
             }}>
             <option value="">Learn spell</option>
-            {(dirgeOptions.length <= 10 || dirgeOpen) && dirgeOptions.map(entry =>
-              <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            {(dirgeOptions.length <= 10 || dirgeOpen) && Array.from({ length: 11 }, (_, rank) => {
+              const options = dirgeOptions.filter(entry => rank === 0
+                ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+                : entry.level === rank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+              return options.length > 0 && <optgroup key={rank} label={rank === 0 ? 'Cantrips' : `Rank ${rank}`}>
+                {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+              </optgroup>
+            })}
           </SearchableSelect>
           {groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
           <form method="dialog"><button autoFocus>Close</button></form>

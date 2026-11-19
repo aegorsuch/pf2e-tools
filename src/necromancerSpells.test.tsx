@@ -90,6 +90,41 @@ it('groups learned dirge spells by cantrip and spell rank', () => {
   expect(dirge).toMatch(/<h5>Rank 2<\/h5>[\s\S]*?>Blindness<\/button>/)
 })
 
+it('deduplicates granted and saved dirge spells while keeping learned spells alphabetized by rank', () => {
+  const harm = spell('Harm', 1, 'Divine')
+  const summon = spell('Summon Undead')
+  const fear = spell('Fear')
+  const entries = [harm, { ...harm, id: 'alternate-harm' }, summon, { ...summon, id: 'alternate-summon' }, fear]
+  const c: Character = { ...base, level: 6, fatalMethod: 'Puppeteer', feats: [taken('Conjurer of Corpses', 6)],
+    spells: [
+      { name: 'Summon Undead', entryId: summon.id, rank: 1, cantrip: false },
+      { name: 'Harm', entryId: harm.id, rank: 1, cantrip: false },
+      { name: 'Fear', entryId: fear.id, rank: 1, cantrip: false },
+      { name: 'Harm', entryId: 'alternate-harm', rank: 1, cantrip: false },
+      { name: 'Summon Undead', entryId: 'alternate-summon', rank: 1, cantrip: false },
+    ] }
+  expect(necromancerDirge({ ...c, spells: [] }, entries).map(entry => entry.name)).toEqual(['Harm', 'Summon Undead'])
+  expect(necromancerDirge({ ...c, spells: [c.spells![3]] }, entries).find(entry => entry.name === 'Harm')?.id)
+    .toBe('alternate-harm')
+  expect(necromancerDirge(c, entries).map(entry => entry.name)).toEqual(['Fear', 'Harm', 'Summon Undead'])
+  const html = render(c, entries)
+  const dirge = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'), html.indexOf('<b>Class Spell Slots</b>'))
+  expect(dirge.match(/>Harm<\/button>/g)).toHaveLength(1)
+  expect(dirge.match(/>Summon Undead<\/button>/g)).toHaveLength(1)
+  expect(dirge.indexOf('>Fear</button>')).toBeLessThan(dirge.indexOf('>Harm</button>'))
+  expect(dirge.indexOf('>Harm</button>')).toBeLessThan(dirge.indexOf('>Summon Undead</button>'))
+})
+
+it('groups learnable dirge spells by rank and alphabetizes each group', () => {
+  const entries = [spell('Zap', 1, 'Occult', ['Cantrip']), spell('Slow', 3), spell('Fear'), spell('Blindness', 2),
+    spell('Aid', 1, 'Occult', ['Cantrip']), spell('Bane'), spell('Blur', 2), spell('Harm', 1, 'Divine')]
+  const learn = choices(render({ ...base, level: 5 }, entries), 'Learn dirge spell')
+  expect(learn).toMatch(/<optgroup label="Cantrips"><option value="Aid">Aid<\/option><option value="Zap">Zap<\/option><\/optgroup>/)
+  expect(learn).toMatch(/<optgroup label="Rank 1"><option value="Bane">Bane<\/option><option value="Fear">Fear<\/option><\/optgroup>/)
+  expect(learn).toMatch(/<optgroup label="Rank 2"><option value="Blindness">Blindness<\/option><option value="Blur">Blur<\/option><\/optgroup>/)
+  expect(learn).toContain('<optgroup label="Rank 3"><option value="Slow">Slow</option></optgroup>')
+})
+
 it('learns accessible, current-rank occult spells rather than granting the entire tradition', () => {
   const entries = [spell('Fear'), spell('Rare Magic', 1, 'Occult', ['Rare']),
     spell('Harm', 1, 'Divine'), spell('Arcane Only', 1, 'Arcane'), spell('Higher Rank', 2),
