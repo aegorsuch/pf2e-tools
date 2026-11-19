@@ -102,6 +102,28 @@ it('shows only the rolled Needle Darts damage', () => {
   expect(markup).not.toContain('persistent bleed')
 })
 
+it.each([[1, 2], [5, 6], [10, 11]])('rolls Telekinetic Projectile at rank %i as %id6', (rank, dice) => {
+  const entry: ContentEntry = { id: 'telekinetic-projectile', name: 'Telekinetic Projectile', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const rolls = spellActionRolls(entry.name, rank, entry)
+  expect(rolls).toHaveLength(1)
+  expect(rolls[0].damage).toEqual({ label: 'Damage', dice, sides: 6, type: 'B/P/S' })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d6 B/P/S"`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(rolls[0].damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(rolls[0].damage)).toBe(dice * 6)
+  expect(spellDamage(entry.name, 0)).toEqual([])
+})
+
+it('shows only the rolled Telekinetic Projectile damage', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  const markup = renderToStaticMarkup(<DamageRoll name="Telekinetic Projectile" damage={spellDamage('Telekinetic Projectile', 5)[0]} actions="Two Actions" />)
+  expect(markup).toContain('17 B/P/S</output>')
+  expect(markup).not.toContain('critical:')
+})
+
 it.each([[1, 2, 1], [4, 8, 4], [10, 20, 10]])('rolls Grim Tendrils rank %i as %id4 void and %i persistent bleed', (rank, dice, bleed) => {
   const entry: ContentEntry = { id: 'grim', name: 'Grim Tendrils', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

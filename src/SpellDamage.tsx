@@ -11,6 +11,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Needle Darts':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
+    case 'Telekinetic Projectile':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 6, type: 'B/P/S' }] : []
     case 'Grim Tendrils':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'void', persistentBleed: rank }] : []
     case 'Shadow Army':
