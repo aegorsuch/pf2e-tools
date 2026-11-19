@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { afterEach, expect, it, vi } from 'vitest'
 import { PickerDialog } from './PickerDialog'
 
@@ -6,10 +7,36 @@ vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
   return { ...react, useEffect: vi.fn(), useRef: vi.fn() }
 })
+vi.mock('react-dom', async importOriginal => {
+  const reactDom = await importOriginal<typeof import('react-dom')>()
+  return { ...reactDom, createPortal: vi.fn() }
+})
 
 afterEach(() => {
   vi.clearAllMocks()
   vi.unstubAllGlobals()
+})
+
+it('places a nested picker inside its native dialog and closes it on Escape', () => {
+  const parent = {} as HTMLElement
+  const close = vi.fn()
+  const panel = { contains: vi.fn(() => false) }
+  vi.mocked(useRef).mockReturnValueOnce({ current: panel })
+    .mockReturnValueOnce({ current: null }).mockReturnValueOnce({ current: close })
+  const body = {}
+  vi.stubGlobal('document', { body })
+  PickerDialog({ label: 'Learn dirge spell picker', searchLabel: 'Search', query: '', onQuery: () => {},
+    onClose: close, children: null, container: parent })
+  const [backdrop, target] = vi.mocked(createPortal).mock.calls[0]
+  expect(target).toBe(parent)
+  class Target { closest = () => parent }
+  vi.stubGlobal('Element', Target)
+  const content = backdrop as React.ReactElement<{ children: React.ReactElement<{ onKeyDown: (event: unknown) => void }> }>
+  const event = { target: new Target(), key: 'Escape', preventDefault: vi.fn(), stopPropagation: vi.fn() }
+  content.props.children.props.onKeyDown(event)
+  expect(event.preventDefault).toHaveBeenCalled()
+  expect(event.stopPropagation).toHaveBeenCalled()
+  expect(close).toHaveBeenCalledOnce()
 })
 
 it.each([true, false])('keeps viewport still when opening and closing a picker (trigger connected: %s)', connected => {

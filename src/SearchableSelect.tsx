@@ -20,6 +20,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
+  const [container, setContainer] = useState<HTMLElement>()
   const select = useRef<HTMLSelectElement>(null)
   const generatedId = useId()
   const id = props.id ?? generatedId
@@ -43,10 +44,11 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     <span className="searchable-select-control">
       {searchable && <button onFocus={onPrepare} onPointerDown={onPrepare}
         type="button" id={id} className="feat-picker-button" aria-label={props['aria-label']} aria-haspopup="dialog"
-        aria-expanded={open} aria-describedby={props['aria-describedby']} disabled={props.disabled} onClick={() => {
+        aria-expanded={open} aria-describedby={props['aria-describedby']} disabled={props.disabled} onClick={event => {
           onPrepare?.()
           setQuery('')
           setLimit(PAGE)
+          setContainer(event.currentTarget.closest('dialog[open]') ?? undefined)
           setOpen(true)
         }}>{options.find(option => option.value === value)?.label ?? (value || 'Choose')}</button>}
       <select {...props} ref={select} id={searchable ? `${id}-value` : id} value={value} hidden={searchable}
@@ -58,6 +60,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
         onClick={onClear}>×</button>}
     </span>
     {searchable && open && <PickerDialog label={`${props['aria-label']} picker`} searchLabel={searchLabel}
+      container={container}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>

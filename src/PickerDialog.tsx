@@ -1,13 +1,14 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-export function PickerDialog({ label, searchLabel, query, onQuery, onClose, children }: {
+export function PickerDialog({ label, searchLabel, query, onQuery, onClose, children, container }: {
   label: string
   searchLabel: string
   query: string
   onQuery: (query: string) => void
   onClose: () => void
   children: ReactNode
+  container?: HTMLElement
 }) {
   const panel = useRef<HTMLDivElement>(null)
   const search = useRef<HTMLInputElement>(null)
@@ -21,7 +22,8 @@ export function PickerDialog({ label, searchLabel, query, onQuery, onClose, chil
   const content = <div className="feat-modal-backdrop" onClick={() => close.current()}>
     <div ref={panel} className="feat-modal" role="dialog" aria-modal="true" aria-label={label}
       onClick={event => event.stopPropagation()} onKeyDown={event => {
-        if (event.target instanceof Element && event.target.closest('dialog[open]')) return
+        const dialog = event.target instanceof Element ? event.target.closest('dialog[open]') : null
+        if (dialog && panel.current?.contains(dialog)) return
         if (event.key === 'Escape') {
           event.preventDefault()
           event.stopPropagation()
@@ -49,5 +51,5 @@ export function PickerDialog({ label, searchLabel, query, onQuery, onClose, chil
       <button type="button" onClick={() => close.current()}>Cancel</button>
     </div>
   </div>
-  return typeof document === 'undefined' ? content : createPortal(content, document.body)
+  return typeof document === 'undefined' ? content : createPortal(content, container ?? document.body)
 }
