@@ -267,6 +267,27 @@ it('shows Canticle of Everlasting Grief damage without save outcomes', () => {
   expect(spellDamage('Canticle of Everlasting Grief', 7)).toEqual([])
 })
 
+it.each([9, 10])('rolls Vampiric Revelry at rank %i as 12d6 void without duration helper text', rank => {
+  const entry: ContentEntry = { id: 'vampiric', name: 'Vampiric Revelry', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 9, traits: [], description: '', data: { actions: 'Two Actions to 2 rounds' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ dice: 12, sides: 6, type: 'void' })
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+  expect(markup).toContain('title="Two Actions; Damage: 12d6 void"')
+  expect(markup).not.toContain('to 2 rounds')
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(12)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(72)
+})
+
+it('shows Vampiric Revelry damage without save outcomes', () => {
+  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Vampiric Revelry" damage={spellDamage('Vampiric Revelry', 9)[0]} actions="Two Actions" />))
+    .toContain('17 void</output>')
+  expect(spellDamage('Vampiric Revelry', 8)).toEqual([])
+})
+
 it.each([[5, 10], [7, 14], [10, 20]])('rolls Grisly Growths at rank %i as %id6 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'grisly', name: 'Grisly Growths', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

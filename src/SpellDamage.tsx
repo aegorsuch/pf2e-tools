@@ -32,6 +32,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Canticle of Everlasting Grief':
       return rank >= 8 ? [{ label: 'Damage', dice: 10, sides: 6, type: 'mental' }] : []
+    case 'Vampiric Revelry':
+      return rank >= 9 ? [{ label: 'Damage', dice: 12, sides: 6, type: 'void' }] : []
     case 'Grisly Growths':
       return rank >= 5 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
     case 'Execute':
@@ -77,6 +79,7 @@ export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
 
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry) {
   const rolls = spellDamage(name, rank)
+  if (name === 'Vampiric Revelry') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
       ({ damage: { ...damage, label: `${index + 1}-action damage` }, actions })))
