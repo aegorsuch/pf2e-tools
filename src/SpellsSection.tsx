@@ -342,12 +342,12 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   </div>
 }
 
-function ActiveSpellActions({ name, entry, rank, children }: {
-  name: string; entry?: ContentEntry; rank?: number; children: ReactNode
+function ActiveSpellActions({ name, entry, rank, actions: actionOverride, children }: {
+  name: string; entry?: ContentEntry; rank?: number; actions?: string; children: ReactNode
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
-  const actions = typeof entry?.data.actions === 'string' ? entry.data.actions : ''
+  const actions = actionOverride ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : '')
   return <>
     <button type="button" className="spell-action-button" aria-label={`${name} options`} aria-haspopup="dialog"
       onClick={() => { dialog.current?.showModal(); dialog.current?.querySelector('h4')?.focus() }}>
@@ -362,6 +362,21 @@ function ActiveSpellActions({ name, entry, rank, children }: {
       <form method="dialog"><button autoFocus>Close</button></form>
     </dialog>
   </>
+}
+
+export function FalseVitalityActions({ c, save, entry, rank, actions, disabled }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number; actions?: string; disabled?: boolean
+}) {
+  const active = !!c.activeSpells?.includes('False Vitality')
+  const valid = Number.isInteger(rank) && rank >= 2 && rank <= 10
+  return <ActiveSpellActions name="False Vitality" entry={entry} rank={rank} actions={actions}>
+    <label><input type="checkbox" aria-label="False Vitality active" checked={active}
+      disabled={!active && (disabled || !valid)} onChange={event => {
+        const next = event.target.checked
+        if (next && (disabled || !valid)) return
+        save({ ...spellActiveChange(c, 'False Vitality', next), falseVitalityRank: next ? rank : undefined })
+      }} /> Active</label>
+  </ActiveSpellActions>
 }
 
 function SpellColumns() {
@@ -413,7 +428,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
           {onToggle ? <ActiveSpellActions name={name} entry={entry} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
             {activeToggle}{effectControls}
           </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form',
-            'Shield', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
+            'Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
             && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}</div>
         {note && <small>{note}</small>}
@@ -643,7 +658,9 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 onChange={event => setCastRanks({ ...castRanks, [slot.key]: Number(event.target.value) })}>
                 {allowedRanks.map(value => <option key={value} value={value}>Rank {value}</option>)}
               </select>}
-              {slot.entry && <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />}
+              {slot.entry && (slot.entry.name === 'False Vitality'
+                ? <FalseVitalityActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />)}
             </div>
             <span><small>Duration</small>{metadata.duration}</span>
             <span><small>Range</small>{metadata.range}</span>
@@ -852,6 +869,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
     : name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length
     ? <CrocodileFormActions c={c} entries={entries} save={save} rank={rank} />
+    : name === 'False Vitality'
+    ? <FalseVitalityActions c={c} save={save} entry={spellEntry(name)} rank={rank} />
     : name === 'Shield'
     ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
@@ -939,7 +958,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     <SpellColumns />
     <ul>{listedSpells.filter(spell => spell.group === group).map(spell => {
       const entry = spellEntry(spell.name, spell.entryId)
-      const rank = necromancer && !entry?.traits.some(trait => trait.toLowerCase() === 'cantrip')
+      const rank = spell.name === 'False Vitality' ? Number(spell.group.replace('Rank ', ''))
+        : necromancer && !entry?.traits.some(trait => trait.toLowerCase() === 'cantrip')
         ? entry?.level ?? 1 : Math.ceil(c.level / 2)
       return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
         inlineControls={inlineControls(spell.name, rank)} effectControls={effectControls(spell.name)}
@@ -1112,7 +1132,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                       && <option value={selectedValue} disabled={!valid}>{selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}{!valid && ' (unavailable)'}</option>}
                     {showOptions && slotOptions.map(spell => <option key={spell.entryId ?? spell.name} value={spell.entryId ?? spell.name}>{spell.name}</option>)}
                   </SearchableSelect>}
-                  {selectedEntry && (selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
+                  {selectedEntry && (selectedEntry.name === 'False Vitality'
+                    ? <FalseVitalityActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
+                    : selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
                     : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />)}
                 </div>
@@ -1259,7 +1281,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           name={spell.name} entry={spell.entry} rank={spell.rank}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
           inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
-          actionControls={spell.actions ? <ActionIcon actions={spell.actions}
+          actionControls={spell.name === 'False Vitality'
+            ? <FalseVitalityActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
+            : spell.actions ? <ActionIcon actions={spell.actions}
             showOther={!(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
             : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} />}
           note={spell.entry ? note || undefined : <>{note && `${note}; `}

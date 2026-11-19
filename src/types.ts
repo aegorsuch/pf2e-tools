@@ -357,6 +357,7 @@ export interface Character {
     originalDuration?: '1 minute' | '10 minutes' | '24 hours' | '1 hour' | 'unlimited'
   }
   oakenResilienceRank?: number
+  falseVitalityRank?: number
   spentFocusPoints?: number[]
   innateSpellUses?: Record<string, number | number[]>
   itemSpellUses?: Record<string, number[]>

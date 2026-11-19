@@ -79,7 +79,7 @@ it('activates spell benefits only for valid familiar choices within the daily li
   expect(familiarSpellBenefits(enhanced, entries, slots)).toEqual({ cantrip: true, batteryRank: 1 })
   expect(familiarSpellBenefits({ ...enhanced, level: 6 }, entries, { 0: 5, 3: 2 }))
     .toEqual({ cantrip: true, batteryRank: undefined })
-  expect(familiarSpellBenefits({ ...enhanced, level: 19 }, entries, { 0: 5, 9: 2, 10: 1 }).batteryRank).toBe(6)
+  expect(familiarSpellBenefits({ ...enhanced, level: 19 }, entries, { 0: 5, 9: 2, 10: 1 }).batteryRank).toBe(7)
   expect(familiarSpellBenefits({ ...enhanced, feats: [] }, entries, slots))
     .toEqual({ cantrip: false, batteryRank: undefined })
   expect(familiarSpellBenefits(enhanced, [], slots)).toEqual({ cantrip: false, batteryRank: undefined })

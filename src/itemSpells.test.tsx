@@ -58,6 +58,16 @@ it('derives castable equipment spells without changing learned spells or retaini
   expect(itemSpells(c, [{ ...charm, deleted: true }, { ...other, systems: ['sf2e'] }, heal])).toEqual([])
 })
 
+it('opens False Vitality controls at the item spell rank', () => {
+  const charm = make('Vitality Charm', 'item', 'Activate Two Actions; Frequency once per day; Effect You cast a 4th-rank false vitality spell.')
+  const vitality = { ...make('False Vitality', 'spell'), level: 2, data: { actions: 'Two Actions' } }
+  const c = { ...base, equipment: [{ name: charm.name, qty: 1 }] }
+  expect(itemSpells(c, [charm, vitality])[0]).toMatchObject({ name: 'False Vitality', rank: 4 })
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[charm, vitality]} save={() => {}} />)
+  expect(html).toContain('False Vitality (Rank 4)</h4>')
+  expect(html).toContain('aria-label="False Vitality active"')
+})
+
 it('keeps item-spell triggers in source rules rather than inline helper text', () => {
   const source = make("Hunter's Dawn", 'item')
   const condition = "You hit a creature with a ranged Strike with Hunter's Dawn"

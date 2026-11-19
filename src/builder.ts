@@ -92,11 +92,15 @@ export function hitPointBonuses(c: Character, entries?: ContentEntry[]) {
   const owned = (name: string) => c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)
   const guardianFeatCount = entries ? c.feats.filter(feat => featTakenLevel(feat) <= c.level
     && archetypesOf(selectedFeatEntry(c, entries, feat.name, feat.sourceId)).includes('Guardian')).length : 0
+  const falseVitalityRank = c.falseVitalityRank
   return [
     ...LEVEL_HP_FEATS.filter(owned).map(source => ({ source, value: c.level })),
     ...(owned('Guardian Resiliency') && guardianFeatCount
       ? [{ source: 'Guardian Resiliency', value: guardianFeatCount * 3 }] : []),
     ...(owned('Unbreakable-er Goblin') ? [{ source: 'Unbreakable-er Goblin', value: 10 }] : []),
+    ...(c.activeSpells?.includes('False Vitality') && falseVitalityRank !== undefined && Number.isInteger(falseVitalityRank)
+      && falseVitalityRank >= 2 && falseVitalityRank <= 10
+      ? [{ source: 'False Vitality', value: 10 + 3 * (falseVitalityRank - 2) }] : []),
   ]
 }
 

@@ -103,6 +103,16 @@ it('adds familiar spell benefits without adding Dirge choices or overwriting sav
   expect(c.spellcasting?.prepared?.['familiar-spell-battery:1']).toBe('Harm')
 })
 
+it('adds Spell Battery to rank 7 when a level 20 Necromancer has a rank 10 slot', () => {
+  const battery = { ...spell('Spell Battery'), kind: 'familiar' as const,
+    description: 'You must be able to cast 4th-rank spells using spell slots.', data: { ability_type: 'Master' } }
+  const c: Character = { ...base, level: 20,
+    feats: [taken('Undead Familiar', 1)], familiar: { abilities: ['Spell Battery'] } }
+  const html = render(c, [battery, spell('Harm')])
+  expect(html).toContain('aria-label="Cast spell slot rank 7 slot 3"')
+  expect(html).not.toContain('aria-label="Cast spell slot rank 6 slot 3"')
+})
+
 it('uses each prepared slot rank for Grisly Growths damage', () => {
   const growths = { ...spell('Grisly Growths', 5, 'Primal'), data: { tradition: 'Primal', actions: 'Two Actions' } }
   const c: Character = { ...base, level: 13, feats: [taken('Expanded Necromancy', 10)],
@@ -111,6 +121,18 @@ it('uses each prepared slot rank for Grisly Growths damage', () => {
   const html = render(c, [growths, spell('Harm')])
   expect(html).toContain('title="Two Actions; Damage: 10d6 piercing"')
   expect(html).toContain('title="Two Actions; Damage: 14d6 piercing"')
+})
+
+it('opens False Vitality controls at each prepared slot rank', () => {
+  const vitality = { ...spell('False Vitality', 2), data: { tradition: 'Occult', actions: 'Two Actions' } }
+  const c: Character = { ...base, level: 9,
+    spells: [{ name: vitality.name, entryId: vitality.id, rank: 2, cantrip: false }],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {},
+      prepared: { '2:0': vitality.id, '5:0': vitality.id } } }
+  const html = render(c, [vitality, spell('Harm')])
+  expect(html).toContain('False Vitality (Rank 2)</h4>')
+  expect(html).toContain('False Vitality (Rank 5)</h4>')
+  expect(html.match(/aria-label="False Vitality active"/g)).toHaveLength(3)
 })
 
 it('sorts prepared spells by name within each rank without changing slot identities', () => {

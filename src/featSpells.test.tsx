@@ -3,11 +3,11 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, knowsSpell, movementSpeeds, oakenResilience, ownedWeapons, resistances, spellDifficultyClass, untamedFormOptions, weaponAttack } from './builder'
+import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, spellDifficultyClass, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FalseVitalityActions, FocusPointTracker, InnateSpellUses, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -329,6 +329,48 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
   _id: name, _source: { name, category: 'feat', level, markdown: `Header\n\n---\n\n${markdown}` },
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
+
+it('toggles False Vitality HP at its cast rank and preserves the effect across saves', () => {
+  let c: Character = { ...base, activeSpells: ['Keen Smell'] }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const spell = { ...entry('False Vitality', 'spell', { actions: 'Two Actions' }), level: 2 }
+  const initialHp = maxHp(c, [])
+  const toggle = (rank: number) => {
+    const tree = FalseVitalityActions({ c, save, rank, entry: spell })
+    const label = Children.only(tree.props.children)
+    if (!isValidElement<{ children: ReactNode }>(label)) throw Error('Missing toggle')
+    const input = Children.toArray(label.props.children).find(child => isValidElement(child) && child.type === 'input')
+    if (!isValidElement<{ disabled?: boolean; checked: boolean; onChange: (event: { target: { checked: boolean } }) => void }>(input)) throw Error('Missing input')
+    return input.props
+  }
+  expect(toggle(2).checked).toBe(false)
+  expect(toggle(1).disabled).toBe(true)
+  toggle(2).onChange({ target: { checked: true } })
+  expect(maxHp(c, [])).toBe(initialHp + 10)
+  expect(hitPointBonuses(c)).toContainEqual({ source: 'False Vitality', value: 10 })
+  expect(c.activeSpells).toEqual(['Keen Smell', 'False Vitality'])
+  toggle(2).onChange({ target: { checked: false } })
+  expect(maxHp(c, [])).toBe(initialHp)
+  toggle(6).onChange({ target: { checked: true } })
+  expect(maxHp(c, [])).toBe(initialHp + 22)
+  expect(c.falseVitalityRank).toBe(6)
+  expect(toggle(2).checked).toBe(true)
+  expect(maxHp({ ...c, falseVitalityRank: 11 }, [])).toBe(initialHp)
+  toggle(2).onChange({ target: { checked: false } })
+  expect(c.activeSpells).toEqual(['Keen Smell'])
+  expect(c.falseVitalityRank).toBeUndefined()
+})
+
+it('offers False Vitality activation at the granted innate rank', () => {
+  const vitality = { ...entry('False Vitality', 'spell', { actions: 'Two Actions' }), level: 2 }
+  const grant: ContentEntry = { ...entry('Vitality Magic', 'feat'), spellGrants: [
+    { kind: 'innate', spells: [vitality.name], rank: 4, tradition: 'Occult' },
+  ] }
+  const c: Character = { ...base, feats: [taken(grant.name)] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, vitality]} save={() => {}} />)
+  expect(html).toContain('False Vitality (Rank 4)</h4>')
+  expect(html).toContain('aria-label="False Vitality active"')
+})
 
 it('restores an explicit innate Wisdom ability when highest-mental rule is disabled', () => {
   const grant: ContentEntry = { ...entry('Wise Spark', 'feat'), spellGrants: [
