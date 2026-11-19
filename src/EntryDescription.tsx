@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react'
 import type { Character, ContentEntry } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
+import { ignoresFeatPrerequisites } from './featPrerequisites'
 import type { FeatAccessCheck } from './featAccess'
 import { featRarity } from './featAccess'
 import { ActionIcon } from './ActionIcon'
@@ -51,6 +52,10 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
       ?? active.systems.map(system => index.names.get(`${system}:${link.name.toLowerCase()}`)).find(Boolean),
   }))
   let originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  if (active && ignoresFeatPrerequisites(active) && typeof active.data.prerequisite === 'string') {
+    const prerequisite = active.data.prerequisite.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
+    originalDescription = originalDescription?.replace(new RegExp(`(?:^|\\n\\n)Prerequisites?\\s*:?\\s*${prerequisite}\\.?(?=\\n\\n|$)`, 'i'), '')
+  }
   if (!history.length && choice) {
     for (const section of active?.choiceDescriptions ?? []) {
       const option = Object.entries(section.options).find(([name]) => name.toLowerCase() === choice.trim().toLowerCase())

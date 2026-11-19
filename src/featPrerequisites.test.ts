@@ -85,6 +85,29 @@ it('omits Numb to Death narrative verification while retaining Diehard and other
   expect(check('you have died at least once', c, entries).manual).toEqual(['you have died at least once'])
 })
 
+it.each([
+  ["Pilgrim's Token", 'Trained in Religion; follower of a specific religion', 'Trained in Religion'],
+  ['Sanctify Water', 'Expert in Religion; you follow a deity with “holy” or “unholy” sanctification', 'Expert in Religion'],
+  ['Exhort the Faithful', 'Expert in Religion; follower of a specific religion', 'Expert in Religion'],
+  ['Battle Prayer', 'Master in Religion; you follow a deity', 'Master in Religion'],
+  ['Sacred Defense', 'Master in Religion; you follow a deity', 'Master in Religion'],
+])('removes %s prerequisites without changing other feats', (name, prerequisite, skillRequirement) => {
+  const feat = entry('feat', name, { prerequisite }, 1, ['General', 'Skill'])
+  const other = entry('feat', 'Other Feat', { prerequisite }, 1, ['General', 'Skill'])
+  const c: Character = { ...base, level: 1, className: 'Fighter', deity: undefined, skillPicks: [] }
+  const checkFeat = featPrerequisiteChecker(c, [feat, other])
+  expect(checkFeat(feat)).toEqual({ missing: [], manual: [] })
+  expect(checkFeat(other).missing).toContain(skillRequirement)
+  expect(checkFeat(other).manual).toHaveLength(1)
+})
+
+it('removes Religious Talisman prerequisites for Starfinder characters', () => {
+  const talisman: ContentEntry = { ...entry('feat', 'Religious Talisman',
+    { prerequisite: 'Master in Religion; follower of a specific religion' }, 7, ['General', 'Skill']), systems: ['sf2e'] }
+  const c: Character = { ...base, systems: ['sf2e'], deity: undefined, skillPicks: [] }
+  expect(featPrerequisiteChecker(c, [talisman])(talisman)).toEqual({ missing: [], manual: [] })
+})
+
 it('checks swim-Speed prerequisites against automatically calculated movement', () => {
   const swimmer: Character = { ...base, level: 4, className: 'Druid', feats: [selected('Natural Swimmer', 4)] }
   expect(check('You have a swim Speed', swimmer)).toEqual({ missing: [], manual: [] })

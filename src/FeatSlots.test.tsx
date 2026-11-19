@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { FeatSlots } from './FeatSlots'
+import { EntryDescription } from './EntryDescription'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
 import { eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
@@ -22,6 +23,29 @@ beforeEach(() => {
 afterEach(() => {
   updateSettings({ planSkillPrerequisites: previousPlanning })
   vi.unstubAllGlobals()
+})
+
+it.each([
+  ["Pilgrim's Token", 'Trained in Religion; follower of a specific religion'],
+  ['Sanctify Water', 'Expert in Religion; you follow a deity with “holy” or “unholy” sanctification'],
+  ['Exhort the Faithful', 'Expert in Religion; follower of a specific religion'],
+  ['Battle Prayer', 'Master in Religion; you follow a deity'],
+  ['Sacred Defense', 'Master in Religion; you follow a deity'],
+])('hides removed %s prerequisites in the feat description', (name, prerequisite) => {
+  const entry = mapAonHit({ _id: name, _source: { category: 'feat', name, level: 2, trait: ['General', 'Skill'],
+    prerequisite, markdown: `**Prerequisites**\n${prerequisite}\n\n---\n\nFeat benefit.` } }, 'pf2e')!
+  const markup = renderToStaticMarkup(<EntryDescription name={name} entry={entry} />)
+  expect(markup).not.toContain('Prerequisites')
+  expect(markup).toContain('Feat benefit.')
+})
+
+it('hides Religious Talisman prerequisites in Starfinder feat description', () => {
+  const prerequisite = 'Master in Religion; follower of a specific religion'
+  const entry = mapAonHit({ _id: 'talisman', _source: { category: 'feat', name: 'Religious Talisman', level: 7,
+    trait: ['General', 'Skill'], prerequisite, markdown: `**Prerequisites**\n${prerequisite}\n\n---\n\nFeat benefit.` } }, 'sf2e')!
+  const markup = renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} />)
+  expect(markup).not.toContain('Prerequisites')
+  expect(markup).toContain('Feat benefit.')
 })
 
 it('shows Seek Injustice three-action icon inside its feat button without trackers', () => {
