@@ -1,14 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Children, isValidElement, useState, type ReactNode } from 'react'
+import { Children, isValidElement, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
 import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
-import { DirgeLearnOptions, DirgeRankButton, SpellsSection } from './SpellsSection'
+import { DirgeLearnOptions, DirgeRankButton, SpellsContent, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
-  return { ...react, useState: vi.fn(react.useState) }
+  return { ...react, useState: vi.fn(react.useState), useMemo: vi.fn(react.useMemo),
+    useRef: vi.fn(react.useRef), useId: vi.fn(react.useId) }
 })
 
 const base: Character = {
@@ -337,6 +338,37 @@ it('adds spells with inline plus buttons without opening another picker', () => 
   expect(html).toContain('aria-label="Learn Fear"')
   expect(html).toContain('aria-haspopup="dialog">Bane</button>')
   expect(html).toContain('aria-haspopup="dialog">Fear</button>')
+})
+
+it('keeps the Dirge editor open when a nested spell description closes', () => {
+  const setOpen = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce(['class', vi.fn()]).mockReturnValueOnce(['', vi.fn()])
+    .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce([true, setOpen])
+    .mockReturnValueOnce([1, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()])
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('dirge')
+  try {
+    const tree = SpellsContent({ c: base, entries: [spell('Fear')], save: () => {} })
+    let close: ((event: { target: object; currentTarget: object }) => void) | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ className?: string; onClose?: typeof close; children?: ReactNode }>(child)) return
+      if (child.type === 'dialog' && child.props.className === 'entry-dialog dirge-dialog') close = child.props.onClose
+      visit(child.props.children)
+    })
+    visit(tree)
+    expect(close).toBeDefined()
+    const dirge = {}
+    close!({ target: {}, currentTarget: dirge })
+    expect(setOpen).not.toHaveBeenCalled()
+    close!({ target: dirge, currentTarget: dirge })
+    expect(setOpen).toHaveBeenCalledWith(false)
+  } finally {
+    vi.mocked(useMemo).mockReset()
+    vi.mocked(useRef).mockReset()
+    vi.mocked(useId).mockReset()
+    vi.mocked(useState).mockReset()
+  }
 })
 
 it('offers Bone Shield activation from its prepared slot', () => {

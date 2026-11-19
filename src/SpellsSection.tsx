@@ -1049,7 +1049,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>
       <div hidden={category !== 'class'}>
       {necromancer && c.level >= 1 && <>
-        <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId} onClose={() => setDirgeOpen(false)}
+        <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
+          onClose={event => { if (event.target === event.currentTarget) setDirgeOpen(false) }}
           onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
           <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
           <div className="gear-tabs spell-category-tabs" role="group" aria-label="Dirge spell ranks">
