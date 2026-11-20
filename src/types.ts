@@ -221,6 +221,10 @@ export interface Character {
   raging?: boolean
   barbarianDragon?: import('./barbarian.js').DragonInstinct
   draconicRage?: boolean
+  barbarianElement?: import('./barbarian.js').ElementalInstinct
+  elementalDamage?: string
+  elementalUseEvolution?: boolean
+  elementalExplosionUsed?: boolean
   giantStature?: 'Large' | 'Huge'
   giantWeaponId?: string
   giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'

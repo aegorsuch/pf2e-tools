@@ -10,3 +10,14 @@ export const DRAGON_INSTINCTS = {
 } as const
 
 export type DragonInstinct = keyof typeof DRAGON_INSTINCTS
+
+export const ELEMENTAL_INSTINCTS = {
+  Air: { damage: ['electricity', 'slashing'], evolution: 'cold' },
+  Earth: { damage: ['bludgeoning', 'piercing'], evolution: 'poison' },
+  Fire: { damage: ['fire'], evolution: 'cold' },
+  Metal: { damage: ['piercing', 'slashing'], evolution: 'electricity' },
+  Water: { damage: ['bludgeoning', 'cold'], evolution: 'acid' },
+  Wood: { damage: ['bludgeoning', 'piercing'], evolution: 'poison' },
+} as const
+
+export type ElementalInstinct = keyof typeof ELEMENTAL_INSTINCTS

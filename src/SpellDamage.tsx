@@ -139,16 +139,20 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
     ? rolls.map(damage => ({ damage, actions })) : []
 }
 
-export function DamageRoll({ name, damage, actions, showLabel }: { name: string; damage: Damage; actions?: string; showLabel?: boolean }) {
+export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll }: {
+  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void
+}) {
   const [result, setResult] = useState<number | number[] | { primary: number; additional: number }>()
   const formula = damage.outcomes ? `${damage.outcomes.map(outcome => `${outcome.dice}d${damage.sides}`).join(' / ')} ${damage.type}`
     : damage.dice > 0
     ? `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
-    <button type="button" className={actions ? 'spell-action-button' : undefined}
+    <button type="button" disabled={disabled} className={actions ? 'spell-action-button' : undefined}
       aria-label={`Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`}
       onClick={() => {
+        if (disabled) return
+        onRoll?.()
         if (damage.outcomes) {
           const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
           setResult(damage.outcomes.map(outcome => dice.slice(0, outcome.dice).reduce((sum, roll) => sum + roll, 0)))

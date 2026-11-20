@@ -689,6 +689,31 @@ it('halves Draconic Rage for agile attacks and requires Raging Thrower for throw
   } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
 })
 
+it.each([[1, 4], [7, 6], [15, 12]])('applies Elemental Rage and Elemental Evolution at level %i', (level, rage) => {
+  const c: Character = { ...base, level, className: 'Barbarian', subclass: 'Elemental', raging: true,
+    barbarianElement: 'Air', elementalDamage: 'electricity', feats: [feat('Elemental Evolution', 2, 'Cold')] }
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.additionalDamage).toContainEqual({ source: 'Elemental Rage', value: `${rage} electricity`, note: 'Additional damage from Elemental Rage.' })
+  expect(attack.damage).toBe(weaponAttack({ ...c, raging: false }, [sword], main).damage)
+  expect(featChoiceOptions('Elemental Evolution', c, [], '')).toEqual(['Slashing', 'Cold'])
+  if (level >= 2) {
+    const evolved = weaponAttack({ ...c, elementalUseEvolution: true }, [sword], main)
+    expect(evolved.additionalDamage).toContainEqual({ source: 'Elemental Rage', value: `${rage} cold`, note: 'Additional damage from Elemental Rage.' })
+  }
+  expect(weaponAttack({ ...c, elementalDamage: 'fire' }, [sword], main).rageDamage).toBe(2)
+})
+
+it('provides Elemental Explosion with selected damage and a once-per-Rage roll', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Elemental', level: 8, raging: true,
+    barbarianElement: 'Water', elementalDamage: 'cold', feats: [feat('Elemental Explosion', 6)] }
+  const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
+  expect(html(c)).toContain('8d8 cold')
+  expect(html(c)).toContain('15-foot emanation; basic Reflex save')
+  expect(html({ ...c, elementalExplosionUsed: true })).toContain('disabled="" class="spell-action-button"')
+  expect(html({ ...c, raging: false })).not.toContain('Roll Elemental Explosion')
+  expect(resistances({ ...c, level: 9 }, []).some(resistance => resistance.damage.includes('Water') && resistance.value === 3)).toBe(true)
+})
+
 it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
   const agile = { ...sword, traits: ['Agile'] }
   const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])

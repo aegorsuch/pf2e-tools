@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, canUseGiantStature, giantStatureSize, giantStatureChange, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, canUseGiantStature, giantStatureSize, giantStatureChange, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
@@ -632,6 +632,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       <>
         <div className="defense-summary">
           <span><small>Armor Class</small><b><TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />
+            {c.raging && barbarianInstinct(c, entries) === 'elemental' && <SourceNote source="Elemental Rage"
+              note="Concealed against ranged attacks; this concealment cannot be used to Hide or Sneak." />}
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0

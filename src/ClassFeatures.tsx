@@ -7,8 +7,8 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { classDifficultyClass, withoutBattleForm } from './builder'
-import { DRAGON_INSTINCTS, type DragonInstinct } from './barbarian'
+import { classDifficultyClass, elementalRageType, withoutBattleForm } from './builder'
+import { DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
 
@@ -24,6 +24,8 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const weapons = ownedWeapons(withoutBattleForm(c), entries)
   const giant = isGiantInstinct(c, entries)
   const instinct = barbarianInstinct(c, entries)
+  const element = c.barbarianElement && ELEMENTAL_INSTINCTS[c.barbarianElement]
+  const elementalType = elementalRageType(c, entries)
   const verdant = c.systems.includes('pf2e') && ['Verdant Weapon', 'Verdant Weapon Jousting']
     .some(name => activeFeatsNamed(c, name).length > 0)
   const verdantWeapon = weapons.find(weapon => weapon.verdantWeapon)
@@ -96,6 +98,37 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </span>}
         </>}
       </div>}
+      {instinct === 'elemental' && <div className="col" aria-label="Elemental Instinct">
+        <label>Element{' '}
+          <select aria-label="Elemental Instinct element" value={c.barbarianElement ?? ''} disabled={!!c.raging} onChange={event => {
+            const choice = (Object.keys(ELEMENTAL_INSTINCTS) as ElementalInstinct[]).find(name => name === event.target.value)
+            save({ barbarianElement: choice, elementalDamage: undefined, elementalUseEvolution: false })
+          }}>
+            <option value="">Choose element</option>
+            {(Object.keys(ELEMENTAL_INSTINCTS) as ElementalInstinct[]).map(name => <option key={name}>{name}</option>)}
+          </select>
+        </label>
+        {element && <label>Elemental damage{' '}
+          <select aria-label="Elemental Instinct damage" value={c.elementalDamage ?? ''} disabled={!!c.raging} onChange={event => {
+            const damage = element.damage.find(value => value === event.target.value)
+            save({ elementalDamage: damage, elementalUseEvolution: false })
+          }}>
+            <option value="">Choose damage</option>
+            {element.damage.map(damage => <option key={damage} value={damage}>{damage}</option>)}
+          </select>
+        </label>}
+        {element && c.elementalDamage && !!activeFeatsNamed(c, 'Elemental Evolution')[0]?.choice && <label>
+          <input type="checkbox" aria-label="Use Elemental Evolution" checked={!!c.elementalUseEvolution} disabled={!!c.raging}
+            onChange={event => save({ elementalUseEvolution: event.target.checked })} /> Use Elemental Evolution
+        </label>}
+        {c.raging && elementalType && !!activeFeatsNamed(c, 'Elemental Explosion').length && <span>
+          Elemental Explosion{' '}
+          <DamageRoll name="Elemental Explosion" actions="Two Actions" disabled={!!c.elementalExplosionUsed}
+            onRoll={() => save({ elementalExplosionUsed: true })}
+            damage={{ label: 'Damage', dice: c.level, sides: 8, type: elementalType }} />
+          <SourceNote source="Elemental Explosion" note={`15-foot emanation; basic Reflex save against ${classDifficultyClass(c, entries) ?? 'class DC'}. ${c.barbarianElement} trait; once per Rage.`} />
+        </span>}
+      </div>}
       {verdant && <div className="col" aria-label="Verdant Weapon selection">
         {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon),
           id => selectWeapon(id, 'verdantWeapon'))}
@@ -104,7 +137,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         {weaponChoice('Osteo Armaments', osteoWeapon?.id, weapon => canBeOsteoArmament(c, entries, weapon),
           id => selectWeapon(id, 'osteoArmament'))}
       </div>}
-      {c.raging && instinct && !['giant', 'fury', 'dragon'].includes(instinct)
+      {c.raging && instinct && !['giant', 'fury', 'dragon'].includes(instinct) && !(instinct === 'elemental' && elementalType)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
       {c.className === 'Guardian' && features.some(feature => feature.name === 'Reaction Time') && <div className="col">
         <Info label="Reaction Time">You have 2 reactions each turn; the additional reaction can be used only for guardian feats or class features

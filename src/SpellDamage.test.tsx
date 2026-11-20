@@ -56,6 +56,21 @@ it('rolls every Cataclysm component once with conditional damage identified', ()
     'Treat resistances as 10 lower']) expect(html).toContain(text)
 })
 
+it('records a limited damage roll once and refuses disabled rolls', () => {
+  const onRoll = vi.fn()
+  const damage = { label: 'Damage', dice: 2, sides: 8, type: 'fire' }
+  const run = (disabled: boolean) => {
+    vi.mocked(useState).mockReturnValueOnce([undefined, vi.fn()])
+    const tree = DamageRoll({ name: 'Test', damage, disabled, onRoll })
+    const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+    if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing damage roll')
+    button.props.onClick()
+  }
+  run(false)
+  run(true)
+  expect(onRoll).toHaveBeenCalledTimes(1)
+})
+
 it('rolls and rerolls all ten Primal Howl dice when its two-action button is clicked and announces the total', () => {
   const damage = { label: 'Damage', dice: 10, sides: 6, type: 'sonic' }
   const setResult = vi.fn()
