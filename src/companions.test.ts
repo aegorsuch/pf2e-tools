@@ -317,6 +317,24 @@ describe('animal companions', () => {
     expect(companionStats(c, [bear], 'Bear')!.speed).toBe('35 feet')
   })
 
+  it('reduces Nidarrmar horse barding speed penalties without affecting other companions', () => {
+    const horse = entry('companion', 'Horse', { ...bear.data, speed_raw: '40 feet, swim 20 feet', mount: true })
+    const barding = entry('item', 'Barding', {}, 0)
+    const entries = [horse, barding]
+    const heavy = bardingOptions(entries, 8).find(item => item.data.barding_type === 'Heavy')!
+    const companions = [
+      { id: 'first', type: 'Horse', name: '', equipment: { Barding: { entryId: heavy.id, name: heavy.name, qty: 1 } } },
+      { id: 'second', type: 'Horse', name: '' },
+    ]
+    const c: Character = { ...base, level: 8, companions,
+      feats: [{ name: 'Nidarrmar Steed', type: 'Dedication Feat', level: 6, slot: 'archetype:8:0' }] }
+    expect(companionStats(c, entries, 'Horse')!).toMatchObject({ speed: '40 feet, swim 20 feet', nidarrmar: true })
+    expect(companionStats({ ...c, level: 7 }, entries, 'Horse')!).toMatchObject({ speed: '30 feet, swim 10 feet', nidarrmar: false })
+    expect(companionStats(c, entries, 'Horse', undefined, 'second')!.nidarrmar).toBe(false)
+    const conflicting = { ...c, feats: [...c.feats, { name: 'Chiardmar Steed', type: 'Class Feat', level: 6, takenLevel: 6 }] }
+    expect(companionStats(conflicting, entries, 'Horse')!).toMatchObject({ speed: '35 feet, swim 10 feet', nidarrmar: false })
+  })
+
   it.each([
     ['Alacritous Horseshoes', 5, 2],
     ['Alacritous Horseshoes (Greater)', 10, 3],

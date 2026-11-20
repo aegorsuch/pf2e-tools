@@ -296,6 +296,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const specials = [
                 ...(stats?.mount ? [{ name: 'Mount', note: undefined }] : []),
                 ...(stats?.beastmasterSpecial ?? []),
+                ...(stats?.nidarrmar ? [{ name: 'Nidarrmar Steed',
+                  note: 'Reduce Speed penalties by 10 feet. You may replace fleeing or controlled with slowed 1 for the same duration.' }] : []),
                 ...(stats?.peerlessMascot ? [{ name: 'Peerless Mascot',
                   note: `The companion provides your banner's benefits in a ${comp.mascotBannerAffixed
                     ? activeFeatsNamed(c, 'Glorious Banner').length ? 100 : 60 : 30}-foot aura.` }] : []),

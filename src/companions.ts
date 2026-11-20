@@ -315,7 +315,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const barding = companion?.equipment?.Barding && c.systems.includes('pf2e')
     ? equippedBarding(entries, level, companion.equipment.Barding, size) : undefined
   const bardingCheckPenalty = barding && mods.str < num(barding.data.strength) ? num(barding.data.check_penalty) : 0
-  const bardingSpeedPenalty = barding ? Math.min(0, num(barding.data.speed_penalty)
+  const rawBardingSpeedPenalty = barding ? Math.min(0, num(barding.data.speed_penalty)
     + (mods.str >= num(barding.data.strength) ? 5 : 0)) : 0
   const antiDragon = barding?.data.barding_family === 'Anti-Dragon Barding'
     ? { source: barding.name, bonus: level >= 12 ? 4 : 2, damage: level >= 12 ? '3d4' : '1d4' } : undefined
@@ -323,7 +323,12 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const shoesEntry = shoes && entries.find(entry => entry.id === shoes.entryId && isCompanionEquipmentItem(entry))
   const horseshoes = shoesEntry && HORSESHOE_EFFECTS[shoesEntry.name]
   if (horseshoes && shoesEntry) speedBonuses.push({ source: shoesEntry.name, feet: horseshoes.speed })
-  const chiardmar = type === 'Horse' && has('Chiardmar Steed')
+  const breed = type === 'Horse' && firstCompanion ? c.feats
+    .filter(feat => ['Chiardmar Steed', 'Nidarrmar Steed'].includes(feat.name) && featTakenLevel(feat) <= c.level)
+    .sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]?.name : undefined
+  const chiardmar = breed === 'Chiardmar Steed'
+  const nidarrmar = breed === 'Nidarrmar Steed'
+  const bardingSpeedPenalty = Math.min(0, rawBardingSpeedPenalty + (nidarrmar ? 10 : 0))
   if (chiardmar) speedBonuses.push({ source: 'Chiardmar Steed', feet: 5 })
   const speedBonus = speedBonuses.reduce((sum, bonus) => sum + bonus.feet, 0)
   let speed = speedBonus ? speedRaw.replace(/^\d+/, (n) => String(+n + speedBonus)) : speedRaw
@@ -393,11 +398,12 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
   return {
     entry, level, size, naturalSize, mods, hp, speed,
-    speedBonuses: [...speedBonuses, ...(bardingSpeedPenalty && barding ? [{ source: barding.name, feet: bardingSpeedPenalty }] : []),
+    speedBonuses: [...speedBonuses, ...(rawBardingSpeedPenalty && barding ? [{ source: barding.name, feet: rawBardingSpeedPenalty }] : []),
+      ...(nidarrmar && rawBardingSpeedPenalty ? [{ source: 'Nidarrmar Steed', feet: bardingSpeedPenalty - rawBardingSpeedPenalty }] : []),
       ...(apex ? [{ source: 'Apex Companion (status)', feet: 10 }] : [])],
     skills: companionSkills, attacks, traits, auspice, peerlessMascot, servitor, subtype, auspiceLanguage, auspiceTraits, grantedTraits, weakness, paleHorse,
     apex, temporaryHp: apex ? 30 : 0, reach: apex ? 15 : undefined, ignoreAllDifficultTerrain: apex,
-    ignoreDifficultTerrain: chiardmar ? 10 : 0,
+    ignoreDifficultTerrain: chiardmar ? 10 : 0, nidarrmar,
     ac: 10 + (barding ? Math.min(mods.dex, num(barding.data.dex_cap)) + proficiencyBonus(rank.Barding ?? 1, level) + num(barding.data.ac)
       : mods.dex + prof('Unarmored')) + magicHide - clumsy + Math.max(mountedParry, mountedShield),
     barding, bardingCheckPenalty, antiDragon,
