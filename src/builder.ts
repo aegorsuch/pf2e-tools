@@ -3626,6 +3626,11 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   }
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
+  if (name === 'Reflex' && c.systems.includes('pf2e') && c.mountedCompanionId
+    && c.companions?.some(companion => companion.id === c.mountedCompanionId)) {
+    const saddle = activeFeatsNamed(c, 'Born In The Saddle').length > 0
+    parts.push({ label: saddle ? 'Mounted: Born In The Saddle (circumstance)' : 'Mounted (circumstance)', value: saddle ? -1 : -2 })
+  }
   const total = parts.reduce((sum, part) => sum + part.value, 0)
   const mightyBulwark = name === 'Reflex' && activeFeatsNamed(c, 'Mighty Bulwark').length > 0
   const bulwark = name === 'Reflex' && (mightyBulwark ? 'Mighty Bulwark' : armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'

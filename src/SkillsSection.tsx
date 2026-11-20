@@ -359,7 +359,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const ownTotal = abil + prof + item + armorPenalty - clumsyPenalty
     const formAthletics = s.name === 'Athletics' && form ? form.athletics : undefined
-    const total = Math.max(ownTotal, formAthletics ?? ownTotal) + status + (circumstance?.value ?? 0)
+    const total = s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
+      ? savingThrowBreakdown(c, entries, s.name, ranks).total
+      : Math.max(ownTotal, formAthletics ?? ownTotal) + status + (circumstance?.value ?? 0)
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0

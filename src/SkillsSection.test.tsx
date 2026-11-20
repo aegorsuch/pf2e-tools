@@ -348,6 +348,19 @@ it('applies Briny Beverage wavesense only while its effect is active', () => {
   expect(render({ ...c, level: 0, activeFeatEffects: ['Briny Beverage'] })).not.toContain('Wavesense (imprecise) 20 feet')
 })
 
+it('applies mounted Reflex penalties and Born In The Saddle only while mounted', () => {
+  const c: Character = { ...base, level: 4, companions: [{ id: 'mount', type: 'Horse', name: '' }],
+    mountedCompanionId: 'mount', feats: [{ name: 'Born In The Saddle', type: 'Archetype Feat', level: 4 }] }
+  const unmounted = { ...c, mountedCompanionId: undefined }
+  const noFeat = { ...c, feats: [] }
+  const baseReflex = defenseSummary(unmounted, [ranger]).reflex
+  expect(defenseSummary(noFeat, [ranger]).reflex).toBe(baseReflex - 2)
+  expect(defenseSummary(c, [ranger]).reflex).toBe(baseReflex - 1)
+  expect(defenseSummary({ ...c, mountedCompanionId: 'missing' }, [ranger]).reflex).toBe(baseReflex)
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />))
+    .toContain('Mounted: Born In The Saddle (circumstance)')
+})
+
 it('shows Druid terrain and shield benefits only when applicable', () => {
   const c: Character = { ...base, level: 12, feats: [
     { name: 'Shore Step', type: 'Class Feat', level: 1 },

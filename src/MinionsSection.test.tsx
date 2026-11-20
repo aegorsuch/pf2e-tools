@@ -93,6 +93,15 @@ it('allows selecting a mount for Mounted Shield and displays its shared AC bonus
   expect(renderToStaticMarkup(content())).toContain('+2 Circumstance (Mounted Shield)')
 })
 
+it.each(['Cavalier Dedication', 'Born In The Saddle', 'Legendary Rider'])('allows mount selection with %s', name => {
+  const animal: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'bear', name: 'Bear', traits: ['Animal'] }
+  const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name, type: 'Archetype Feat', level: 4 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'a', type: 'Bear', name: 'A' }] }
+  expect(renderToStaticMarkup(MinionsContent({ c, entries: [animal], save: () => {} }))).toContain('Mounted on A')
+})
+
 const familiarAbility = (name: string, description: string, abilityType = 'Familiar'): ContentEntry => ({
   id: `familiar:${name}`, systems: ['pf2e'], name, kind: 'familiar', source: 'official', level: 1,
   traits: [], description, data: { ability_type: abilityType }, effects: [], updatedAt: 0,
