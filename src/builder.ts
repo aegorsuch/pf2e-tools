@@ -5704,6 +5704,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       value: `${drakeSupport}d4 fire`, note: "Applies while riding the drake when the target is in its reach, until the start of your next turn." }] : []),
   ]
   const desperateWrath = c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? 2 : 0
+  const ragingThrower = thrown && activeFeatsNamed(c, 'Raging Thrower').length > 0
+  const devastator = classFeatures(entries, c).some(feature => feature.name === 'Devastator')
+  const criticalDie = Number(traits.map(trait => /^fatal\s+d(4|6|8|10|12)$/i.exec(trait)?.[1]).find(Boolean) ?? die)
   const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(natural, entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
     .map((weapon): number => weaponAttack(natural, entries, weapon).attack - desperateWrath)) : 0
@@ -5783,10 +5786,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
         ...(bestial && w.id === 'bestial:Spider:Web' ? [`Web deals no damage. On a hit, the target takes a -10-foot circumstance penalty to Speeds for 1 round; a second hit while penalized immobilizes it until it Escapes against ${classDifficultyClass(c, entries) ?? 'your class DC'}.`] : []),
         ...(rageDamage && barbarianInstinct(c, entries) === 'superstition' ? [`Superstitious Resilience: Rage damage is ${traits.includes('agile') ? Math.floor((c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4) / 2) : c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4} against creatures you witnessed Cast a Spell in the last hour.`] : []),
-        ...(!ranged && activeFeatsNamed(c, 'Brutal Critical').length
-          ? ['Brutal Critical: on a critical melee Strike, add one damage die and deal two damage dice of persistent bleed.'] : []),
+        ...((!ranged || ragingThrower) && criticalDie && activeFeatsNamed(c, 'Brutal Critical').length
+          ? [`Brutal Critical: on a critical Strike, add 1d${criticalDie} damage and deal 2d${criticalDie} persistent bleed.`] : []),
+        ...((!ranged || ragingThrower) && devastator
+          ? ['Devastator: ignore up to 10 resistance to physical damage from this Strike.'] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Shattering Blows').length
-          ? [`Shattering Blows: melee Strike damage ignores the first ${classFeatures(entries, c).some(feature => feature.name === 'Devastator') ? 10 : 5} Hardness of an object.`] : []),
+          ? [`Shattering Blows: melee Strike damage ignores the first ${devastator ? 10 : 5} Hardness of an object.`] : []),
         ...(!ranged && category === 'Unarmed' && activeFeatsNamed(c, 'Rip and Tear').length
           ? [`Rip and Tear: after dealing piercing or slashing damage with a morph or polymorph unarmed Strike, a successful unarmed Strike against the same target that deals piercing or slashing damage adds ${c.level >= 12 ? 2 : 1}d6 persistent bleed.`] : []),
         ...(!ranged && c.raging && category !== 'Unarmed' && ['p', 'piercing'].includes((modifiedDamageType ?? '').toLowerCase())
