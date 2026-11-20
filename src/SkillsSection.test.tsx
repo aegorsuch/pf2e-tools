@@ -96,11 +96,14 @@ it('shows conditional Vesk skill actions without changing skill modifiers', () =
 
 it('shows conditional Operative movement, save, and intimidation feats', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Operative', level: 6,
-    feats: ['Kick it into Overdrive', 'Destructive Dash', 'Swift Reposition', 'Stop Them In Their Tracks']
+    feats: ['Kick it into Overdrive', 'Destructive Dash', 'Tactical Advance', 'Unhindered Advance',
+      'Swift Reposition', 'Stop Them In Their Tracks']
       .map(name => ({ name, type: 'Class Feat', level: 1 })) }
   const senses = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
   expect(senses).toContain('Once per hour at the start of your turn, become quickened')
   expect(senses).toContain('spend 2 actions to Stride up to your Speed')
+  expect(senses).toContain('without triggering reactions')
+  expect(senses).toContain('Ignore difficult and greater difficult terrain')
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} part="defense" save={() => {}} />)
   expect(defense).toContain('Swift Reposition note')
   const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)

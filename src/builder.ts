@@ -4329,6 +4329,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     notes.push('Hazard Finder +1 circumstance against hazard attacks; circumstance bonuses do not stack.')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Danger Awareness').length)
     notes.push('Danger Awareness +1 circumstance against attacks from traps and hidden, undetected, or unnoticed creatures; circumstance bonuses do not stack.')
+  if (c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Elusive Target').length)
+    notes.push('Elusive Target: when a Strike targeting you fails, react to Step.')
   if (currentSpell) notes.push(`Current Spell: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, 2 - best)} against ranged attacks; circumstance bonuses do not stack.`)
   notes.push(...hellknightSkillNotes(c, 'AC').map(benefit => `${benefit.name}: ${benefit.description} Circumstance bonuses do not stack.`))
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }

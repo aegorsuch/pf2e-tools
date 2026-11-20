@@ -124,6 +124,9 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       {c.systems.includes('sf2e') && c.className === 'Operative' && !!activeFeatsNamed(c, 'Destructive Dash').length
         && <SourceNote source="Destructive Dash"
           note="In a suitable environment, spend 2 actions to Stride up to your Speed; squares you pass through become difficult terrain until cleared with Interact by a creature within reach." />}
+      {c.systems.includes('sf2e') && c.className === 'Operative' && !!activeFeatsNamed(c, 'Tactical Advance').length
+        && <SourceNote source="Tactical Advance"
+          note={`If not encumbered, spend 1 action to Stride up to ${speed(c, entries)} feet without triggering reactions. ${activeFeatsNamed(c, 'Unhindered Advance').length ? 'Ignore difficult and greater difficult terrain during this movement.' : ''}`} />}
       {!!activeFeatsNamed(c, 'Sudden Charge').length && <SourceNote source="Sudden Charge"
         note={`Move twice, then make a melee Strike if an enemy is within reach. Maximum distances: ${speeds.map(movement => `${movement.name} ${movement.feet * 2} feet`).join('; ')}.`} />}
       {c.raging && !!activeFeatsNamed(c, 'No Escape').length && <SourceNote source="No Escape"

@@ -126,6 +126,12 @@ it('keeps Danger Awareness bonuses conditional', () => {
   expect(armorClass(c, entries)).toBe(armorClass({ ...c, feats: [] }, entries))
 })
 
+it('shows Elusive Target as a conditional reaction without changing AC', () => {
+  const c: Character = { ...base, feats: [{ name: 'Elusive Target', type: 'Class Feat', level: 1 }] }
+  expect(armorClassBreakdown(c, entries).notes?.join(' ')).toContain('when a Strike targeting you fails, react to Step')
+  expect(armorClass(c, entries)).toBe(armorClass({ ...c, feats: [] }, entries))
+})
+
 it('grants gun parry and improves an existing parry only while wielded', () => {
   const own: OwnedWeapon = { id: simpleGun.id, name: simpleGun.name, potency: 0, striking: 0, runes: [] }
   const c: Character = { ...base, level: 2, feats: [{ name: 'Defensive Gunner', type: 'Class Feat', level: 2 }], weapons: [own] }
