@@ -2097,6 +2097,22 @@ export function availableStances(c: Character, entries: ContentEntry[]) {
 export const activeStance = (c: Character, entries: ContentEntry[]) =>
   c.activeStance ? availableStances(c, entries).find(entry => entry.name === c.activeStance) : undefined
 
+export const ELEMENTAL_MEDICINES = ['Earth', 'Fire', 'Metal', 'Water', 'Wood'] as const
+export function intensifiedElementDamage(c: Character, entries: ContentEntry[]) {
+  const medicine = c.intensifiedElement
+  if (activeStance(c, entries)?.name !== 'Intensified Element Stance' || !medicine?.used
+    || !ELEMENTAL_MEDICINES.includes(medicine.element)) return undefined
+  const effects = {
+    Earth: ['acid', 'water creatures'],
+    Fire: ['fire', 'metal creatures and primarily metallic constructs'],
+    Metal: ['electricity', 'wood or plant creatures and constructs primarily made of wood or plant matter'],
+    Water: ['sonic', 'fire creatures'],
+    Wood: ['cold', 'earth creatures and constructs primarily made of rock or earth'],
+  } as const
+  const [type, targets] = effects[medicine.element]
+  return { dice: medicine.legendary ? 2 : 1, type, targets }
+}
+
 function twinParryValue(c: Character, entries: ContentEntry[]) {
   if (!activeFeatsNamed(c, 'Twin Parry').length) return 0
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {

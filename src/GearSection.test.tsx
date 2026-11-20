@@ -29,6 +29,17 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it('shows target-limited Intensified Element Stance damage on weapon attacks', () => {
+  const feat: ContentEntry = { ...weapon, id: 'element-stance', kind: 'feat',
+    name: 'Intensified Element Stance', level: 6, traits: ['Stance'] }
+  const c: Character = { ...character([{ name: feat.name, type: 'Class Feat', level: 6 }]),
+    activeStance: feat.name, intensifiedElement: { element: 'Earth', used: true } }
+  const render = (value: Character) => renderToStaticMarkup(<WeaponList c={value} entries={[weapon, feat]} save={() => {}} />)
+  expect(render(c)).toContain('1d6 acid (conditional)')
+  expect(render(c)).toContain('Only against water creatures.')
+  expect(render({ ...c, activeStance: undefined })).not.toContain('1d6 acid (conditional)')
+})
+
 it.each([false, true])('applies Inventive Offensive to one held melee weapon (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, traits: ['Deadly d8', 'Versatile P'], data: { ...weapon.data, hands: '1' } }
   let c: Character = { ...character([{ name: 'Inventive Offensive', type: 'Ancestry Feat', level: 1 }]), level: 15,

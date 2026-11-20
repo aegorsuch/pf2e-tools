@@ -37,7 +37,7 @@ import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { namedArmorEnhancements } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { shieldEntry } from './builder'
-import { inventiveOffensiveOptions, ranksAt } from './builder'
+import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
@@ -967,6 +967,7 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
 }
 
 export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
+  const intensified = intensifiedElementDamage(c, entries)
   if (!displayOnly && activeBattleForm(c, entries)) return <WeaponList
     c={withoutBattleForm(c)} entries={entries} save={save} />
   const weapons = ownedWeapons(c, entries)
@@ -1151,6 +1152,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
             ...upgradeDamageSummary(summary.attack),
             ...mechanicDamageSummary(c, w, summary.attack),
+            ...(intensified ? [{ source: 'Intensified Element Stance', value: `${intensified.dice}d6 ${intensified.type} (conditional)`,
+              note: `Only against ${intensified.targets}.` }] : []),
           ] }))
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined

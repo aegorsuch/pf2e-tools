@@ -223,6 +223,7 @@ export interface Character {
   giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'
   parrying?: boolean
   activeStance?: string
+  intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
   currentSpell?: 'air' | 'water' | 'air and water'
   focusPointsSpentSinceRefocus?: number

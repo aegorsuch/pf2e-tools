@@ -6,7 +6,8 @@ import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
-import { SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
+import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
+import { intensifiedElementDamage } from './builder'
 import { companionAdvancement, companionStats } from './companions'
 import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { SearchableSelect } from './SearchableSelect'
@@ -896,6 +897,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const dirgeDialog = useRef<HTMLDialogElement>(null)
   const dirgeTitleId = useId()
   const casting = classSpellcasting(c, entries)
+  const intensified = intensifiedElementDamage(c, entries)
   const automaticSlots = classSpellSlots(c)
   const witchwarper = witchwarperParadox(c)
   const druid = c.className === 'Druid' && automaticSlots !== undefined
@@ -1152,6 +1154,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
 
   return (
       <div className="character-section-content">
+      {intensified && <span><DamageRoll name="Intensified Element Stance"
+        damage={{ label: 'Conditional spell damage', dice: intensified.dice, sides: 6, type: intensified.type }} />
+        <SourceNote source="Intensified Element Stance" note={`Additional damage for damaging spells against ${intensified.targets}.`} />
+      </span>}
       <div className="gear-tabs spell-category-tabs" role="group" aria-label="Spell categories">
         {categories.map(([value, label]) =>
           <button key={value} type="button" className={activeCategory === value ? 'on' : ''}

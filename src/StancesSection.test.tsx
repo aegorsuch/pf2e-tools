@@ -1,11 +1,12 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { activeStance, availableStances } from './builder'
+import { activeStance, availableStances, intensifiedElementDamage } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { featDisplayName } from './featChoices'
 import { FeatSlots } from './FeatSlots'
 import { StancesContent, StancesSummary } from './StancesSection'
+import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 const stance = (name: string, level = 1, traits = ['Stance']): ContentEntry => ({
@@ -76,6 +77,61 @@ it('saves one active stance, switches stances and allows leaving without changin
   controls()[0].onChange()
   expect(c.activeStance).toBeUndefined()
   expect(JSON.stringify(c.feats)).toBe(original)
+})
+
+it.each([
+  ['Earth', 'acid', 'water creatures'],
+  ['Fire', 'fire', 'metal creatures and primarily metallic constructs'],
+  ['Metal', 'electricity', 'wood or plant creatures and constructs primarily made of wood or plant matter'],
+  ['Water', 'sonic', 'fire creatures'],
+  ['Wood', 'cold', 'earth creatures and constructs primarily made of rock or earth'],
+] as const)('limits %s medicine damage to its specified targets', (element, type, targets) => {
+  const entry = stance('Intensified Element Stance', 6)
+  const c: Character = { ...base, feats: [learn(entry)], activeStance: entry.name,
+    intensifiedElement: { element, used: true, legendary: true } }
+  expect(intensifiedElementDamage(c, [entry])).toEqual({ dice: 2, type, targets })
+  expect(intensifiedElementDamage({ ...c, activeStance: undefined }, [entry])).toBeUndefined()
+  expect(intensifiedElementDamage({ ...c, feats: [] }, [entry])).toBeUndefined()
+  expect(intensifiedElementDamage({ ...c, level: 5 }, [entry])).toBeUndefined()
+  expect(intensifiedElementDamage({ ...c, intensifiedElement: { element, used: true } }, [entry])?.dice).toBe(1)
+})
+
+it('expends prepared medicine on entry and prevents reuse until reset', () => {
+  const entry = stance('Intensified Element Stance', 6)
+  let c: Character = { ...base, feats: [learn(entry)] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  type Props = { children?: ReactNode; 'aria-label'?: string; disabled?: boolean; onChange?: (event: { target: { value: string; checked: boolean } }) => void }
+  const find = (label: string) => {
+    let found: Props | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Props>(child)) return
+      if (child.props['aria-label'] === label) found = child.props
+      visit(child.props.children)
+    })
+    visit(StancesContent({ c, entries: [entry], save }))
+    if (!found) throw new Error(`Missing ${label}`)
+    return found
+  }
+  const input = (value: string, checked = false) => ({ target: { value, checked } })
+  expect(find('Use Intensified Element Stance').disabled).toBe(true)
+  find('Intensified Element Stance medicine').onChange!(input('Water'))
+  find('Legendary elemental medicine').onChange!(input('', true))
+  find('Use Intensified Element Stance').onChange!(input(''))
+  expect(c.intensifiedElement).toEqual({ element: 'Water', legendary: true, used: true })
+  expect(intensifiedElementDamage(c, [entry])).toEqual({ dice: 2, type: 'sonic', targets: 'fire creatures' })
+  c = { ...c, activeStance: undefined }
+  expect(find('Use Intensified Element Stance').disabled).toBe(true)
+  find('Elemental medicine expended').onChange!(input('', false))
+  expect(find('Use Intensified Element Stance').disabled).toBe(false)
+})
+
+it('offers a separate conditional damage roll for damaging spells', () => {
+  const entry = stance('Intensified Element Stance', 6)
+  const c: Character = { ...base, className: 'Druid', feats: [learn(entry)], activeStance: entry.name,
+    intensifiedElement: { element: 'Fire', used: true, legendary: true } }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry]} save={() => {}} />)
+  expect(html).toContain('Conditional spell damage: 2d6 fire')
+  expect(html).toContain('damaging spells against metal creatures and primarily metallic constructs')
 })
 
 it.each([
