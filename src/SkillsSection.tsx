@@ -97,7 +97,9 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
         note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}
       {!!activeFeatsNamed(c, 'Fire Lung').length && <SourceNote source="Fire Lung"
-        note="Breathe normally in ash and smoke; ignore concealment from smoke. Recover from persistent fire on DC 10, or DC 5 with particularly effective assistance." />}</small>
+        note="Breathe normally in ash and smoke; ignore concealment from smoke. Recover from persistent fire on DC 10, or DC 5 with particularly effective assistance." />}
+      {c.raging && !!activeFeatsNamed(c, 'Supernatural Senses').length && <SourceNote source="Supernatural Senses"
+        note="When targeting a concealed or hidden opponent, the flat check DC is 3 or 9, respectively." />}</small>
     <small>Speed: {speeds.map((movement, index) => {
       const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
@@ -400,6 +402,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {circumstance?.source === 'Hellknight Preferment' && <SourceNote source={circumstance.source}
             note={`+${circumstance.value} circumstance bonus to Intimidation while wearing Hellknight armor.`} />}
           {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
+          {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Furious Bully').length
+            && <SourceNote source="Furious Bully" note={`${conditionalTotal(2)} for Athletics attack actions (+2 circumstance; circumstance bonuses do not stack).`} />}
+          {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Brutal Bully').length
+            && <SourceNote source="Brutal Bully" note={`On a successful Disarm, Grapple, Reposition, Shove, or Trip, deal bludgeoning damage equal to your Strength modifier (${signed(abilityMod(c.abilities.str))}); add it to critical Trip damage.`} />}
+          {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Adrenaline Rush').length
+            && <SourceNote source="Adrenaline Rush" note={`${signed(total + Math.max(0, 1 - status))} to lift heavy objects, Escape, and Force Open (+1 status; status bonuses do not stack).`} />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
             <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
           {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)

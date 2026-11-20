@@ -3619,6 +3619,11 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
   if (rogueRackets(c, entries).some(racket => racket === 'Ruffian' || racket === 'Avenger')) ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
   if (activeFeatsNamed(c, 'Animal Skin').length) ranks.Unarmored = Math.max(ranks.Unarmored, 2)
+  if (activeFeatsNamed(c, 'Invulnerable Rager').length) {
+    const barbarianMedium = c.className === 'Barbarian'
+      ? groupRanks(c, entries, ARMOR_GROUPS, 'defense_proficiency', text => /armor|unarmored defense/i.test(text)).Medium : 0
+    ranks.Heavy = Math.max(ranks.Heavy, 1, barbarianMedium >= 2 ? barbarianMedium : 0)
+  }
   const guardianDedications = proficiencyFeats(c, 'Guardian Dedication')
   const guardianArmorGroups = new Set<typeof ARMOR_GROUPS[number]>()
   for (const { feat } of guardianDedications) {

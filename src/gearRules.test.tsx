@@ -1844,6 +1844,15 @@ it('keeps only the strongest imprecise scent when Rage feats overlap Keen Smell'
   expect(senses({ ...c, activeSpells: [] }, [])).toEqual([{ value: 'Scent (imprecise) 60 feet', source: 'Nocturnal Senses' }])
 })
 
+it('shows Supernatural Senses targeting DCs only while raging with the feat', () => {
+  const c: Character = { ...base, className: 'Barbarian', level: 4, raging: true,
+    feats: [feat('Acute Scent', 2), feat('Supernatural Senses', 4)] }
+  const markup = (character: Character) => renderToStaticMarkup(<SensesAndSpeed c={character} entries={[]} save={() => {}} />)
+  expect(markup(c)).toContain('flat check DC is 3 or 9')
+  expect(markup({ ...c, raging: false })).not.toContain('Supernatural Senses note')
+  expect(markup({ ...c, level: 3 })).not.toContain('Supernatural Senses note')
+})
+
 it('grants Natural Swimmer its swim Speed without reducing existing swimming or spending land Speed', () => {
   const c: Character = { ...base, className: 'Druid', level: 4, feats: [feat('Natural Swimmer', 4)] }
   expect(movementSpeeds(c, [])).toEqual([{ name: 'Land', feet: 25 }, { name: 'Swim', feet: 15, source: 'Natural Swimmer' }])
@@ -1930,6 +1939,35 @@ it('grants Animal Skin expert unarmored proficiency outside Rage, with Rage-only
   const mastery = { ...content('classFeature', 'Unarmored Mastery', { class: 'Barbarian' }, 13),
     description: 'Your proficiency rank for unarmored defense increases to master.' }
   expect(armorRanks({ ...c, level: 13 }, [...data, mastery]).Unarmored).toBe(3)
+})
+
+it('grants Invulnerable Rager heavy armor proficiency and follows Barbarian medium armor progression', () => {
+  const barbarian = content('class', 'Barbarian', { defense_proficiency: 'Trained in light armor, medium armor, and unarmored defense' })
+  const expertise = { ...content('classFeature', 'Barbarian Armor Expertise', { class: 'Barbarian' }, 11),
+    description: 'Your proficiency ranks for light armor, medium armor, and unarmored defense increase to expert.' }
+  const mastery = { ...content('classFeature', 'Barbarian Armor Mastery', { class: 'Barbarian' }, 17),
+    description: 'Your proficiency ranks for medium armor increase to master.' }
+  const c: Character = { ...base, level: 8, className: 'Barbarian', feats: [feat('Invulnerable Rager', 8)] }
+  const data = [barbarian, expertise, mastery]
+  expect(armorRanks(c, data).Heavy).toBe(1)
+  expect(armorRanks({ ...c, raging: true, level: 11 }, data).Heavy).toBe(2)
+  expect(armorRanks({ ...c, level: 17 }, data).Heavy).toBe(3)
+  expect(armorRanks({ ...c, level: 7 }, data).Heavy).toBe(0)
+  expect(armorRanks({ ...c, level: 17, feats: [] }, data).Heavy).toBe(0)
+})
+
+it('shows Barbarian Athletics feat effects only while raging and avoids stacking status bonuses', () => {
+  const c: Character = { ...base, level: 8, className: 'Barbarian', raging: true, abilities: { ...base.abilities, str: 18 },
+    skillPicks: ['Athletics'], feats: [feat('Adrenaline Rush'), feat('Brutal Bully', 6), feat('Furious Bully', 8)] }
+  const markup = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="skills" />)
+  expect(markup(c)).toContain('+16 for Athletics attack actions (+2 circumstance')
+  expect(markup(c)).toContain('+15 to lift heavy objects, Escape, and Force Open (+1 status')
+  expect(markup(c)).toContain('Strength modifier (+4)')
+  expect(markup({ ...c, raging: false })).not.toContain('Furious Bully note')
+  expect(markup({ ...c, raging: false })).not.toContain('Brutal Bully note')
+  expect(markup({ ...c, level: 7 })).not.toContain('Furious Bully note')
+  const boosted = { ...c, activeSpells: ['Athletic Rush'], spells: [{ name: 'Athletic Rush', rank: 1, cantrip: false }] }
+  expect(markup(boosted)).toContain('+16 to lift heavy objects, Escape, and Force Open (+1 status')
 })
 
 it('stacks Animal Skin with explorer clothing potency and shields, but never applies the hide to armor', () => {
