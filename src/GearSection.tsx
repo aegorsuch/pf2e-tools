@@ -1124,7 +1124,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const iruxiGranted = unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
           && !effectiveWeapon({ ...c, feats: c.feats.filter(feat => feat.name !== 'Iruxi Spirit Strike') }, entries, w)
             .runes.some(rune => runeName(rune) === 'Ghost Touch')
-        const ghostWrangler = /^fist$/i.test(w.name) && isFeatEffectActive(c, 'Ghost Wrangler')
+        const ghostWrangler = !!c.raging && /^fist$/i.test(w.name) && isFeatEffectActive(c, 'Ghost Wrangler')
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...scaleRunes.map(name => ({ name, source: 'Granted by Scale of Igroon' })),
           ...clanRunes.map(name => ({ name, source: 'Granted by Clan Pistol' })),

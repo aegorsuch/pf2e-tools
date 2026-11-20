@@ -4536,11 +4536,11 @@ export function dinosaurForm(c: Character, entries: ContentEntry[]) {
 }
 
 export function activeBattleForm(c: Character, entries: ContentEntry[]) {
-  if (c.animalRageForm && c.barbarianAnimal && activeFeatsNamed(c, 'Animal Rage').length) {
+  if (c.raging && c.animalRageForm && c.barbarianAnimal && activeFeatsNamed(c, 'Animal Rage').length) {
     const form = animalBattleForm(c.barbarianAnimal === 'Wolf' ? 'Canine' : c.barbarianAnimal, 3, c.level)
     if (form) return { ...form, source: 'Animal Rage' }
   }
-  if (c.dragonTransformation && activeFeatsNamed(c, 'Dragon Transformation').length) {
+  if (c.raging && c.dragonTransformation && activeFeatsNamed(c, 'Dragon Transformation').length) {
     const form = dragonTransformationForm(c.dragonTransformation, c.level)
     if (form) return form
   }

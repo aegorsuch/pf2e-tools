@@ -97,7 +97,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </select>
         </label>
         {c.raging && <SourceNote source="Bestial Rage" note="You cannot use weapons while raging." />}
-        {(c.raging || c.animalRageForm) && !!activeFeatsNamed(c, 'Animal Rage').length && <label>
+        {c.raging && !!activeFeatsNamed(c, 'Animal Rage').length && <label>
           <input type="checkbox" aria-label="Animal Rage form active" checked={!!c.animalRageForm}
             disabled={!c.animalRageForm && (!c.barbarianAnimal || !animalBattleForm(c.barbarianAnimal === 'Wolf' ? 'Canine' : c.barbarianAnimal, 3, c.level))}
             onChange={event => save(animalRageFormChange(c, event.target.checked))} /> Animal Rage form active
@@ -139,7 +139,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </span>}
         </>}
       </div>}
-      {(c.raging || c.dragonTransformation) && !!activeFeatsNamed(c, 'Dragon Transformation').length && <div className="col" aria-label="Dragon Transformation">
+      {c.raging && !!activeFeatsNamed(c, 'Dragon Transformation').length && <div className="col" aria-label="Dragon Transformation">
         <label>Dragon Transformation{' '}
           <select aria-label="Dragon Transformation form" value={c.dragonTransformation ?? ''} disabled={!!c.dragonTransformation}
             onChange={event => {
@@ -152,7 +152,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         </label>
         <SourceNote source="Dragon Transformation" note="One action; lasts 1 minute or until dismissed. Usable once per 10 minutes. Add its 10 temporary HP to temporary HP from Rage actions. Tradition resistance depends on GM interpretation because this is not a spell." />
         {c.dragonTransformation && DRAGON_FORMS[c.dragonTransformation] && <>
-          <button type="button" onClick={() => save(dragonTransformationChange(c, undefined))}>{c.raging ? 'Dismiss Dragon Transformation' : 'End expired Dragon Transformation'}</button>
+          <button type="button" onClick={() => save(dragonTransformationChange(c, undefined))}>Dismiss Dragon Transformation</button>
           <span>Dragon Breath{' '}
             <DamageRoll name="Dragon Transformation Breath" actions="Two Actions"
               damage={{ label: 'Damage', dice: 10, sides: 6, bonus: c.level >= 18 ? 14 : 0, type: DRAGON_FORMS[c.dragonTransformation].damage }} />

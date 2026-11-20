@@ -416,7 +416,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Adrenaline Rush" note={`${signed(total + Math.max(0, 1 - status))} to lift heavy objects, Escape, and Force Open (+1 status; status bonuses do not stack).`} />}
           {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Bashing Charge').length
             && <SourceNote source="Bashing Charge" note={`${conditionalTotal(1)} to Force Open an obstacle during Bashing Charge (+1 circumstance; circumstance bonuses do not stack).`} />}
-          {s.kind === 'skill' && s.ability === 'str' && isFeatEffectActive(c, 'Ghost Wrangler')
+          {s.kind === 'skill' && s.ability === 'str' && c.raging && isFeatEffectActive(c, 'Ghost Wrangler')
             && <SourceNote source="Ghost Wrangler" note="Can use Strength-based skill checks against incorporeal creatures until the beginning of your next turn." />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
             <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
@@ -732,7 +732,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
         <RageToggle c={c} save={save} />
-        {(c.raging || isFeatEffectActive(c, 'Ghost Wrangler')) && !!activeFeatsNamed(c, 'Ghost Wrangler').length && <label>
+        {c.raging && !!activeFeatsNamed(c, 'Ghost Wrangler').length && <label>
           <input type="checkbox" aria-label="Ghost Wrangler active" checked={isFeatEffectActive(c, 'Ghost Wrangler')}
             onChange={event => save(featEffectChange(c, 'Ghost Wrangler', event.target.checked))} /> Ghost Wrangler active
           <SourceNote source="Ghost Wrangler" note="One action while raging; fists gain ghost touch until the beginning of your next turn." />
