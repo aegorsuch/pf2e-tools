@@ -114,8 +114,10 @@ describe('settings sync', () => {
     expect(settings.getSettings().exclusiveCyborgHearts).toBe(true)
     expect(settings.getSettings().innateAutoHeighten).toBe(true)
     expect(settings.getSettings().deityLore).toBe(true)
+    expect(settings.getSettings().sf2eDeitySkills).toBe(true)
     settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false, unarmedCountsAsWeapons: false, barbarianIgnoreAgile: false, adoptedDwarfClanDagger: false, disableAdoptedAncestry: false, singleAdditionalArms: false, exclusiveCyborgHearts: false })
-    settings.updateSettings({ bucklerMeleeFinesse: false, rangerCavalier: false, innateAutoHeighten: false, deityLore: false, disableAncientElfMultitalented: false, disableBeastmasterWardenSpells: false })
+    settings.updateSettings({ bucklerMeleeFinesse: false, rangerCavalier: false, innateAutoHeighten: false, deityLore: false,
+      sf2eDeitySkills: false, disableAncientElfMultitalented: false, disableBeastmasterWardenSpells: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
     if (!saved) throw new Error('Settings were not persisted')
     vi.mocked(localStorage.getItem).mockReturnValue(saved)
@@ -129,6 +131,7 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().bucklerMeleeFinesse).toBe(false)
     expect(reloaded.getSettings().innateAutoHeighten).toBe(false)
     expect(reloaded.getSettings().deityLore).toBe(false)
+    expect(reloaded.getSettings().sf2eDeitySkills).toBe(false)
     expect(reloaded.getSettings().unarmedCountsAsWeapons).toBe(false)
     expect(reloaded.getSettings().barbarianIgnoreAgile).toBe(false)
     expect(reloaded.getSettings().adoptedDwarfClanDagger).toBe(false)

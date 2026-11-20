@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
@@ -1081,11 +1081,18 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           <Material name={alloy} entries={entries} equipment="Weapon" source="Granted by Alloyed Attacks" />
         </div>
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
+        const upgradeWeapon = usesWeaponUpgrades(a.entry)
+        const gradeOptions = upgradeWeapon && a.entry?.data.url ? entries.filter(entry => entry.kind === 'weapon'
+          && !entry.deleted && entry.systems.includes('sf2e') && entry.data.url === a.entry?.data.url)
+          .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)) : []
+        const baseGradeName = upgradeWeapon ? baseItems(gradeOptions)[0]?.name : undefined
         const plainName = enhanced.name === SPARK_FIST.name ? FIST.name
           : enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name
-              : specificMagicItemName(a.entry, combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, ''), true)
+              : baseGradeName ?? specificMagicItemName(a.entry, combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, ''), true)
+        const grantedName = a.entry?.id.startsWith('sf2e:vesk:')
+          ? plainName.replace(/\bVesk\b\s*/i, '').replace(/^Claw$/i, 'Claws') : plainName
         const shieldSource = shieldAttachmentSource(c, w)
         const scaleRunes = scaleOfIgroonWeaponRunes(c, shieldSource, w).map(rune =>
           enhanced.runes.find(existing => runeBaseName(existing) === runeBaseName(rune)) ?? rune)
@@ -1097,13 +1104,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const attachmentName = shieldSource ? specificMagicItemName(shieldEntry(entries, shieldSource.name), shieldSource.name, true)
           : sourceWeapon ? specificMagicItemName(withNamedWeaponState(weaponEntry(entries, sourceWeapon.name), sourceWeapon, c.level),
             combinationName(entries, sourceWeapon.name), true).replace(/\bDueling Pistols$/, 'Dueling Pistol') : ''
-        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, plainName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
+        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, grantedName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
-        const upgradeWeapon = usesWeaponUpgrades(a.entry)
-        const gradeOptions = upgradeWeapon && a.entry?.data.url ? entries.filter(entry => entry.kind === 'weapon'
-          && !entry.deleted && entry.systems.includes('sf2e') && entry.data.url === a.entry?.data.url)
-          .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)) : []
         const strength = hasAnimalStrength(c, entries, w)
         const strengthSources = strength ? animalStrengthRuneSources(c, entries, w) : []
         const strengthOptions = [{ id: '', name: handwraps ? handwrapItem.name : 'No runes' },
@@ -1427,7 +1430,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               <select aria-label={`Weapon grade: ${displayName}`} value={w.name} onChange={event => {
                 if (gradeOptions.some(entry => entry.name === event.target.value)) update(w.id, { name: event.target.value })
               }}>
-                {gradeOptions.map(entry => <option key={entry.id} value={entry.name}>{entry.name} (Level {entry.level})</option>)}
+                {gradeOptions.map(entry => <option key={entry.id} value={entry.name}>
+                  {equipmentDisplayName(adoptedAncestryText(c, baseGradeName ?? entry.name))} (Level {entry.level})
+                </option>)}
               </select>
             </label>}
             {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
@@ -1539,8 +1544,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             <div className="row">
               {canUseInnovation && <label><input type="checkbox" aria-label={`Weapon Innovation: ${w.name}`} checked={!!w.inventorInnovation}
                 onChange={event => saveWeapons(weapons.map(weapon => ({ ...weapon, inventorInnovation: weapon.id === w.id && event.target.checked })))} /> Weapon Innovation</label>}
-              {!attachmentSource && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${w.name}`} title="Remove"
-                onClick={() => confirmRemoval(`weapon "${w.name}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id),
+              {!attachmentSource && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${displayName}`} title="Remove"
+                onClick={() => confirmRemoval(`weapon "${displayName}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id),
                   { ...(c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === w.id ? setEnduringMod(c) : {}),
                     ...clearItemGlitching(c, 'weapon', w.id) }))}>×</button>}
             </div>

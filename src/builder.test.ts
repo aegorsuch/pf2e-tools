@@ -1578,6 +1578,23 @@ describe('skills', () => {
     expect(skillRankBudget(c, entries).trained).toBe(skillRankBudget({ ...c, deity: undefined }, entries).trained + 1)
   })
 
+  it('grants the SF2e deity skill to Soldiers and replaces duplicate training with another trained choice', () => {
+    const previous = getSettings().sf2eDeitySkills
+    const soldier = entry('class', 'Soldier', { skill_proficiency: 'Trained in a number of additional skills equal to 3 plus your Intelligence modifier' })
+    const deity = { ...entry('deity', 'Damoritosh', { skill: 'Intimidation' }), systems: ['sf2e' as const] }
+    const background = { ...entry('background', 'Guard', { skill: 'Intimidation, Athletics' }), systems: ['sf2e' as const] }
+    const entries = [soldier, deity, background]
+    const c = { ...base, systems: ['sf2e' as const], className: 'Soldier', background: 'Guard', deity: 'Damoritosh', level: 1 }
+    try {
+      updateSettings({ sf2eDeitySkills: true })
+      expect(autoClassSkills(c, entries)).toContain('Intimidation')
+      expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount({ ...c, deity: undefined }, entries) + 1)
+      expect(skillRankBudget(c, entries).trained).toBe(skillRankBudget({ ...c, deity: undefined }, entries).trained + 1)
+      updateSettings({ sf2eDeitySkills: false })
+      expect(autoClassSkills(c, entries)).not.toContain('Intimidation')
+    } finally { updateSettings({ sf2eDeitySkills: previous }) }
+  })
+
   it('parses class skills', () => {
     expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toMatchObject({ fixed: ['Arcana'], additional: 2 })
   })

@@ -2155,3 +2155,33 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'armor-upgrade' } })
   expect(c.armors?.[0]).toMatchObject({ upgrades: ['armor-upgrade'], runes: ['Shadow'] })
 })
+
+it('shows Vesk granted unarmed attacks without repeating Vesk in their names', () => {
+  const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Vesk', weapons: [],
+    feats: [{ name: 'Brutal Anatomy', type: 'Ancestry Feat', level: 1, choice: 'Claw' }] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Claws"')
+  expect(markup).not.toContain('Vesk Claw')
+  expect(markup).not.toContain('Vesk Jaws')
+})
+
+it('keeps the base name when displaying upgraded SF2E weapon grades', () => {
+  const grade = (id: string, name: string, level: number): ContentEntry => ({
+    ...weapon, id, name, level, systems: ['sf2e'], traits: ['Tech'],
+    data: { weapon_category: 'Martial', weapon_type: 'Melee', hands: '2', damage: '1d8 slashing',
+      upgrade_slots: 1, url: 'doshko' },
+  })
+  const base = grade('doshko', 'Doshko', 0)
+  const tactical = grade('tactical-doshko', 'Tactical Doshko', 2)
+  const paragon = grade('paragon-doshko', 'Paragon Doshko', 20)
+  const c: Character = { ...character([]), systems: ['sf2e'], weapons: [
+    { id: 'doshko', name: paragon.name, potency: 0, striking: 0, runes: [] },
+  ] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[base, tactical, paragon]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Doshko"')
+  expect(markup).toContain('Doshko (Level 0)')
+  expect(markup).toContain('Doshko (Level 2)')
+  expect(markup).toContain('Doshko (Level 20)')
+  expect(markup).toContain('value="Tactical Doshko">Doshko (Level 2)</option>')
+  expect(markup).toContain('value="Paragon Doshko" selected="">Doshko (Level 20)</option>')
+})

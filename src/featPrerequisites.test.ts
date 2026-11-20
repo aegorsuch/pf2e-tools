@@ -1487,7 +1487,14 @@ describe('shared prerequisite enforcement', () => {
     ['pf2e', 'Lizardfolk', 'Cloudleaper Lizardfolk', 'Iruxi Glide'],
     ['pf2e', 'Tengu', 'Wavediver Tengu', 'Waxed Feathers'],
     ['pf2e', 'Leshy', 'Pine Leshy', 'Towering Growth'],
+    ['sf2e', 'Vesk', 'Frilled Vesk', 'Frilled Vesk Glide'],
+    ['sf2e', 'Vesk', 'Enshrined Vesk', 'Shape Statue'],
     ['sf2e', 'Vesk', 'Fork-Tongued Vesk', 'Venomous Cocktail'],
+    ['sf2e', 'Vesk', 'Horizon Seeker Vesk', 'Wriggling Tail'],
+    ['sf2e', 'Vesk', 'Fork-Tongued Vesk', 'Envenom Magazine'],
+    ['sf2e', 'Vesk', 'Enshrined Vesk', 'Memories of Valor'],
+    ['sf2e', 'Vesk', 'Enshrined Vesk', 'Fortified Monument'],
+    ['sf2e', 'Vesk', 'Wavecrested Vesk', 'Regenerative Blood'],
     ['sf2e', 'Lashunta', 'Damaya Lashunta', 'Psychic Scholar'],
     ['sf2e', 'Android', 'Hellforged Android', 'Hardened Plates'],
   ] as const)('checks %s %s ancestry feat heritage prerequisites', (system, ancestry, heritage, name) => {
@@ -1500,6 +1507,28 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats(data, c, slot)).toContain(data[1])
     expect(eligibleFeats(data, { ...c, heritage: 'Different heritage' }, slot)).not.toContain(data[1])
     expect(eligibleFeats(data, { ...c, ancestry: 'Human' }, slot)).not.toContain(data[1])
+  })
+
+  it('checks Vesk prerequisite alternatives and feat chains', () => {
+    const platedHeritage = entry('heritage', 'Plated Vesk')
+    const enshrinedHeritage = entry('heritage', 'Enshrined Vesk')
+    const armorAce = entry('feat', 'Armor Ace', {}, 1, ['Vesk'])
+    const platedDeflection = entry('feat', 'Plated Deflection', { prerequisite: 'Plated Vesk heritage or Armor Ace' }, 9, ['Vesk'])
+    const memories = entry('feat', 'Memories of Valor', { prerequisite: 'Enshrined Vesk heritage' }, 9, ['Vesk'])
+    const noMemory = entry('feat', 'No Memory Left Behind', { prerequisite: 'Memories of Valor' }, 13, ['Vesk'])
+    const entries = [platedHeritage, enshrinedHeritage, armorAce, platedDeflection, memories, noMemory]
+    const check = (character: Character, feat: ContentEntry) => featPrerequisiteChecker(character, entries)(feat)
+    const plated: Character = { ...base, systems: ['sf2e'], ancestry: 'Vesk', heritage: 'Plated Vesk', level: 13 }
+    const armored: Character = { ...plated, heritage: 'Frilled Vesk', feats: [selected('Armor Ace')] }
+    expect(check(plated, platedDeflection)).toEqual({ missing: [], manual: [] })
+    expect(check(armored, platedDeflection)).toEqual({ missing: [], manual: [] })
+    expect(check({ ...plated, heritage: 'Frilled Vesk' }, platedDeflection).missing).toEqual(['Plated Vesk heritage or Armor Ace'])
+
+    const enshrined: Character = { ...plated, heritage: 'Enshrined Vesk',
+      feats: [{ ...selected('Memories of Valor', 9), type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' }] }
+    expect(check(enshrined, noMemory)).toEqual({ missing: [], manual: [] })
+    expect(check({ ...enshrined, heritage: 'Frilled Vesk' }, noMemory).missing).toEqual(['Enshrined Vesk heritage'])
+    expect(check({ ...enshrined, feats: [] }, noMemory).missing).toEqual(['Memories of Valor'])
   })
 
   it('enforces Wandering Heart environmental heritage requirements without guessing unknown heritages', () => {

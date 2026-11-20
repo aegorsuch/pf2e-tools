@@ -5,6 +5,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'adoptedDwarfClanDagger', label: 'Adopted Ancestry (Dwarf) Grants Clan Dagger' },
   { key: 'autoClassSkills', label: 'Auto-Advance Class-Specific Skills' },
   { key: 'autoLores', label: 'Auto-Advance Lores' },
+  { key: 'sf2eDeitySkills', label: 'SF2e Deities Grant Skills',
+    description: "Non-Champions and non-Avengers gain training in their deity's divine skill. If already trained, gain another trained skill choice." },
   { key: 'innateAutoHeighten', label: 'Auto-Heighten Innate and Item Spells' },
   { key: 'barbarianWarJavelinAccess', label: 'Barbarian Access: War Javelin',
     description: 'Barbarians gain Access to the War Javelin. Weapon proficiency is unchanged.' },

@@ -2630,7 +2630,9 @@ export function autoClassSkills(c: Character, entries: ContentEntry[]) {
     : []
   const picked = c.classSkill && choices.includes(c.classSkill) ? c.classSkill : undefined
   const rackets = rogueRackets(c, entries)
-  const divine = c.className === 'Champion' || rackets.includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill) : []
+  const divine = c.className === 'Champion' || rackets.includes('Avenger')
+    || c.systems.includes('sf2e') && getSettings().sf2eDeitySkills
+    ? tokens(byName(entries, 'deity', c.deity)?.data.skill) : []
   const extra = c.rogueRacketSkills?.Mastermind
   const racketSkills = [
     ...(rackets.includes('Thief') ? ['Thievery'] : []),
@@ -6245,7 +6247,8 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
     + Number(testSubjectAdaptation(c) === 'Cybernetic Augmentation'
       && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Computers'))
     + (() => {
-      if (c.className !== 'Champion' && !rogueRackets(c, entries).includes('Avenger')) return 0
+      if (c.className !== 'Champion' && !rogueRackets(c, entries).includes('Avenger')
+        && !(c.systems.includes('sf2e') && getSettings().sf2eDeitySkills)) return 0
       const deitySkills = [...new Set(tokens(byName(entries, 'deity', c.deity)?.data.skill))]
       const ranksWithoutDeity = ranksAt({ ...c, deity: undefined }, entries)
       return deitySkills.filter(skill => (ranksWithoutDeity[skill] ?? 0) > 0).length
