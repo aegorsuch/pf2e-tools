@@ -151,6 +151,7 @@ const weaponCapacity = (entry?: ContentEntry) => {
 }
 
 export function Augmentations({ c, entries, save }: SectionProps) {
+  const [apexOnly, setApexOnly] = useState(false)
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
@@ -176,7 +177,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   const apexInstalled = installedApexAugmentations(c)
   const apexActive = activeApexAugmentation(c)
+  const isApex = (entry: ContentEntry) => !!APEX_AUGMENTATIONS[entry.name] || entry.traits.some(trait => trait.toLowerCase() === 'apex')
   const installable = options.filter(entry => canInstallAugmentation(c, entry, 'standard'))
+  const shownOptions = apexOnly ? installable.filter(isApex) : installable
   const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
   const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
   const powerControl = (id: string, name: string) => {
@@ -256,13 +259,14 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}
       <option value="none">None</option>
     </select></label>}
+    {installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>}
     {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" onChange={event => {
       const chosen = installable.find(entry => entry.id === event.target.value)
       if (!chosen) return
       save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
     }}>
       <option value="">Add augmentation...</option>
-      {installable.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
+      {shownOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
     </SearchableSelect>}
   </section>
 }

@@ -136,6 +136,11 @@ it('uses a spell action icon for a supported damage roll and keeps non-rolling s
   expect(multiple).toContain('8d8 sonic')
 })
 
+it('rolls Corrosive Haze acid damage and heightens by 1d8 and 1d6 persistent', () => {
+  expect(spellDamage('Corrosive Haze', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'acid', additional: { dice: 1, sides: 6 } }, { dice: 3, sides: 8 }])
+  expect(spellDamage('Corrosive Haze', 8)).toMatchObject([{ dice: 8, additional: { dice: 3 } }, { dice: 5 }])
+})
+
 it('rolls Inject Nanobots acid damage and heightens by 2d6 per rank', () => {
   expect(spellDamage('Inject Nanobots', 2)).toMatchObject([{ dice: 4, sides: 6, type: 'acid' }])
   expect(spellDamage('Inject Nanobots', 5)).toMatchObject([{ dice: 10, sides: 6 }])
