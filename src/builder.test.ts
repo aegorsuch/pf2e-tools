@@ -919,6 +919,13 @@ describe('official passive feat mechanics', () => {
     ])
   })
 
+  it('applies Mystic Armor to AC and saves only while active', () => {
+    const c: Character = { ...base, level: 12, spells: [{ name: 'Mystic Armor', rank: 6, cantrip: false }], activeSpells: ['Mystic Armor'] }
+    const on = armorClass(c, []), off = armorClass({ ...c, activeSpells: [] }, [])
+    expect(on - off).toBe(2)
+    expect(savingThrowBreakdown(c, [], 'Will').parts.find(part => part.label === 'Mystic Armor (item)')?.value).toBe(1)
+  })
+
   it('grants Stormwind Flight Speed only while the known spell is active', () => {
     const c: Character = { ...base, level: 8, spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }],
       activeSpells: ['Stormwind Flight'], feats: [{ name: 'Fleet', type: 'General Feat', level: 1 }] }

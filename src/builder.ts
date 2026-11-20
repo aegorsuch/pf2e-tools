@@ -3855,7 +3855,16 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   return ranks
 }
 
+// Mystic Armor replaces worn armor while active: item bonus to AC, Dex cap +5, unarmored proficiency
+export function mysticArmor(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || !isSpellActive(c, entries, 'Mystic Armor')) return undefined
+  const rank = Math.max(1, Math.min(10, Math.ceil(c.level / 2)))
+  return { rank, ac: rank >= 10 ? 3 : rank >= 6 ? 2 : 1, save: c.level >= 4 && rank >= 4 ? rank >= 10 ? 3 : rank >= 8 ? 2 : 1 : 0 }
+}
+
 export function armorSaveBonus(c: Character, entries: ContentEntry[]) {
+  const mystic = mysticArmor(c, entries)
+  if (mystic) return mystic.save
   const worn = wornArmor(c, entries)
   return Math.max(worn?.resilient ?? 0, num(worn && armorEntry(c, entries, worn.name, worn.id)?.data.grade_save_bonus))
 }
@@ -3873,7 +3882,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const parts: TotalPart[] = [
     { label: ABILITY_LABEL[ability[name]], value: abilityMod(c.abilities[ability[name]]) },
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
-    { label: armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
+    { label: mysticArmor(c, entries) ? 'Mystic Armor (item)' : armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
   ]
   if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
     parts.push({ label: 'Desperate Wrath', value: -1 })
@@ -4319,13 +4328,14 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
       ].join(' / ') + ' (circumstance)', value: best }] : [])],
       notes: currentSpell ? [`Current Spell: AC ${form.ac + Math.max(best, 2) + ragePenalty} against ranged attacks; circumstance bonuses do not stack.`] : [] }
   }
-  const worn = wornArmor(c, entries)
-  const armor = equippedArmorEntry(c, entries)
+  const mystic = mysticArmor(c, entries)
+  const worn = mystic ? undefined : wornArmor(c, entries)
+  const armor = mystic ? undefined : equippedArmorEntry(c, entries)
   const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
   const rank = armorProficiencyRank(c, entries, armor)
   const dexterity = abilityMod(c.abilities.dex)
   const skin = animalSkinBenefits(c, entries)
-  const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
+  const dexCap = mystic ? 5 : skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
   const raised = shieldRaised(c) ? shieldAcBonus(c, entries) : 0
   const raisedCantrip = isSpellActive(c, entries, 'Shield') ? 1 : 0
   const parry = parryBonus(c, entries)
@@ -4343,6 +4353,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Base', value: 10 },
     { label: armor?.name ?? 'Armor', value: num(armor?.data.ac) },
     { label: worn ? `${worn.name} potency` : 'Armor potency', value: worn?.potency ?? 0 },
+    ...(mystic ? [{ label: 'Mystic Armor (item)', value: mystic.ac }] : []),
     ...(skin ? [{ label: 'Animal Skin (item)', value: skin.itemBonus }] : []),
     { label: 'Dexterity', value: Math.min(dexterity, dexCap),
       note: Number.isFinite(dexCap) ? `Modifier ${signed(dexterity)}; cap ${signed(dexCap)}` : undefined },

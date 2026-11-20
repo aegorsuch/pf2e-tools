@@ -717,4 +717,5 @@ it('scales Entropy Strike void and tech persistent acid damage by rank', () => {
   expect(spellDamage('Entropy Strike', 2)).toEqual([])
   expect(spellDamage('Entropy Strike', 3)[0]).toMatchObject({ dice: 5, sides: 8, type: 'void', additional: { dice: 2, sides: 6, type: 'persistent acid' } })
   expect(spellDamage('Entropy Strike', 5)[0]).toMatchObject({ dice: 7, additional: { dice: 4 } })
+  expect(spellDamage('Entropy Strike', 10)[0]).toMatchObject({ dice: 12, additional: { dice: 9 } })
 })
