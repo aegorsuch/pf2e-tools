@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -27,6 +27,33 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it.each([false, true])('applies Inventive Offensive to one held melee weapon (displayOnly=%s)', displayOnly => {
+  const sword = { ...weapon, traits: ['Deadly d8', 'Versatile P'], data: { ...weapon.data, hands: '1' } }
+  let c: Character = { ...character([{ name: 'Inventive Offensive', type: 'Ancestry Feat', level: 1 }]), level: 15,
+    rankOverrides: { Crafting: 4 }, weapons: [
+      { id: 'one', name: sword.name, potency: 0, striking: 0, runes: [] },
+      { id: 'two', name: sword.name, potency: 0, striking: 0, runes: [] },
+    ] }
+  const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly })
+  const control = (label: string) => findElement(tree(), e => e.props['aria-label'] === label)!
+  const first = control('Inventive Offensive: Longsword')
+  const options = renderToStaticMarkup(tree())
+  expect(options).not.toContain('<option>Deadly d6</option>')
+  expect(options).not.toContain('<option>Versatile B</option>')
+  ;(first.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Trip' } })
+  ;(control('Inventive Offensive second trait: Longsword').props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Shove' } })
+  expect(weaponAttack(c, [sword], c.weapons![0]).traits).toEqual(expect.arrayContaining(['Trip', 'Shove']))
+  expect(weaponAttack(c, [sword], c.weapons![1]).traits).not.toContain('Trip')
+  expect(weaponAttack({ ...c, rankOverrides: { Crafting: 3 } }, [sword], c.weapons![0]).traits).not.toContain('Shove')
+  expect(inventiveOffensiveChange({ ...c, rankOverrides: { Crafting: 3 } }, [sword]))
+    .toEqual({ inventiveOffensive: { weaponId: 'one', traits: ['Trip'] } })
+  expect(weaponAttack({ ...c, feats: [] }, [sword], c.weapons![0]).traits).not.toContain('Trip')
+  const stowed = { ...c, weapons: c.weapons!.map((w, index) => index ? w : { ...w, stowed: true }) }
+  expect(weaponAttack(stowed, [sword], stowed.weapons![0]).traits).not.toContain('Trip')
+  expect(inventiveOffensiveChange(stowed, [sword])).toEqual({ inventiveOffensive: undefined })
+  expect(inventiveOffensiveChange(c, [sword])).toEqual({})
 })
 
 it.each([false, true])('does not add conditional Blade of Law damage to weapon damage (displayOnly=%s)', displayOnly => {

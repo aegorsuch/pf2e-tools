@@ -216,6 +216,7 @@ export interface Character {
   legacyTenetsOfGood?: boolean
   devotionSpell?: 'Lay on Hands' | 'Touch of the Void' | 'Shields of the Spirit'
   blessedArmament?: { weaponId: string; rune: string }
+  inventiveOffensive?: { weaponId: string; traits: string[] }
   haftStrikerWeaponId?: string
   raging?: boolean
   giantWeaponId?: string

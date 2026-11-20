@@ -5225,6 +5225,28 @@ export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_CATEGORIES)
   return WEAPON_CATEGORIES.find((cat) => text.includes(cat.toLowerCase())) ?? 'Simple'
 }
 export const isRanged = (entry?: ContentEntry) => /ranged/i.test(String(entry?.data.weapon_type ?? '')) || num(entry?.data.range) > 0
+
+export const INVENTIVE_OFFENSIVE_TRAITS = ['Deadly d6', 'Disarm', 'Nonlethal', 'Shove', 'Trip',
+  'Versatile B', 'Versatile P', 'Versatile S'] as const
+
+export function inventiveOffensiveOptions(traits: string[]) {
+  const existing = traits.map(trait => trait.trim().toLowerCase())
+  return INVENTIVE_OFFENSIVE_TRAITS.filter(option => {
+    const family = option.toLowerCase().split(' ')[0]
+    return !existing.some(trait => trait === family || trait.startsWith(`${family} `))
+  })
+}
+
+export function inventiveOffensiveChange(c: Character, entries: ContentEntry[]): Partial<Character> {
+  if (!c.inventiveOffensive) return {}
+  const weapon = ownedWeapons(c, entries).find(candidate => candidate.id === c.inventiveOffensive?.weaponId)
+  if (!activeFeatsNamed(c, 'Inventive Offensive').length || !weapon || !weaponHeld(c, entries, weapon)
+    || weapon.stowed || weapon.cheekStored) return { inventiveOffensive: undefined }
+  if ((ranksAt(c, entries).Crafting ?? 0) < 4 && c.inventiveOffensive.traits.length > 1) {
+    return { inventiveOffensive: { ...c.inventiveOffensive, traits: c.inventiveOffensive.traits.slice(0, 1) } }
+  }
+  return {}
+}
 export const weaponDamage = (entry?: ContentEntry) => {
   const damage = String(entry?.data.damage ?? '').trim()
   return /[a-z]$/i.test(damage) || !entry?.data.damage_type ? damage : `${damage} ${String(entry.data.damage_type).charAt(0).toUpperCase()}`
@@ -5306,6 +5328,22 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (entry && c.className === 'Barbarian' && c.raging && getSettings().barbarianIgnoreAgile
     && entry.traits.some(trait => /^agile$/i.test(trait.trim()))) {
     entry = { ...entry, traits: entry.traits.filter(trait => !/^agile$/i.test(trait.trim())) }
+  }
+  if (entry && !isRanged(entry) && weaponCategory(entry) !== 'Unarmed'
+    && activeFeatsNamed(c, 'Inventive Offensive').length && c.inventiveOffensive?.weaponId === w.id
+    && !w.stowed && !w.cheekStored && weaponHeld(c, entries, w)) {
+    const runeTraits = w.runes.flatMap(rune => {
+      const name = runeName(rune)
+      return name === 'Disarming' ? ['Disarm'] : name === 'Shoving' ? ['Shove'] : name === 'Hooked' ? ['Trip'] : []
+    })
+    const options = inventiveOffensiveOptions([...entry.traits, ...runeTraits])
+    const chosen: string[] = []
+    const limit = (ranksAt(c, entries).Crafting ?? 0) >= 4 ? 2 : 1
+    for (const trait of c.inventiveOffensive.traits) {
+      if (chosen.length >= limit) break
+      if (options.some(option => option === trait) && inventiveOffensiveOptions(chosen).some(option => option === trait)) chosen.push(trait)
+    }
+    if (chosen.length) entry = { ...entry, traits: [...entry.traits, ...chosen] }
   }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const ranged = isRanged(entry)

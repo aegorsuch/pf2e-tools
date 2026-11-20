@@ -6,7 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -399,6 +399,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       Object.assign(next, syncOrderExplorerFeats(next, entries))
       Object.assign(next, faithfulSteedChange(next, entries))
       Object.assign(next, constructCompanionChange(next))
+      Object.assign(next, inventiveOffensiveChange(next, entries))
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })
