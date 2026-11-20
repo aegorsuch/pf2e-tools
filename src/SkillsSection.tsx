@@ -659,6 +659,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {isFeatEffectActive(c, 'Verdant Metamorphosis') && <SourceNote source="Verdant Rest"
             note={`Cannot move or affect anything outside the plant. In natural sunlight, 10 minutes restores ${Math.floor(maxHp(c, entries) / 2)} Hit Points. Daily rest restores full Hit Points and removes non-permanent drained, enfeebled, clumsy and stupefied conditions, and poisons and diseases of level 19 or lower.`} />}
         </>}
+        {!!activeFeatsNamed(c, 'Harden Flesh').length && <label title="Requires earthen or stone ground; ends at the beginning of your next turn.">
+          <input type="checkbox" aria-label="Harden Flesh active" checked={!!c.hardenFleshActive}
+            onChange={event => save({ hardenFleshActive: event.target.checked })} /> Harden Flesh active
+        </label>}
         {form && <div className="defense-summary">
           <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
             <SourceNote source={form.source} note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>

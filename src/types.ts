@@ -226,6 +226,7 @@ export interface Character {
   intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
   currentSpell?: 'air' | 'water' | 'air and water'
+  hardenFleshActive?: boolean
   focusPointsSpentSinceRefocus?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched

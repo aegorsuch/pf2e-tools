@@ -400,6 +400,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       Object.assign(next, faithfulSteedChange(next, entries))
       Object.assign(next, constructCompanionChange(next))
       Object.assign(next, inventiveOffensiveChange(next, entries))
+      if (next.hardenFleshActive && !activeFeatsNamed(next, 'Harden Flesh').length) next.hardenFleshActive = false
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })

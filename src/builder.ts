@@ -3935,6 +3935,8 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     }
   }
   if (isFeatEffectActive(c, 'Heart of the Kaiju')) out.push({ damage: 'physical', value: 5, source: 'Heart of the Kaiju' })
+  if (c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length) out.push({ damage: 'physical (except adamantine)',
+    value: Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4))), source: 'Harden Flesh' })
   for (const rune of wornArmor(c)?.runes ?? []) {
     const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune.replace(/^Greater Energy-Resistant/, 'Energy-Resistant (Greater)')) ?? /^()(\w+) Resistant$/.exec(rune)
     if (m) out.push({ damage: m[2], value: m[1] ? 10 : 5, source: `${rune} rune` })

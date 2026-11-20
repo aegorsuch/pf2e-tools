@@ -1854,16 +1854,17 @@ it('alphabetizes resistance types in the Defense display', () => {
   expect(markup.indexOf('Acid 3')).toBeLessThan(markup.indexOf('Fire 5'))
 })
 
-it.each([[10, 3], [11, 3], [12, 4], [15, 4], [16, 5], [19, 5], [20, 6]])('shows Harden Flesh resistance %i -> %i as an action note', (level, value) => {
-  const c: Character = { ...base, className: 'Druid', level, feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
-  expect(resistances(c, [])).toEqual([])
-  expect(resistances({ ...c, activeFeatEffects: [] }, [])).toEqual([])
+it.each([[10, 3], [11, 3], [12, 4], [15, 4], [16, 5], [19, 5], [20, 6]])('applies Harden Flesh resistance %i -> %i only while active', (level, value) => {
+  const c: Character = { ...base, className: 'Druid', level, feats: [feat('Harden Flesh', 10)], hardenFleshActive: true }
+  expect(resistances(c, [])).toEqual([{ damage: 'Physical (except adamantine)', value, source: 'Harden Flesh' }])
+  expect(resistances({ ...c, hardenFleshActive: false }, [])).toEqual([])
+  expect(resistances({ ...c, hardenFleshActive: false, activeFeatEffects: ['Harden Flesh'] }, [])).toEqual([])
   expect(resistances({ ...c, level: 9 }, [])).toEqual([])
   expect(resistances({ ...c, feats: [] }, [])).toEqual([])
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
   expect(markup).toContain('aria-label="Harden Flesh note"')
   expect(markup).toContain(`resistance ${value} to physical damage except adamantine`)
-  expect(markup).not.toContain('Harden Flesh active')
+  expect(markup).toContain('Harden Flesh active')
 })
 
 it('never treats kaiju form resistance or future feat resistance metadata as permanent', () => {
@@ -2207,11 +2208,11 @@ it('exposes persisted defensive contexts and shows conditional bonuses without c
     expect(markup).toContain('(Hazard Finder)')
     expect(markup).not.toContain('<small>Circumstance</small>+1')
   }
-  const druid: Character = { ...base, className: 'Druid', feats: [feat('Harden Flesh', 10)], activeFeatEffects: ['Harden Flesh'] }
+  const druid: Character = { ...base, className: 'Druid', feats: [feat('Harden Flesh', 10)], hardenFleshActive: true }
   const markup = renderToStaticMarkup(<SkillsSection c={druid} entries={[]} save={() => {}} part="defense" />)
-  expect(markup).not.toContain('Harden Flesh active')
+  expect(markup).toContain('Harden Flesh active')
   expect(markup).toContain('aria-label="Harden Flesh note"')
-  expect(markup).toContain('Resistances: None')
+  expect(markup).toContain('Physical (except adamantine) 3')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...druid, feats: [] }} entries={[]} save={() => {}} part="defense" />)).not.toContain('Harden Flesh note')
 })
 
