@@ -812,14 +812,19 @@ it('shows conditional combat effects only on eligible Barbarian attacks', () => 
 
 it('shows conditional finishing and fear effects on eligible strikes', () => {
   const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
-    feats: [feat('Furious Finish', 2), feat('Intimidating Strike', 2), feat('Meditate on This!', 14)] }
+    feats: [feat('Furious Finish', 2), feat('Intimidating Strike', 2), feat('Meditate on This!', 14),
+      feat('Whirlwind Strike', 14), feat('Cleave', 6), feat('Great Cleave', 10)] }
   const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
   const notes = (character: Character, weapon: OwnedWeapon) => weaponAttack(character, [], weapon).breakdown.notes.join(' ')
   expect(notes(c, fist)).toContain('Furious Finish:')
   expect(notes(c, fist)).toContain('Intimidating Strike:')
   expect(notes(c, fist)).toContain('Meditate on This!:')
+  expect(notes(c, fist)).toContain('Whirlwind Strike:')
+  expect(notes(c, fist)).toContain('Great Cleave allows further Strikes')
   expect(notes({ ...c, raging: false }, fist)).not.toContain('Furious Finish:')
   expect(notes({ ...c, raging: false }, fist)).not.toContain('Meditate on This!:')
+  expect(notes({ ...c, raging: false }, fist)).not.toContain('Cleave:')
+  expect(notes({ ...c, raging: false }, fist)).toContain('Whirlwind Strike:')
   expect(notes({ ...c, level: 1 }, fist)).not.toContain('Intimidating Strike:')
 })
 

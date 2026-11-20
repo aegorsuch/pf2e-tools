@@ -5826,6 +5826,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? [`Perfect Clarity: reroll a failed or critically failed attack at ${signed(attack + Math.max(0, 2 - desperateWrath))} (+2 circumstance; circumstance bonuses do not stack), use the better result, then end Rage.`] : []),
         ...(!ranged && activeFeatsNamed(c, 'Intimidating Strike').length
           ? ['Intimidating Strike: a damaging hit makes the target frightened 1, or frightened 2 on a critical hit.'] : []),
+        ...(!ranged && activeFeatsNamed(c, 'Whirlwind Strike').length
+          ? ['Whirlwind Strike: Strike each enemy within reach; all attacks count toward multiple attack penalty, but increase it only after all Strikes.'] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Cleave').length
+          ? [`Cleave: after a melee Strike reduces an enemy to 0 HP, Strike another enemy adjacent to it.${activeFeatsNamed(c, 'Great Cleave').length ? ' Great Cleave allows further Strikes against adjacent enemies while each Strike reduces its target to 0 HP.' : ''}`] : []),
         ...(!ranged && category === 'Unarmed' && c.raging && activeFeatsNamed(c, 'Meditate on This!').length
           ? [`Meditate on This!: until the start of your next turn after activating, a creature hit by an unarmed Strike or dealing adjacent piercing, slashing, or bleed damage to you attempts a Will save against ${classDifficultyClass(c, entries) ?? 'your class DC'}: success frightened 1, failure frightened 2, critical failure frightened 3 and fleeing until the end of its next turn. Each creature is immune for 1 minute.`] : []),
         ...((!ranged || ragingThrower) && criticalDie && activeFeatsNamed(c, 'Brutal Critical').length
