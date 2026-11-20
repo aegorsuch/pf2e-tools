@@ -1275,7 +1275,7 @@ it('uses Starfinder weapon grades rather than saved Pathfinder runes', () => {
   expect(effectiveWeapon(c, [laser], weapon).runes).toEqual([])
   expect(weapon.runes).toEqual(['Flaming'])
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[laser]} save={() => {}} />)
-  expect(markup).toContain('Upgrade slots: 0/2')
+  expect(markup).not.toContain('Upgrade slots:')
   expect(markup).toContain('Saved runes are inactive')
   expect(markup).not.toContain('aria-label="Add property rune"')
 })

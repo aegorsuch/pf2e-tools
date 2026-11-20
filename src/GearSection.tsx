@@ -429,13 +429,35 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
     {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
       kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
-    {limit === undefined ? <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>
-      : <small>Upgrade slots: {upgrades.length}/{limit}.</small>}
+    {limit === undefined && <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>}
     {limit !== undefined && upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
     {limit !== undefined && upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value="" onChange={event => {
       if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
       <option value="">Add weapon upgrade...</option>
+      {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
+    </SearchableSelect>}
+  </div>
+}
+
+export function ArmorUpgrades({ entries, upgrades, limit, onChange }: {
+  entries: ContentEntry[]; upgrades: string[]; limit: number; onChange: (ids: string[]) => void
+}) {
+  const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
+    && entry.data.item_subcategory === 'Armor Upgrades')
+  const installed = upgrades.map(id => catalog.find(entry => entry.id === id))
+  const options = catalog.filter(entry => !installed.some(item => item?.id === entry.id))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
+  return <div className="gear-runes">
+    {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
+      kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
+    {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
+    <small>Armor upgrade slots: {upgrades.length}/{limit}.</small>
+    {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
+    {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value="" onChange={event => {
+      if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
+    }}>
+      <option value="">Add armor upgrade...</option>
       {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
     </SearchableSelect>}
   </div>
@@ -1701,6 +1723,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         ? saved?.runes ?? []
         : armor.id === ARMIGER_ARMOR_ID
           ? [...armor.runes.filter(rune => !isAutomaticFamily(rune)), ...(saved?.runes.filter(isAutomaticFamily) ?? [])]
+          : armorEntry(c, entries, armor.name, armor.id)?.systems.includes('sf2e')
+            ? saved?.runes ?? armor.runes
           : armor.runes
       return { ...armor, runes, ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
@@ -1720,13 +1744,14 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const bonyPlates = a.id === BONY_PLATES_ID
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
-        const runesAllowed = entry?.data.runes_allowed !== false
+        const sf2eArmor = !!entry?.systems.includes('sf2e')
+        const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
         const modifications = a.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
         const capacity = modifications.some(mod => mod.name === 'Rune Capacity') ? 1 : 0
         const runeLimit = (potency: number, material: OwnedArmor['material']) => maxPropertyRunes(potency, material, capacity > 0)
-        const starfinder = granted && entry?.systems.includes('sf2e') ? entry : undefined
+        const starfinder = granted && sf2eArmor ? entry : undefined
         const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
         const named = namedArmorEnhancements(entry)
         const automaticRunes = automaticArmorPropertyRunes(entry)
@@ -1793,7 +1818,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
             <NamedArmorAbilities entry={entry} inlineSummary />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
-            {Number(entry?.data.upgrade_slots) > 0 && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}.</small>}
+            {Number(entry?.data.upgrade_slots) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
+              && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
@@ -1837,6 +1863,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
+              {sf2eArmor && entry && Number(entry.data.upgrade_slots) > 0 && entry.data.upgrades_allowed !== false
+                && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
+                  limit={Number(entry.data.upgrade_slots)}
+                  onChange={upgrades => update(a.id, { upgrades })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
@@ -1852,7 +1882,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 && (a.id !== BONY_PLATES_ID || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune.name))))}
               limit={bonyPlates ? 0 : runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
               onChange={bonyPlates ? undefined : (runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} /></>
-              : <small>Armor runes cannot be etched onto this shell.</small>}
+              : !sf2eArmor && <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
               onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),
                 { ...(c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id ? setEnduringMod(c) : {}),

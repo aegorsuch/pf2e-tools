@@ -1565,6 +1565,19 @@ describe('skills', () => {
     expect(autoClassSkills(c, [champion, entry('deity', 'Iomedae', { skill: 'Religion' })])).toEqual(['Religion'])
   })
 
+  it('adds a trained choice when a deity skill duplicates existing class or background training', () => {
+    const champion = entry('class', 'Champion', {
+      skill_proficiency: 'Trained in Religion, Trained in one skill determined by your choice of deity, Trained in a number of additional skills equal to 2 plus your Intelligence modifier',
+    })
+    const deity = entry('deity', 'Damoritosh', { skill: 'Intimidation' })
+    const background = entry('background', 'Guard', { skill: 'Intimidation, Athletics' })
+    const entries = [champion, deity, background]
+    const c = { ...base, className: 'Champion', background: 'Guard', deity: 'Damoritosh', level: 1 }
+    expect(autoClassSkills(c, entries)).toContain('Intimidation')
+    expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount({ ...c, deity: undefined }, entries) + 1)
+    expect(skillRankBudget(c, entries).trained).toBe(skillRankBudget({ ...c, deity: undefined }, entries).trained + 1)
+  })
+
   it('parses class skills', () => {
     expect(classSkills(entries.find((e) => e.kind === 'class' && e.name === 'Wizard'))).toMatchObject({ fixed: ['Arcana'], additional: 2 })
   })

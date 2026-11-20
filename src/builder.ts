@@ -5085,6 +5085,9 @@ function scaledMaterial(material: OwnedWeapon['material'], level: number, equipm
 }
 
 export function effectiveArmor(c: Character, entries: ContentEntry[], armor: OwnedArmor): OwnedArmor {
+  const source = armorEntry(c, entries, armor.name, armor.id)
+  if (source?.systems.includes('sf2e'))
+    return { ...armor, potency: 0, resilient: 0, runes: [] }
   const grant = characterArmorGrants(c, entries).find(entry => entry.id === armor.id)
   if (grant) {
     const automatic = automaticArmorFundamentals(c.level, grant)
@@ -6241,9 +6244,12 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
     }, 0)
     + Number(testSubjectAdaptation(c) === 'Cybernetic Augmentation'
       && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Computers'))
-    + (rogueRackets(c, entries).includes('Avenger') ? tokens(byName(entries, 'deity', c.deity)?.data.skill)
-      .filter(skill => [...classSkills(byName(entries, 'class', c.className)).fixed,
-        ...backgroundSkills(byName(entries, 'background', c.background))].includes(skill)).length : 0)
+    + (() => {
+      if (c.className !== 'Champion' && !rogueRackets(c, entries).includes('Avenger')) return 0
+      const deitySkills = [...new Set(tokens(byName(entries, 'deity', c.deity)?.data.skill))]
+      const ranksWithoutDeity = ranksAt({ ...c, deity: undefined }, entries)
+      return deitySkills.filter(skill => (ranksWithoutDeity[skill] ?? 0) > 0).length
+    })()
     + (() => {
       const klass = classSkills(byName(entries, 'class', c.className))
       const prior = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : []),

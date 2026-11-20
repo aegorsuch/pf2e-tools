@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -2098,7 +2098,7 @@ it('keeps saved hardlight runes inactive and provides grade-based upgrade slots'
   expect(attack).not.toContain('aria-label="Remove Flaming rune"')
   expect(attack).not.toContain('aria-label="Add property rune"')
   expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('Saved runes are inactive')
-  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('Upgrade slots: 0/2')
+  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).not.toContain('Upgrade slots:')
   selectGrade('Commercial')
   expect(c.handwraps).toMatchObject({ grade: 'Superior', runes: ['Flaming', 'Impactful'] })
   const remove = findElement(tree(), (element) => element.props['aria-label'] === 'Remove Hardlight Handwraps')
@@ -2127,6 +2127,31 @@ it('installs compatible weapon upgrades within capacity without changing saved r
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Sight' } })
   expect(c.weapons?.[0]).toMatchObject({ upgrades: ['Sight'], runes: ['Flaming'] })
   const full = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
-  expect(full).toContain('Upgrade slots: 1/1')
+  expect(full).not.toContain('Upgrade slots:')
   expect(full).not.toContain('aria-label="Add weapon upgrade"')
+})
+
+it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
+  const suit: ContentEntry = { ...weapon, id: 'starfinder-armor', name: 'Starfinder Armor', kind: 'armor', systems: ['sf2e'],
+    data: { ac: 4, dex_cap: 2, armor_category: 'Light', upgrade_slots: 1 } }
+  const upgrade: ContentEntry = { ...shifting, id: 'armor-upgrade', name: 'Thermal Capacitor', systems: ['sf2e'],
+    data: { item_subcategory: 'Armor Upgrades' } }
+  let c: Character = { ...character([]), systems: ['sf2e'], armors: [
+    { id: 'starfinder-armor', name: suit.name, potency: 2, resilient: 2, runes: ['Shadow'], worn: true },
+  ] }
+  const entries = [suit, upgrade]
+  const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Add armor upgrade')
+  expect(markup).not.toContain('Add property rune')
+  expect(markup).not.toContain('Shadow')
+  expect(markup).not.toContain('<label>Potency')
+  expect(markup).not.toContain('<label>Resilient')
+  expect(effectiveArmor(c, entries, c.armors![0])).toMatchObject({ potency: 0, resilient: 0, runes: [] })
+  const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+  const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  const select = findElement(content, element => element.props['aria-label'] === 'Add armor upgrade')!
+  expect(renderToStaticMarkup(select)).toContain('Thermal Capacitor')
+  ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'armor-upgrade' } })
+  expect(c.armors?.[0]).toMatchObject({ upgrades: ['armor-upgrade'], runes: ['Shadow'] })
 })
