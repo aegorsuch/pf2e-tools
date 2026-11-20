@@ -3691,6 +3691,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   if (name === 'Fortitude' && hasDivineIntercession(c, 'Asmodeus', 'major-curse')) {
     parts.push({ label: 'Asmodeus Major Curse: drained 4 (condition)', value: -4 })
   }
+  if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
+    parts.push({ label: 'Desperate Wrath', value: -1 })
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
   if (clumsy) parts.push({ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy })
   if (name === 'Reflex' && c.systems.includes('pf2e') && c.mountedCompanionId
@@ -3830,13 +3832,16 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
     ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name, wornArmor(c, entries)!.id) : undefined,
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  const juggernaut = activeFeatsNamed(c, 'Unstoppable Juggernaut').length > 0
+  const ragingResistance = Math.max(0, (juggernaut ? 8 : 3) + abilityMod(c.abilities.con))
+  if (juggernaut) out.push({ damage: 'all damage', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Unstoppable Juggernaut' })
   for (const feat of activeFeatsNamed(c, 'Planar Resilience')) {
     if (feat.choice && ['Cold', 'Fire'].includes(feat.choice)) {
       out.push({ damage: feat.choice.toLowerCase(), value: half, source: 'Planar Resilience' })
@@ -3868,37 +3873,37 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     out.push({ damage: 'Fire', value: 5, source: 'Asmodeus (Moderate Boon)' })
   }
   if (c.raging && c.level >= 9 && isGiantInstinct(c, entries)) {
-    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    const value = ragingResistance
     for (const damage of ['bludgeoning', ...(c.giantRagingResistance ? [c.giantRagingResistance] : [])]) {
       out.push({ damage, value, source: 'Raging Resistance' })
     }
   }
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'animal') {
-    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    const value = ragingResistance
     for (const damage of ['piercing', 'slashing'])
       out.push({ damage, value, source: 'Raging Resistance' })
   }
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'fury')
-    out.push({ damage: 'physical damage from weapons', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Raging Resistance' })
+    out.push({ damage: 'physical damage from weapons', value: ragingResistance, source: 'Raging Resistance' })
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'spirit') {
-    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    const value = ragingResistance
     out.push({ damage: 'void', value, source: 'Raging Resistance' })
     out.push({ damage: 'damage from undead attacks and abilities', value, source: 'Raging Resistance' })
   }
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'superstition'
     && ['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'].includes(c.superstitionTraditions ?? ''))
     out.push({ damage: `damage from ${c.superstitionTraditions} spells`,
-      value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Raging Resistance' })
+      value: ragingResistance, source: 'Raging Resistance' })
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'dragon' && c.barbarianDragon
     && DRAGON_INSTINCTS[c.barbarianDragon]) {
-    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    const value = ragingResistance
     for (const damage of new Set(['piercing', DRAGON_INSTINCTS[c.barbarianDragon].damage]))
       out.push({ damage, value, source: 'Raging Resistance' })
   }
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'elemental' && c.barbarianElement
     && ELEMENTAL_INSTINCTS[c.barbarianElement]) {
     out.push({ damage: `damage from ${c.barbarianElement} elemental creatures, creatures made of ${c.barbarianElement}, or effects with the ${c.barbarianElement} trait`,
-      value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Raging Resistance' })
+      value: ragingResistance, source: 'Raging Resistance' })
   }
   const armor = wornArmor(c, entries)
   if (armor) out.push(...energyNeutralizerResistances(c, armor.id))
@@ -4073,27 +4078,32 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const form = activeBattleForm(c, entries)
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
+  const ragePenalties: TotalPart[] = [
+    ...(c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? [{ label: 'Desperate Wrath', value: -1 }] : []),
+    ...(c.raging && isFeatEffectActive(c, 'Come and Get Me') ? [{ label: 'Come and Get Me: off-guard (circumstance)', value: -2 }] : []),
+  ]
+  const ragePenalty = ragePenalties.reduce((sum, part) => sum + part.value, 0)
   if (isFeatEffectActive(c, 'Verdant Metamorphosis')) {
     const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
     const best = Math.max(shield, raisedBoneShield, currentSpell)
-    return { total: 30 + best, parts: [{ label: 'Verdant Rest', value: 30 },
+    return { total: 30 + best + ragePenalty, parts: [{ label: 'Verdant Rest', value: 30 }, ...ragePenalties,
       ...(best ? [{ label: [
         ...(raisedBoneShield === best ? ['Raise Bone Shield'] : []),
         ...(shield === best ? ['Shield cantrip'] : []),
         ...(currentSpell === best ? ['Current Spell'] : []),
       ].join(' / ') + ' (circumstance)', value: best }] : [])],
-      notes: currentSpell ? [`Current Spell: AC ${30 + Math.max(best, 2)} against ranged attacks; circumstance bonuses do not stack.`] : [] }
+      notes: currentSpell ? [`Current Spell: AC ${30 + Math.max(best, 2) + ragePenalty} against ranged attacks; circumstance bonuses do not stack.`] : [] }
   }
   if (form) {
     const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
     const best = Math.max(shield, raisedBoneShield, currentSpell)
-    return { total: form.ac + best, parts: [{ label: form.source, value: form.ac },
+    return { total: form.ac + best + ragePenalty, parts: [{ label: form.source, value: form.ac }, ...ragePenalties,
       ...(best ? [{ label: [
         ...(raisedBoneShield === best ? ['Raise Bone Shield'] : []),
         ...(shield === best ? ['Shield cantrip'] : []),
         ...(currentSpell === best ? ['Current Spell'] : []),
       ].join(' / ') + ' (circumstance)', value: best }] : [])],
-      notes: currentSpell ? [`Current Spell: AC ${form.ac + Math.max(best, 2)} against ranged attacks; circumstance bonuses do not stack.`] : [] }
+      notes: currentSpell ? [`Current Spell: AC ${form.ac + Math.max(best, 2) + ragePenalty} against ranged attacks; circumstance bonuses do not stack.`] : [] }
   }
   const worn = wornArmor(c, entries)
   const armor = equippedArmorEntry(c, entries)
@@ -4127,6 +4137,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   if (best) parts.push({ label: `${candidates.filter(candidate => candidate.value === best).map(candidate => candidate.label).join(' / ')} (circumstance)`, value: best })
   const clumsy = giantWeaponClumsy(c, entries)
   if (clumsy) parts.push({ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy })
+  parts.push(...ragePenalties)
   const notes = candidates.length > 1 ? ['Circumstance bonuses do not stack: '
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
   if (activeFeatsNamed(c, 'Hazard Finder').length)
@@ -5663,12 +5674,13 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ...(drakeSupport ? [{ source: 'Riding Drake Support Benefit',
       value: `${drakeSupport}d4 fire`, note: "Applies while riding the drake when the target is in its reach, until the start of your next turn." }] : []),
   ]
+  const desperateWrath = c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? 2 : 0
   const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(natural, entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
-    .map((weapon): number => weaponAttack(natural, entries, weapon).attack)) : 0
-  const ownAttack = mod + prof + w.potency - clumsy + divineAttackBonus
+    .map((weapon): number => weaponAttack(natural, entries, weapon).attack - desperateWrath)) : 0
+  const ownAttack = mod + prof + w.potency - clumsy + divineAttackBonus + desperateWrath
   const untamedBonus = form?.source === 'Untamed Form' && ownUnarmed > form.attack ? 2 : 0
-  const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed + untamedBonus) : ownAttack
+  const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed + untamedBonus) + desperateWrath : ownAttack
   return {
     entry,
     upgrades,
@@ -5724,6 +5736,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       parts: formAttack && form ? [
         { label: form.source, value: form.attack },
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
+        ...(desperateWrath ? [{ label: 'Desperate Wrath (circumstance)', value: desperateWrath }] : []),
         ...(ownUnarmed + untamedBonus > form.attack + divineAttackBonus ? [{ label: 'Higher own unarmed attack modifier',
           value: ownUnarmed - form.attack - divineAttackBonus }] : []),
         ...(untamedBonus && ownUnarmed + untamedBonus > form.attack + divineAttackBonus
@@ -5733,6 +5746,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
         { label: 'Effective weapon potency (item)', value: w.potency },
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
+        ...(desperateWrath ? [{ label: 'Desperate Wrath (circumstance)', value: desperateWrath }] : []),
         ...(clumsy ? [{ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy }] : []),
       ],
       notes: [

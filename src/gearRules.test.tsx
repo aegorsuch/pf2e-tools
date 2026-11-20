@@ -783,6 +783,31 @@ it('gates fury, spirit and superstition raging resistance and superstition condi
   expect(attack.breakdown.notes.join(' ')).toContain('Rage damage is 8')
 })
 
+it('applies Unstoppable Juggernaut all-damage resistance and improves instinct resistance', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Animal', level: 20, raging: true,
+    abilities: { ...base.abilities, con: 18 }, feats: [feat('Unstoppable Juggernaut', 20)] }
+  const values = (character: Character) => resistances(character, [])
+  expect(values(c)).toContainEqual({ damage: 'All damage', value: 7, source: 'Unstoppable Juggernaut' })
+  expect(values(c)).toContainEqual({ damage: 'Piercing', value: 12, source: 'Raging Resistance' })
+  expect(values({ ...c, raging: false })).toContainEqual({ damage: 'All damage', value: 7, source: 'Unstoppable Juggernaut' })
+  expect(values({ ...c, raging: false }).some(item => item.source === 'Raging Resistance')).toBe(false)
+  expect(values({ ...c, level: 19 }).some(item => item.source === 'Unstoppable Juggernaut')).toBe(false)
+})
+
+it('applies activated Desperate Wrath and Come and Get Me to defenses and attacks', () => {
+  const c: Character = { ...base, className: 'Barbarian', level: 20, raging: true,
+    feats: [feat('Desperate Wrath', 16), feat('Come and Get Me', 10)],
+    activeFeatEffects: ['Desperate Wrath', 'Come and Get Me'] }
+  const inactive = { ...c, activeFeatEffects: [] }
+  expect(armorClass(c, [sword])).toBe(armorClass(inactive, [sword]) - 3)
+  for (const name of ['Fortitude', 'Reflex', 'Will'] as const)
+    expect(savingThrowBreakdown(c, [], name).total).toBe(savingThrowBreakdown(inactive, [], name).total - 1)
+  expect(weaponAttack(c, [sword], main).attack).toBe(weaponAttack(inactive, [sword], main).attack + 2)
+  expect(armorClass({ ...c, raging: false }, [])).toBe(armorClass({ ...inactive, raging: false }, []))
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(markup).toContain('Damage rolls against you gain +2 circumstance')
+})
+
 it('offers Scouring Rage using the chosen instinct damage type once per Rage', () => {
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level: 10, raging: true, spiritRage: true,
     feats: [feat('Scouring Rage', 6)] }

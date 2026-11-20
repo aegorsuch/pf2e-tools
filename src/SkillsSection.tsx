@@ -636,7 +636,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note="Concealed against ranged attacks; this concealment cannot be used to Hide or Sneak." />}
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
-          <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
+          <span><small>Hit Points</small><b>{maxHp(c, entries)}
+            {c.raging && !!activeFeatsNamed(c, 'Renewed Vigor').length && <SourceNote source="Renewed Vigor"
+              note={`One action: gain ${Math.max(0, Math.floor(c.level / 2) + abilityMod(c.abilities.con))} temporary HP, or ${Math.max(0, c.level + abilityMod(c.abilities.con))} if you made an attack action this turn. These temporary HP last until Rage ends.`} />}
+            {c.raging && !!activeFeatsNamed(c, 'Unstoppable Juggernaut').length && <SourceNote source="Unstoppable Juggernaut"
+              note="When reduced to 0 HP, end Rage as a reaction to stay at 1 HP and become wounded 2, or increase wounded by 2." />}
+            {hpBonuses.length > 0
             && <SourceNote source="Hit Points" note={hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')} />}
             {!!activeFeatsNamed(c, 'Life-Giving Magic').length && <SourceNote source="Life-Giving Magic"
               note={`After casting an innate spell from a gnome heritage or ancestry feat, gain ${Math.max(1, Math.floor(c.level / 2))} temporary Hit Points until the end of your next turn; once per minute.`} />}
@@ -735,6 +740,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </label>}
         {c.raging && <FeatEffectToggle c={c} save={save} name="Giant's Lunge" label="Giant's Lunge active"
           title="Melee reach becomes at least 10 feet until Rage ends." />}
+        {c.raging && <FeatEffectToggle c={c} save={save} name="Desperate Wrath" label="Desperate Wrath active"
+          title="Activate when your turn starts at half HP or less; ends above half HP or when Rage ends." />}
+        {c.raging && <FeatEffectToggle c={c} save={save} name="Come and Get Me" label="Come and Get Me active"
+          title="While active, you are off-guard and attacks against you gain +2 circumstance damage." />}
+        {c.raging && isFeatEffectActive(c, 'Come and Get Me') && <SourceNote source="Come and Get Me"
+          note={`Damage rolls against you gain +2 circumstance. A creature that hits you is off-guard to you until the end of your next turn; if you hit it before then, gain ${Math.max(0, abilityMod(c.abilities.con))} temporary HP, doubled on a critical hit, until Rage ends.`} />}
         {skin && <SourceNote source="Animal Skin" note={`+${skin.itemBonus} item AC; Dexterity cap +${skin.dexCap}.`} />}
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
           && <SourceNote source="Pioneer Human"

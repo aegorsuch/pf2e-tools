@@ -421,6 +421,8 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         next.elementalExplosionUsed = false
         next.scouringRageUsed = false
       }
+      if (next.activeFeatEffects) next.activeFeatEffects = next.activeFeatEffects.filter(effect =>
+        !['Desperate Wrath', 'Come and Get Me'].includes(effect) || !!next.raging && !!activeFeatsNamed(next, effect).length)
       if (!next.raging || !activeFeatsNamed(next, 'Animalistic Brutality').length) next.animalisticBrutality = undefined
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
