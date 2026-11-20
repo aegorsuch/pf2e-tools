@@ -225,6 +225,7 @@ export interface Character {
   spiritRage?: boolean
   superstitionTraditions?: 'Arcane and Occult' | 'Arcane and Primal' | 'Divine and Occult' | 'Divine and Primal'
   barbarianAnimal?: string
+  animalRageForm?: boolean
   animalisticBrutality?: { attack: string; trait: typeof import('./barbarian.js').ANIMAL_BRUTALITY_TRAITS[number] }
   barbarianElement?: import('./barbarian.js').ElementalInstinct
   elementalDamage?: string

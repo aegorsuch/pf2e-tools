@@ -7,7 +7,8 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { abilityMod, classDifficultyClass, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, weaponRanks, withoutBattleForm } from './builder'
+import { abilityMod, animalRageFormChange, classDifficultyClass, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, weaponRanks, withoutBattleForm } from './builder'
+import { animalBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
@@ -87,7 +88,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       </div>}
       {instinct === 'animal' && <div className="col" aria-label="Animal Instinct">
         <label>Animal{' '}
-          <select aria-label="Animal Instinct animal" value={c.barbarianAnimal ?? ''} disabled={!!c.raging} onChange={event => {
+          <select aria-label="Animal Instinct animal" value={c.barbarianAnimal ?? ''} disabled={!!c.raging || !!c.animalRageForm} onChange={event => {
             const animal = Object.keys(ANIMAL_INSTINCTS).find(name => name === event.target.value)
             save({ barbarianAnimal: animal })
           }}>
@@ -96,6 +97,12 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </select>
         </label>
         {c.raging && <SourceNote source="Bestial Rage" note="You cannot use weapons while raging." />}
+        {(c.raging || c.animalRageForm) && !!activeFeatsNamed(c, 'Animal Rage').length && <label>
+          <input type="checkbox" aria-label="Animal Rage form active" checked={!!c.animalRageForm}
+            disabled={!c.animalRageForm && (!c.barbarianAnimal || !animalBattleForm(c.barbarianAnimal === 'Wolf' ? 'Canine' : c.barbarianAnimal, 3, c.level))}
+            onChange={event => save(animalRageFormChange(c, event.target.checked))} /> Animal Rage form active
+          <SourceNote source="Animal Rage" note={`One action while raging; lasts 1 minute or until dismissed. Use your own statistics, temporary HP, and unarmed attacks; retain your gear's constant abilities.${c.barbarianAnimal && !animalBattleForm(c.barbarianAnimal === 'Wolf' ? 'Canine' : c.barbarianAnimal, 3, c.level) ? ' No Animal Form statistics are listed for this animal; its form requires GM adjudication.' : ''}`} />
+        </label>}
         {c.raging && c.barbarianAnimal && ANIMAL_INSTINCTS[c.barbarianAnimal] && !!activeFeatsNamed(c, 'Animalistic Brutality').length && <label>
           Animalistic Brutality{' '}
           <select aria-label="Animalistic Brutality" value={c.animalisticBrutality ? `${c.animalisticBrutality.attack}|${c.animalisticBrutality.trait}` : ''} disabled={!!c.animalisticBrutality}

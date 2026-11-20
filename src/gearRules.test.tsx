@@ -21,7 +21,7 @@ import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBon
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
-import { activeBattleForm, bulkLimits, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange } from './builder'
+import { activeBattleForm, animalRageFormChange, bulkLimits, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -686,6 +686,37 @@ it('applies Ghost Wrangler to fists and Strength skills until its effect ends', 
   expect(skills).toContain('Can use Strength-based skill checks against incorporeal creatures')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />))
     .toContain('aria-label="Ghost Wrangler active" checked=""')
+})
+
+it('preserves personal statistics and attacks in Animal Rage, including frog tongue reach', () => {
+  const c: Character = { ...base, level: 8, className: 'Barbarian', subclass: 'Animal', raging: true,
+    barbarianAnimal: 'Frog', feats: [feat('Animal Rage', 8)], weapons: [main],
+    handwraps: { potency: 1, striking: 1, runes: [] }, activeSpells: ['Dinosaur Form'] }
+  const form = { ...c, ...animalRageFormChange(c, true) }
+  const entries = [sword]
+  expect(activeBattleForm(form, entries)).toMatchObject({ name: 'Frog', source: 'Animal Rage', size: 'Medium' })
+  expect(form.activeSpells).toEqual([])
+  expect(armorClass(form, entries)).toBe(armorClass({ ...form, animalRageForm: false }, entries))
+  expect(movementSpeeds(form, entries)).toEqual(movementSpeeds({ ...form, animalRageForm: false }, entries))
+  expect(senses(form, entries)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ value: 'Low-light vision', source: 'Animal Rage' }),
+    expect.objectContaining({ value: 'Scent (imprecise) 30 feet', source: 'Animal Rage' }),
+  ]))
+  const weapons = ownedWeapons(form, entries)
+  expect(weapons.some(weapon => weapon.name === 'Longsword')).toBe(false)
+  const tongue = weapons.find(weapon => weapon.id === 'bestial:Frog:Tongue')!
+  const ownTongue = weaponAttack({ ...form, animalRageForm: false }, entries, tongue)
+  expect(weaponAttack(form, entries, tongue)).toMatchObject({ reach: 15, attack: ownTongue.attack,
+    damage: ownTongue.damage, item: ownTongue.item })
+  const defense = renderToStaticMarkup(<SkillsSection c={form} entries={entries} save={() => {}} part="defense" />)
+  expect(defense).toContain('retain constant gear abilities')
+  expect(defense).not.toContain('<small>Temporary Hit Points</small>')
+  expect(spellActiveChange(form, 'Untamed Form', true).animalRageForm).toBe(false)
+  expect(dragonTransformationChange(form, 'Omen').animalRageForm).toBe(false)
+  expect(featEffectChange(form, 'Verdant Metamorphosis', true).animalRageForm).toBe(false)
+  expect(activeBattleForm({ ...form, raging: false }, entries)?.source).toBe('Animal Rage')
+  expect(activeBattleForm({ ...form, feats: [] }, entries)).toBeUndefined()
+  expect(activeBattleForm({ ...form, ...animalRageFormChange(form, false) }, entries)).toBeUndefined()
 })
 
 it.each([16, 18])('applies Dragon Transformation using own defenses and Rage at level %i', level => {

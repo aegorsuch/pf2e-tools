@@ -423,6 +423,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         next.scouringRageDamage = undefined
       }
       if (!activeFeatsNamed(next, 'Dragon Transformation').length) next.dragonTransformation = undefined
+      if (!activeFeatsNamed(next, 'Animal Rage').length || !next.barbarianAnimal) next.animalRageForm = false
       if (next.activeFeatEffects) next.activeFeatEffects = next.activeFeatEffects.filter(effect =>
         effect === 'Ghost Wrangler' ? !!activeFeatsNamed(next, effect).length
           : !['Desperate Wrath', 'Come and Get Me', "Spirits' Interference"].includes(effect) || !!next.raging && !!activeFeatsNamed(next, effect).length)

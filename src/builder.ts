@@ -437,7 +437,7 @@ export const isFeatEffectActive = (c: Character, name: string) =>
 export function featEffectChange(c: Character, name: string, active: boolean) {
   return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])],
     ...(name === 'Verdant Metamorphosis' && active ? { activeSpells: (c.activeSpells ?? [])
-      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form'), giantStature: undefined, dragonTransformation: undefined } : {}) }
+      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form'), giantStature: undefined, dragonTransformation: undefined, animalRageForm: false } : {}) }
 }
 // House rules grant level-2 dedications in locked slots.
 export const HOMEBREW_DEDICATIONS = [
@@ -1941,8 +1941,9 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
-export const speed = (c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) =>
+export const speed = (c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}): number =>
   isFeatEffectActive(c, 'Verdant Metamorphosis') ? 0
+    : activeBattleForm(c, entries)?.source === 'Animal Rage' ? speed(withoutBattleForm(c), entries, options)
     : activeBattleForm(c, entries)?.speed === 0 ? 0
     : Math.max(5, (activeBattleForm(c, entries)?.speed ?? (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25))
     + speedBonuses(c, entries, options).reduce((sum, bonus) => sum + bonus.feet, 0))
@@ -1976,6 +1977,7 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
 export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
   if (isFeatEffectActive(c, 'Verdant Metamorphosis')) return [{ name: 'Land', feet: 0, source: 'Verdant Rest', status: 0 }]
   const form = activeBattleForm(c, entries)
+  if (form?.source === 'Animal Rage') return movementSpeeds(withoutBattleForm(c), entries, options)
   if (form) {
     const bonuses = speedBonuses(c, entries, options)
     const status = bonuses.find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
@@ -3470,7 +3472,7 @@ export function untrainedSkillProficiency(c: Character) {
 
 export function bulkLimits(c: Character, entries: ContentEntry[]) {
   const strength = abilityMod(c.abilities.str)
-  const size = giantStatureSize(c, entries) ?? (activeFeatsNamed(c, "Jotun's Heart").length
+  const size = activeBattleForm(c, entries)?.size ?? giantStatureSize(c, entries) ?? (activeFeatsNamed(c, "Jotun's Heart").length
     ? 'Huge' : String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
   )
   const sizeMultipliers: Record<string, number> = { tiny: 0.5, large: 2, huge: 4, gargantuan: 8 }
@@ -4092,7 +4094,7 @@ export function armorProficiencyRank(c: Character, entries: ContentEntry[], armo
 
 export function armorClassBreakdown(c: Character, entries: ContentEntry[]): TotalBreakdown {
   const form = activeBattleForm(c, entries)
-  if (form?.source === 'Dragon Transformation') return armorClassBreakdown(withoutBattleForm(c), entries)
+  if (form?.source === 'Dragon Transformation' || form?.source === 'Animal Rage') return armorClassBreakdown(withoutBattleForm(c), entries)
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
   const ragePenalties: TotalPart[] = [
@@ -4410,6 +4412,8 @@ export function deityWeapon(c: Character, entries: ContentEntry[]) {
 
 export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   const form = activeBattleForm(c, entries)
+  if (form?.source === 'Animal Rage') return ownedWeapons(withoutBattleForm(c), entries)
+    .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
   if (form) return form.attacks.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
   const weapons = [...carriedWeapons(c, entries)]
   for (const grant of dwarfClanWeaponGrants(c, entries)) {
@@ -4532,6 +4536,10 @@ export function dinosaurForm(c: Character, entries: ContentEntry[]) {
 }
 
 export function activeBattleForm(c: Character, entries: ContentEntry[]) {
+  if (c.animalRageForm && c.barbarianAnimal && activeFeatsNamed(c, 'Animal Rage').length) {
+    const form = animalBattleForm(c.barbarianAnimal === 'Wolf' ? 'Canine' : c.barbarianAnimal, 3, c.level)
+    if (form) return { ...form, source: 'Animal Rage' }
+  }
   if (c.dragonTransformation && activeFeatsNamed(c, 'Dragon Transformation').length) {
     const form = dragonTransformationForm(c.dragonTransformation, c.level)
     if (form) return form
@@ -4562,11 +4570,17 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
 }
 
 export const withoutBattleForm = (c: Character): Character =>
-  ({ ...c, dragonTransformation: undefined, activeSpells: c.activeSpells?.filter(name => !BATTLE_FORM_SPELLS.has(name)) })
+  ({ ...c, animalRageForm: false, dragonTransformation: undefined, activeSpells: c.activeSpells?.filter(name => !BATTLE_FORM_SPELLS.has(name)) })
+
+export function animalRageFormChange(c: Character, active: boolean): Partial<Character> {
+  return { animalRageForm: active, ...(active ? { dragonTransformation: undefined, giantStature: undefined,
+    activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
+    activeFeatEffects: (c.activeFeatEffects ?? []).filter(effect => effect !== 'Verdant Metamorphosis') } : {}) }
+}
 
 export function dragonTransformationChange(c: Character, name: string | undefined): Partial<Character> {
   return { dragonTransformation: name,
-    ...(name ? { giantStature: undefined, activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
+    ...(name ? { animalRageForm: false, giantStature: undefined, activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
       activeFeatEffects: (c.activeFeatEffects ?? []).filter(effect => effect !== 'Verdant Metamorphosis') } : {}) }
 }
 
@@ -4614,10 +4628,10 @@ export function companionSpellTarget(c: Character, savedId?: string) {
   return c.companions?.find((companion) => companion.id === savedId)?.id ?? c.companions?.[0]?.id
 }
 
-export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation'>> {
+export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation' | 'animalRageForm'>> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
     && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])],
-  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined, dragonTransformation: undefined } : {}),
+  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined, dragonTransformation: undefined, animalRageForm: false } : {}),
   ...(active && (BATTLE_FORM_SPELLS.has(name) || name === 'Untamed Form')
     && isFeatEffectActive(c, 'Verdant Metamorphosis') ? featEffectChange(c, 'Verdant Metamorphosis', false) : {}) }
 }
@@ -5225,7 +5239,7 @@ export function giantStatureSize(c: Character, entries: ContentEntry[]) {
 
 export function giantStatureChange(c: Character, size: Character['giantStature']): Partial<Character> {
   return { giantStature: size, ...(size ? {
-    dragonTransformation: undefined,
+    dragonTransformation: undefined, animalRageForm: false,
     activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
     activeFeatEffects: (c.activeFeatEffects ?? []).filter(effect => effect !== 'Verdant Metamorphosis'),
   } : {}) }
@@ -5635,6 +5649,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const hasReachTrait = traits.some(trait => /^reach(?:\s|$)/i.test(trait))
   const baseReach = num(entry?.data.reach) || (hasReachTrait ? 10 : 5)
   const normalReach = formAttack ? num(formAttack.data.reach) : isRanged(entry) ? 0
+    : form?.source === 'Animal Rage' && w.id === 'bestial:Frog:Tongue' ? 15
     : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10
     : c.raging && isFeatEffectActive(c, "Giant's Lunge") ? Math.max(10, baseReach) : baseReach
