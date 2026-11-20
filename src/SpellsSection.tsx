@@ -18,6 +18,7 @@ import { classDifficultyClass, classSpellSlots, conditionPenalty, druidSpellList
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
+import { DeferredDetails } from './DeferredDetails'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
@@ -943,6 +944,34 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   </summary>
 }
 
+type SpellData = ReturnType<typeof spellSummaryData>
+export function spellCategoryAvailability(c: Character, entries: ContentEntry[], data: SpellData) {
+  const { granted, focus, focusPoints, innate, special, items, manualSpells } = data
+  const casting = classSpellcasting(c, entries)
+  const focusOnlyClass = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
+  const heritage = c.heritage?.toLowerCase() ?? ''
+  const class_ = classSpellSlots(c) !== undefined || !!witchwarperParadox(c) || manualSpells.length > 0
+    || !focusOnlyClass && (!!casting?.traditions.length
+      || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0))
+  const focusAvailable = focus.length > 0 || granted.length > 0 || focusPoints > 0
+    || (c.className === 'Champion' && c.level >= 1) || !!activeFeatsNamed(c, 'Floral Restoration').length
+  const innateAvailable = innate.length > 0 || c.heritage === 'Mage Automaton' && c.level >= 1
+    || c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(heritage)
+    || !!activeFeatsNamed(c, 'Minor Magic').length || !!activeFeatsNamed(c, 'First World Magic').length
+  return { class: class_, focus: focusAvailable, innate: innateAvailable, feat: special.length > 0, items: items.length > 0,
+    rituals: characterRituals(c, entries).ritualNames.length > 0 }
+}
+
+export function SpellsPanel(props: SectionProps) {
+  const data = useMemo(() => spellSummaryData(props.c, props.entries), [props.c, props.entries])
+  const available = spellCategoryAvailability(props.c, props.entries, data)
+  if (!Object.values(available).some(Boolean)) return null
+  return <DeferredDetails>
+    <SpellsSummary {...props} data={data} />
+    <SpellsContent {...props} data={data} />
+  </DeferredDetails>
+}
+
 export function SpellsSection(props: SectionProps) {
   const data = useMemo(() => spellSummaryData(props.c, props.entries), [props.c, props.entries])
   return <details className="character-section">
@@ -999,17 +1028,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()))
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
-  const focusOnlyClass = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
-  const hasClassSpells = !!automaticSlots || !!witchwarper || manualSpells.length > 0
-    || !focusOnlyClass && (!!casting?.traditions.length
-      || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0))
-  const hasRituals = characterRituals(c, entries).ritualNames.length > 0
-  const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'], ['feat', 'Feat Spells'],
-    ['items', 'Item Spells'], ['rituals', 'Rituals']] as const)
-    .filter(([value]) => value !== 'class' || hasClassSpells)
-    .filter(([value]) => value !== 'feat' || special.length > 0)
-    .filter(([value]) => value !== 'rituals' || hasRituals)
-  const activeCategory = categories.some(([value]) => value === category) ? category : categories[0][0]
+  const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
   const unresolved = unresolvedFeatSpells(c, entries)
@@ -1180,6 +1199,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   })).filter(item => item.count > 0)
   const allFocus = [...otherFocus.map(spell => ({ name: spell.name, entryId: undefined, index: -1 })),
     ...listedSpells.filter(spell => spell.group === 'Focus Spells')].sort((a, b) => a.name.localeCompare(b.name))
+  const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'], ['feat', 'Feat Spells'],
+    ['items', 'Item Spells'], ['rituals', 'Rituals']] as const)
+    .filter(([value]) => value === 'focus' ? available.focus || allFocus.length > 0 : available[value])
+  const activeCategory = categories.some(([value]) => value === category) ? category : categories[0]?.[0]
   const renderSpellGroup = (group: string) => <section className="innate-spell-group" key={group}>
     <h5>{group}</h5>
     <SpellColumns />

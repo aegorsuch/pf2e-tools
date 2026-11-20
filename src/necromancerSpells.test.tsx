@@ -3,7 +3,7 @@ import { Children, isValidElement, useId, useMemo, useRef, useState, type ReactN
 import { expect, it, vi } from 'vitest'
 import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
-import { DirgeLearnOptions, DirgeRankButton, SpellsContent, SpellsSection } from './SpellsSection'
+import { DirgeLearnOptions, DirgeRankButton, SpellsContent, SpellsPanel, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
 vi.mock('react', async importOriginal => {
@@ -217,22 +217,19 @@ it.each([
   expect(render(c, [entry, spell('Harm')])).toContain(title)
 })
 
-it('provides separate spell categories with class spells selected initially', () => {
+it('shows only spell categories the character has, and no spell section without spells', () => {
   const html = render(base, [spell('Harm')])
   expect(html).toContain('aria-pressed="true">Class Spells</button>')
-  for (const label of ['Focus Spells', 'Innate Spells', 'Item Spells'])
-    expect(html).toContain(`aria-pressed="false">${label}</button>`)
-  expect(html).not.toContain('>Rituals</button>')
-  expect((html.match(/<div hidden="">/g) ?? [])).toHaveLength(5)
+  for (const label of ['Innate Spells', 'Item Spells', 'Rituals'])
+    expect(html).not.toContain(`>${label}</button>`)
+  const champion = render({ ...base, className: 'Champion' }, [])
+  expect(champion).not.toContain('>Class Spells</button>')
+  expect(champion).toContain('aria-pressed="true">Focus Spells</button>')
+  for (const className of ['Monk', 'Ranger', 'Fighter'])
+    expect(renderToStaticMarkup(<SpellsPanel c={{ ...base, className }} entries={[]} save={() => {}} />)).toBe('')
 })
 
-it('hides class spells for focus-only classes and selects focus spells initially', () => {
-  for (const className of ['Champion', 'Monk', 'Ranger', 'Fighter']) {
-    const html = render({ ...base, className }, [])
-    expect(html).not.toContain('>Class Spells</button>')
-    expect(html).toContain('aria-pressed="true">Focus Spells</button>')
-    expect(html).not.toContain('>Rituals</button>')
-  }
+it('hides class spells for focus-only classes', () => {
   expect(render({ ...base, className: 'Druid' }, [])).toContain('aria-pressed="true">Class Spells</button>')
   expect(render({ ...base, className: 'Champion', spellcasting: {
     ability: 'cha', tradition: 'Divine', rank: 1, slots: { 1: 2 },

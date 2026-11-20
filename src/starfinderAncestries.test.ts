@@ -86,7 +86,7 @@ it('applies heritage senses and Vesk movement and tail without stacking duplicat
 it('grants Blood Sense only once the feat is active', () => {
   const c: Character = { ...base, ancestry: 'Vesk', level: 5,
     feats: [{ name: 'Blood Sense', type: 'Ancestry Feat', level: 5 }] }
-  const sense = 'Blood sense (imprecise) 30 feet, wounded living creatures with blood'
+  const sense = 'Blood sense (imprecise) 30 feet'
   expect(senses(c, entries).map(item => item.value)).toContain(sense)
   expect(senses({ ...c, level: 4 }, entries).map(item => item.value)).not.toContain(sense)
 })

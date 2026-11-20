@@ -3181,7 +3181,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
-    addVision('Blood sense (imprecise) 30 feet, wounded living creatures with blood', 'Blood Sense')
+    addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
   }
   if (isFeatEffectActive(c, 'Briny Beverage')) addVision('Wavesense (imprecise) 20 feet', 'Briny Beverage')
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
