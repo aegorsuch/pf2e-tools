@@ -1842,6 +1842,28 @@ describe('languageAllowance', () => {
     expect(languageAllowance(c, list)).toMatchObject({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
   })
 
+  it('grants Natural Performer training and a first-level Performance feat slot', () => {
+    const performance = entry('feat', 'Fascinating Performance', { skill: 'Performance' }, 1, ['General', 'Skill'])
+    const advanced = entry('feat', 'Advanced Performance', { skill: 'Performance' }, 2, ['General', 'Skill'])
+    const crafting = entry('feat', 'Specialty Crafting', { skill: 'Crafting' }, 1, ['General', 'Skill'])
+    const assurance = entry('feat', 'Assurance', {}, 1, ['General', 'Skill'])
+    const entries = [performance, advanced, crafting, assurance]
+    const selection = { name: 'Natural Performer', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+    const c: Character = { ...base, level: 5, feats: [selection] }
+    const slot = plannedSlots(c, entries).find(slot => slot.grantedBy === 'Natural Performer')!
+    expect(slot).toMatchObject({ level: 5, maxFeatLevel: 1, grantedSkill: 'Performance' })
+    expect(ranksAt(c, entries).Performance).toBe(1)
+    expect(eligibleFeats(entries, c, slot)).toEqual(expect.arrayContaining([performance, assurance]))
+    expect(eligibleFeats(entries, c, slot)).not.toContain(advanced)
+    expect(eligibleFeats(entries, c, slot)).not.toContain(crafting)
+    expect(featChoiceOptions('Assurance', c, entries, slot.key)).toEqual(['Performance'])
+    expect(plannedSlots({ ...c, level: 4 }, entries).some(slot => slot.grantedBy === 'Natural Performer')).toBe(false)
+    expect(plannedSlots({ ...c, systems: ['sf2e'] }, entries).some(slot => slot.grantedBy === 'Natural Performer')).toBe(false)
+    const performerClass = entry('class', 'Performer', { skill_proficiency: 'Trained in Performance' })
+    const trained = { ...c, className: 'Performer' }
+    expect(additionalSkillCount(trained, [performerClass])).toBe(additionalSkillCount({ ...trained, feats: [] }, [performerClass]) + 1)
+  })
+
   it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {
     const multilingual = [
       { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },

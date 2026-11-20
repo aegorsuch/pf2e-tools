@@ -448,6 +448,7 @@ export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
+  || key.startsWith('skill:1:natural-performer:')
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
@@ -560,6 +561,14 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     slots.push({ key: `skill:1:exceptional-artisan:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
       grantedBy: 'Exceptional Artisan', grantedSkill: feat.choice })
   }
+  for (const feat of activeFeatsNamed(c, 'Natural Performer')) {
+    if (!c.systems.includes('pf2e')) continue
+    const level = featTakenLevel(feat)
+    const group = `skill:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `skill:1:natural-performer:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
+      maxFeatLevel: 1, grantedBy: 'Natural Performer', grantedSkill: 'Performance' })
+  }
   let unslottedRogue = 0
   const takenRackets = new Set([selectedSubclass(c)])
   for (const feat of [...c.feats].sort((a, b) => featTakenLevel(a) - featTakenLevel(b))) {
@@ -594,7 +603,8 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
-    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon' || !!slot.grantedAncestry)
+    || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
+    || slot.grantedBy === 'Natural Performer' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -1124,6 +1134,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && artisanSkillEligible
       && (slot.grantedBy !== 'Exceptional Artisan' || !!slot.grantedSkill
         && tokens(e.data.skill).some(skill => skill.toLowerCase() === slot.grantedSkill?.toLowerCase()))
+      && (slot.grantedBy !== 'Natural Performer'
+        || tokens(e.data.skill).some(skill => skill.toLowerCase() === 'performance')
+        || e.name === 'Assurance')
       && (slot.grantedBy !== "Mechanic's Ingenuity"
         || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
       && (slot.grantedBy !== 'Social Chameleon' || (slot.category === 'general'
@@ -1363,11 +1376,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Reinforced Skeleton') return ['Cold, Slashing', 'Cold, Piercing', 'Electricity, Slashing',
     'Electricity, Piercing', 'Fire, Slashing', 'Fire, Piercing']
   if (name === 'Assurance') {
-    const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    const performer = activeFeatsNamed(c, 'Natural Performer')
+      .find(feat => slotKey === `skill:1:natural-performer:${feat.slot ?? 'unslotted'}`)
+    const level = Math.min(c.level, performer ? featTakenLevel(performer) : Number(slotKey.split(':')[1]) || c.level)
     const ranks = ranksAt({ ...c, level }, entries)
     const skills = new Set(statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name))
     const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
-    const required = fixedBackgroundChoice || background?.data.background_skill
+    const required = performer ? 'Performance' : fixedBackgroundChoice || background?.data.background_skill
     return Object.keys(ranks).filter(skill => (skills.has(skill) || / lore$/i.test(skill))
       && ranks[skill] >= 1 && !used.has(skill) && (!required || skill === required)).sort((a, b) => a.localeCompare(b))
   }
@@ -2796,6 +2811,7 @@ const ANCESTRY_LORE_GRANTS: Record<string, { skills: string[]; lore: string }> =
 }
 const ANCESTRY_SKILL_ONLY_GRANTS: Record<string, string[]> = {
   'Tinkering Fingers': ['Crafting'],
+  'Natural Performer': ['Performance'],
   'Extended Family': ['Diplomacy'],
   'X-hat Firewalker Frame': ['Computers'],
   'Subtle Cyborg': ['Deception'],
