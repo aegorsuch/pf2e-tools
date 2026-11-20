@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(snapshot)
@@ -88,6 +88,13 @@ it('grants Blood Sense only once the feat is active', () => {
   const sense = 'Blood sense (imprecise) 30 feet, wounded living creatures with blood'
   expect(senses(c, entries).map(item => item.value)).toContain(sense)
   expect(senses({ ...c, level: 4 }, entries).map(item => item.value)).not.toContain(sense)
+})
+
+it('shows Fearless as a conditional saving throw effect', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', feats: [{ name: 'Fearless', type: 'Ancestry Feat', level: 1 }] }
+  const result = savingThrowBreakdown(c, entries, 'Will')
+  expect(result.notes?.join(' ')).toContain('a successful save against a fear effect becomes a critical success')
+  expect(result.total).toBe(savingThrowBreakdown({ ...c, feats: [] }, entries, 'Will').total)
 })
 
 it('provides Fork-Tongued Vesk venomous jaws and its special critical damage', () => {

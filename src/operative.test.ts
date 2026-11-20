@@ -100,6 +100,26 @@ it('grants gun parry and improves an existing parry only while wielded', () => {
   expect(parryValue({ ...c, weapons: [bowOwned] }, [...entries, bow])).toBe(0)
 })
 
+it('grants agile only to wielded simple guns while wielding two', () => {
+  const first: OwnedWeapon = { id: 'one', name: simpleGun.name, potency: 0, striking: 0, runes: [] }
+  const second: OwnedWeapon = { ...first, id: 'two' }
+  const c: Character = { ...base, level: 8, feats: [{ name: 'Twin Shooter', type: 'Class Feat', level: 8 }], weapons: [first, second] }
+  const data = [...entries, simpleGun]
+  expect(weaponAttack(c, data, first)).toMatchObject({ traits: expect.arrayContaining(['Agile']), multipleAttackPenalties: [0, -4, -8] })
+  expect(weaponAttack({ ...c, weapons: [first, { ...second, stowed: true }] }, data, first).traits).not.toContain('Agile')
+  const other = { ...second, name: martialGun.name }
+  expect(weaponAttack({ ...c, weapons: [first, other] }, [...data, martialGun], first).traits).not.toContain('Agile')
+})
+
+it('shows suppressed-target attack penalties without changing ordinary attacks', () => {
+  const c: Character = { ...base, className: 'Soldier', level: 4,
+    feats: [{ name: 'Overwhelming Assault', type: 'Class Feat', level: 4 }] }
+  expect(attack(c, simpleGun).multipleAttackPenalties).toEqual([0, -5, -10])
+  expect(attack(c, simpleGun).breakdown.notes?.join(' ')).toContain('suppressed targets use a multiple attack penalty of -4/-8')
+  expect(attack(c, { ...simpleGun, traits: ['Tech', 'Agile'] }).breakdown.notes?.join(' '))
+    .toContain('suppressed targets use a multiple attack penalty of -3/-6')
+})
+
 it('grants specialization skill slots and restricts Sniper bonus choices', () => {
   const c = { ...base, level: 15, dismissedFeatSlots: ['skill:1:operative-specialization:3'] }
   const slots = plannedSlots(c, entries)

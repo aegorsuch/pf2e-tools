@@ -3895,6 +3895,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
       ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Danger Awareness').length
       ? ['Danger Awareness +1 circumstance against traps; circumstance bonuses do not stack.'] : []),
+    ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Fearless').length
+      ? ['Fearless: a successful save against a fear effect becomes a critical success.'] : []),
     ...(activeFeatsNamed(c, 'Parthenogenic Hatchling').length
       ? ['Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.'] : []),
   ]
@@ -5774,9 +5776,16 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   if (entry) {
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
+    const twinShooter = c.systems.includes('sf2e') && activeFeatsNamed(c, 'Twin Shooter').length > 0
+      && operativeGun(entry) && weaponCategory(entry) === 'Simple'
+      && ownedWeapons(c, entries).filter(weapon => {
+        const candidate = weaponEntry(entries, weapon.name, weapon.id)
+        return operativeGun(candidate) && weaponCategory(candidate) === 'Simple' && weaponEquipped(c, entries, weapon)
+      }).length >= 2 && weaponEquipped(c, entries, w)
     const added = [
       ...(defensiveArmamentsParry(c, w, entry) || defensiveGunnerParry(c, entry)
         || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
+      ...(twinShooter ? ['Agile'] : []),
       ...(upgrades.some(upgrade => upgrade.name === 'Merciful') ? ['Nonlethal'] : []),
       ...(mechanicMods?.incapacitant ? ['Nonlethal'] : []),
       ...(upgrades.some(upgrade => /^Smuggler's Grip(?:\s*\(|$)/i.test(upgrade.name)) ? ['Concealed'] : []),
@@ -6038,6 +6047,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? ['Ghost: Aim as a free action against a target you are undetected by.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Bloody Wounds').length
           ? [`Bloody Wounds: a critical hit against your mark deals ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1} persistent bleed damage.`] : []),
+        ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Overwhelming Assault').length
+          ? [`Overwhelming Assault: attacks against suppressed targets use a multiple attack penalty of ${agile ? '-3/-6' : '-4/-8'}.`] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Skirmisher' && ranged
           && weaponHands(entries, w, c) === 1
           ? ['Skirmisher: ranged Strikes with this weapon do not trigger reactions triggered by ranged attacks.',
