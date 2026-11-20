@@ -674,6 +674,20 @@ it('provides dragon breath damage, action, and class DC for the chosen dragon wh
     .not.toContain('Roll Dragon&#x27;s Rage Breath')
 })
 
+it('applies Ghost Wrangler to fists and Strength skills until its effect ends', () => {
+  const c: Character = { ...base, level: 4, className: 'Barbarian', subclass: 'Spirit', raging: true,
+    feats: [feat('Ghost Wrangler', 4)], activeFeatEffects: ['Ghost Wrangler'], weapons: [main] }
+  const offense = (character: Character) =>
+    renderToStaticMarkup(<WeaponList c={character} entries={[sword]} save={() => {}} displayOnly />)
+  expect(offense(c)).toContain('Granted by Ghost Wrangler')
+  expect(offense({ ...c, activeFeatEffects: [] })).not.toContain('Granted by Ghost Wrangler')
+  expect(offense({ ...c, spiritRage: true })).not.toContain('Granted by Ghost Wrangler')
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="skills" />)
+  expect(skills).toContain('Can use Strength-based skill checks against incorporeal creatures')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />))
+    .toContain('aria-label="Ghost Wrangler active" checked=""')
+})
+
 it.each([16, 18])('applies Dragon Transformation using own defenses and Rage at level %i', level => {
   const klass = content('class', 'Barbarian', { attack_proficiency: 'expert in unarmed attacks', attribute: 'Strength' })
   const normal: Character = { ...base, className: 'Barbarian', subclass: 'Dragon', level, raging: true,

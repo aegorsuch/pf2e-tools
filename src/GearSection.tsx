@@ -1124,6 +1124,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const iruxiGranted = unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
           && !effectiveWeapon({ ...c, feats: c.feats.filter(feat => feat.name !== 'Iruxi Spirit Strike') }, entries, w)
             .runes.some(rune => runeName(rune) === 'Ghost Touch')
+        const ghostWrangler = /^fist$/i.test(w.name) && isFeatEffectActive(c, 'Ghost Wrangler')
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...scaleRunes.map(name => ({ name, source: 'Granted by Scale of Igroon' })),
           ...clanRunes.map(name => ({ name, source: 'Granted by Clan Pistol' })),
@@ -1133,6 +1134,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           ...(c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
             && !iruxiGranted && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
             ? [{ name: 'Ghost Touch', source: 'Granted by Spirit Rage' }] : []),
+          ...(ghostWrangler && !(c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit')
+            && !iruxiGranted && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
+            ? [{ name: 'Ghost Touch', source: 'Granted by Ghost Wrangler' }] : []),
           ...(decaying ? [{ name: decaying, source: 'Granted by Osteo Armaments' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({
