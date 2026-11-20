@@ -118,6 +118,12 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       {c.systems.includes('sf2e') && c.ancestry === 'Vesk' && !!activeFeatsNamed(c, 'Eager Combatant').length
         && <SourceNote source="Eager Combatant"
           note="When rolling Athletics or Intimidation for initiative, you can use a free action to Stride in a straight line directly toward an enemy." />}
+      {c.systems.includes('sf2e') && c.className === 'Operative' && !!activeFeatsNamed(c, 'Kick it into Overdrive').length
+        && <SourceNote source="Kick it into Overdrive"
+          note="Once per hour at the start of your turn, become quickened through the turn and use the extra action only to Stride. You can extend it through your next turn, then become fatigued for 2 rounds." />}
+      {c.systems.includes('sf2e') && c.className === 'Operative' && !!activeFeatsNamed(c, 'Destructive Dash').length
+        && <SourceNote source="Destructive Dash"
+          note="In a suitable environment, spend 2 actions to Stride up to your Speed; squares you pass through become difficult terrain until cleared with Interact by a creature within reach." />}
       {!!activeFeatsNamed(c, 'Sudden Charge').length && <SourceNote source="Sudden Charge"
         note={`Move twice, then make a melee Strike if an enemy is within reach. Maximum distances: ${speeds.map(movement => `${movement.name} ${movement.feet * 2} feet`).join('; ')}.`} />}
       {c.raging && !!activeFeatsNamed(c, 'No Escape').length && <SourceNote source="No Escape"
@@ -570,6 +576,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {s.name === 'Intimidation' && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
             && !!activeFeatsNamed(c, 'Terrifying Bravado').length && <SourceNote source="Terrifying Bravado"
               note="When you critically succeed at a save against a creature's fear effect, or a creature fails or critically fails to Demoralize you, react to attempt to Demoralize that creature." />}
+          {s.name === 'Intimidation' && c.systems.includes('sf2e') && c.className === 'Operative'
+            && !!activeFeatsNamed(c, 'Stop Them In Their Tracks').length && <SourceNote source="Stop Them In Their Tracks"
+              note="Demoralize your mark without the –4 circumstance penalty for not sharing a language; on a critical success, also immobilize it for 1 round." />}
+          {s.kind === 'save' && s.name === 'Reflex' && c.systems.includes('sf2e') && c.className === 'Operative'
+            && !!activeFeatsNamed(c, 'Swift Reposition').length && <SourceNote source="Swift Reposition"
+              note="Before rolling a Reflex save, react to Step or Leap and gain +2 circumstance to the save; still roll even if movement takes you out of the effect's range." />}
           {s.name === 'Athletics' && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
             && !!activeFeatsNamed(c, 'Wriggling Tail').length && <SourceNote source="Wriggling Tail"
               note="When you become grabbed, react to drop part of your tail, end grabbed, then Step. Until the tail regrows (1 day or regeneration), you cannot use it and take –2 circumstance to Balance." />}

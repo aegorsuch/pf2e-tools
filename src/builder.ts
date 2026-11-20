@@ -6053,15 +6053,45 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
             ...(ranged && activeFeatsNamed(c, 'Extreme Accuracy').length ? ['Extreme Accuracy: ignore range penalties against your mark within four range increments.'] : []),
             ...(c.level >= 15 ? ['Critical Aim: the first successful Strike against your mark after Aiming each round applies critical specialization.'] : []),
             ...(c.level >= 17 ? ['Tactical Barrage: attacks against your mark use a multiple attack penalty of -3/-6 (-2/-4 with agile).'] : [])] : []),
-        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
           && activeFeatsNamed(c, 'Instinctive Aim').length
           ? ['Instinctive Aim (1 action): Interact to draw a ranged weapon or Switch Hands, then Aim.'] : []),
-        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
           && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Mobile Aim').length
           ? ['Mobile Aim (1 action): Stride, then Aim with this gun.'] : []),
-        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
           && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Weakening Shot').length
           ? ['Weakening Shot (2 actions): Aim, then Strike against your mark; on a hit, choose clumsy 1 or enfeebled 1 until the end of your next turn (2 on a critical hit).'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && activeFeatsNamed(c, 'Peek').length
+          ? ['Peek (1 action): make a ranged Strike, then Take Cover.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Hampering Shot').length
+          ? ['Hampering Shot (2 actions): Aim, then Strike against your mark; on a hit, it is off-guard until the end of your next turn.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Disarming Shot').length
+          ? ['Disarming Shot (2 actions): Aim, then Strike against your mark; on a hit, use the same attack roll against Reflex DC to Disarm. Counts as two attacks for MAP, but MAP increases only after this action.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Toppling Shot').length
+          ? ['Toppling Shot (2 actions): Aim, then Strike against your mark; on a hit, push it 5 feet and on a critical hit knock it prone. A collision deals bludgeoning damage equal to Aim damage to the target and object or creature struck.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Impeding Shot').length
+          ? ['Impeding Shot (2 actions): Aim, then Strike against your mark; on a hit, it is slowed 1 until the end of its next turn and, if flying, falls 10 feet.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Muzzle Flash').length
+          ? ['Muzzle Flash (2 actions): Aim, then Strike against your mark; on a hit within your first range increment, it is dazzled until the end of your next turn.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Hair Trigger').length
+          ? ['Hair Trigger: react with a ranged Strike against the last creature you Aimed at since your last turn when it moves, uses a manipulate action, makes a ranged attack, or leaves a square during movement. The Strike ignores and does not increase MAP.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && activeFeatsNamed(c, 'Opportune Retort').length
+          ? ['Opportune Retort: when a creature critically fails a melee attack against you, react with a ranged Strike against it.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && activeFeatsNamed(c, 'Tactical Swap').length
+          ? ['Tactical Swap (1 action, once per round): after a ranged Strike misses or deals no damage, Switch Hands or Interact to swap weapons and Strike the same target with the new weapon.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && activeFeatsNamed(c, 'Twin Draw').length
+          ? ['Twin Draw (1 action): with two free hands, draw up to two one-handed weapons and Aim.'] : []),
         ...(c.systems.includes('sf2e') && c.ancestry === 'Vesk' && activeFeatsNamed(c, 'Overcome Shame').length
           ? ['Overcome Shame: after a critical failure with a Strike, once per 10 minutes, reroll your next Strike before the end of your turn with the same weapon and target; roll twice and use the higher result. If it misses, you become off-guard until the end of your next turn.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Ghost' && ranged

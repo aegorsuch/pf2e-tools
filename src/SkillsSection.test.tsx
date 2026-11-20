@@ -94,6 +94,19 @@ it('shows conditional Vesk skill actions without changing skill modifiers', () =
   expect(html).toContain('Wriggling Tail note')
 })
 
+it('shows conditional Operative movement, save, and intimidation feats', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Operative', level: 6,
+    feats: ['Kick it into Overdrive', 'Destructive Dash', 'Swift Reposition', 'Stop Them In Their Tracks']
+      .map(name => ({ name, type: 'Class Feat', level: 1 })) }
+  const senses = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  expect(senses).toContain('Once per hour at the start of your turn, become quickened')
+  expect(senses).toContain('spend 2 actions to Stride up to your Speed')
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} part="defense" save={() => {}} />)
+  expect(defense).toContain('Swift Reposition note')
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
+  expect(skills).toContain('Stop Them In Their Tracks note')
+})
+
 it('shows Rage temporary HP and Second Wind only while raging', () => {
   const c: Character = { ...base, level: 8, className: 'Barbarian', raging: true,
     abilities: { ...base.abilities, con: 16 }, feats: [{ name: 'Second Wind', type: 'Class Feat', level: 2 }] }

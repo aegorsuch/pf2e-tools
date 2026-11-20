@@ -842,6 +842,19 @@ it('uses Energized Font once daily to restore one focus point without resetting 
   expect(EnergizedFont({ c, save, points: 0 })).toBeNull()
 })
 
+it("uses Damoritosh's Claw once daily to restore a spent focus point", () => {
+  let c: Character = { ...base, systems: ['sf2e'], ancestry: 'Vesk', level: 13,
+    feats: [taken("Damoritosh's Claw", 13)], spentFocusPoints: [1], focusPointsSpentSinceRefocus: 2 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => FocusPointTracker({ c, save, points: 2 })
+  expect(findUseButton(tree(), "Use Damoritosh's Claw")?.disabled).toBe(false)
+  findUseButton(tree(), "Use Damoritosh's Claw")!.onClick()
+  expect(c.spentFocusPoints).toEqual([])
+  expect(c.focusPointsSpentSinceRefocus).toBe(2)
+  expect(c.dailyFeatUses?.["Damoritosh's Claw"]).toBe(true)
+  expect(findUseButton(tree(), "Use Damoritosh's Claw")?.disabled).toBe(true)
+})
+
 it('uses Floral Restoration once daily, restores focus if spent, and scales healing', () => {
   let c: Character = { ...base, level: 9, feats: [taken('Floral Restoration', 8)], spentFocusPoints: [0, 2] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }

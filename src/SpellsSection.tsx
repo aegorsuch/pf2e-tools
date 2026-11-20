@@ -130,6 +130,9 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
   const capacity = Math.min(3, Math.max(0, points))
   if (!capacity) return null
   const spent = new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < capacity))
+  const damoritoshsClaw = c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+    && !!activeFeatsNamed(c, "Damoritosh's Claw").length
+  const clawUsed = !!c.dailyFeatUses?.["Damoritosh's Claw"]
   return <span className="focus-tracker" role="group" aria-label={`${capacity - spent.size} of ${capacity} focus points available`}>
     {Array.from({ length: capacity }, (_, index) => {
       const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}`
@@ -142,6 +145,12 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
             focusPointsSpentSinceRefocus: Math.max(0, (c.focusPointsSpentSinceRefocus ?? spent.size) + (spent.has(index) ? -1 : 1)) })
         }} />
     })}
+    {damoritoshsClaw && <button type="button" aria-label="Use Damoritosh's Claw" disabled={clawUsed || !spent.size}
+      title="In combat, once per day, regain 1 Focus Point up to your usual maximum."
+      onClick={() => {
+        if (clawUsed || !spent.size) return
+        save({ spentFocusPoints: [...spent].slice(1), dailyFeatUses: { ...c.dailyFeatUses, "Damoritosh's Claw": true } })
+      }}>Damoritosh's Claw <ActionIcon actions="Single Action" /></button>}
   </span>
 }
 

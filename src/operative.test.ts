@@ -92,6 +92,24 @@ it('shows action details for Operative Aim feats only with eligible weapons', ()
   expect(bowNotes).not.toContain('Weakening Shot')
 })
 
+it('shows gun, reaction, and attack-sequence Operative feat rules', () => {
+  const c: Character = { ...base, level: 10, feats: [
+    'Peek', 'Hampering Shot', 'Disarming Shot', 'Toppling Shot', 'Impeding Shot', 'Muzzle Flash',
+    'Hair Trigger', 'Opportune Retort', 'Tactical Swap', 'Twin Draw',
+  ].map(name => ({ name, type: 'Class Feat', level: 1 })) }
+  const notes = attack(c, simpleGun).breakdown.notes?.join(' ')
+  expect(notes).toContain('Peek (1 action): make a ranged Strike, then Take Cover')
+  expect(notes).toContain('Hampering Shot (2 actions)')
+  expect(notes).toContain('use the same attack roll against Reflex DC to Disarm')
+  expect(notes).toContain('push it 5 feet')
+  expect(notes).toContain('it is slowed 1')
+  expect(notes).toContain('it is dazzled')
+  expect(notes).toContain('Hair Trigger: react with a ranged Strike')
+  expect(notes).toContain('Opportune Retort: when a creature critically fails')
+  expect(notes).toContain('Tactical Swap (1 action, once per round)')
+  expect(notes).toContain('Twin Draw (1 action)')
+})
+
 it('shows Vesk critical-miss recovery without changing Strike statistics', () => {
   const c: Character = { ...base, ancestry: 'Vesk', level: 13, feats: [
     { name: 'Overcome Shame', type: 'Ancestry Feat', level: 13 },
