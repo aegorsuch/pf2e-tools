@@ -244,6 +244,18 @@ it('increases only held melee weapon reach while Reckless Riding Lunge is active
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />))
     .toContain('aria-label="Reckless Riding Lunge active" checked=""')
 })
+
+it('shows Galloping Launch range only for thrown weapons and an earned feat', () => {
+  const javelin = content('weapon', 'Javelin', { weapon_type: 'Melee', weapon_category: 'Simple', thrown_range: 30, damage: '1d6 piercing' }, 0, ['Thrown 30'])
+  const c: Character = { ...base, level: 6, feats: [feat('Galloping Launch', 4)],
+    weapons: [{ ...main, name: 'Javelin' }] }
+  const render = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[javelin]} save={() => {}} displayOnly />)
+  expect(render(c)).toContain('range increment 45 feet, or 50 feet')
+  expect(render(c)).toContain('mount must have moved closer to your prey')
+  expect(render({ ...c, feats: [] })).not.toContain('Galloping Launch')
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [main] }} entries={[sword]} save={() => {}} displayOnly />))
+    .not.toContain('Galloping Launch')
+})
 const osteoClass = content('class', 'Champion', { attack_proficiency: 'Trained in simple weapons and martial weapons' })
 
 it.each([

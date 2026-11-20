@@ -966,6 +966,11 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
   </div>
 }
 
+function GallopingLaunchNote({ c, range }: { c: Character; range: number }) {
+  return !!activeFeatsNamed(c, 'Galloping Launch').length && <SourceNote source="Galloping Launch"
+    note={`For this Strike, range increment ${range + 15} feet, or ${range + 20} feet if your mount's Speed is at least 40 feet. You must be mounted and your mount must have moved closer to your prey this round.`} />
+}
+
 export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
   const intensified = intensifiedElementDamage(c, entries)
   if (!displayOnly && activeBattleForm(c, entries)) return <WeaponList
@@ -1324,9 +1329,11 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
-            {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet</small>)}
+            {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet
+            <GallopingLaunchNote c={c} range={summary.attack.thrownRange} /></small>)}
           {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
-            {summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
+            {summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet
+            {summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait)) && <GallopingLaunchNote c={c} range={summary.attack.range} />}</small>)}
           {fixed && <small>Requires Rage and a free hand.</small>}
           {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
         </div>
@@ -1390,11 +1397,15 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.form && <strong>{summary.form} form</strong>}
               <div className="gear-stats">
                 <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
-                {summary.attack.range > 0 && <span><small>Range</small><b>{summary.attack.range} feet</b></span>}
+                {summary.attack.range > 0 && <span><small>Range</small><b>{summary.attack.range} feet
+                  {summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait)) && <GallopingLaunchNote c={c} range={summary.attack.range} />}
+                  </b></span>}
                 {summary.attack.reach > 0 && <span><small>Reach</small><b>{summary.attack.reach} feet</b></span>}
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
                   DC {area.dc} Reflex, {area.shape}<SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></span>)}
-                {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet</b></span>}
+                {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet
+                  <GallopingLaunchNote c={c} range={summary.attack.thrownRange} />
+                  </b></span>}
                 {summary.attack.thrownRangeBonus > 0 && !summary.attack.range && !summary.attack.thrownRange
                   && <span><small>Thrown range</small>+{summary.attack.thrownRangeBonus} feet (Strong Arm)</span>}
                 <span><small>{summary.attack.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(summary.attack.mod)}</span>
