@@ -78,6 +78,23 @@ it('shows Barbarian movement and combat skill action totals with Rage gating', (
   expect(speedHtml({ ...c, raging: false })).not.toContain('Predator&#x27;s Pounce note')
 })
 
+it('shows Spiritual Guides and Towering Transformation only when applicable', () => {
+  const c: Character = { ...base, level: 16, className: 'Barbarian', raging: true,
+    dragonTransformation: 'Horned', feats: [
+      { name: 'Dragon Transformation', type: 'Class Feat', level: 16 },
+      { name: 'Spiritual Guides', type: 'Class Feat', level: 4 },
+      { name: 'Towering Transformation', type: 'Class Feat', level: 14 },
+    ] }
+  const render = (character: Character, part: 'senses' | 'defense') =>
+    renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part={part} />)
+  expect(render(c, 'senses')).toContain('failed (not critically failed) Perception or skill check')
+  expect(render({ ...c, raging: false }, 'senses')).toContain('Spiritual Guides note')
+  expect(render(c, 'defense')).toContain('enemies smaller than your new size within 30 feet')
+  expect(render({ ...c, dragonTransformation: undefined }, 'defense')).not.toContain('Towering Transformation note')
+  expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Towering Transformation') }, 'defense'))
+    .not.toContain('Towering Transformation note')
+})
+
 it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
   let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
     lores: [{ name: 'Military Lore', rank: 0 }] }

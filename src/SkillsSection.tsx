@@ -1,5 +1,5 @@
 import { resistances, activeBattleForm,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classDifficultyClass, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
@@ -516,6 +516,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Against fear, a success becomes a critical success and the source is off-guard to you until the end of your next turn." />}
           {s.name === 'Perception' && !!activeFeatsNamed(c, 'Illusion Sense').length && <SourceNote source="Illusion Sense"
             note="Within 10 feet of an illusion that can be disbelieved, the GM rolls a secret check to disbelieve it, even without interacting." />}
+          {s.name === 'Perception' && !!activeFeatsNamed(c, 'Spiritual Guides').length && <SourceNote source="Spiritual Guides"
+            note="Once per day, react to a failed (not critically failed) Perception or skill check to reroll it, using the second result even if worse." />}
           {s.name === 'Will' && !!activeFeatsNamed(c, "Cavalier's Banner").length && <SourceNote source="Cavalier's Banner"
             note={`${conditionalTotal(1)}, DC ${10 + total + Math.max(0, 1 - (circumstance?.value ?? 0))} against fear while within 30 feet of your mount's banner (+1 circumstance; applies to allies too). If the banner is destroyed or removed, allies within 30 feet become frightened 1.${activeFeatsNamed(c, 'Stalwart Standard').length ? ' Allies benefiting from the banner gain +1 circumstance to Fortitude and Reflex DCs against Disarm, Grapple, Shove, and Trip, and +1 status to attacks against creatures that damaged a lower-level innocent within the last round. Summoned creatures, companions, and creatures deliberately endangered by you or your allies do not count as innocents.' : ''}`} />}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
@@ -725,6 +727,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               : `${form.attacks[0]?.data.battle_form
               ? `Gain the animal trait.${form.note ? ` ${form.note}` : ''}`
               : 'Gain the animal and dinosaur traits.'} Only the form's unarmed attacks can Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.`} inlineSource={false} /></b></span>
+          {!!activeFeatsNamed(c, 'Towering Transformation').length && <SourceNote source="Towering Transformation"
+            note={`When a polymorph increases your size, enemies smaller than your new size within 30 feet attempt Will saves against ${classDifficultyClass(c, entries) ?? 'your class DC'} or your spell DC, whichever is higher. Failure causes frightened 1; critical failure causes frightened 2 and allows you to push the target up to 10 feet.`} />}
         </div>}
         {giantStatureSize(c, entries) && <div className="defense-summary">
           <span><small>Size</small><b>{giantStatureSize(c, entries)}</b></span>
