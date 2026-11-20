@@ -675,6 +675,16 @@ it('keeps Warden tier labels for feat choices but combines their spell listings'
   expect(markup).not.toContain('<h5>Rank 1</h5>')
 })
 
+it('heightens Implant Data duration to one year and then unlimited', () => {
+  const implant: ContentEntry = { ...spell('Implant Data', ''), data: { duration_text: '1 day' }, traits: ['Cantrip'], level: 1,
+    description: 'You reprogram a device.\n\nHeightened (3rd) The duration is one year.\n\nHeightened (6th) The duration is unlimited.' }
+  const render = (level: number) => renderToStaticMarkup(<SpellsSection c={{ ...base, level, spells: [{ name: implant.name, rank: 1, cantrip: true, entryId: implant.id }] }}
+    entries={[implant]} save={() => {}} />)
+  expect(render(1)).toContain('1 day')
+  expect(render(10)).toContain('One year')
+  expect(render(12)).toContain('Unlimited')
+})
+
 it('raises Beastmaster Trance range and duration when heightened', () => {
   const trance: ContentEntry = { ...spell('Beastmaster Trance', ''), data: { range_text: '1 mile', duration_text: 'sustained up to 1 minute' },
     traits: ['Focus'], level: 3,
