@@ -401,6 +401,12 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       Object.assign(next, constructCompanionChange(next))
       Object.assign(next, inventiveOffensiveChange(next, entries))
       if (next.hardenFleshActive && !activeFeatsNamed(next, 'Harden Flesh').length) next.hardenFleshActive = false
+      if (next.activeFeatEffects?.includes('Reckless Riding Lunge')
+        && (next.mountedCompanionId !== current.mountedCompanionId
+          || !next.companions?.some(companion => companion.id === next.mountedCompanionId)
+          || !activeFeatsNamed(next, 'Reckless Riding Lunge').length)) {
+        next.activeFeatEffects = next.activeFeatEffects.filter(effect => effect !== 'Reckless Riding Lunge')
+      }
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })

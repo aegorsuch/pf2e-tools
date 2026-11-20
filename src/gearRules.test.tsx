@@ -228,6 +228,22 @@ const haftStance = content('feat', 'Haft Striker Stance', {}, 4, ['Fighter', 'St
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it('increases only held melee weapon reach while Reckless Riding Lunge is active and mounted', () => {
+  const c: Character = { ...base, level: 8, feats: [feat('Reckless Riding Lunge', 4)],
+    companions: [{ id: 'mount', type: 'Horse', name: '' }], mountedCompanionId: 'mount',
+    weapons: [main], activeFeatEffects: ['Reckless Riding Lunge'] }
+  expect(weaponAttack(c, [sword], main).reach).toBe(10)
+  expect(weaponAttack({ ...c, mountedCompanionId: undefined }, [sword], main).reach).toBe(5)
+  expect(weaponAttack({ ...c, feats: [] }, [sword], main).reach).toBe(5)
+  expect(weaponAttack({ ...c, weapons: [{ ...main, stowed: true }] }, [sword], { ...main, stowed: true }).reach).toBe(5)
+  const fist = ownedWeapons(c, [sword]).find(weapon => weapon.name === 'Fist')!
+  expect(weaponAttack(c, [sword], fist).reach).toBe(5)
+  const bow = content('weapon', 'Bow', { weapon_type: 'Ranged', weapon_category: 'Martial', range: 60 })
+  expect(weaponAttack(c, [sword, bow], { ...main, name: 'Bow' }).reach).toBe(0)
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />))
+    .toContain('aria-label="Reckless Riding Lunge active" checked=""')
+})
 const osteoClass = content('class', 'Champion', { attack_proficiency: 'Trained in simple weapons and martial weapons' })
 
 it.each([

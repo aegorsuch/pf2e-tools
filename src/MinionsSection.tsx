@@ -319,7 +319,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
-                ...(['Cavalier Dedication', 'Mounted Parry', 'Mounted Shield', 'Born In The Saddle', 'Legendary Rider']
+                ...(['Cavalier Dedication', 'Mounted Parry', 'Mounted Shield', 'Born In The Saddle', 'Legendary Rider', 'Reckless Riding Lunge']
                   .some(name => activeFeatsNamed(c, name).length) ? [{ name: 'Mounted', element: <label><input type="checkbox"
                   aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
                   onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined })} /> Mounted</label> }] : []),

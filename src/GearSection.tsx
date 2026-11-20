@@ -20,7 +20,7 @@ import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmuniti
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
-import { hunterArrowheadBonus } from './builder'
+import { featEffectChange, hunterArrowheadBonus, isFeatEffectActive } from './builder'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
@@ -1017,6 +1017,16 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
   const arrowhead = hunterArrowheadBonus(c, entries)
   return (
     <div className="col gear-list">
+      {displayOnly && !!activeFeatsNamed(c, 'Reckless Riding Lunge').length && <label title="Requires a melee weapon and a mount; ends at the end of your turn.">
+        <input type="checkbox" aria-label="Reckless Riding Lunge active"
+          checked={isFeatEffectActive(c, 'Reckless Riding Lunge')}
+          disabled={!isFeatEffectActive(c, 'Reckless Riding Lunge') && (!c.companions?.some(companion => companion.id === c.mountedCompanionId)
+            || !weapons.some(weapon => {
+              const entry = weaponEntry(entries, weapon.name, weapon.id)
+              return !!entry && weaponHeld(c, entries, weapon) && weaponCategory(entry) !== 'Unarmed' && !isRanged(entry)
+            }))}
+          onChange={event => save(featEffectChange(c, 'Reckless Riding Lunge', event.target.checked))} /> Reckless Riding Lunge active
+      </label>}
       {displayOnly && <small>Hands used: {handsUsed}/{handLimit}{unknownHands ? ' (some weapon hands unknown)' : ''}</small>}
       {activeFeatsNamed(c, "Fane's Fourberie").length > 0 && PLAYING_CARD_WEAPONS.some(card => !weapons.some(weapon => weapon.id === card.id))
         && <small role="status">Playing-card weapon statistics unavailable. Sync dagger and dart content.</small>}

@@ -5495,9 +5495,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const battleStance = activeStance(c, entries)?.name === "Jotun's Battle Stance"
   const hasReachTrait = traits.some(trait => /^reach(?:\s|$)/i.test(trait))
   const baseReach = num(entry?.data.reach) || (hasReachTrait ? 10 : 5)
-  const reach = formAttack ? num(formAttack.data.reach) : isRanged(entry) ? 0
+  const normalReach = formAttack ? num(formAttack.data.reach) : isRanged(entry) ? 0
     : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10 : baseReach
+  const reach = normalReach + (normalReach > 0 && !formAttack && category !== 'Unarmed'
+    && isFeatEffectActive(c, 'Reckless Riding Lunge') && c.mountedCompanionId
+    && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)
   const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
     : traits.includes('propulsive') ? str > 0 ? Math.floor(str / 2) : str : 0
   const mechanicSpecialization = c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 7 && rank >= 2
