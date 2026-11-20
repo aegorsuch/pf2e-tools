@@ -33,6 +33,18 @@ it.each([[1, 2], [5, 6], [10, 11]])('scales Electric Arc, Frostbite, and Gouging
   expect(spellDamage('Gouging Claw', rank)[0].note).toContain(`${rank + 1} persistent bleed`)
 })
 
+it.each([[1, 1], [3, 2], [5, 3], [9, 5]])('scales Caustic Blast rank %i to %id8 acid', (rank, dice) => {
+  const entry: ContentEntry = { id: 'caustic-blast', name: 'Caustic Blast', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip', 'Acid'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const damage = spellDamage(entry.name, rank)[0]
+  expect(damage).toMatchObject({ label: 'Damage', dice, sides: 8, type: 'acid',
+    note: `Critical failure: ${dice} persistent acid` })
+  expect(spellDamage(entry.name, 0)).toEqual([])
+  expect(spellActionRolls(entry.name, rank, entry)).toMatchObject([{ actions: 'Two Actions', damage }])
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d8 acid; Critical failure: ${dice} persistent acid"`)
+})
+
 it('rolls every Cataclysm component once with conditional damage identified', () => {
   const entry: ContentEntry = { id: 'cataclysm', name: 'Cataclysm', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 10, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

@@ -8,6 +8,9 @@ type Damage = { label: string; dice: number; sides: number; type: string; bonus?
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
+    case 'Caustic Blast':
+      return rank >= 1 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 8, type: 'acid',
+        note: `Critical failure: ${1 + Math.floor((rank - 1) / 2)} persistent acid` }] : []
     case 'Electric Arc':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'electricity' }] : []
     case 'Frostbite':
