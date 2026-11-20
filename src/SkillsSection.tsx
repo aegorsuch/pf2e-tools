@@ -458,6 +458,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Woodland Elf" note="Climb trees, vines, or foliage at half your Speed on a success and full Speed on a critical success; Quick Climb allows full Speed on a success. No effect on a climb Speed. You can always Take Cover in forest terrain." />}
           {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Athletic Might').length && <SourceNote source="Athletic Might"
             note="On an Athletics check to Climb or Swim, a success becomes a critical success." />}
+          {s.name === 'Athletics' && isSpellActive(c, entries, 'Untamed Form')
+            && !!activeFeatsNamed(c, 'Ferocious Shape').length && <SourceNote source="Ferocious Shape"
+              note="+1 status to Athletics when the chosen Untamed Form grants a specific Athletics modifier; status bonuses do not stack." />}
           {['Acrobatics', 'Athletics'].includes(s.name) && !!activeFeatsNamed(c, 'Shore Step').length && <SourceNote source="Shore Step"
             note={s.name === 'Acrobatics' ? 'A success to Balance on a slippery or wet surface becomes a critical success.' : 'A success to Swim becomes a critical success.'} />}
           {s.name === 'Acrobatics' && !!activeFeatsNamed(c, 'Steadying Stone').length && <SourceNote source="Steadying Stone"
@@ -617,6 +620,17 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>
+        {!!activeFeatsNamed(c, 'Current Spell').length && <label>Current Spell{' '}
+          <select aria-label="Current Spell active trait" value={c.currentSpell ?? ''} onChange={event => {
+            const value = event.target.value
+            if (value !== '' && value !== 'air' && value !== 'water' && value !== 'air and water') return
+            save({ currentSpell: value || undefined })
+          }}>
+            <option value="">Inactive</option>
+            <option value="air">Air</option><option value="water">Water</option><option value="air and water">Air and water</option>
+          </select>
+          <SourceNote source="Current Spell" note="After casting an air or water spell, benefits last until the start of your next turn." />
+        </label>}
         {form && <div className="defense-summary">
           <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
             <SourceNote source={form.source} note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>

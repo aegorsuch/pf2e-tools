@@ -52,6 +52,10 @@ const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace'
 const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
   || spell.name.toLowerCase() === spellAlias(name)
 
+const hasUntamedForm = (c: Character) =>
+  c.feats.some(feat => feat.name === 'Untamed Form' && featTakenLevel(feat) <= c.level)
+  || !!c.spells?.some(spell => spell.name === 'Untamed Form')
+
 const spellIndexes = new WeakMap<ContentEntry[], { spells: ContentEntry[]; named: Map<string, ContentEntry[]> }>()
 function spellIndex(entries: ContentEntry[]) {
   let index = spellIndexes.get(entries)
@@ -269,6 +273,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
+      if (!hasUntamedForm(c) && c.className === 'Druid') {
+        const entry = matchingSpells(entries, 'Plant Form').find(spell => spell.systems.includes('pf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'feat', spells: [entry.name], tradition: 'primal', frequency: 'once per day' },
+          rank: Math.min(10, Math.ceil(c.level / 2)), usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      }
+      continue
+    }
     if (feat.name === 'Natural Illusionist' && c.systems.includes('pf2e')) {
       for (const name of ['Illusory Disguise', 'Item Facade', 'Ventriloquism']) {
         const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
@@ -509,6 +522,12 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       return [{ name: `${training.choice} domain focus spell`, source }]
     }
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
+    if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
+      if (hasUntamedForm(c)) return []
+      if (c.className !== 'Druid') return [{ name: 'Plant Form (druid spell slot rank unavailable)', source }]
+      return matchingSpells(entries, 'Plant Form').some(entry => entry.systems.includes('pf2e'))
+        ? [] : [{ name: 'Plant Form', source }]
+    }
     if (feat.name === 'Natural Illusionist' || feat.name === 'True Shapeshifter' || feat.name === 'Cautious Curiosity' || feat.name === 'Homeward Bound') {
       const names = feat.name === 'Natural Illusionist' ? ['Illusory Disguise', 'Item Facade', 'Ventriloquism']
         : feat.name === 'True Shapeshifter' ? ['Nature Incarnate']

@@ -224,6 +224,7 @@ export interface Character {
   parrying?: boolean
   activeStance?: string
   activeFeatEffects?: string[]
+  currentSpell?: 'air' | 'water' | 'air and water'
   focusPointsSpentSinceRefocus?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
@@ -360,6 +361,7 @@ export interface Character {
     rank?: number
     originalDuration?: '1 minute' | '10 minutes' | '24 hours' | '1 hour' | 'unlimited'
   }
+  dragonShapeResistance?: 'bludgeoning' | 'poison'
   oakenResilienceRank?: number
   falseVitalityRank?: number
   spentFocusPoints?: number[]

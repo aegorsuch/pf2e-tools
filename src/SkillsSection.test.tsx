@@ -1722,6 +1722,27 @@ it('applies Eclectic Obsession only while active and only to a chosen Lore', () 
   expect(builder.temporarySkillTrainings(c, entries)[0].skill).toBe('Herbalism Lore')
 })
 
+it('applies Current Spell AC without stacking circumstance bonuses and annotates its conditional saves', () => {
+  const c: Character = { ...base, level: 6, className: 'Druid',
+    feats: [{ name: 'Current Spell', type: 'Class Feat', level: 6 }], currentSpell: 'air' }
+  const plain = { ...c, currentSpell: undefined }
+  const active = builder.armorClassBreakdown(c, [])
+  expect(active.total).toBe(builder.armorClassBreakdown(plain, []).total + 1)
+  expect(active.notes).toContain(`Current Spell: AC ${active.total + 1} against ranged attacks; circumstance bonuses do not stack.`)
+  expect(builder.savingThrowBreakdown(c, [], 'Reflex').notes).toContain(
+    'Current Spell: +1 circumstance against air effects; circumstance bonuses do not stack.')
+  expect(builder.savingThrowBreakdown({ ...c, currentSpell: 'air and water' }, [], 'Will').notes).toContain(
+    'Current Spell: +1 circumstance against air or water effects; circumstance bonuses do not stack.')
+  expect(builder.savingThrowBreakdown(plain, [], 'Reflex').total).toBe(builder.savingThrowBreakdown(c, [], 'Reflex').total)
+  const shield = { ...c, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+  const shieldEntry: ContentEntry = { ...ranger, kind: 'shield', name: 'Steel Shield', data: { ac: 2 } }
+  expect(builder.armorClassBreakdown(shield, [shieldEntry]).total)
+    .toBe(builder.armorClassBreakdown({ ...shield, currentSpell: undefined }, [shieldEntry]).total)
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />))
+    .toContain('aria-label="Current Spell active trait"')
+  expect(builder.armorClassBreakdown({ ...c, level: 5 }, []).total).toBe(builder.armorClassBreakdown({ ...plain, level: 5 }, []).total)
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }

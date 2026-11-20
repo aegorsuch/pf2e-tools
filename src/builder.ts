@@ -3644,6 +3644,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(activeFeatsNamed(c, 'Current Spell').length && c.currentSpell
+      ? [`Current Spell: +1 circumstance against ${c.currentSpell === 'air and water' ? 'air or water' : c.currentSpell} effects; circumstance bonuses do not stack.`] : []),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fire Resistance').length
       ? ['Fire Resistance: +1 circumstance against fire effects; circumstance bonuses do not stack.'] : []),
     ...(bulwark
@@ -3823,6 +3825,15 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (isSpellActive(c, entries, 'Untamed Form') && activeFeatsNamed(c, 'Elemental Shape').length) {
     out.push({ damage: 'fire', value: 5, source: 'Elemental Shape (polymorphed)' })
   }
+  if (isSpellActive(c, entries, 'Untamed Form')) {
+    if (activeFeatsNamed(c, 'Plant Shape').length) {
+      out.push({ damage: 'poison', value: 5, source: 'Plant Shape (polymorphed)' })
+    }
+    if (activeFeatsNamed(c, 'Dragon Shape').length
+      && (c.dragonShapeResistance === 'bludgeoning' || c.dragonShapeResistance === 'poison')) {
+      out.push({ damage: c.dragonShapeResistance, value: 5, source: 'Dragon Shape (polymorphed)' })
+    }
+  }
   if (activeFeatsNamed(c, 'Wasteland Warrior').length) {
     for (const damage of ['cold', 'fire']) out.push({ damage, value: half, source: 'Wasteland Warrior' })
   }
@@ -3957,11 +3968,17 @@ export function armorProficiencyRank(c: Character, entries: ContentEntry[], armo
 export function armorClassBreakdown(c: Character, entries: ContentEntry[]): TotalBreakdown {
   const form = activeBattleForm(c, entries)
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
+  const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
   if (form) {
     const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
-    const best = Math.max(shield, raisedBoneShield)
+    const best = Math.max(shield, raisedBoneShield, currentSpell)
     return { total: form.ac + best, parts: [{ label: form.source, value: form.ac },
-      ...(best ? [{ label: raisedBoneShield ? 'Raise Bone Shield (circumstance)' : 'Shield cantrip (circumstance)', value: best }] : [])], notes: [] }
+      ...(best ? [{ label: [
+        ...(raisedBoneShield === best ? ['Raise Bone Shield'] : []),
+        ...(shield === best ? ['Shield cantrip'] : []),
+        ...(currentSpell === best ? ['Current Spell'] : []),
+      ].join(' / ') + ' (circumstance)', value: best }] : [])],
+      notes: currentSpell ? [`Current Spell: AC ${form.ac + Math.max(best, 2)} against ranged attacks; circumstance bonuses do not stack.`] : [] }
   }
   const worn = wornArmor(c, entries)
   const armor = equippedArmorEntry(c, entries)
@@ -3980,6 +3997,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Raise Shield cantrip', value: raisedCantrip },
     { label: 'Raise Bone Shield', value: raisedBoneShield },
     { label: 'Parry', value: parry },
+    { label: 'Current Spell', value: currentSpell },
   ].filter(candidate => candidate.value > 0)
   const best = Math.max(0, ...candidates.map(candidate => candidate.value))
   const parts: TotalPart[] = [
@@ -3998,6 +4016,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
   if (activeFeatsNamed(c, 'Hazard Finder').length)
     notes.push('Hazard Finder +1 circumstance against hazard attacks; circumstance bonuses do not stack.')
+  if (currentSpell) notes.push(`Current Spell: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, 2 - best)} against ranged attacks; circumstance bonuses do not stack.`)
   notes.push(...hellknightSkillNotes(c, 'AC').map(benefit => `${benefit.name}: ${benefit.description} Circumstance bonuses do not stack.`))
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }
 }

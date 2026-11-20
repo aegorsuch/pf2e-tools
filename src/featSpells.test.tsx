@@ -364,6 +364,32 @@ it('grants True Shapeshifter one daily class spell with its permitted forms', ()
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={[nature]} save={() => {}} />)).toContain('Kaiju form only')
 })
 
+it('grants Plant Shape a daily plant form only without Untamed Form', () => {
+  const plant = { ...entry('Plant Form', 'spell'), level: 5 }
+  const c: Character = { ...base, className: 'Druid', level: 12, feats: [taken('Plant Shape', 10)] }
+  const [grant] = grantedFeatSpells(c, [plant])
+  expect(grant).toMatchObject({ entry: plant, rank: 6, rule: { kind: 'feat', tradition: 'primal', frequency: 'once per day' } })
+  expect(dailyInnateUses(c, grant)?.remaining).toBe(1)
+  expect(grantedFeatSpells({ ...c, level: 9 }, [plant])).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [...c.feats, taken('Untamed Form')] }, [plant])).toEqual([])
+  expect(unresolvedFeatSpells(c, [])).toMatchObject([{ name: 'Plant Form' }])
+})
+
+it('applies Plant and Dragon Shape resistances only while Untamed Form is active', () => {
+  const c: Character = { ...base, className: 'Druid', level: 12, feats: [
+    taken('Untamed Form'), taken('Plant Shape', 10), taken('Dragon Shape', 12),
+  ], dragonShapeResistance: 'bludgeoning', activeSpells: ['Untamed Form'] }
+  expect(resistances(c, [])).toEqual(expect.arrayContaining([
+    { damage: 'Poison', value: 5, source: 'Plant Shape (polymorphed)' },
+    { damage: 'Bludgeoning', value: 5, source: 'Dragon Shape (polymorphed)' },
+  ]))
+  expect(resistances({ ...c, activeSpells: [] }, [])).toEqual([])
+  expect(resistances({ ...c, dragonShapeResistance: undefined }, [])).not.toContainEqual(
+    expect.objectContaining({ source: 'Dragon Shape (polymorphed)' }))
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('aria-label="Dragon Shape resistance"')
+})
+
 it('tracks Homeward Bound twice weekly with its planar restriction and heritage tradition', () => {
   const teleport = { ...entry('Interplanar Teleport', 'spell'), level: 7 }
   const c: Character = { ...base, level: 17, ancestry: 'Gnome', heritage: 'Wellspring Gnome',

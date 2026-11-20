@@ -82,6 +82,16 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
           save({ untamedForm: { ...state, shape: event.target.value } })
         }} />
     </label>
+    {!!activeFeatsNamed(c, 'Dragon Shape').length && <label>Dragon Shape resistance{' '}
+      <select aria-label="Dragon Shape resistance" value={c.dragonShapeResistance ?? ''} onChange={event => {
+        const value = event.target.value
+        if (value !== '' && value !== 'bludgeoning' && value !== 'poison') return
+        save({ dragonShapeResistance: value || undefined })
+      }}>
+        <option value="">Choose resistance</option>
+        <option value="bludgeoning">Bludgeoning</option><option value="poison">Poison</option>
+      </select>
+    </label>}
     <label>Original duration{' '}
       <select aria-label="Untamed Form original duration" value={state?.originalDuration ?? ''} disabled={active || !state?.form}
         onChange={event => {
