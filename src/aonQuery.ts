@@ -300,6 +300,10 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     for (const hit of json.hits?.hits ?? []) {
       const s = hit._source
       if (s) {
+        if (category === 'armor' && system === 'sf2e' && typeof s.markdown === 'string' && s.upgrade_slots === undefined) {
+          const slots = /\*\*Upgrades\*\*\s*(\d+)/i.exec(s.markdown)?.[1]
+          if (slots) s.upgrade_slots = Number(slots)
+        }
         if (category === 'weapon' && typeof s.markdown === 'string') {
           if (system === 'sf2e') {
             const modes = parseWeaponModes(s.markdown)

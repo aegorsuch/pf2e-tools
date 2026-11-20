@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -2132,6 +2132,13 @@ it('installs compatible weapon upgrades within capacity without changing saved r
   const full = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(full).not.toContain('Upgrade slots:')
   expect(full).not.toContain('aria-label="Add weapon upgrade"')
+})
+
+it('reads armor upgrade slots from the description when the data field is missing', () => {
+  const suit = { id: 'a', name: 'Suit', systems: ['sf2e'], data: {}, description: 'Upgrades 2\nBody text' } as unknown as ContentEntry
+  expect(armorUpgradeSlots(suit)).toBe(2)
+  expect(armorUpgradeSlots({ ...suit, data: { upgrade_slots: 1 } })).toBe(1)
+  expect(armorUpgradeSlots({ ...suit, description: '' })).toBe(0)
 })
 
 it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {

@@ -42,6 +42,12 @@ import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
+export function armorUpgradeSlots(entry?: ContentEntry) {
+  if (!entry) return 0
+  const slots = Number(entry.data.upgrade_slots)
+  if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
+  return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
+}
 const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
 const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[] = [
   { name: 'Commercial', level: 1, hardness: 5 }, { name: 'Tactical', level: 4, hardness: 10 },
@@ -1830,8 +1836,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
             <NamedArmorAbilities entry={entry} inlineSummary />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
-            {Number(entry?.data.upgrade_slots) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
-              && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}.</small>}
+            {armorUpgradeSlots(entry) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
+              && <small>Armor upgrade slots: {armorUpgradeSlots(entry)}.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
@@ -1875,9 +1881,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
-              {sf2eArmor && entry && Number(entry.data.upgrade_slots) > 0 && entry.data.upgrades_allowed !== false
+              {sf2eArmor && entry && armorUpgradeSlots(entry) > 0 && entry.data.upgrades_allowed !== false
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
-                  limit={Number(entry.data.upgrade_slots)}
+                  limit={armorUpgradeSlots(entry)}
                   onChange={upgrades => update(a.id, { upgrades })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
