@@ -34,6 +34,9 @@ it('tracks item glitching and reduces it with Troubleshoot', () => {
     .toContain('Flat check DC 7 at the start of each turn')
   find(render(), 'button')?.onClick?.()
   expect(c.mechanicGlitching?.[`equipment:${id}`]).toBe(2)
+  c = { ...c, level: 6, feats: [{ name: 'Boosting The Basics', type: 'Class Feat', level: 6 }] }
+  find(render(), 'button')?.onClick?.()
+  expect(c.mechanicGlitching?.[`equipment:${id}`]).toBeUndefined()
   find(render(), 'input')?.onChange?.({ target: { value: '0' } })
   expect(c.mechanicGlitching?.[`equipment:${id}`]).toBeUndefined()
 })

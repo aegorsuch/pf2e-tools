@@ -26,6 +26,7 @@ import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting
 import { familiarSpellBenefits } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
+import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
@@ -2111,7 +2112,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   if (c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Horizon Seeker Vesk') {
     movement.push(atLandSpeed('Climb', 'Horizon Seeker Vesk'))
   }
-  if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', 10, 'Magnetic Levitators'))
+  if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', boostingTheBasics(c) ? 20 : 10, 'Magnetic Levitators'))
   if (activeFeatsNamed(c, 'Soaring Armor').length && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) {
     movement.push(atLandSpeed('Fly', 'Soaring Armor'))
   }
@@ -3336,9 +3337,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (activeFeatsNamed(c, 'Friend of the Sea').length) {
     grants.push({ name: 'Pet', source: 'Friend of the Sea', level: sourceLevel('Friend of the Sea') })
   }
-  if (activeFeatsNamed(c, 'Predictive Purchase').length) {
-    for (const name of ['Prescient Planner', 'Prescient Consumable']) {
-      grants.push({ name, source: 'Predictive Purchase', level: sourceLevel('Predictive Purchase') })
+  for (const source of ['Predictive Purchase', ...(c.systems.includes('sf2e') ? ['Veskarium Logistics Specialist'] : [])]) {
+    if (activeFeatsNamed(c, source).length) for (const name of ['Prescient Planner', 'Prescient Consumable']) {
+      grants.push({ name, source, level: sourceLevel(source) })
     }
   }
   if (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length) {
@@ -5911,7 +5912,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     && !!livingSource?.verdantWeapon && canBeVerdantWeapon(c, entries, livingSource)
   const baseRange = options.thrown && thrown ? thrownRange : num(entry?.data.range)
   const range = ranged && baseRange > 0
-    ? (baseRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
+    ? (baseRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? boostingTheBasics(c) ? 60 : 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
       * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0
   const style = soldierStyle(c)
   const areaTrait = entry?.traits.find(trait => /^area(?:\s|$)/i.test(trait))
@@ -6049,6 +6050,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? [`Bloody Wounds: a critical hit against your mark deals ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1} persistent bleed damage.`] : []),
         ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Overwhelming Assault').length
           ? [`Overwhelming Assault: attacks against suppressed targets use a multiple attack penalty of ${agile ? '-3/-6' : '-4/-8'}.`] : []),
+        ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Advantageous Assault').length && category !== 'Unarmed'
+          ? [`Advantageous Assault: a Strike against a frightened or bleeding creature deals +${dice} circumstance damage.`] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Skirmisher' && ranged
           && weaponHands(entries, w, c) === 1
           ? ['Skirmisher: ranged Strikes with this weapon do not trigger reactions triggered by ranged attacks.',
@@ -6125,7 +6128,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     range,
     reach,
     thrownRange: !ranged && thrown && thrownRange > 0
-      ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
+      ? (thrownRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? boostingTheBasics(c) ? 60 : 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1) : 0,
     thrownRangeBonus: strongArm ? 10 : 0,
     damage: m ? `${dice}d${die}${damageBonus ? signed(damageBonus) : ''}${modifiedDamageType ? ` ${modifiedDamageType}` : ''}` : '',
   }

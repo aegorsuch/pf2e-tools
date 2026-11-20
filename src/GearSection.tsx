@@ -28,6 +28,7 @@ import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { ExploitiveAssault } from './ExploitiveAssault'
 import { mechanicClassDC } from './mechanicRules'
+import { boostingTheBasics } from './mechanicMods'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
@@ -816,11 +817,12 @@ export function GrenadeMods({ c, grenade, itemKey, save, label }: {
         {damageTypes.map(type => <option key={type}>{type}</option>)}
       </select>
     </label>}
-    <small>Thrown range {mods.longRange ? 100 : 70} feet; launchers use their own range.
-      {radius && ` Burst radius ${radius + (mods.bigBoom ? 5 : 0)} feet.`}
-      {mods.bigBoom && !radius && ' Increase burst radius by 5 feet.'}
+    <small>Thrown range {mods.longRange ? boostingTheBasics(c) ? 130 : 100 : 70} feet; launchers use their own range.
+      {radius && ` Burst radius ${radius + (mods.bigBoom ? boostingTheBasics(c) ? 10 : 5 : 0)} feet.`}
+      {mods.bigBoom && !radius && ` Increase burst radius by ${boostingTheBasics(c) ? 10 : 5} feet.`}
       {mods.incapacitant && ' Nonlethal.'}
-      {mods.bunkerBuster && ' +5 damage to objects, structures, vehicles, and creatures with Hardness.'}
+      {mods.incapacitant && boostingTheBasics(c) && ' Creatures critically hit or critically failing their save become frightened 1.'}
+      {mods.bunkerBuster && ` +${boostingTheBasics(c) ? 10 : 5} damage to objects, structures, vehicles, and creatures with Hardness.`}
       {c.level >= 5 && mods.damageType && damageTypes.some(type => type === mods.damageType) && ` Damage type: ${mods.damageType}.`}</small>
     <small>{mechanicModDuration(c)}</small>
     {itemKey.startsWith('prepared:') && <ItemTroubleshoot c={c} save={save} kind="grenade" id={itemKey} label={label} />}
@@ -902,14 +904,15 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
       <input type="checkbox" checked={!!mods.bigBoom} onChange={event => update({ bigBoom: event.target.checked })} /> Big Boom
     </label>}
     {mods.bigBoom && attack.entry.traits.some(trait => /^area(?:\s|$)/i.test(trait))
-      && <small>Increase burst radius or cone length by 5 feet, or line length by 10 feet.</small>}
+      && <small>Increase burst radius or cone length by {boostingTheBasics(c) ? 10 : 5} feet, or line length by {boostingTheBasics(c) ? 20 : 10} feet.</small>}
     <label><input type="checkbox" checked={!!mods.incapacitant}
       onChange={event => update({ incapacitant: event.target.checked })} /> Incapacitant</label>
+    {mods.incapacitant && boostingTheBasics(c) && <small>Creatures critically hit or critically failing their save become frightened 1.</small>}
     {(attack.range > 0 || attack.thrownRange > 0) && <label><input type="checkbox" checked={!!mods.longRange}
       onChange={event => update({ longRange: event.target.checked })} /> Long-range Propulsors</label>}
     <label><input type="checkbox" checked={!!mods.bunkerBuster}
       onChange={event => update({ bunkerBuster: event.target.checked })} /> Bunker Buster</label>
-    {mods.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+    {mods.bunkerBuster && <small>+{boostingTheBasics(c) ? 10 : 5} damage to objects, structures, vehicles, and creatures with Hardness.</small>}
     <TransmutativeCasing c={c} value={mods.transmutativeCasing} onChange={value => update({ transmutativeCasing: value })} />
     <ExploitiveAssault c={c} value={mods.exploitiveAssault} onChange={value => update({ exploitiveAssault: value })} />
     {activeFeatsNamed(c, 'Glitch Pulse').length > 0 && <>

@@ -1294,6 +1294,11 @@ it('applies active mechanic weapon mods only to eligible weapons and damage type
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[laser]} save={() => {}} displayOnly />)
   expect(markup).toContain('Long-range Propulsors')
   expect(markup).toContain('+5 damage to objects, structures, vehicles, and creatures with Hardness.')
+  const improved: Character = { ...c, level: 6, feats: [{ name: 'Boosting The Basics', type: 'Class Feat', level: 6 }] }
+  expect(weaponAttack(improved, [laser], weapon).range).toBe(120)
+  const improvedMarkup = renderToStaticMarkup(<WeaponList c={improved} entries={[laser]} save={() => {}} displayOnly />)
+  expect(improvedMarkup).toContain('+10 damage to objects')
+  expect(improvedMarkup).toContain('critically hit or critically failing their save become frightened 1')
 })
 
 it('applies hardlight upgrades to fists and other unarmed attacks, including tactical parry', () => {

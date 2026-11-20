@@ -1,5 +1,6 @@
 import { activeFeatsNamed, proficiencyBonus } from './builder'
 import { energyNeutralizerResistances } from './mechanicEnergy'
+import { boostingTheBasics } from './mechanicMods'
 import type { Character, ContentEntry, DroneCustomizationGrade } from './types'
 
 type Customization = {
@@ -165,7 +166,7 @@ export function droneCustomizationSlots(c: Character) {
     if (has('Aquatic Adaptation')) speed.Swim = Math.max(speed.Swim ?? 0, 20)
     if (has('Climber')) speed.Climb = Math.max(speed.Climb ?? 0, 20)
     if (has('Flier')) speed.Fly = Math.max(speed.Fly ?? 0, 20)
-    if (c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators) speed.Fly = Math.max(speed.Fly ?? 0, 10)
+    if (c.mechanicArmorMods?.['mechanic:drone']?.magneticLevitators) speed.Fly = Math.max(speed.Fly ?? 0, boostingTheBasics(c) ? 20 : 10)
     if (has('Burrower')) speed.Burrow = Math.max(speed.Burrow ?? 0, 20)
     if (activeFeatsNamed(c, 'Rocket Boosters').length) speed.Fly = (speed.Fly ?? 0) >= 20 ? speed.Fly + 5 : 20
     for (const item of selected) if (item.name === 'High Speed' && item.choice && speed[item.choice]) speed[item.choice] = Math.max(speed[item.choice], 40)
@@ -190,7 +191,7 @@ export function droneCustomizationSlots(c: Character) {
       return { id, ranged, baseType, die: attack.die, name: c.mechanicDroneChassis === 'Imitator' && c.mechanicDroneImitator?.attack || attack.name,
         attack: mod + proficiencyBonus(superior ? 2 : 1, c.level),
         damage: `${dice}d${attack.die}${flat > 0 ? `+${flat}` : flat < 0 ? flat : ''} ${damageType}`,
-        range: ranged ? 30 + (c.mechanicWeaponMods?.[id]?.longRange ? 30 : 0) : 0,
+        range: ranged ? 30 + (c.mechanicWeaponMods?.[id]?.longRange ? boostingTheBasics(c) ? 60 : 30 : 0) : 0,
         incapacitant: !!c.mechanicWeaponMods?.[id]?.incapacitant,
         splash: activeFeatsNamed(c, 'Explosive Shot').length && c.mechanicWeaponMods?.[id]?.explosiveShot ? `${dice} ${damageType} splash` : undefined }
     })

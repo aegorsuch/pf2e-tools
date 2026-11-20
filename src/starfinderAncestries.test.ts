@@ -117,3 +117,37 @@ it('grants the heightened occult Daze cantrip to Venomthought Vesk', () => {
   expect(unresolvedFeatSpells(c, entries)).toContainEqual(expect.objectContaining({ name: 'Daze', sourceName: 'Venomthought Vesk' }))
   expect(grantedFeatSpells({ ...c, heritage: undefined }, [...entries, ...daze]).some(grant => grant.source === 'Venomthought Vesk')).toBe(false)
 })
+
+it('grants the Veskarium logistics feats at the correct level', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', level: 9,
+    feats: [{ name: 'Veskarium Logistics Specialist', type: 'Ancestry Feat', level: 9 }] }
+  expect(automaticFeatGrants(c, entries)).toEqual(expect.arrayContaining([
+    { name: 'Prescient Planner', source: 'Veskarium Logistics Specialist', level: 9 },
+    { name: 'Prescient Consumable', source: 'Veskarium Logistics Specialist', level: 9 },
+  ]))
+  expect(automaticFeatGrants({ ...c, level: 8 }, entries).some(grant => grant.source === 'Veskarium Logistics Specialist')).toBe(false)
+})
+
+it('shows Advantageous Assault conditional damage only for weapons', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', level: 13,
+    feats: [{ name: 'Advantageous Assault', type: 'Ancestry Feat', level: 13 }] }
+  const weapon: ContentEntry = { id: 'blade', name: 'Blade', kind: 'weapon', systems: ['sf2e'], source: 'official',
+    level: 1, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { weapon_category: 'Simple', weapon_type: 'Melee', damage: '1d6 slashing' } }
+  const owned: OwnedWeapon = { id: 'blade', name: 'Blade', potency: 0, striking: 0, runes: [] }
+  const result = weaponAttack(c, [weapon], owned)
+  expect(result.breakdown.notes?.join(' ')).toContain('a Strike against a frightened or bleeding creature deals +1 circumstance damage')
+  const jaws = ownedWeapons({ ...c, heritage: 'Fork-Tongued Vesk' }, entries).find(item => item.name === 'Venomous Vesk Jaws')!
+  expect(weaponAttack(c, entries, jaws).breakdown.notes?.join(' ')).not.toContain('Advantageous Assault')
+})
+
+it('grants both Battle Saint spells independently as seventh-rank divine spells', () => {
+  const data = mapAonHits(hits.filter(hit => ['Battle Saint', 'Rocket Dash', 'Haste'].includes(String(hit._source?.name))), 'sf2e')
+  const c: Character = { ...base, ancestry: 'Vesk', level: 17,
+    feats: [{ name: 'Battle Saint', type: 'Ancestry Feat', level: 17 }] }
+  const grants = grantedFeatSpells(c, data).filter(grant => grant.source === 'Battle Saint')
+  expect(grants.map(grant => grant.entry.name).sort()).toEqual(['Haste', 'Rocket Dash'])
+  expect(grants.every(grant => grant.rule.rank === 7 && grant.rule.tradition?.toLowerCase() === 'divine'
+    && grant.rule.frequency === 'once per day' && !grant.rule.shared)).toBe(true)
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(2)
+})

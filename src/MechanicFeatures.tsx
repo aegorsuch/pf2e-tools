@@ -8,6 +8,7 @@ import { ExploitiveAssault } from './ExploitiveAssault'
 import { enduringMineMods, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { Character, MechanicMine } from './types'
+import { boostingTheBasics } from './mechanicMods'
 
 const MEDIC_MINE_MODS = ['Numbing Analgesic', 'Powerful Stimulant', 'Protective Excretions', 'Restorative Boost'] as const
 
@@ -27,7 +28,7 @@ export function mechanicMineDamage(c: Character, mine: MechanicMine) {
   const bonus = mine.targeting ? Math.max(0, abilityMod(c.abilities.int)) : 0
   return {
     damage: `${2 + Math.floor((Math.max(1, c.level) - 1) / 2)}d6${bonus ? `+${bonus}` : ''} ${damageType}`,
-    radius: (c.level >= 15 ? 20 : c.level >= 10 ? 15 : 10) + (mine.bigBoom ? 5 : 0),
+    radius: (c.level >= 15 ? 20 : c.level >= 10 ? 15 : 10) + (mine.bigBoom ? boostingTheBasics(c) ? 10 : 5 : 0),
     types,
   }
 }
@@ -229,7 +230,8 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
           </select></label>}
           <small>{healing ? `Heals ${healingAmount} HP; no save` : `${result.damage}${mine.incapacitant ? ' nonlethal' : ''}; basic Reflex DC ${classDc}`};
             {` ${result.radius}-foot burst.`} Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
-          {mine.bunkerBuster && <small>+5 damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+          {mine.bunkerBuster && <small>+{boostingTheBasics(c) ? 10 : 5} damage to objects, structures, vehicles, and creatures with Hardness.</small>}
+          {!healing && mine.incapacitant && boostingTheBasics(c) && <small>Creatures critically failing their save become frightened 1.</small>}
           <button type="button" onClick={() => {
             const glitching = { ...c.mechanicGlitching }
             if (mine.id) delete glitching[`mine:${mine.id}`]

@@ -437,6 +437,26 @@ it('applies Magnetic Levitators only while its armor is worn', () => {
   expect(droneStats({ ...drone, mechanicDroneCustomizations: { Commercial: [{ name: 'Flier' }] } })?.speed.Fly).toBe(20)
 })
 
+it('improves basic mods on mines, worn armor, and drone attacks with Boosting The Basics', () => {
+  const feat = { name: 'Boosting The Basics', type: 'Class Feat', level: 6 }
+  const c: Character = { ...mechanic, feats: [feat],
+    armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], worn: true }],
+    mechanicArmorMods: { armor: { magneticLevitators: true } },
+    mechanicMines: { carried: 1, deployed: 1 },
+    mechanicDeployedMines: [{ bigBoom: true, bunkerBuster: true, incapacitant: true }] }
+  expect(mechanicMineDamage(c, c.mechanicDeployedMines![0]).radius).toBe(25)
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 20, source: 'Magnetic Levitators' })
+  const html = renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)
+  expect(html).toContain('+10 damage to objects')
+  expect(html).toContain('critically failing their save become frightened 1')
+  const drone: Character = { ...c, subclass: 'Drone', mechanicDroneChassis: 'Surveillance',
+    mechanicArmorMods: { 'mechanic:drone': { magneticLevitators: true } },
+    mechanicWeaponMods: { 'mechanic:drone:Surveillance:0': { longRange: true } } }
+  expect(droneStats(drone)?.speed.Fly).toBe(20)
+  expect(droneStats(drone)?.attacks[0].range).toBe(90)
+  expect(mechanicMineDamage({ ...c, level: 5 }, { bigBoom: true }).radius).toBe(15)
+})
+
 it('applies Energy Neutralizer only to worn armor, scaling its choices and resistance', () => {
   const c: Character = { ...mechanic, armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], worn: true }],
     feats: [{ name: 'Energy Neutralizer', type: 'Class Feat', level: 4 }],

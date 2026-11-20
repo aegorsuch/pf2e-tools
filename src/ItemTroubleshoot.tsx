@@ -1,6 +1,7 @@
 import { newId } from './db'
 import type { SectionProps } from './builder'
 import type { Character } from './types'
+import { boostingTheBasics } from './mechanicMods'
 
 export function ItemTroubleshoot({ c, save, id, kind, label, attach, creature = false, compensator = false }: Pick<SectionProps, 'c' | 'save'> & {
   id?: string
@@ -30,7 +31,7 @@ export function ItemTroubleshoot({ c, save, id, kind, label, attach, creature = 
         const value = Number(event.target.value)
         if (event.target.value !== '' && Number.isInteger(value) && value >= 0) update(value)
       }} /></label>
-    <button type="button" disabled={!glitching} onClick={() => update(glitching - 1)}>Troubleshoot</button>
+    <button type="button" disabled={!glitching} onClick={() => update(Math.max(0, glitching - (boostingTheBasics(c) ? 2 : 1)))}>Troubleshoot</button>
     {glitching > 0 && <small>Flat check DC {5 + glitching} {creature ? 'at the start of each turn' : 'when using this item'}; apply the result manually.</small>}
     {glitching > 0 && compensator && <small>Glitch Compensator: critical failures become failures.</small>}
     </div>
