@@ -191,8 +191,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   if (c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries)) {
     for (let i = 0; i < 2; i++) slots.push({ key: `ancestryAlternate:${i}`, label: 'Ancestry (free)', group: 'ancestry' })
   } else {
-    ancestryBoosts(ancestry?.data.attribute).map(t => c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
-      && c.heritage === 'Fierce Ysoki' && t === 'Dexterity' ? 'Strength' : t).forEach((t, i) => {
+    ancestryBoosts(ancestry?.data.attribute).map(t => starfinderHeritageBoost(c, t)).forEach((t, i) => {
       const fixed = ABILITY_NAMES[t.toLowerCase()]
       slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed, group: 'ancestry' })
     })
@@ -218,11 +217,27 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   return slots
 }
 
+const starfinderHeritageBoost = (c: Character, boost: string) => {
+  if (!c.systems.includes('sf2e')) return boost
+  const swaps: Record<string, Record<string, [string, string]>> = {
+    Ysoki: { 'Fierce Ysoki': ['Dexterity', 'Strength'] },
+    Android: { 'Hellforged Android': ['Dexterity', 'Strength'], 'Electronica Android': ['Intelligence', 'Charisma'] },
+  }
+  const swap = swaps[c.ancestry ?? '']?.[c.heritage ?? '']
+  return swap && boost === swap[0] ? swap[1] : boost
+}
+
+const starfinderHeritageFlaw = (c: Character): Ability[] | undefined => {
+  if (!c.systems.includes('sf2e')) return undefined
+  if (c.ancestry === 'Ysoki' && c.heritage === 'Fierce Ysoki') return ['dex']
+  if (c.ancestry === 'Android') return ({ 'Biotech Android': ['con'], 'Electronica Android': ['wis'] } as Record<string, Ability[]>)[c.heritage ?? '']
+  return undefined
+}
+
 export const ancestryFlaws = (c: Character, entries: ContentEntry[]) => {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
   return c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries) ? []
-    : c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Fierce Ysoki'
-      ? ['dex'] as Ability[] : parseAbilities(ancestry?.data.attribute_flaw)
+    : starfinderHeritageFlaw(c) ?? parseAbilities(ancestry?.data.attribute_flaw)
 }
 
 // A boost is +2 below 18, otherwise +1
@@ -518,6 +533,8 @@ const starfinderHeritageSkill = (c: Character) => {
   if (!c.systems.includes('sf2e') || c.level < 1) return undefined
   if (c.ancestry === 'Ysoki') return ({ 'Akitonian Ysoki': 'Crafting', 'Shipborn Ysoki': 'Piloting',
     'Listener Ysoki': 'Occultism' } as Record<string, string>)[c.heritage ?? '']
+  if (c.ancestry === 'Android') return ({ 'Artificial Scion Android': 'Computers', 'Biotech Android': 'Nature',
+    'Electronica Android': 'Performance', 'Replicant Android': 'Deception' } as Record<string, string>)[c.heritage ?? '']
   return c.ancestry === 'Vesk' && c.heritage === 'Frilled Vesk' ? 'Intimidation' : undefined
 }
 
@@ -3185,6 +3202,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     if (typeof vision === 'string' && vision) addVision(vision, heritage.name)
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
   }
+  if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
     addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
@@ -3294,6 +3312,10 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (testSubjectAdaptation(c) === 'Cybernetic Augmentation') {
     grants.push({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
   }
+  const androidFeat = c.systems.includes('sf2e') && c.ancestry === 'Android' ? ({
+    'Artificial Scion Android': 'Phreaker', 'Biotech Android': 'Train Animal',
+    'Replicant Android': 'Favored Disguise', 'Renewed Android': 'Dubious Knowledge' } as Record<string, string>)[c.heritage ?? ''] : undefined
+  if (androidFeat) grants.push({ name: androidFeat, source: c.heritage!, level: 1 })
   if (c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Tunnel Ysoki') {
     grants.push({ name: 'Quick Squeeze', source: 'Tunnel Ysoki', level: 1 })
   }
