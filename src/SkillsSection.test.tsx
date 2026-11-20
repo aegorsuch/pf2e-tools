@@ -95,6 +95,25 @@ it('shows Spiritual Guides and Towering Transformation only when applicable', ()
     .not.toContain('Towering Transformation note')
 })
 
+it('shows condition recovery and shared Rage rules without treating them as permanent modifiers', () => {
+  const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
+    feats: ['Inner Strength', 'Shake It Off', 'Creature Comforts', 'Share Rage', 'Contagious Rage']
+      .map(name => ({ name, type: 'Class Feat', level: 1 })) }
+  const render = (character: Character, part: 'skills' | 'defense') =>
+    renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part={part} />)
+  expect(render(c, 'skills')).toContain('reduce your enfeebled condition by 1')
+  const defense = render(c, 'defense')
+  expect(defense).toContain('reduce sickened by 1 on failure')
+  expect(defense).toContain('while under a morph or polymorph effect')
+  expect(defense).toContain('Contagious Rage allows multiple uses per Rage')
+  const calm = render({ ...c, raging: false }, 'defense')
+  expect(calm).not.toContain('Shake It Off note')
+  expect(calm).not.toContain('Share Rage note')
+  expect(calm).toContain('Creature Comforts note')
+  expect(render({ ...c, feats: c.feats.filter(feat => feat.name !== 'Contagious Rage') }, 'defense'))
+    .toContain('Once per Rage')
+})
+
 it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
   let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
     lores: [{ name: 'Military Lore', rank: 0 }] }

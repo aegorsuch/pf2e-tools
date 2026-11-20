@@ -432,6 +432,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Tangle of Battle" note={`${activeFeatsNamed(c, 'Furious Bully').length ? conditionalTotal(2) : signed(total)} to Grapple an adjacent enemy as a reaction after critically hitting it.`} />}
           {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Embrace the Pain').length
             && <SourceNote source="Embrace the Pain" note={`${activeFeatsNamed(c, 'Furious Bully').length ? conditionalTotal(2) : signed(total)} to Grapple a creature within reach or Disarm its weapon as a reaction when its melee attack damages you.`} />}
+          {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Inner Strength').length
+            && <SourceNote source="Inner Strength" note="Spend one action to reduce your enfeebled condition by 1." />}
           {s.kind === 'skill' && s.ability === 'str' && c.raging && isFeatEffectActive(c, 'Ghost Wrangler')
             && <SourceNote source="Ghost Wrangler" note="Can use Strength-based skill checks against incorporeal creatures until the beginning of your next turn." />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
@@ -532,6 +534,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Enhanced Olfactory System" note={`${conditionalTotal(2)} to Seek a creature or object within scent range (+2 circumstance).`} />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note={`${conditionalTotal(1)} against effects that would make you clumsy, drained, or enfeebled (+1 circumstance).`} />}
+          {s.name === 'Fortitude' && c.raging && !!activeFeatsNamed(c, 'Shake It Off').length && <SourceNote source="Shake It Off"
+            note="Reduce frightened by 1, then attempt a Fortitude save against sickened: reduce sickened by 1 on failure, 2 on success, or 3 on critical success; no reduction on critical failure." />}
+          {s.name === 'Will' && !!activeFeatsNamed(c, 'Creature Comforts').length && <SourceNote source="Creature Comforts"
+            note="When you become frightened while under a morph or polymorph effect, react to reduce frightened by 1, to a minimum of 0." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Blast Resistance').length && <SourceNote inlineSource={false}
             source="Blast Resistance" note="Against an effect that causes dazzled or deafened, a successful saving throw becomes a critical success." />}
           {s.kind === 'save' && hasDivineIntercession(c, 'Cayden Cailean', 'moderate-boon') && <SourceNote inlineSource={false}
@@ -667,6 +673,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <span><small>Hit Points</small><b>{maxHp(c, entries)}
             {c.raging && (c.className === 'Barbarian' || !!activeFeatsNamed(c, 'Barbarian Dedication').length)
               && <SourceNote source="Rage" note={`When you Rage, gain ${Math.max(0, c.level + abilityMod(c.abilities.con))} temporary HP, lost when Rage ends. You cannot gain temporary HP from Rage again for ${classFeatures(entries, c).some(feature => feature.name === 'Revitalizing Rage') ? 'one full turn outside Rage' : '1 minute'}.${activeFeatsNamed(c, 'Second Wind').length ? ' Second Wind lets you gain them earlier, but leaves you fatigued until you rest for 10 minutes when that Rage ends.' : ''}`} />}
+            {c.raging && !!activeFeatsNamed(c, 'Share Rage').length && <SourceNote source="Share Rage"
+              note={`One willing creature within 30 feet gains Rage effects but can use concentrate actions. It gains no benefits from your instinct or feats.${activeFeatsNamed(c, 'Contagious Rage').length ? ' Contagious Rage allows multiple uses per Rage and lets allies opt into your instinct ability and its weapon specialization benefit, but not greater weapon specialization; they must follow its restrictions.' : ' Once per Rage.'}`} />}
             {c.raging && !!activeFeatsNamed(c, 'Renewed Vigor').length && <SourceNote source="Renewed Vigor"
               note={`One action: gain ${Math.max(0, Math.floor(c.level / 2) + abilityMod(c.abilities.con))} temporary HP, or ${Math.max(0, c.level + abilityMod(c.abilities.con))} if you made an attack action this turn. These temporary HP last until Rage ends.`} />}
             {c.raging && !!activeFeatsNamed(c, 'Unstoppable Juggernaut').length && <SourceNote source="Unstoppable Juggernaut"
