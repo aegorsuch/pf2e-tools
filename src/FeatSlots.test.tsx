@@ -183,6 +183,13 @@ it('grants Direwolf Bonded a separate Canny Acumen choice slot with normal profi
   const slot = plannedSlots(c).find(slot => slot.key === key)!
   expect(slot).toMatchObject({ category: 'general', level: 1, grantedFeat: 'Canny Acumen' })
   expect(eligibleFeats(entries, c, slot).map(feat => feat.name)).toEqual(['Canny Acumen'])
+  expect(renderToStaticMarkup(tree())).toContain('<option value="" selected="">- empty -</option>')
+  const popup = (open: boolean) => FeatSlots({ c, entries, categories: ['general'], save: patch => { c = { ...c, ...patch } },
+    search: { [`${key}:open`]: open ? '1' : '' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(popup(false))).toContain('aria-haspopup="dialog" aria-expanded="false">- empty -</button>')
+  const popupMarkup = renderToStaticMarkup(popup(true))
+  expect(popupMarkup).toContain('L01 General: Canny Acumen (Will)')
+  expect(popupMarkup).not.toContain('L01 General: Toughness')
   const choose = findSelect(tree(), 'L01 General feat')!
   choose({ target: { value: 'Toughness' } })
   expect(c.feats).toEqual([])
