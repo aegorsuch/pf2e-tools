@@ -719,3 +719,9 @@ it('scales Entropy Strike void and tech persistent acid damage by rank', () => {
   expect(spellDamage('Entropy Strike', 5)[0]).toMatchObject({ dice: 7, additional: { dice: 4 } })
   expect(spellDamage('Entropy Strike', 10)[0]).toMatchObject({ dice: 12, additional: { dice: 9 } })
 })
+
+it('scales Supercharge Weapon extra damage every two ranks', () => {
+  expect(spellDamage('Supercharge Weapon', 1)[0]).toMatchObject({ dice: 1, sides: 6 })
+  expect(spellDamage('Supercharge Weapon', 4)[0]).toMatchObject({ dice: 2 })
+  expect(spellDamage('Supercharge Weapon', 10)[0]).toMatchObject({ dice: 5 })
+})

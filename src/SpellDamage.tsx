@@ -97,6 +97,9 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 3 ? [{ label: 'Damage', dice: rank + 2, sides: 8, type: 'void',
         additional: { label: 'Tech creature persistent', dice: rank - 1, sides: 6, type: 'persistent acid' },
         note: 'Double damage on a critical hit' }] : []
+    case 'Supercharge Weapon':
+      return rank >= 1 ? [{ label: 'Extra damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 6, type: 'weapon damage type',
+        note: 'Added to the next Strike with the chosen weapon' }] : []
     case 'Void Warp':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
     case 'Deathly Scream':
