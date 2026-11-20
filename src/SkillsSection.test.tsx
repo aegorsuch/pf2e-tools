@@ -1743,6 +1743,22 @@ it('applies Current Spell AC without stacking circumstance bonuses and annotates
   expect(builder.armorClassBreakdown({ ...c, level: 5 }, []).total).toBe(builder.armorClassBreakdown({ ...plain, level: 5 }, []).total)
 })
 
+it('shows Bashing Charge and Farabellus Flip conditional bonuses without stacking AC', () => {
+  const c: Character = { ...base, level: 4, feats: [
+    { name: 'Bashing Charge', type: 'Class Feat', level: 2 },
+    { name: 'Farabellus Flip', type: 'Class Feat', level: 4 },
+  ] }
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="skills" />)
+  expect(skills).toContain('+1 to Force Open an obstacle during Bashing Charge')
+  const defense = (character: Character, entries: ContentEntry[]) =>
+    renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="defense" />)
+  expect(defense(c, [])).toContain(`Reaction against a melee Strike: AC ${builder.armorClass(c, []) + 2}`)
+  const shield = { ...c, shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+  const entry: ContentEntry = { ...ranger, kind: 'shield', name: 'Steel Shield', data: { ac: 2 } }
+  expect(defense(shield, [entry])).toContain(`Reaction against a melee Strike: AC ${builder.armorClass(shield, [entry])}`)
+  expect(defense({ ...c, level: 3 }, [])).not.toContain('Farabellus Flip')
+})
+
 it('shows temporary Fisheye and Timeless Nature conditional save benefits without changing permanent ranks', () => {
   const c: Character = { ...base, level: 14, feats: [
     { name: 'Fisheye', type: 'Ancestry Feat', level: 1 },

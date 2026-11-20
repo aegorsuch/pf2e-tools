@@ -414,6 +414,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Brutal Bully" note={`On a successful Disarm, Grapple, Reposition, Shove, or Trip, deal bludgeoning damage equal to your Strength modifier (${signed(abilityMod(c.abilities.str))}); add it to critical Trip damage.`} />}
           {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Adrenaline Rush').length
             && <SourceNote source="Adrenaline Rush" note={`${signed(total + Math.max(0, 1 - status))} to lift heavy objects, Escape, and Force Open (+1 status; status bonuses do not stack).`} />}
+          {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Bashing Charge').length
+            && <SourceNote source="Bashing Charge" note={`${conditionalTotal(1)} to Force Open an obstacle during Bashing Charge (+1 circumstance; circumstance bonuses do not stack).`} />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
             <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
           {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
@@ -628,12 +630,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const form = activeBattleForm(c, entries)
     const oaken = oakenResilience(c, entries)
     const divineWeaknesses = divineIntercessionWeaknesses(c)
+    const ac = armorClassBreakdown(c, entries)
+    const acCircumstance = Math.max(0, ...ac.parts.filter(part => part.label.endsWith('(circumstance)')).map(part => part.value))
     return (
       <>
         <div className="defense-summary">
-          <span><small>Armor Class</small><b><TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />
+          <span><small>Armor Class</small><b><TotalBreakdown label="Armor Class" breakdown={ac} />
             {c.raging && barbarianInstinct(c, entries) === 'elemental' && <SourceNote source="Elemental Rage"
               note="Concealed against ranged attacks; this concealment cannot be used to Hide or Sneak." />}
+            {!!activeFeatsNamed(c, 'Farabellus Flip').length && <SourceNote source="Farabellus Flip"
+              note={`Reaction against a melee Strike: AC ${ac.total + Math.max(0, 2 - acCircumstance)} (+2 circumstance, does not stack). If hit, Step to an open space within the attacker's reach.`} />}
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}
