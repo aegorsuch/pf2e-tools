@@ -407,6 +407,10 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
           || !activeFeatsNamed(next, 'Reckless Riding Lunge').length)) {
         next.activeFeatEffects = next.activeFeatEffects.filter(effect => effect !== 'Reckless Riding Lunge')
       }
+      if (next.activeFeatEffects?.includes("Giant's Lunge")
+        && (!next.raging || !activeFeatsNamed(next, "Giant's Lunge").length)) {
+        next.activeFeatEffects = next.activeFeatEffects.filter(effect => effect !== "Giant's Lunge")
+      }
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })

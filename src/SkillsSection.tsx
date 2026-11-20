@@ -703,6 +703,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
         <RageToggle c={c} save={save} />
+        {c.raging && <FeatEffectToggle c={c} save={save} name="Giant's Lunge" label="Giant's Lunge active"
+          title="Melee reach becomes at least 10 feet until Rage ends." />}
         {skin && <SourceNote source="Animal Skin" note={`+${skin.itemBonus} item AC; Dexterity cap +${skin.dexCap}.`} />}
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
           && <SourceNote source="Pioneer Human"

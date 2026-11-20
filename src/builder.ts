@@ -5505,7 +5505,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const baseReach = num(entry?.data.reach) || (hasReachTrait ? 10 : 5)
   const normalReach = formAttack ? num(formAttack.data.reach) : isRanged(entry) ? 0
     : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
-    : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10 : baseReach
+    : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10
+    : c.raging && isFeatEffectActive(c, "Giant's Lunge") ? Math.max(10, baseReach) : baseReach
   const reach = normalReach + (normalReach > 0 && !formAttack && category !== 'Unarmed'
     && isFeatEffectActive(c, 'Reckless Riding Lunge') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)

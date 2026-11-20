@@ -586,6 +586,26 @@ it('applies Giant clumsy only while wielding the selected weapon, including outs
   expect(canBeGiantWeapon(c, entries, { ...weapon, name: 'Unavailable weapon' })).toBe(false)
 })
 
+it("applies Giant's Lunge to melee weapons and unarmed attacks without reducing existing reach", () => {
+  const polearm = content('weapon', 'Test Polearm', { weapon_type: 'Melee', damage: '1d8 piercing', reach: 15 }, 0, ['Reach'])
+  const bow = content('weapon', 'Test Bow', { weapon_type: 'Ranged', range: 60, damage: '1d8 piercing' })
+  const c: Character = { ...base, level: 14, className: 'Barbarian', raging: true,
+    feats: [feat("Giant's Lunge", 14)], activeFeatEffects: ["Giant's Lunge"], weapons: [main] }
+  const entries = [sword, polearm, bow]
+  const owned = (entry: ContentEntry): OwnedWeapon => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
+  const fist = ownedWeapons(c, entries).find(weapon => weapon.name === 'Fist')!
+  expect(weaponAttack(c, entries, main).reach).toBe(10)
+  expect(weaponAttack(c, entries, fist).reach).toBe(10)
+  expect(weaponAttack(c, entries, owned(polearm)).reach).toBe(15)
+  expect(weaponAttack(c, entries, owned(bow)).reach).toBe(0)
+  expect(weaponAttack({ ...c, raging: false }, entries, main).reach).toBe(5)
+  expect(weaponAttack({ ...c, level: 13 }, entries, main).reach).toBe(5)
+  expect(weaponAttack({ ...c, activeFeatEffects: [] }, entries, main).reach).toBe(5)
+  const markup = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="defense" />)
+  expect(markup(c)).toContain(`aria-label="Giant&#x27;s Lunge active" checked=""`)
+  expect(markup({ ...c, raging: false })).not.toContain(`Giant&#x27;s Lunge active`)
+})
+
 it('applies chosen Giant raging resistance only from level 9 and while raging', () => {
   const c: Character = { ...base, level: 9, className: 'Barbarian', subclass: 'Giant',
     raging: true, giantRagingResistance: 'Fire', abilities: { ...base.abilities, con: 18 } }
