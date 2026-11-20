@@ -705,6 +705,40 @@ it('calculates Thrash damage and exposes Collateral Thrash saves', () => {
   expect(html(collateral)).toContain('throws the grabbed creature 10 feet')
 })
 
+it('provides Barbarian impact damage actions at their earned levels', () => {
+  const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
+    abilities: { ...base.abilities, str: 20 }, feats: [
+      feat('Overpowering Charge', 10), feat('Impressive Landing', 10), feat('Quaking Stomp', 20),
+    ] }
+  const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
+  expect(html(c)).toContain('Roll Overpowering Charge')
+  expect(html(c)).toContain('5 bludgeoning')
+  expect(html(c)).toContain('Roll Impressive Landing')
+  expect(html(c)).toContain('11d6 bludgeoning')
+  expect(html(c)).toContain('60-foot burst within 500 feet')
+  expect(html({ ...c, raging: false })).not.toContain('Roll Quaking Stomp')
+  expect(html({ ...c, level: 9 })).not.toContain('Roll Impressive Landing')
+})
+
+it('shows conditional combat effects only on eligible Barbarian attacks', () => {
+  const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
+    feats: [feat('Brutal Crush', 4), feat('Resounding Blow', 10), feat('Instinctive Strike', 8),
+      feat('Furious Grab', 12), feat('Sunder Spell', 12), feat('Sunder Enchantment', 14)] }
+  const mace = content('weapon', 'Test Mace', { weapon_type: 'Melee', damage: '1d6 bludgeoning' })
+  const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
+  const notes = (character: Character, entries: ContentEntry[], weapon: OwnedWeapon) =>
+    weaponAttack(character, entries, weapon).breakdown.notes.join(' ')
+  const unarmed = notes(c, [], fist)
+  expect(unarmed).toContain('Brutal Crush:')
+  expect(unarmed).toContain('Instinctive Strike:')
+  expect(unarmed).toContain('Furious Grab:')
+  expect(unarmed).not.toContain('Resounding Blow:')
+  const maceNotes = notes(c, [mace], { ...main, name: mace.name })
+  expect(maceNotes).toContain('Resounding Blow:')
+  expect(maceNotes).toContain('Sunder Enchantment can instead suppress')
+  expect(notes({ ...c, raging: false }, [], fist)).not.toContain('Furious Grab:')
+})
+
 it('preserves personal statistics and attacks in Animal Rage, including frog tongue reach', () => {
   const c: Character = { ...base, level: 8, className: 'Barbarian', subclass: 'Animal', raging: true,
     barbarianAnimal: 'Frog', feats: [feat('Animal Rage', 8)], weapons: [main],

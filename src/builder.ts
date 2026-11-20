@@ -5816,6 +5816,29 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? ['Devastator: ignore up to 10 resistance to physical damage from this Strike.'] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Shattering Blows').length
           ? [`Shattering Blows: melee Strike damage ignores the first ${devastator ? 10 : 5} Hardness of an object.`] : []),
+        ...(!ranged && category === 'Unarmed' && ['b', 'bludgeoning'].includes((modifiedDamageType ?? '').toLowerCase())
+          && activeFeatsNamed(c, 'Brutal Crush').length
+          ? ['Brutal Crush: after a bludgeoning morph or polymorph unarmed Strike, hit the same target with a bludgeoning unarmed Strike to inflict stupefied 2 for 1 round, or 3 on a critical hit.'] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Disarming Assault').length
+          ? ['Disarming Assault: after this melee Strike hits, attempt to Disarm the target.'] : []),
+        ...((!ranged || thrown) && c.raging && activeFeatsNamed(c, 'Follow-up Assault').length
+          ? ['Follow-up Assault: after a missed melee Strike, Strike with the same weapon, adding backswing and forceful for that Strike.'] : []),
+        ...(!ranged && activeFeatsNamed(c, 'Instinctive Strike').length
+          ? ['Instinctive Strike: ignore the concealed or hidden flat check against an opponent detected using scent.'] : []),
+        ...(c.raging && activeFeatsNamed(c, 'Knockback').length
+          ? [`Knockback: after a successful Strike, push the target 5 feet and optionally follow.${activeFeatsNamed(c, 'Awesome Blow').length ? ' Awesome Blow can replace this with an Athletics check for Shove and Trip.' : ''}`] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Furious Grab').length
+          ? ['Furious Grab: after a successful Strike, grab the target if you have a free hand or used a grapple weapon.'] : []),
+        ...(!ranged && category !== 'Unarmed' && ['b', 'bludgeoning'].includes((modifiedDamageType ?? '').toLowerCase())
+          && activeFeatsNamed(c, 'Resounding Blow').length
+          ? ['Resounding Blow: on a damaging hit, deafen the target until the start of your next turn, or for 1 minute on a critical hit.'] : []),
+        ...(!ranged && c.raging && isFeatEffectActive(c, 'Come and Get Me') && activeFeatsNamed(c, 'Vengeful Strike').length
+          ? ['Vengeful Strike: react to a successful attack against you with a melee Strike; a critical hit against you allows a free action instead.'] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Furious Vengeance').length
+          ? ['Furious Vengeance: react to a critical melee hit against you with a melee Strike against the attacker.'] : []),
+        ...(ranged && ['p', 'piercing'].includes((modifiedDamageType ?? '').toLowerCase()) && c.raging
+          && activeFeatsNamed(c, 'Penetrating Projectile').length
+          ? ['Penetrating Projectile: make ranged Strikes against creatures in a 30-foot line, ignoring cover from creatures; roll damage once and increase multiple attack penalty after all Strikes.'] : []),
         ...(!ranged && category === 'Unarmed' && activeFeatsNamed(c, 'Rip and Tear').length
           ? [`Rip and Tear: after dealing piercing or slashing damage with a morph or polymorph unarmed Strike, a successful unarmed Strike against the same target that deals piercing or slashing damage adds ${c.level >= 12 ? 2 : 1}d6 persistent bleed.`] : []),
         ...(!ranged && c.raging && category !== 'Unarmed' && ['p', 'piercing'].includes((modifiedDamageType ?? '').toLowerCase())
@@ -5830,7 +5853,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Silencing Strike').length
           ? [`Silencing Strike: on a hit, the target attempts a Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'}; failure causes stunned 1 and a DC 11 flat check for linguistic actions and non-subtle spells; critical failure causes stunned 3 instead.`] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Sunder Spell').length
-          ? [`Sunder Spell: on a hit, use the attack roll to counteract one spell or magical effect at rank ${Math.ceil(c.level / 2)}. The target becomes immune to your Sunder Spell for 24 hours.`] : []),
+          ? [`Sunder Spell: on a hit, use the attack roll to counteract one spell or magical effect at rank ${Math.ceil(c.level / 2)}. The target becomes immune to your Sunder Spell for 24 hours.${activeFeatsNamed(c, 'Sunder Enchantment').length ? ' Sunder Enchantment can instead suppress an eligible magic item for 10 minutes.' : ''}`] : []),
         ...(activeFeatsNamed(c, "Cavalier's Charge").length
           ? [`Cavalier's Charge: ${signed(attack + 1)} on the Strike while riding your mount, within reach or the first range increment (+1 circumstance; circumstance bonuses do not stack).`] : []),
         ...(activeFeatsNamed(c, 'Spirit Coffin').length

@@ -176,6 +176,21 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           damage={{ label: 'Damage', dice: 0, sides: 0, bonus: thrashDamage(c, entries), type: 'bludgeoning' }} />
         <SourceNote source="Thrash" note={`Against an enemy you have grabbed or restrained; basic Fortitude save against ${classDifficultyClass(c, entries) ?? 'class DC'}. Uses unarmed weapon specialization and Rage damage.${activeFeatsNamed(c, 'Collateral Thrash').length ? ' Collateral Thrash also affects one enemy adjacent to the grabbed creature, with a basic Reflex save.' : ''}${activeFeatsNamed(c, 'Whirlwind Toss').length ? ' Whirlwind Toss applies Collateral Thrash to all other adjacent enemies, then throws the grabbed creature 10 feet and knocks it prone.' : ''}`} />
       </span>}
+      {!!activeFeatsNamed(c, 'Overpowering Charge').length && <span>
+        Overpowering Charge{' '}<DamageRoll name="Overpowering Charge" damage={{ label: 'Damage',
+          dice: 0, sides: 0, bonus: Math.max(0, abilityMod(c.abilities.str)), type: 'bludgeoning' }} />
+        <SourceNote source="Overpowering Charge" note="During Barreling Charge, damage each creature whose space you move through; double damage and make it off-guard until the end of your next turn on a critical success." />
+      </span>}
+      {!!activeFeatsNamed(c, 'Impressive Landing').length && <span>
+        Impressive Landing{' '}<DamageRoll name="Impressive Landing" actions="Reaction"
+          damage={{ label: 'Damage', dice: 0, sides: 0, bonus: 5, type: 'bludgeoning' }} />
+        <SourceNote source="Impressive Landing" note="After falling at least 10 feet onto a solid surface, treat the fall as 10 feet shorter and land standing. Creatures in a 5-foot emanation take damage and are off-guard until the start of your next turn; the ground becomes difficult terrain." />
+      </span>}
+      {c.raging && !!activeFeatsNamed(c, 'Quaking Stomp').length && <span>
+        Quaking Stomp{' '}<DamageRoll name="Quaking Stomp collapse" actions="Single Action"
+          damage={{ label: 'Collapse damage', dice: 11, sides: 6, type: 'bludgeoning' }} />
+        <SourceNote source="Quaking Stomp" note={`Once per 10 minutes: create an earthquake in a 60-foot burst within 500 feet. Collapse damage requires a basic Reflex save against ${classDifficultyClass(c, entries) ?? 'class DC'}; the GM determines which structures collapse. The ground becomes difficult terrain and imposes a -2 circumstance penalty to attacks, AC, and skill checks for 1 round. Permanent 40-foot fissures require Reflex saves at the start of creatures' turns.`} />
+      </span>}
       {instinct === 'superstition' && c.level >= 9 && <label>Raging Resistance{' '}
         <select aria-label="Superstition Raging Resistance" value={c.superstitionTraditions ?? ''} disabled={!!c.raging} onChange={event => {
           const choice = (['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'] as const)
