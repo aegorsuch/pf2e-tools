@@ -181,6 +181,16 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       && ['Fear', 'Phantom Pain', 'True Strike', 'Sure Strike'].includes(spell.name))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
+  if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
+    const trait = feat.name === 'Creature Ally' ? 'summon' : 'polymorph'
+    return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
+      && spell.systems.some(system => c.systems.includes(system))
+      && spell.traits.some(value => value.toLowerCase() === trait)
+      && !spell.traits.some(value => /^(uncommon|rare|unique|focus|cantrip)$/i.test(value))
+      && !/^(uncommon|rare|unique)$/i.test(String(spell.data.rarity ?? ''))
+      && (trait === 'summon' ? spell.level <= 5 : /battle form/i.test(spell.description ?? '')))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Touch of the Sea') {
     return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
@@ -440,6 +450,16 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'at will',
           condition: 'Targets you and your leshy familiar within 30 feet' },
         rank: highest - 1, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
+    if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
+      const entry = featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      const tradition = String(entry?.data.tradition ?? '').split(/,\s*/)[0]
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: tradition || undefined, frequency: 'once per day',
+          condition: feat.name === 'Creature Ally' ? 'The summoned creature must be one of your ancestry\'s creatures'
+            : 'Transform only into a battle form that matches your ancestral creature; use your normal AC if higher' },
+        rank: feat.name === 'Creature Ally' ? 5 : 8, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
     if (feat.name === 'Touch of the Sea') {
