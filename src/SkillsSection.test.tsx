@@ -22,6 +22,11 @@ const feyBound: ContentEntry = {
   id: 'fey-bound', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Fey Bound', level: 1,
   traits: [], description: '', effects: [], updatedAt: 0, data: { skill: 'Fey Lore' },
 }
+const mechanic: ContentEntry = {
+  id: 'mechanic', systems: ['sf2e'], kind: 'class', source: 'official', name: 'Mechanic', level: 1,
+  traits: [], description: '', effects: [], updatedAt: 0,
+  data: { skill_proficiency: 'Trained in Computers' },
+}
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Alex', level: 1, className: 'Ranger',
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -1086,6 +1091,23 @@ it('tracks hourly Ysoki and Cyborg actions without granting them below their fea
   expect(markup).toContain('Grandmother&#x27;s Curse used')
   expect(markup).toContain('Once per hour. Clear after an hour has passed.')
   expect(markup).not.toContain('Wormhole Warren used')
+})
+
+it('applies Memories of Valor skill proficiency to the selected skill and tracks daily or hourly use', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Vesk', heritage: 'Enshrined Vesk',
+    level: 9, skillPicks: ['Nature'], rankOverrides: { Nature: 0 },
+    feats: [{ name: 'Memories of Valor', type: 'Ancestry Feat', level: 9 }], memoriesOfValorSkill: 'Nature' }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[mechanic]} save={() => {}} />)
+  expect(render(c)).toContain('class="skill-name">Nature <b>+0')
+  expect(render({ ...c, memoriesOfValorActive: true })).toContain('class="skill-name">Nature <b>+11')
+  expect(ranksAt(c, [mechanic]).Nature).toBe(0)
+  expect(ranksAt({ ...c, memoriesOfValorActive: true }, [mechanic]).Nature).toBe(1)
+  expect(skillRankBudget(c, [mechanic])).toEqual(skillRankBudget({ ...c, memoriesOfValorActive: true }, [mechanic]))
+  expect(render({ ...c, memoriesOfValorActive: true })).toContain('Once per day')
+  const upgraded = { ...c, level: 13, feats: [...c.feats, { name: 'No Memory Left Behind', type: 'Ancestry Feat', level: 13 }] }
+  expect(render(upgraded)).toContain('Once per hour')
+  expect(render({ ...upgraded, memoriesOfValorActive: true, hourlyFeatUses: { 'Memories of Valor': true } }))
+    .toContain('Memories of Valor active')
 })
 
 it('allows permanent training in a downloaded skill without treating temporary rank as an increase', () => {

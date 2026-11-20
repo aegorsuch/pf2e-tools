@@ -882,7 +882,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
     facts: (atLevel) => {
       const cached = facts.get(atLevel)
       if (cached) return cached
-      const character = { ...c, level: Math.min(level, atLevel),
+      const character = { ...c, memoriesOfValorActive: false, level: Math.min(level, atLevel),
         feats: c.feats.filter((feat, index) => index !== excludedIndex && featTakenLevel(feat) <= Math.min(level, atLevel)) }
       if (character.boosts) character.abilities = computeAbilities(character, entries)
       let ranks: PrerequisiteFacts['ranks'] | undefined
@@ -934,7 +934,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         get buildSkillRanks() {
           if (!options.planSkillPrerequisites) return undefined
           if (!buildSkillRanks) {
-            const build = { ...c, feats: c.feats.filter((_feat, index) => index !== excludedIndex) }
+            const build = { ...c, memoriesOfValorActive: false, feats: c.feats.filter((_feat, index) => index !== excludedIndex) }
             if (build.boosts) build.abilities = computeAbilities(build, entries)
             buildSkillRanks = { ...Object.fromEntries(statDefs(build).map(stat => [stat.name, 0])), ...ranksAt(build, entries) }
           }
@@ -3442,6 +3442,12 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
     return { ...cached }
   }
   const ranks = calculateRanks(c, entries, beforeLevel, withOverrides)
+  if (c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Enshrined Vesk'
+    && c.memoriesOfValorActive && c.memoriesOfValorSkill
+    && activeFeatsNamed({ ...c, level: Math.min(c.level, beforeLevel - 1) }, 'Memories of Valor').length > 0) {
+    const rank = ranks[c.memoriesOfValorSkill] ?? 0
+    if (rank < 3) ranks[c.memoriesOfValorSkill] = rank + 1
+  }
   if (cache.values.size >= 128) {
     const oldest = cache.values.keys().next().value
     if (oldest !== undefined) cache.values.delete(oldest)
@@ -6217,7 +6223,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
 }
 
 function baseSkillRankBudget(c: Character, entries: ContentEntry[]) {
-  c = normalizeLaborerSkills(normalizeLongevitySkills(c))
+  c = normalizeLaborerSkills(normalizeLongevitySkills({ ...c, memoriesOfValorActive: false }))
   let effectivePicks = [...(c.skillPicks ?? [])]
   let currentRanks = effectivePicks.length ? ranksAt({ ...c, skillPicks: effectivePicks }, entries, 99, false) : {}
   for (const skill of c.skillPicks ?? []) {
@@ -6322,7 +6328,7 @@ export function skillTokenState(c: Character, entries: ContentEntry[]) {
 }
 
 function calculateSkillTokenState(c: Character, entries: ContentEntry[]) {
-  const raw = { ...c, skillTokenUpgrades: undefined }
+  const raw = { ...c, skillTokenUpgrades: undefined, memoriesOfValorActive: false }
   const ranks = ranksAt(raw, entries)
   const available = unusedSkillTokens(raw, entries)
   const active: { purchase: SkillTokenUpgrade; index: number }[] = []

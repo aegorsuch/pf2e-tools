@@ -191,6 +191,8 @@ export interface Character {
   dailyFeatUses?: Record<string, boolean>
   hourlyFeatUses?: Record<string, boolean>
   monthlyFeatUses?: Record<string, boolean>
+  memoriesOfValorSkill?: string
+  memoriesOfValorActive?: boolean
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string
   // Druidic order, which grants a skill

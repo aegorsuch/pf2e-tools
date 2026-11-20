@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
-import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import { additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
+import { getSettings, updateSettings } from './settings'
 
 const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(snapshot)
 const entries = mapAonHits(hits.filter(hit => ['Ysoki', 'Vesk', 'Operative', 'Mechanic', 'Soldier'].includes(String(hit._source?.name))
@@ -126,6 +127,26 @@ it('grants the Veskarium logistics feats at the correct level', () => {
     { name: 'Prescient Consumable', source: 'Veskarium Logistics Specialist', level: 9 },
   ]))
   expect(automaticFeatGrants({ ...c, level: 8 }, entries).some(grant => grant.source === 'Veskarium Logistics Specialist')).toBe(false)
+})
+
+it('grants Enshrined Vesk Fortified Monument as a self-only sixth-rank Cairn Form with retaliation', () => {
+  const catalog = mapAonHits(hits.filter(hit => ['Fortified Monument', 'Cairn Form'].includes(String(hit._source?.name))), 'sf2e')
+  const c: Character = { ...base, ancestry: 'Vesk', heritage: 'Enshrined Vesk', level: 13,
+    feats: [{ name: 'Fortified Monument', type: 'Ancestry Feat', level: 13 }] }
+  const previous = getSettings().innateAutoHeighten
+  try {
+    updateSettings({ innateAutoHeighten: false })
+    const grant = grantedFeatSpells(c, catalog).find(item => item.source === 'Fortified Monument')!
+    expect(grant).toMatchObject({ entry: { name: 'Cairn Form' }, rank: 6,
+      rule: { kind: 'innate', tradition: 'divine', frequency: 'twice per day', fixedRank: true,
+        condition: expect.stringContaining('Must target yourself') } })
+    expect(grant.rule.condition).toContain('takes 8 bludgeoning damage')
+    expect(dailyInnateUses(c, grant)?.limit).toBe(2)
+    expect(grantedFeatSpells({ ...c, level: 12 }, catalog)).toEqual([])
+    expect(grantedFeatSpells({ ...c, heritage: undefined }, catalog)).toEqual([])
+  } finally {
+    updateSettings({ innateAutoHeighten: previous })
+  }
 })
 
 it('shows Advantageous Assault conditional damage only for weapons', () => {

@@ -360,6 +360,16 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 7, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
+    if (feat.name === 'Fortified Monument' && c.systems.includes('sf2e')) {
+      if (c.ancestry === 'Vesk' && c.heritage === 'Enshrined Vesk' && c.level >= 13) {
+        const entry = matchingSpells(entries, 'Cairn Form').find(spell => spell.systems.includes('sf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'twice per day',
+            fixedRank: true, condition: 'Must target yourself. While active, a creature that damages you with an unarmed attack or non-reach melee weapon takes 8 bludgeoning damage.' },
+          rank: 6, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      }
+      continue
+    }
     if (feat.name === 'Mortal Heart') {
       const spell = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Moment of Renewal'
         && entry.systems.some(system => c.systems.includes(system)))
