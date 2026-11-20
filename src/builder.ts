@@ -4448,7 +4448,18 @@ export function dinosaurForm(c: Character, entries: ContentEntry[]) {
 
 export function activeBattleForm(c: Character, entries: ContentEntry[]) {
   for (const name of [...c.activeSpells ?? []].reverse()) {
-    if (name === 'Dinosaur Form') {
+    if (name === 'Untamed Form' && isSpellActive(c, entries, name) && c.untamedForm?.shape
+      && untamedFormOptions(c).some(option => option.name === c.untamedForm?.form)) {
+      const ranks = untamedFormRanks(c)
+      const rank = c.untamedForm.rank && ranks.includes(c.untamedForm.rank) ? c.untamedForm.rank : ranks[0]
+      if (c.untamedForm.form === 'Dinosaur Form') {
+        const form = dinosaurBattleForm(c.untamedForm.shape, rank, c.level)
+        if (form) return { ...form, source: 'Untamed Form' }
+      } else if (c.untamedForm.form === 'Animal Form' && /^crocodile$/i.test(c.untamedForm.shape.trim())) {
+        const form = crocodileBattleForm(rank, c.level)
+        if (form) return { ...form, source: 'Untamed Form' }
+      }
+    } else if (name === 'Dinosaur Form') {
       const form = dinosaurForm(c, entries)
       if (form) return form
     } else if (name === 'Animal Form') {
@@ -5543,7 +5554,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
     .map((weapon): number => weaponAttack(natural, entries, weapon).attack)) : 0
   const ownAttack = mod + prof + w.potency - clumsy + divineAttackBonus
-  const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed) : ownAttack
+  const untamedBonus = form?.source === 'Untamed Form' && ownUnarmed > form.attack ? 2 : 0
+  const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed + untamedBonus) : ownAttack
   return {
     entry,
     upgrades,
@@ -5589,8 +5601,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       parts: formAttack && form ? [
         { label: form.source, value: form.attack },
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
-        ...(ownUnarmed > form.attack + divineAttackBonus ? [{ label: 'Higher own unarmed attack modifier',
+        ...(ownUnarmed + untamedBonus > form.attack + divineAttackBonus ? [{ label: 'Higher own unarmed attack modifier',
           value: ownUnarmed - form.attack - divineAttackBonus }] : []),
+        ...(untamedBonus && ownUnarmed + untamedBonus > form.attack + divineAttackBonus
+          ? [{ label: 'Untamed Form (status)', value: untamedBonus }] : []),
       ] : [
         { label: ABILITY_LABEL[ability], value: mod },
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },

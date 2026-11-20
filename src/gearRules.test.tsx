@@ -419,6 +419,30 @@ it('switches Dinosaur battle forms, reach, agile attacks, persistent damage and 
     .toMatchObject({ damage: '4d8+6 piercing', reach: 15, criticalNote: '1d6 persistent bleed on a critical hit.' })
 })
 
+it('applies supported Untamed Form battle statistics and Ferocious Shape without altering equipment', () => {
+  const c: Character = { ...base, className: 'Druid', level: 20,
+    feats: [feat('Untamed Form', 1), feat('Ferocious Shape', 8)],
+    activeSpells: ['Untamed Form'], untamedForm: { form: 'Dinosaur Form', shape: 'tyrannosaurus', rank: 10 },
+    weapons: [main], abilities: { ...base.abilities, str: 28 }, rankOverrides: { Athletics: 4 } }
+  const entries = [sword]
+  expect(activeBattleForm(c, entries)).toMatchObject({ source: 'Untamed Form', name: 'Tyrannosaurus', ac: 41 })
+  expect(armorClass(c, entries)).toBe(41)
+  expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Tyrannosaurus Jaws', 'Tyrannosaurus Tail'])
+  const natural = { ...c, activeSpells: [] }
+  const ownAttack = weaponAttack(natural, entries, ownedWeapons(natural, entries).find(weapon => weapon.name === 'Fist')!).attack
+  const attack = weaponAttack(c, entries, ownedWeapons(c, entries)[0])
+  expect(attack.attack).toBe(ownAttack > 25 ? ownAttack + 2 : 25)
+  expect(attack.breakdown.parts.reduce((sum, part) => sum + part.value, 0)).toBe(attack.attack)
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="skills" />))
+    .toMatch(/class="skill-name">Athletics.*?<b>\+38/)
+  expect(c.weapons).toEqual([main])
+  expect(activeBattleForm({ ...c, feats: [feat('Untamed Form', 1)] }, entries)).toBeUndefined()
+  expect(activeBattleForm({ ...c, activeSpells: [] }, entries)).toBeUndefined()
+  expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Crocodile', rank: 10 } }, entries))
+    .toMatchObject({ name: 'Crocodile', source: 'Untamed Form', swimSpeed: 30 })
+  expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Bear', rank: 10 } }, entries)).toBeUndefined()
+})
+
 it.each([
   [1, 0, 0, 6], [2, 1, 0, 6], [4, 1, 1, 6], [7, 1, 1, 10], [10, 2, 1, 10],
   [12, 2, 2, 10], [15, 2, 2, 18], [16, 3, 2, 18], [19, 3, 3, 18],

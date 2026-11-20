@@ -66,7 +66,7 @@ export function crocodileBattleForm(rank: number, level: number) {
 }
 
 export function dinosaurBattleForm(name: string, rank: number, level: number) {
-  const form = DINOSAUR_FORMS.find(form => form.name === name)
+  const form = DINOSAUR_FORMS.find(form => form.name.toLowerCase() === name.trim().toLowerCase())
   if (!form || !Number.isInteger(rank) || rank < 4 || rank > 10) return undefined
   const greater = rank >= 7
   const heightened = rank >= 5
@@ -77,7 +77,7 @@ export function dinosaurBattleForm(name: string, rank: number, level: number) {
     attack: greater ? 25 : heightened ? 18 : 16,
     damageBonus: greater ? 15 : heightened ? 6 : 9,
     athletics: greater ? 25 : heightened ? 21 : 18,
-    attacks: DINOSAUR_WEAPONS.filter(entry => entry.data.dinosaur_form === name).map((entry): ContentEntry => ({
+    attacks: DINOSAUR_WEAPONS.filter(entry => entry.data.dinosaur_form === form.name).map((entry): ContentEntry => ({
       ...entry, data: { ...entry.data,
         damage: String(entry.data.damage).replace(/^\d+/, dice => String(Number(dice) * (heightened ? 2 : 1))),
         reach: heightened ? (greater ? 20 : 15) + (entry.data.reach === 15 ? 5 : 0) : Number(entry.data.reach),

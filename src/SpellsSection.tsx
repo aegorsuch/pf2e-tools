@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
@@ -76,13 +76,25 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
         {options.map(option => <option key={option.name}>{option.name}</option>)}
       </select>
     </label>
-    <label>Shape{' '}
+    {state?.form === 'Dinosaur Form' ? <label>Shape{' '}
+      <select aria-label="Untamed Form shape" value={DINOSAUR_FORMS.find(form => form.name.toLowerCase() === state.shape?.trim().toLowerCase())?.name ?? state.shape ?? ''} disabled={active && !canChange}
+        onChange={event => {
+          if (active && !canChange) return
+          const shape = DINOSAUR_FORMS.find(form => form.name === event.target.value)?.name
+          save({ untamedForm: { ...state, shape } })
+        }}>
+        <option value="">Choose shape</option>
+        {state.shape && !DINOSAUR_FORMS.some(form => form.name.toLowerCase() === state.shape?.trim().toLowerCase())
+          && <option value={state.shape} disabled>{state.shape} (unavailable)</option>}
+        {DINOSAUR_FORMS.map(form => <option key={form.name}>{form.name}</option>)}
+      </select>
+    </label> : <label>Shape{' '}
       <input aria-label="Untamed Form shape" value={state?.shape ?? ''} disabled={!state?.form || active && !canChange}
         onChange={event => {
           if (!state?.form || active && !canChange) return
           save({ untamedForm: { ...state, shape: event.target.value } })
         }} />
-    </label>
+    </label>}
     {!!activeFeatsNamed(c, 'Dragon Shape').length && <label>Dragon Shape resistance{' '}
       <select aria-label="Dragon Shape resistance" value={c.dragonShapeResistance ?? ''} onChange={event => {
         const value = event.target.value
@@ -105,7 +117,9 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
       </select>
     </label>
     {mutable && active && !canChange && <small>As Mutable as Nature requires an original duration of 1 minute.</small>}
-    <SourceNote source="Untamed Form" note={`Track the chosen battle form's other statistics separately; this does not replace your character statistics.${canChange
+    <SourceNote source="Untamed Form" note={`${activeBattleForm(c, entries)?.source === 'Untamed Form'
+      ? 'The chosen battle form replaces your character statistics where applicable.'
+      : "Track the chosen battle form's other statistics separately; this does not replace your character statistics."}${canChange
       ? ' Each form change costs 1 action. Remaining spell duration does not reset.' : ''}`} />
   </fieldset>
 }
