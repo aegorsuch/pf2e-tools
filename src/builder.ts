@@ -1901,7 +1901,7 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + (meets ? mobility ? 10 : 5 : 0)) }
 }
 
-type MovementSpeedOptions = { includeUncannyDash?: boolean; includeUpliftingWinds?: boolean }
+type MovementSpeedOptions = { includeUncannyDash?: boolean; includeUpliftingWinds?: boolean; ignorePenalties?: boolean }
 
 export function speedBonuses(c: Character, entries: ContentEntry[] = [], options: MovementSpeedOptions = {}) {
   const terrain = favoredTerrainBenefits(c, entries)
@@ -1937,7 +1937,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     ...(activeFeatsNamed(c, 'Hellknight Mobility').length && activeFeatsNamed(c, 'Unburdened Iron').length
       && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '', wornArmor(c, entries)?.id)) === 'Heavy' && wornArmor(c, entries)
       ? [{ source: 'Hellknight Mobility', feet: 5 }] : [])]
-    .filter(bonus => !form || /\((?:status|circumstance)\)$/.test(bonus.source))
+    .filter(bonus => (!options.ignorePenalties || bonus.feet >= 0) && (!form || /\((?:status|circumstance)\)$/.test(bonus.source)))
 }
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
@@ -5810,6 +5810,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
         ...(bestial && w.id === 'bestial:Spider:Web' ? [`Web deals no damage. On a hit, the target takes a -10-foot circumstance penalty to Speeds for 1 round; a second hit while penalized immobilizes it until it Escapes against ${classDifficultyClass(c, entries) ?? 'your class DC'}.`] : []),
         ...(rageDamage && barbarianInstinct(c, entries) === 'superstition' ? [`Superstitious Resilience: Rage damage is ${traits.includes('agile') ? Math.floor((c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4) / 2) : c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4} against creatures you witnessed Cast a Spell in the last hour.`] : []),
+        ...(c.raging && activeFeatsNamed(c, 'Furious Finish').length
+          ? ['Furious Finish: on a hit, add a circumstance damage bonus equal to the rounds remaining in Rage (maximum 10); after the Strike, Rage ends and you are fatigued until you rest for 10 minutes.'] : []),
+        ...(!ranged && activeFeatsNamed(c, 'Intimidating Strike').length
+          ? ['Intimidating Strike: a damaging hit makes the target frightened 1, or frightened 2 on a critical hit.'] : []),
+        ...(!ranged && category === 'Unarmed' && c.raging && activeFeatsNamed(c, 'Meditate on This!').length
+          ? [`Meditate on This!: until the start of your next turn after activating, a creature hit by an unarmed Strike or dealing adjacent piercing, slashing, or bleed damage to you attempts a Will save against ${classDifficultyClass(c, entries) ?? 'your class DC'}: success frightened 1, failure frightened 2, critical failure frightened 3 and fleeing until the end of its next turn. Each creature is immune for 1 minute.`] : []),
         ...((!ranged || ragingThrower) && criticalDie && activeFeatsNamed(c, 'Brutal Critical').length
           ? [`Brutal Critical: on a critical Strike, add 1d${criticalDie} damage and deal 2d${criticalDie} persistent bleed.`] : []),
         ...((!ranged || ragingThrower) && devastator

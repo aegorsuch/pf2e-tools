@@ -1,5 +1,5 @@
 import { resistances, activeBattleForm,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
@@ -112,6 +112,12 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
       {athlete && <SourceNote source="Raging Athlete"
         note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
+      {!!activeFeatsNamed(c, 'Sudden Leap').length && <SourceNote source="Sudden Leap"
+        note={`Leap, High Jump, or Long Jump and make a melee Strike during the jump. High and Long Jump use Long Jump distance rules, up to ${speed(c, entries) * 2} feet.`} />}
+      {c.raging && !!activeFeatsNamed(c, 'Furious Sprint').length && <SourceNote source="Furious Sprint"
+        note={`Stride in a straight line up to ${speed(c, entries) * 5} feet with two actions or ${speed(c, entries) * 8} feet with three actions. Balance can replace a Stride using Athletics.`} />}
+      {c.raging && !!activeFeatsNamed(c, 'Determined Dash').length && <SourceNote source="Determined Dash"
+        note={`Ignore Speed penalties and difficult or greater difficult terrain while Striding up to ${speed(c, entries, { ignorePenalties: true }) * 2} feet with two actions or ${speed(c, entries, { ignorePenalties: true }) * 3} feet with three actions. Balance can use Athletics.`} />}
       {uplifting && <SourceNote source="Uplifting Winds"
         note={`When flying and casting an air or electricity spell, Fly Speed ${uplifting.feet} feet (+10 status, nonstacking); immediately Fly up to half that Speed.`} />}
       {!!activeFeatsNamed(c, 'Shore Step').length && <SourceNote source="Shore Step" note="Ignore difficult terrain caused by shallow water." />}

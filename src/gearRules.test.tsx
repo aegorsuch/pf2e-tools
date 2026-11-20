@@ -739,6 +739,19 @@ it('shows conditional combat effects only on eligible Barbarian attacks', () => 
   expect(notes({ ...c, raging: false }, [], fist)).not.toContain('Furious Grab:')
 })
 
+it('shows conditional finishing and fear effects on eligible strikes', () => {
+  const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
+    feats: [feat('Furious Finish', 2), feat('Intimidating Strike', 2), feat('Meditate on This!', 14)] }
+  const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
+  const notes = (character: Character, weapon: OwnedWeapon) => weaponAttack(character, [], weapon).breakdown.notes.join(' ')
+  expect(notes(c, fist)).toContain('Furious Finish:')
+  expect(notes(c, fist)).toContain('Intimidating Strike:')
+  expect(notes(c, fist)).toContain('Meditate on This!:')
+  expect(notes({ ...c, raging: false }, fist)).not.toContain('Furious Finish:')
+  expect(notes({ ...c, raging: false }, fist)).not.toContain('Meditate on This!:')
+  expect(notes({ ...c, level: 1 }, fist)).not.toContain('Intimidating Strike:')
+})
+
 it('preserves personal statistics and attacks in Animal Rage, including frog tongue reach', () => {
   const c: Character = { ...base, level: 8, className: 'Barbarian', subclass: 'Animal', raging: true,
     barbarianAnimal: 'Frog', feats: [feat('Animal Rage', 8)], weapons: [main],

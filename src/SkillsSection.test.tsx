@@ -28,6 +28,25 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('calculates Barbarian movement actions from current Speed and ignores penalties only for Determined Dash', () => {
+  const armor: ContentEntry = { ...ranger, id: 'armor', kind: 'armor', name: 'Heavy Armor',
+    data: { armor_category: 'Heavy', speed_penalty: -10, strength: 4 } }
+  const c: Character = { ...base, level: 10, className: 'Barbarian', raging: true,
+    feats: ['Sudden Leap', 'Furious Sprint', 'Determined Dash'].map(name => ({ name, type: 'Class Feat', level: 8 })),
+    armors: [{ id: 'armor', name: armor.name, worn: true, potency: 0, resilient: 0, runes: [] }] }
+  const render = (character: Character) => renderToStaticMarkup(<SensesAndSpeed c={character} entries={[armor]} save={() => {}} />)
+  const html = render(c)
+  expect(html).toContain('up to 30 feet.')
+  expect(html).toContain('up to 75 feet with two actions or 120 feet with three actions')
+  expect(html).toContain('up to 50 feet with two actions or 75 feet with three actions')
+  const calm = render({ ...c, raging: false })
+  expect(calm).toContain('Sudden Leap note')
+  expect(calm).not.toContain('Furious Sprint note')
+  expect(calm).not.toContain('Determined Dash note')
+  const future = render({ ...c, level: 7 })
+  expect(future).not.toContain('Sudden Leap note')
+})
+
 it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
   let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
     lores: [{ name: 'Military Lore', rank: 0 }] }
