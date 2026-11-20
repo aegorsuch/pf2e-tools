@@ -3585,6 +3585,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fire Resistance').length
+      ? ['Fire Resistance: +1 circumstance against fire effects; circumstance bonuses do not stack.'] : []),
     ...(bulwark
       ? [`${bulwark}: ${signed(total + Math.max(0, (mightyBulwark ? 4 : 3) - abilityMod(c.abilities.dex)))} on damaging Reflex saves using a +${mightyBulwark ? 4 : 3} circumstance bonus instead of Dexterity, if higher${mightyBulwark ? '' : " (requires armor with the bulwark trait)"}.`] : []),
     ...(guardianArmorBonus !== undefined
@@ -5319,6 +5321,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const pristineLivingWeapon = c.level >= 14
     && ['Pristine Living Weapon', 'Living Weapon', 'Wild Hunter Dedication'].every((name) => hasFeat(c, name))
     && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource)
+  const pristineWeapon = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Pristine Weapon').length
+    && !!livingSource?.verdantWeapon && canBeVerdantWeapon(c, entries, livingSource)
   const range = ranged && num(entry?.data.range) > 0
     ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
       * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0
@@ -5357,6 +5361,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     entry,
     upgrades,
     pristineLivingWeapon,
+    pristineWeapon,
     rageDamage,
     areaAttacks,
     additionalDamage: [...supportDamage, ...(formAttack ? formAttack.data.persistent_bleed && form
@@ -5938,8 +5943,9 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []), ...fromFeats])]
   const society = ranksAt(c, entries).Society ?? 0
   const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
-  const feats = (prodigy ? 2 : 0) + activeFeatsNamed(c, 'Multilingual').length
-    * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0))
+  const polyglot = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Gnome Polyglot').length
+  const feats = (prodigy ? 2 : 0) + (polyglot ? 3 : 0) + activeFeatsNamed(c, 'Multilingual').length
+    * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0) + (polyglot ? 1 : 0))
   const commonOnlySlots = officerEducationSlots(c).length
   return { locked, sources, commonOnlySlots, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats
     + activeFeatsNamed(c, 'Ancestral Linguistics').length + commonOnlySlots }

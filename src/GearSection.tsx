@@ -1118,8 +1118,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({
               name: `${c.level >= 11 ? 'Greater ' : ''}${name}`, source: 'Granted to clan daggers',
             })) : [])]
-        const pristineNote = a.pristineLivingWeapon
-          ? 'Pristine Living Weapon: treated as cold iron and silver. Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.'
+        const pristineSource = a.pristineWeapon ? 'Pristine Weapon' : a.pristineLivingWeapon ? 'Pristine Living Weapon' : undefined
+        const pristineNote = pristineSource
+          ? `${pristineSource}: treated as cold iron and silver. Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.`
           : undefined
         const compactDamage = (damage: string) => damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase())
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
@@ -1392,8 +1393,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
-              </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineNote
-                && <SourceNote source="Pristine Living Weapon" note={pristineNote} />}</span>
+              </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineSource && pristineNote
+                && <SourceNote source={pristineSource} note={pristineNote} />}</span>
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
                   source={plate ? `Inherited from ${plate.name}` : giantWeapon ? 'Granted by Giant Instinct' : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon'
                     : builtIn?.material === enhanced.material ? `Built into ${namedSource}` : 'Granted by Verdant Weapon'}

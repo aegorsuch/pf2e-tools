@@ -1577,6 +1577,40 @@ it('treats Living Weapons and inherited haft strikes as cold iron and silver wit
   expect(markup).not.toContain('Damage 2d8+1 S + 1d6')
 })
 
+it('applies Pristine Weapon only to the selected verdant weapon and inherited haft strike', () => {
+  const polearm = content('weapon', 'Glaive', { hands: 2, weapon_group: 'Polearm', damage: '1d8 slashing' })
+  const weapon = { ...main, name: polearm.name, verdantWeapon: true }
+  const c: Character = { ...base, level: 10, activeStance: haftStance.name, weapons: [weapon], feats: [
+    feat('Verdant Weapon', 1), feat('Pristine Weapon', 10), feat('Haft Striker Stance', 4),
+  ] }
+  const entries = [polearm, haftStance]
+  const haft = ownedWeapons(c, entries).find((w) => w.name === HAFT_STRIKER_WEAPON.name)!
+  for (const strike of [weapon, haft]) {
+    expect(weaponAttack(c, entries, strike).pristineWeapon).toBe(true)
+    expect(weaponAttack(c, entries, strike).damage).not.toContain('bleed')
+  }
+  expect(weaponAttack(c, entries, { ...weapon, verdantWeapon: false }).pristineWeapon).toBe(false)
+  expect(weaponAttack({ ...c, level: 9 }, entries, weapon).pristineWeapon).toBe(false)
+  expect(weaponAttack({ ...c, feats: c.feats.filter(f => f.name !== 'Verdant Weapon') }, entries, weapon).pristineWeapon).toBe(false)
+  expect(weaponAttack({ ...c, systems: ['sf2e'] }, entries, weapon).pristineWeapon).toBe(false)
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Pristine Weapon: treated as cold iron and silver.')
+  expect(markup).toContain('Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.')
+})
+
+it('shows Fire Resistance saves as conditional without changing base saves', () => {
+  const fire = { ...content('feat', 'Fire Resistance', { resistances: 'fire=half' }, 4, ['Druid']) }
+  const c: Character = { ...base, level: 10, feats: [feat('Fire Resistance', 4)] }
+  expect(resistances(c, [fire])).toContainEqual({ damage: 'Fire', value: 5, source: 'Fire Resistance' })
+  for (const save of ['Fortitude', 'Reflex', 'Will'] as const) {
+    const result = savingThrowBreakdown(c, [fire], save)
+    expect(result.total).toBe(savingThrowBreakdown({ ...c, feats: [] }, [fire], save).total)
+    expect(result.notes).toContain('Fire Resistance: +1 circumstance against fire effects; circumstance bonuses do not stack.')
+    expect(savingThrowBreakdown({ ...c, level: 3 }, [fire], save).notes ?? []).not.toContain(
+      'Fire Resistance: +1 circumstance against fire effects; circumstance bonuses do not stack.')
+  }
+})
+
 it('excludes separately owned blessing grants as well as the primary blessing', () => {
   const c: Character = { ...base, blessing: 'Blessed Shield', feats: [feat('Blessed Armament')] }
   expect(featChoiceOptions('Second Blessing', c, [], 'class:8:0')).toEqual(['Blessed Swiftness'])

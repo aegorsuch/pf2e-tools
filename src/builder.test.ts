@@ -1841,6 +1841,24 @@ describe('languageAllowance', () => {
     const c = { ...base, ancestry: 'Elf', className: 'Druid', abilities: { ...base.abilities, int: 14 }, feats: [{ name: 'Multilingual', type: 'General Feat', level: 1 }] }
     expect(languageAllowance(c, list)).toMatchObject({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
   })
+
+  it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {
+    const multilingual = [
+      { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
+      { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:8:0' },
+    ]
+    const polyglot = { name: 'Gnome Polyglot', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+    const c: Character = { ...base, level: 10, feats: [...multilingual, polyglot] }
+    expect(languageAllowance(c, []).slots - languageAllowance({ ...c, feats: multilingual }, []).slots).toBe(5)
+    const master = { ...c, rankOverrides: { Society: 4 } }
+    expect(languageAllowance(master, []).slots - languageAllowance(c, []).slots).toBe(4)
+    const prodigy = { name: 'Linguistic Prodigy', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    expect(languageAllowance({ ...c, feats: [...c.feats, prodigy] }, []).slots - languageAllowance(c, []).slots).toBe(4)
+    expect(languageAllowance({ ...c, level: 3 }, []).slots)
+      .toBe(languageAllowance({ ...c, level: 3, feats: multilingual }, []).slots)
+    expect(languageAllowance({ ...c, systems: ['sf2e'] }, []).slots)
+      .toBe(languageAllowance({ ...c, systems: ['sf2e'], feats: multilingual }, []).slots)
+  })
 })
 
 describe('languageGroups', () => {
