@@ -348,6 +348,14 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       }
       continue
     }
+    if (feat.name === 'Advanced Targeting System' && ancestryFeatTraits(c).includes('android')) {
+      const entry = matchingSpells(entries, 'Sure Strike').find(spell => spell.systems.some(system => c.systems.includes(system)))
+        ?? matchingSpells(entries, 'True Strike').find(spell => spell.systems.some(system => c.systems.includes(system)))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per day', fixedRank: true },
+        rank: 1, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
     if (feat.name === 'Kijimuna Whistle' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Summon Plant or Fungus').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,

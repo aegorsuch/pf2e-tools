@@ -919,6 +919,14 @@ it('alphabetizes innate spell names independently of feat selection order', () =
   expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
 })
 
+it('grants Sure Strike from the Android Advanced Targeting System feat only', () => {
+  const entries = [entry('Sure Strike', 'spell')]
+  const android: Character = { ...base, ancestry: 'Android', feats: [taken('Advanced Targeting System')] }
+  expect(grantedFeatSpells(android, entries).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
+    .toEqual([['Sure Strike', 1, 'arcane', 'once per day']])
+  expect(grantedFeatSpells({ ...android, ancestry: 'Human' }, entries)).toEqual([])
+})
+
 it('shows original duration units, touch range and Sure Strike self-targeting without an Invisibility toggle', () => {
   const spells = [
     entry('Invisibility', 'spell', { duration: 600, duration_text: '10 minutes', range: 0, range_text: 'touch', target: '1 creature' }),

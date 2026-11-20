@@ -117,6 +117,10 @@ export function spellDamage(name: string, rank: number): Damage[] {
       ] : []
     case 'Slime Spit':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'poison' }] : []
+    case 'Inject Nanobots':
+    case 'Inject Nanobot':
+      return rank >= 2 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'acid',
+        note: 'Critical hit: double damage' }] : []
     case 'Warning Stripes':
       return rank >= 3 ? [{ label: 'Contact damage', dice: 2 + Math.floor((rank - 3) / 2), sides: 8, type: 'poison' }] : []
     case "Ranger's Bramble":

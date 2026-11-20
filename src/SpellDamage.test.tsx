@@ -136,6 +136,11 @@ it('uses a spell action icon for a supported damage roll and keeps non-rolling s
   expect(multiple).toContain('8d8 sonic')
 })
 
+it('rolls Inject Nanobots acid damage and heightens by 2d6 per rank', () => {
+  expect(spellDamage('Inject Nanobots', 2)).toMatchObject([{ dice: 4, sides: 6, type: 'acid' }])
+  expect(spellDamage('Inject Nanobots', 5)).toMatchObject([{ dice: 10, sides: 6 }])
+})
+
 it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightened ranks', () => {
   const fireball: ContentEntry = { id: 'fireball', name: 'Fireball', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 3, traits: [], data: { actions: 'Two Actions' }, effects: [], updatedAt: 1,
