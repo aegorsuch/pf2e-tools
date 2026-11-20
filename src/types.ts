@@ -220,6 +220,7 @@ export interface Character {
   haftStrikerWeaponId?: string
   raging?: boolean
   barbarianDragon?: import('./barbarian.js').DragonInstinct
+  dragonTransformation?: string
   draconicRage?: boolean
   spiritRage?: boolean
   superstitionTraditions?: 'Arcane and Occult' | 'Arcane and Primal' | 'Divine and Occult' | 'Divine and Primal'

@@ -1,4 +1,5 @@
 import type { ContentEntry } from './types'
+import { DRAGON_FORMS } from './barbarian'
 
 export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Untamed Form'])
 type DinosaurAttack = { name: string; damage: string; traits?: string[]; reach?: number; bleed?: string; criticalBleed?: string }
@@ -86,7 +87,32 @@ const INSECT_WEAPONS: ContentEntry[] = INSECT_FORMS.flatMap(form => form.attacks
     form_effect: attack.range ? 'A hit immobilizes the target for 1 round or until it Escapes.' : '' },
 })))
 
-export const BATTLE_FORM_WEAPONS = [...DINOSAUR_WEAPONS, ...ANIMAL_WEAPONS, ...INSECT_WEAPONS]
+const DRAGON_WEAPONS: ContentEntry[] = [
+  { name: 'Jaws', damage: '2d12 piercing', traits: [], reach: 5 },
+  { name: 'Claw', damage: '3d10 slashing', traits: ['Agile'], reach: 5 },
+  { name: 'Tail', damage: '3d10 bludgeoning', traits: ['Reach'], reach: 10 },
+].map(attack => ({
+  id: `feat:dragon-transformation:${attack.name.toLowerCase()}`, name: `Dragon ${attack.name}`,
+  kind: 'weapon', systems: ['pf2e'], source: 'official', level: 16, traits: ['Unarmed', ...attack.traits],
+  description: '', effects: [], updatedAt: 0,
+  data: { weapon_category: 'Unarmed', weapon_group: 'Brawling', weapon_type: 'Melee', damage: attack.damage, reach: attack.reach },
+}))
+
+export const BATTLE_FORM_WEAPONS = [...DINOSAUR_WEAPONS, ...ANIMAL_WEAPONS, ...INSECT_WEAPONS, ...DRAGON_WEAPONS]
+
+export function dragonTransformationForm(name: string, level: number) {
+  const dragon = DRAGON_FORMS[name]
+  if (!dragon) return undefined
+  return {
+    name, source: 'Dragon Transformation', rank: 6, speed: 40,
+    swimSpeed: dragon.movement === 'Swim' ? 60 : 0, climbSpeed: dragon.movement === 'Climb' ? 40 : 0,
+    flySpeed: 100, burrowSpeed: dragon.movement === 'Burrow' ? 20 : 0, flyStatus: level >= 18 ? 20 : 0,
+    note: '10 temporary HP adds to temporary HP from Rage actions.', senses: ['Darkvision', 'Scent (imprecise) 60 feet'],
+    size: 'Large', ac: 0, temporaryHp: 10, attack: 0, damageBonus: level >= 18 ? 12 : 6, athletics: 23,
+    attacks: DRAGON_WEAPONS.map(entry => entry.name === 'Dragon Jaws'
+      ? { ...entry, data: { ...entry.data, extra_damage: `2d6 ${dragon.damage}` } } : entry),
+  }
+}
 
 export function insectBattleForm(name: string, rank: number, level: number) {
   const form = INSECT_FORMS.find(form => form.name.toLowerCase() === name.trim().toLowerCase())

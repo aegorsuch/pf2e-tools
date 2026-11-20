@@ -21,7 +21,7 @@ import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBon
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
-import { activeBattleForm, bulkLimits, giantStatureChange, giantStatureSize, spellActiveChange } from './builder'
+import { activeBattleForm, bulkLimits, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -672,6 +672,49 @@ it('provides dragon breath damage, action, and class DC for the chosen dragon wh
   expect(html).toContain('Occult trait; once per 10 minutes')
   expect(renderToStaticMarkup(<ClassFeatures c={{ ...c, raging: false }} entries={[barbarian]} save={() => {}} />))
     .not.toContain('Roll Dragon&#x27;s Rage Breath')
+})
+
+it.each([16, 18])('applies Dragon Transformation using own defenses and Rage at level %i', level => {
+  const klass = content('class', 'Barbarian', { attack_proficiency: 'expert in unarmed attacks', attribute: 'Strength' })
+  const normal: Character = { ...base, className: 'Barbarian', subclass: 'Dragon', level, raging: true,
+    barbarianDragon: 'Diabolic', draconicRage: true, feats: [feat('Dragon Transformation', 16), feat('Reinforced Skeleton', 1)],
+    abilities: { ...base.abilities, str: 20 }, weapons: [main], activeSpells: ['Dinosaur Form', 'Athletic Rush'],
+    giantStature: 'Large', activeFeatEffects: ['Verdant Metamorphosis'] }
+  const c = { ...normal, ...dragonTransformationChange(normal, 'Horned') }
+  const entries = [klass, sword]
+  expect(c.activeSpells).toEqual(['Athletic Rush'])
+  expect(c.giantStature).toBeUndefined()
+  expect(c.activeFeatEffects).toEqual([])
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Horned', size: 'Large', temporaryHp: 10, athletics: 23 })
+  expect(armorClass(c, entries)).toBe(armorClass({ ...c, dragonTransformation: undefined }, entries))
+  expect(movementSpeeds(c, entries)).toEqual(expect.arrayContaining([
+    { name: 'Swim', feet: 65, source: 'Dragon Transformation', status: 5 },
+    { name: 'Fly', feet: level >= 18 ? 120 : 105, source: 'Dragon Transformation', status: level >= 18 ? 20 : 5 },
+  ]))
+  expect(senses(c, entries).map(item => item.value)).toEqual(expect.arrayContaining(['Darkvision', 'Scent (imprecise) 60 feet']))
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Poison', value: 10, source: 'Dragon Transformation' })
+  const attacks = ownedWeapons(c, entries)
+  expect(attacks.map(attack => attack.name)).toEqual(['Dragon Jaws', 'Dragon Claw', 'Dragon Tail'])
+  const jaws = weaponAttack(c, entries, attacks[0])
+  const fist = ownedWeapons({ ...c, dragonTransformation: undefined }, entries).find(weapon => weapon.name === 'Fist')!
+  expect(jaws.attack).toBe(weaponAttack({ ...c, dragonTransformation: undefined }, entries, fist).attack)
+  expect(jaws.damage).toBe(`2d12+${level >= 18 ? 12 : 6} piercing`)
+  expect(jaws.additionalDamage).toEqual(expect.arrayContaining([
+    expect.objectContaining({ source: 'Draconic Rage', value: '16 fire' }),
+    expect.objectContaining({ source: 'Dragon Transformation', value: '2d6 poison' }),
+  ]))
+  expect(weaponAttack(c, entries, attacks[2]).reach).toBe(10)
+  const html = renderToStaticMarkup(<ClassFeatures c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain(level >= 18 ? '10d6+14 poison' : '10d6 poison')
+  expect(html).toContain('30-foot cone; basic Fortitude save')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)).toContain('Gain the dragon trait')
+  expect(activeBattleForm({ ...c, raging: false }, entries)?.name).toBe('Horned')
+  expect(weaponAttack({ ...c, raging: false }, entries, attacks[0]).rageDamage).toBe(0)
+  expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
+  expect(spellActiveChange(c, 'Untamed Form', true).dragonTransformation).toBeUndefined()
+  expect(featEffectChange(c, 'Verdant Metamorphosis', true).dragonTransformation).toBeUndefined()
+  expect(giantStatureChange(c, 'Large').dragonTransformation).toBeUndefined()
+  expect(activeBattleForm({ ...c, ...dragonTransformationChange(c, undefined) }, entries)).toBeUndefined()
 })
 
 it('halves Draconic Rage for agile attacks and requires Raging Thrower for thrown attacks', () => {

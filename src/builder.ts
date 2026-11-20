@@ -1,6 +1,6 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, insectBattleForm } from './battleForms'
-import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
+import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm } from './battleForms'
+import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
@@ -437,7 +437,7 @@ export const isFeatEffectActive = (c: Character, name: string) =>
 export function featEffectChange(c: Character, name: string, active: boolean) {
   return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])],
     ...(name === 'Verdant Metamorphosis' && active ? { activeSpells: (c.activeSpells ?? [])
-      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form'), giantStature: undefined } : {}) }
+      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form'), giantStature: undefined, dragonTransformation: undefined } : {}) }
 }
 // House rules grant level-2 dedications in locked slots.
 export const HOMEBREW_DEDICATIONS = [
@@ -1979,10 +1979,16 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   if (form) {
     const bonuses = speedBonuses(c, entries, options)
     const status = bonuses.find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
+    const formFlyStatus = 'flyStatus' in form && typeof form.flyStatus === 'number' ? form.flyStatus : 0
+    const other = bonuses.reduce((total, bonus) => total + bonus.feet, 0) - status
     return [{ name: 'Land', feet: speed(c, entries, options), source: form.source, status },
       ...(form.swimSpeed ? [{ name: 'Swim', feet: Math.max(5, form.swimSpeed + bonuses.reduce((total, bonus) => total + bonus.feet, 0)),
         source: form.source, status }] : []),
       ...(form.climbSpeed ? [{ name: 'Climb', feet: Math.max(5, form.climbSpeed + bonuses.reduce((total, bonus) => total + bonus.feet, 0)),
+        source: form.source, status }] : []),
+      ...('flySpeed' in form && typeof form.flySpeed === 'number' && form.flySpeed ? [{ name: 'Fly', feet: Math.max(5, form.flySpeed + other + Math.max(status, formFlyStatus)),
+        source: form.source, status: Math.max(status, formFlyStatus) }] : []),
+      ...('burrowSpeed' in form && typeof form.burrowSpeed === 'number' && form.burrowSpeed ? [{ name: 'Burrow', feet: Math.max(5, form.burrowSpeed + other + status),
         source: form.source, status }] : [])]
   }
   const trailblazing = hellknightBenefitActive(c, 'Trailblazing Stride') ? 10 : 0
@@ -3910,6 +3916,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     out.push({ damage: `damage from ${c.barbarianElement} elemental creatures, creatures made of ${c.barbarianElement}, or effects with the ${c.barbarianElement} trait`,
       value: ragingResistance, source: 'Raging Resistance' })
   }
+  const dragonForm = activeBattleForm(c, entries)
+  if (dragonForm?.source === 'Dragon Transformation' && c.dragonTransformation && DRAGON_FORMS[c.dragonTransformation]) {
+    const dragon = DRAGON_FORMS[c.dragonTransformation]
+    out.push({ damage: dragon.damage, value: 10, source: 'Dragon Transformation' })
+  }
   const armor = wornArmor(c, entries)
   if (armor) out.push(...energyNeutralizerResistances(c, armor.id))
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
@@ -4081,6 +4092,7 @@ export function armorProficiencyRank(c: Character, entries: ContentEntry[], armo
 
 export function armorClassBreakdown(c: Character, entries: ContentEntry[]): TotalBreakdown {
   const form = activeBattleForm(c, entries)
+  if (form?.source === 'Dragon Transformation') return armorClassBreakdown(withoutBattleForm(c), entries)
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
   const ragePenalties: TotalPart[] = [
@@ -4520,6 +4532,10 @@ export function dinosaurForm(c: Character, entries: ContentEntry[]) {
 }
 
 export function activeBattleForm(c: Character, entries: ContentEntry[]) {
+  if (c.dragonTransformation && activeFeatsNamed(c, 'Dragon Transformation').length) {
+    const form = dragonTransformationForm(c.dragonTransformation, c.level)
+    if (form) return form
+  }
   for (const name of [...c.activeSpells ?? []].reverse()) {
     if (name === 'Untamed Form' && isSpellActive(c, entries, name) && c.untamedForm?.shape
       && untamedFormOptions(c).some(option => option.name === c.untamedForm?.form)) {
@@ -4546,7 +4562,13 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
 }
 
 export const withoutBattleForm = (c: Character): Character =>
-  ({ ...c, activeSpells: c.activeSpells?.filter(name => !BATTLE_FORM_SPELLS.has(name)) })
+  ({ ...c, dragonTransformation: undefined, activeSpells: c.activeSpells?.filter(name => !BATTLE_FORM_SPELLS.has(name)) })
+
+export function dragonTransformationChange(c: Character, name: string | undefined): Partial<Character> {
+  return { dragonTransformation: name,
+    ...(name ? { giantStature: undefined, activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
+      activeFeatEffects: (c.activeFeatEffects ?? []).filter(effect => effect !== 'Verdant Metamorphosis') } : {}) }
+}
 
 export function untamedFormRanks(c: Character) {
   const maximum = Math.ceil(c.level / 2)
@@ -4592,10 +4614,10 @@ export function companionSpellTarget(c: Character, savedId?: string) {
   return c.companions?.find((companion) => companion.id === savedId)?.id ?? c.companions?.[0]?.id
 }
 
-export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature'>> {
+export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation'>> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
     && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])],
-  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined } : {}),
+  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined, dragonTransformation: undefined } : {}),
   ...(active && (BATTLE_FORM_SPELLS.has(name) || name === 'Untamed Form')
     && isFeatEffectActive(c, 'Verdant Metamorphosis') ? featEffectChange(c, 'Verdant Metamorphosis', false) : {}) }
 }
@@ -5203,6 +5225,7 @@ export function giantStatureSize(c: Character, entries: ContentEntry[]) {
 
 export function giantStatureChange(c: Character, size: Character['giantStature']): Partial<Character> {
   return { giantStature: size, ...(size ? {
+    dragonTransformation: undefined,
     activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
     activeFeatEffects: (c.activeFeatEffects ?? []).filter(effect => effect !== 'Verdant Metamorphosis'),
   } : {}) }
@@ -5631,12 +5654,13 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const cairnSpecialization = cairn && rank >= 2
     ? classFeatures(entries, c).some(feature => /^greater weapon specialization$/i.test(feature.name)) ? rank * 2
       : classFeatures(entries, c).some(feature => /^weapon specialization$/i.test(feature.name)) ? rank : 0 : 0
-  const rageDamage = formAttack ? 0 : rageDamageBonus(c, entries, w, traits, ranged)
+  const dragonFormAttack = !!formAttack && form?.source === 'Dragon Transformation'
+  const rageDamage = formAttack && !dragonFormAttack ? 0 : rageDamageBonus(c, entries, w, traits, ranged)
   const dragonDamage = rageDamage && barbarianInstinct(c, entries) === 'dragon' && c.draconicRage && c.barbarianDragon
     ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage : undefined
   const elementalDamage = rageDamage && c.raging ? elementalRageType(c, entries) : undefined
   const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
-  const damageBonus = formAttack && form ? form.damageBonus : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
+  const damageBonus = formAttack && form ? form.damageBonus + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -5701,6 +5725,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ? [{ source: form.source, value: `${formAttack.data.persistent_poison} persistent poison`, note: 'Persistent poison from the battle form.' }] : []),
       ...(formAttack.data.extra_damage && form
         ? [{ source: form.source, value: String(formAttack.data.extra_damage), note: 'Additional damage from the battle form.' }] : []),
+      ...(dragonFormAttack && spiritDamage ? [{ source: 'Spirit Rage', value: `${rageDamage} spirit`, note: 'The attack gains ghost touch while using Spirit Rage.' }] : []),
     ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(spiritDamage ? [{ source: 'Spirit Rage', value: `${rageDamage} spirit`, note: 'The attack gains ghost touch while using Spirit Rage.' }] : []),

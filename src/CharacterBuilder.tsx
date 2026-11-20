@@ -422,6 +422,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         next.scouringRageUsed = false
         next.scouringRageDamage = undefined
       }
+      if (!activeFeatsNamed(next, 'Dragon Transformation').length) next.dragonTransformation = undefined
       if (next.activeFeatEffects) next.activeFeatEffects = next.activeFeatEffects.filter(effect =>
         !['Desperate Wrath', 'Come and Get Me', "Spirits' Interference"].includes(effect) || !!next.raging && !!activeFeatsNamed(next, effect).length)
       if (!next.raging || !activeFeatsNamed(next, 'Animalistic Brutality').length) next.animalisticBrutality = undefined

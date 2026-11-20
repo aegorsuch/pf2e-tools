@@ -687,9 +687,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </label>}
         {form && <div className="defense-summary">
           <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
-            <SourceNote source={form.source} note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>
+            <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
+              ? 'Add to temporary HP from entering Rage or another Rage action; not added to maximum Hit Points.'
+              : 'Granted when cast; not added to maximum Hit Points.'} inlineSource={false} /></b></span>
           <span><small>Size</small><b>{form.size}
-            <SourceNote source={form.source} note={`${form.attacks[0]?.data.battle_form
+            <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
+              ? 'Gain the dragon trait. Only dragon unarmed attacks can Strike; equipment is absorbed. You have hands and can use manipulate actions.'
+              : `${form.attacks[0]?.data.battle_form
               ? `Gain the animal trait.${form.note ? ` ${form.note}` : ''}`
               : 'Gain the animal and dinosaur traits.'} Only the form's unarmed attacks can Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.`} inlineSource={false} /></b></span>
         </div>}

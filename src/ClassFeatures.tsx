@@ -7,8 +7,8 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { abilityMod, classDifficultyClass, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, weaponRanks, withoutBattleForm } from './builder'
-import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
+import { abilityMod, classDifficultyClass, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, weaponRanks, withoutBattleForm } from './builder'
+import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
 
@@ -130,6 +130,27 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
               damage={{ label: 'Damage', dice: c.level, sides: 6, type: DRAGON_INSTINCTS[c.barbarianDragon].damage }} />
             <SourceNote source="Dragon's Rage Breath" note={`30-foot cone; basic Reflex save against ${classDifficultyClass(c, entries) ?? 'class DC'}. ${DRAGON_INSTINCTS[c.barbarianDragon].tradition} trait; once per 10 minutes.`} />
           </span>}
+        </>}
+      </div>}
+      {(c.raging || c.dragonTransformation) && !!activeFeatsNamed(c, 'Dragon Transformation').length && <div className="col" aria-label="Dragon Transformation">
+        <label>Dragon Transformation{' '}
+          <select aria-label="Dragon Transformation form" value={c.dragonTransformation ?? ''} disabled={!!c.dragonTransformation}
+            onChange={event => {
+              const dragon = Object.keys(DRAGON_FORMS).find(name => name === event.target.value)
+              if (dragon) save(dragonTransformationChange(c, dragon))
+            }}>
+            <option value="">Choose dragon</option>
+            {Object.keys(DRAGON_FORMS).map(dragon => <option key={dragon}>{dragon}</option>)}
+          </select>
+        </label>
+        <SourceNote source="Dragon Transformation" note="One action; lasts 1 minute or until dismissed. Usable once per 10 minutes. Add its 10 temporary HP to temporary HP from Rage actions. Tradition resistance depends on GM interpretation because this is not a spell." />
+        {c.dragonTransformation && DRAGON_FORMS[c.dragonTransformation] && <>
+          <button type="button" onClick={() => save(dragonTransformationChange(c, undefined))}>{c.raging ? 'Dismiss Dragon Transformation' : 'End expired Dragon Transformation'}</button>
+          <span>Dragon Breath{' '}
+            <DamageRoll name="Dragon Transformation Breath" actions="Two Actions"
+              damage={{ label: 'Damage', dice: 10, sides: 6, bonus: c.level >= 18 ? 14 : 0, type: DRAGON_FORMS[c.dragonTransformation].damage }} />
+            <SourceNote source="Dragon Breath" note={`${DRAGON_FORMS[c.dragonTransformation].line ? '100-foot line' : '30-foot cone'}; basic ${DRAGON_FORMS[c.dragonTransformation].save} save against ${classDifficultyClass(c, entries) ?? 'class DC'}. After use, wait 1d4 rounds before using Dragon Breath again.`} />
+          </span>
         </>}
       </div>}
       {instinct === 'spirit' && <div className="col" aria-label="Spirit Instinct">
