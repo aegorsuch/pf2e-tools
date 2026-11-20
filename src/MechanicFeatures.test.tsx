@@ -457,6 +457,33 @@ it('improves basic mods on mines, worn armor, and drone attacks with Boosting Th
   expect(mechanicMineDamage({ ...c, level: 5 }, { bigBoom: true }).radius).toBe(15)
 })
 
+it('shows Critical Explosion persistent damage by mine damage type and save result', () => {
+  const c: Character = { ...mechanic, feats: [{ name: 'Critical Explosion', type: 'Class Feat', level: 1 }],
+    mechanicMines: { carried: 0, deployed: 2 },
+    mechanicDeployedMines: [{}, { baseDamage: 'piercing' }] }
+  const html = renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)
+  expect(html).toContain('1 persistent fire damage; on a critical failure, 4 persistent damage instead')
+  expect(html).toContain('1 persistent bleed damage; on a critical failure, 4 persistent damage instead')
+  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...c, level: 1, feats: [] }} save={() => {}} />))
+    .not.toContain('Critical Explosion:')
+  const healing = { ...c, feats: [...c.feats, { name: 'Healing Mines', type: 'Class Feat', level: 2 }],
+    mechanicMines: { carried: 0, deployed: 1 }, mechanicDeployedMines: [{ healing: true }] }
+  expect(renderToStaticMarkup(<MechanicFeatures c={healing} save={() => {}} />)).not.toContain('Critical Explosion:')
+})
+
+it('shows Shielded Turret cover when selected', () => {
+  const c: Character = { ...mechanic, subclass: 'Turret', feats: [{ name: 'Shielded Turret', type: 'Class Feat', level: 1 }] }
+  expect(renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)).toContain('provides standard cover')
+  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...c, feats: [] }} save={() => {}} />)).not.toContain('provides standard cover')
+})
+
+it('shows Apocalyptic Explosions for deployed mines only after the feat is active', () => {
+  const c: Character = { ...mechanic, level: 20, feats: [{ name: 'Apocalyptic Explosions', type: 'Class Feat', level: 20 }],
+    mechanicMines: { carried: 0, deployed: 1 }, mechanicDeployedMines: [{}] }
+  expect(renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)).toContain('Apocalyptic Explosions doubles the area.')
+  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...c, level: 19 }} save={() => {}} />)).not.toContain('Apocalyptic Explosions doubles')
+})
+
 it('applies Energy Neutralizer only to worn armor, scaling its choices and resistance', () => {
   const c: Character = { ...mechanic, armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], worn: true }],
     feats: [{ name: 'Energy Neutralizer', type: 'Class Feat', level: 4 }],

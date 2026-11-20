@@ -173,6 +173,10 @@ it('shows active grenade modifications with the correct range, radius and damage
   expect(html).toContain('Burst radius 10 feet')
   expect(html).toContain('Damage type: slashing')
   expect(html).toContain('Nonlethal.')
+  const apocalyptic = { ...character, level: 20, feats: [...character.feats,
+    { name: 'Apocalyptic Explosions', type: 'Class Feat', level: 20 }] }
+  expect(renderToStaticMarkup(<GrenadeSpecialist c={apocalyptic} entries={[grenade]} save={() => {}} />))
+    .toContain('Apocalyptic Explosions doubles the grenade area.')
   expect(renderToStaticMarkup(<GrenadeSpecialist c={{ ...character, level: 4 }} entries={[grenade]} save={() => {}} />))
     .not.toContain('Damage type: slashing')
   const enduring = { ...character, level: 13,

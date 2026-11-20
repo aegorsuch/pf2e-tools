@@ -525,6 +525,29 @@ it('combines a tail with regular hands in the shared pool', () => {
   expect(renderToStaticMarkup(tree())).toContain('Hands used: 3/3')
 })
 
+it("lets Damoritosh's Grip switch a two-handed weapon's grip while enforcing hand capacity", () => {
+  const rifle = { ...weapon, name: 'Rifle', data: { hands: 2 } }
+  const sword = { ...weapon, name: 'Sword', data: { hands: 1 } }
+  let c: Character = { ...character([{ name: "Damoritosh's Grip", type: 'Class Feat', level: 18 }]),
+    level: 18, systems: ['sf2e'], weapons: [
+      { id: 'rifle', name: rifle.name, potency: 0, striking: 0, runes: [] },
+      { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [], stowed: true },
+    ] }
+  const entries = [rifle, sword]
+  const tree = (displayOnly = true) => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly })
+  const grip = () => findElement(tree(), e => e.props['aria-label'] === 'Hands: Rifle')!
+  expect(grip().props.value).toBe(2)
+  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
+  ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+  expect(findElement(grip(), e => e.type === 'option' && e.props.value === 2)!.props.disabled).toBe(true)
+  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  expect(findElement(tree(false), e => e.props['aria-label'] === 'Hands: Rifle')!.props.value).toBe(1)
+  ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
+  expect(equippedWeaponHands(c, entries)).toBe(2)
+})
+
 it.each([false, true])('syncs grip changes between views and preserves over-capacity saved weapons (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, name: 'Sword', data: { hands: 1 } }
   const spear = { ...weapon, name: 'Spear', data: { hands: '1 or 2' } }

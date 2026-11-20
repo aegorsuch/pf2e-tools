@@ -4444,11 +4444,13 @@ export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
   return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
 }
 
-export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
+export function weaponCanUseTwoHands(entry: ContentEntry, c?: Character): boolean {
   return String(entry.data.hands).trim() === '1+'
     || String(entry.data.hands).trim() === '1 or 2'
     || String(entry.data.hands).trim() === '1'
       && [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^two-hand\b/i.test(trait))
+    || String(entry.data.hands).trim() === '2' && !!c && c.systems.includes('sf2e')
+      && activeFeatsNamed(c, "Damoritosh's Grip").length > 0
 }
 
 export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Character): number | undefined {
@@ -4458,7 +4460,7 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Ch
   if (!entry) return undefined
   if (weaponCategory(entry) === 'Unarmed'
     || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
-  if (weaponCanUseTwoHands(entry) && weapon.handsHeld === 2) return 2
+  if (weaponCanUseTwoHands(entry, c) && weapon.handsHeld) return weapon.handsHeld
   if (String(entry.data.hands).trim() === '1 or 2') return 1
   const match = /^([12])(?:\+)?$/.exec(String(entry.data.hands ?? '').trim())
   return match ? Number(match[1]) : undefined
@@ -6050,6 +6052,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? [`Bloody Wounds: a critical hit against your mark deals ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1} persistent bleed damage.`] : []),
         ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Overwhelming Assault').length
           ? [`Overwhelming Assault: attacks against suppressed targets use a multiple attack penalty of ${agile ? '-3/-6' : '-4/-8'}.`] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Mechanic' && activeFeatsNamed(c, 'Apocalyptic Explosions').length
+          && (areaTrait || automatic) ? ['Apocalyptic Explosions: Area Fire and Auto-Fire areas are doubled.'] : []),
         ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Advantageous Assault').length && category !== 'Unarmed'
           ? [`Advantageous Assault: a Strike against a frightened or bleeding creature deals +${dice} circumstance damage.`] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Skirmisher' && ranged

@@ -29,6 +29,7 @@ export function mechanicMineDamage(c: Character, mine: MechanicMine) {
   return {
     damage: `${2 + Math.floor((Math.max(1, c.level) - 1) / 2)}d6${bonus ? `+${bonus}` : ''} ${damageType}`,
     radius: (c.level >= 15 ? 20 : c.level >= 10 ? 15 : 10) + (mine.bigBoom ? boostingTheBasics(c) ? 10 : 5 : 0),
+    damageType,
     types,
   }
 }
@@ -229,7 +230,12 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
             {result.types.map(type => <option key={type}>{type}</option>)}
           </select></label>}
           <small>{healing ? `Heals ${healingAmount} HP; no save` : `${result.damage}${mine.incapacitant ? ' nonlethal' : ''}; basic Reflex DC ${classDc}`};
-            {` ${result.radius}-foot burst.`} Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
+            {` ${result.radius}-foot burst.`}{activeFeatsNamed(c, 'Apocalyptic Explosions').length > 0 && ' Apocalyptic Explosions doubles the area.'}
+            {' '}Detonate within 150 feet as one action or as a reaction when a creature enters or leaves the burst area.</small>
+          {!healing && activeFeatsNamed(c, 'Critical Explosion').length > 0 && <small>
+            Critical Explosion: on a failed save, 1 persistent {['bludgeoning', 'piercing', 'slashing'].includes(result.damageType)
+              ? 'bleed' : result.damageType} damage; on a critical failure, {Math.max(0, intelligence)} persistent damage instead.
+          </small>}
           {mine.bunkerBuster && <small>+{boostingTheBasics(c) ? 10 : 5} damage to objects, structures, vehicles, and creatures with Hardness.</small>}
           {!healing && mine.incapacitant && boostingTheBasics(c) && <small>Creatures critically failing their save become frightened 1.</small>}
           <button type="button" onClick={() => {
@@ -257,6 +263,7 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         </select>
       </label>
       {array && <span>Turret array: {array.damage}; range {array.range} feet; {array.trait}, {array.group}.</span>}
+      {activeFeatsNamed(c, 'Shielded Turret').length > 0 && <span>Shielded Turret: provides standard cover; Take Cover for greater cover.</span>}
       <span>AC {classDc}; HP {maxHp}; broken {Math.floor(maxHp / 2)}; hardness {5 + 5 * Math.min(3, Math.floor(c.level / 5))};
         Fortitude and Reflex {signed(intelligence + proficiencyBonus(saveRank, c.level))}.</span>
       <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}

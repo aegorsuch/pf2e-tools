@@ -820,6 +820,7 @@ export function GrenadeMods({ c, grenade, itemKey, save, label }: {
     <small>Thrown range {mods.longRange ? boostingTheBasics(c) ? 130 : 100 : 70} feet; launchers use their own range.
       {radius && ` Burst radius ${radius + (mods.bigBoom ? boostingTheBasics(c) ? 10 : 5 : 0)} feet.`}
       {mods.bigBoom && !radius && ` Increase burst radius by ${boostingTheBasics(c) ? 10 : 5} feet.`}
+      {activeFeatsNamed(c, 'Apocalyptic Explosions').length > 0 && ' Apocalyptic Explosions doubles the grenade area.'}
       {mods.incapacitant && ' Nonlethal.'}
       {mods.incapacitant && boostingTheBasics(c) && ' Creatures critically hit or critically failing their save become frightened 1.'}
       {mods.bunkerBuster && ` +${boostingTheBasics(c) ? 10 : 5} damage to objects, structures, vehicles, and creatures with Hardness.`}
@@ -1278,7 +1279,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                   update(w.id, { stowed: !event.target.checked, ...(event.target.checked ? { cheekStored: false, cheekHolstered: false } : {}) })
                 }} /> Equipped
             </label>}
-            {!linkedSource && !shieldSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
+            {!linkedSource && !shieldSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry, c) && <label>Hands{' '}
               <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
                 onChange={event => {
                   const next = Number(event.target.value) as 1 | 2

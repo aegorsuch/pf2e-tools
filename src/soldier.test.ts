@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorBulk, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, ranksAt, resistances, starfinderArmorPenalties, subclassOptions, weaponAttack } from './builder'
+import { armorBulk, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, ranksAt, resistances, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
 import { ERUDITE_LORE_KEY } from './soldier'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -85,4 +85,15 @@ it('adds Soldier weapon specialization only from level seven with expert weapon 
   const entries = [soldier, weapon, expertise]
   expect(weaponAttack({ ...base, level: 6 }, entries, owned).damage).toBe('1d8 piercing')
   expect(weaponAttack({ ...base, level: 7 }, entries, owned).damage).toBe('1d8+2 piercing')
+})
+
+it("allows Damoritosh's Grip to wield two-handed weapons with one hand without changing earlier levels", () => {
+  const c: Character = { ...base, level: 18, feats: [{ name: "Damoritosh's Grip", type: 'Class Feat', level: 18 }],
+    weapons: [{ ...owned, handsHeld: 1 }] }
+  expect(weaponHands([weapon], c.weapons![0], c)).toBe(1)
+  expect(equippedWeaponHands(c, [weapon])).toBe(1)
+  expect(weaponHands([weapon], { ...owned, handsHeld: 2 }, c)).toBe(2)
+  expect(weaponHands([weapon], owned, c)).toBe(2)
+  expect(weaponHands([weapon], c.weapons![0], { ...c, level: 17 })).toBe(2)
+  expect(weaponHands([weapon], c.weapons![0], { ...c, systems: ['pf2e'] })).toBe(2)
 })
