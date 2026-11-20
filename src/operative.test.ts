@@ -79,6 +79,28 @@ it('applies Aim feat benefits and conditional bleed without changing base damage
   expect(attack(extreme, simpleGun).breakdown.notes?.join(' ')).toContain('ignore range penalties')
 })
 
+it('shows action details for Operative Aim feats only with eligible weapons', () => {
+  const c: Character = { ...base, feats: ['Instinctive Aim', 'Mobile Aim', 'Weakening Shot']
+    .map(name => ({ name, type: 'Class Feat', level: 1 })) }
+  const notes = attack(c, simpleGun).breakdown.notes?.join(' ')
+  expect(notes).toContain('Interact to draw a ranged weapon or Switch Hands, then Aim')
+  expect(notes).toContain('Stride, then Aim with this gun')
+  expect(notes).toContain('choose clumsy 1 or enfeebled 1')
+  const bowNotes = attack(c, bow).breakdown.notes?.join(' ')
+  expect(bowNotes).toContain('Instinctive Aim')
+  expect(bowNotes).not.toContain('Mobile Aim')
+  expect(bowNotes).not.toContain('Weakening Shot')
+})
+
+it('shows Vesk critical-miss recovery without changing Strike statistics', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', level: 13, feats: [
+    { name: 'Overcome Shame', type: 'Ancestry Feat', level: 13 },
+  ] }
+  const result = attack(c, simpleGun)
+  expect(result.breakdown.notes?.join(' ')).toContain('reroll your next Strike before the end of your turn')
+  expect(result.damage).toBe(attack({ ...c, feats: [] }, simpleGun).damage)
+})
+
 it('keeps Danger Awareness bonuses conditional', () => {
   const c: Character = { ...base, level: 2, feats: [{ name: 'Danger Awareness', type: 'Class Feat', level: 2 }] }
   expect(armorClassBreakdown(c, entries).notes?.join(' ')).toContain('attacks from traps and hidden')

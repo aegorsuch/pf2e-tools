@@ -112,6 +112,12 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
       {athlete && <SourceNote source="Raging Athlete"
         note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
+      {c.systems.includes('sf2e') && c.ancestry === 'Vesk' && !!activeFeatsNamed(c, 'Close the Gap').length
+        && <SourceNote source="Close the Gap"
+          note="Once per hour, spend 1 action to Stride once or 2 actions to Stride twice; gain a +10-foot status bonus to Speed for these Strides." />}
+      {c.systems.includes('sf2e') && c.ancestry === 'Vesk' && !!activeFeatsNamed(c, 'Eager Combatant').length
+        && <SourceNote source="Eager Combatant"
+          note="When rolling Athletics or Intimidation for initiative, you can use a free action to Stride in a straight line directly toward an enemy." />}
       {!!activeFeatsNamed(c, 'Sudden Charge').length && <SourceNote source="Sudden Charge"
         note={`Move twice, then make a melee Strike if an enemy is within reach. Maximum distances: ${speeds.map(movement => `${movement.name} ${movement.feet * 2} feet`).join('; ')}.`} />}
       {c.raging && !!activeFeatsNamed(c, 'No Escape').length && <SourceNote source="No Escape"
@@ -126,6 +132,15 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
         note={`Ignore Speed penalties and difficult or greater difficult terrain while Striding up to ${speed(c, entries, { ignorePenalties: true }) * 2} feet with two actions or ${speed(c, entries, { ignorePenalties: true }) * 3} feet with three actions. Balance can use Athletics.`} />}
       {uplifting && <SourceNote source="Uplifting Winds"
         note={`When flying and casting an air or electricity spell, Fly Speed ${uplifting.feet} feet (+10 status, nonstacking); immediately Fly up to half that Speed.`} />}
+      {c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Frilled Vesk Glide').length
+        && <SourceNote source="Frilled Vesk Glide"
+          note="One action: glide up to 25 feet forward while descending 5 feet. If you spend at least one action gliding each round and have not reached the ground, remain airborne at the end of your turn." />}
+      {c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Nimble Tail').length
+        && <SourceNote source="Nimble Tail"
+          note="In zero gravity, Push Off without a free hand; while untethered, ignore clumsy and off-guard penalties." />}
+      {c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Zero-G Tail').length
+        && <SourceNote source="Zero-G Tail"
+          note="When using Nimble Tail to Push Off, Float up to your Speed instead of half your Speed; while Floating, you can react to Grab an Edge when passing adjacent to an object." />}
       {!!activeFeatsNamed(c, 'Shore Step').length && <SourceNote source="Shore Step" note="Ignore difficult terrain caused by shallow water." />}
       {!!activeFeatsNamed(c, 'Forest Passage').length && <SourceNote source="Forest Passage" note="Ignore difficult terrain caused by plants and fungi." />}
       {hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
@@ -542,8 +557,22 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Once per day, react to a failed (not critically failed) Perception or skill check to reroll it, using the second result even if worse." />}
           {s.name === 'Will' && !!activeFeatsNamed(c, "Cavalier's Banner").length && <SourceNote source="Cavalier's Banner"
             note={`${conditionalTotal(1)}, DC ${10 + total + Math.max(0, 1 - (circumstance?.value ?? 0))} against fear while within 30 feet of your mount's banner (+1 circumstance; applies to allies too). If the banner is destroyed or removed, allies within 30 feet become frightened 1.${activeFeatsNamed(c, 'Stalwart Standard').length ? ' Allies benefiting from the banner gain +1 circumstance to Fortitude and Reflex DCs against Disarm, Grapple, Shove, and Trip, and +1 status to attacks against creatures that damaged a lower-level innocent within the last round. Summoned creatures, companions, and creatures deliberately endangered by you or your allies do not count as innocents.' : ''}`} />}
+          {s.kind === 'skill' && !!activeFeatsNamed(c, 'Rising to the Challenge').length && <SourceNote source="Rising to the Challenge"
+            note="Once per day outside combat, when you critically fail a skill check, reroll it and use the second result." />}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
             note="A creature's failure to Coerce you becomes a critical failure; it cannot Coerce you again for 1 week." />}
+          {s.name === 'Intimidation' && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+            && !!activeFeatsNamed(c, 'Opening Roar').length && <SourceNote source="Opening Roar"
+              note="At the start of combat, if aware of foes and not Sneaking or Hiding, use Intimidation for initiative and apply its result to Demoralize one observed foe." />}
+          {s.name === 'Intimidation' && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+            && !!activeFeatsNamed(c, 'Menacing Snarl').length && <SourceNote source="Menacing Snarl"
+              note="Once per hour when you frighten a creature, use a free action to verbally menace it and increase its frightened value by 1 (maximum 3)." />}
+          {s.name === 'Intimidation' && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+            && !!activeFeatsNamed(c, 'Terrifying Bravado').length && <SourceNote source="Terrifying Bravado"
+              note="When you critically succeed at a save against a creature's fear effect, or a creature fails or critically fails to Demoralize you, react to attempt to Demoralize that creature." />}
+          {s.name === 'Athletics' && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+            && !!activeFeatsNamed(c, 'Wriggling Tail').length && <SourceNote source="Wriggling Tail"
+              note="When you become grabbed, react to drop part of your tail, end grabbed, then Step. Until the tail regrows (1 day or regeneration), you cannot use it and take –2 circumstance to Balance." />}
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
             source={grant.source} note="Free trained Lore; does not use a skill training pick." />)}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}

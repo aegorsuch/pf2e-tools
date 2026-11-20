@@ -62,6 +62,38 @@ it('calculates No Escape movement from current Speeds only while raging', () => 
   expect(render({ ...c, level: 1 })).not.toContain('No Escape note')
 })
 
+it('shows conditional Vesk glide and Ysoki zero-gravity movement rules without changing Speed', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Vesk', level: 5,
+    feats: ['Frilled Vesk Glide', 'Nimble Tail', 'Zero-G Tail']
+      .map(name => ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const html = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('glide up to 25 feet forward while descending 5 feet')
+  expect(html).toContain('Push Off without a free hand')
+  expect(html).toContain('Float up to your Speed instead of half your Speed')
+  expect(html).toContain('Speed: <span>25 ft.</span>')
+})
+
+it('shows conditional Vesk Stride options without applying their Speed bonus permanently', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Vesk', level: 9,
+    feats: ['Close the Gap', 'Eager Combatant'].map(name => ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const html = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Once per hour, spend 1 action to Stride once or 2 actions to Stride twice')
+  expect(html).toContain('free action to Stride in a straight line directly toward an enemy')
+  expect(html).toContain('Speed: <span>25 ft.</span>')
+})
+
+it('shows conditional Vesk skill actions without changing skill modifiers', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Vesk', heritage: 'Horizon Seeker Vesk', level: 13,
+    feats: ['Rising to the Challenge', 'Opening Roar', 'Menacing Snarl', 'Terrifying Bravado', 'Wriggling Tail']
+      .map(name => ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Rising to the Challenge note')
+  expect(html).toContain('Opening Roar note')
+  expect(html).toContain('Menacing Snarl note')
+  expect(html).toContain('Terrifying Bravado note')
+  expect(html).toContain('Wriggling Tail note')
+})
+
 it('shows Rage temporary HP and Second Wind only while raging', () => {
   const c: Character = { ...base, level: 8, className: 'Barbarian', raging: true,
     abilities: { ...base.abilities, con: 16 }, feats: [{ name: 'Second Wind', type: 'Class Feat', level: 2 }] }

@@ -71,6 +71,19 @@ it('keeps normal Dexterity Strikes separate from Constitution area DCs and doubl
   expect(weaponAttack({ ...base, className: 'Mechanic' }, entries, owned).areaAttacks).toEqual([])
 })
 
+it('shows Ammo Hoarder and Run Hot only for their required weapon traits', () => {
+  const c: Character = { ...base, level: 8, feats: [
+    { name: 'Ammo Hoarder', type: 'Class Feat', level: 8 },
+    { name: 'Run Hot', type: 'Class Feat', level: 8 },
+  ] }
+  const automatic = weaponAttack(c, [soldier, weapon], owned).breakdown.notes?.join(' ')
+  expect(automatic).toContain('Auto-Fire expends ammunition equal to the number of targets')
+  expect(automatic).not.toContain('Run Hot')
+  const area = { ...weapon, traits: [...weapon.traits, 'Area'] }
+  const areaNotes = weaponAttack(c, [soldier, area], owned).breakdown.notes?.join(' ')
+  expect(areaNotes).toContain('Run Hot (3 actions): Area Fire twice')
+})
+
 it('grants Close Quarters Whirling Swipe and only conditional Armor Storm resistance', () => {
   expect(automaticFeatGrants({ ...base, subclass: 'Close Quarters' }, []))
     .toContainEqual({ name: 'Whirling Swipe', source: 'Close Quarters', level: 1 })

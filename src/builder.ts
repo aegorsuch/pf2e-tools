@@ -6053,6 +6053,17 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
             ...(ranged && activeFeatsNamed(c, 'Extreme Accuracy').length ? ['Extreme Accuracy: ignore range penalties against your mark within four range increments.'] : []),
             ...(c.level >= 15 ? ['Critical Aim: the first successful Strike against your mark after Aiming each round applies critical specialization.'] : []),
             ...(c.level >= 17 ? ['Tactical Barrage: attacks against your mark use a multiple attack penalty of -3/-6 (-2/-4 with agile).'] : [])] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && activeFeatsNamed(c, 'Instinctive Aim').length
+          ? ['Instinctive Aim (1 action): Interact to draw a ranged weapon or Switch Hands, then Aim.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Mobile Aim').length
+          ? ['Mobile Aim (1 action): Stride, then Aim with this gun.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Weakening Shot').length
+          ? ['Weakening Shot (2 actions): Aim, then Strike against your mark; on a hit, choose clumsy 1 or enfeebled 1 until the end of your next turn (2 on a critical hit).'] : []),
+        ...(c.systems.includes('sf2e') && c.ancestry === 'Vesk' && activeFeatsNamed(c, 'Overcome Shame').length
+          ? ['Overcome Shame: after a critical failure with a Strike, once per 10 minutes, reroll your next Strike before the end of your turn with the same weapon and target; roll twice and use the higher result. If it misses, you become off-guard until the end of your next turn.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Ghost' && ranged
           ? ['Ghost: Aim as a free action against a target you are undetected by.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Bloody Wounds').length
@@ -6061,6 +6072,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? [`Overwhelming Assault: attacks against suppressed targets use a multiple attack penalty of ${agile ? '-3/-6' : '-4/-8'}.`] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Mechanic' && activeFeatsNamed(c, 'Apocalyptic Explosions').length
           && (areaTrait || automatic) ? ['Apocalyptic Explosions: Area Fire and Auto-Fire areas are doubled.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Soldier' && automatic
+          && activeFeatsNamed(c, 'Ammo Hoarder').length
+          ? ['Ammo Hoarder: Auto-Fire expends ammunition equal to the number of targets in the area, not twice that number.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Soldier' && areaTrait
+          && activeFeatsNamed(c, 'Run Hot').length
+          ? ['Run Hot (3 actions): Area Fire twice, ignore unwieldy, and grant creatures in the second area +2 circumstance to saves; this weapon cannot be used until after your next turn or you take cold damage.'] : []),
         ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Advantageous Assault').length && category !== 'Unarmed'
           ? [`Advantageous Assault: a Strike against a frightened or bleeding creature deals +${dice} circumstance damage.`] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Skirmisher' && ranged
