@@ -2035,6 +2035,19 @@ it('shows melee-only Brutal Critical and Rage-dependent Shattering Blows', () =>
   expect(notes({ ...c, level: 17 }, melee).some(note => note.startsWith('Brutal Critical:'))).toBe(false)
 })
 
+it('provides conditional Draconic Arrogance saves and tracks Scars of Steel uses', () => {
+  const c: Character = { ...base, className: 'Barbarian', level: 4, raging: true,
+    abilities: { ...base.abilities, con: 18 }, feats: [feat('Draconic Arrogance'), feat('Scars of Steel', 4)] }
+  const save = savingThrowBreakdown(c, [], 'Will')
+  expect(save.notes).toContain(`Draconic Arrogance: +${save.total + 2} against emotion effects (+2 status; status bonuses do not stack).`)
+  expect((savingThrowBreakdown({ ...c, raging: false }, [], 'Will').notes ?? []).some(note => note.includes('Draconic Arrogance'))).toBe(false)
+  const markup = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="defense" />)
+  expect(markup(c)).toContain('gain resistance 6')
+  expect(markup({ ...c, dailyFeatUses: { 'Scars of Steel': true } }))
+    .toContain('aria-label="Scars of Steel used" checked=""')
+  expect(markup({ ...c, level: 3 })).not.toContain('Scars of Steel used')
+})
+
 it('stacks Animal Skin with explorer clothing potency and shields, but never applies the hide to armor', () => {
   const barbarian = content('class', 'Barbarian', { defense_proficiency: 'Trained in unarmored defense', medium_armor_proficiency: 'Trained' })
   const clothing = content('armor', "Explorer's Clothing", { armor_category: 'Unarmored', ac: 0, dex_cap: 5 })

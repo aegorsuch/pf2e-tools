@@ -708,6 +708,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
         <RageToggle c={c} save={save} />
+        {!!activeFeatsNamed(c, 'Scars of Steel').length && <label>
+          <input type="checkbox" aria-label="Scars of Steel used" checked={!!c.dailyFeatUses?.['Scars of Steel']}
+            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Scars of Steel': event.target.checked } })} />
+          {' '}Scars of Steel used <SourceNote source="Scars of Steel"
+            note={`Reaction while raging, once per day: gain resistance ${Math.max(0, abilityMod(c.abilities.con) + Math.floor(c.level / 2))} to an opponent's triggering critical hit that deals physical damage.`} />
+        </label>}
         {canUseGiantStature(c, entries) && <label>Giant's Stature{' '}
           <select aria-label="Giant's Stature size" value={giantStatureSize(c, entries) ?? ''} disabled={!!giantStatureSize(c, entries)}
             onChange={event => {

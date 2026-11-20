@@ -3703,6 +3703,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(c.raging && activeFeatsNamed(c, 'Draconic Arrogance').length
+      ? [`Draconic Arrogance: ${signed(total + 2)} against emotion effects (+2 status; status bonuses do not stack).`] : []),
     ...(name === 'Reflex' && isFeatEffectActive(c, 'Verdant Metamorphosis')
       ? ['Verdant Rest: Reflex successes and critical successes become failures.'] : []),
     ...(activeFeatsNamed(c, 'Timeless Nature').length
