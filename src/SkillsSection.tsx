@@ -617,6 +617,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{hpBonuses.length > 0
             && <SourceNote source="Hit Points" note={hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')} />}
+            {!!activeFeatsNamed(c, 'Life-Giving Magic').length && <SourceNote source="Life-Giving Magic"
+              note={`After casting an innate spell from a gnome heritage or ancestry feat, gain ${Math.max(1, Math.floor(c.level / 2))} temporary Hit Points until the end of your next turn; once per minute.`} />}
+            {!!activeFeatsNamed(c, 'Vivacious Conduit').length && <SourceNote source="Vivacious Conduit"
+              note={`After resting for 10 minutes, regain ${Math.max(0, abilityMod(c.abilities.con) * Math.floor(c.level / 2))} Hit Points. This vitality healing stacks with Treat Wounds.`} />}
             {!!activeFeatsNamed(c, 'Scar-Thick Skin').length && <SourceNote source="Scar-Thick Skin"
               note="Flat check to end persistent bleed: DC 10, or DC 5 with especially appropriate assistance." />}
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"

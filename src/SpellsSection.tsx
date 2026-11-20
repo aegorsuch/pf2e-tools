@@ -129,6 +129,22 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
   </span>
 }
 
+export function EnergizedFont({ c, save, points }: Pick<SectionProps, 'c' | 'save'> & { points: number }) {
+  if (!activeFeatsNamed(c, 'Energized Font').length || points <= 0) return null
+  const capacity = Math.min(3, points)
+  const spent = [...new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < capacity))]
+  const used = !!c.dailyFeatUses?.['Energized Font']
+  return <span>
+    <button type="button" aria-label="Use Energized Font" disabled={used || !spent.length} onClick={() => {
+      if (used || !spent.length) return
+      save({ spentFocusPoints: spent.slice(1), focusPointsSpentSinceRefocus: c.focusPointsSpentSinceRefocus ?? spent.length,
+        dailyFeatUses: { ...c.dailyFeatUses, 'Energized Font': true } })
+    }}>Energized Font <ActionIcon actions="Single Action" /></button>
+    <label><input type="checkbox" aria-label="Energized Font used" checked={used}
+      onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Energized Font': event.target.checked } })} /> Used</label>
+  </span>
+}
+
 export function InnateSpellUses({ c, save, grant, additionalGrants = [] }: Pick<SectionProps, 'c' | 'save'> & {
   grant: ReturnType<typeof grantedFeatSpells>[number]
   additionalGrants?: ReturnType<typeof grantedFeatSpells>
@@ -1465,7 +1481,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <DevotionSpellChoice c={c} entries={entries} save={save} />
       {(focusPoints > 0 || allFocus.length > 0) && (
         <div>
-          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} /></div>
+          <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} />
+            <EnergizedFont c={c} save={save} points={focusPoints} /></div>
           {allFocus.length > 0 && <section className="innate-spell-group">
             <SpellColumns />
             <ul>

@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, FalseVitalityActions, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -825,6 +825,21 @@ it('restores focus dots individually across saves without a Refocus button or re
   expect(renderToStaticMarkup(tree()).match(/aria-pressed="true"/g)).toHaveLength(3)
   expect(c.activeSpells).toEqual(['Animal Feature'])
   expect(c.innateSpellUses).toEqual({ daily: 1 })
+})
+
+it('uses Energized Font once daily to restore one focus point without resetting Refocus history', () => {
+  let c: Character = { ...base, level: 5, feats: [taken('Energized Font', 5)], spentFocusPoints: [0, 2],
+    focusPointsSpentSinceRefocus: 3 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => EnergizedFont({ c, save, points: 3 })
+  expect(findUseButton(tree(), 'Use Energized Font')?.disabled).toBe(false)
+  findUseButton(tree(), 'Use Energized Font')!.onClick()
+  expect(c.spentFocusPoints).toEqual([2])
+  expect(c.focusPointsSpentSinceRefocus).toBe(3)
+  expect(c.dailyFeatUses?.['Energized Font']).toBe(true)
+  expect(findUseButton(tree(), 'Use Energized Font')?.disabled).toBe(true)
+  expect(EnergizedFont({ c: { ...c, level: 4 }, save, points: 3 })).toBeNull()
+  expect(EnergizedFont({ c, save, points: 0 })).toBeNull()
 })
 
 it('applies earned Refocus feats, tracks conditional spending between Refocuses, and excludes Mythic actions', () => {

@@ -1771,6 +1771,17 @@ it('shows Fire Lung smoke and persistent fire benefits only when the feat is act
   expect(markup({ ...c, feats: [] })).not.toContain('Recover from persistent fire on DC 10')
 })
 
+it('shows level-scaled Gnome healing benefits without changing maximum Hit Points', () => {
+  const c: Character = { ...base, level: 9, abilities: { ...base.abilities, con: 16 },
+    feats: [{ name: 'Life-Giving Magic', type: 'Ancestry Feat', level: 1 },
+      { name: 'Vivacious Conduit', type: 'Ancestry Feat', level: 9 }] }
+  const markup = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="defense" />)
+  expect(markup(c)).toContain('gain 4 temporary Hit Points')
+  expect(markup(c)).toContain('regain 12 Hit Points')
+  expect(markup({ ...c, level: 8 })).not.toContain('regain 12 Hit Points')
+  expect(builder.maxHp(c, [])).toBe(builder.maxHp({ ...c, feats: [] }, []))
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }
