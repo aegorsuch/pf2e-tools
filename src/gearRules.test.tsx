@@ -20,7 +20,7 @@ import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './bui
 import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
-import { crocodileBattleForm } from './battleForms'
+import { crocodileBattleForm, insectBattleForm } from './battleForms'
 import { activeBattleForm, spellActiveChange } from './builder'
 
 const base: Character = {
@@ -497,6 +497,36 @@ it('applies animal form movement and attack details across Untamed Form shapes',
   ])
   expect(renderToStaticMarkup(<SkillsSection c={shark} entries={[]} save={() => {}} part="defense" />))
     .toContain('Breathe underwater but not in air.')
+})
+
+it('applies Insect Shape battle statistics, senses, persistent poison, and web', () => {
+  const c: Character = { ...base, className: 'Druid', level: 10,
+    feats: [feat('Untamed Form'), feat('Insect Shape', 6), feat('Ferocious Shape', 8)],
+    activeSpells: ['Untamed Form'], untamedForm: { form: 'Insect Form', shape: 'Spider', rank: 5 } }
+  const form = activeBattleForm(c, [])
+  expect(form).toMatchObject({ name: 'Spider', size: 'Huge', ac: 28, temporaryHp: 20, attack: 18, damageBonus: 2, athletics: 20 })
+  expect(movementSpeeds(c, [])).toEqual([
+    { name: 'Land', feet: 25, source: 'Untamed Form', status: 0 },
+    { name: 'Climb', feet: 25, source: 'Untamed Form', status: 0 },
+  ])
+  expect(senses(c, []).map(sense => sense.value)).toEqual(expect.arrayContaining(['Low-light vision', 'Darkvision']))
+  expect(senses(c, []).map(sense => sense.value)).not.toContain('Scent (imprecise) 30 feet')
+  const attacks = ownedWeapons(c, [])
+  expect(weaponAttack(c, [], attacks[0])).toMatchObject({ damage: '2d6+2 piercing', reach: 15,
+    additionalDamage: [{ value: '2d4 persistent poison', source: 'Untamed Form' }] })
+  expect(weaponAttack(c, [], attacks[1])).toMatchObject({ damage: '', reach: 0, range: 20,
+    entry: { data: { form_effect: 'A hit immobilizes the target for 1 round or until it Escapes.' } } })
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly />))
+    .toContain('A hit immobilizes the target for 1 round or until it Escapes.')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="skills" />))
+    .toMatch(/class="skill-name">Athletics.*?<b>\+21/)
+  expect(activeBattleForm({ ...c, feats: [feat('Untamed Form')] }, [])).toBeUndefined()
+  expect(insectBattleForm('Scorpion', 3, 6)).toMatchObject({ attack: 13, athletics: 13, temporaryHp: 10,
+    senses: ['Darkvision', 'Tremorsense (imprecise) 60 feet'] })
+  expect(insectBattleForm('Centipede', 4, 8)).toMatchObject({ size: 'Large', attack: 16, damageBonus: 6, temporaryHp: 15 })
+  expect(insectBattleForm('Mantis', 5, 10)?.senses).toContain('Scent (imprecise) 30 feet')
+  expect(insectBattleForm('Beetle', 3, 6)?.attacks[0].data.damage).toBe('2d10 bludgeoning')
+  expect(insectBattleForm('Ant', 3, 6)?.climbSpeed).toBe(30)
 })
 
 it.each([

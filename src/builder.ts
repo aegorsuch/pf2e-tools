@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm } from './battleForms'
+import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, insectBattleForm } from './battleForms'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
@@ -3010,7 +3010,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   const form = activeBattleForm(c, entries)
   if (form) {
     addVision('Low-light vision', form.source)
-    addVision('Scent (imprecise) 30 feet', form.source)
+    for (const sense of form.senses) addVision(sense, form.source)
   }
   for (const heritage of characterHeritages(c, entries)) {
     const vision = heritage.data.grants_vision ?? heritage.data.vision
@@ -4461,6 +4461,9 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
       } else if (c.untamedForm.form === 'Animal Form') {
         const form = animalBattleForm(c.untamedForm.shape, rank, c.level)
         if (form) return { ...form, source: 'Untamed Form' }
+      } else if (c.untamedForm.form === 'Insect Form') {
+        const form = insectBattleForm(c.untamedForm.shape, rank, c.level)
+        if (form) return { ...form, source: 'Untamed Form' }
       }
     } else if (name === 'Dinosaur Form') {
       const form = dinosaurForm(c, entries)
@@ -5572,6 +5575,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     additionalDamage: [...supportDamage, ...(formAttack ? [
       ...(formAttack.data.persistent_bleed && form
         ? [{ source: form.source, value: `${formAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []),
+      ...(formAttack.data.persistent_poison && form
+        ? [{ source: form.source, value: `${formAttack.data.persistent_poison} persistent poison`, note: 'Persistent poison from the battle form.' }] : []),
       ...(formAttack.data.extra_damage && form
         ? [{ source: form.source, value: String(formAttack.data.extra_damage), note: 'Additional damage from the battle form.' }] : []),
     ]

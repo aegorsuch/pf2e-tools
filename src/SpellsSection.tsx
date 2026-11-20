@@ -22,7 +22,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
-import { ANIMAL_FORMS, crocodileBattleForm, DINOSAUR_FORMS } from './battleForms'
+import { ANIMAL_FORMS, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
 
@@ -48,6 +48,8 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
   const options = untamedFormOptions(c)
   const ranks = untamedFormRanks(c)
   const state = c.untamedForm
+  const shapes = state?.form === 'Animal Form' ? ANIMAL_FORMS
+    : state?.form === 'Dinosaur Form' ? DINOSAUR_FORMS : state?.form === 'Insect Form' ? INSECT_FORMS : undefined
   const durations: NonNullable<NonNullable<Character['untamedForm']>['originalDuration']>[] =
     ['1 minute', '10 minutes', '24 hours', '1 hour', 'unlimited']
   return <fieldset className="col">
@@ -76,17 +78,17 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
         {options.map(option => <option key={option.name}>{option.name}</option>)}
       </select>
     </label>
-    {state?.form === 'Dinosaur Form' || state?.form === 'Animal Form' ? <label>Shape{' '}
-      <select aria-label="Untamed Form shape" value={(state.form === 'Animal Form' ? ANIMAL_FORMS : DINOSAUR_FORMS).find(form => form.name.toLowerCase() === state.shape?.trim().toLowerCase())?.name ?? state.shape ?? ''} disabled={active && !canChange}
+    {state && shapes ? <label>Shape{' '}
+      <select aria-label="Untamed Form shape" value={shapes.find(form => form.name.toLowerCase() === state.shape?.trim().toLowerCase())?.name ?? state.shape ?? ''} disabled={active && !canChange}
         onChange={event => {
           if (active && !canChange) return
-          const shape = (state.form === 'Animal Form' ? ANIMAL_FORMS : DINOSAUR_FORMS).find(form => form.name === event.target.value)?.name
+          const shape = shapes.find(form => form.name === event.target.value)?.name
           save({ untamedForm: { ...state, shape } })
         }}>
         <option value="">Choose shape</option>
-        {state.shape && !(state.form === 'Animal Form' ? ANIMAL_FORMS : DINOSAUR_FORMS).some(form => form.name.toLowerCase() === state.shape?.trim().toLowerCase())
+        {state.shape && !shapes.some(form => form.name.toLowerCase() === state.shape?.trim().toLowerCase())
           && <option value={state.shape} disabled>{state.shape} (unavailable)</option>}
-        {(state.form === 'Animal Form' ? ANIMAL_FORMS : DINOSAUR_FORMS).map(form => <option key={form.name}>{form.name}</option>)}
+        {shapes.map(form => <option key={form.name}>{form.name}</option>)}
       </select>
     </label> : <label>Shape{' '}
       <input aria-label="Untamed Form shape" value={state?.shape ?? ''} disabled={!state?.form || active && !canChange}

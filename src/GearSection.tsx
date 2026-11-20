@@ -1313,7 +1313,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
-          </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}</small>
+          </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
+          {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>
           {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
             <SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></small>)}
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
@@ -1349,7 +1350,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
-            </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
+            </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
+            {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
             <div className="row">{equipControls}</div>
             {!attachmentSource && canAttachWeapon(entries, w) && <label>Attached weapon{' '}
               <select aria-label={`Attached weapon: ${displayName}`} value={w.attachedWeapon ?? ''}

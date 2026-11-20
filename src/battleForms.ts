@@ -62,7 +62,51 @@ const ANIMAL_WEAPONS: ContentEntry[] = ANIMAL_FORMS.flatMap(form => form.attacks
     reach: attack.reach ?? 5, battle_form: form.name, extra_damage: attack.extra ?? '' },
 })))
 
-export const BATTLE_FORM_WEAPONS = [...DINOSAUR_WEAPONS, ...ANIMAL_WEAPONS]
+export const INSECT_FORMS: { name: string; speed: number; climbSpeed?: number; senses?: string[];
+  attacks: { name: string; damage?: string; traits?: string[]; persistentPoison?: string; range?: number }[] }[] = [
+  { name: 'Beetle', speed: 25, attacks: [{ name: 'Mandibles', damage: '2d10 bludgeoning' }] },
+  { name: 'Centipede', speed: 25, climbSpeed: 25, senses: ['Darkvision'],
+    attacks: [{ name: 'Mandibles', damage: '1d8 piercing', persistentPoison: '1d4' }] },
+  { name: 'Mantis', speed: 40, senses: ['Scent (imprecise) 30 feet'], attacks: [{ name: 'Foreleg', damage: '2d8 piercing' }] },
+  { name: 'Scorpion', speed: 40, senses: ['Darkvision', 'Tremorsense (imprecise) 60 feet'], attacks: [
+    { name: 'Stinger', damage: '1d8 piercing', persistentPoison: '1d4' },
+    { name: 'Pincer', damage: '1d6 bludgeoning', traits: ['Agile'] }] },
+  { name: 'Spider', speed: 25, climbSpeed: 25, senses: ['Darkvision'], attacks: [
+    { name: 'Fangs', damage: '1d6 piercing', persistentPoison: '1d4' }, { name: 'Web', range: 20 }] },
+  { name: 'Ant', speed: 30, climbSpeed: 30, attacks: [{ name: 'Mandibles', damage: '2d6 bludgeoning' }] },
+]
+
+const INSECT_WEAPONS: ContentEntry[] = INSECT_FORMS.flatMap(form => form.attacks.map(attack => ({
+  id: `spell:insect-form:${form.name.toLowerCase()}:${attack.name.toLowerCase()}`, name: `${form.name} ${attack.name}`,
+  kind: 'weapon', systems: ['pf2e'], source: 'official', level: 3, traits: ['Unarmed', ...(attack.traits ?? [])],
+  description: attack.range ? 'A hit immobilizes the target for 1 round or until it Escapes.' : '', effects: [], updatedAt: 0,
+  data: { weapon_category: 'Unarmed', weapon_type: attack.range ? 'Ranged' : 'Melee', hands: 0,
+    damage: attack.damage ?? '', reach: attack.range ? 0 : 5, range: attack.range ?? 0,
+    battle_form: form.name, persistent_poison: attack.persistentPoison ?? '',
+    form_effect: attack.range ? 'A hit immobilizes the target for 1 round or until it Escapes.' : '' },
+})))
+
+export const BATTLE_FORM_WEAPONS = [...DINOSAUR_WEAPONS, ...ANIMAL_WEAPONS, ...INSECT_WEAPONS]
+
+export function insectBattleForm(name: string, rank: number, level: number) {
+  const form = INSECT_FORMS.find(form => form.name.toLowerCase() === name.trim().toLowerCase())
+  if (!form || !Number.isInteger(rank) || rank < 3 || rank > 10) return undefined
+  const tier = Math.min(rank, 5)
+  return {
+    name: form.name, source: 'Insect Form', rank, speed: form.speed, swimSpeed: 0,
+    climbSpeed: form.climbSpeed ?? 0, note: undefined, senses: form.senses ?? [],
+    size: tier >= 5 ? 'Huge' : tier >= 4 ? 'Large' : 'Medium',
+    ac: level + 18, temporaryHp: 5 * (tier - 1), attack: tier >= 5 ? 18 : tier === 4 ? 16 : 13,
+    damageBonus: tier === 4 ? 6 : 2, athletics: tier >= 5 ? 20 : tier === 4 ? 16 : 13,
+    attacks: INSECT_WEAPONS.filter(entry => entry.data.battle_form === form.name).map((entry): ContentEntry => ({
+      ...entry, data: { ...entry.data,
+        damage: String(entry.data.damage).replace(/^\d+/, dice => String(Number(dice) * (tier >= 5 ? 2 : 1))),
+        persistent_poison: String(entry.data.persistent_poison).replace(/^\d+/, dice => String(Number(dice) * (tier >= 5 ? 2 : 1))),
+        reach: entry.data.range ? 0 : tier >= 5 ? 15 : tier >= 4 ? 10 : 5,
+      },
+    })),
+  }
+}
 
 export function animalBattleForm(name: string, rank: number, level: number) {
   const form = ANIMAL_FORMS.find(form => form.name.toLowerCase() === name.trim().toLowerCase())
@@ -70,7 +114,7 @@ export function animalBattleForm(name: string, rank: number, level: number) {
   const tier = Math.min(rank, 5)
   return {
     name: form.name, source: 'Animal Form', rank, speed: form.speed, swimSpeed: form.swimSpeed ?? 0,
-    climbSpeed: form.climbSpeed ?? 0, note: form.note,
+    climbSpeed: form.climbSpeed ?? 0, note: form.note, senses: ['Scent (imprecise) 30 feet'],
     size: tier >= 5 ? 'Huge' : tier >= 4 ? 'Large' : 'Medium',
     ac: level + (tier >= 4 ? 18 : tier === 3 ? 17 : 16),
     temporaryHp: 5 * (tier - 1), attack: tier >= 5 ? 18 : tier === 4 ? 16 : tier === 3 ? 14 : 9,
@@ -93,6 +137,7 @@ export function dinosaurBattleForm(name: string, rank: number, level: number) {
   const heightened = rank >= 5
   return {
     name: form.name, source: 'Dinosaur Form', rank, speed: form.speed, swimSpeed: 0, climbSpeed: 0, note: undefined,
+    senses: ['Scent (imprecise) 30 feet'],
     size: greater ? 'Gargantuan' : heightened ? 'Huge' : 'Large',
     ac: level + (greater ? 21 : 18), temporaryHp: greater ? 25 : heightened ? 20 : 15,
     attack: greater ? 25 : heightened ? 18 : 16,
