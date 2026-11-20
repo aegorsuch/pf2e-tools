@@ -1169,7 +1169,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
             const formWeapon = { ...w, combinationForm: form }
             return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
           })
-          : [{ form: undefined, weapon: enhanced, attack: a }])
+          : [{ form: undefined, weapon: enhanced, attack: a },
+            ...(c.raging && activeFeatsNamed(c, 'Raging Thrower').length && a.thrownRange > 0
+              ? [{ form: 'Thrown', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }] : [])])
           .map(summary => ({ ...summary, damageRunes: [
             ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
             ...upgradeDamageSummary(summary.attack),

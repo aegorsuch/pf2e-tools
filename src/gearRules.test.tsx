@@ -715,6 +715,47 @@ it('calculates Brutal Bully damage only while raging', () => {
   expect(render({ ...c, level: 5 })).not.toContain('Roll Brutal Bully')
 })
 
+it('applies Barbarian Dedication AC penalty only while its Rage is active', () => {
+  const c: Character = { ...base, level: 8, className: 'Fighter',
+    feats: [feat('Barbarian Dedication', 2)] }
+  const normal = armorClass(c, [])
+  const raging = { ...c, raging: true }
+  expect(armorClass(raging, [])).toBe(normal - 1)
+  expect(armorClassBreakdown(raging, []).parts).toContainEqual({ label: 'Barbarian Dedication: Rage', value: -1 })
+  expect(armorClass({ ...raging, feats: [] }, [])).toBe(normal)
+  expect(armorClass({ ...raging, className: 'Barbarian' }, [])).toBe(armorClass({ ...c, className: 'Barbarian' }, []))
+})
+
+it('calculates thrown melee attacks with Dexterity and Raging Thrower damage', () => {
+  const dagger = content('weapon', 'Test Dagger', { weapon_type: 'Melee', damage: '1d4 piercing',
+    weapon_category: 'Simple', hands: 1 }, 0, ['Agile', 'Finesse', 'Thrown 10 feet'])
+  const weapon = { ...main, id: 'dagger', name: dagger.name, potency: 0, striking: 0 }
+  const c: Character = { ...base, level: 4, className: 'Barbarian', subclass: 'Fury', raging: true,
+    abilities: { ...base.abilities, str: 18, dex: 12 }, feats: [feat('Raging Thrower')], weapons: [weapon] }
+  const previous = getSettings().barbarianIgnoreAgile
+  updateSettings({ barbarianIgnoreAgile: false })
+  try {
+  const melee = weaponAttack(c, [dagger], weapon)
+  const thrown = weaponAttack(c, [dagger], weapon, { thrown: true })
+  expect(thrown.attack).toBe(melee.attack - 3)
+  expect(thrown.range).toBe(10)
+  expect(thrown.reach).toBe(0)
+  expect(thrown.rageDamage).toBe(1)
+  expect(thrown.damage).toBe('1d4+5 piercing')
+  expect(weaponAttack({ ...c, feats: [] }, [dagger], weapon, { thrown: true }).damage).toBe('1d4+4 piercing')
+  const dragon = { ...c, subclass: 'Dragon', barbarianDragon: 'Diabolic' as const, draconicRage: true }
+  expect(weaponAttack(dragon, [dagger], weapon, { thrown: true }).additionalDamage)
+    .toContainEqual(expect.objectContaining({ source: 'Draconic Rage', value: '2 fire' }))
+  expect(weaponAttack({ ...dragon, feats: [] }, [dagger], weapon, { thrown: true }).additionalDamage)
+    .not.toContainEqual(expect.objectContaining({ source: 'Draconic Rage' }))
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} displayOnly />)
+  expect(html).toContain('Thrown: Attack')
+  expect(html).toContain('Damage 1d4+5 P')
+  const calm = renderToStaticMarkup(<WeaponList c={{ ...c, raging: false }} entries={[dagger]} save={() => {}} displayOnly />)
+  expect(calm).not.toContain('Thrown: Attack')
+  } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
+})
+
 it('calculates Perfect Clarity rerolls without stacking Desperate Wrath', () => {
   const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
     feats: [feat('Perfect Clarity', 18), feat('Desperate Wrath', 16)], activeFeatEffects: ['Desperate Wrath'] }

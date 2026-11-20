@@ -4102,6 +4102,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
   const ragePenalties: TotalPart[] = [
+    ...(c.raging && c.systems.includes('pf2e') && c.className !== 'Barbarian' && activeFeatsNamed(c, 'Barbarian Dedication').length
+      ? [{ label: 'Barbarian Dedication: Rage', value: -1 }] : []),
     ...(c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? [{ label: 'Desperate Wrath', value: -1 }] : []),
     ...(c.raging && isFeatEffectActive(c, 'Come and Get Me') ? [{ label: 'Come and Get Me: off-guard (circumstance)', value: -2 }] : []),
   ]
@@ -5528,7 +5530,7 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
   return (['Light', 'Medium', 'Heavy'] as const).find((cat) => new RegExp(`\\b${cat.toLowerCase()}\\b`).test(text)) ?? (/unarmored/.test(text) || !entry ? 'Unarmored' : 'Light')
 }
 
-export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon) {
+export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean } = {}) {
   const upgrades = installedWeaponUpgrades(c, entries, w)
   w = effectiveWeapon(c, entries, w)
   if (combinationForms(entries, w.name).length || PLAYING_CARD_WEAPONS.some(card => card.id === w.id)) {
@@ -5616,8 +5618,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     if (chosen.length) entry = { ...entry, traits: [...entry.traits, ...chosen] }
   }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
-  const ranged = isRanged(entry)
   const thrown = traits.some((t) => t.startsWith('thrown'))
+  const ranged = isRanged(entry) || !!options.thrown && thrown
   const strongArm = (thrown || w.id === OVERSIZED_THROW.id) && activeFeatsNamed(c, 'Strong Arm').length > 0
   const thrownRange = num(entry?.data.thrown_range)
     || Number(traits.map(trait => /^thrown\s+(\d+)\s*(?:ft\.?|feet)?$/i.exec(trait)?.[1]).find(Boolean) ?? 0)
@@ -5661,7 +5663,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const battleStance = activeStance(c, entries)?.name === "Jotun's Battle Stance"
   const hasReachTrait = traits.some(trait => /^reach(?:\s|$)/i.test(trait))
   const baseReach = num(entry?.data.reach) || (hasReachTrait ? 10 : 5)
-  const normalReach = formAttack ? num(formAttack.data.reach) : isRanged(entry) ? 0
+  const normalReach = formAttack ? num(formAttack.data.reach) : ranged ? 0
     : form?.source === 'Animal Rage' && w.id === 'bestial:Frog:Tongue' ? 15
     : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10
@@ -5702,8 +5704,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     && !!livingSource?.livingWeapon && canBeLivingWeapon(c, entries, livingSource)
   const pristineWeapon = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Pristine Weapon').length
     && !!livingSource?.verdantWeapon && canBeVerdantWeapon(c, entries, livingSource)
-  const range = ranged && num(entry?.data.range) > 0
-    ? (num(entry?.data.range) + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
+  const baseRange = options.thrown && thrown ? thrownRange : num(entry?.data.range)
+  const range = ranged && baseRange > 0
+    ? (baseRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
       * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0
   const style = soldierStyle(c)
   const areaTrait = entry?.traits.find(trait => /^area(?:\s|$)/i.test(trait))
