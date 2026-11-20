@@ -5615,7 +5615,9 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
 }
 
 export function usesWeaponUpgrades(entry?: ContentEntry) {
-  return !!entry?.systems.includes('sf2e') && entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
+  return !!entry?.systems.includes('sf2e') && (entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
+    || typeof entry.data.upgrade_slots === 'number' && weaponCategory(entry) !== 'Unarmed'
+    || /^Shobhad Longrifle(?: \(Starfinder\))?$/.test(entry.name))
 }
 
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {

@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -2132,6 +2132,20 @@ it('installs compatible weapon upgrades within capacity without changing saved r
   const full = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(full).not.toContain('Upgrade slots:')
   expect(full).not.toContain('aria-label="Add weapon upgrade"')
+})
+
+it('treats Starfinder weapons without a tech trait but with upgrade slots as upgrade weapons and lists installed upgrades once', () => {
+  const rifle: ContentEntry = { ...weapon, id: 'sho', name: 'Shobhad Longrifle', systems: ['sf2e'], traits: ['Kickback'],
+    data: { hands: 2, weapon_type: 'Ranged', damage: '1d8 P', upgrade_slots: 0 } }
+  const flaming: ContentEntry = { ...shifting, id: 'flame', name: 'Flaming Module', systems: ['sf2e'],
+    data: { item_subcategory: 'Weapon Upgrades', usage: 'installed in a ranged weapon', url: 'flame' } }
+  expect(usesWeaponUpgrades(rifle)).toBe(true)
+  expect(usesWeaponUpgrades({ ...rifle, name: 'Other', data: {} })).toBe(false)
+  const c: Character = { ...character([]), systems: ['sf2e'], weapons: [
+    { id: 'w', name: rifle.name, potency: 0, striking: 0, runes: [], upgrades: ['flame'] },
+  ] }
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[rifle, flaming]} save={() => {}} />)
+  expect(html.match(/Remove Flaming Module upgrade/g)).toHaveLength(1)
 })
 
 it('reads armor upgrade slots from the description when the data field is missing', () => {

@@ -327,6 +327,18 @@ it('retains Starfinder weapon upgrade capacity, grade tracking, and ammunition',
   expect(hits.find(hit => hit._id === 'advanced')?._source).toMatchObject({ upgrade_slots: 2, weapon_tracking: 1 })
 })
 
+it('reads a dash in the Starfinder Upgrades field as zero slots', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'weapon' ? [{ _id: 'sho', _source: { category, name: 'Shobhad Longrifle', trait: ['Kickback'],
+      markdown: '**Price** 200 credits\n**Upgrades** —\n**Magazine** 1 projectile\n' } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const hits = await fetchAonHits('sf2e', fetchFn)
+  expect(hits.find(hit => hit._id === 'sho')?._source).toMatchObject({ upgrade_slots: 0 })
+})
+
 it('retains modular mode traits and damage types and the base weapon minimum grade', async () => {
   const markdown = '<traits><trait label="Modular (A and Razing or V and Deadly d10)" /></traits>'
     + '<title level="2">Mode 1</title><traits><trait label="Tech" /><trait label="Razing" /></traits>\n**Damage** 1d8 A\n'

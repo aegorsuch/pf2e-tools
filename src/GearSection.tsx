@@ -259,8 +259,8 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}
       <option value="none">None</option>
     </select></label>}
-    {installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>}
-    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" onChange={event => {
+    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" alwaysSearchable={installable.some(isApex)}
+      filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
       const chosen = installable.find(entry => entry.id === event.target.value)
       if (!chosen) return
       save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
@@ -1474,7 +1474,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
             {!upgradeWeapon && !fixed && !unarmed && <WeaponFundamentals {...enhanced} entries={entries} />}
-            <AttackUpgrades attack={a} />
+            {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
@@ -1587,7 +1587,7 @@ function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displa
         <SourceNote source={upgrade.source} note={upgrade.note} inlineSource={false} /></Fragment>)}; range {attack.range} feet.</small>
     {attack.traits.length > 0 && <GearTraits traits={attack.traits} entries={entries} system={entry.systems[0]} />}
     <small>{entry.data.weapon_group as string}.</small>
-    <AttackUpgrades attack={attack} />
+    {displayOnly && <AttackUpgrades attack={attack} />}
     <MechanicWeaponMods c={c} weapon={weapon} attack={attack} save={save} />
     {!displayOnly && <>
       <label>Turret grade{' '}

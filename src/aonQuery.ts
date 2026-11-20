@@ -329,8 +329,8 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
               }
             }
             if (s.upgrade_slots === undefined) {
-              const slots = /\*\*Upgrades\*\*\s*(\d+)/i.exec(s.markdown)?.[1]
-              if (slots) s.upgrade_slots = Number(slots)
+              const slots = /\*\*Upgrades\*\*\s*(\d+|[—–-])(?!\w)/i.exec(s.markdown)?.[1]
+              if (slots) s.upgrade_slots = /^\d+$/.test(slots) ? Number(slots) : 0
             }
             if (s.weapon_tracking === undefined) {
               const tracking = /<trait\b[^>]*\blabel="Tracking\s*\+(\d+)"/i.exec(s.markdown)?.[1]
