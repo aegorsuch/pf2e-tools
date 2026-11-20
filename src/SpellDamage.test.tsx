@@ -725,3 +725,9 @@ it('scales Supercharge Weapon extra damage every two ranks', () => {
   expect(spellDamage('Supercharge Weapon', 4)[0]).toMatchObject({ dice: 2 })
   expect(spellDamage('Supercharge Weapon', 10)[0]).toMatchObject({ dice: 5 })
 })
+
+it('scales Rocket Dash fire and critical failure persistent damage', () => {
+  expect(spellDamage('Rocket Dash', 5)).toEqual([])
+  expect(spellDamage('Rocket Dash', 6)[0]).toMatchObject({ dice: 6, sides: 12, additional: { dice: 2, sides: 6 } })
+  expect(spellDamage('Rocket Dash', 10)[0]).toMatchObject({ dice: 10, additional: { dice: 4 } })
+})
