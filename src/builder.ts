@@ -4465,7 +4465,7 @@ export function weaponCanUseTwoHands(entry: ContentEntry, c?: Character): boolea
 }
 
 export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Character): number | undefined {
-  if (weapon.id === OVERSIZED_THROW.id) return 0
+  if (weapon.id === OVERSIZED_THROW.id || weapon.id === OFFENSIVE_DEFENSE_WEAPON_ID) return 0
   const original = withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)
   const entry = c ? weaponWithModifications(c, weapon, original) : original
   if (!entry) return undefined
@@ -4583,6 +4583,46 @@ export function canEquipShield(c: Character, entries: ContentEntry[], shield: Ow
 }
 
 const canOversizedThrow = (c: Character) => c.level >= 4 && activeFeatsNamed(c, 'Oversized Throw').length > 0
+const OFFENSIVE_DEFENSE_WEAPON_ID = 'sf2e:soldier:offensive-defense'
+const OFFENSIVE_DEFENSE_GRADES = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
+
+function offensiveDefenseGrade(name: string, forceField: boolean) {
+  const grade = forceField
+    ? /^Force Field(?: \((Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\))?$/i.exec(name)?.[1]
+    : /^(Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\b/i.exec(name)?.[1]
+  return Math.max(0, OFFENSIVE_DEFENSE_GRADES.findIndex(value => value.toLowerCase() === (grade ?? 'Commercial').toLowerCase()))
+}
+
+export function offensiveDefenseAttack(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('sf2e') || c.className !== 'Soldier' || !activeFeatsNamed(c, 'Offensive Defense').length) return undefined
+  const forceFields = (c.armors ?? []).filter(armor => armor.worn).flatMap(armor => armor.upgrades ?? [])
+    .flatMap(id => entries.find(entry => entry.id === id && !entry.deleted && entry.kind === 'item'
+      && entry.systems.includes('sf2e') && entry.data.item_subcategory === 'Armor Upgrades'
+      && /^Force Field(?: \((?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\))?$/i.test(entry.name)) ?? [])
+  const shield = equippedShield(c)
+  const shieldData = shield && shieldEntry(entries, shield.name)
+  const hasTechShield = !!shieldData && !shieldData.deleted && shieldData.systems.includes('sf2e')
+    && shieldData.traits.some(trait => /^tech$/i.test(trait))
+  const grades = [
+    ...forceFields.map(entry => offensiveDefenseGrade(entry.name, true)),
+    ...(hasTechShield && shield ? [offensiveDefenseGrade(shield.name, false)] : []),
+  ]
+  if (!grades.length) return undefined
+  const grade = Math.max(...grades)
+  const tracking = grade >= 5 ? 3 : grade >= 3 ? 2 : 1
+  const damageDice = grade >= 6 ? 4 : grade >= 4 ? 3 : 2
+  const source = grade === 0 ? 'Commercial' : OFFENSIVE_DEFENSE_GRADES[grade]
+  const entry: ContentEntry = {
+    id: OFFENSIVE_DEFENSE_WEAPON_ID, kind: 'weapon', source: 'official', name: 'Offensive Defense',
+    systems: ['sf2e'], level: 6, traits: ['Area 5-foot burst', 'Unwieldy', 'Tech', `Tracking +${tracking}`],
+    description: `Two actions. Area Fire in a 5-foot burst, excluding yourself. Grade: ${source}.`,
+    data: { actions: 'Two Actions', weapon_category: 'Martial', weapon_type: 'Melee', weapon_group: 'Shield',
+      hands: 0, damage: `${damageDice}d10 bludgeoning`, weapon_tracking: tracking, upgrade_slots: 1 },
+    effects: [], updatedAt: 0,
+  }
+  const weapon: OwnedWeapon = { id: OFFENSIVE_DEFENSE_WEAPON_ID, name: entry.name, potency: tracking, striking: 0, runes: [] }
+  return { entry, weapon }
+}
 
 export const hasDeityWeaponGrant = (c: Character) => !!c.deity && (['Champion', 'Cleric'].includes(c.className ?? '')
   || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)
@@ -5890,7 +5930,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)
   const thiefDexDamage = !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief')
     && dex > str - conditionValue(c, 'enfeebled')
-  const flat = !ranged || thrown ? thiefDexDamage ? dex : str
+  const flat = w.id === OFFENSIVE_DEFENSE_WEAPON_ID ? 0 : !ranged || thrown ? thiefDexDamage ? dex : str
     : traits.includes('propulsive') ? str > 0 ? Math.floor(str / 2) : str : 0
   const strengthDamage = formAttack ? !ranged : !ranged ? !thiefDexDamage : thrown || traits.includes('propulsive')
   const damagePenalty = strengthDamage ? conditionValue(c, 'enfeebled') : 0

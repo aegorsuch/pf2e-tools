@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorBulk, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, ranksAt, resistances, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
+import { armorBulk, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, offensiveDefenseAttack, ranksAt, resistances, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
 import { ERUDITE_LORE_KEY } from './soldier'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -90,6 +90,54 @@ it('grants Close Quarters Whirling Swipe and only conditional Armor Storm resist
   expect(resistances({ ...base, level: 9, subclass: 'Armor Storm' }, []))
     .toContainEqual({ damage: 'All damage from attacks by suppressed creatures', value: 4, source: 'Armor Storm' })
   expect(resistances({ ...base, subclass: 'Bombard' }, [])).toEqual([])
+})
+
+it.each([
+  ['Force Field (Commercial)', 1, '2d10 bludgeoning'],
+  ['Force Field (Superior)', 2, '2d10 bludgeoning'],
+  ['Force Field (Elite)', 2, '3d10 bludgeoning'],
+  ['Force Field (Ultimate)', 3, '3d10 bludgeoning'],
+  ['Force Field (Paragon)', 3, '4d10 bludgeoning'],
+])('scales Offensive Defense from %s grade', (name, tracking, damage) => {
+  const forceField: ContentEntry = {
+    ...armor, id: name, name, kind: 'item', level: 10, data: { item_subcategory: 'Armor Upgrades' },
+  }
+  const c: Character = { ...base, level: 6, feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
+    armors: [{ id: 'armor', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: true }] }
+  const attack = offensiveDefenseAttack(c, [forceField])
+  expect(attack?.entry.data).toMatchObject({ damage, weapon_tracking: tracking, weapon_group: 'Shield' })
+  expect(attack?.weapon.potency).toBe(tracking)
+})
+
+it('requires Offensive Defense and a worn Force Field upgrade or held tech shield', () => {
+  const forceField: ContentEntry = { ...armor, id: 'force-field', name: 'Force Field', kind: 'item',
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const feat = { name: 'Offensive Defense', type: 'Class Feat', level: 6 }
+  const c: Character = { ...base, level: 6, feats: [feat],
+    armors: [{ id: 'armor', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: false }] }
+  expect(offensiveDefenseAttack(c, [forceField])).toBeUndefined()
+  expect(offensiveDefenseAttack({ ...c, feats: [] }, [forceField])).toBeUndefined()
+  const shield: ContentEntry = { ...armor, id: 'irising-shield', name: 'Superior Irising Shield', kind: 'shield',
+    traits: ['Tech'], data: {} }
+  const heldShield = { id: 'irising-shield', name: shield.name, equipped: true, hardness: 5, hp: 20, damage: 0, raised: false }
+  expect(offensiveDefenseAttack({ ...c, armors: [], shield: heldShield }, [shield])?.entry.data)
+    .toMatchObject({ damage: '2d10 bludgeoning', weapon_tracking: 2 })
+  expect(offensiveDefenseAttack({ ...c, armors: [], shield: { ...heldShield, equipped: false } }, [shield])).toBeUndefined()
+})
+
+it('uses Offensive Defense tracking for attack and area DC without adding Strength to its fixed damage', () => {
+  const forceField: ContentEntry = { ...armor, id: 'superior-force-field', name: 'Force Field (Superior)', kind: 'item',
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const c: Character = { ...base, level: 6, abilities: { ...base.abilities, str: 18 },
+    feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
+    armors: [{ id: 'armor', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: true }] }
+  const added = offensiveDefenseAttack(c, [forceField])!
+  const entries = [soldier, forceField, added.entry]
+  const attack = weaponAttack(c, entries, added.weapon)
+  expect(attack).toMatchObject({
+    damage: '2d10 bludgeoning', item: 2,
+    areaAttacks: [{ name: 'Area Fire', shape: '5-foot burst', dc: (classDifficultyClass(c, entries) ?? 0) + 2 }],
+  })
 })
 
 it('adds Soldier weapon specialization only from level seven with expert weapon proficiency', () => {

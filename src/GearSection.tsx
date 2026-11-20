@@ -997,11 +997,12 @@ function GallopingLaunchNote({ c, range }: { c: Character; range: number }) {
     note={`For this Strike, range increment ${range + 15} feet, or ${range + 20} feet if your mount's Speed is at least 40 feet. You must be mounted and your mount must have moved closer to your prey this round.`} />
 }
 
-export function WeaponList({ c, entries, save, displayOnly = false }: SectionProps & { displayOnly?: boolean }) {
+export function WeaponList({ c, entries, save, displayOnly = false, additionalWeapons = [] }:
+  SectionProps & { displayOnly?: boolean; additionalWeapons?: OwnedWeapon[] }) {
   const intensified = intensifiedElementDamage(c, entries)
   if (!displayOnly && activeBattleForm(c, entries)) return <WeaponList
     c={withoutBattleForm(c)} entries={entries} save={save} />
-  const weapons = ownedWeapons(c, entries)
+  const weapons = [...ownedWeapons(c, entries), ...additionalWeapons]
   const gauntlet = armorGauntlet(c, entries)
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
   const saveWeapons = (next: OwnedWeapon[], extra?: Partial<Character>) => save({
@@ -1339,7 +1340,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         </>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
-            <strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>}
+            <strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>
+            {(w.id === OVERSIZED_THROW.id || a.entry?.name === 'Offensive Defense') && <> <ActionIcon entry={a.entry} /></>}
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
@@ -1354,7 +1356,7 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
           {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>
           {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
-            <SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></small>)}
+            <SourceNote source={a.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></small>)}
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
             {summary.form && <small>{summary.form}:</small>}
@@ -1444,7 +1446,8 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
                   </b></span>}
                 {summary.attack.reach > 0 && <span><small>Reach</small><b>{summary.attack.reach} feet</b></span>}
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
-                  DC {area.dc} Reflex, {area.shape}<SourceNote source="Suppressing Fire / Primary Target" note={area.note} /></span>)}
+                  DC {area.dc} Reflex, {area.shape}
+                  <SourceNote source={summary.attack.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></span>)}
                 {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet
                   <GallopingLaunchNote c={c} range={summary.attack.thrownRange} />
                   </b></span>}

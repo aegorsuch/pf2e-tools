@@ -94,6 +94,22 @@ it('shows conditional Vesk skill actions without changing skill modifiers', () =
   expect(html).toContain('Wriggling Tail note')
 })
 
+it('shows scaled Offensive Defense as a weapon-like attack in Offense', () => {
+  const soldierClass: ContentEntry = { ...mechanic, id: 'soldier', name: 'Soldier', kind: 'class',
+    data: { attack_proficiency: 'Trained in martial weapons', class_dc: 'Trained' } }
+  const forceField: ContentEntry = { ...mechanic, id: 'force-field', name: 'Force Field (Superior)', kind: 'item',
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', level: 6,
+    feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
+    armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: true }] }
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[soldierClass, forceField]} save={() => {}} part="offense" />)
+  expect(html).toContain('Offensive Defense')
+  expect(html).toContain('Two Actions')
+  expect(html).toContain('Damage 2d10 B')
+  expect(html).toContain('Area Fire')
+  expect(html).toContain('Tracking +2')
+})
+
 it('shows conditional Operative movement, save, and intimidation feats', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Operative', level: 6,
     feats: ['Kick it into Overdrive', 'Destructive Dash', 'Tactical Advance', 'Unhindered Advance',
