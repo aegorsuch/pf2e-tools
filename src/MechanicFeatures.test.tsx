@@ -138,8 +138,10 @@ it('enforces secondary exocortex choices and their acquisition levels through pr
     { name: 'Advanced Drone', type: 'Class Feat', level: 8, slot: 'class:10:0', choice: 'Burly' },
     { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:12:0', choice: 'Turret' },
   ] }
-  const check = (name: string, level: number, character = c) => featSelectionPrerequisiteChecker(character, mechanicFeatCatalog,
-    { category: 'class', level, key: `class:${level}:audit` })(mechanicFeatCatalog.find(feat => feat.name === name)!)
+  const check = (name: string, level: number, character = c) => featPrerequisiteChecker(character, mechanicFeatCatalog, level)(
+    mechanicFeatCatalog.find(feat => feat.name === name)!)
+  expect(featSelectionPrerequisiteChecker(c, mechanicFeatCatalog, { category: 'class', level: 5, key: 'class:5:audit' })(
+    mechanicFeatCatalog.find(feat => feat.name === 'Commercial Customization')!)).toEqual({ missing: [], manual: [] })
   expect(check('Commercial Customization', 5).missing).toEqual(['drone exocortex'])
   expect(check('Commercial Customization', 6)).toEqual({ missing: [], manual: [] })
   expect(check('Advanced Customization', 12)).toEqual({ missing: [], manual: [] })

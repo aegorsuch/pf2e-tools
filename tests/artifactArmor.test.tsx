@@ -27,7 +27,7 @@ it.skipIf(!existsSync(snapshot))('parses actual canonical armor, shield, and mas
   expect(effectiveArmor(character, catalog, owned(artifact))).toMatchObject({ potency: 3, resilient: 3, runes: ['Fortification (Greater)'] })
   expect(armorEntry(character, catalog, artifact)?.data).toMatchObject({ strength: 2, check_penalty: 0, bulk: 1.1 })
   expect(namedArmorAbilities(armorEntry(character, catalog, artifact)).map(ability => ability.name))
-    .toEqual(['Properties', 'Calistria’s Sting', 'Purge Toxins', 'Adaptation'])
+    .toEqual(['Senses', 'Summary', 'Adaptation', 'Calistria’s Sting', 'Purge Toxins'])
   expect(namedArmorAbilities(shieldEntry(catalog, shield.name))).toHaveLength(5)
   expect(namedArmorAbilities(catalog.find(entry => entry.name === 'Shadowed Scale, the Jungle Secret'))).toHaveLength(4)
   expect(shieldStats(shield, character, catalog)).toMatchObject({ hardness: 20, hp: 160 })

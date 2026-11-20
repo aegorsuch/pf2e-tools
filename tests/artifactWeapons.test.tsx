@@ -66,7 +66,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     expect(weapon.runes.filter(rune => rune === 'Grievous')).toHaveLength(1)
     expect(weapon.runes.length).toBeLessThanOrEqual(Math.max(maxPropertyRunes(weapon.potency, weapon.material),
       namedWeaponEnhancements(attack.entry)?.runes.length ?? 0))
-    expect(namedWeaponAbilities(attack.entry).some(ability => ability.name === 'Properties'), name).toBe(true)
+    expect(namedWeaponAbilities(attack.entry).some(ability => ability.name === 'Summary'), name).toBe(true)
   })
 
   it.each([0, 1, 3, 4, 7, 8, 13, 14, 19, 20, 25])('isolates Briar tier at %i points without leaking stronger powers', points => {
@@ -74,7 +74,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     const attack = weaponAttack(c, entries, weapon)
     const effective = effectiveWeapon(c, entries, weapon)
     const abilities = namedWeaponAbilities(attack.entry)
-    const activations = abilities.filter(ability => !['Properties', 'Destruction'].includes(ability.name))
+    const activations = abilities.filter(ability => !['Senses', 'Summary', 'Destruction'].includes(ability.name))
     expect(effective.potency).toBe(points >= 8 ? 4 : 3)
     expect(effective.striking).toBe(points >= 4 ? 3 : 2)
     expect(effective.material).toBe('Cold Iron')

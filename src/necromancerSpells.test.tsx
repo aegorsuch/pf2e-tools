@@ -126,15 +126,15 @@ it('uses each prepared slot rank for Grisly Growths damage', () => {
   expect(html).toContain('title="Two Actions; Damage: 14d6 piercing"')
 })
 
-it('uses prepared slot rank for Grim Tendrils void and bleed damage', () => {
+it('uses prepared slot rank for Grim Tendrils void damage', () => {
   const tendrils = { ...spell('Grim Tendrils'), data: { tradition: 'Occult', actions: 'Two Actions' } }
   const c: Character = { ...base, level: 7,
     spells: [{ name: tendrils.name, entryId: tendrils.id, rank: 1, cantrip: false }],
     spellcasting: { ability: 'int', tradition: 'Occult', rank: 2, slots: {},
       prepared: { '1:0': tendrils.id, '4:0': tendrils.id } } }
   const html = render(c, [tendrils, spell('Harm')])
-  expect(html).toContain('title="Two Actions; Damage: 2d4 void + 1 persistent bleed"')
-  expect(html).toContain('title="Two Actions; Damage: 8d4 void + 4 persistent bleed"')
+  expect(html).toContain('title="Two Actions; Damage: 2d4 void"')
+  expect(html).toContain('title="Two Actions; Damage: 8d4 void"')
 })
 
 it('opens False Vitality controls at each prepared slot rank', () => {
@@ -223,7 +223,7 @@ it('provides separate spell categories with class spells selected initially', ()
   for (const label of ['Focus Spells', 'Innate Spells', 'Item Spells'])
     expect(html).toContain(`aria-pressed="false">${label}</button>`)
   expect(html).not.toContain('>Rituals</button>')
-  expect((html.match(/<div hidden="">/g) ?? [])).toHaveLength(4)
+  expect((html.match(/<div hidden="">/g) ?? [])).toHaveLength(5)
 })
 
 it('hides class spells for focus-only classes and selects focus spells initially', () => {
