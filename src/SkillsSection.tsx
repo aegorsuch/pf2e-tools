@@ -112,6 +112,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
       {athlete && <SourceNote source="Raging Athlete"
         note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
+      {!!activeFeatsNamed(c, 'Sudden Charge').length && <SourceNote source="Sudden Charge"
+        note={`Move twice, then make a melee Strike if an enemy is within reach. Maximum distances: ${speeds.map(movement => `${movement.name} ${movement.feet * 2} feet`).join('; ')}.`} />}
+      {c.raging && !!activeFeatsNamed(c, "Predator's Pounce").length && <SourceNote source="Predator's Pounce"
+        note={`While unarmored or wearing light armor, Stride up to ${speed(c, entries)} feet, then Strike.`} />}
       {!!activeFeatsNamed(c, 'Sudden Leap').length && <SourceNote source="Sudden Leap"
         note={`Leap, High Jump, or Long Jump and make a melee Strike during the jump. High and Long Jump use Long Jump distance rules, up to ${speed(c, entries) * 2} feet.`} />}
       {c.raging && !!activeFeatsNamed(c, 'Furious Sprint').length && <SourceNote source="Furious Sprint"
@@ -422,6 +426,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Adrenaline Rush" note={`${signed(total + Math.max(0, 1 - status))} to lift heavy objects, Escape, and Force Open (+1 status; status bonuses do not stack).`} />}
           {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Bashing Charge').length
             && <SourceNote source="Bashing Charge" note={`${conditionalTotal(1)} to Force Open an obstacle during Bashing Charge (+1 circumstance; circumstance bonuses do not stack).`} />}
+          {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Unbalancing Sweep').length
+            && <SourceNote source="Unbalancing Sweep" note={`${c.raging && activeFeatsNamed(c, 'Furious Bully').length ? conditionalTotal(2) : signed(total)} to Shove or Trip up to three enemies within reach. Roll separately; multiple attack penalty increases after all attempts.`} />}
+          {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Tangle of Battle').length
+            && <SourceNote source="Tangle of Battle" note={`${activeFeatsNamed(c, 'Furious Bully').length ? conditionalTotal(2) : signed(total)} to Grapple an adjacent enemy as a reaction after critically hitting it.`} />}
+          {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Embrace the Pain').length
+            && <SourceNote source="Embrace the Pain" note={`${activeFeatsNamed(c, 'Furious Bully').length ? conditionalTotal(2) : signed(total)} to Grapple a creature within reach or Disarm its weapon as a reaction when its melee attack damages you.`} />}
           {s.kind === 'skill' && s.ability === 'str' && c.raging && isFeatEffectActive(c, 'Ghost Wrangler')
             && <SourceNote source="Ghost Wrangler" note="Can use Strength-based skill checks against incorporeal creatures until the beginning of your next turn." />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
@@ -514,6 +524,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source={grant.source} note="Free trained Lore; does not use a skill training pick." />)}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Pick On Someone My Size').length && <SourceNote inlineSource={false}
             source="Pick On Someone My Size" note={`${conditionalTotal(1)} to Demoralize a larger creature that attacked an ally since the start of your last turn (+1 circumstance).`} />}
+          {s.name === 'Intimidation' && c.raging && !!activeFeatsNamed(c, 'Terrifying Howl').length && <SourceNote source="Terrifying Howl"
+            note={`${signed(total)} to Demoralize each enemy within 30 feet, without a penalty for not sharing a language. Each target is immune to your Terrifying Howl for 1 minute.`} />}
           {s.name === 'Perception' && !!activeFeatsNamed(c, 'Enhanced Olfactory System').length && <SourceNote inlineSource={false}
             source="Enhanced Olfactory System" note={`${conditionalTotal(2)} to Seek a creature or object within scent range (+2 circumstance).`} />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}

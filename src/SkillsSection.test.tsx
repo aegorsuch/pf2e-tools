@@ -57,6 +57,27 @@ it('shows Rage temporary HP and Second Wind only while raging', () => {
   expect(render({ ...c, feats: [] })).not.toContain('Second Wind lets you gain them earlier')
 })
 
+it('shows Barbarian movement and combat skill action totals with Rage gating', () => {
+  const c: Character = { ...base, level: 12, className: 'Barbarian', raging: true,
+    abilities: { ...base.abilities, str: 18 },
+    feats: ['Sudden Charge', "Predator's Pounce", 'Furious Bully', 'Unbalancing Sweep', 'Tangle of Battle',
+      'Embrace the Pain', 'Terrifying Howl'].map(name => ({ name, type: 'Class Feat', level: 1 })) }
+  const speedHtml = (character: Character) => renderToStaticMarkup(<SensesAndSpeed c={character} entries={[]} save={() => {}} />)
+  const skillHtml = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="skills" />)
+  expect(speedHtml(c)).toContain('Land 50 feet')
+  expect(speedHtml(c)).toContain('Stride up to 25 feet, then Strike')
+  const skills = skillHtml(c)
+  expect(skills).toContain('+6 to Shove or Trip up to three enemies')
+  expect(skills).toContain('+6 to Grapple an adjacent enemy')
+  expect(skills).toContain('+6 to Grapple a creature within reach')
+  expect(skills).toContain('to Demoralize each enemy within 30 feet')
+  const calm = skillHtml({ ...c, raging: false })
+  expect(calm).toContain('+4 to Shove or Trip up to three enemies')
+  expect(calm).not.toContain('Tangle of Battle note')
+  expect(calm).not.toContain('Terrifying Howl note')
+  expect(speedHtml({ ...c, raging: false })).not.toContain('Predator&#x27;s Pounce note')
+})
+
 it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
   let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
     lores: [{ name: 'Military Lore', rank: 0 }] }
