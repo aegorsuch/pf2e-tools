@@ -1,10 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
-import { knowsSpell } from './builder'
+import { expect, it, onTestFinished } from 'vitest'
+import { featPrerequisiteChecker, knowsSpell } from './builder'
+import { mapAonHit } from './aon'
 import { minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { SpellsSection } from './SpellsSection'
-import { dailyInnateUses, grantedFeatSpells, mageAutomatonOptions } from './featSpells'
+import { dailyInnateUses, gnomeHeritageCantripOptions, grantedFeatSpells, mageAutomatonOptions } from './featSpells'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
 
 const spell = (name: string, tradition: string, traits = ['Cantrip']): ContentEntry => ({
   id: name, name, kind: 'spell', systems: ['pf2e'], source: 'official', level: 1,
@@ -75,4 +77,41 @@ it('disables invalid Mage Automaton selections and stops granting the cantrip wh
     expect(grantedFeatSpells(invalid, catalog)).toEqual([])
     expect(renderToStaticMarkup(<SpellsSection c={invalid} entries={catalog} save={() => {}} />)).toContain(`${choice} (unavailable)`)
   }
+})
+
+it('tracks gnome heritage cantrips and converts ancestry magic to the wellspring tradition', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const firstWorld = mapAonHit({ _id: 'first-world', _source: { name: 'First World Magic', category: 'feat', level: 1, trait: ['Gnome'],
+    markdown: 'Header\n\n---\n\nChoose one cantrip from the [primal](/SpellLists.aspx?Tradition=4) spell list. You can cast this spell as a primal innate spell at will.' } }, 'pf2e')!
+  const cautious: ContentEntry = { ...spell('Cautious Curiosity', ''), kind: 'feat', traits: ['Gnome'], level: 9,
+    data: { prerequisite: 'at least one arcane or occult innate spell gained from a gnome heritage or gnome ancestry feat' } }
+  const catalog = [spell('Light', 'Arcane, Occult, Primal'), spell('Daze', 'Occult'),
+    spell('Disguise Magic', 'Arcane, Occult', []), spell('Silence', 'Divine, Occult', []), firstWorld, cautious]
+  const gnome: Character = { ...c, ancestry: 'Gnome', heritage: 'Wellspring Gnome', level: 9,
+    feats: [{ name: 'First World Magic', type: 'Ancestry Feat', level: 1, choice: 'Light' },
+      { name: cautious.name, type: 'Ancestry Feat', level: 9 }],
+    gnomeHeritageMagic: { tradition: 'Occult', cantrips: { Occult: 'Daze', Arcane: 'Light', Primal: 'Light' } } }
+  expect(gnomeHeritageCantripOptions(gnome, catalog).map(item => item.name)).toEqual(['Daze', 'Light'])
+  const grants = grantedFeatSpells(gnome, catalog)
+  expect(grants.map(grant => [grant.entry.name, grant.rule.tradition, grant.rank])).toEqual([
+    ['Daze', 'Occult', 5], ['Light', 'Occult', 5], ['Disguise Magic', 'Occult', 2], ['Silence', 'Occult', 2],
+  ])
+  expect(dailyInnateUses(gnome, grants[2])?.key).not.toBe(dailyInnateUses(gnome, grants[3])?.key)
+  expect(grants[2].rule.condition).toBe('Must target yourself')
+  expect(featPrerequisiteChecker(gnome, catalog, 9, 1)(cautious).missing).toEqual([])
+  const noTradition = { ...gnome, gnomeHeritageMagic: undefined }
+  expect(grantedFeatSpells(noTradition, catalog)).toEqual([])
+  expect(featPrerequisiteChecker(noTradition, catalog, 9, 1)(cautious).missing).toHaveLength(1)
+  expect(grantedFeatSpells({ ...gnome, gnomeHeritageMagic: { ...gnome.gnomeHeritageMagic, tradition: 'Divine' } }, catalog)
+    .some(grant => grant.source === cautious.name)).toBe(false)
+  const fey = { ...gnome, heritage: 'Fey-touched Gnome', feats: [],
+    gnomeHeritageMagic: { cantrips: { Primal: 'Light' } } }
+  expect(grantedFeatSpells(fey, catalog)).toMatchObject([{ entry: { name: 'Light' }, rule: { tradition: 'Primal' }, rank: 5 }])
+  const html = renderToStaticMarkup(<SpellsSection c={gnome} entries={catalog} save={() => {}} />)
+  expect(html).toContain('aria-label="Wellspring Gnome tradition"')
+  expect(html).toContain('aria-label="Wellspring Gnome cantrip"')
+  expect(html).toContain('Disguise Magic')
+  expect(html).toContain('Silence')
 })

@@ -8,7 +8,7 @@ import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabe
 import { ActionIcon } from './ActionIcon'
 import { SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { companionAdvancement, companionStats } from './companions'
-import { dailyInnateUses, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
@@ -158,6 +158,7 @@ function groupedInnateSpells(c: Character, grants: ReturnType<typeof grantedFeat
       return !first.rule.shared && !first.rule.condition && !!dailyInnateUses(c, first)
         && first.entry.name.toLowerCase() === grant.entry.name.toLowerCase()
         && first.rank === grant.rank && first.rule.tradition?.toLowerCase() === grant.rule.tradition?.toLowerCase()
+        && first.rule.frequency?.toLowerCase() === grant.rule.frequency?.toLowerCase()
         && first.rule.ability === grant.rule.ability && first.rule.dc === grant.rule.dc
         && !group.some(existing => existing.usageKey === grant.usageKey)
     })
@@ -790,12 +791,13 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
       && entry.name === 'Cornucopia' && entry.systems.some(system => c.systems.includes(system)))?.id ?? spell.entryId } : spell)
   const granted = grantedWardenSpells(c, entries)
   const featSpells = grantedFeatSpells(c, entries)
+  const special = featSpells.filter(grant => grant.rule.kind === 'feat')
   const innate = featSpells.filter(grant => grant.rule.kind === 'innate')
     .sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.source.localeCompare(b.source))
   const { spells: focus, points: focusPoints } = focusSpells(c, entries)
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
     && !focus.some(grant => grant.name === s.name))
-  return { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items: itemSpells(c, entries) }
+  return { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items: itemSpells(c, entries) }
 }
 
 function characterRituals(c: Character, entries: ContentEntry[]) {
@@ -835,7 +837,7 @@ function RitualsContent({ c, entries, save }: SectionProps) {
 }
 
 export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'entries'> & { data?: ReturnType<typeof spellSummaryData> }) {
-  const { manualSpells, granted, focus, innate, items } = data ?? spellSummaryData(c, entries)
+  const { manualSpells, granted, focus, innate, special, items } = data ?? spellSummaryData(c, entries)
   const baseSlots = classSpellSlots(c)
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
@@ -856,7 +858,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
       })
     }).flat() : []
   const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size
-    + groupedInnateSpells(c, innate).length + items.length
+    + groupedInnateSpells(c, innate).length + special.length + items.length
   const selected = (slots || witchwarper ? choices.filter(Boolean).length : manualSpells.length) + otherSpells
   const total = choices.length + otherSpells
   return <summary className="character-section-summary">
@@ -875,7 +877,7 @@ export function SpellsSection(props: SectionProps) {
 }
 
 export function SpellsContent({ c, entries, save, data }: SectionProps & { data?: ReturnType<typeof spellSummaryData> }) {
-  const [category, setCategory] = useState<'class' | 'focus' | 'innate' | 'items' | 'rituals'>('class')
+  const [category, setCategory] = useState<'class' | 'focus' | 'innate' | 'feat' | 'items' | 'rituals'>('class')
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [dirgeOpen, setDirgeOpen] = useState(false)
@@ -920,15 +922,16 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()))
-  const { spells, granted, featSpells, innate, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
+  const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const focusOnlyClass = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
   const hasClassSpells = !!automaticSlots || !!witchwarper || manualSpells.length > 0
     || !focusOnlyClass && (!!casting?.traditions.length
       || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0))
   const hasRituals = characterRituals(c, entries).ritualNames.length > 0
-  const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'],
+  const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'], ['feat', 'Feat Spells'],
     ['items', 'Item Spells'], ['rituals', 'Rituals']] as const)
     .filter(([value]) => value !== 'class' || hasClassSpells)
+    .filter(([value]) => value !== 'feat' || special.length > 0)
     .filter(([value]) => value !== 'rituals' || hasRituals)
   const activeCategory = categories.some(([value]) => value === category) ? category : categories[0][0]
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -940,7 +943,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const proficiency = grant.rule.kind === 'innate' ? spellRank : casting?.rank ?? 1
     const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, proficiency), c.level) : undefined
     const resolution = spellResolution(grant.entry)
-    const frequency = dailyInnateUses(c, grant) || /^at[- ]will$/i.test(grant.rule.frequency?.trim() ?? '') ? undefined : grant.rule.frequency
+    const frequency = /^at[- ]will$/i.test(grant.rule.frequency?.trim() ?? '')
+      || dailyInnateUses(c, grant) && /\bper day(?: each)?$/i.test(grant.rule.frequency ?? '') ? undefined : grant.rule.frequency
     const higherDC = grant.rule.dc === 'higher-class-or-spell'
     const classDC = higherDC && resolution.save ? classDifficultyClass(c, entries) : undefined
     const castingAbility = casting?.ability ?? sc?.ability
@@ -1143,6 +1147,22 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <button key={value} type="button" className={activeCategory === value ? 'on' : ''}
             aria-pressed={activeCategory === value} onClick={() => setCategory(value)}>{label}</button>)}
       </div>
+      <div hidden={activeCategory !== 'feat'}>
+        {[...new Set(special.map(grant => grant.source))].map(source => <section className="innate-spell-group" key={source}>
+          <h5>{source} · Spell Rank {special.find(grant => grant.source === source)?.rank}</h5>
+          <SpellColumns />
+          <ul>{special.filter(grant => grant.source === source).map(grant => {
+            const details = grant.source === 'Natural Illusionist'
+              ? { note: grant.rule.condition, dc: undefined } : grantDetails(grant)
+            return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
+              entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc}
+              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+              effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
+              {controls(grant.entry.name, grant.rank)}
+            </SpellItem>
+          })}</ul>
+        </section>)}
+      </div>
       <div hidden={activeCategory !== 'class'}>
       {necromancer && c.level >= 1 && <>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
@@ -1311,6 +1331,32 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {!necromancer && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
       </div>
       <div hidden={activeCategory !== 'innate'}>
+      {c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(c.heritage?.toLowerCase() ?? '') && (() => {
+        const tradition = gnomeHeritageTradition(c)
+        const options = gnomeHeritageCantripOptions(c, entries)
+        const current = tradition ? c.gnomeHeritageMagic?.cantrips?.[tradition] ?? '' : ''
+        return <div className="col">
+          {c.heritage?.toLowerCase() === 'wellspring gnome' && <label>Wellspring Gnome tradition{' '}
+            <select aria-label="Wellspring Gnome tradition" value={c.gnomeHeritageMagic?.tradition ?? ''} onChange={event => {
+              const value = (['Arcane', 'Divine', 'Occult'] as const).find(option => option === event.target.value)
+              save({ gnomeHeritageMagic: { ...c.gnomeHeritageMagic, tradition: value } })
+            }}><option value="">Choose tradition</option>{['Arcane', 'Divine', 'Occult'].map(value => <option key={value}>{value}</option>)}</select>
+          </label>}
+          {tradition && <SearchableSelect label={`${c.heritage} cantrip`} aria-label={`${c.heritage} cantrip`} value={current}
+            onChange={event => {
+              const value = event.target.value
+              if (value && !options.some(entry => entry.name === value)) return
+              const select = () => save({ gnomeHeritageMagic: { ...c.gnomeHeritageMagic,
+                cantrips: { ...c.gnomeHeritageMagic?.cantrips, [tradition]: value || undefined } } })
+              if (!value && current) confirmRemoval(`${c.heritage} cantrip "${current}"`, select)
+              else select()
+            }}>
+            <option value="">Choose cantrip</option>
+            {current && !options.some(entry => entry.name === current) && <option value={current} disabled>{current} (unavailable)</option>}
+            {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
+          </SearchableSelect>}
+        </div>
+      })()}
       {c.heritage === 'Mage Automaton' && c.level >= 1 && (() => {
         const options = mageAutomatonOptions(c, entries)
         const current = c.mageAutomatonCantrip ?? ''

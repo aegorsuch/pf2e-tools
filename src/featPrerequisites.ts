@@ -41,6 +41,7 @@ export interface PrerequisiteFacts {
   familiar?: boolean
   primalInnateSpell?: boolean
   gnomePrimalInnateSpell?: boolean
+  gnomeArcaneOrOccultInnateSpell?: boolean
   limitedTelepathy?: boolean
   constructCompanion?: boolean
   championBlessings?: string[]
@@ -290,6 +291,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'at least one primal innate spell') return resultFor(!!facts.primalInnateSpell, text)
     if (name === 'at least one primal innate spell from a gnome heritage or feat')
       return resultFor(!!facts.gnomePrimalInnateSpell, text)
+    if (name === 'at least one arcane or occult innate spell gained from a gnome heritage or gnome ancestry feat')
+      return resultFor(!!facts.gnomeArcaneOrOccultInnateSpell, text)
     if (name === 'kijimuna gnome')
       return resultFor([facts.heritage, ...(facts.heritages ?? [])].some(heritage => key(heritage ?? '') === name), text)
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)

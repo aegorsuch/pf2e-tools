@@ -331,6 +331,23 @@ it('shows conditional Gnome defenses without changing ordinary modifiers', () =>
   expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
 })
 
+it('shows Animal Elocutionist as a conditional Diplomacy bonus', () => {
+  const c: Character = { ...base, feats: [{ name: 'Animal Elocutionist', type: 'Ancestry Feat', level: 1 }] }
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(html).toContain('to Make an Impression on animals (+1 circumstance)')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 0 }} entries={[ranger]} save={() => {}} />))
+    .not.toContain('to Make an Impression on animals')
+})
+
+it('applies Briny Beverage wavesense only while its effect is active', () => {
+  const c: Character = { ...base, feats: [{ name: 'Briny Beverage', type: 'Ancestry Feat', level: 1 }] }
+  const render = (character: Character) => renderToStaticMarkup(<SensesAndSpeed c={character} entries={[ranger]} save={() => {}} />)
+  expect(render(c)).toContain('Briny Beverage active')
+  expect(render(c)).not.toContain('Wavesense (imprecise) 20 feet')
+  expect(render({ ...c, activeFeatEffects: ['Briny Beverage'] })).toContain('Wavesense (imprecise) 20 feet')
+  expect(render({ ...c, level: 0, activeFeatEffects: ['Briny Beverage'] })).not.toContain('Wavesense (imprecise) 20 feet')
+})
+
 it('shows Druid terrain and shield benefits only when applicable', () => {
   const c: Character = { ...base, level: 12, feats: [
     { name: 'Shore Step', type: 'Class Feat', level: 1 },

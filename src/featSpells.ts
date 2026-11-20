@@ -215,6 +215,19 @@ export function mageAutomatonOptions(c: Character, entries: ContentEntry[]) {
   return c.level >= 1 && c.heritage === 'Mage Automaton' ? cantripOptions(c, spellIndex(entries).spells, 'Arcane') : []
 }
 
+export function gnomeHeritageTradition(c: Character) {
+  if (!c.systems.includes('pf2e') || c.level < 1) return undefined
+  if (c.heritage?.toLowerCase() === 'fey-touched gnome') return 'Primal' as const
+  if (c.heritage?.toLowerCase() !== 'wellspring gnome') return undefined
+  const tradition = c.gnomeHeritageMagic?.tradition
+  return tradition && (['Arcane', 'Divine', 'Occult'] as const).includes(tradition) ? tradition : undefined
+}
+
+export function gnomeHeritageCantripOptions(c: Character, entries: ContentEntry[]) {
+  const tradition = gnomeHeritageTradition(c)
+  return tradition ? cantripOptions(c, spellIndex(entries).spells, tradition) : []
+}
+
 function orderTrainingRules(c: Character, entries: ContentEntry[], feat: Character['feats'][number]): SpellGrant[] {
   const benefit = hellknightTrainingBenefit(c, feat.name, feat.choice)
   if (benefit?.name === 'Dedication to the Five' && benefit.choice && GODCLAW_DOMAINS.includes(benefit.choice)) {
@@ -228,6 +241,13 @@ function orderTrainingRules(c: Character, entries: ContentEntry[], feat: Charact
 
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
+  const gnomeTradition = gnomeHeritageTradition(c)
+  const gnomeCantrip = gnomeTradition && c.gnomeHeritageMagic?.cantrips?.[gnomeTradition]
+    ? gnomeHeritageCantripOptions(c, entries).find(entry => entry.name === c.gnomeHeritageMagic?.cantrips?.[gnomeTradition])
+    : undefined
+  if (gnomeCantrip && gnomeTradition && c.heritage) out.push({ entry: gnomeCantrip, source: c.heritage,
+    rule: { kind: 'innate', spells: [gnomeCantrip.name], tradition: gnomeTradition, frequency: 'at will', heightened: true },
+    rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', c.heritage, gnomeTradition, gnomeCantrip.name]) })
   const mageCantrip = c.mageAutomatonCantrip
     ? mageAutomatonOptions(c, entries).find(entry => entry.name === c.mageAutomatonCantrip) : undefined
   if (mageCantrip) out.push({ entry: mageCantrip, source: 'Mage Automaton',
@@ -249,6 +269,45 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Natural Illusionist' && c.systems.includes('pf2e')) {
+      for (const name of ['Illusory Disguise', 'Item Facade', 'Ventriloquism']) {
+        const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', shared: true,
+            condition: 'Tradition and spell DC are not specified; consult the GM' },
+          rank: Math.min(10, Math.max(1, Math.floor((c.level - 3) / 2))),
+          usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      }
+      continue
+    }
+    if (feat.name === 'True Shapeshifter' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Nature Incarnate').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'feat', spells: [entry.name], tradition: 'primal', frequency: 'once per day',
+          condition: c.feats.some(other => other.name === 'Plant Shape' && featTakenLevel(other) <= c.level)
+            ? 'Kaiju or green man form only' : 'Kaiju form only' },
+        rank: 10, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
+    if (feat.name === 'Homeward Bound' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Interplanar Teleport').find(spell => spell.systems.includes('pf2e'))
+      const tradition = c.heritage?.toLowerCase() === 'wellspring gnome' ? gnomeTradition : 'Primal'
+      if (entry && tradition) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition, frequency: 'twice per week',
+          condition: 'Only between the First World and the Universe; no planar key required' },
+        rank: entry.level, usageKey: JSON.stringify([selection, feat.name, 'weekly']) })
+      continue
+    }
+    if (feat.name === 'Cautious Curiosity' && (gnomeTradition === 'Arcane' || gnomeTradition === 'Occult')) {
+      for (const name of ['Disguise Magic', 'Silence']) {
+        const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'innate', spells: [entry.name], tradition: gnomeTradition, frequency: 'once per day',
+            fixedRank: true, condition: 'Must target yourself' },
+          rank: 2, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      }
+      continue
+    }
     if (feat.name === 'Kijimuna Whistle' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Summon Plant or Fungus').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
@@ -359,10 +418,17 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     const rules = [...source?.spellGrants ?? [], ...orderTrainingRules(c, entries, feat)]
+      .filter(rule => !(c.heritage?.toLowerCase() === 'wellspring gnome' && !gnomeTradition
+        && source?.traits.some(trait => trait.toLowerCase() === 'gnome')
+        && rule.kind === 'innate' && rule.tradition?.toLowerCase() === 'primal'))
       .map(rule => feat.name === 'Ancestral Form' && rule.kind === 'innate'
         ? { ...rule, tradition: 'primal', heightened: true, fixedRank: false, condition: 'Must target yourself; crocodile form only' }
         : ['Bone Investiture', 'Fossil Rider'].includes(feat.name) && rule.kind === 'innate'
-        ? { ...rule, tradition: 'primal', condition: rule.condition ?? 'Must target yourself' } : rule)
+        ? { ...rule, tradition: 'primal', condition: rule.condition ?? 'Must target yourself' }
+        : c.heritage?.toLowerCase() === 'wellspring gnome' && gnomeTradition
+          && source?.traits.some(trait => trait.toLowerCase() === 'gnome')
+          && rule.kind === 'innate' && rule.tradition?.toLowerCase() === 'primal'
+        ? { ...rule, tradition: gnomeTradition } : rule)
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {
       const entry = options.find(spell => spell.name === feat.choice)
@@ -405,7 +471,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
 }
 
 export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFeatSpells>[number]) {
-  if (grant.rule.kind !== 'innate' || !/\bper day(?: each)?$/i.test(grant.rule.frequency ?? '')) return undefined
+  if (grant.rule.kind === 'focus') return undefined
   const uses = limitedSpellUses(grant.rule.frequency, c.innateSpellUses?.[grant.usageKey])
   return uses && { key: grant.usageKey, ...uses }
 }
@@ -440,6 +506,13 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       return [{ name: `${training.choice} domain focus spell`, source }]
     }
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
+    if (feat.name === 'Natural Illusionist' || feat.name === 'True Shapeshifter' || feat.name === 'Cautious Curiosity' || feat.name === 'Homeward Bound') {
+      const names = feat.name === 'Natural Illusionist' ? ['Illusory Disguise', 'Item Facade', 'Ventriloquism']
+        : feat.name === 'True Shapeshifter' ? ['Nature Incarnate']
+        : feat.name === 'Homeward Bound' ? ['Interplanar Teleport'] : ['Disguise Magic', 'Silence']
+      return names.filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('pf2e')))
+        .map(name => ({ name, source }))
+    }
     if (feat.name === 'Kijimuna Whistle' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Summon Plant or Fungus').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Summon Plant or Fungus', source }]

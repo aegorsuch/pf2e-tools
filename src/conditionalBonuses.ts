@@ -37,6 +37,7 @@ export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
   check('Death Speaker', 'Diplomacy', 1, 'to Make an Impression or Request of undead creatures'),
   check('Elven Instincts', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
   check('Climbing Tail', 'Athletics', 2, 'to Climb'),
+  check('Animal Elocutionist', 'Diplomacy', 1, 'to Make an Impression on animals'),
   check('Pounding Leap', 'Athletics', 2, "to High Jump or Long Jump when attempting the feat's special Strike"),
   check('Folk Healer', 'Medicine', 1, 'to Treat Wounds and Treat Disease'),
   check('Fey Fellowship', 'Perception', 2, 'against fey'),

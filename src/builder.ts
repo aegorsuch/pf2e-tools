@@ -942,6 +942,11 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
             && character.feats.some(feat => feat.name === grant.source
               && selectedFeatEntry(character, entries, feat.name, feat.sourceId)?.traits.some(trait => trait.toLowerCase() === 'gnome')))
         },
+        get gnomeArcaneOrOccultInnateSpell() {
+          return getInnateGrants().some(grant => ['arcane', 'occult'].includes(grant.rule.tradition?.toLowerCase() ?? '')
+            && (grant.source === 'Wellspring Gnome' || character.feats.some(feat => feat.name === grant.source
+              && selectedFeatEntry(character, entries, feat.name, feat.sourceId)?.traits.some(trait => trait.toLowerCase() === 'gnome'))))
+        },
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
           || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
           || features.some(feature => /\blimited telepathy\b/i.test(`${feature.name} ${feature.description}`))
@@ -2960,6 +2965,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
   }
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
+  if (isFeatEffectActive(c, 'Briny Beverage')) addVision('Wavesense (imprecise) 20 feet', 'Briny Beverage')
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
   if (activeFeatsNamed(c, "Jotun's Eyes").length) addVision('Darkvision', "Jotun's Eyes")
   if (ancestryFeatTraits(c).includes('dwarf') && carriedWeapons(c, entries).some(weapon => weaponHeld(c, entries, weapon)

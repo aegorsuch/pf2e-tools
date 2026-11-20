@@ -133,7 +133,7 @@ export interface FeatSlot {
 }
 
 export interface SpellGrant {
-  kind: 'innate' | 'focus'
+  kind: 'innate' | 'focus' | 'feat'
   spells: string[]
   choice?: 'cantrip' | 'listed'
   tradition?: string
@@ -346,6 +346,7 @@ export interface Character {
   beckoningDirge?: { spell?: string; rank?: number; used?: boolean }
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   mageAutomatonCantrip?: string
+  gnomeHeritageMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string>> }
   spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
   rituals?: string[]
   activeSpells?: string[]

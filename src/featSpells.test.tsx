@@ -333,6 +333,50 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('tracks Natural Illusionist alternatives in one daily pool with their specific heightened rank', () => {
+  const entries = ['Illusory Disguise', 'Item Facade', 'Ventriloquism'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 7, feats: [taken('Natural Illusionist', 5)] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants).toHaveLength(3)
+  expect(grants.every(grant => grant.rule.kind === 'feat' && grant.rule.shared && grant.rank === 2)).toBe(true)
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+  const spent = { ...c, innateSpellUses: { [grants[0].usageKey]: [0] } }
+  expect(grants.map(grant => dailyInnateUses(spent, grant)?.remaining)).toEqual([0, 0, 0])
+  expect(grantedFeatSpells({ ...c, level: 5 }, entries)[0].rank).toBe(1)
+  expect(grantedFeatSpells({ ...c, level: 19 }, entries)[0].rank).toBe(8)
+  expect(grantedFeatSpells({ ...c, level: 4 }, entries)).toEqual([])
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Feat Spells')
+  expect(html).toContain('1 of 1 uses remaining (shared)')
+  expect(html).toContain('Tradition and spell DC are not specified')
+})
+
+it('grants True Shapeshifter one daily class spell with its permitted forms', () => {
+  const nature = { ...entry('Nature Incarnate', 'spell', { tradition: 'Primal' }), level: 10 }
+  const c: Character = { ...base, className: 'Druid', level: 20, feats: [taken('True Shapeshifter', 20)] }
+  const [grant] = grantedFeatSpells(c, [nature])
+  expect(grant).toMatchObject({ entry: { name: 'Nature Incarnate' }, rank: 10,
+    rule: { kind: 'feat', tradition: 'primal', condition: 'Kaiju form only' } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  expect(grantedFeatSpells({ ...c, level: 19 }, [nature])).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [...c.feats, taken('Plant Shape', 18)] }, [nature])[0].rule.condition)
+    .toBe('Kaiju or green man form only')
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[nature]} save={() => {}} />)).toContain('Kaiju form only')
+})
+
+it('tracks Homeward Bound twice weekly with its planar restriction and heritage tradition', () => {
+  const teleport = { ...entry('Interplanar Teleport', 'spell'), level: 7 }
+  const c: Character = { ...base, level: 17, ancestry: 'Gnome', heritage: 'Wellspring Gnome',
+    gnomeHeritageMagic: { tradition: 'Occult' }, feats: [taken('Homeward Bound', 17)] }
+  const [grant] = grantedFeatSpells(c, [teleport])
+  expect(grant).toMatchObject({ rank: 7, rule: { kind: 'innate', tradition: 'Occult', frequency: 'twice per week',
+    condition: 'Only between the First World and the Universe; no planar key required' } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(2)
+  expect(dailyInnateUses({ ...c, innateSpellUses: { [grant.usageKey]: [0] } }, grant)?.remaining).toBe(1)
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[teleport]} save={() => {}} />)).toContain('twice per week')
+  expect(grantedFeatSpells({ ...c, level: 16 }, [teleport])).toEqual([])
+})
+
 it('applies and clears Pyre Resist Energy selections, including heightened defaults', () => {
   let c: Character = { ...base, level: 12, feats: [
     taken('Hellknight Dedication', 2, 'Order of the Gate'), taken('Order Cross-Training', 12, 'Order of the Pyre'),
