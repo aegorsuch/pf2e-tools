@@ -4472,7 +4472,7 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Ch
   if (weaponCategory(entry) === 'Unarmed'
     || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
   if (weaponCanUseTwoHands(entry, c) && weapon.handsHeld) return weapon.handsHeld
-  if (String(entry.data.hands).trim() === '1 or 2') return 1
+  if (String(entry.data.hands).trim() === '1 or 2' || (String(entry.data.hands).trim() === '2' && weaponCanUseTwoHands(entry, c))) return 1
   const match = /^([12])(?:\+)?$/.exec(String(entry.data.hands ?? '').trim())
   return match ? Number(match[1]) : undefined
 }

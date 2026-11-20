@@ -536,6 +536,8 @@ it("lets Damoritosh's Grip switch a two-handed weapon's grip while enforcing han
   const entries = [rifle, sword]
   const tree = (displayOnly = true) => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly })
   const grip = () => findElement(tree(), e => e.props['aria-label'] === 'Hands: Rifle')!
+  expect(grip().props.value).toBe(1)
+  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
   expect(grip().props.value).toBe(2)
   ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
   ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
@@ -2184,4 +2186,19 @@ it('keeps the base name when displaying upgraded SF2E weapon grades', () => {
   expect(markup).toContain('Doshko (Level 20)')
   expect(markup).toContain('value="Tactical Doshko">Doshko (Level 2)</option>')
   expect(markup).toContain('value="Paragon Doshko" selected="">Doshko (Level 20)</option>')
+})
+
+it.each([false, true])('orders weapons alphabetically by displayed name regardless of equipped state (displayOnly=%s)', displayOnly => {
+  const axe = { ...weapon, id: 'axe', name: 'Axe' }
+  const spear = { ...weapon, id: 'spear', name: 'Spear' }
+  const c: Character = { ...character([]), weapons: [
+    { id: 's', name: 'Spear', potency: 0, striking: 0, runes: [] },
+    { id: 'l', name: 'Longsword', potency: 0, striking: 0, runes: [], stowed: true },
+    { id: 'a', name: 'Axe', potency: 0, striking: 0, runes: [], stowed: true },
+  ] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[axe, weapon, spear]} save={() => {}} displayOnly={displayOnly} />)
+  const at = (name: string) => markup.indexOf(name)
+  expect(at('Axe')).toBeGreaterThan(-1)
+  expect(at('Axe')).toBeLessThan(at('Longsword'))
+  expect(at('Longsword')).toBeLessThan(at('Spear'))
 })

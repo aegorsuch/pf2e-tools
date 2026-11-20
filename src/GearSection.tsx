@@ -1040,6 +1040,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
     && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
     .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
       .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))
+  const displayNames = new Map<string, string>()
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
@@ -1106,6 +1107,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : sourceWeapon ? specificMagicItemName(withNamedWeaponState(weaponEntry(entries, sourceWeapon.name), sourceWeapon, c.level),
             combinationName(entries, sourceWeapon.name), true).replace(/\bDueling Pistols$/, 'Dueling Pistol') : ''
         const displayName = `${equipmentDisplayName(adoptedAncestryText(c, grantedName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
+        displayNames.set(w.id, displayName)
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const strength = hasAnimalStrength(c, entries, w)
@@ -1555,7 +1557,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
         )
-      })}
+      }).sort((x, y) => (displayNames.get(String(x?.key)) ?? '').localeCompare(displayNames.get(String(y?.key)) ?? ''))}
       <TurretWeapon c={c} entries={entries} save={save} displayOnly={displayOnly} />
     </div>
   )
