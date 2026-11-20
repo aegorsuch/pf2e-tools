@@ -1,6 +1,6 @@
 import type { ContentEntry } from './types'
 
-export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form'])
+export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Untamed Form'])
 type DinosaurAttack = { name: string; damage: string; traits?: string[]; reach?: number; bleed?: string; criticalBleed?: string }
 export const DINOSAUR_FORMS: { name: string; speed: number; attacks: DinosaurAttack[] }[] = [
   { name: 'Ankylosaurus', speed: 25, attacks: [

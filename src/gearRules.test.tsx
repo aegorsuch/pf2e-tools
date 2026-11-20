@@ -391,6 +391,10 @@ it.each([9, 20])('applies and dismisses crocodile Animal Form without changing e
   const transformed = { ...c, ...spellActiveChange(c, 'Dinosaur Form', true) }
   expect(transformed.activeSpells).toEqual(['Dinosaur Form'])
   expect(activeBattleForm(transformed, entries)?.name).toBe('Tyrannosaurus')
+  const untamed = { ...transformed, ...spellActiveChange(transformed, 'Untamed Form', true) }
+  expect(untamed.activeSpells).toEqual(['Untamed Form'])
+  expect(activeBattleForm(untamed, entries)).toBeUndefined()
+  expect(spellActiveChange(untamed, 'Animal Form', true).activeSpells).toEqual(['Animal Form'])
   expect(JSON.stringify(c)).toBe(before)
 })
 
