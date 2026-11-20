@@ -266,6 +266,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       : r > currentRank && canReachRank(name, r)
     const availableTraining = temporaryTrainings.find(training => training.rank === r
       && (training.skill === undefined || !permanentAvailable)
+      && (training.feat.name !== 'Eclectic Obsession' || /.+\s+lore$/i.test(name))
       && (training.feat.name !== 'Consult the Stars'
         || ['cha', 'int', 'wis'].includes(skills.find(skill => skill.name === name)?.ability ?? (/ lore$/i.test(name) ? 'int' : ''))))
     if (temporary || availableTraining && currentRank < r) {
@@ -423,7 +424,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
           {temporaryTrainings.filter(training => training.skill === s.name && training.rank > permanentRank).map(training =>
             <SourceNote key={`${training.feat.name}:${s.name}`} inlineSource={false} source={training.feat.name}
-              note="Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options." />)}
+              note={training.feat.name === 'Eclectic Obsession'
+                ? 'Temporary proficiency for 10 minutes or until you critically fail a check with this Lore; cannot qualify for skill increases or permanent options.'
+                : 'Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options.'} />)}
           {s.name === 'Fortitude' && !!activeFeatsNamed(c, 'Radiation Resistant').length && <SourceNote inlineSource={false}
             source="Radiation Resistant" note={`${conditionalTotal(1)} against radiation effects (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}
@@ -512,6 +515,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               && training.rank === i + 1 && training.rank > permanentRank)
             const downloadAvailable = !!temporary || temporaryTrainings.some(training => training.rank === i + 1
               && (training.skill === undefined || permanentRank < i + 1)
+              && (training.feat.name !== 'Eclectic Obsession' || /.+\s+lore$/i.test(s.name))
               && (training.feat.name !== 'Consult the Stars'
                 || ['cha', 'int', 'wis'].includes(s.ability ?? (/ lore$/i.test(s.name) ? 'int' : ''))))
             const backgroundChoice = i === 0 ? trainingChoice(s.name) : undefined
@@ -690,6 +694,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {MASTERMIND_SKILLS.map(skill => <option key={skill}>{skill}</option>)}
         </select>
       </label>}
+      {!!activeFeatsNamed(c, 'Eclectic Obsession').length && <>
+        <label title="Once per day for 10 minutes or until a critical failure with the chosen Lore.">
+          <input type="checkbox" aria-label="Eclectic Obsession active" checked={isFeatEffectActive(c, 'Eclectic Obsession')}
+            disabled={!isFeatEffectActive(c, 'Eclectic Obsession') && !!c.dailyFeatUses?.['Eclectic Obsession']}
+            onChange={event => save({ ...featEffectChange(c, 'Eclectic Obsession', event.target.checked),
+              ...(event.target.checked ? { dailyFeatUses: { ...c.dailyFeatUses, 'Eclectic Obsession': true } } : {}) })} /> Eclectic Obsession active
+        </label>
+        <label><input type="checkbox" aria-label="Eclectic Obsession used" checked={!!c.dailyFeatUses?.['Eclectic Obsession']}
+          onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Eclectic Obsession': event.target.checked } })} /> Eclectic Obsession used</label>
+      </>}
       <div className="skill-rank-budget" aria-label="Remaining skill selections">
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>

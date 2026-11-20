@@ -3362,7 +3362,8 @@ export function dailyLongevityRanks(c: Character, entries: ContentEntry[]) {
 }
 
 export function temporarySkillTrainings(c: Character, entries: ContentEntry[]) {
-  const feats = [...activeFeatsNamed(c, 'Skill Download'), ...activeFeatsNamed(c, 'Consult the Stars')]
+  const feats = [...activeFeatsNamed(c, 'Skill Download'), ...activeFeatsNamed(c, 'Consult the Stars'),
+    ...(isFeatEffectActive(c, 'Eclectic Obsession') ? activeFeatsNamed(c, 'Eclectic Obsession') : [])]
   return feats.map(feat => {
     const skill = feat.choice
     const stat = skill ? statDefs(c).find(candidate => candidate.kind === 'skill' && candidate.name === skill) : undefined
@@ -3373,9 +3374,10 @@ export function temporarySkillTrainings(c: Character, entries: ContentEntry[]) {
       || backgroundSkills(freeHeartBackground(c, entries), c).includes(skill)
       || autoClassSkills(c, entries).includes(skill))
     const keyAbility = stat?.ability ?? (/ lore$/i.test(skill ?? '') ? 'int' : undefined)
-    const allowed = feat.name !== 'Consult the Stars' || ['cha', 'int', 'wis'].includes(keyAbility ?? '')
+    const allowed = feat.name === 'Eclectic Obsession' ? /.+\s+lore$/i.test(skill ?? '')
+      : feat.name !== 'Consult the Stars' || ['cha', 'int', 'wis'].includes(keyAbility ?? '')
     return {
-      feat, rank: feat.name === 'Consult the Stars' ? 1 : c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1,
+      feat, rank: feat.name === 'Consult the Stars' || feat.name === 'Eclectic Obsession' ? 1 : c.level >= 17 ? 3 : c.level >= 9 ? 2 : 1,
       ...(skill && valid && allowed ? { skill } : {}),
     }
   })

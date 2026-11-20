@@ -1701,6 +1701,27 @@ it('grants Consult the Stars one temporary trained skill from eligible key abili
   }
 })
 
+it('applies Eclectic Obsession only while active and only to a chosen Lore', () => {
+  let c: Character = { ...base, level: 5, feats: [{ name: 'Eclectic Obsession', type: 'Ancestry Feat', level: 5 }],
+    lores: [{ name: 'Sailing Lore', rank: 0 }, { name: 'Herbalism Lore', rank: 0 }],
+    skillPicks: ['Acrobatics', 'Arcana', 'Athletics', 'Crafting'],
+    activeFeatEffects: ['Eclectic Obsession'] }
+  const entries = [ranger]
+  const tree = () => SkillsSection({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const before = skillRankBudget(c, entries)
+  ;(findButtons(tree()).get('Sailing Lore Trained')!.onClick as () => void)()
+  expect(c.feats[0].choice).toBe('Sailing Lore')
+  expect(builder.temporarySkillTrainings(c, entries)).toMatchObject([{ skill: 'Sailing Lore', rank: 1 }])
+  expect(ranksAt(c, entries)['Sailing Lore']).toBe(0)
+  expect(skillRankBudget(c, entries)).toEqual(before)
+  expect(renderToStaticMarkup(tree())).toContain('10 minutes or until you critically fail')
+  expect(builder.temporarySkillTrainings({ ...c, activeFeatEffects: [] }, entries)).toEqual([])
+  expect(builder.temporarySkillTrainings({ ...c, level: 4 }, entries)).toEqual([])
+  expect(builder.temporarySkillTrainings({ ...c, feats: [{ ...c.feats[0], choice: 'Athletics' }] }, entries)[0].skill).toBeUndefined()
+  ;(findButtons(tree()).get('Herbalism Lore Trained')!.onClick as () => void)()
+  expect(builder.temporarySkillTrainings(c, entries)[0].skill).toBe('Herbalism Lore')
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }
