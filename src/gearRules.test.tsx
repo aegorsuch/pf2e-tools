@@ -826,6 +826,21 @@ it("shows Spirits' Interference only when activated during Rage", () => {
   expect(html({ ...c, raging: false })).not.toContain('Ranged attacks against you require a successful DC 5 flat check')
 })
 
+it('shows level-scaled conditional Barbarian strike effects on eligible attacks', () => {
+  const c: Character = { ...base, className: 'Barbarian', level: 16, raging: true,
+    feats: [feat('Rip and Tear', 4), feat('Impaling Thrust', 14), feat('Sunder Spell', 12)] }
+  const piercing = { ...sword, data: { ...sword.data, damage: '1d8 piercing' } }
+  const notes = weaponAttack(c, [piercing], main).breakdown.notes.join(' ')
+  expect(notes).toContain('rank 8')
+  expect(notes).toMatch(/takes \d+ persistent bleed/)
+  expect(notes).not.toContain('Rip and Tear')
+  const unarmed = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
+  const unarmedNotes = weaponAttack(c, [], unarmed).breakdown.notes.join(' ')
+  expect(unarmedNotes).toContain('2d6 persistent bleed')
+  expect(unarmedNotes).not.toContain('Impaling Thrust')
+  expect(weaponAttack({ ...c, level: 3 }, [], unarmed).breakdown.notes.join(' ')).not.toContain('Rip and Tear')
+})
+
 it('offers Scouring Rage using the chosen instinct damage type once per Rage', () => {
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level: 10, raging: true, spiritRage: true,
     feats: [feat('Scouring Rage', 6)] }

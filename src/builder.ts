@@ -5762,6 +5762,21 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? ['Brutal Critical: on a critical melee Strike, add one damage die and deal two damage dice of persistent bleed.'] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Shattering Blows').length
           ? [`Shattering Blows: melee Strike damage ignores the first ${classFeatures(entries, c).some(feature => feature.name === 'Devastator') ? 10 : 5} Hardness of an object.`] : []),
+        ...(!ranged && category === 'Unarmed' && activeFeatsNamed(c, 'Rip and Tear').length
+          ? [`Rip and Tear: after dealing piercing or slashing damage with a morph or polymorph unarmed Strike, a successful unarmed Strike against the same target that deals piercing or slashing damage adds ${c.level >= 12 ? 2 : 1}d6 persistent bleed.`] : []),
+        ...(!ranged && c.raging && category !== 'Unarmed' && ['p', 'piercing'].includes((modifiedDamageType ?? '').toLowerCase())
+          && activeFeatsNamed(c, 'Impaling Thrust').length
+          ? [`Impaling Thrust: on a damaging hit, grab the target until it Escapes, you attack with this weapon again, or release it. When freed, it takes ${dice} persistent bleed.`] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Vicious Evisceration').length
+          ? ['Vicious Evisceration: on a damaging hit, the target becomes drained 1, or drained 2 on a critical hit.'] : []),
+        ...(!ranged && activeFeatsNamed(c, 'Annihilating Swing').length
+          ? ["Annihilating Swing: the Strike ignores the target's resistances. It can destroy objects or surfaces of Hardness 20 or less; magical targets require a rank 10 counteract check."] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Mage Hunter').length
+          ? ['Mage Hunter: on a damaging hit against a creature you have seen Cast a Spell, it becomes stupefied 1, or stupefied 2 on a critical hit, until the beginning of your next turn.'] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Silencing Strike').length
+          ? [`Silencing Strike: on a hit, the target attempts a Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'}; failure causes stunned 1 and a DC 11 flat check for linguistic actions and non-subtle spells; critical failure causes stunned 3 instead.`] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Sunder Spell').length
+          ? [`Sunder Spell: on a hit, use the attack roll to counteract one spell or magical effect at rank ${Math.ceil(c.level / 2)}. The target becomes immune to your Sunder Spell for 24 hours.`] : []),
         ...(activeFeatsNamed(c, "Cavalier's Charge").length
           ? [`Cavalier's Charge: ${signed(attack + 1)} on the Strike while riding your mount, within reach or the first range increment (+1 circumstance; circumstance bonuses do not stack).`] : []),
         ...(activeFeatsNamed(c, 'Spirit Coffin').length
