@@ -219,6 +219,8 @@ export interface Character {
   inventiveOffensive?: { weaponId: string; traits: string[] }
   haftStrikerWeaponId?: string
   raging?: boolean
+  barbarianDragon?: import('./barbarian.js').DragonInstinct
+  draconicRage?: boolean
   giantStature?: 'Large' | 'Huge'
   giantWeaponId?: string
   giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'

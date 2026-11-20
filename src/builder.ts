@@ -1,5 +1,6 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, insectBattleForm } from './battleForms'
+import { DRAGON_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
@@ -3865,6 +3866,12 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value, source: 'Raging Resistance' })
     }
   }
+  if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'dragon' && c.barbarianDragon
+    && DRAGON_INSTINCTS[c.barbarianDragon]) {
+    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    for (const damage of new Set(['piercing', DRAGON_INSTINCTS[c.barbarianDragon].damage]))
+      out.push({ damage, value, source: 'Raging Resistance' })
+  }
   const armor = wornArmor(c, entries)
   if (armor) out.push(...energyNeutralizerResistances(c, armor.id))
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
@@ -5169,6 +5176,7 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
   const instinct = barbarianInstinct(c, entries)
   const stage = c.level >= 15 ? 2 : c.level >= 7 ? 1 : 0
   const value = instinct === 'giant' && countsAsGiantWeapon(c, entries, weapon) ? [6, 10, 18][stage]
+    : instinct === 'dragon' && c.draconicRage && c.barbarianDragon && DRAGON_INSTINCTS[c.barbarianDragon] ? [4, 8, 16][stage]
     : instinct === 'fury' ? [3, 7, 13][stage] : 2
   return traits.includes('agile') ? Math.floor(value / 2) : value
 }
@@ -5548,7 +5556,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? classFeatures(entries, c).some(feature => /^greater weapon specialization$/i.test(feature.name)) ? rank * 2
       : classFeatures(entries, c).some(feature => /^weapon specialization$/i.test(feature.name)) ? rank : 0 : 0
   const rageDamage = formAttack ? 0 : rageDamageBonus(c, entries, w, traits, ranged)
-  const damageBonus = formAttack && form ? form.damageBonus : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + rageDamage
+  const dragonDamage = rageDamage && barbarianInstinct(c, entries) === 'dragon' && c.draconicRage && c.barbarianDragon
+    ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage : undefined
+  const damageBonus = formAttack && form ? form.damageBonus : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -5604,7 +5614,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     pristineWeapon,
     rageDamage,
     areaAttacks,
-    additionalDamage: [...supportDamage, ...(formAttack ? [
+    additionalDamage: [...supportDamage, ...(dragonDamage ? [{ source: 'Draconic Rage', value: `${rageDamage} ${dragonDamage}`, note: 'Additional damage from Draconic Rage.' }] : []), ...(formAttack ? [
       ...(formAttack.data.persistent_bleed && form
         ? [{ source: form.source, value: `${formAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []),
       ...(formAttack.data.persistent_poison && form

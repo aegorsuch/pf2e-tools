@@ -649,6 +649,46 @@ it('applies chosen Giant raging resistance only from level 9 and while raging', 
   ])
 })
 
+it.each([[1, 4], [7, 8], [15, 16]])('applies selected Draconic Rage damage at level %i', (level, rage) => {
+  const c: Character = { ...base, level, className: 'Barbarian', subclass: 'Dragon', raging: true,
+    barbarianDragon: 'Diabolic', draconicRage: true, weapons: [main] }
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.rageDamage).toBe(rage)
+  expect(attack.additionalDamage).toContainEqual({ source: 'Draconic Rage', value: `${rage} fire`, note: 'Additional damage from Draconic Rage.' })
+  expect(attack.damage).toBe(weaponAttack({ ...c, raging: false }, [sword], main).damage)
+  const ordinary = weaponAttack({ ...c, draconicRage: false }, [sword], main)
+  expect(ordinary.rageDamage).toBe(2)
+  expect(ordinary.additionalDamage.some(item => item.source === 'Draconic Rage')).toBe(false)
+  if (level >= 9) expect(resistances(c, [sword])).toContainEqual({ damage: 'Fire', value: 3, source: 'Raging Resistance' })
+})
+
+it('provides dragon breath damage, action, and class DC for the chosen dragon while raging', () => {
+  const barbarian = content('class', 'Barbarian', { attribute: 'Strength' })
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Dragon', level: 8, raging: true,
+    barbarianDragon: 'Omen', feats: [feat("Dragon's Rage Breath", 6)] }
+  const html = renderToStaticMarkup(<ClassFeatures c={c} entries={[barbarian]} save={() => {}} />)
+  expect(html).toContain('8d6 mental')
+  expect(html).toContain('30-foot cone; basic Reflex save')
+  expect(html).toContain('Occult trait; once per 10 minutes')
+  expect(renderToStaticMarkup(<ClassFeatures c={{ ...c, raging: false }} entries={[barbarian]} save={() => {}} />))
+    .not.toContain('Roll Dragon&#x27;s Rage Breath')
+})
+
+it('halves Draconic Rage for agile attacks and requires Raging Thrower for thrown attacks', () => {
+  const agile = { ...sword, traits: ['Agile'] }
+  const thrown = content('weapon', 'Test Javelin', { weapon_type: 'Ranged', damage: '1d6 piercing', range: 30 }, 0, ['Thrown'])
+  const c: Character = { ...base, level: 7, className: 'Barbarian', subclass: 'Dragon', raging: true,
+    barbarianDragon: 'Diabolic', draconicRage: true }
+  const weapon = { ...main, id: thrown.id, name: thrown.name }
+  const previous = getSettings().barbarianIgnoreAgile
+  try {
+    updateSettings({ barbarianIgnoreAgile: false })
+    expect(weaponAttack(c, [agile], main).rageDamage).toBe(4)
+    expect(weaponAttack(c, [thrown], weapon).rageDamage).toBe(0)
+    expect(weaponAttack({ ...c, feats: [feat('Raging Thrower')] }, [thrown], weapon).rageDamage).toBe(8)
+  } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
+})
+
 it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
   const agile = { ...sword, traits: ['Agile'] }
   const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])

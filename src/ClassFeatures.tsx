@@ -7,7 +7,10 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { withoutBattleForm } from './builder'
+import { classDifficultyClass, withoutBattleForm } from './builder'
+import { DRAGON_INSTINCTS, type DragonInstinct } from './barbarian'
+import { DamageRoll } from './SpellDamage'
+import { SourceNote } from './Info'
 
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
@@ -72,6 +75,27 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </select>
         </label>}
       </div>}
+      {instinct === 'dragon' && <div className="col" aria-label="Dragon Instinct">
+        <label>Dragon{' '}
+          <select aria-label="Dragon Instinct dragon" value={c.barbarianDragon ?? ''} disabled={!!c.raging} onChange={event => {
+            const choice = (Object.keys(DRAGON_INSTINCTS) as DragonInstinct[]).find(name => name === event.target.value)
+            save({ barbarianDragon: choice })
+          }}>
+            <option value="">Choose dragon</option>
+            {(Object.keys(DRAGON_INSTINCTS) as DragonInstinct[]).map(name => <option key={name}>{name}</option>)}
+          </select>
+        </label>
+        {c.barbarianDragon && DRAGON_INSTINCTS[c.barbarianDragon] && <>
+          <label><input type="checkbox" aria-label="Use Draconic Rage" checked={!!c.draconicRage} disabled={!!c.raging}
+            onChange={event => save({ draconicRage: event.target.checked })} /> Use Draconic Rage</label>
+          {c.raging && !!activeFeatsNamed(c, "Dragon's Rage Breath").length && <span>
+            Dragon's Rage Breath{' '}
+            <DamageRoll name="Dragon's Rage Breath" actions="Two Actions"
+              damage={{ label: 'Damage', dice: c.level, sides: 6, type: DRAGON_INSTINCTS[c.barbarianDragon].damage }} />
+            <SourceNote source="Dragon's Rage Breath" note={`30-foot cone; basic Reflex save against ${classDifficultyClass(c, entries) ?? 'class DC'}. ${DRAGON_INSTINCTS[c.barbarianDragon].tradition} trait; once per 10 minutes.`} />
+          </span>}
+        </>}
+      </div>}
       {verdant && <div className="col" aria-label="Verdant Weapon selection">
         {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon),
           id => selectWeapon(id, 'verdantWeapon'))}
@@ -80,7 +104,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         {weaponChoice('Osteo Armaments', osteoWeapon?.id, weapon => canBeOsteoArmament(c, entries, weapon),
           id => selectWeapon(id, 'osteoArmament'))}
       </div>}
-      {c.raging && instinct && !['giant', 'fury'].includes(instinct)
+      {c.raging && instinct && !['giant', 'fury', 'dragon'].includes(instinct)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
       {c.className === 'Guardian' && features.some(feature => feature.name === 'Reaction Time') && <div className="col">
         <Info label="Reaction Time">You have 2 reactions each turn; the additional reaction can be used only for guardian feats or class features
