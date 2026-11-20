@@ -712,3 +712,9 @@ it('renders rank-scaled rollers beside owned spells and omits unavailable spell 
   for (const name of ['Warning Stripes', "Ranger's Bramble", 'Gluttonous Growth', 'Pulverizing Wake'])
     expect(spellDamage(name, 2)).toEqual([])
 })
+
+it('scales Entropy Strike void and tech persistent acid damage by rank', () => {
+  expect(spellDamage('Entropy Strike', 2)).toEqual([])
+  expect(spellDamage('Entropy Strike', 3)[0]).toMatchObject({ dice: 5, sides: 8, type: 'void', additional: { dice: 2, sides: 6, type: 'persistent acid' } })
+  expect(spellDamage('Entropy Strike', 5)[0]).toMatchObject({ dice: 7, additional: { dice: 4 } })
+})

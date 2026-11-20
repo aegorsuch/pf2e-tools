@@ -93,6 +93,10 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
     case 'Massacre':
       return rank >= 9 ? [{ label: 'Success', dice: rank >= 10 ? 10 : 9, sides: 6, type: 'void' }] : []
+    case 'Entropy Strike':
+      return rank >= 3 ? [{ label: 'Damage', dice: rank + 2, sides: 8, type: 'void',
+        additional: { label: 'Tech creature persistent', dice: rank - 1, sides: 6, type: 'persistent acid' },
+        note: 'Double damage on a critical hit' }] : []
     case 'Void Warp':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
     case 'Deathly Scream':
