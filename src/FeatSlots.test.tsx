@@ -1744,6 +1744,20 @@ it('lists class-granted Shield Block as a non-removable general feat', () => {
   expect(backgroundMarkup).toContain('aria-label="Add L01 General feat slot"')
 })
 
+it('lists Close Quarters Whirling Swipe as granted while allowing manual selection for other Soldier styles', () => {
+  const whirlingSwipe: ContentEntry = {
+    id: 'whirling-swipe', systems: ['sf2e'], kind: 'feat', source: 'official', name: 'Whirling Swipe', level: 1,
+    traits: ['Soldier'], description: '', data: {}, effects: [], updatedAt: 0,
+  }
+  const soldier: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Soldier', subclass: 'Close Quarters' }
+  const markup = renderToStaticMarkup(<FeatSlots c={soldier} entries={[whirlingSwipe]} save={() => {}} categories={['class']} />)
+  expect(markup).toContain('>Whirling Swipe <small>(Close Quarters)</small></button>')
+  expect(markup).toContain('automatic-feat-row')
+  expect(eligibleFeats([whirlingSwipe], soldier, { key: 'class:1:0', category: 'class', level: 1 })).not.toContain(whirlingSwipe)
+  expect(eligibleFeats([whirlingSwipe], { ...soldier, subclass: 'Action Hero' },
+    { key: 'class:1:0', category: 'class', level: 1 })).toContain(whirlingSwipe)
+})
+
 it('alphabetizes skill feats from all sources within their acquisition level', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 2, background: 'Scholar',
     extraSlots: [{ category: 'skill', level: 1, count: 3 }],

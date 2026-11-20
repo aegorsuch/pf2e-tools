@@ -65,7 +65,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
         && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
         ? [feat] : []
     }) : []
-  const grants = !categories || categories.includes('skill') || categories.includes('general')
+  const grants = !categories || categories.some(category => ['class', 'skill', 'general'].includes(category))
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
