@@ -759,6 +759,40 @@ it('provides spider web and venomous bestial attacks', () => {
   expect(web.breakdown.notes.join(' ')).toContain('immobilizes')
 })
 
+it.each([[1, 3], [7, 7], [15, 13]])('applies Spirit Rage damage at level %i', (level, rage) => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level, raging: true, spiritRage: true }
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.additionalDamage).toContainEqual({ source: 'Spirit Rage', value: `${rage} spirit`,
+    note: 'The attack gains ghost touch while using Spirit Rage.' })
+  expect(attack.damage).toBe(weaponAttack({ ...c, raging: false }, [sword], main).damage)
+  expect(weaponAttack({ ...c, spiritRage: false }, [sword], main).rageDamage).toBe(2)
+})
+
+it('gates fury, spirit and superstition raging resistance and superstition conditional bonuses', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Superstition', level: 9, raging: true,
+    superstitionTraditions: 'Arcane and Primal' }
+  const resistance = (character: Character) => resistances(character, []).filter(item => item.source === 'Raging Resistance')
+  expect(resistance(c)).toEqual([{ damage: 'Damage from Arcane and Primal spells', value: 3, source: 'Raging Resistance' }])
+  expect(resistance({ ...c, subclass: 'Fury' })[0].damage).toContain('Physical damage from weapons')
+  expect(resistance({ ...c, subclass: 'Spirit' }).map(item => item.damage)).toEqual(['Void', 'Damage from undead attacks and abilities'])
+  expect(resistance({ ...c, raging: false })).toEqual([])
+  expect(resistance({ ...c, level: 8 })).toEqual([])
+  expect(savingThrowBreakdown(c, [], 'Will').notes?.join(' ')).toContain('against magic')
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.rageDamage).toBe(7)
+  expect(attack.breakdown.notes.join(' ')).toContain('Rage damage is 8')
+})
+
+it('offers Scouring Rage using the chosen instinct damage type once per Rage', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level: 10, raging: true, spiritRage: true,
+    feats: [feat('Scouring Rage', 6)] }
+  const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
+  expect(html(c)).toContain('10 spirit')
+  expect(html(c)).toContain('basic Fortitude save')
+  expect(html({ ...c, scouringRageUsed: true })).toContain('disabled="" class="spell-action-button"')
+  expect(html({ ...c, spiritRage: false })).not.toContain('Roll Scouring Rage')
+})
+
 it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
   const agile = { ...sword, traits: ['Agile'] }
   const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])

@@ -26,6 +26,9 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const instinct = barbarianInstinct(c, entries)
   const element = c.barbarianElement && ELEMENTAL_INSTINCTS[c.barbarianElement]
   const elementalType = elementalRageType(c, entries)
+  const scouringType = instinct === 'elemental' ? elementalType
+    : instinct === 'dragon' && c.draconicRage && c.barbarianDragon ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage
+    : instinct === 'spirit' && c.spiritRage ? 'spirit' : undefined
   const verdant = c.systems.includes('pf2e') && ['Verdant Weapon', 'Verdant Weapon Jousting']
     .some(name => activeFeatsNamed(c, name).length > 0)
   const verdantWeapon = weapons.find(weapon => weapon.verdantWeapon)
@@ -124,6 +127,20 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </span>}
         </>}
       </div>}
+      {instinct === 'spirit' && <div className="col" aria-label="Spirit Instinct">
+        <label><input type="checkbox" aria-label="Use Spirit Rage" checked={!!c.spiritRage} disabled={!!c.raging}
+          onChange={event => save({ spiritRage: event.target.checked })} /> Use Spirit Rage</label>
+      </div>}
+      {instinct === 'superstition' && c.level >= 9 && <label>Raging Resistance{' '}
+        <select aria-label="Superstition Raging Resistance" value={c.superstitionTraditions ?? ''} onChange={event => {
+          const choice = (['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'] as const)
+            .find(value => value === event.target.value)
+          save({ superstitionTraditions: choice })
+        }}>
+          <option value="">Choose traditions</option>
+          {['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'].map(value => <option key={value}>{value}</option>)}
+        </select>
+      </label>}
       {instinct === 'elemental' && <div className="col" aria-label="Elemental Instinct">
         <label>Element{' '}
           <select aria-label="Elemental Instinct element" value={c.barbarianElement ?? ''} disabled={!!c.raging} onChange={event => {
@@ -155,6 +172,13 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           <SourceNote source="Elemental Explosion" note={`15-foot emanation; basic Reflex save against ${classDifficultyClass(c, entries) ?? 'class DC'}. ${c.barbarianElement} trait; once per Rage.`} />
         </span>}
       </div>}
+      {c.raging && scouringType && !!activeFeatsNamed(c, 'Scouring Rage').length && <span>
+        Scouring Rage{' '}
+        <DamageRoll name="Scouring Rage" actions="Free Action" disabled={!!c.scouringRageUsed}
+          onRoll={() => save({ scouringRageUsed: true })}
+          damage={{ label: 'Damage', dice: 0, sides: 0, bonus: c.level, type: scouringType }} />
+        <SourceNote source="Scouring Rage" note={`When you Rage: enemies within 20 feet; basic Fortitude save against ${classDifficultyClass(c, entries) ?? 'class DC'}.`} />
+      </span>}
       {verdant && <div className="col" aria-label="Verdant Weapon selection">
         {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon),
           id => selectWeapon(id, 'verdantWeapon'))}
@@ -163,7 +187,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         {weaponChoice('Osteo Armaments', osteoWeapon?.id, weapon => canBeOsteoArmament(c, entries, weapon),
           id => selectWeapon(id, 'osteoArmament'))}
       </div>}
-      {c.raging && instinct && !['giant', 'fury', 'dragon', 'animal'].includes(instinct) && !(instinct === 'elemental' && elementalType)
+      {c.raging && instinct && !['giant', 'fury', 'dragon', 'animal', 'spirit', 'superstition'].includes(instinct) && !(instinct === 'elemental' && elementalType)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
       {c.className === 'Guardian' && features.some(feature => feature.name === 'Reaction Time') && <div className="col">
         <Info label="Reaction Time">You have 2 reactions each turn; the additional reaction can be used only for guardian feats or class features

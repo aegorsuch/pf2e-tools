@@ -3711,6 +3711,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
     ...(c.raging && activeFeatsNamed(c, 'Draconic Arrogance').length
       ? [`Draconic Arrogance: ${signed(total + 2)} against emotion effects (+2 status; status bonuses do not stack).`] : []),
+    ...(c.raging && barbarianInstinct(c, entries) === 'superstition'
+      ? [`Superstitious Resilience: ${signed(total + 2)} against magic (+2 status; status bonuses do not stack).`] : []),
     ...(name === 'Reflex' && isFeatEffectActive(c, 'Verdant Metamorphosis')
       ? ['Verdant Rest: Reflex successes and critical successes become failures.'] : []),
     ...(activeFeatsNamed(c, 'Timeless Nature').length
@@ -3876,6 +3878,17 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     for (const damage of ['piercing', 'slashing'])
       out.push({ damage, value, source: 'Raging Resistance' })
   }
+  if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'fury')
+    out.push({ damage: 'physical damage from weapons', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Raging Resistance' })
+  if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'spirit') {
+    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    out.push({ damage: 'void', value, source: 'Raging Resistance' })
+    out.push({ damage: 'damage from undead attacks and abilities', value, source: 'Raging Resistance' })
+  }
+  if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'superstition'
+    && ['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'].includes(c.superstitionTraditions ?? ''))
+    out.push({ damage: `damage from ${c.superstitionTraditions} spells`,
+      value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Raging Resistance' })
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'dragon' && c.barbarianDragon
     && DRAGON_INSTINCTS[c.barbarianDragon]) {
     const value = Math.max(0, 3 + abilityMod(c.abilities.con))
@@ -5217,6 +5230,7 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
     : instinct === 'animal' && bestialWeapon(weapon.id) ? [2, 5, 12][stage]
     : instinct === 'dragon' && c.draconicRage && c.barbarianDragon && DRAGON_INSTINCTS[c.barbarianDragon] ? [4, 8, 16][stage]
     : instinct === 'elemental' && elementalRageType(c, entries) ? [4, 6, 12][stage]
+    : (instinct === 'spirit' && c.spiritRage || instinct === 'superstition') ? [3, 7, 13][stage]
     : instinct === 'fury' ? [3, 7, 13][stage] : 2
   return traits.includes('agile') ? Math.floor(value / 2) : value
 }
@@ -5605,7 +5619,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const dragonDamage = rageDamage && barbarianInstinct(c, entries) === 'dragon' && c.draconicRage && c.barbarianDragon
     ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage : undefined
   const elementalDamage = rageDamage && c.raging ? elementalRageType(c, entries) : undefined
-  const damageBonus = formAttack && form ? form.damageBonus : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage ? 0 : rageDamage)
+  const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
+  const damageBonus = formAttack && form ? form.damageBonus : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
@@ -5671,6 +5686,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ? [{ source: form.source, value: String(formAttack.data.extra_damage), note: 'Additional damage from the battle form.' }] : []),
     ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
+      ...(spiritDamage ? [{ source: 'Spirit Rage', value: `${rageDamage} spirit`, note: 'The attack gains ghost touch while using Spirit Rage.' }] : []),
       ...(bestial && traits.includes('venomous') ? [{ source: 'Venomous', value: `${w.striking >= 2 ? 2 : 1} persistent poison`,
         note: 'Persistent poison from a venomous unarmed attack.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
@@ -5722,6 +5738,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
         ...(bestial && w.id === 'bestial:Spider:Web' ? [`Web deals no damage. On a hit, the target takes a -10-foot circumstance penalty to Speeds for 1 round; a second hit while penalized immobilizes it until it Escapes against ${classDifficultyClass(c, entries) ?? 'your class DC'}.`] : []),
+        ...(rageDamage && barbarianInstinct(c, entries) === 'superstition' ? [`Superstitious Resilience: Rage damage is ${traits.includes('agile') ? Math.floor((c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4) / 2) : c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4} against creatures you witnessed Cast a Spell in the last hour.`] : []),
         ...(!ranged && activeFeatsNamed(c, 'Brutal Critical').length
           ? ['Brutal Critical: on a critical melee Strike, add one damage die and deal two damage dice of persistent bleed.'] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Shattering Blows').length
