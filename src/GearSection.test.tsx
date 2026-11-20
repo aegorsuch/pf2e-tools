@@ -2145,6 +2145,7 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Add armor upgrade')
+  expect(markup).not.toContain('Armor material')
   expect(markup).not.toContain('Add property rune')
   expect(markup).not.toContain('Shadow')
   expect(markup).not.toContain('<label>Potency')

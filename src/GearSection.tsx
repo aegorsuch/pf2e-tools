@@ -1864,7 +1864,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   : typeof entry?.data.granted_by === 'string' ? entry.data.granted_by : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>
                     update(a.id, { material: undefined, runes: a.runes.slice(0, runeLimit(a.potency, undefined)) })} />
-              </div> : body ? null : <span>Material{' '}
+              </div> : body || sf2eArmor ? null : <span>Material{' '}
                 <SearchableSelect aria-label="Armor material" value="" onChange={(e) => {
                   if (isWoodArmor(entries, a)) return
                   const material = ARMOR_MATERIALS.find((name) => name === e.target.value)
