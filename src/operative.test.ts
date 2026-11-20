@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
-import { boostSlots, classDifficultyClass, eligibleFeats, featChoiceOptions, initiativeBonus, isGrantedSlot, plannedSlots, ranksAt, speed, weaponAttack } from './builder'
+import { armorClass, armorClassBreakdown, boostSlots, classDifficultyClass, eligibleFeats, featChoiceOptions, hasParryWeapon, initiativeBonus, isGrantedSlot, parryValue, plannedSlots, ranksAt, savingThrowBreakdown, speed, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(snapshot)
@@ -59,6 +59,45 @@ it('applies specialization and critical effects while keeping Aim conditional', 
   expect(attack({ ...base, level: 17 }, blade).breakdown.notes?.join(' ')).not.toContain('Aim:')
   expect(attack({ ...base, level: 17, subclass: 'Striker' }, blade).breakdown.notes?.join(' ')).toContain('Aim:')
   expect(attack({ ...base, level: 17 }, { ...simpleGun, traits: ['Tech', 'Area'] }).breakdown.notes?.join(' ')).not.toContain('Aim:')
+})
+
+it('applies Aim feat benefits and conditional bleed without changing base damage', () => {
+  const c: Character = { ...base, level: 11, feats: [
+    { name: 'Keep Them In Your Sights', type: 'Class Feat', level: 1 },
+    { name: 'Devastating Aim', type: 'Class Feat', level: 4 },
+    { name: 'Bloody Wounds', type: 'Class Feat', level: 4 },
+  ] }
+  const result = attack(c, simpleGun)
+  expect(result.damage).toBe(attack({ ...c, feats: [] }, simpleGun).damage)
+  expect(result.breakdown.notes?.join(' ')).toContain('first or second range increment')
+  expect(result.breakdown.notes?.join(' ')).toContain('3d6 precision damage')
+  expect(result.breakdown.notes?.join(' ')).toContain('critical hit against your mark deals 3 persistent bleed damage')
+  expect(attack({ ...c, level: 3 }, simpleGun).breakdown.notes?.join(' ')).toContain('1d4 precision damage')
+  expect(attack({ ...c, subclass: 'Striker' }, blade).breakdown.notes?.join(' ')).toContain('3d6 precision damage')
+  const extreme = { ...c, level: 16, feats: [...c.feats, { name: 'Extreme Accuracy', type: 'Class Feat', level: 16 }] }
+  expect(attack(extreme, simpleGun).breakdown.notes?.join(' ')).toContain('within the first four range increments')
+  expect(attack(extreme, simpleGun).breakdown.notes?.join(' ')).toContain('ignore range penalties')
+})
+
+it('keeps Danger Awareness bonuses conditional', () => {
+  const c: Character = { ...base, level: 2, feats: [{ name: 'Danger Awareness', type: 'Class Feat', level: 2 }] }
+  expect(armorClassBreakdown(c, entries).notes?.join(' ')).toContain('attacks from traps and hidden')
+  expect(savingThrowBreakdown(c, entries, 'Reflex').notes?.join(' ')).toContain('against traps')
+  expect(armorClass(c, entries)).toBe(armorClass({ ...c, feats: [] }, entries))
+})
+
+it('grants gun parry and improves an existing parry only while wielded', () => {
+  const own: OwnedWeapon = { id: simpleGun.id, name: simpleGun.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, level: 2, feats: [{ name: 'Defensive Gunner', type: 'Class Feat', level: 2 }], weapons: [own] }
+  const data = [...entries, simpleGun]
+  expect(weaponAttack(c, data, own).traits).toContain('Parry')
+  expect(hasParryWeapon(c, data)).toBe(true)
+  expect(parryValue(c, data)).toBe(1)
+  expect(armorClass({ ...c, parrying: true }, data) - armorClass(c, data)).toBe(1)
+  expect(parryValue(c, [...entries, { ...simpleGun, traits: ['Tech', 'Parry'] }])).toBe(2)
+  expect(parryValue({ ...c, weapons: [{ ...own, stowed: true }] }, data)).toBe(0)
+  const bowOwned = { ...own, id: bow.id, name: bow.name }
+  expect(parryValue({ ...c, weapons: [bowOwned] }, [...entries, bow])).toBe(0)
 })
 
 it('grants specialization skill slots and restricts Sniper bonus choices', () => {

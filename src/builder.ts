@@ -2212,6 +2212,14 @@ function hasParryTrait(entry?: ContentEntry) {
   return !!entry && [...entry.traits, ...tokens(entry.data.trait)].some(trait => trait.toLowerCase() === 'parry')
 }
 
+function operativeGun(entry?: ContentEntry) {
+  return !!entry && isRanged(entry) && entry.traits.some(trait => /^(analog|tech)$/i.test(trait))
+}
+
+function defensiveGunnerParry(c: Character, entry?: ContentEntry) {
+  return c.systems.includes('sf2e') && activeFeatsNamed(c, 'Defensive Gunner').length > 0 && operativeGun(entry)
+}
+
 function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weaponEntry([], weapon.name)) {
   const group = String(entry?.data.weapon_group ?? '').toLowerCase()
   return activeFeatsNamed(c, 'Defensive Armaments').length > 0 && weaponHands(entry ? [entry] : [], weapon, c) === 2
@@ -2221,7 +2229,7 @@ function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weap
 function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const enhanced = effectiveWeapon(c, entries, weapon)
   const entry = weaponEntry(entries, enhanced.name, enhanced.id)
-  return hasParryTrait(entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
+  return hasParryTrait(entry) || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
     && weaponHands(entries, enhanced, c) === 2) || defensiveArmamentsParry(c, enhanced, entry)
     || enhanced.runes.some(rune => runeName(rune) === 'Parrying'
       && weaponRuneApplies(entries, enhanced, rune)) && weaponAttack(c, entries, weapon).rank > 0
@@ -2293,7 +2301,7 @@ function parryFeatEntries(c: Character, entries: ContentEntry[]) {
 }
 
 export function parryValue(c: Character, entries: ContentEntry[]) {
-  const featEntries = parryFeatEntries(c, entries).filter(entry => entry.name !== 'Twin Parry')
+  const featEntries = parryFeatEntries(c, entries).filter(entry => !['Twin Parry', 'Defensive Gunner'].includes(entry.name))
   const hasWeapon = hasParryWeapon(c, entries)
   if (!hasWeapon) return 0
   const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
@@ -2302,7 +2310,14 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
       && weaponHands(entries, weapon, c) === 2 && hasParryTrait(weaponEntry(entries, weapon.name, weapon.id))) ? 2 : 0
   const tacticalGrid = ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
     && installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
-  return Math.max(1, featBonus, raisedHaftBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0)
+  const defensiveGunnerBonus = ownedWeapons(c, entries).some(weapon => {
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
+    if (!weaponEquipped(c, entries, weapon) || !defensiveGunnerParry(c, entry)) return false
+    const enhanced = effectiveWeapon(c, entries, weapon)
+    return hasParryTrait(entry) || enhanced.runes.some(rune => runeName(rune) === 'Parrying' && weaponRuneApplies(entries, enhanced, rune))
+      || installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name))
+  }) ? 2 : 0
+  return Math.max(1, featBonus, raisedHaftBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0, defensiveGunnerBonus)
 }
 
 export const twinnedDefenseActive = (c: Character, entries: ContentEntry[]) =>
@@ -3130,6 +3145,9 @@ export function senses(c: Character, entries: ContentEntry[]) {
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
   }
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
+    addVision('Blood sense (imprecise) 30 feet, wounded living creatures with blood', 'Blood Sense')
+  }
   if (isFeatEffectActive(c, 'Briny Beverage')) addVision('Wavesense (imprecise) 20 feet', 'Briny Beverage')
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
   if (activeFeatsNamed(c, "Jotun's Eyes").length) addVision('Darkvision', "Jotun's Eyes")
@@ -3712,7 +3730,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const innovationCategory = weapon.inventorInnovation && category === 'Advanced' && canBeWeaponInnovation(c, entries, weapon) ? 'Martial' : undefined
   const ranks = weaponRanks(c, entries)
   const operative = c.systems.includes('sf2e') && c.className === 'Operative'
-  const gun = !!entry && isRanged(entry) && entry.traits.some(trait => /^(analog|tech)$/i.test(trait))
+  const gun = operativeGun(entry)
   const strikerWeapon = operative && c.subclass === 'Striker' && !!entry && !isRanged(entry)
     && (category === 'Unarmed' || weaponHands(entries, weapon, c) === 1)
     && entry.traits.some(trait => /^(agile|finesse)$/i.test(trait))
@@ -3875,6 +3893,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     ...(researched ? [`Researched Spell Resistance: +1 circumstance against ${researched.traditions.join(', ')} spells and effects; circumstance bonuses do not stack.`] : []),
     ...(activeFeatsNamed(c, 'Hazard Finder').length
       ? ['Hazard Finder +1 circumstance against hazard effects; circumstance bonuses do not stack.'] : []),
+    ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Danger Awareness').length
+      ? ['Danger Awareness +1 circumstance against traps; circumstance bonuses do not stack.'] : []),
     ...(activeFeatsNamed(c, 'Parthenogenic Hatchling').length
       ? ['Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.'] : []),
   ]
@@ -4297,6 +4317,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
   if (activeFeatsNamed(c, 'Hazard Finder').length)
     notes.push('Hazard Finder +1 circumstance against hazard attacks; circumstance bonuses do not stack.')
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Danger Awareness').length)
+    notes.push('Danger Awareness +1 circumstance against attacks from traps and hidden, undetected, or unnoticed creatures; circumstance bonuses do not stack.')
   if (currentSpell) notes.push(`Current Spell: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, 2 - best)} against ranged attacks; circumstance bonuses do not stack.`)
   notes.push(...hellknightSkillNotes(c, 'AC').map(benefit => `${benefit.name}: ${benefit.description} Circumstance bonuses do not stack.`))
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }
@@ -4323,6 +4345,9 @@ const veskAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:vesk:tail', name: 'Vesk Tail', systems: ['sf2e'],
     traits: ['Sweep', 'Trip', 'Unarmed', 'Vesk'], data: { ...FIST.data, damage: '1d6 bludgeoning' } },
 ]
+const venomousVeskJaws: ContentEntry = { ...FIST, id: 'sf2e:vesk:venomous-jaws', name: 'Venomous Vesk Jaws',
+  systems: ['sf2e'], traits: ['Grapple', 'Unarmed', 'Vesk'],
+  data: { ...FIST.data, weapon_group: '', damage: '1d4 poison' } }
 const bestialWeapons: ContentEntry[] = Object.entries(ANIMAL_INSTINCTS).flatMap(([animal, attacks]) => attacks.map(attack => ({
   ...FIST, id: `bestial:${animal}:${attack.name}`, name: `${attack.name} (${animal} Rage)`,
   traits: [...attack.traits, 'Unarmed'],
@@ -4598,6 +4623,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     ? [ysokiJaws[c.heritage === 'Fierce Ysoki' ? 1 : 0]] : []
   const brutalAttacks = activeFeatsNamed(c, 'Brutal Anatomy').flatMap(feat =>
     veskAttacks.filter(entry => entry.name === `Vesk ${feat.choice}`))
+  const venomousJaws = c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Fork-Tongued Vesk'
+    ? [venomousVeskJaws] : []
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
@@ -4607,6 +4634,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
     && (!veskAttacks.some(entry => entry.id === weapon.id) || brutalAttacks.some(entry => entry.id === weapon.id))
+    && (weapon.id !== venomousVeskJaws.id || venomousJaws.length > 0)
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
@@ -4614,7 +4642,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nativeJaws, ...brutalAttacks,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nativeJaws, ...brutalAttacks, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
@@ -4855,7 +4883,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
-  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks].some(entry => entry.name === name)
+  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, venomousVeskJaws].some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -4915,7 +4943,7 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
-  const jaws = [...ysokiJaws, ...veskAttacks].find(entry => id ? entry.id === id : entry.name === name)
+  const jaws = [...ysokiJaws, ...veskAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
   if (jaws) return jaws
   const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
   if (bestial) return bestial
@@ -5747,7 +5775,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (entry) {
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
     const added = [
-      ...(defensiveArmamentsParry(c, w, entry) || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
+      ...(defensiveArmamentsParry(c, w, entry) || defensiveGunnerParry(c, entry)
+        || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
       ...(upgrades.some(upgrade => upgrade.name === 'Merciful') ? ['Nonlethal'] : []),
       ...(mechanicMods?.incapacitant ? ['Nonlethal'] : []),
       ...(upgrades.some(upgrade => /^Smuggler's Grip(?:\s*\(|$)/i.test(upgrade.name)) ? ['Concealed'] : []),
@@ -5954,14 +5983,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(activeFeatsNamed(c, 'Raise Haft').length > 0 && weaponHands(entries, w, c) === 2
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
-    criticalSpecialization: !formAttack && (hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
+    criticalSpecialization: !formAttack && w.id !== venomousVeskJaws.id && (hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
       || c.level >= 5 && veskAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Brutal Anatomy').length > 0
       || c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 5 && rank >= 2
       || c.systems.includes('sf2e') && c.className === 'Mechanic' && c.level >= 5 && rank >= 2
       || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait))),
-    criticalNote: formAttack?.data.critical_bleed ? `${formAttack.data.critical_bleed} persistent bleed on a critical hit.`
+    criticalNote: w.id === venomousVeskJaws.id ? `${dice} persistent poison damage on a critical hit.`
+      : formAttack?.data.critical_bleed ? `${formAttack.data.critical_bleed} persistent bleed on a critical hit.`
       : cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
     ability,
     mod,
@@ -5998,11 +6028,16 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           && (ranged && !traits.some(trait => /^area(?:\s|$)/i.test(trait))
             || c.subclass === 'Striker' && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
               && traits.some(trait => /^(agile|finesse)$/i.test(trait)))
-          ? [`Aim: against your mark${ranged ? ' within the first range increment' : ''}, deal ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1}d4 precision damage and reduce its cover bonus to AC by ${c.level >= 17 ? 4 : c.level >= 11 ? 2 : 1}.`,
+          ? [`Aim: against your mark${ranged ? activeFeatsNamed(c, 'Extreme Accuracy').length
+              ? ' within the first four range increments' : activeFeatsNamed(c, 'Keep Them In Your Sights').length
+                ? ' within the first or second range increment' : ' within the first range increment' : ''}, deal ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1}d${activeFeatsNamed(c, 'Devastating Aim').length ? 6 : 4} precision damage and reduce its cover bonus to AC by ${c.level >= 17 ? 4 : c.level >= 11 ? 2 : 1}.`,
+            ...(ranged && activeFeatsNamed(c, 'Extreme Accuracy').length ? ['Extreme Accuracy: ignore range penalties against your mark within four range increments.'] : []),
             ...(c.level >= 15 ? ['Critical Aim: the first successful Strike against your mark after Aiming each round applies critical specialization.'] : []),
             ...(c.level >= 17 ? ['Tactical Barrage: attacks against your mark use a multiple attack penalty of -3/-6 (-2/-4 with agile).'] : [])] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Ghost' && ranged
           ? ['Ghost: Aim as a free action against a target you are undetected by.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Bloody Wounds').length
+          ? [`Bloody Wounds: a critical hit against your mark deals ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1} persistent bleed damage.`] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Skirmisher' && ranged
           && weaponHands(entries, w, c) === 1
           ? ['Skirmisher: ranged Strikes with this weapon do not trigger reactions triggered by ranged attacks.',

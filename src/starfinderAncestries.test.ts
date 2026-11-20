@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
+import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import { additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
@@ -79,4 +80,33 @@ it('applies heritage senses and Vesk movement and tail without stacking duplicat
     { name: 'Prehensile Limbs', type: 'Ancestry Feat', level: 5 }] }
   expect(totalHandCapacity({ ...climber, level: 5 })).toBe(3)
   expect(movementSpeeds(climber, entries)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: 20 }))
+})
+
+it('grants Blood Sense only once the feat is active', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', level: 5,
+    feats: [{ name: 'Blood Sense', type: 'Ancestry Feat', level: 5 }] }
+  const sense = 'Blood sense (imprecise) 30 feet, wounded living creatures with blood'
+  expect(senses(c, entries).map(item => item.value)).toContain(sense)
+  expect(senses({ ...c, level: 4 }, entries).map(item => item.value)).not.toContain(sense)
+})
+
+it('provides Fork-Tongued Vesk venomous jaws and its special critical damage', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', heritage: 'Fork-Tongued Vesk', level: 1 }
+  const jaws = ownedWeapons(c, entries).find(weapon => weapon.name === 'Venomous Vesk Jaws')!
+  expect(weaponAttack(c, entries, jaws)).toMatchObject({ damage: expect.stringMatching(/1d4.*poison/),
+    traits: expect.arrayContaining(['Grapple', 'Unarmed']), criticalSpecialization: false,
+    criticalNote: '1 persistent poison damage on a critical hit.' })
+  expect(weaponAttack({ ...c, level: 7 }, entries, jaws).criticalNote).toBe('2 persistent poison damage on a critical hit.')
+  expect(ownedWeapons({ ...c, heritage: undefined, weapons: [jaws] }, entries).some(weapon => weapon.id === jaws.id)).toBe(false)
+})
+
+it('grants the heightened occult Daze cantrip to Venomthought Vesk', () => {
+  const daze = mapAonHits(hits.filter(hit => hit._source?.category === 'spell' && hit._source?.name === 'Daze'), 'sf2e')
+  const c: Character = { ...base, ancestry: 'Vesk', heritage: 'Venomthought Vesk', level: 7 }
+  expect(grantedFeatSpells(c, [...entries, ...daze])).toContainEqual(expect.objectContaining({
+    source: 'Venomthought Vesk', rank: 4, entry: expect.objectContaining({ name: 'Daze' }),
+    rule: expect.objectContaining({ kind: 'innate', tradition: 'occult', frequency: 'at will', heightened: true }),
+  }))
+  expect(unresolvedFeatSpells(c, entries)).toContainEqual(expect.objectContaining({ name: 'Daze', sourceName: 'Venomthought Vesk' }))
+  expect(grantedFeatSpells({ ...c, heritage: undefined }, [...entries, ...daze]).some(grant => grant.source === 'Venomthought Vesk')).toBe(false)
 })

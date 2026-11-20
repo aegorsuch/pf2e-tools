@@ -279,6 +279,12 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'at will', heightened: true },
       rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', 'Seer Elf', entry.name]) })
   }
+  if (c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Venomthought Vesk' && c.level >= 1) {
+    const entry = matchingSpells(entries, 'Daze').find(spell => spell.systems.includes('sf2e'))
+    if (entry) out.push({ entry, source: 'Venomthought Vesk',
+      rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'at will', heightened: true },
+      rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', 'Venomthought Vesk', entry.name]) })
+  }
   for (const [index, feat] of c.feats.entries()) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
@@ -523,8 +529,12 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
     .filter(grant => !matchingSpells(entries, grant.name).some(entry => entry.systems.some(system => c.systems.includes(system))))
     .map(grant => ({ name: grant.name, source: entries.find(entry => entry.kind === 'deity' && entry.name === grant.deity), sourceName: grant.source }))
   const seer = characterHeritages(c, entries).find(heritage => heritage.name === 'Seer Elf')
-  const missingHeritageSpells = seer && !matchingSpells(entries, 'Detect Magic')
+  const missingHeritageSpells: { name: string; source?: ContentEntry; sourceName?: string }[] = seer && !matchingSpells(entries, 'Detect Magic')
     .some(entry => entry.systems.some(system => c.systems.includes(system))) ? [{ name: 'Detect Magic', source: seer }] : []
+  if (c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Venomthought Vesk' && c.level >= 1
+    && !matchingSpells(entries, 'Daze').some(entry => entry.systems.includes('sf2e'))) {
+    missingHeritageSpells.push({ name: 'Daze', source: characterHeritages(c, entries).find(heritage => heritage.name === 'Venomthought Vesk'), sourceName: 'Venomthought Vesk' })
+  }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
     const training = hellknightTrainingBenefit(c, feat.name, feat.choice)

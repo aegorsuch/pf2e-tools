@@ -502,6 +502,18 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {hazardFinder && (s.kind === 'perception' || s.kind === 'save') && <SourceNote inlineSource={false}
             source="Hazard Finder" note={`${conditionalTotal(1)} ${s.kind === 'perception'
               ? 'to find traps and hazards; does not affect initiative' : 'against hazard effects'} (+1 circumstance; circumstance bonuses do not stack).`} />}
+          {c.systems.includes('sf2e') && s.kind === 'perception' && !!activeFeatsNamed(c, 'Danger Awareness').length
+            && <SourceNote inlineSource={false} source="Danger Awareness"
+              note={`${conditionalTotal(1)} to find traps and hidden, undetected, or unnoticed creatures (+1 circumstance). Check for traps even without Searching; win initiative ties against opponents.`} />}
+          {c.systems.includes('sf2e') && s.kind === 'save' && !!activeFeatsNamed(c, 'Danger Awareness').length
+            && <SourceNote inlineSource={false} source="Danger Awareness"
+              note={`${conditionalTotal(1)} against traps (+1 circumstance; circumstance bonuses do not stack).`} />}
+          {c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Fork-Tongued Vesk' && s.kind === 'save'
+            && <SourceNote inlineSource={false} source="Fork-Tongued Vesk"
+              note={`${conditionalTotal(1)} against disease and poison (+1 circumstance; circumstance bonuses do not stack). Immune to poison damage from fork-tongued vesk jaws.`} />}
+          {c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Venomthought Vesk' && s.name === 'Occultism'
+            && <SourceNote inlineSource={false} source="Venomthought Vesk"
+              note={`${conditionalTotal(1)} to Recall Knowledge about psychic traditions and philosophies (+1 circumstance).`} />}
           {s.name === 'Athletics' && heritages.has('Woodland Elf') && <SourceNote inlineSource={false}
             source="Woodland Elf" note="Climb trees, vines, or foliage at half your Speed on a success and full Speed on a critical success; Quick Climb allows full Speed on a success. No effect on a climb Speed. You can always Take Cover in forest terrain." />}
           {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Athletic Might').length && <SourceNote source="Athletic Might"
