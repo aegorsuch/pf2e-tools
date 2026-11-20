@@ -1805,6 +1805,23 @@ it('compares Imperious Nature against class spell DC as well as innate spell DC'
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
+it('applies frightened to both spell attack and save DC displays', () => {
+  const grant = feat('Imperious Nature', 'Once per day, you can cast [command](/spells/43-command) as a 7th-rank occult innate spell using the higher of your class DC or spell DC.', 17)
+  const master = { ...entry('Master Spellcaster', 'classFeature', { class: 'Wizard' }), level: 15 }
+  const entries = [grant, entry('Command', 'spell', { saving_throw: 'Will' }),
+    entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' }), master]
+  const c: Character = { ...base, className: 'Wizard', level: 17, abilities: { ...base.abilities, int: 24, cha: 10 },
+    feats: [taken(grant.name, 17)], conditions: { frightened: 2 } }
+  const previous = getSettings().innateHighestMental
+  try {
+    updateSettings({ innateHighestMental: false })
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+    expect(markup).toContain('DC 38')
+    expect(markup).toContain('Attack +28')
+    expect(markup).toContain('<small>Status</small>-2')
+  } finally { updateSettings({ innateHighestMental: previous }) }
+})
+
 it.each<{ data: ContentEntry['data']; traits: string[]; description: string; dc: boolean; attack: boolean }>([
   { data: { saving_throw: 'Will' }, traits: [], description: '', dc: true, attack: false },
   { data: { saving_throw: 'AC' }, traits: ['Attack'], description: '', dc: false, attack: true },

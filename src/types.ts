@@ -240,6 +240,7 @@ export interface Character {
   activeStance?: string
   intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
+  conditions?: { frightened?: number; sickened?: number; enfeebled?: number }
   currentSpell?: 'air' | 'water' | 'air and water'
   hardenFleshActive?: boolean
   focusPointsSpentSinceRefocus?: number

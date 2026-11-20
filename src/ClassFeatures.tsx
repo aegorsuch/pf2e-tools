@@ -7,7 +7,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { abilityMod, animalRageFormChange, classDifficultyClass, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, thrashDamage, weaponRanks, withoutBattleForm } from './builder'
+import { abilityMod, animalRageFormChange, classDifficultyClass, conditionPenalty, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, thrashDamage, weaponRanks, withoutBattleForm } from './builder'
 import { animalBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
@@ -164,7 +164,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         <label><input type="checkbox" aria-label="Use Spirit Rage" checked={!!c.spiritRage} disabled={!!c.raging}
           onChange={event => save({ spiritRage: event.target.checked })} /> Use Spirit Rage</label>
         {c.raging && !!activeFeatsNamed(c, "Spirit's Wrath").length && <span>
-          Spirit's Wrath: {signed(proficiencyBonus(weaponRanks(c, entries).Martial, c.level) + abilityMod(c.abilities.str) + 2
+          Spirit's Wrath: {signed(proficiencyBonus(weaponRanks(c, entries).Martial, c.level) + abilityMod(c.abilities.str) + 2 - conditionPenalty(c, 'str')
             + (isFeatEffectActive(c, 'Desperate Wrath') ? 2 : 0))}{' '}
           <DamageRoll name="Spirit's Wrath" actions="Single Action"
             damage={{ label: 'Damage', dice: 4, sides: 8, bonus: abilityMod(c.abilities.con), type: 'spirit' }} />

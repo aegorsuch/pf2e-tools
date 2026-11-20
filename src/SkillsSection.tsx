@@ -1,7 +1,7 @@
 import { resistances, activeBattleForm,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classDifficultyClass, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, canUseGiantStature, giantStatureSize, giantStatureChange, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
@@ -383,11 +383,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         : [armorSkill, assistant, preferment].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
-    const ownTotal = abil + prof + item + armorPenalty - clumsyPenalty
+    const statusPenalty = Math.max(conditionPenalty(c, ability), clumsyPenalty)
+    const ownTotal = abil + prof + item + armorPenalty
     const formAthletics = s.name === 'Athletics' && form && form.source !== 'Animal Rage' ? form.athletics : undefined
     const total = s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
       ? savingThrowBreakdown(c, entries, s.name, ranks).total
-      : Math.max(ownTotal, formAthletics ?? ownTotal) + status + (circumstance?.value ?? 0)
+      : Math.max(ownTotal, formAthletics ?? ownTotal) - statusPenalty + status + (circumstance?.value ?? 0)
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
@@ -418,8 +419,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {circumstance?.source === 'Hellknight Preferment' && <SourceNote source={circumstance.source}
             note={`+${circumstance.value} circumstance bonus to Intimidation while wearing Hellknight armor.`} />}
           {!!clumsyPenalty && <SourceNote source={giantStatureSize(c, entries) ? "Giant's Stature: clumsy 1" : 'Giant Instinct: clumsy 1'}
-            note={giantStatureSize(c, entries) ? '-1 status penalty to Dexterity-based checks and DCs until Rage ends.'
-              : '-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage.'} />}
+            note={giantStatureSize(c, entries) ? '-1 status penalty to Dexterity-based checks and DCs until Rage ends; status penalties do not stack.'
+              : '-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage; status penalties do not stack.'} />}
+          {s.kind !== 'save' && !!conditionPenalty(c, ability) && <SourceNote source="Conditions"
+            note={`-${statusPenalty} status penalty to this check; status penalties do not stack.`} />}
           {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Furious Bully').length
             && <SourceNote source="Furious Bully" note={`${conditionalTotal(2)} for Athletics attack actions (+2 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Brutal Bully').length
@@ -443,11 +446,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
             && <SourceNote source="Tangible Object" note={`${conditionalTotal(1)} against illusions and holograms (+1 circumstance).`} />}
           {isSoldier(c) && c.level >= 3 && ['Athletics', 'Intimidation'].includes(s.name)
-            && <SourceNote source="Fearsome Bulwark" note={`${signed(total - armorPenalty + Math.max(0, abilityMod(c.abilities.con) - abil))} to ${
+            && <SourceNote source="Fearsome Bulwark" note={`${signed(total - armorPenalty + Math.max(0, abilityMod(c.abilities.con) - abil + statusPenalty - conditionPenalty(c, 'con')))} to ${
               s.name === 'Athletics' ? 'Reposition or Shove' : 'Coerce or Demoralize'} using Constitution instead of ${ABILITY_LABEL[ability]}.`} />}
           {s.name === 'Athletics' && soldierStyle(c)?.name === 'Armor Storm'
             && <SourceNote source="Armor Storm" note={`${signed(total - armorPenalty + Math.max(0, 1 - status))} to Disarm, Grapple, Reposition, Shove, or Trip suppressed foes (+1 status).
-              ${c.level >= 3 ? `Reposition or Shove using Fearsome Bulwark: ${signed(total - armorPenalty + Math.max(0, 1 - status) + Math.max(0, abilityMod(c.abilities.con) - abil))}.` : ''}
+              ${c.level >= 3 ? `Reposition or Shove using Fearsome Bulwark: ${signed(total - armorPenalty + Math.max(0, 1 - status) + Math.max(0, abilityMod(c.abilities.con) - abil + statusPenalty - conditionPenalty(c, 'con')))}.` : ''}
               No free hand required; success suppresses until your next turn.`} />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
@@ -537,7 +540,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Pain Tolerance').length && <SourceNote inlineSource={false}
             source="Pain Tolerance" note={`${conditionalTotal(1)} against effects that would make you clumsy, drained, or enfeebled (+1 circumstance).`} />}
           {s.name === 'Fortitude' && c.raging && !!activeFeatsNamed(c, 'Shake It Off').length && <SourceNote source="Shake It Off"
-            note="Reduce frightened by 1, then attempt a Fortitude save against sickened: reduce sickened by 1 on failure, 2 on success, or 3 on critical success; no reduction on critical failure." />}
+            note={`Reduce frightened by 1, then attempt a Fortitude save at ${signed(savingThrowBreakdown({ ...c, conditions: {
+              ...c.conditions, frightened: Math.max(0, conditionValue(c, 'frightened') - 1) } }, entries, 'Fortitude', ranks).total)} against sickened: reduce sickened by 1 on failure, 2 on success, or 3 on critical success; no reduction on critical failure.`} />}
           {s.name === 'Will' && !!activeFeatsNamed(c, 'Creature Comforts').length && <SourceNote source="Creature Comforts"
             note="When you become frightened while under a morph or polymorph effect, react to reduce frightened by 1, to a minimum of 0." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Blast Resistance').length && <SourceNote inlineSource={false}
@@ -692,6 +696,37 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>
+        {(['Inner Strength', 'Shake It Off', 'Creature Comforts'].some(name => activeFeatsNamed(c, name).length > 0)
+          || !!c.conditions && Object.values(c.conditions).some(value => typeof value === 'number' && value > 0)) && <div className="condition-controls" role="group" aria-label="Conditions">
+          {(['frightened', 'sickened', 'enfeebled'] as const).map(name => <label key={name}>
+            {name[0].toUpperCase() + name.slice(1)}{' '}
+            <input type="number" min="0" step="1" aria-label={`${name[0].toUpperCase() + name.slice(1)} condition`}
+              value={conditionValue(c, name)} onChange={event => {
+                const value = Number(event.target.value)
+                if (!Number.isSafeInteger(value) || value < 0) return
+                save({ conditions: { ...c.conditions, [name]: value } })
+              }} />
+          </label>)}
+          {c.raging && !!activeFeatsNamed(c, 'Inner Strength').length && conditionValue(c, 'enfeebled') > 0
+            && <button type="button" aria-label="Inner Strength" onClick={() => save({ conditions: { ...c.conditions, enfeebled: conditionValue(c, 'enfeebled') - 1 } })}>Inner Strength</button>}
+          {!!activeFeatsNamed(c, 'Creature Comforts').length && conditionValue(c, 'frightened') > 0
+            && <button type="button" aria-label="Creature Comforts" onClick={() => save({ conditions: { ...c.conditions, frightened: conditionValue(c, 'frightened') - 1 } })}>Creature Comforts</button>}
+          {c.raging && !!activeFeatsNamed(c, 'Shake It Off').length
+            && (conditionValue(c, 'frightened') > 0 || conditionValue(c, 'sickened') > 0)
+            && (conditionValue(c, 'sickened') > 0 ? <label>Shake It Off{' '}
+              <select aria-label="Shake It Off save result" value="" onChange={event => {
+                const reductions: Record<string, number> = { 'Critical failure': 0, Failure: 1, Success: 2, 'Critical success': 3 }
+                const reduction = reductions[event.target.value]
+                if (reduction === undefined) return
+                save({ conditions: { ...c.conditions, frightened: Math.max(0, conditionValue(c, 'frightened') - 1),
+                  sickened: Math.max(0, conditionValue(c, 'sickened') - reduction) } })
+              }}>
+                <option value="">Save result</option>
+                <option>Critical failure</option><option>Failure</option><option>Success</option><option>Critical success</option>
+              </select>
+            </label> : <button type="button" aria-label="Shake It Off" onClick={() => save({ conditions: {
+              ...c.conditions, frightened: conditionValue(c, 'frightened') - 1 } })}>Shake It Off</button>)}
+        </div>}
         {!!activeFeatsNamed(c, 'Current Spell').length && <label>Current Spell{' '}
           <select aria-label="Current Spell active trait" value={c.currentSpell ?? ''} onChange={event => {
             const value = event.target.value

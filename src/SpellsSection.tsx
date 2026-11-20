@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classSpellSlots, druidSpellList, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerExtraSlots, necromancerSpellList, spellDifficultyClass } from './builder'
+import { classDifficultyClass, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerExtraSlots, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1005,10 +1005,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
   const unresolved = unresolvedFeatSpells(c, entries)
   const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
+  const spellPenalty = (ability: Ability) => Math.max(conditionPenalty(c, ability), ability === 'dex' ? giantWeaponClumsy(c, entries) : 0)
   const grantDetails = (grant: typeof featSpells[number]) => {
     const ability = grant.rule.kind === 'innate' ? innateSpellAbility(c, grant.rule.ability) : grant.rule.ability ?? casting?.ability
     const proficiency = grant.rule.kind === 'innate' ? spellRank : casting?.rank ?? 1
-    const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, proficiency), c.level) : undefined
+    const mod = ability ? abilityMod(c.abilities[ability]) + proficiencyBonus(Math.max(1, proficiency), c.level) - spellPenalty(ability) : undefined
     const resolution = spellResolution(grant.entry)
     const frequency = /^at[- ]will$/i.test(grant.rule.frequency?.trim() ?? '')
       || dailyInnateUses(c, grant) && /\bper day(?: each)?$/i.test(grant.rule.frequency ?? '') ? undefined : grant.rule.frequency
@@ -1016,7 +1017,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const classDC = higherDC && resolution.save ? classDifficultyClass(c, entries) : undefined
     const castingAbility = casting?.ability ?? sc?.ability
     const spellDC = mod === undefined ? undefined : Math.max(10 + mod, casting && castingAbility
-      ? 10 + abilityMod(c.abilities[castingAbility]) + proficiencyBonus(Math.max(1, spellRank), c.level) : 0)
+      ? 10 + abilityMod(c.abilities[castingAbility]) + proficiencyBonus(Math.max(1, spellRank), c.level) - spellPenalty(castingAbility) : 0)
     const dc = higherDC ? classDC === undefined || spellDC === undefined ? undefined : Math.max(classDC, spellDC)
       : mod === undefined ? undefined : 10 + mod
     const stats = resolution.attack && mod !== undefined ? `Attack ${signed(mod)}` : undefined
@@ -1098,7 +1099,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : traditions.includes(tradition) ? tradition : ''
 
   const castAbility = casting?.ability ?? sc?.ability
-  const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) : 0
+  const mod = casting && castAbility ? abilityMod(c.abilities[castAbility]) + proficiencyBonus(casting.rank, c.level) - spellPenalty(castAbility) : 0
   const classSpellDC = spellDifficultyClass(c, entries)
   const ownsFeat = (name: string) => c.feats.some(feat => feat.name === name && featTakenLevel(feat) <= c.level)
   const beastmasterCasting = ownsFeat('Beastmaster Dedication')
@@ -1197,6 +1198,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <span className="skill-part"><small>{castAbility ? ABILITY_LABEL[castAbility] : ''}</small>{signed(castAbility ? abilityMod(c.abilities[castAbility]) : 0)}</span>
       <span className="skill-part"><small>Prof</small>{signed(proficiencyBonus(casting.rank, c.level))}</span>
       <span className="skill-part"><small>Item</small>{signed(0)}</span>
+      {castAbility && spellPenalty(castAbility) > 0 && <span className="skill-part"><small>Status</small>{signed(-spellPenalty(castAbility))}</span>}
     </div>
   )
   const openDirge = (rank: number) => {
@@ -1483,10 +1485,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
           </SearchableSelect>
         })}
-        <small>{ABILITY_LABEL[innateSpellAbility(c)]} spell attack {signed(abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level))};
-          DC {10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level)} (trained).</small>
+        <small>{ABILITY_LABEL[innateSpellAbility(c)]} spell attack {signed(abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level) - spellPenalty(innateSpellAbility(c)))};
+          DC {10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level) - spellPenalty(innateSpellAbility(c))} (trained).</small>
         <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem c={c} key={entry.name} name={entry.name} entry={entry} rank={Math.ceil(c.level / 2)}
-          inlineControls={inlineControls(entry.name)} saveDC={10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level)}
+          inlineControls={inlineControls(entry.name)} saveDC={10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level) - spellPenalty(innateSpellAbility(c))}
           note={`Minor Magic; rank ${Math.ceil(c.level / 2)} ${c.minorMagic?.tradition}`} {...buffProps(entry.name)}>
           {controls(entry.name)}
         </SpellItem>)}</ul>
@@ -1530,14 +1532,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const grant = featSpells.find(grant => grant.rule.kind === 'focus' && grant.entry.name === s.name)
               const details = grant ? grantDetails(grant) : undefined
               const note = details ? details.note : entry && spellResolution(entry).attack
-                ? !casting && beastmasterCasting ? `Wis Attack ${signed(abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level))}`
+                ? !casting && beastmasterCasting ? `Wis Attack ${signed(abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) - spellPenalty('wis'))}`
                 : casting && castAbility ? `${ABILITY_LABEL[castAbility]} Attack ${signed(mod)}`
                   : <span role="status">Check the granting rules for this spell's spellcasting attribute and proficiency.</span>
                 : undefined
               return <SpellItem c={c} key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
                 note={note} effectControls={effectControls(s.name)}
                 effectRank={activeRank(s.name)}
-                saveDC={details ? details.dc : !casting && beastmasterCasting ? 10 + abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) : classSpellDC} {...buffProps(s.name)}
+                saveDC={details ? details.dc : !casting && beastmasterCasting ? 10 + abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) - spellPenalty('wis') : classSpellDC} {...buffProps(s.name)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== s.index),
                   activeSpells: c.activeSpells?.filter(name => name !== s.name) }) : undefined}>
                 {controls(s.name)}

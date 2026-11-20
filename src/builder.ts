@@ -53,6 +53,16 @@ export const ABILITY_LABEL: Record<Ability, string> = {
 export const abilityMod = (score: number) => Math.floor((score - 10) / 2)
 export const signed = (n: number) => (n >= 0 ? `+${n}` : String(n))
 
+export function conditionValue(c: Character, name: 'frightened' | 'sickened' | 'enfeebled') {
+  const value = c.conditions?.[name]
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : 0
+}
+
+export function conditionPenalty(c: Character, ability?: Ability) {
+  return Math.max(conditionValue(c, 'frightened'), conditionValue(c, 'sickened'),
+    ability === 'str' ? conditionValue(c, 'enfeebled') : 0)
+}
+
 const num = (v: unknown) => (typeof v === 'number' ? v : Number.isFinite(parseFloat(String(v))) ? parseFloat(String(v)) : 0)
 
 // O(1) lookups: the content list has tens of thousands of entries and these run many times per render
@@ -1647,6 +1657,7 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
     return best
   }, 1)
   return 10 + abilityMod(c.abilities[ability]) + proficiencyBonus(rank, c.level)
+    - Math.max(conditionPenalty(c, ability), ability === 'dex' ? giantWeaponClumsy(c, entries) : 0)
 }
 
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
@@ -1680,7 +1691,8 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
 export function spellDifficultyClass(c: Character, entries: ContentEntry[]) {
   const casting = classSpellcasting(c, entries)
   const ability = casting?.ability ?? c.spellcasting?.ability
-  return casting && ability ? 10 + abilityMod(c.abilities[ability]) + proficiencyBonus(casting.rank, c.level) : undefined
+  return casting && ability ? 10 + abilityMod(c.abilities[ability]) + proficiencyBonus(casting.rank, c.level)
+    - Math.max(conditionPenalty(c, ability), ability === 'dex' ? giantWeaponClumsy(c, entries) : 0) : undefined
 }
 
 export function spellDCText(c: Character, entries: ContentEntry[], text: string) {
@@ -3701,13 +3713,15 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
     { label: armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
   ]
-  if (name === 'Fortitude' && hasDivineIntercession(c, 'Asmodeus', 'major-curse')) {
-    parts.push({ label: 'Asmodeus Major Curse: drained 4 (condition)', value: -4 })
-  }
   if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
     parts.push({ label: 'Desperate Wrath', value: -1 })
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
-  if (clumsy) parts.push({ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy })
+  const drained = name === 'Fortitude' && hasDivineIntercession(c, 'Asmodeus', 'major-curse') ? 4 : 0
+  const condition = conditionPenalty(c, ability[name])
+  const penalty = Math.max(condition, clumsy, drained)
+  if (penalty) parts.push({ label: drained === penalty ? 'Asmodeus Major Curse: drained 4 (condition) (status)'
+    : clumsy === penalty ? `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`
+      : 'Conditions (status)', value: -penalty })
   if (name === 'Reflex' && c.systems.includes('pf2e') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId)) {
     const saddle = activeFeatsNamed(c, 'Born In The Saddle').length > 0
@@ -3759,7 +3773,7 @@ export function defenseSummary(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
   return {
     perception: abilityMod(c.abilities.wis) + proficiencyBonus(ranks.Perception ?? 0, c.level)
-      + perceptionItemBonus(c, entries) + perceptionCircumstanceBonus(c),
+      + perceptionItemBonus(c, entries) + perceptionCircumstanceBonus(c) - conditionPenalty(c, 'wis'),
     ac: armorClass(c, entries),
     hp: maxHp(c, entries),
     fortitude: savingThrowBreakdown(c, entries, 'Fortitude', ranks).total,
@@ -4101,7 +4115,13 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   if (form?.source === 'Dragon Transformation' || form?.source === 'Animal Rage') return armorClassBreakdown(withoutBattleForm(c), entries)
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
+  const clumsy = giantWeaponClumsy(c, entries)
+  const condition = conditionPenalty(c, 'dex')
+  const statusPenalty = Math.max(condition, clumsy)
   const ragePenalties: TotalPart[] = [
+    ...(statusPenalty ? [{ label: clumsy >= condition
+      ? `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`
+      : 'Conditions (status)', value: -statusPenalty }] : []),
     ...(c.raging && c.systems.includes('pf2e') && c.className !== 'Barbarian' && activeFeatsNamed(c, 'Barbarian Dedication').length
       ? [{ label: 'Barbarian Dedication: Rage', value: -1 }] : []),
     ...(c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? [{ label: 'Desperate Wrath', value: -1 }] : []),
@@ -4160,8 +4180,6 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: `${RANKS[rank]} (${armorCategory})` },
   ]
   if (best) parts.push({ label: `${candidates.filter(candidate => candidate.value === best).map(candidate => candidate.label).join(' / ')} (circumstance)`, value: best })
-  const clumsy = giantWeaponClumsy(c, entries)
-  if (clumsy) parts.push({ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy })
   parts.push(...ragePenalties)
   const notes = candidates.length > 1 ? ['Circumstance bonuses do not stack: '
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
@@ -5628,9 +5646,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     || Number(traits.map(trait => /^thrown\s+(\d+)\s*(?:ft\.?|feet)?$/i.exec(trait)?.[1]).find(Boolean) ?? 0)
   const str = abilityMod(c.abilities.str)
   const dex = abilityMod(c.abilities.dex)
-  const ability: Ability = ranged ? 'dex' : traits.includes('finesse') && dex > str ? 'dex' : 'str'
+  const dexPenalty = Math.max(giantWeaponClumsy(c, entries), conditionPenalty(c, 'dex'))
+  const ability: Ability = ranged ? 'dex' : traits.includes('finesse')
+    && dex - dexPenalty > str - conditionPenalty(c, 'str') ? 'dex' : 'str'
   const mod = ability === 'dex' ? dex : str
   const clumsy = ability === 'dex' ? giantWeaponClumsy(c, entries) : 0
+  const attackPenalty = Math.max(clumsy, conditionPenalty(c, ability))
   const divineAttackBonus = hasDivineIntercession(c, 'Iomedae', 'major-boon')
     && !!entry && /^longsword$/i.test(namedWeaponBaseName(entry)) && weaponHeld(c, entries, w) ? 2 : 0
   const { category, rank, familiarity, martialExperience, proficiencySources } = weaponTraining(c, entries, w, entry, !!cairn)
@@ -5676,8 +5697,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     + (normalReach > 0 && !formAttack && category !== 'Unarmed'
     && isFeatEffectActive(c, 'Reckless Riding Lunge') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)
-  const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
+  const thiefDexDamage = !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief')
+    && dex > str - conditionValue(c, 'enfeebled')
+  const flat = !ranged || thrown ? thiefDexDamage ? dex : str
     : traits.includes('propulsive') ? str > 0 ? Math.floor(str / 2) : str : 0
+  const strengthDamage = formAttack ? !ranged : !ranged ? !thiefDexDamage : thrown || traits.includes('propulsive')
+  const damagePenalty = strengthDamage ? conditionValue(c, 'enfeebled') : 0
   const mechanicSpecialization = c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 7 && rank >= 2
     ? (c.level >= 15 ? 2 : 1) * rank : 0
   const barbarianSpecialization = c.className === 'Barbarian' && c.systems.includes('pf2e') && c.level >= 7 && rank >= 2
@@ -5693,8 +5718,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage : undefined
   const elementalDamage = rageDamage && c.raging ? elementalRageType(c, entries) : undefined
   const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
-  const damageBonus = formAttack && form ? form.damageBonus + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
+  const damageBonus = (formAttack && form ? form.damageBonus + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
+  ) - damagePenalty
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
@@ -5741,12 +5767,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const ragingThrower = thrown && activeFeatsNamed(c, 'Raging Thrower').length > 0
   const devastator = classFeatures(entries, c).some(feature => feature.name === 'Devastator')
   const criticalDie = Number(traits.map(trait => /^fatal\s+d(4|6|8|10|12)$/i.exec(trait)?.[1]).find(Boolean) ?? die)
-  const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(natural, entries)
+  const naturalForForm = { ...natural, conditions: undefined }
+  const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(naturalForForm, entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
-    .map((weapon): number => weaponAttack(natural, entries, weapon).attack - desperateWrath)) : 0
-  const ownAttack = mod + prof + w.potency - clumsy + divineAttackBonus + desperateWrath
+    .map((weapon): number => weaponAttack(naturalForForm, entries, weapon).attack - desperateWrath)) : 0
+  const ownAttack = mod + prof + w.potency - attackPenalty + divineAttackBonus + desperateWrath
+  const formAttackPenalty = conditionPenalty(c, ranged ? 'dex' : 'str')
   const untamedBonus = form?.source === 'Untamed Form' && ownUnarmed > form.attack ? 2 : 0
-  const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed + untamedBonus) + desperateWrath : ownAttack
+  const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed + untamedBonus) + desperateWrath - formAttackPenalty : ownAttack
   return {
     entry,
     upgrades,
@@ -5802,6 +5830,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       total: attack,
       parts: formAttack && form ? [
         { label: form.source, value: form.attack },
+        ...(formAttackPenalty ? [{ label: 'Conditions (status)', value: -formAttackPenalty }] : []),
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
         ...(desperateWrath ? [{ label: 'Desperate Wrath (circumstance)', value: desperateWrath }] : []),
         ...(ownUnarmed + untamedBonus > form.attack + divineAttackBonus ? [{ label: 'Higher own unarmed attack modifier',
@@ -5814,7 +5843,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         { label: 'Effective weapon potency (item)', value: w.potency },
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
         ...(desperateWrath ? [{ label: 'Desperate Wrath (circumstance)', value: desperateWrath }] : []),
-        ...(clumsy ? [{ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy }] : []),
+        ...(attackPenalty ? [{ label: clumsy >= conditionPenalty(c, ability)
+          ? `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`
+          : 'Conditions (status)', value: -attackPenalty }] : []),
       ],
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,

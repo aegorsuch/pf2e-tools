@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, classDifficultyClass, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown, spellDifficultyClass,
   equippedWeaponHands, featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponEntry, weaponEquipped,
 } from './builder'
 import { companionStats } from './companions'
@@ -598,6 +598,65 @@ it('applies Giant clumsy only while wielding the selected weapon, including outs
   expect(isGiantWeapon({ ...c, className: 'Fighter' }, entries, weapon)).toBe(false)
   expect(canBeGiantWeapon(c, entries, { ...weapon, name: 'Fist' })).toBe(false)
   expect(canBeGiantWeapon(c, entries, { ...weapon, name: 'Unavailable weapon' })).toBe(false)
+})
+
+it('applies the strongest relevant condition penalty to checks, DCs, and Strength damage', () => {
+  const klass = content('class', 'Barbarian', { attribute: 'Strength' })
+  const c: Character = { ...base, className: 'Barbarian', abilities: { ...base.abilities, str: 18, dex: 18 },
+    weapons: [main] }
+  const affected = { ...c, conditions: { frightened: 2, sickened: 1, enfeebled: 3 } }
+  const normal = defenseSummary(c, [sword, klass])
+  const penalized = defenseSummary(affected, [sword, klass])
+  expect(penalized.ac).toBe(normal.ac - 2)
+  expect(penalized.perception).toBe(normal.perception - 2)
+  expect(penalized.fortitude).toBe(normal.fortitude - 2)
+  expect(penalized.reflex).toBe(normal.reflex - 2)
+  expect(classDifficultyClass(affected, [klass])).toBe(classDifficultyClass(c, [klass])! - 3)
+  const weapon = weaponAttack(c, [sword], main)
+  const weakened = weaponAttack(affected, [sword], main)
+  expect(weakened.attack).toBe(weapon.attack - 3)
+  expect(weakened.damage).toBe('2d8+1 slashing')
+  const bow = content('weapon', 'Bow', { damage: '1d8 piercing', weapon_type: 'Ranged', range: 60 })
+  const ownedBow = { ...main, name: bow.name }
+  expect(weaponAttack(affected, [bow], ownedBow).attack).toBe(weaponAttack(c, [bow], ownedBow).attack - 2)
+  expect(weaponAttack(affected, [bow], ownedBow).damage).toBe(weaponAttack(c, [bow], ownedBow).damage)
+  const druid = content('class', 'Druid', { attribute: 'Wisdom' })
+  const caster = { ...c, className: 'Druid' }
+  expect(spellDifficultyClass({ ...caster, conditions: affected.conditions }, [druid]))
+    .toBe(spellDifficultyClass(caster, [druid])! - 2)
+})
+
+it('does not stack frightened or sickened with Giant clumsy', () => {
+  const blade = { ...sword, name: 'Rapier', traits: ['Finesse'] }
+  const weapon = { ...main, name: blade.name, potency: 0, striking: 0 }
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Giant Instinct',
+    weapons: [weapon], giantWeaponId: weapon.id, abilities: { ...base.abilities, str: 10 } }
+  const frightened = { ...c, conditions: { frightened: 2, sickened: 1 } }
+  expect(armorClass(frightened, [blade])).toBe(armorClass(c, [blade]) - 1)
+  expect(savingThrowBreakdown(frightened, [blade], 'Reflex').total).toBe(savingThrowBreakdown(c, [blade], 'Reflex').total - 1)
+  expect(weaponAttack(frightened, [blade], weapon).attack).toBe(weaponAttack(c, [blade], weapon).attack - 1)
+})
+
+it('chooses the better finesse attack after condition penalties', () => {
+  const blade = { ...sword, traits: ['Finesse'] }
+  const c: Character = { ...base, abilities: { ...base.abilities, str: 18, dex: 16 },
+    conditions: { enfeebled: 3 } }
+  const attack = weaponAttack(c, [blade], main)
+  expect(attack.ability).toBe('dex')
+  expect(attack.attack).toBe(weaponAttack({ ...c, conditions: {}, abilities: { ...c.abilities, str: 16 } }, [blade], main).attack)
+  expect(attack.damage).toBe('2d8+1 slashing')
+})
+
+it('applies conditions to battle form statistics without counting them twice', () => {
+  const c: Character = { ...base, className: 'Druid', level: 10,
+    feats: [feat('Untamed Form', 1)], activeSpells: ['Untamed Form'],
+    untamedForm: { form: 'Animal Form', shape: 'Bear', rank: 5 } }
+  const affected = { ...c, conditions: { frightened: 2, enfeebled: 3 } }
+  const attack = weaponAttack(c, [], ownedWeapons(c, [])[0])
+  const penalized = weaponAttack(affected, [], ownedWeapons(affected, [])[0])
+  expect(armorClass(affected, [])).toBe(armorClass(c, []) - 2)
+  expect(penalized.attack).toBe(attack.attack - 3)
+  expect(penalized.breakdown.parts.reduce((sum, part) => sum + part.value, 0)).toBe(penalized.attack)
 })
 
 it("applies Giant's Lunge to melee weapons and unarmed attacks without reducing existing reach", () => {

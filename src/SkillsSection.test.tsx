@@ -124,6 +124,58 @@ it('shows condition recovery and shared Rage rules without treating them as perm
     .toContain('Once per Rage')
 })
 
+it.each([['Critical failure', 0], ['Failure', 1], ['Success', 2], ['Critical success', 3]] as const)(
+  'applies Shake It Off on %s after reducing frightened', (result, reduction) => {
+    let c: Character = { ...base, className: 'Barbarian', level: 10, raging: true,
+      feats: [{ name: 'Shake It Off', type: 'Class Feat', level: 2 }],
+      conditions: { frightened: 3, sickened: 3, enfeebled: 2 } }
+    const tree = () => SkillsSection({ c, entries: [], part: 'defense', save: patch => { c = { ...c, ...patch } } })
+    const select = findSelect(tree(), 'Shake It Off save result')
+    expect(select).toBeDefined()
+    ;(select!.onChange as (event: { target: { value: string } }) => void)({ target: { value: result } })
+    expect(c.conditions).toEqual({ frightened: 2, sickened: 3 - reduction, enfeebled: 2 })
+    expect(findSelect(SkillsSection({ c: { ...c, raging: false }, entries: [], part: 'defense', save: () => {} }),
+      'Shake It Off save result')).toBeUndefined()
+  })
+
+it('reduces enfeebled and frightened with their respective reactions and updates skill totals', () => {
+  let c: Character = { ...base, className: 'Barbarian', level: 10, raging: true,
+    abilities: { ...base.abilities, str: 18 }, conditions: { enfeebled: 3, frightened: 2 },
+    feats: ['Inner Strength', 'Creature Comforts'].map(name => ({ name, type: 'Class Feat', level: 1 })) }
+  const tree = (part: 'defense' | 'skills') => SkillsSection({ c, entries: [], part, save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree('skills'))).toContain('class="skill-name">Athletics <b>+1')
+  ;(findButtons(tree('defense')).get('Inner Strength')!.onClick as () => void)()
+  expect(c.conditions?.enfeebled).toBe(2)
+  expect(renderToStaticMarkup(tree('skills'))).toContain('class="skill-name">Athletics <b>+2')
+  ;(findButtons(tree('defense')).get('Creature Comforts')!.onClick as () => void)()
+  expect(c.conditions?.frightened).toBe(1)
+  expect(defenseSummary(c, []).fortitude).toBe(defenseSummary({ ...c, conditions: {} }, []).fortitude - 1)
+})
+
+it('keeps entered conditions editable after removing their granting feats', () => {
+  let c: Character = { ...base, level: 10, feats: [{ name: 'Shake It Off', type: 'Class Feat', level: 2 }] }
+  const tree = () => SkillsSection({ c, entries: [], part: 'defense', save: patch => { c = { ...c, ...patch } } })
+  const findInput = (node: ReactNode): Record<string, unknown> | undefined => {
+    for (const child of Children.toArray(node)) {
+      if (!isValidElement<Record<string, unknown>>(child)) continue
+      const found = child.type === 'input' && child.props['aria-label'] === 'Frightened condition'
+        ? child.props : findInput(child.props.children as ReactNode)
+      if (found) return found
+    }
+    return undefined
+  }
+  const change = (value: string) => (findInput(tree())!.onChange as (event: { target: { value: string } }) => void)({ target: { value } })
+  change('3')
+  expect(c.conditions?.frightened).toBe(3)
+  change('-1')
+  expect(c.conditions?.frightened).toBe(3)
+  c = { ...c, feats: [] }
+  expect(findInput(tree())).toBeDefined()
+  change('0')
+  expect(c.conditions?.frightened).toBe(0)
+  expect(findInput(tree())).toBeUndefined()
+})
+
 it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
   let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
     lores: [{ name: 'Military Lore', rank: 0 }] }
