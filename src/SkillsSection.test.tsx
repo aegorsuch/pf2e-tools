@@ -1743,6 +1743,34 @@ it('applies Current Spell AC without stacking circumstance bonuses and annotates
   expect(builder.armorClassBreakdown({ ...c, level: 5 }, []).total).toBe(builder.armorClassBreakdown({ ...plain, level: 5 }, []).total)
 })
 
+it('shows temporary Fisheye and Timeless Nature conditional save benefits without changing permanent ranks', () => {
+  const c: Character = { ...base, level: 14, feats: [
+    { name: 'Fisheye', type: 'Ancestry Feat', level: 1 },
+    { name: 'Timeless Nature', type: 'Class Feat', level: 14 },
+  ], activeFeatEffects: ['Fisheye'] }
+  const active = builder.savingThrowBreakdown(c, [], 'Fortitude')
+  expect(active.notes).toContain('Fisheye: +1 circumstance against inhaled or olfactory effects; a success becomes a critical success. Circumstance bonuses do not stack.')
+  expect(active.notes).toContain('Timeless Nature: +2 status against diseases and primal magic; status bonuses do not stack.')
+  const inactive = { ...c, activeFeatEffects: [] }
+  expect(builder.savingThrowBreakdown(inactive, [], 'Fortitude').notes?.some(note => note.startsWith('Fisheye:'))).toBe(false)
+  expect(ranksAt(c, [])).toEqual(ranksAt(inactive, []))
+  const removed = { ...c, feats: [] }
+  expect(builder.savingThrowBreakdown(removed, [], 'Fortitude').notes?.some(note => note.startsWith('Fisheye:'))).not.toBe(true)
+  const breathControl = { ...inactive, feats: [...inactive.feats, { name: 'Breath Control', type: 'General Feat', level: 1 }] }
+  expect(builder.savingThrowBreakdown(breathControl, [], 'Fortitude').notes)
+    .toContain('Breath Control: +1 circumstance against inhaled effects; a success becomes a critical success. Circumstance bonuses do not stack.')
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
+  expect(html).toContain('aria-label="Fisheye active" checked=""')
+  expect(html).toContain('Temporary Breath Control cannot qualify you for permanent options.')
+})
+
+it('shows Fire Lung smoke and persistent fire benefits only when the feat is active', () => {
+  const c: Character = { ...base, feats: [{ name: 'Fire Lung', type: 'Class Feat', level: 1 }] }
+  const markup = (character: Character) => renderToStaticMarkup(<SensesAndSpeed c={character} entries={[]} save={() => {}} />)
+  expect(markup(c)).toContain('Recover from persistent fire on DC 10')
+  expect(markup({ ...c, feats: [] })).not.toContain('Recover from persistent fire on DC 10')
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }

@@ -3644,6 +3644,10 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(activeFeatsNamed(c, 'Timeless Nature').length
+      ? ['Timeless Nature: +2 status against diseases and primal magic; status bonuses do not stack.'] : []),
+    ...(activeFeatsNamed(c, 'Breath Control').length || isFeatEffectActive(c, 'Fisheye')
+      ? [`${isFeatEffectActive(c, 'Fisheye') ? 'Fisheye' : 'Breath Control'}: +1 circumstance against inhaled${isFeatEffectActive(c, 'Fisheye') ? ' or olfactory' : ''} effects; a success becomes a critical success. Circumstance bonuses do not stack.`] : []),
     ...(activeFeatsNamed(c, 'Current Spell').length && c.currentSpell
       ? [`Current Spell: +1 circumstance against ${c.currentSpell === 'air and water' ? 'air or water' : c.currentSpell} effects; circumstance bonuses do not stack.`] : []),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fire Resistance').length

@@ -93,7 +93,9 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       {index > 0 && ', '}{sense.value}{sense.source && <SourceNote source={sense.source} note={`Grants ${sense.value}.`} />}
     </span>) : 'No special senses'}
       {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
-        note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}</small>
+        note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}
+      {!!activeFeatsNamed(c, 'Fire Lung').length && <SourceNote source="Fire Lung"
+        note="Breathe normally in ash and smoke; ignore concealment from smoke. Recover from persistent fire on DC 10, or DC 5 with particularly effective assistance." />}</small>
     <small>Speed: {speeds.map((movement, index) => {
       const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
@@ -631,6 +633,18 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </select>
           <SourceNote source="Current Spell" note="After casting an air or water spell, benefits last until the start of your next turn." />
         </label>}
+        {!!activeFeatsNamed(c, 'Fisheye').length && <>
+          <label title="Once per day for 1 hour after eating the left eye of a fish.">
+            <input type="checkbox" aria-label="Fisheye active" checked={isFeatEffectActive(c, 'Fisheye')}
+              disabled={!isFeatEffectActive(c, 'Fisheye') && !!c.dailyFeatUses?.Fisheye}
+              onChange={event => save({ ...featEffectChange(c, 'Fisheye', event.target.checked),
+                ...(event.target.checked ? { dailyFeatUses: { ...c.dailyFeatUses, Fisheye: true } } : {}) })} /> Fisheye active
+          </label>
+          <label><input type="checkbox" aria-label="Fisheye used" checked={!!c.dailyFeatUses?.Fisheye}
+            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, Fisheye: event.target.checked } })} /> Fisheye used</label>
+          {isFeatEffectActive(c, 'Fisheye') && <SourceNote source="Fisheye"
+            note="Hold your breath 25 times as long as usual. Temporary Breath Control cannot qualify you for permanent options." />}
+        </>}
         {form && <div className="defense-summary">
           <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
             <SourceNote source={form.source} note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>
