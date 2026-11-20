@@ -56,6 +56,16 @@ const hasUntamedForm = (c: Character) =>
   c.feats.some(feat => feat.name === 'Untamed Form' && featTakenLevel(feat) <= c.level)
   || !!c.spells?.some(spell => spell.name === 'Untamed Form')
 
+function highestDruidSlotRank(c: Character) {
+  if (c.className === 'Druid') return Math.min(10, Math.ceil(c.level / 2))
+  const has = (name: string) => c.feats.some(feat => feat.name === name && featTakenLevel(feat) <= c.level)
+  if (!has('Basic Druid Spellcasting')) return undefined
+  const basic = Math.min(3, Math.max(0, Math.floor(c.level / 2) - 1))
+  if (!has('Expert Druid Spellcasting')) return basic
+  const expert = Math.min(6, Math.max(0, Math.floor(c.level / 2) - 2))
+  return has('Master Druid Spellcasting') ? Math.min(8, expert + Math.max(0, Math.floor((c.level - 16) / 2))) : expert
+}
+
 const spellIndexes = new WeakMap<ContentEntry[], { spells: ContentEntry[]; named: Map<string, ContentEntry[]> }>()
 function spellIndex(entries: ContentEntry[]) {
   let index = spellIndexes.get(entries)
@@ -274,11 +284,12 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
     if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
-      if (!hasUntamedForm(c) && c.className === 'Druid') {
+      const rank = highestDruidSlotRank(c)
+      if (!hasUntamedForm(c) && rank !== undefined && rank >= 5) {
         const entry = matchingSpells(entries, 'Plant Form').find(spell => spell.systems.includes('pf2e'))
         if (entry) out.push({ entry, source: feat.name,
           rule: { kind: 'feat', spells: [entry.name], tradition: 'primal', frequency: 'once per day' },
-          rank: Math.min(10, Math.ceil(c.level / 2)), usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+          rank, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       }
       continue
     }
@@ -524,7 +535,9 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) return []
     if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
       if (hasUntamedForm(c)) return []
-      if (c.className !== 'Druid') return [{ name: 'Plant Form (druid spell slot rank unavailable)', source }]
+      const rank = highestDruidSlotRank(c)
+      if (rank === undefined) return [{ name: 'Plant Form (druid spell slot rank unavailable)', source }]
+      if (rank < 5) return [{ name: 'Plant Form (druid spell slot rank below 5)', source }]
       return matchingSpells(entries, 'Plant Form').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Plant Form', source }]
     }

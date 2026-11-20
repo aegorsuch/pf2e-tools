@@ -375,6 +375,24 @@ it('grants Plant Shape a daily plant form only without Untamed Form', () => {
   expect(unresolvedFeatSpells(c, [])).toMatchObject([{ name: 'Plant Form' }])
 })
 
+it('uses Druid archetype slot progression for Plant Shape rather than the primary class slots', () => {
+  const plant = { ...entry('Plant Form', 'spell'), level: 5 }
+  const c: Character = { ...base, className: 'Wizard', level: 20,
+    feats: [taken('Plant Shape', 10), taken('Basic Druid Spellcasting', 4),
+      taken('Expert Druid Spellcasting', 12), taken('Master Druid Spellcasting', 18)] }
+  for (const [level, rank] of [[14, 5], [16, 6], [18, 7], [20, 8]] as const) {
+    const character = { ...c, level }
+    const [grant] = grantedFeatSpells(character, [plant])
+    expect(grant.rank).toBe(rank)
+    expect(dailyInnateUses(character, grant)?.remaining).toBe(1)
+  }
+  expect(grantedFeatSpells({ ...c, level: 12 }, [plant])).toEqual([])
+  expect(unresolvedFeatSpells({ ...c, level: 12 }, [plant])[0].name).toContain('below 5')
+  const basicOnly = { ...c, feats: c.feats.filter(feat => !/^(Expert|Master) Druid Spellcasting$/.test(feat.name)) }
+  expect(grantedFeatSpells(basicOnly, [plant])).toEqual([])
+  expect(unresolvedFeatSpells({ ...c, feats: [taken('Plant Shape', 10)] }, [plant])[0].name).toContain('unavailable')
+})
+
 it('applies Plant and Dragon Shape resistances only while Untamed Form is active', () => {
   const c: Character = { ...base, className: 'Druid', level: 12, feats: [
     taken('Untamed Form'), taken('Plant Shape', 10), taken('Dragon Shape', 12),
