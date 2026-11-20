@@ -1386,6 +1386,12 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       if (skillSources.has(equivalence) && skillSources.get(equivalence) !== entry) return false
       if (seen.has(equivalence)) return false
       seen.add(equivalence)
+      if (entry.source === 'official' && entry.description.trim()) {
+        const rules = entry.description.split(/\n\s*---\s*\n/).at(-1)!.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+        const sameText = `${entry.name.toLowerCase()}|${entry.level}|${String(entry.data.prerequisite ?? '').toLowerCase()}|${rules}`
+        if (seen.has(sameText) && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name && feat.sourceId === entry.id)) return false
+        seen.add(sameText)
+      }
       return true
     }).map(({ entry }) => entry)
 }
