@@ -10,7 +10,7 @@ import { isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { armorBulk, armorStrengthMet } from './builder'
-import { classHandwrapKind, isGiantWeapon } from './builder'
+import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
@@ -1130,6 +1130,9 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
           ...(iruxiGranted ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
+          ...(c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
+            && !iruxiGranted && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
+            ? [{ name: 'Ghost Touch', source: 'Granted by Spirit Rage' }] : []),
           ...(decaying ? [{ name: decaying, source: 'Granted by Osteo Armaments' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
             ? ["Bolka's Blessing", "Kols's Oath", "Trudd's Strength"].map(name => ({

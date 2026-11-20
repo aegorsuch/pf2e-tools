@@ -768,6 +768,15 @@ it.each([[1, 3], [7, 7], [15, 13]])('applies Spirit Rage damage at level %i', (l
   expect(weaponAttack({ ...c, spiritRage: false }, [sword], main).rageDamage).toBe(2)
 })
 
+it('shows Spirit Rage ghost touch on attacks only while active', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level: 8, raging: true,
+    spiritRage: true, weapons: [main] }
+  const html = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[sword]} save={() => {}} displayOnly />)
+  expect(html(c)).toContain('Granted by Spirit Rage')
+  expect(html({ ...c, spiritRage: false })).not.toContain('Granted by Spirit Rage')
+  expect(html({ ...c, raging: false })).not.toContain('Granted by Spirit Rage')
+})
+
 it('gates fury, spirit and superstition raging resistance and superstition conditional bonuses', () => {
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Superstition', level: 9, raging: true,
     superstitionTraditions: 'Arcane and Primal' }
@@ -806,6 +815,15 @@ it('applies activated Desperate Wrath and Come and Get Me to defenses and attack
   expect(armorClass({ ...c, raging: false }, [])).toBe(armorClass({ ...inactive, raging: false }, []))
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
   expect(markup).toContain('Damage rolls against you gain +2 circumstance')
+})
+
+it("shows Spirits' Interference only when activated during Rage", () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level: 8, raging: true,
+    feats: [feat("Spirits' Interference", 6)], activeFeatEffects: ["Spirits' Interference"] }
+  const html = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="defense" />)
+  expect(html(c)).toContain('Ranged attacks against you require a successful DC 5 flat check')
+  expect(html({ ...c, activeFeatEffects: [] })).not.toContain('Ranged attacks against you require a successful DC 5 flat check')
+  expect(html({ ...c, raging: false })).not.toContain('Ranged attacks against you require a successful DC 5 flat check')
 })
 
 it('offers Scouring Rage using the chosen instinct damage type once per Rage', () => {

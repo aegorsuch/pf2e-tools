@@ -139,7 +139,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         </span>}
       </div>}
       {instinct === 'superstition' && c.level >= 9 && <label>Raging Resistance{' '}
-        <select aria-label="Superstition Raging Resistance" value={c.superstitionTraditions ?? ''} onChange={event => {
+        <select aria-label="Superstition Raging Resistance" value={c.superstitionTraditions ?? ''} disabled={!!c.raging} onChange={event => {
           const choice = (['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'] as const)
             .find(value => value === event.target.value)
           save({ superstitionTraditions: choice })

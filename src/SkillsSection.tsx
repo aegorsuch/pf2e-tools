@@ -744,6 +744,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           title="Activate when your turn starts at half HP or less; ends above half HP or when Rage ends." />}
         {c.raging && <FeatEffectToggle c={c} save={save} name="Come and Get Me" label="Come and Get Me active"
           title="While active, you are off-guard and attacks against you gain +2 circumstance damage." />}
+        {c.raging && <FeatEffectToggle c={c} save={save} name="Spirits' Interference" label="Spirits' Interference active"
+          title="One action; ranged attackers must pass a DC 5 flat check until Rage ends." />}
+        {c.raging && isFeatEffectActive(c, "Spirits' Interference") && <SourceNote source="Spirits' Interference"
+          note="Ranged attacks against you require a successful DC 5 flat check or miss with no effect." />}
         {c.raging && isFeatEffectActive(c, 'Come and Get Me') && <SourceNote source="Come and Get Me"
           note={`Damage rolls against you gain +2 circumstance. A creature that hits you is off-guard to you until the end of your next turn; if you hit it before then, gain ${Math.max(0, abilityMod(c.abilities.con))} temporary HP, doubled on a critical hit, until Rage ends.`} />}
         {skin && <SourceNote source="Animal Skin" note={`+${skin.itemBonus} item AC; Dexterity cap +${skin.dexCap}.`} />}
