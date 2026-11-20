@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, SKILL_GRANT_REPLACEMENT_FEATS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, SKILL_GRANT_REPLACEMENT_FEATS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -26,25 +26,6 @@ interface FeatSlotsProps extends SectionProps {
 }
 
 const PAGE = 100
-
-function matchesSkill(entry: ContentEntry, skill: string, feats: ReadonlyMap<string, ContentEntry>, seen = new Set<string>()): boolean {
-  if (!skill) return true
-  if (seen.has(entry.id)) return false
-  seen.add(entry.id)
-  const declared = String(entry.data.skill ?? '').split(',').map(value => value.trim().toLowerCase()).filter(Boolean)
-  if (declared.length) return declared.includes(skill.toLowerCase())
-  if (entry.name === 'Additional Lore') return skill === 'Lore'
-  if (entry.name === 'Assurance') return true
-  if (entry.name === 'Skill Training') return skill !== 'Lore'
-  const prerequisite = String(entry.data.prerequisite ?? '')
-  if (/\bRecall Knowledge\b/i.test(prerequisite)
-    && ['Arcana', 'Computers', 'Crafting', 'Lore', 'Medicine', 'Nature', 'Occultism', 'Religion', 'Society'].includes(skill)) return true
-  if (new RegExp(`\\b${skill}\\b`, 'i').test(prerequisite)) return true
-  return prerequisite.split(/[;,]|\s+(?:and|or)\s+/i).some(name => {
-    const required = feats.get(name.trim())
-    return !!required?.traits.some(trait => trait.toLowerCase() === 'skill') && matchesSkill(required, skill, feats, seen)
-  })
-}
 
 const selectedCheckCaches = new WeakMap<ContentEntry[], { context: string; checks: Map<string, PrerequisiteCheck> }>()
 function selectedChecks(c: Character, entries: ContentEntry[]) {
@@ -286,7 +267,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer'
+      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -458,7 +439,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               : s.grantedFeat === 'Canny Acumen' ? '- empty -' : s.grantedFeat || '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)

@@ -18,6 +18,7 @@ const RULES: Record<string, FamiliarityRule> = {
   'Goblin Weapon Familiarity': { trait: 'Goblin' },
   'Halfling Weapon Familiarity': { trait: 'Halfling', weapons: ['Sling', 'Shortsword'] },
   'Orc Weapon Familiarity': { trait: 'Orc', weapons: ['Falchion', 'Greataxe'] },
+  'Vesk Weapon Familiarity': { trait: 'Vesk', trained: true },
   'Catfolk Weapon Familiarity': { trait: 'Catfolk', weapons: ['Kama', 'Kukri', 'Scimitar', 'Sickle'] },
   'Hobgoblin Weapon Familiarity': { trait: 'Hobgoblin', weapons: ['Composite Longbow', 'Composite Shortbow', 'Glaive', 'Longbow', 'Longsword', 'Shortbow'] },
   'Kholo Weapon Familiarity': { trait: 'Kholo', weapons: ['Flail', 'Khopesh', 'Mambele', 'War Flail'] },
@@ -119,17 +120,18 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
     }
     const rule = RULES[feat.name]
     if (!rule) continue
+    const doshko = feat.name === 'Vesk Weapon Familiarity' && /\bdoshko\b/i.test(weapon.name)
     const trait = !!rule.trait && weapon.traits.some(trait => trait.toLowerCase() === rule.trait!.toLowerCase())
     if (trait && uncommonWeapon(weapon) || named(rule.access, weapon)) access.push(feat.name)
     const selection = !!feat.choice && key(feat.choice) === key(weapon.name)
       && !!familiarityChoiceOptions(feat.name, c, [weapon])?.includes(weapon.name)
-    if (!(trait && !rule.accessOnlyTrait || named(rule.weapons, weapon) || selection
+    if (!(trait && !rule.accessOnlyTrait || named(rule.weapons, weapon) || doshko || selection
       || feat.name === 'Oni Weapon Familiarity' && /horns/i.test(weapon.name) && category === 'Unarmed')) continue
     if (category === 'Martial' || category === 'Advanced' && rule.advanced === 'Simple') proficiency = 'Simple'
     else if (category === 'Advanced' && rule.advanced !== false && proficiency !== 'Simple') proficiency = 'Martial'
-    trained ||= !!rule.trained && named(rule.weapons, weapon)
+    trained ||= !!rule.trained && (named(rule.weapons, weapon) || doshko)
     expertise ||= !!rule.trained && c.feats.some(other => other.name === feat.name.replace('Familiarity', 'Expertise') && featTakenLevel(other) <= c.level)
-    criticalSpecialization ||= !rule.trained && c.level >= 5 && feat.name !== 'Jotunborn Weapon Familiarity'
+    criticalSpecialization ||= (!rule.trained || feat.name === 'Vesk Weapon Familiarity') && c.level >= 5 && feat.name !== 'Jotunborn Weapon Familiarity'
   }
   return { access, proficiency, trained, expertise, criticalSpecialization }
 }
