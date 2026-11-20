@@ -1,6 +1,11 @@
 import type { ContentEntry, OwnedWeapon } from './types'
 import { getSettings } from './settings'
 
+export const BRIAR_MAX_SHARPNESS = 20
+export function briarSharpnessPoints(value: number | undefined) {
+  return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? Math.min(value, BRIAR_MAX_SHARPNESS) : 0
+}
+
 const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club"
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
 const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
@@ -212,8 +217,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
       data: { ...entry.data, named_weapon_potency: bond + 1, named_weapon_striking: bond + 1 } }
   }
   if (source !== 'Briar') return entry
-  const saved = weapon.briarSharpness ?? 0
-  const points = Number.isSafeInteger(saved) && saved >= 0 ? saved : 0
+  const points = briarSharpnessPoints(weapon.briarSharpness)
   const tiers = [...entry.description.matchAll(/(?:^|\n\n)(1|4|8|14|20) Sharpness Points?\b/g)]
   const tier = tiers.filter(match => Number(match[1]) <= points).at(-1)
   const next = tier && tiers[tiers.indexOf(tier) + 1]

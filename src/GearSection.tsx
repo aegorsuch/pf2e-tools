@@ -19,7 +19,7 @@ import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { TotalBreakdown } from './TotalBreakdown'
-import { namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
+import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus } from './builder'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
@@ -1147,10 +1147,10 @@ export function WeaponList({ c, entries, save, displayOnly = false }: SectionPro
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         const equipControls = <>
             {namedSource === 'Briar' && <label>Sharpness Points{' '}
-              <input aria-label="Briar Sharpness Points" type="number" min={0} step={1} value={w.briarSharpness ?? 0}
+              <input aria-label="Briar Sharpness Points" type="number" min={0} max={BRIAR_MAX_SHARPNESS} step={1} value={briarSharpnessPoints(w.briarSharpness)}
                 onChange={event => {
                   const points = event.target.valueAsNumber
-                  if (Number.isSafeInteger(points) && points >= 0) update(w.id, { briarSharpness: points })
+                  if (Number.isSafeInteger(points) && points >= 0) update(w.id, { briarSharpness: briarSharpnessPoints(points) })
                 }} />
             </label>}
             {namedSource === 'Azlanti Diamond' && <label>Bond duration{' '}
