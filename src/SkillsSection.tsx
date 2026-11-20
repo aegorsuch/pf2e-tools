@@ -666,6 +666,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const divineWeaknesses = divineIntercessionWeaknesses(c)
     const ac = armorClassBreakdown(c, entries)
     const acCircumstance = Math.max(0, ...ac.parts.filter(part => part.label.endsWith('(circumstance)')).map(part => part.value))
+    const morphActive = !!form || !!giantStatureSize(c, entries) || !!c.raging && !!c.animalisticBrutality
+      || (c.activeSpells ?? []).some(name => isSpellActive(c, entries, name)
+        && entries.some(entry => entry.kind === 'spell' && entry.name === name
+          && entry.traits.some(trait => /^(?:morph|polymorph)$/i.test(trait))))
+      || (c.activeFeatEffects ?? []).some(name => activeFeatsNamed(c, name).length > 0
+        && entries.some(entry => entry.kind === 'feat' && entry.name === name
+          && entry.traits.some(trait => /^(?:morph|polymorph)$/i.test(trait))))
     return (
       <>
         <div className="defense-summary">
@@ -709,7 +716,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           </label>)}
           {c.raging && !!activeFeatsNamed(c, 'Inner Strength').length && conditionValue(c, 'enfeebled') > 0
             && <button type="button" aria-label="Inner Strength" onClick={() => save({ conditions: { ...c.conditions, enfeebled: conditionValue(c, 'enfeebled') - 1 } })}>Inner Strength</button>}
-          {!!activeFeatsNamed(c, 'Creature Comforts').length && conditionValue(c, 'frightened') > 0
+          {!!activeFeatsNamed(c, 'Creature Comforts').length && morphActive && conditionValue(c, 'frightened') > 0
             && <button type="button" aria-label="Creature Comforts" onClick={() => save({ conditions: { ...c.conditions, frightened: conditionValue(c, 'frightened') - 1 } })}>Creature Comforts</button>}
           {c.raging && !!activeFeatsNamed(c, 'Shake It Off').length
             && (conditionValue(c, 'frightened') > 0 || conditionValue(c, 'sickened') > 0)

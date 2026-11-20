@@ -141,7 +141,8 @@ it.each([['Critical failure', 0], ['Failure', 1], ['Success', 2], ['Critical suc
 it('reduces enfeebled and frightened with their respective reactions and updates skill totals', () => {
   let c: Character = { ...base, className: 'Barbarian', level: 10, raging: true,
     abilities: { ...base.abilities, str: 18 }, conditions: { enfeebled: 3, frightened: 2 },
-    feats: ['Inner Strength', 'Creature Comforts'].map(name => ({ name, type: 'Class Feat', level: 1 })) }
+    barbarianAnimal: 'Bear', animalRageForm: true,
+    feats: ['Inner Strength', 'Creature Comforts', 'Animal Rage'].map(name => ({ name, type: 'Class Feat', level: 1 })) }
   const tree = (part: 'defense' | 'skills') => SkillsSection({ c, entries: [], part, save: patch => { c = { ...c, ...patch } } })
   expect(renderToStaticMarkup(tree('skills'))).toContain('class="skill-name">Athletics <b>+1')
   ;(findButtons(tree('defense')).get('Inner Strength')!.onClick as () => void)()
@@ -150,6 +151,8 @@ it('reduces enfeebled and frightened with their respective reactions and updates
   ;(findButtons(tree('defense')).get('Creature Comforts')!.onClick as () => void)()
   expect(c.conditions?.frightened).toBe(1)
   expect(defenseSummary(c, []).fortitude).toBe(defenseSummary({ ...c, conditions: {} }, []).fortitude - 1)
+  c = { ...c, animalRageForm: false }
+  expect(findButtons(tree('defense')).has('Creature Comforts')).toBe(false)
 })
 
 it('keeps entered conditions editable after removing their granting feats', () => {
