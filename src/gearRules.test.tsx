@@ -1970,6 +1970,23 @@ it('shows Barbarian Athletics feat effects only while raging and avoids stacking
   expect(markup(boosted)).toContain('+16 to lift heavy objects, Escape, and Force Open (+1 status')
 })
 
+it('shows melee-only Brutal Critical and Rage-dependent Shattering Blows', () => {
+  const melee = content('weapon', 'Test Sword', { weapon_category: 'Martial', weapon_type: 'Melee', damage: '1d8 slashing' })
+  const ranged = content('weapon', 'Test Bow', { weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d8 piercing' })
+  const devastator = content('classFeature', 'Devastator', { class: 'Barbarian' }, 15)
+  const c: Character = { ...base, className: 'Barbarian', level: 18, raging: true,
+    feats: [feat('Brutal Critical', 18), feat('Shattering Blows', 16)] }
+  const weapon = (entry: ContentEntry) => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
+  const notes = (character: Character, entry: ContentEntry, entries = [melee, ranged, devastator]) =>
+    weaponAttack(character, entries, weapon(entry)).breakdown.notes ?? []
+  expect(notes(c, melee)).toContain('Brutal Critical: on a critical melee Strike, add one damage die and deal two damage dice of persistent bleed.')
+  expect(notes(c, melee)).toContain('Shattering Blows: melee Strike damage ignores the first 10 Hardness of an object.')
+  expect(notes(c, melee, [melee])).toContain('Shattering Blows: melee Strike damage ignores the first 5 Hardness of an object.')
+  expect(notes({ ...c, raging: false }, melee).some(note => note.startsWith('Shattering Blows:'))).toBe(false)
+  expect(notes(c, ranged).some(note => note.startsWith('Brutal Critical:') || note.startsWith('Shattering Blows:'))).toBe(false)
+  expect(notes({ ...c, level: 17 }, melee).some(note => note.startsWith('Brutal Critical:'))).toBe(false)
+})
+
 it('stacks Animal Skin with explorer clothing potency and shields, but never applies the hide to armor', () => {
   const barbarian = content('class', 'Barbarian', { defense_proficiency: 'Trained in unarmored defense', medium_armor_proficiency: 'Trained' })
   const clothing = content('armor', "Explorer's Clothing", { armor_category: 'Unarmored', ac: 0, dex_cap: 5 })

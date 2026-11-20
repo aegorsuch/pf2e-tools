@@ -5634,6 +5634,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
+        ...(!ranged && activeFeatsNamed(c, 'Brutal Critical').length
+          ? ['Brutal Critical: on a critical melee Strike, add one damage die and deal two damage dice of persistent bleed.'] : []),
+        ...(!ranged && c.raging && activeFeatsNamed(c, 'Shattering Blows').length
+          ? [`Shattering Blows: melee Strike damage ignores the first ${classFeatures(entries, c).some(feature => feature.name === 'Devastator') ? 10 : 5} Hardness of an object.`] : []),
         ...(activeFeatsNamed(c, "Cavalier's Charge").length
           ? [`Cavalier's Charge: ${signed(attack + 1)} on the Strike while riding your mount, within reach or the first range increment (+1 circumstance; circumstance bonuses do not stack).`] : []),
         ...(activeFeatsNamed(c, 'Spirit Coffin').length
