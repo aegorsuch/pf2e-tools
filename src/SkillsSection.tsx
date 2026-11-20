@@ -87,6 +87,8 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   const speeds = movementSpeeds(c, entries)
   const dashSpeeds = activeFeatsNamed(c, 'Uncanny Dash').length && activeFeatsNamed(c, 'Gg-os Frame').length
     ? movementSpeeds(c, entries, { includeUncannyDash: true }) : undefined
+  const uplifting = activeFeatsNamed(c, 'Uplifting Winds').length
+    ? movementSpeeds(c, entries, { includeUpliftingWinds: true }).find(movement => movement.name === 'Fly') : undefined
   return <>
     <SkillsSection c={c} entries={entries} save={save} part="senses" />
     <small>Senses: {characterSenses.length ? characterSenses.map((sense, index) => <span key={`${sense.value}:${sense.source}`}>
@@ -108,6 +110,8 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
       {athlete && <SourceNote source="Raging Athlete"
         note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
+      {uplifting && <SourceNote source="Uplifting Winds"
+        note={`When flying and casting an air or electricity spell, Fly Speed ${uplifting.feet} feet (+10 status, nonstacking); immediately Fly up to half that Speed.`} />}
       {!!activeFeatsNamed(c, 'Shore Step').length && <SourceNote source="Shore Step" note="Ignore difficult terrain caused by shallow water." />}
       {!!activeFeatsNamed(c, 'Forest Passage').length && <SourceNote source="Forest Passage" note="Ignore difficult terrain caused by plants and fungi." />}
       {hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}

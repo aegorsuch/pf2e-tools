@@ -1802,6 +1802,22 @@ it('applies Verdant Rest plant form AC, immobility, Reflex limitation and mutual
   expect(html).toContain('Cannot move or affect anything outside the plant')
 })
 
+it('shows Uplifting Winds only for an existing fly Speed without stacking status bonuses', () => {
+  const c: Character = { ...base, level: 16, feats: [
+    { name: 'Uplifting Winds', type: 'Class Feat', level: 16 },
+    { name: 'Reinforced Skeleton', type: 'Ancestry Feat', level: 1, choice: 'Cold, Piercing' },
+  ], spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }], activeSpells: ['Stormwind Flight'] }
+  const normal = builder.movementSpeeds(c, []).find(speed => speed.name === 'Fly')
+  const boosted = builder.movementSpeeds(c, [], { includeUpliftingWinds: true }).find(speed => speed.name === 'Fly')
+  expect(normal?.feet).toBe(30)
+  expect(boosted?.feet).toBe(35)
+  expect(builder.movementSpeeds({ ...c, activeSpells: [] }, [], { includeUpliftingWinds: true })
+    .some(speed => speed.name === 'Fly')).toBe(false)
+  const markup = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Fly Speed 35 feet (+10 status, nonstacking)')
+  expect(markup).toContain('casting an air or electricity spell')
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }

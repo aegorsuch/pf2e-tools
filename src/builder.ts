@@ -1890,7 +1890,7 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + (meets ? mobility ? 10 : 5 : 0)) }
 }
 
-type MovementSpeedOptions = { includeUncannyDash?: boolean }
+type MovementSpeedOptions = { includeUncannyDash?: boolean; includeUpliftingWinds?: boolean }
 
 export function speedBonuses(c: Character, entries: ContentEntry[] = [], options: MovementSpeedOptions = {}) {
   const terrain = favoredTerrainBenefits(c, entries)
@@ -2066,6 +2066,14 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
       const climb = merged.get('Climb')
       const fastest = [atLandSpeed('Land', ''), ...merged.values()].reduce((best, candidate) => candidate.feet > best.feet ? candidate : best)
       if (climb && climb.feet < fastest.feet) merged.set('Climb', { ...fastest, name: 'Climb', source: 'Canopy Crawler' })
+    }
+  }
+  if (options.includeUpliftingWinds && activeFeatsNamed(c, 'Uplifting Winds').length) {
+    const fly = merged.get('Fly')
+    if (fly) {
+      const extra = Math.max(0, 10 - fly.status)
+      if (extra) merged.set('Fly', { ...fly, feet: fly.feet + extra, status: 10,
+        source: `${fly.source}, Uplifting Winds (+10 status)` })
     }
   }
   return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()]
