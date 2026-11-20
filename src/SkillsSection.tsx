@@ -122,6 +122,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       title="Apply favored terrain benefits only while you are in that terrain." />
     <FeatEffectToggle c={c} save={save} name="Briny Beverage" label="Briny Beverage active"
       title="Once per day for 1 minute; wavesense works only in the body of water you drank from." />
+    {c.raging && <FeatEffectToggle c={c} save={save} name="Dragon's Rage Wings" label="Dragon's Rage Wings active"
+      title="One action; wings last until Rage ends." />}
+    {c.raging && isFeatEffectActive(c, "Dragon's Rage Wings") && <SourceNote source="Dragon's Rage Wings"
+      note="If flying when Rage ends, fall without taking damage and land standing." />}
     {hellknightTrainingBenefits(c).some(benefit => benefit.name === 'Trailblazing Stride') && <>
       <label><input type="checkbox" aria-label="Trailblazing Stride active" checked={hellknightBenefitActive(c, 'Trailblazing Stride')}
         onChange={event => save(featEffectChange(c, 'Trailblazing Stride', event.target.checked))} /> Trailblazing Stride</label>

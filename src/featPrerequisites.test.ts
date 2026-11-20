@@ -958,7 +958,11 @@ describe('shared prerequisite enforcement', () => {
   it('grants flight from Dragon\'s Rage Wings only while raging', () => {
     const character: Character = { ...base, level: 12, feats: [{ name: "Dragon's Rage Wings", type: 'Class Feat', level: 12 }] }
     expect(movementSpeeds(character, []).some(s => s.name === 'Fly')).toBe(false)
-    expect(movementSpeeds({ ...character, raging: true }, []).some(s => s.source === "Dragon's Rage Wings")).toBe(true)
+    expect(movementSpeeds({ ...character, raging: true }, []).some(s => s.source === "Dragon's Rage Wings")).toBe(false)
+    expect(movementSpeeds({ ...character, raging: true, activeFeatEffects: ["Dragon's Rage Wings"] }, [])
+      .some(s => s.source === "Dragon's Rage Wings")).toBe(true)
+    expect(movementSpeeds({ ...character, raging: false, activeFeatEffects: ["Dragon's Rage Wings"] }, [])
+      .some(s => s.source === "Dragon's Rage Wings")).toBe(false)
   })
   it('grants half-Speed climb and swim from Flamboyant Athlete', () => {
     const character: Character = { ...base, level: 2, feats: [{ name: 'Flamboyant Athlete', type: 'Class Feat', level: 2 }] }

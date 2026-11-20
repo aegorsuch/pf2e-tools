@@ -2030,7 +2030,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
       movement.push(fixed(name, swiftSwimmerSpeed, feat))
     }
   }
-  if (c.raging && activeFeatsNamed(c, "Dragon's Rage Wings").length) movement.push(atLandSpeed('Fly', "Dragon's Rage Wings"))
+  if (c.raging && isFeatEffectActive(c, "Dragon's Rage Wings")) movement.push(atLandSpeed('Fly', "Dragon's Rage Wings"))
   if (isFeatEffectActive(c, "Implement's Flight") && activeFeatsNamed(c, "Implement's Flight").length) {
     movement.push(atLandSpeed('Fly', "Implement's Flight"))
   }

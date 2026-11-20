@@ -411,6 +411,10 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         && (!next.raging || !activeFeatsNamed(next, "Giant's Lunge").length)) {
         next.activeFeatEffects = next.activeFeatEffects.filter(effect => effect !== "Giant's Lunge")
       }
+      if (next.activeFeatEffects?.includes("Dragon's Rage Wings")
+        && (!next.raging || !activeFeatsNamed(next, "Dragon's Rage Wings").length)) {
+        next.activeFeatEffects = next.activeFeatEffects.filter(effect => effect !== "Dragon's Rage Wings")
+      }
       if (next.giantStature && (!canUseGiantStature(next, entries)
         || next.giantStature === 'Huge' && !activeFeatsNamed(next, "Titan's Stature").length)) next.giantStature = undefined
       if (next.boosts) next.abilities = computeAbilities(next, entries)
