@@ -21,7 +21,7 @@ import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBon
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
-import { activeBattleForm, animalRageFormChange, bulkLimits, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange } from './builder'
+import { activeBattleForm, animalRageFormChange, bulkLimits, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange, thrashDamage } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -687,6 +687,22 @@ it('applies Ghost Wrangler to fists and Strength skills until its effect ends', 
   expect(skills).toContain('Can use Strength-based skill checks against incorporeal creatures')
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />))
     .toContain('aria-label="Ghost Wrangler active" checked=""')
+})
+
+it('calculates Thrash damage and exposes Collateral Thrash saves', () => {
+  const klass = content('class', 'Barbarian', { attack_proficiency: 'expert in unarmed attacks' })
+  const c: Character = { ...base, level: 8, className: 'Barbarian', subclass: 'Fury', raging: true,
+    abilities: { ...base.abilities, str: 18 }, feats: [feat('Thrash', 8)] }
+  expect(thrashDamage(c, [klass])).toBe(13)
+  expect(thrashDamage({ ...c, level: 18 }, [klass])).toBe(21)
+  expect(thrashDamage({ ...c, subclass: 'Animal', barbarianAnimal: 'Bear' }, [klass])).toBe(8)
+  const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[klass]} save={() => {}} />)
+  expect(html(c)).toContain(`${thrashDamage(c, [klass])} bludgeoning`)
+  expect(html(c)).toContain('basic Fortitude save')
+  expect(html({ ...c, raging: false })).not.toContain('Roll Thrash')
+  const collateral = { ...c, level: 20, feats: [...c.feats, feat('Collateral Thrash', 16), feat('Whirlwind Toss', 18)] }
+  expect(html(collateral)).toContain('basic Reflex save')
+  expect(html(collateral)).toContain('throws the grabbed creature 10 feet')
 })
 
 it('preserves personal statistics and attacks in Animal Rage, including frog tongue reach', () => {

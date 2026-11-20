@@ -7,7 +7,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { abilityMod, animalRageFormChange, classDifficultyClass, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, weaponRanks, withoutBattleForm } from './builder'
+import { abilityMod, animalRageFormChange, classDifficultyClass, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, thrashDamage, weaponRanks, withoutBattleForm } from './builder'
 import { animalBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
@@ -171,6 +171,11 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           <SourceNote source="Spirit's Wrath" note="Melee wisp rush against a target within 120 feet. Uses and increases your multiple attack penalty. On a critical hit, deal double damage and inflict frightened 1. Apply other applicable status and circumstance modifiers." />
         </span>}
       </div>}
+      {c.raging && !!activeFeatsNamed(c, 'Thrash').length && <span>
+        Thrash{' '}<DamageRoll name="Thrash" actions="Single Action"
+          damage={{ label: 'Damage', dice: 0, sides: 0, bonus: thrashDamage(c, entries), type: 'bludgeoning' }} />
+        <SourceNote source="Thrash" note={`Against an enemy you have grabbed or restrained; basic Fortitude save against ${classDifficultyClass(c, entries) ?? 'class DC'}. Uses unarmed weapon specialization and Rage damage.${activeFeatsNamed(c, 'Collateral Thrash').length ? ' Collateral Thrash also affects one enemy adjacent to the grabbed creature, with a basic Reflex save.' : ''}${activeFeatsNamed(c, 'Whirlwind Toss').length ? ' Whirlwind Toss applies Collateral Thrash to all other adjacent enemies, then throws the grabbed creature 10 feet and knocks it prone.' : ''}`} />
+      </span>}
       {instinct === 'superstition' && c.level >= 9 && <label>Raging Resistance{' '}
         <select aria-label="Superstition Raging Resistance" value={c.superstitionTraditions ?? ''} disabled={!!c.raging} onChange={event => {
           const choice = (['Arcane and Occult', 'Arcane and Primal', 'Divine and Occult', 'Divine and Primal'] as const)

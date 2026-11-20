@@ -5288,6 +5288,15 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
   return traits.includes('agile') ? Math.floor(value / 2) : value
 }
 
+export function thrashDamage(c: Character, entries: ContentEntry[]) {
+  const rank = weaponRanks(c, entries).Unarmed
+  const features = classFeatures(entries, c).map(feature => feature.name.toLowerCase())
+  const specialization = rank >= 2 && (c.className === 'Barbarian' && c.level >= 7 || features.includes('weapon specialization'))
+    ? rank * (c.className === 'Barbarian' && c.level >= 15 || features.includes('greater weapon specialization') ? 2 : 1) : 0
+  const fist: OwnedWeapon = { id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] }
+  return Math.max(0, abilityMod(c.abilities.str) + specialization + rageDamageBonus(c, entries, fist, [], false))
+}
+
 export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const innovation = c.className === 'Inventor' && selectedSubclass(c, entries) === 'Weapon'
     || activeFeatsNamed(c, 'Inventor Dedication').some(feat => feat.choice === 'Weapon')
