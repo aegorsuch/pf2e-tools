@@ -176,6 +176,11 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           damage={{ label: 'Damage', dice: 0, sides: 0, bonus: thrashDamage(c, entries), type: 'bludgeoning' }} />
         <SourceNote source="Thrash" note={`Against an enemy you have grabbed or restrained; basic Fortitude save against ${classDifficultyClass(c, entries) ?? 'class DC'}. Uses unarmed weapon specialization and Rage damage.${activeFeatsNamed(c, 'Collateral Thrash').length ? ' Collateral Thrash also affects one enemy adjacent to the grabbed creature, with a basic Reflex save.' : ''}${activeFeatsNamed(c, 'Whirlwind Toss').length ? ' Whirlwind Toss applies Collateral Thrash to all other adjacent enemies, then throws the grabbed creature 10 feet and knocks it prone.' : ''}`} />
       </span>}
+      {c.raging && !!activeFeatsNamed(c, 'Brutal Bully').length && <span>
+        Brutal Bully{' '}<DamageRoll name="Brutal Bully" damage={{ label: 'Damage',
+          dice: 0, sides: 0, bonus: Math.max(0, abilityMod(c.abilities.str)), type: 'bludgeoning' }} />
+        <SourceNote source="Brutal Bully" note="On a successful Disarm, Grapple, Reposition, Shove, or Trip, deal this damage to the enemy; add it to damage from a critical Trip." />
+      </span>}
       {!!activeFeatsNamed(c, 'Overpowering Charge').length && <span>
         Overpowering Charge{' '}<DamageRoll name="Overpowering Charge" damage={{ label: 'Damage',
           dice: 0, sides: 0, bonus: Math.max(0, abilityMod(c.abilities.str)), type: 'bludgeoning' }} />

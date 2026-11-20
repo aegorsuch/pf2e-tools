@@ -705,6 +705,36 @@ it('calculates Thrash damage and exposes Collateral Thrash saves', () => {
   expect(html(collateral)).toContain('throws the grabbed creature 10 feet')
 })
 
+it('calculates Brutal Bully damage only while raging', () => {
+  const c: Character = { ...base, level: 8, className: 'Barbarian', raging: true,
+    abilities: { ...base.abilities, str: 18 }, feats: [feat('Brutal Bully', 6)] }
+  const render = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
+  expect(render(c)).toContain('4 bludgeoning')
+  expect(render(c)).toContain('Roll Brutal Bully')
+  expect(render({ ...c, raging: false })).not.toContain('Roll Brutal Bully')
+  expect(render({ ...c, level: 5 })).not.toContain('Roll Brutal Bully')
+})
+
+it('calculates Perfect Clarity rerolls without stacking Desperate Wrath', () => {
+  const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
+    feats: [feat('Perfect Clarity', 18), feat('Desperate Wrath', 16)], activeFeatEffects: ['Desperate Wrath'] }
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.breakdown.notes.join(' ')).toContain(`at ${signed(attack.attack)} (+2 circumstance`)
+  const will = savingThrowBreakdown(c, [], 'Will')
+  expect(will.notes?.join(' ')).toContain(`at ${signed(will.total + 2)} (+2 circumstance)`)
+  expect(weaponAttack({ ...c, raging: false }, [sword], main).breakdown.notes.join(' ')).not.toContain('Perfect Clarity')
+  expect(savingThrowBreakdown({ ...c, level: 17 }, [], 'Will').notes?.join(' ') ?? '').not.toContain('Perfect Clarity')
+})
+
+it('shows Inured to Alchemy recovery rules without requiring Rage', () => {
+  const c: Character = { ...base, level: 4, raging: false, feats: [feat('Inured to Alchemy', 4)] }
+  const notes = savingThrowBreakdown(c, [], 'Fortitude').notes?.join(' ') ?? ''
+  expect(notes).toContain('successful save reduces the stage by 2')
+  expect(notes).toContain('virulent afflictions')
+  expect(savingThrowBreakdown({ ...c, level: 3 }, [], 'Fortitude').notes?.join(' ') ?? '')
+    .not.toContain('Inured to Alchemy')
+})
+
 it('provides Barbarian impact damage actions at their earned levels', () => {
   const c: Character = { ...base, level: 20, className: 'Barbarian', raging: true,
     abilities: { ...base.abilities, str: 20 }, feats: [

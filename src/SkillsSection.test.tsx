@@ -47,6 +47,16 @@ it('calculates Barbarian movement actions from current Speed and ignores penalti
   expect(future).not.toContain('Sudden Leap note')
 })
 
+it('shows Rage temporary HP and Second Wind only while raging', () => {
+  const c: Character = { ...base, level: 8, className: 'Barbarian', raging: true,
+    abilities: { ...base.abilities, con: 16 }, feats: [{ name: 'Second Wind', type: 'Class Feat', level: 2 }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="defense" />)
+  expect(render(c)).toContain('gain 11 temporary HP')
+  expect(render(c)).toContain('Second Wind lets you gain them earlier')
+  expect(render({ ...c, raging: false })).not.toContain('Second Wind lets you gain them earlier')
+  expect(render({ ...c, feats: [] })).not.toContain('Second Wind lets you gain them earlier')
+})
+
 it('assigns and refunds Erudite Lore through shared skill buttons without spending training', () => {
   let c: Character = { ...base, systems: ['sf2e'], className: 'Soldier', subclass: 'Erudite Warrior (Society)',
     lores: [{ name: 'Military Lore', rank: 0 }] }

@@ -3724,6 +3724,10 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(activeFeatsNamed(c, 'Inured to Alchemy').length
+      ? ['Inured to Alchemy: against alchemical poisons, drugs, or addiction, a successful save reduces the stage by 2 and a critical success by 3; reduce each improvement by 1 for virulent afflictions.'] : []),
+    ...(name === 'Will' && c.raging && activeFeatsNamed(c, 'Perfect Clarity').length
+      ? [`Perfect Clarity: reroll a failed or critically failed Will save at ${signed(total + 2)} (+2 circumstance), use the better result, then end Rage.`] : []),
     ...(c.raging && activeFeatsNamed(c, 'Draconic Arrogance').length
       ? [`Draconic Arrogance: ${signed(total + 2)} against emotion effects (+2 status; status bonuses do not stack).`] : []),
     ...(c.raging && barbarianInstinct(c, entries) === 'superstition'
@@ -5812,6 +5816,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ...(rageDamage && barbarianInstinct(c, entries) === 'superstition' ? [`Superstitious Resilience: Rage damage is ${traits.includes('agile') ? Math.floor((c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4) / 2) : c.level >= 15 ? 16 : c.level >= 7 ? 8 : 4} against creatures you witnessed Cast a Spell in the last hour.`] : []),
         ...(c.raging && activeFeatsNamed(c, 'Furious Finish').length
           ? ['Furious Finish: on a hit, add a circumstance damage bonus equal to the rounds remaining in Rage (maximum 10); after the Strike, Rage ends and you are fatigued until you rest for 10 minutes.'] : []),
+        ...(c.raging && activeFeatsNamed(c, 'Perfect Clarity').length
+          ? [`Perfect Clarity: reroll a failed or critically failed attack at ${signed(attack + Math.max(0, 2 - desperateWrath))} (+2 circumstance; circumstance bonuses do not stack), use the better result, then end Rage.`] : []),
         ...(!ranged && activeFeatsNamed(c, 'Intimidating Strike').length
           ? ['Intimidating Strike: a damaging hit makes the target frightened 1, or frightened 2 on a critical hit.'] : []),
         ...(!ranged && category === 'Unarmed' && c.raging && activeFeatsNamed(c, 'Meditate on This!').length

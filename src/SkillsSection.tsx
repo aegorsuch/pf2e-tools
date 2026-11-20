@@ -651,6 +651,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}
+            {c.raging && (c.className === 'Barbarian' || !!activeFeatsNamed(c, 'Barbarian Dedication').length)
+              && <SourceNote source="Rage" note={`When you Rage, gain ${Math.max(0, c.level + abilityMod(c.abilities.con))} temporary HP, lost when Rage ends. You cannot gain temporary HP from Rage again for ${classFeatures(entries, c).some(feature => feature.name === 'Revitalizing Rage') ? 'one full turn outside Rage' : '1 minute'}.${activeFeatsNamed(c, 'Second Wind').length ? ' Second Wind lets you gain them earlier, but leaves you fatigued until you rest for 10 minutes when that Rage ends.' : ''}`} />}
             {c.raging && !!activeFeatsNamed(c, 'Renewed Vigor').length && <SourceNote source="Renewed Vigor"
               note={`One action: gain ${Math.max(0, Math.floor(c.level / 2) + abilityMod(c.abilities.con))} temporary HP, or ${Math.max(0, c.level + abilityMod(c.abilities.con))} if you made an attack action this turn. These temporary HP last until Rage ends.`} />}
             {c.raging && !!activeFeatsNamed(c, 'Unstoppable Juggernaut').length && <SourceNote source="Unstoppable Juggernaut"
