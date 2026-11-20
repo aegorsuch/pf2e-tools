@@ -270,6 +270,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (name === 'an instinct that allows you to change your additional damage from rage to a different damage type') {
+      if (facts.className !== 'Barbarian' || !facts.subclass) return missing(text)
+      const instinct = key(facts.subclass).replace(/ instinct$/, '')
+      if (['dragon', 'elemental', 'spirit'].includes(instinct)) return met()
+      return ['animal', 'fury', 'giant', 'superstition'].includes(instinct) ? missing(text) : manual(text)
+    }
     if (/^kijimuna gnome(?: heritage)?,? or at least one primal innate spell from a gnome heritage or feat$/.test(name))
       return resultFor([facts.heritage, ...(facts.heritages ?? [])].some(heritage => key(heritage ?? '') === 'kijimuna gnome')
         || !!facts.gnomePrimalInnateSpell, text)

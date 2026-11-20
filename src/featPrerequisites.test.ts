@@ -21,6 +21,26 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('requires a damage-changing instinct for Scouring Rage', () => {
+  const prerequisite = 'an instinct that allows you to change your additional damage from Rage to a different damage type'
+  for (const subclass of ['Dragon', 'Spirit', 'Elemental'])
+    expect(check(prerequisite, { ...base, subclass })).toEqual({ missing: [], manual: [] })
+  for (const subclass of ['Fury', 'Animal', 'Giant', 'Superstition'])
+    expect(check(prerequisite, { ...base, subclass }).missing).toEqual([prerequisite])
+  expect(check(prerequisite, { ...base, subclass: 'Custom' }).manual).toEqual([prerequisite])
+})
+
+it('grants Fury instinct a separate first-level barbarian feat slot', () => {
+  const c: Character = { ...base, level: 2, subclass: 'Fury' }
+  const slot = plannedSlots(c, []).find(item => item.key === 'class:1:fury-instinct')
+  expect(slot).toMatchObject({ category: 'class', level: 1, maxFeatLevel: 1 })
+  const first = entry('feat', 'First', {}, 1, ['Barbarian'])
+  const second = entry('feat', 'Second', {}, 2, ['Barbarian'])
+  expect(eligibleFeats([first, second], c, slot!)).toContain(first)
+  expect(eligibleFeats([first, second], c, slot!)).not.toContain(second)
+  expect(plannedSlots({ ...c, subclass: 'Giant' }, []).some(item => item.key === slot!.key)).toBe(false)
+})
+
 it('checks Kijimuna or primal magic from a gnome heritage or feat', () => {
   const prerequisite = 'Kijimuna Gnome heritage or at least one primal innate spell from a gnome heritage or feat'
   const magic = mapAonHit({ _id: 'first-world', _source: { name: 'First World Magic', category: 'feat', level: 1, trait: ['Gnome'],

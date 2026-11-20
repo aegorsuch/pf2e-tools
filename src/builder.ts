@@ -455,6 +455,7 @@ export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d
 export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
+  || key === 'class:1:fury-instinct'
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
   || key.startsWith('skill:1:natural-performer:')
   || key.startsWith('skill:1:mechanic-ingenuity:')
@@ -484,6 +485,10 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       const n = counters.get(id) ?? 0
       counters.set(id, n + 1)
       slots.push({ key: `${id}:${n}`, category: s.category, level: s.level })
+    }
+    if (barbarianInstinct(c, entries) === 'fury') {
+      if (!groupOrder.has('class:1')) groupOrder.set('class:1', groupOrder.size)
+      slots.push({ key: 'class:1:fury-instinct', category: 'class', level: 1, maxFeatLevel: 1, grantedBy: 'Fury Instinct' })
     }
   }
   if (c.background === 'Direwolf Bonded' && c.level >= 1) {
