@@ -418,6 +418,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       if (next.giantStature && (!canUseGiantStature(next, entries)
         || next.giantStature === 'Huge' && !activeFeatsNamed(next, "Titan's Stature").length)) next.giantStature = undefined
       if (!next.raging) next.elementalExplosionUsed = false
+      if (!next.raging || !activeFeatsNamed(next, 'Animalistic Brutality').length) next.animalisticBrutality = undefined
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })

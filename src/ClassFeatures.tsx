@@ -8,7 +8,7 @@ import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
 import { classDifficultyClass, elementalRageType, withoutBattleForm } from './builder'
-import { DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
+import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
 
@@ -77,6 +77,32 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </select>
         </label>}
       </div>}
+      {instinct === 'animal' && <div className="col" aria-label="Animal Instinct">
+        <label>Animal{' '}
+          <select aria-label="Animal Instinct animal" value={c.barbarianAnimal ?? ''} disabled={!!c.raging} onChange={event => {
+            const animal = Object.keys(ANIMAL_INSTINCTS).find(name => name === event.target.value)
+            save({ barbarianAnimal: animal })
+          }}>
+            <option value="">Choose animal</option>
+            {Object.keys(ANIMAL_INSTINCTS).sort().map(animal => <option key={animal}>{animal}</option>)}
+          </select>
+        </label>
+        {c.raging && <SourceNote source="Bestial Rage" note="You cannot use weapons while raging." />}
+        {c.raging && c.barbarianAnimal && ANIMAL_INSTINCTS[c.barbarianAnimal] && !!activeFeatsNamed(c, 'Animalistic Brutality').length && <label>
+          Animalistic Brutality{' '}
+          <select aria-label="Animalistic Brutality" value={c.animalisticBrutality ? `${c.animalisticBrutality.attack}|${c.animalisticBrutality.trait}` : ''} disabled={!!c.animalisticBrutality}
+            onChange={event => {
+              const [attack, selected] = event.target.value.split('|')
+              const trait = ANIMAL_BRUTALITY_TRAITS.find(value => value === selected)
+              if (trait && ANIMAL_INSTINCTS[c.barbarianAnimal!].some(option => attack === `bestial:${c.barbarianAnimal}:${option.name}`))
+                save({ animalisticBrutality: { attack, trait } })
+            }}>
+            <option value="">Choose attack and trait</option>
+            {ANIMAL_INSTINCTS[c.barbarianAnimal].flatMap(attack => ANIMAL_BRUTALITY_TRAITS.map(trait =>
+              <option key={`${attack.name}:${trait}`} value={`bestial:${c.barbarianAnimal}:${attack.name}|${trait}`}>{attack.name} - {trait}</option>))}
+          </select>
+        </label>}
+      </div>}
       {instinct === 'dragon' && <div className="col" aria-label="Dragon Instinct">
         <label>Dragon{' '}
           <select aria-label="Dragon Instinct dragon" value={c.barbarianDragon ?? ''} disabled={!!c.raging} onChange={event => {
@@ -137,7 +163,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
         {weaponChoice('Osteo Armaments', osteoWeapon?.id, weapon => canBeOsteoArmament(c, entries, weapon),
           id => selectWeapon(id, 'osteoArmament'))}
       </div>}
-      {c.raging && instinct && !['giant', 'fury', 'dragon'].includes(instinct) && !(instinct === 'elemental' && elementalType)
+      {c.raging && instinct && !['giant', 'fury', 'dragon', 'animal'].includes(instinct) && !(instinct === 'elemental' && elementalType)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
       {c.className === 'Guardian' && features.some(feature => feature.name === 'Reaction Time') && <div className="col">
         <Info label="Reaction Time">You have 2 reactions each turn; the additional reaction can be used only for guardian feats or class features

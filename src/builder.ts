@@ -1,6 +1,6 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, insectBattleForm } from './battleForms'
-import { DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
+import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
@@ -4130,6 +4130,14 @@ const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
 const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id])
+const bestialWeapons: ContentEntry[] = Object.entries(ANIMAL_INSTINCTS).flatMap(([animal, attacks]) => attacks.map(attack => ({
+  ...FIST, id: `bestial:${animal}:${attack.name}`, name: `${attack.name} (${animal} Rage)`,
+  traits: [...attack.traits, 'Unarmed'],
+  description: attack.name === 'Web' ? 'On a hit, the target takes a -10-foot circumstance penalty to Speeds for 1 round. A second hit while penalized immobilizes it until it Escapes against your class DC.' : '',
+  data: { ...FIST.data, damage: attack.damage ?? '', weapon_type: attack.range ? 'Ranged' : 'Melee',
+    ...(attack.range ? { range: attack.range } : {}) },
+})))
+const bestialWeapon = (id: string) => bestialWeapons.find(entry => entry.id === id)
 
 function dwarfClanWeaponGrants(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   const nativeDwarf = c.systems.includes('pf2e') && c.ancestry?.trim().toLowerCase() === 'dwarf'
@@ -4384,6 +4392,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const untamedAttacks = [UNTAMED_CLAWS, UNTAMED_JAWS].filter(attack => shift.includes(attack === UNTAMED_CLAWS ? 'Claws' : 'Jaws'))
   const cairnAttacks = cairnForm(c, entries) ? [CAIRN_FIST] : []
   const sparkAttacks = activeFeatsNamed(c, 'Spark Fist').length ? [SPARK_FIST] : []
+  const bestialAttacks = c.raging && barbarianInstinct(c, entries) === 'animal' && c.barbarianAnimal
+    ? bestialWeapons.filter(attack => attack.id.startsWith(`bestial:${c.barbarianAnimal}:`)) : []
   const iruxiAttacks = activeFeatsNamed(c, 'Iruxi Armaments').flatMap(feat =>
     feat.choice === 'Claws' ? [IRUXI_CLAWS] : feat.choice === 'Fangs' ? [IRUXI_FANGS]
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
@@ -4393,6 +4403,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
     && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
+    && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
@@ -4402,7 +4413,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
   for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
-    ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
+    ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
@@ -4621,6 +4632,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
+  || bestialWeapons.some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -4680,6 +4692,8 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
+  const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
+  if (bestial) return bestial
   const form = BATTLE_FORM_WEAPONS.find(entry => id ? entry.id === id : entry.name === name)
   if (form) return form
   const iruxi = id && iruxiAttackIds.has(id) ? SUPPLEMENTAL_WEAPONS.find(entry => entry.id === id) : undefined
@@ -5200,6 +5214,7 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
   const instinct = barbarianInstinct(c, entries)
   const stage = c.level >= 15 ? 2 : c.level >= 7 ? 1 : 0
   const value = instinct === 'giant' && countsAsGiantWeapon(c, entries, weapon) ? [6, 10, 18][stage]
+    : instinct === 'animal' && bestialWeapon(weapon.id) ? [2, 5, 12][stage]
     : instinct === 'dragon' && c.draconicRage && c.barbarianDragon && DRAGON_INSTINCTS[c.barbarianDragon] ? [4, 8, 16][stage]
     : instinct === 'elemental' && elementalRageType(c, entries) ? [4, 6, 12][stage]
     : instinct === 'fury' ? [3, 7, 13][stage] : 2
@@ -5440,6 +5455,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
   let entry = withNamedWeaponState(weaponEntry(entries, w.name, w.id), w, c.level)
+  const bestial = !!bestialWeapon(w.id) && c.raging && barbarianInstinct(c, entries) === 'animal'
+    && !!c.barbarianAnimal && w.id.startsWith(`bestial:${c.barbarianAnimal}:`)
+  const brutality = c.animalisticBrutality
+  if (entry && bestial && brutality?.attack === w.id && activeFeatsNamed(c, 'Animalistic Brutality').length
+    && ANIMAL_BRUTALITY_TRAITS.some(trait => trait === brutality.trait)
+    && !entry.traits.includes(brutality.trait)) entry = { ...entry, traits: [...entry.traits, brutality.trait] }
   const form = activeBattleForm(c, entries)
   const formAttack = form?.attacks.find(entry => entry.id === w.id)
   if (formAttack) entry = formAttack
@@ -5555,7 +5576,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     : baseDie
   const shieldWarfare = activeFeatsNamed(c, 'Shield Warfare').length > 0
     && (String(entry?.data.weapon_group ?? '').toLowerCase() === 'shield' || /^shield (?:bash|boss|spikes)$/i.test(entry?.name ?? ''))
-  const die = shieldWarfare ? dieSteps.find(step => step > baseDamageDie) ?? baseDamageDie : baseDamageDie
+  const die = shieldWarfare || bestial && c.level >= 7 ? dieSteps.find(step => step > baseDamageDie) ?? baseDamageDie : baseDamageDie
   const heart = activeFeatsNamed(c, "Jotun's Heart").length > 0
   const battleStance = activeStance(c, entries)?.name === "Jotun's Battle Stance"
   const hasReachTrait = traits.some(trait => /^reach(?:\s|$)/i.test(trait))
@@ -5650,6 +5671,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ? [{ source: form.source, value: String(formAttack.data.extra_damage), note: 'Additional damage from the battle form.' }] : []),
     ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
+      ...(bestial && traits.includes('venomous') ? [{ source: 'Venomous', value: `${w.striking >= 2 ? 2 : 1} persistent poison`,
+        note: 'Persistent poison from a venomous unarmed attack.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])])],
     traits: [...new Set([...(entry?.traits ?? []),
@@ -5698,6 +5721,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
+        ...(bestial && w.id === 'bestial:Spider:Web' ? [`Web deals no damage. On a hit, the target takes a -10-foot circumstance penalty to Speeds for 1 round; a second hit while penalized immobilizes it until it Escapes against ${classDifficultyClass(c, entries) ?? 'your class DC'}.`] : []),
         ...(!ranged && activeFeatsNamed(c, 'Brutal Critical').length
           ? ['Brutal Critical: on a critical melee Strike, add one damage die and deal two damage dice of persistent bleed.'] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Shattering Blows').length

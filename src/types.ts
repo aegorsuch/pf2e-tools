@@ -221,6 +221,8 @@ export interface Character {
   raging?: boolean
   barbarianDragon?: import('./barbarian.js').DragonInstinct
   draconicRage?: boolean
+  barbarianAnimal?: string
+  animalisticBrutality?: { attack: string; trait: typeof import('./barbarian.js').ANIMAL_BRUTALITY_TRAITS[number] }
   barbarianElement?: import('./barbarian.js').ElementalInstinct
   elementalDamage?: string
   elementalUseEvolution?: boolean

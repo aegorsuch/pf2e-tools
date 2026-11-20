@@ -727,6 +727,38 @@ it('grants animal instinct piercing and slashing resistance only while raging at
   expect(ragingResistance({ ...c, raging: false })).toEqual([])
 })
 
+it.each([[1, 'd10', 'd6', 2], [7, 'd12', 'd8', 5], [15, 'd12', 'd8', 12]])(
+  'grants and scales selected bestial attacks at level %i', (level, jawsDie, clawDie, rage) => {
+    const previous = getSettings().barbarianIgnoreAgile
+    updateSettings({ barbarianIgnoreAgile: false })
+    try {
+    const c: Character = { ...base, className: 'Barbarian', subclass: 'Animal', level, raging: true,
+      barbarianAnimal: 'Bear', feats: [feat('Animalistic Brutality', 8)], animalisticBrutality: { attack: 'bestial:Bear:Jaws', trait: 'Parry' } }
+    const weapons = ownedWeapons(c, [])
+    const jaws = weapons.find(weapon => weapon.id === 'bestial:Bear:Jaws')!
+    const claw = weapons.find(weapon => weapon.id === 'bestial:Bear:Claw')!
+    expect(weaponAttack(c, [], jaws).damage).toContain(jawsDie)
+    expect(weaponAttack(c, [], claw).damage).toContain(clawDie)
+    expect(weaponAttack(c, [], jaws).rageDamage).toBe(rage)
+    expect(weaponAttack(c, [], claw).rageDamage).toBe(Math.floor(rage / 2))
+    expect(weaponAttack(c, [], jaws).traits.includes('Parry')).toBe(level >= 8)
+    expect(weaponAttack(c, [], claw).traits).not.toContain('Parry')
+    expect(ownedWeapons({ ...c, raging: false }, []).some(weapon => weapon.id.startsWith('bestial:'))).toBe(false)
+    expect(ownedWeapons({ ...c, barbarianAnimal: 'Wolf' }, []).some(weapon => weapon.id === jaws.id)).toBe(false)
+    } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
+  })
+
+it('provides spider web and venomous bestial attacks', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Animal', level: 10, raging: true, barbarianAnimal: 'Spider' }
+  const weapons = ownedWeapons(c, [])
+  const fangs = weaponAttack(c, [], weapons.find(weapon => weapon.id === 'bestial:Spider:Fangs')!)
+  const web = weaponAttack(c, [], weapons.find(weapon => weapon.id === 'bestial:Spider:Web')!)
+  expect(fangs.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Venomous', value: '1 persistent poison' }))
+  expect(web.range).toBe(15)
+  expect(web.damage).toBe('')
+  expect(web.breakdown.notes.join(' ')).toContain('immobilizes')
+})
+
 it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
   const agile = { ...sword, traits: ['Agile'] }
   const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])
