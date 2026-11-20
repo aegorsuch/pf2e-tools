@@ -5826,6 +5826,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? [`Perfect Clarity: reroll a failed or critically failed attack at ${signed(attack + Math.max(0, 2 - desperateWrath))} (+2 circumstance; circumstance bonuses do not stack), use the better result, then end Rage.`] : []),
         ...(!ranged && activeFeatsNamed(c, 'Intimidating Strike').length
           ? ['Intimidating Strike: a damaging hit makes the target frightened 1, or frightened 2 on a critical hit.'] : []),
+        ...(!ranged && activeFeatsNamed(c, 'Reactive Strike').length
+          ? [`Reactive Strike: ${signed(attack)} against a creature within reach that uses a manipulate or move action, makes a ranged attack, or leaves a square during a move action. Ignore multiple attack penalty; this Strike does not increase it. A critical hit disrupts a triggering manipulate action.`] : []),
         ...(!ranged && activeFeatsNamed(c, 'Whirlwind Strike').length
           ? ['Whirlwind Strike: Strike each enemy within reach; all attacks count toward multiple attack penalty, but increase it only after all Strikes.'] : []),
         ...(!ranged && c.raging && activeFeatsNamed(c, 'Cleave').length

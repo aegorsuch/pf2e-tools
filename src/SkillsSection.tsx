@@ -114,6 +114,8 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
         note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
       {!!activeFeatsNamed(c, 'Sudden Charge').length && <SourceNote source="Sudden Charge"
         note={`Move twice, then make a melee Strike if an enemy is within reach. Maximum distances: ${speeds.map(movement => `${movement.name} ${movement.feet * 2} feet`).join('; ')}.`} />}
+      {c.raging && !!activeFeatsNamed(c, 'No Escape').length && <SourceNote source="No Escape"
+        note={`When an enemy within reach attempts to move away, follow it as a reaction, keeping it in reach until it stops or you have moved your full Speed: ${speeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
       {c.raging && !!activeFeatsNamed(c, "Predator's Pounce").length && <SourceNote source="Predator's Pounce"
         note={`While unarmored or wearing light armor, Stride up to ${speed(c, entries)} feet, then Strike.`} />}
       {!!activeFeatsNamed(c, 'Sudden Leap').length && <SourceNote source="Sudden Leap"

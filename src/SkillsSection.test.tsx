@@ -47,6 +47,16 @@ it('calculates Barbarian movement actions from current Speed and ignores penalti
   expect(future).not.toContain('Sudden Leap note')
 })
 
+it('calculates No Escape movement from current Speeds only while raging', () => {
+  const c: Character = { ...base, level: 2, className: 'Barbarian', raging: true,
+    feats: [{ name: 'No Escape', type: 'Class Feat', level: 2 }] }
+  const render = (character: Character) => renderToStaticMarkup(<SensesAndSpeed c={character} entries={[]} save={() => {}} />)
+  expect(render(c)).toContain('No Escape note')
+  expect(render(c)).toContain('Land 25 feet')
+  expect(render({ ...c, raging: false })).not.toContain('No Escape note')
+  expect(render({ ...c, level: 1 })).not.toContain('No Escape note')
+})
+
 it('shows Rage temporary HP and Second Wind only while raging', () => {
   const c: Character = { ...base, level: 8, className: 'Barbarian', raging: true,
     abilities: { ...base.abilities, con: 16 }, feats: [{ name: 'Second Wind', type: 'Class Feat', level: 2 }] }

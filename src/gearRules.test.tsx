@@ -29,6 +29,20 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('uses the unpenalized melee attack for Reactive Strike regardless of Rage', () => {
+  const weapon: ContentEntry = { id: 'reactive-blade', systems: ['pf2e'], name: 'Reactive Blade', kind: 'weapon',
+    source: 'official', level: 0, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { damage: '1d8 slashing', weapon_type: 'Melee' } }
+  const owned: OwnedWeapon = { id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, feats: [{ name: 'Reactive Strike', type: 'Class Feat', level: 6 }] }
+  const melee = weaponAttack(c, [weapon], owned)
+  expect(melee.breakdown.notes?.join(' ')).toContain(`Reactive Strike: ${signed(melee.attack)}`)
+  expect(melee.breakdown.notes?.join(' ')).toContain('Ignore multiple attack penalty')
+  const ranged = { ...weapon, data: { ...weapon.data, weapon_type: 'Ranged', range: 60 } }
+  expect(weaponAttack(c, [ranged], owned).breakdown.notes?.join(' ')).not.toContain('Reactive Strike')
+  expect(weaponAttack({ ...c, level: 5 }, [weapon], owned).breakdown.notes?.join(' ')).not.toContain('Reactive Strike')
+})
+
 it('adds active Thruneosaurus support damage to melee strikes at the companion advancement', () => {
   const melee: ContentEntry = { id: 'blade', systems: ['pf2e'], name: 'Blade', kind: 'weapon', source: 'official',
     level: 0, traits: [], description: '', data: { damage: '1d8 slashing', weapon_type: 'Melee' }, effects: [], updatedAt: 0 }
