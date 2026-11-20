@@ -233,8 +233,33 @@ export function computeAbilities(c: Character, entries: ContentEntry[]): Charact
     const a = s.fixed ?? c.boosts?.[s.key]
     if (a) out[a] += out[a] < 18 ? 2 : 1
   }
+  const apex = activeApexAugmentation(c)
+  if (apex) out[apex.ability] = 10 + 2 * Math.max(abilityMod(out[apex.ability]) + 1, 4)
   return out
 }
+
+export const APEX_AUGMENTATIONS: Record<string, { ability: Ability; skills?: Record<string, number> }> = {
+  'Muscle Invigorator': { ability: 'str', skills: { Athletics: 3 } },
+  Hypernerves: { ability: 'dex', skills: { Acrobatics: 3 } },
+  'Artificial Immortalizer': { ability: 'con' },
+  'Cognition Accelerator': { ability: 'int' },
+  'Cosmic Connector': { ability: 'wis' },
+  'Presence Intensifier': { ability: 'cha', skills: { Diplomacy: 2, Intimidation: 2 } },
+}
+
+export const installedApexAugmentations = (c: Character) => c.systems.includes('sf2e')
+  ? (c.augmentations ?? []).filter(item => item.slot === 'apex' && APEX_AUGMENTATIONS[item.name]) : []
+
+// Only one installed apex augmentation supplies its attribute increase; the player picks which during daily preparations
+export function activeApexAugmentation(c: Character) {
+  const installed = installedApexAugmentations(c)
+  const chosen = c.apexAugmentationId === 'none' ? undefined
+    : installed.find(item => item.id === c.apexAugmentationId) ?? installed[0]
+  return chosen && { id: chosen.id, name: chosen.name, ability: APEX_AUGMENTATIONS[chosen.name].ability }
+}
+
+export const apexSkillBonus = (c: Character, skill: string) => Math.max(0,
+  ...installedApexAugmentations(c).map(item => APEX_AUGMENTATIONS[item.name].skills?.[skill] ?? 0))
 
 // Within a group, boosting the same ability twice is not allowed
 export function duplicateBoosts(c: Character, entries: ContentEntry[]) {

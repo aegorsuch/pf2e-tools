@@ -9,7 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { armorBulk, armorStrengthMet } from './builder'
+import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
@@ -145,7 +145,6 @@ const weaponCapacity = (entry?: ContentEntry) => {
 }
 
 export function Augmentations({ c, entries, save }: SectionProps) {
-  const [picked, setPicked] = useState('')
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
@@ -169,9 +168,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && String(entry.data.item_category).toLowerCase() === 'augmentations')
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
-  const selected = options.find(entry => entry.id === picked)
-  const exemption = selected && augmentationExemption(selected)
-  const available = !!selected && canInstallAugmentation(c, selected, 'standard')
+  const apexInstalled = installedApexAugmentations(c)
+  const apexActive = activeApexAugmentation(c)
+  const installable = options.filter(entry => canInstallAugmentation(c, entry, 'standard'))
   const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
   const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
   const powerControl = (id: string, name: string) => {
@@ -202,14 +201,14 @@ export function Augmentations({ c, entries, save }: SectionProps) {
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
-      return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
+      return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
+        <button type="button" aria-label={`Remove ${item.name} augmentation`} onClick={() => confirmRemoval(`augmentation "${item.name}"`,
+          () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
+            secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>×</button></div>
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : 'implant limit'})</small>
-        {powerControl(item.id, item.name)}
-        {' '}<button type="button" onClick={() => confirmRemoval(`augmentation "${item.name}"`,
-          () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
-            secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>Remove</button></li>
+        {powerControl(item.id, item.name)}</li>
     })}</ul>
     {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <>
       <label>Dermal plating grade{' '}<select aria-label="Dermal plating grade" value={dermalGrade.name} onChange={event => {
@@ -246,16 +245,19 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       </select>
       <SourceNote inlineSource={false} source="Hardpoint" note="Only one-handed weapons of light Bulk or less fit (1 Bulk or less with Thresher Ko-1 Frame). While drawn, the weapon is integrated and cannot be disarmed, dropped, or stolen." />
     </label>}
-    <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value={picked} onChange={event => setPicked(event.target.value)}>
-      <option value="">Choose augmentation</option>
-      {options.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
-    </SearchableSelect>
-    <button type="button" disabled={!available} onClick={() => {
-      if (!selected || !available) return
-      save({ augmentations: [...installed, { id: newId(), entryId: selected.id, name: selected.name, slot: exemption ?? 'standard' }] })
-      setPicked('')
-    }}>Add augmentation</button>
-    {selected && !available && <small role="status">This augmentation is unavailable. Check its source and your implant limit.</small>}
+    {apexInstalled.length > 1 && <label>Apex attribute increase{' '}<select aria-label="Apex attribute increase" value={apexActive?.id ?? 'none'}
+      onChange={event => save({ apexAugmentationId: event.target.value })}>
+      {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}
+      <option value="none">None</option>
+    </select></label>}
+    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" onChange={event => {
+      const chosen = installable.find(entry => entry.id === event.target.value)
+      if (!chosen) return
+      save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
+    }}>
+      <option value="">Add augmentation...</option>
+      {installable.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
+    </SearchableSelect>}
   </section>
 }
 
