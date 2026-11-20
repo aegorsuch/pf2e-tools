@@ -3056,6 +3056,18 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
   expect(markup).not.toContain('aria-label="Remove Oversized Throw"')
 })
 
+it('requires simple weapon specialization to increase Oversized Throw dice', () => {
+  const c: Character = { ...base, level: 10, className: 'Fighter', feats: [feat('Oversized Throw', 4)] }
+  const weapon = ownedWeapons(c, []).find(item => item.id === OVERSIZED_THROW.id)!
+  const klass = content('class', 'Fighter', { attack_proficiency: 'Trained in simple weapons' })
+  const specialization = content('classFeature', 'Weapon Specialization', { class: 'Fighter' }, 7)
+  const expert = { ...klass, data: { attack_proficiency: 'Expert in simple weapons' } }
+  const greater = content('classFeature', 'Greater Weapon Specialization', { class: 'Fighter' }, 10)
+  expect(weaponAttack(c, [klass, specialization], weapon).damage).toMatch(/^1d10/)
+  expect(weaponAttack(c, [expert, specialization], weapon).damage).toMatch(/^2d10/)
+  expect(weaponAttack(c, [expert, specialization, greater], weapon).damage).toMatch(/^3d10/)
+})
+
 it('keeps the remastered Unstoppable Juggernaut without removing unrelated or unavailable legacy feats', () => {
   const hit = (id: string, name: string) => ({ _id: id, _source: { category: 'feat', name } })
   const legacy = hit('feat-1167', 'Unstoppable Juggernaut')

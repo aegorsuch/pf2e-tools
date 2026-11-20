@@ -5557,8 +5557,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   if (w.id === OVERSIZED_THROW.id) {
     const specialization = classFeatures(entries, c).map((feature) => feature.name.toLowerCase())
-    const dice = specialization.includes('greater weapon specialization') || c.className === 'Barbarian' && c.level >= 15 ? 3
-      : specialization.includes('weapon specialization') || c.className === 'Barbarian' && c.level >= 7 ? 2 : 1
+    const simpleSpecialization = c.className === 'Barbarian' && c.level >= 7
+      || weaponRanks(c, entries).Simple >= 2 && specialization.includes('weapon specialization')
+    const greaterSpecialization = c.className === 'Barbarian' && c.level >= 15
+      || weaponRanks(c, entries).Simple >= 2 && specialization.includes('greater weapon specialization')
+    const dice = greaterSpecialization ? 3 : simpleSpecialization ? 2 : 1
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
   entry = weaponWithMode(w, entry)
