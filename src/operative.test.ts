@@ -146,6 +146,14 @@ it('grants gun parry and improves an existing parry only while wielded', () => {
   expect(parryValue({ ...c, weapons: [bowOwned] }, [...entries, bow])).toBe(0)
 })
 
+it('grants gun parry to two-handed firearms identified by weapon group', () => {
+  const rifle = { ...weapon('Rifle', 'Martial', ['Concussive'], true, 2), data: { ...weapon('Rifle', 'Martial', [], true, 2).data, weapon_group: 'Firearm' } }
+  const own: OwnedWeapon = { id: rifle.id, name: rifle.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, level: 2, feats: [{ name: 'Defensive Gunner', type: 'Class Feat', level: 2 }], weapons: [own] }
+  expect(hasParryWeapon(c, [...entries, rifle])).toBe(true)
+  expect(parryValue(c, [...entries, rifle])).toBe(1)
+})
+
 it('grants agile only to wielded simple guns while wielding two', () => {
   const first: OwnedWeapon = { id: 'one', name: simpleGun.name, potency: 0, striking: 0, runes: [] }
   const second: OwnedWeapon = { ...first, id: 'two' }

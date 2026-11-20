@@ -2269,7 +2269,8 @@ function hasParryTrait(entry?: ContentEntry) {
 }
 
 function operativeGun(entry?: ContentEntry) {
-  return !!entry && isRanged(entry) && entry.traits.some(trait => /^(analog|tech)$/i.test(trait))
+  return !!entry && isRanged(entry) && (entry.traits.some(trait => /^(analog|tech)$/i.test(trait))
+    || /^(firearm|gun)s?$/i.test(String(entry.data.weapon_group ?? '').trim()))
 }
 
 function defensiveGunnerParry(c: Character, entry?: ContentEntry) {
