@@ -58,6 +58,19 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
+  if (feat.name === 'Memories of Valor' && c.systems.includes('sf2e')) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    return <SearchableSelect label="Memories of Valor skill" aria-label="Memories of Valor skill" value={feat.choice ?? ''}
+      onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+      <option value="">Choose skill</option>
+      {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+      {options.map(skill => <option key={skill}>{skill}</option>)}
+    </SearchableSelect>
+  }
   if (c.systems.includes('sf2e') && feat.name === 'Exocortex Experimenter') return null
   if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone', 'Convertible Chassis'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []

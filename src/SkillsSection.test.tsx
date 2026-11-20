@@ -1093,21 +1093,30 @@ it('tracks hourly Ysoki and Cyborg actions without granting them below their fea
   expect(markup).not.toContain('Wormhole Warren used')
 })
 
-it('applies Memories of Valor skill proficiency to the selected skill and tracks daily or hourly use', () => {
+it('uses the standard feat skill picker for Memories of Valor without changing permanent ranks', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Vesk', heritage: 'Enshrined Vesk',
-    level: 9, skillPicks: ['Nature'], rankOverrides: { Nature: 0 },
-    feats: [{ name: 'Memories of Valor', type: 'Ancestry Feat', level: 9 }], memoriesOfValorSkill: 'Nature' }
-  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[mechanic]} save={() => {}} />)
-  expect(render(c)).toContain('class="skill-name">Nature <b>+0')
-  expect(render({ ...c, memoriesOfValorActive: true })).toContain('class="skill-name">Nature <b>+11')
-  expect(ranksAt(c, [mechanic]).Nature).toBe(0)
-  expect(ranksAt({ ...c, memoriesOfValorActive: true }, [mechanic]).Nature).toBe(1)
-  expect(skillRankBudget(c, [mechanic])).toEqual(skillRankBudget({ ...c, memoriesOfValorActive: true }, [mechanic]))
-  expect(render({ ...c, memoriesOfValorActive: true })).toContain('Once per day')
-  const upgraded = { ...c, level: 13, feats: [...c.feats, { name: 'No Memory Left Behind', type: 'Ancestry Feat', level: 13 }] }
-  expect(render(upgraded)).toContain('Once per hour')
-  expect(render({ ...upgraded, memoriesOfValorActive: true, hourlyFeatUses: { 'Memories of Valor': true } }))
-    .toContain('Memories of Valor active')
+    level: 9, feats: [{ name: 'Memories of Valor', type: 'Ancestry Feat', level: 9 }] }
+  const options = builder.featChoiceOptions('Memories of Valor', c, [mechanic], 'ancestry:9:0', 0)
+  expect(options).toContain('Nature')
+  expect(options).toContain('Computers')
+  expect(builder.featChoiceOptions('Memories of Valor', { ...c, rankOverrides: { Nature: 3 } }, [mechanic], 'ancestry:9:0', 0))
+    .not.toContain('Nature')
+  let saved: Partial<Character> | undefined
+  const picker = FeatChoice({ c, entries: [mechanic], save: patch => { saved = patch }, index: 0 })
+  expect(renderToStaticMarkup(picker)).toContain('Memories of Valor skill')
+  expect(renderToStaticMarkup(picker)).toContain('Nature')
+  if (!isValidElement<Record<string, unknown>>(picker)) throw new Error('Expected Memories of Valor picker')
+  ;(picker.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Nature' } })
+  expect(saved?.feats?.[0].choice).toBe('Nature')
+  const selected = { ...c, feats: [{ ...c.feats[0], choice: 'Nature' }] }
+  const markup = renderToStaticMarkup(<SkillsSection c={selected} entries={[mechanic]} save={() => {}} />)
+  expect(markup).toContain("Once per day, use one action to increase this skill&#x27;s proficiency")
+  expect(markup).toContain('Memories of Valor used')
+  expect(ranksAt(selected, [mechanic]).Nature).toBe(ranksAt(c, [mechanic]).Nature)
+  expect(skillRankBudget(selected, [mechanic])).toEqual(skillRankBudget(c, [mechanic]))
+  const hourly = { ...selected, level: 13, feats: [...selected.feats, { name: 'No Memory Left Behind', type: 'Ancestry Feat', level: 13 }] }
+  expect(renderToStaticMarkup(<SkillsSection c={hourly} entries={[mechanic]} save={() => {}} />))
+    .toContain('Once per hour, use one action')
 })
 
 it('allows permanent training in a downloaded skill without treating temporary rank as an increase', () => {

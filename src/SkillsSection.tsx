@@ -176,17 +176,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
   const extraBackground = editingSkills ? freeHeartBackground(c, entries) : undefined
   const extraBackgroundSkills = backgroundSkills(extraBackground, c)
-  const permanentRanks = ranksAt({ ...c, memoriesOfValorActive: false }, entries)
+  const permanentRanks = ranksAt(c, entries)
   const heritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
   const temporaryTrainings = temporarySkillTrainings(c, entries)
   const ranks = temporaryTrainings.reduce((result, training) => training.skill
-    ? { ...result, [training.skill]: Math.max(result[training.skill] ?? 0, training.rank) } : result, ranksAt(c, entries))
-  const memoriesOfValor = editingSkills && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
-    && c.heritage === 'Enshrined Vesk' && !!activeFeatsNamed(c, 'Memories of Valor').length
-  const memorySkill = c.memoriesOfValorSkill
-  const memoryBaseRank = memorySkill ? permanentRanks[memorySkill] ?? 0 : 0
-  const memoryActive = memoriesOfValor && c.memoriesOfValorActive && !!memorySkill && memoryBaseRank < 3
-  if (memoryActive && memorySkill) ranks[memorySkill] = Math.max(ranks[memorySkill] ?? 0, memoryBaseRank + 1)
+    ? { ...result, [training.skill]: Math.max(result[training.skill] ?? 0, training.rank) } : result, permanentRanks)
   const trainedLores = trainedFeatLores(c)
   const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...deityGrantedLores(c), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg, c).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
@@ -213,10 +207,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const skillNames = new Set(skills.map((stat) => stat.name))
-  const memorySkillChoices = skills.filter(stat => stat.kind === 'skill' && (permanentRanks[stat.name] ?? 0) < 3)
-    .map(stat => stat.name)
-  const memoryHourly = !!activeFeatsNamed(c, 'No Memory Left Behind').length
-  const memoryUsed = memoryHourly ? !!c.hourlyFeatUses?.['Memories of Valor'] : !!c.dailyFeatUses?.['Memories of Valor']
+  const memoriesOfValor = editingSkills && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+    && c.heritage === 'Enshrined Vesk' ? activeFeatsNamed(c, 'Memories of Valor').find(feat => feat.choice) : undefined
+  const memoriesHourly = !!activeFeatsNamed(c, 'No Memory Left Behind').length
   const tokenState = editingSkills && (getSettings().skillTokenConversion || c.skillTokenUpgrades?.length)
     ? skillTokenState(c, entries) : undefined
   const requirements = editingSkills ? skillRankRequirements(c, entries, [...skillNames]) : undefined
@@ -572,8 +565,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Cayden Cailean (Moderate Boon)" note={`Against fear effects, a success becomes a critical success.${classFeatures(entries, c).some(feature => feature.name === 'Bravery') ? ' With fighter Bravery, a critical failure becomes a failure.' : ''}`} />}
           {s.kind === 'save' && shadowpiercer && <SourceNote inlineSource={false} source="Shadowpiercer"
             note={`${signed(total + 2)} against darkness and shadow effects while wielding Shadowpiercer (+2 status). Also applies to allies within 60 feet; does not stack with other status bonuses.`} />}
-          {memoryActive && s.name === memorySkill && <SourceNote source="Memories of Valor"
-            note={`Temporary proficiency increases from ${RANKS[memoryBaseRank]} to ${RANKS[memoryBaseRank + 1]} for 1 minute.`} />}
+          {s.kind === 'skill' && memoriesOfValor?.choice === s.name && <SourceNote source="Memories of Valor"
+            note={`Once ${memoriesHourly ? 'per hour' : 'per day'}, use one action to increase this skill's proficiency by one rank for 1 minute (up to master).`} />}
           {s.kind === 'save' && heldArtifacts.map(source => <SourceNote key={source} inlineSource={false} source={source} note={artifactSaves[source]} />)}
           {s.kind === 'skill' && hasDivineIntercession(c, 'Kazutal', 'major-boon') && <SourceNote inlineSource={false}
             source="Kazutal (Major Boon)" note="When you Aid, or another creature Aids you, the helper can automatically succeed. If rolling, a success becomes a critical success granting +4 circumstance, regardless of proficiency. Applies only to Aid, not ordinary checks." />}
@@ -980,37 +973,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <button type="submit">Add Lore</button>
         </form>
       </details>
+      {memoriesOfValor && <label><input type="checkbox" aria-label="Memories of Valor used"
+        checked={memoriesHourly ? !!c.hourlyFeatUses?.['Memories of Valor'] : !!c.dailyFeatUses?.['Memories of Valor']}
+        onChange={event => save(memoriesHourly
+          ? { hourlyFeatUses: { ...c.hourlyFeatUses, 'Memories of Valor': event.target.checked } }
+          : { dailyFeatUses: { ...c.dailyFeatUses, 'Memories of Valor': event.target.checked } })} />
+        Memories of Valor used
+      </label>}
       <div className="skill-grid" role="table" aria-label="Skills">
-        {memoriesOfValor && <div className="col" aria-label="Memories of Valor">
-          <label>Memories of Valor skill{' '}<select aria-label="Memories of Valor skill" value={memorySkill ?? ''}
-            disabled={!!c.memoriesOfValorActive} onChange={event => {
-              const skill = memorySkillChoices.find(name => name === event.target.value)
-              if (!event.target.value || skill) save({ memoriesOfValorSkill: skill })
-            }}>
-            <option value="">Choose skill</option>
-            {memorySkill && !memorySkillChoices.includes(memorySkill) && <option value={memorySkill} disabled>{memorySkill} (master rank or higher)</option>}
-            {memorySkillChoices.map(name => <option key={name}>{name}</option>)}
-          </select></label>
-          <label><input type="checkbox" aria-label="Memories of Valor active" checked={!!c.memoriesOfValorActive}
-            disabled={!memorySkill || !c.memoriesOfValorActive && (memoryBaseRank >= 3 || memoryUsed)}
-            onChange={event => {
-              const active = event.target.checked
-              save({ memoriesOfValorActive: active, ...(active
-                ? memoryHourly
-                  ? { hourlyFeatUses: { ...c.hourlyFeatUses, 'Memories of Valor': true } }
-                  : { dailyFeatUses: { ...c.dailyFeatUses, 'Memories of Valor': true } }
-                : {}) })
-            }} /> Memories of Valor active
-            <SourceNote source="Memories of Valor" note="Increase selected skill proficiency by one rank for 1 minute, up to master; clear active when duration ends." />
-          </label>
-          <label><input type="checkbox" aria-label="Memories of Valor used" checked={memoryUsed}
-            onChange={event => save(memoryHourly
-              ? { hourlyFeatUses: { ...c.hourlyFeatUses, 'Memories of Valor': event.target.checked } }
-              : { dailyFeatUses: { ...c.dailyFeatUses, 'Memories of Valor': event.target.checked } })} />
-            Memories of Valor used <SourceNote inlineSource={false} source="Memories of Valor"
-              note={`Once ${memoryHourly ? 'per hour' : 'per day'}; clear used after the interval.`} />
-          </label>
-        </div>}
         {renderRows(skills)}
       </div>
       {!!activeFeatsNamed(c, 'Ancestral Skills').length && !ancestrySkills.length
