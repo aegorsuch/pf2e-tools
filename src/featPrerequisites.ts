@@ -42,6 +42,7 @@ export interface PrerequisiteFacts {
   primalInnateSpell?: boolean
   gnomePrimalInnateSpell?: boolean
   gnomeArcaneOrOccultInnateSpell?: boolean
+  gnomeInnateMatchesFocus?: boolean
   limitedTelepathy?: boolean
   constructCompanion?: boolean
   championBlessings?: string[]
@@ -293,6 +294,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return resultFor(!!facts.gnomePrimalInnateSpell, text)
     if (name === 'at least one arcane or occult innate spell gained from a gnome heritage or gnome ancestry feat')
       return resultFor(!!facts.gnomeArcaneOrOccultInnateSpell, text)
+    if (name === 'at least one innate spell from a gnome heritage or ancestry feat that shares a tradition with at least one of your focus spells')
+      return facts.gnomeInnateMatchesFocus === undefined ? manual(text) : resultFor(facts.gnomeInnateMatchesFocus, text)
     if (name === 'kijimuna gnome')
       return resultFor([facts.heritage, ...(facts.heritages ?? [])].some(heritage => key(heritage ?? '') === name), text)
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)

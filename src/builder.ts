@@ -947,6 +947,28 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
             && (grant.source === 'Wellspring Gnome' || character.feats.some(feat => feat.name === grant.source
               && selectedFeatEntry(character, entries, feat.name, feat.sourceId)?.traits.some(trait => trait.toLowerCase() === 'gnome'))))
         },
+        get gnomeInnateMatchesFocus() {
+          const innate = getInnateGrants().filter(grant =>
+            character.ancestry?.toLowerCase() === 'gnome' && grant.source === character.heritage
+            || character.feats.some(feat => feat.name === grant.source
+              && selectedFeatEntry(character, entries, feat.name, feat.sourceId)?.traits.some(trait => trait.toLowerCase() === 'gnome')))
+          const traditions = new Set(innate.flatMap(grant => grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : []))
+          if (!traditions.size) return false
+          const grants = grantedFeatSpells(character, entries).filter(grant => grant.rule.kind === 'focus')
+          let unknown = false
+          for (const spell of getFocus().spells) {
+            const grant = grants.find(candidate => candidate.entry.name === spell.name && candidate.rule.tradition)
+            const entry = byName(entries, 'spell', spell.name)
+            const traits = entry?.traits.map(trait => trait.toLowerCase()) ?? []
+            const tradition = grant?.rule.tradition?.toLowerCase()
+              ?? (traits.includes('druid') || spell.source.endsWith(' Order') || spell.source === 'Untamed Form' ? 'primal'
+                : traits.includes('ranger') ? 'primal'
+                  : traits.includes('champion') || spell.source === 'Devotion Spells' ? 'divine' : undefined)
+            if (tradition && traditions.has(tradition)) return true
+            if (!tradition) unknown = true
+          }
+          return unknown ? undefined : false
+        },
         limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
           || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
           || features.some(feature => /\blimited telepathy\b/i.test(`${feature.name} ${feature.description}`))

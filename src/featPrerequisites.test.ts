@@ -43,6 +43,30 @@ it('checks Kijimuna or primal magic from a gnome heritage or feat', () => {
   }
 })
 
+it('checks Energized Font against actual Gnome innate and focus spell traditions', () => {
+  const prerequisite = 'focus pool; at least one innate spell from a gnome heritage or ancestry feat that shares a tradition with at least one of your focus spells'
+  const font = entry('feat', 'Energized Font', { prerequisite }, 5, ['Gnome'])
+  const magic = mapAonHit({ _id: 'first-world', _source: { name: 'First World Magic', category: 'feat', level: 1, trait: ['Gnome'],
+    markdown: 'Header\n\n---\n\nChoose one cantrip from the [primal](/SpellLists.aspx?Tradition=4) spell list. You can cast this cantrip as an innate spell at will.' } }, 'pf2e')!
+  const light = entry('spell', 'Light', { tradition: 'primal' }, 1, ['Cantrip'])
+  const c: Character = { ...base, ancestry: 'Gnome', className: 'Druid', order: 'Leaf', level: 5,
+    feats: [{ ...selected(magic.name), type: 'Ancestry Feat', choice: light.name }] }
+  const entries = [font, magic, light]
+  const result = (character: Character) => featPrerequisiteChecker(character, entries)(font)
+  expect(result(c)).toEqual({ missing: [], manual: [] })
+  expect(result({ ...c, feats: [] }).missing).toContain(prerequisite.split('; ')[1])
+  expect(result({ ...c, feats: [{ ...c.feats[0], choice: undefined }] }).missing).toContain(prerequisite.split('; ')[1])
+  expect(result({ ...c, heritage: 'Wellspring Gnome', gnomeHeritageMagic: { tradition: 'Occult' } }).missing)
+    .toContain(prerequisite.split('; ')[1])
+  expect(result({ ...c, order: undefined, className: 'Fighter' }).missing).toContain('focus pool')
+  const otherMagic = { ...magic, traits: ['Elf'] }
+  expect(featPrerequisiteChecker(c, [font, otherMagic, light])(font).missing).toContain(prerequisite.split('; ')[1])
+  const unknownFocus = entry('feat', 'Unknown Focus', { grants_focus_spells: 'Unknown Spell' })
+  expect(featPrerequisiteChecker({ ...c, className: 'Fighter', order: undefined,
+    feats: [...c.feats, selected(unknownFocus.name)] }, [...entries, unknownFocus])(font).manual)
+    .toContain(prerequisite.split('; ')[1])
+})
+
 it.each(['Disarming Intercept', 'Intercept Attack'])('recognizes Guardian class action prerequisite %s', prerequisite => {
   const interceptor = entry('feat', 'Energy Interceptor', { prerequisite }, 2, ['Guardian'])
   expect(featPrerequisiteChecker({ ...base, className: 'Guardian' }, [interceptor])(interceptor))
