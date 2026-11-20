@@ -1,6 +1,6 @@
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel } from './builder'
-import { companionAdvancement, companionStats } from './companions'
+import { companionAdvancementFor, companionStats } from './companions'
 
 type CompanionShape = { attacks: { name: string; traits: string }[]; size: string; speed: string }
 
@@ -38,9 +38,8 @@ export const companionQualifiesForFeat = (companion: CompanionShape, featName: s
 export function beastmasterRequirementMissing(c: Character, entries: ContentEntry[], featName: string) {
   const feat = BEASTMASTER_FEATS[featName]
   if (!feat) return undefined
-  const advancement = companionAdvancement(c)
   const met = (c.companions ?? []).some((companion, index) => {
-    const stats = companionStats(c, entries, companion.type, index === 0 ? advancement : undefined, companion.id)
+    const stats = companionStats(c, entries, companion.type, companionAdvancementFor(c, index), companion.id)
     return !!stats && feat.qualifies(shape(stats))
   })
   return met ? undefined : feat.requirement

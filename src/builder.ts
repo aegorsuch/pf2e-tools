@@ -9,7 +9,7 @@ import { armigerArmorEntry, automaticArmorFundamentals, automaticArmorPropertyRu
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
-import { companionAdvancement } from './companions'
+import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
@@ -5546,10 +5546,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const natural = withoutBattleForm(c)
   const thruneosaurusSupport = !ranged && (c.companions ?? []).reduce((dice, companion, index) =>
     companion.type === 'Thruneosaurus Rex' && companion.supportActive
-      ? Math.max(dice, index === 0 && !!companionAdvancement(c).advanced ? 2 : 1) : dice, 0)
+      ? Math.max(dice, !!companionAdvancementFor(c, index).advanced ? 2 : 1) : dice, 0)
   const drakeSupport = (c.companions ?? []).reduce((dice, companion, index) =>
     companion.type === 'Riding Drake' && companion.supportActive
-      ? Math.max(dice, index === 0 && !!companionAdvancement(c).advanced ? 2 : 1) : dice, 0)
+      ? Math.max(dice, !!companionAdvancementFor(c, index).advanced ? 2 : 1) : dice, 0)
   const supportDamage = [
     ...(thruneosaurusSupport ? [{ source: 'Thruneosaurus Support Benefit',
       value: `${thruneosaurusSupport}d6 persistent fire`, note: "Applies when the damaged target is in the thruneosaurus's reach, until the start of your next turn." }] : []),

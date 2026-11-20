@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { ADVANCED_TYPES, companionAdvancement, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
+import { ADVANCED_TYPES, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
@@ -175,13 +175,13 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 }
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
-  const { companions, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
     <span>{[...companions.map((comp, index) => {
       const compStage = comp.type === CONSTRUCT_COMPANION_NAME
         ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
-        : index === 0 ? stage : 'Young'
+        : companionAdvancementFor(c, index).advanced ?? (companionAdvancementFor(c, index).mature ? 'Mature' : 'Young')
       return `${compStage} ${comp.type}${comp.name && comp.name !== comp.type ? ` (${comp.name})` : ''}`
     }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
@@ -198,7 +198,7 @@ export function MinionsSection(props: SectionProps) {
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
-  const { companions, advancement, stage, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const companionEntries = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
@@ -271,9 +271,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             </SearchableSelect>
           </span>}
           {companions.map((comp, index) => {
-            // Feats advance the first companion; any others stay young
               const isConstruct = comp.type === CONSTRUCT_COMPANION_NAME
-              const companionAdvances = isConstruct ? constructAdvancement : index === 0 ? advancement : undefined
+            const companionAdvances = isConstruct ? constructAdvancement : companionAdvancementFor(c, index)
+            const compStage = companionAdvances.advanced ?? (companionAdvances.mature ? isConstruct ? 'Advanced' : 'Mature' : isConstruct ? 'Prototype' : 'Young')
               const stats = companionStats(c, companionEntries, comp.type, companionAdvances, comp.id)
               const description = stats?.entry.source === 'homebrew'
                 ? stats.entry.description.replace(/\s*\bStarts (?:Small|Medium)\.\s*$/i, '') : stats?.entry.description
@@ -379,6 +379,35 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     })}
                   </div>
                 )}
+                {!isConstruct && index > 0 && companionAdvances.mature
+                  && !!activeFeatsNamed(c, 'Incredible Beastmaster Companion').length && <div className="row companion-choices">
+                  <SearchableSelect aria-label={`Companion advancement: ${comp.name || comp.type}`} value={comp.beastmasterAdvancement ?? ''}
+                    onChange={event => {
+                      const choice = ADVANCED_TYPES.find(type => type === event.target.value)
+                      update(comp.id, { beastmasterAdvancement: choice })
+                    }}>
+                    <option value="">Choose advancement…</option>
+                    {ADVANCED_TYPES.map(option => <option key={option}>{option}</option>)}
+                  </SearchableSelect>
+                  {companionAdvances.advanced && c.feats.map((feat, featIndex) => {
+                    if (feat.name !== 'Specialized Beastmaster Companion' || featTakenLevel(feat) > c.level) return null
+                    const key = beastmasterSpecializationKey(feat, featIndex)
+                    const value = comp.beastmasterSpecializations?.[key] ?? ''
+                    const projected = { ...c, feats: c.feats.map((item, itemIndex) => ({ ...item,
+                      choice: item.name === 'Specialized Beastmaster Companion'
+                        ? comp.beastmasterSpecializations?.[beastmasterSpecializationKey(item, itemIndex)] : undefined })) }
+                    const options = specializationOptions(projected, entries, featIndex)
+                    return <SearchableSelect key={key} aria-label={`Companion specialization ${featIndex + 1}: ${comp.name || comp.type}`}
+                      value={value} onChange={event => {
+                        if (event.target.value && !options.includes(event.target.value)) return
+                        update(comp.id, { beastmasterSpecializations: { ...comp.beastmasterSpecializations, [key]: event.target.value } })
+                      }}>
+                      <option value="">Choose specialization…</option>
+                      {value && !options.includes(value) && <option value={value} disabled>{value} (unavailable)</option>}
+                      {options.map(option => <option key={option}>{option}</option>)}
+                    </SearchableSelect>
+                  })}
+                </div>}
                 {stats ? <>
                   {stats.auspice && <div className="row">
                     {c.className !== 'Champion' && <label>Servitor{' '}
@@ -428,10 +457,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   })()}
                   <div className="gear-traits">
                     {[
-                      { name: (isConstruct ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
-                        : index === 0 ? stage : 'Young') ?? '' },
+                      { name: compStage },
                       { name: stats.size, size: true },
-                      ...(!isConstruct && index === 0 ? advancement.specializations.map(name => ({ name })) : []),
+                      ...(!isConstruct ? companionAdvances.specializations.map(name => ({ name })) : []),
                       ...stats.traits.map(name => ({ name })),
                     ].filter(badge => badge.name).sort((a, b) => a.name.localeCompare(b.name)).map((badge, badgeIndex) =>
                       <span key={`${badge.name}:${badgeIndex}`}>{badge.name}{badge.size && enlargeNote

@@ -1320,6 +1320,39 @@ it('grants a Beastmaster Dedication companion and extra companions only with Add
   expect(findSelect(MinionsContent({ c, entries: [wolf], save }), 'Choose additional companion')).toBeUndefined()
 })
 
+it('advances additional Beastmaster companions with independent choices', () => {
+  const wolf: ContentEntry = {
+    id: 'wolf', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Wolf', level: 1,
+    traits: ['Animal'], description: '', data: { size: 'Medium', hp: 6, speed_raw: '35 feet' }, effects: [], updatedAt: 1,
+  }
+  let c: Character = {
+    id: 'beasts', systems: ['pf2e'], name: 'Test', level: 16, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Mature Beastmaster Companion', type: 'Archetype Feat', level: 4 },
+      { name: 'Incredible Beastmaster Companion', type: 'Archetype Feat', level: 8, choice: 'Nimble' },
+      { name: 'Specialized Beastmaster Companion', type: 'Archetype Feat', level: 14, choice: 'Ambusher', slot: 'archetype:14:0' },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'one', type: 'Wolf', name: 'First' }, { id: 'two', type: 'Wolf', name: 'Second' }],
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => MinionsContent({ c, entries: [wolf], save })
+  expect(renderToStaticMarkup(tree())).toContain('Companion advancement: Second')
+  findSelect(tree(), 'Companion advancement: Second')!({ target: { value: 'Savage' } })
+  findSelect(tree(), 'Companion specialization 3: Second')!({ target: { value: 'Racer' } })
+  expect(c.companions?.[1]).toMatchObject({ beastmasterAdvancement: 'Savage',
+    beastmasterSpecializations: { 'archetype:14:0': 'Racer' } })
+  const html = renderToStaticMarkup(tree())
+  expect(html).toContain('<span>Savage</span>')
+  expect(html).toContain('<span>Racer</span>')
+  expect(html).toContain('<span>Nimble</span>')
+  expect(html).toContain('<span>Ambusher</span>')
+  c = { ...c, level: 7 }
+  expect(renderToStaticMarkup(tree())).not.toContain('Companion advancement: Second')
+  expect(renderToStaticMarkup(tree())).not.toContain('<span>Savage</span>')
+})
+
 it('derives Auspice servitor from Champion sanctification only while Auspicious Mount is available', () => {
   let c: Character = {
     id: 'champion', systems: ['pf2e'], name: 'Test', level: 16, className: 'Champion', deity: 'Patron', sanctification: 'Holy',

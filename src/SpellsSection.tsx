@@ -8,7 +8,7 @@ import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabe
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { intensifiedElementDamage } from './builder'
-import { companionAdvancement, companionStats } from './companions'
+import { companionAdvancementFor, companionStats } from './companions'
 import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
@@ -405,7 +405,7 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   const companion = c.companions?.find((companion) => companion.id === companionId)
   const selectedCompanion = c.companions?.find((companion) => companion.id === (companionId ?? targetId))
   const selectedStats = !canopy && selectedCompanion ? companionStats(c, entries, selectedCompanion.type,
-    selectedCompanion.id === c.companions?.[0]?.id ? companionAdvancement(c) : undefined, selectedCompanion.id) : undefined
+    companionAdvancementFor(c, (c.companions ?? []).findIndex(companion => companion.id === selectedCompanion.id)), selectedCompanion.id) : undefined
   const naturalSize = selectedStats?.naturalSize
   const tooLarge = naturalSize === 'Huge' || naturalSize === 'Gargantuan'
   const needsHuge = naturalSize === 'Large'

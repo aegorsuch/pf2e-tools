@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
-import { bardingOptions, companionAdvancement, companionStats, equippedBarding, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
+import { bardingOptions, companionAdvancement, companionAdvancementFor, companionStats, equippedBarding, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -21,6 +21,22 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('limits shared Beastmaster advancement to earned feats and per-companion choices', () => {
+    const c: Character = { ...base, level: 16, feats: [
+      { ...feat('Mature Beastmaster Companion'), level: 4 },
+      { ...feat('Incredible Beastmaster Companion', 'Nimble'), level: 8 },
+      { ...feat('Specialized Beastmaster Companion', 'Ambusher', 'a'), level: 14 },
+      { ...feat('Specialized Beastmaster Companion', 'Bully', 'b'), level: 16 },
+    ], companions: [{ id: 'one', type: 'Bear', name: '' },
+      { id: 'two', type: 'Bear', name: '', beastmasterAdvancement: 'Savage',
+        beastmasterSpecializations: { a: 'Racer', b: 'Wrecker' } }] }
+    expect(companionAdvancementFor(c, 0)).toEqual({ mature: true, advanced: 'Nimble', specializations: ['Ambusher', 'Bully'] })
+    expect(companionAdvancementFor(c, 1)).toEqual({ mature: true, advanced: 'Savage', specializations: ['Racer', 'Wrecker'] })
+    expect(companionAdvancementFor({ ...c, level: 15 }, 1)).toEqual({ mature: true, advanced: 'Savage', specializations: ['Racer'] })
+    expect(companionAdvancementFor({ ...c, level: 7 }, 1)).toEqual({ mature: true, advanced: undefined, specializations: [] })
+    expect(companionAdvancementFor({ ...c, feats: [feat('Mature Animal Companion')] }, 1))
+      .toEqual({ mature: false, advanced: undefined, specializations: [] })
+  })
   it('shares an active parry only with the selected mount when Mounted Parry is active', () => {
     const weapon = entry('weapon', 'Parrying Sword', { weapon_type: 'Melee', hands: 1 }, 0, ['Parry'])
     const expert = { ...entry('feat', 'Parry Expert', {}, 8), description: 'You gain a +2 circumstance bonus to AC when you parry.' }

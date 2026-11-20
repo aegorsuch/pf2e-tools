@@ -161,6 +161,25 @@ export function companionAdvancement(c: Character) {
   return { mature: active.some(feat => companionProgressionStage(feat.name) === 'mature') || !!advanced, advanced, specializations }
 }
 
+export function beastmasterSpecializationKey(feat: Character['feats'][number], index: number) {
+  return feat.slot ?? `feat:${index}`
+}
+
+export function companionAdvancementFor(c: Character, index: number) {
+  if (index === 0) return companionAdvancement(c)
+  const companion = c.companions?.[index]
+  const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  const mature = active.some(feat => feat.name === 'Mature Beastmaster Companion')
+  const advanced = mature && active.some(feat => feat.name === 'Incredible Beastmaster Companion')
+    ? companion?.beastmasterAdvancement : undefined
+  const specializations = advanced ? [...new Set(c.feats.flatMap((feat, featIndex) => {
+    if (feat.name !== 'Specialized Beastmaster Companion' || featTakenLevel(feat) > c.level) return []
+    const choice = companion?.beastmasterSpecializations?.[beastmasterSpecializationKey(feat, featIndex)]
+    return choice && choice !== 'Auspice' && choice !== 'Peerless Mascot' ? [choice] : []
+  }))].slice(0, MAX_SPECIALIZATIONS) : []
+  return { mature, advanced, specializations }
+}
+
 export function constructCompanionAdvancement(c: Character) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const advanced = active.find(feat => feat.name === 'Advanced Construct Companion')?.choice
