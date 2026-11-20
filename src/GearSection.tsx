@@ -1509,7 +1509,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                     : builtIn?.material === enhanced.material ? `Built into ${namedSource}` : 'Granted by Verdant Weapon'}
                   onRemove={livingWeapon || plate || innovation || giantWeapon || w.verdantWeapon && canUseVerdantWeapon || builtIn?.material === enhanced.material ? undefined : () =>
                     update(w.id, { material: undefined, ...(upgradeWeapon ? {} : { runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) }) })} />
-              </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
+              </div> : plate ? <small>Material: Standard (from {plate.name})</small> : a.entry?.systems.includes('sf2e') ? null : <span>Material{' '}
                 <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
                   const material = WEAPON_MATERIALS.find((name) => name === e.target.value)
                   if (!material) return

@@ -2120,6 +2120,7 @@ it('installs compatible weapon upgrades within capacity without changing saved r
     { id: 'laser', name: laser.name, potency: 1, striking: 0, runes: ['Flaming'] },
   ] }
   const entries = [laser, sight, bipod]
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)).not.toContain('Weapon material')
   const tree = () => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'WeaponUpgrades')!
   const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
