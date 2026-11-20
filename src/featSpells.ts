@@ -429,6 +429,9 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
           && source?.traits.some(trait => trait.toLowerCase() === 'gnome')
           && rule.kind === 'innate' && rule.tradition?.toLowerCase() === 'primal'
         ? { ...rule, tradition: gnomeTradition } : rule)
+      .map(rule => feat.name === 'Scarlet Strands' && rule.kind === 'innate'
+        && rule.spells.some(name => name.toLowerCase() === 'web')
+        ? { ...rule, condition: 'Requires a free hand to pluck and throw hairs' } : rule)
     const options = featSpellOptions(c, entries, feat)
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {
       const entry = options.find(spell => spell.name === feat.choice)

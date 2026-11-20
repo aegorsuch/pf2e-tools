@@ -1306,6 +1306,17 @@ it('grants Kijimuna Whistle as a rank 5 primal innate spell once per day', () =>
   expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
 })
 
+it('preserves Scarlet Strands free-hand restriction on its innate web', () => {
+  const source = feat('Scarlet Strands', 'Once per day, you can cast 4th-rank [web](/Spells.aspx?ID=2045) as an innate primal spell, which takes the form of a crimson fishing net. You must have a hand free to pluck a few strands of your hair that you throw as part of the spell.', 9)
+  const spell = entry('Web', 'spell')
+  const c: Character = { ...base, level: 9, feats: [taken(source.name, 9)] }
+  const [grant] = grantedFeatSpells(c, [source, spell])
+  expect(grant).toMatchObject({ entry: spell, rank: 4, rule: { tradition: 'primal', frequency: 'once per day',
+    fixedRank: true, condition: 'Requires a free hand to pluck and throw hairs' } })
+  expect(dailyInnateUses(c, grant)?.remaining).toBe(1)
+  expect(grantedFeatSpells({ ...c, level: 8 }, [source, spell])).toEqual([])
+})
+
 it('shares alternative daily spells but keeps each-spell and different-source pools independent', () => {
   const shared = feat('Shared Magic', 'Once per day, you can cast either [calm emotions](/Spells.aspx?ID=1) or [sanctuary](/Spells.aspx?ID=2) as an innate occult spell.')
   const separate = feat('Separate Magic', 'You can cast [calm emotions](/Spells.aspx?ID=1) and [sanctuary](/Spells.aspx?ID=2) as occult innate spells once per day each.')
