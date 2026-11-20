@@ -436,7 +436,7 @@ export const isFeatEffectActive = (c: Character, name: string) =>
 export function featEffectChange(c: Character, name: string, active: boolean) {
   return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])],
     ...(name === 'Verdant Metamorphosis' && active ? { activeSpells: (c.activeSpells ?? [])
-      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form') } : {}) }
+      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form'), giantStature: undefined } : {}) }
 }
 // House rules grant level-2 dedications in locked slots.
 export const HOMEBREW_DEDICATIONS = [
@@ -3453,8 +3453,9 @@ export function untrainedSkillProficiency(c: Character) {
 
 export function bulkLimits(c: Character, entries: ContentEntry[]) {
   const strength = abilityMod(c.abilities.str)
-  const size = activeFeatsNamed(c, "Jotun's Heart").length
+  const size = giantStatureSize(c, entries) ?? (activeFeatsNamed(c, "Jotun's Heart").length
     ? 'Huge' : String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
+  )
   const sizeMultipliers: Record<string, number> = { tiny: 0.5, large: 2, huge: 4, gargantuan: 8 }
   const sizeMultiplier = sizeMultipliers[size.trim().toLowerCase()] ?? 1
   const bonuses: { source: string; encumbered: number; maximum: number }[] = []
@@ -3685,7 +3686,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     parts.push({ label: 'Asmodeus Major Curse: drained 4 (condition)', value: -4 })
   }
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
-  if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
+  if (clumsy) parts.push({ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy })
   if (name === 'Reflex' && c.systems.includes('pf2e') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId)) {
     const saddle = activeFeatsNamed(c, 'Born In The Saddle').length > 0
@@ -4088,7 +4089,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   ]
   if (best) parts.push({ label: `${candidates.filter(candidate => candidate.value === best).map(candidate => candidate.label).join(' / ')} (circumstance)`, value: best })
   const clumsy = giantWeaponClumsy(c, entries)
-  if (clumsy) parts.push({ label: 'Giant Instinct: clumsy (status)', value: -clumsy })
+  if (clumsy) parts.push({ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy })
   const notes = candidates.length > 1 ? ['Circumstance bonuses do not stack: '
     + candidates.map(candidate => `${candidate.label} ${signed(candidate.value)}`).join(', ') + '.'] : []
   if (activeFeatsNamed(c, 'Hazard Finder').length)
@@ -4527,9 +4528,10 @@ export function companionSpellTarget(c: Character, savedId?: string) {
   return c.companions?.find((companion) => companion.id === savedId)?.id ?? c.companions?.[0]?.id
 }
 
-export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects'>> {
+export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature'>> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
     && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])],
+  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined } : {}),
   ...(active && (BATTLE_FORM_SPELLS.has(name) || name === 'Untamed Form')
     && isFeatEffectActive(c, 'Verdant Metamorphosis') ? featEffectChange(c, 'Verdant Metamorphosis', false) : {}) }
 }
@@ -5110,6 +5112,26 @@ export function barbarianInstinct(c: Character, entries: ContentEntry[]) {
 
 export const isGiantInstinct = (c: Character, entries: ContentEntry[]) => barbarianInstinct(c, entries) === 'giant'
 
+export function canUseGiantStature(c: Character, entries: ContentEntry[]) {
+  const naturalSize = String(activeBattleForm(c, entries)?.size ?? byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium').toLowerCase()
+  return !!c.raging && !!activeFeatsNamed(c, "Giant's Stature").length && !activeFeatsNamed(c, "Jotun's Heart").length
+    && ['tiny', 'small', 'medium'].includes(naturalSize)
+}
+
+export function giantStatureSize(c: Character, entries: ContentEntry[]) {
+  if (!canUseGiantStature(c, entries) || isFeatEffectActive(c, 'Verdant Metamorphosis')) return undefined
+  if (c.giantStature === 'Large') return 'Large'
+  if (c.giantStature === 'Huge' && activeFeatsNamed(c, "Titan's Stature").length) return 'Huge'
+  return undefined
+}
+
+export function giantStatureChange(c: Character, size: Character['giantStature']): Partial<Character> {
+  return { giantStature: size, ...(size ? {
+    activeSpells: (c.activeSpells ?? []).filter(spell => !BATTLE_FORM_SPELLS.has(spell)),
+    activeFeatEffects: (c.activeFeatEffects ?? []).filter(effect => effect !== 'Verdant Metamorphosis'),
+  } : {}) }
+}
+
 export function canBeGiantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name)
   return isGiantInstinct(c, entries) && !!entry && entry.systems.includes('pf2e')
@@ -5128,12 +5150,12 @@ const countsAsGiantWeapon = (c: Character, entries: ContentEntry[], weapon: Owne
     && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Ridill'
 
 export function giantWeaponClumsy(c: Character, entries: ContentEntry[]) {
-  return isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
+  return giantStatureSize(c, entries) || isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
     countsAsGiantWeapon(c, entries, weapon) && weaponEquipped(c, entries, weapon)) ? 1 : 0
 }
 
 function giantWeaponSize(c: Character, entries: ContentEntry[]): NonNullable<OwnedWeapon['size']> {
-  const size = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium').toLowerCase()
+  const size = String(giantStatureSize(c, entries) ?? byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium').toLowerCase()
   return size === 'tiny' ? 'Small' : size === 'large' ? 'Huge' : size === 'huge' ? 'Gargantuan' : 'Large'
 }
 
@@ -5507,7 +5529,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     : heart ? Math.max(10, baseReach) + (battleStance ? 5 : 0)
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10
     : c.raging && isFeatEffectActive(c, "Giant's Lunge") ? Math.max(10, baseReach) : baseReach
-  const reach = normalReach + (normalReach > 0 && !formAttack && category !== 'Unarmed'
+  const stature = giantStatureSize(c, entries)
+  const reach = normalReach + (normalReach > 0 && !formAttack ? stature === 'Huge' ? 10 : stature === 'Large' ? 5 : 0 : 0)
+    + (normalReach > 0 && !formAttack && category !== 'Unarmed'
     && isFeatEffectActive(c, 'Reckless Riding Lunge') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)
   const flat = !ranged || thrown ? !ranged && traits.includes('finesse') && rogueRackets(c, entries).includes('Thief') ? Math.max(dex, str) : str
@@ -5631,7 +5655,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
         { label: 'Effective weapon potency (item)', value: w.potency },
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
-        ...(clumsy ? [{ label: 'Giant Instinct: clumsy (status)', value: -clumsy }] : []),
+        ...(clumsy ? [{ label: `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`, value: -clumsy }] : []),
       ],
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,

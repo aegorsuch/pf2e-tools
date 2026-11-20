@@ -21,7 +21,7 @@ import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBon
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
-import { activeBattleForm, spellActiveChange } from './builder'
+import { activeBattleForm, bulkLimits, giantStatureChange, giantStatureSize, spellActiveChange } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -604,6 +604,34 @@ it("applies Giant's Lunge to melee weapons and unarmed attacks without reducing 
   const markup = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="defense" />)
   expect(markup(c)).toContain(`aria-label="Giant&#x27;s Lunge active" checked=""`)
   expect(markup({ ...c, raging: false })).not.toContain(`Giant&#x27;s Lunge active`)
+})
+
+it("applies Giant's and Titan's Stature size, reach, clumsy, and Rage gating", () => {
+  const c: Character = { ...base, level: 14, className: 'Barbarian', subclass: 'Giant', raging: true,
+    feats: [feat("Giant's Stature", 6), feat("Titan's Stature", 12), feat("Giant's Lunge", 14)],
+    activeFeatEffects: ["Giant's Lunge"], weapons: [main] }
+  const large = { ...c, ...giantStatureChange(c, 'Large') }
+  const huge = { ...c, ...giantStatureChange(c, 'Huge') }
+  expect(giantStatureSize(large, [sword])).toBe('Large')
+  expect(giantStatureSize(huge, [sword])).toBe('Huge')
+  expect(bulkLimits(huge, [sword]).sizeMultiplier).toBe(4)
+  expect(weaponAttack(large, [sword], main).reach).toBe(15)
+  expect(weaponAttack(huge, [sword], main).reach).toBe(20)
+  expect(armorClass(large, [sword])).toBe(armorClass(c, [sword]) - 1)
+  expect(savingThrowBreakdown(huge, [sword], 'Reflex').total).toBe(savingThrowBreakdown(c, [sword], 'Reflex').total - 1)
+  const armed = { ...huge, giantWeaponId: main.id }
+  expect(giantWeaponClumsy(armed, [sword])).toBe(1)
+  expect(effectiveWeapon(armed, [sword], main).size).toBe('Gargantuan')
+  expect(giantStatureSize({ ...huge, raging: false }, [sword])).toBeUndefined()
+  expect(giantStatureSize({ ...huge, level: 11 }, [sword])).toBeUndefined()
+  const naturallyLarge = content('ancestry', 'Large Test', { size: 'Large' })
+  expect(giantStatureSize({ ...large, ancestry: naturallyLarge.name }, [naturallyLarge])).toBeUndefined()
+  const html = renderToStaticMarkup(<SkillsSection c={huge} entries={[sword]} save={() => {}} part="defense" />)
+  expect(html).toContain('aria-label="Giant&#x27;s Stature size" disabled=""')
+  expect(html).toContain('<small>Size</small><b>Huge</b>')
+  const transformed = { ...large, ...spellActiveChange(large, 'Untamed Form', true) }
+  expect(transformed.giantStature).toBeUndefined()
+  expect(giantStatureChange({ ...c, activeSpells: ['Untamed Form'] }, 'Large').activeSpells).toEqual([])
 })
 
 it('applies chosen Giant raging resistance only from level 9 and while raging', () => {

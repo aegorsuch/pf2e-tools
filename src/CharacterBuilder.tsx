@@ -16,7 +16,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, commonLoreOptions, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsContent, SpellsSummary } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
-import { boneShieldActive, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, twinnedDefenseActive } from './builder'
+import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
@@ -411,6 +411,8 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         && (!next.raging || !activeFeatsNamed(next, "Giant's Lunge").length)) {
         next.activeFeatEffects = next.activeFeatEffects.filter(effect => effect !== "Giant's Lunge")
       }
+      if (next.giantStature && (!canUseGiantStature(next, entries)
+        || next.giantStature === 'Huge' && !activeFeatsNamed(next, "Titan's Stature").length)) next.giantStature = undefined
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })

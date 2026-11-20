@@ -219,6 +219,7 @@ export interface Character {
   inventiveOffensive?: { weaponId: string; traits: string[] }
   haftStrikerWeaponId?: string
   raging?: boolean
+  giantStature?: 'Large' | 'Huge'
   giantWeaponId?: string
   giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'
   parrying?: boolean

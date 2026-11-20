@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, canUseGiantStature, giantStatureSize, giantStatureChange, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
@@ -401,7 +401,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note={athleticRush ? '+2 status bonus to Athletics checks.' : ferocious ? '+1 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
           {circumstance?.source === 'Hellknight Preferment' && <SourceNote source={circumstance.source}
             note={`+${circumstance.value} circumstance bonus to Intimidation while wearing Hellknight armor.`} />}
-          {!!clumsyPenalty && <SourceNote source="Giant Instinct: clumsy 1" note="-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage." />}
+          {!!clumsyPenalty && <SourceNote source={giantStatureSize(c, entries) ? "Giant's Stature: clumsy 1" : 'Giant Instinct: clumsy 1'}
+            note={giantStatureSize(c, entries) ? '-1 status penalty to Dexterity-based checks and DCs until Rage ends.'
+              : '-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage.'} />}
           {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Furious Bully').length
             && <SourceNote source="Furious Bully" note={`${conditionalTotal(2)} for Athletics attack actions (+2 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Athletics' && c.raging && !!activeFeatsNamed(c, 'Brutal Bully').length
@@ -680,6 +682,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               ? `Gain the animal trait.${form.note ? ` ${form.note}` : ''}`
               : 'Gain the animal and dinosaur traits.'} Only the form's unarmed attacks can Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.`} inlineSource={false} /></b></span>
         </div>}
+        {giantStatureSize(c, entries) && <div className="defense-summary">
+          <span><small>Size</small><b>{giantStatureSize(c, entries)}</b></span>
+        </div>}
         <ArmorProficiency c={c} entries={entries} />
         <h4>Armor</h4>
         <ArmorList c={c} entries={entries} save={save} part="armor" />
@@ -703,6 +708,19 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
         <RageToggle c={c} save={save} />
+        {canUseGiantStature(c, entries) && <label>Giant's Stature{' '}
+          <select aria-label="Giant's Stature size" value={giantStatureSize(c, entries) ?? ''} disabled={!!giantStatureSize(c, entries)}
+            onChange={event => {
+              const value = event.target.value
+              if (giantStatureSize(c, entries) || value !== 'Large' && value !== 'Huge') return
+              if (value === 'Huge' && !activeFeatsNamed(c, "Titan's Stature").length) return
+              save(giantStatureChange(c, value))
+            }}>
+            <option value="">Normal size</option>
+            <option value="Large">Large</option>
+            {!!activeFeatsNamed(c, "Titan's Stature").length && <option value="Huge">Huge</option>}
+          </select>
+        </label>}
         {c.raging && <FeatEffectToggle c={c} save={save} name="Giant's Lunge" label="Giant's Lunge active"
           title="Melee reach becomes at least 10 feet until Rage ends." />}
         {skin && <SourceNote source="Animal Skin" note={`+${skin.itemBonus} item AC; Dexterity cap +${skin.dexCap}.`} />}
