@@ -714,6 +714,19 @@ it('provides Elemental Explosion with selected damage and a once-per-Rage roll',
   expect(resistances({ ...c, level: 9 }, []).some(resistance => resistance.damage.includes('Water') && resistance.value === 3)).toBe(true)
 })
 
+it('grants animal instinct piercing and slashing resistance only while raging at level 9', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Animal', level: 9, raging: true,
+    abilities: { ...base.abilities, con: 16 } }
+  const ragingResistance = (character: Character) => resistances(character, [])
+    .filter(resistance => resistance.source === 'Raging Resistance')
+  expect(ragingResistance(c)).toEqual([
+    { damage: 'Piercing', value: 6, source: 'Raging Resistance' },
+    { damage: 'Slashing', value: 6, source: 'Raging Resistance' },
+  ])
+  expect(ragingResistance({ ...c, level: 8 })).toEqual([])
+  expect(ragingResistance({ ...c, raging: false })).toEqual([])
+})
+
 it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
   const agile = { ...sword, traits: ['Agile'] }
   const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])

@@ -3871,6 +3871,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage, value, source: 'Raging Resistance' })
     }
   }
+  if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'animal') {
+    const value = Math.max(0, 3 + abilityMod(c.abilities.con))
+    for (const damage of ['piercing', 'slashing'])
+      out.push({ damage, value, source: 'Raging Resistance' })
+  }
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'dragon' && c.barbarianDragon
     && DRAGON_INSTINCTS[c.barbarianDragon]) {
     const value = Math.max(0, 3 + abilityMod(c.abilities.con))
