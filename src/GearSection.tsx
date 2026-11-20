@@ -1763,6 +1763,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const sf2eArmor = !!entry?.systems.includes('sf2e')
+        const upgradeSlots = armorUpgradeSlots(entry) + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
@@ -1881,9 +1882,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
-              {sf2eArmor && entry && armorUpgradeSlots(entry) > 0 && entry.data.upgrades_allowed !== false
+              {sf2eArmor && entry && upgradeSlots > 0 && entry.data.upgrades_allowed !== false
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
-                  limit={armorUpgradeSlots(entry)}
+                  limit={upgradeSlots}
                   onChange={upgrades => update(a.id, { upgrades })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}

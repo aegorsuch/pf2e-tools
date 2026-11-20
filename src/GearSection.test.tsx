@@ -2150,6 +2150,7 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
     { id: 'starfinder-armor', name: suit.name, potency: 2, resilient: 2, runes: ['Shadow'], worn: true },
   ] }
   const entries = [suit, upgrade]
+  expect(renderToStaticMarkup(ArmorList({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} }))).toContain('Armor upgrade slots: 0/2.')
   const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Add armor upgrade')
