@@ -434,7 +434,9 @@ export const isFeatEffectActive = (c: Character, name: string) =>
     || name === 'Favored Terrain' && !!activeFeatsNamed(c, 'Terrain Master').length)
 
 export function featEffectChange(c: Character, name: string, active: boolean) {
-  return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])] }
+  return { activeFeatEffects: [...(c.activeFeatEffects ?? []).filter((effect) => effect !== name), ...(active ? [name] : [])],
+    ...(name === 'Verdant Metamorphosis' && active ? { activeSpells: (c.activeSpells ?? [])
+      .filter(spell => !BATTLE_FORM_SPELLS.has(spell) && spell !== 'Untamed Form') } : {}) }
 }
 // House rules grant level-2 dedications in locked slots.
 export const HOMEBREW_DEDICATIONS = [
@@ -1929,7 +1931,8 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
 
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
 export const speed = (c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) =>
-  Math.max(5, (activeBattleForm(c, entries)?.speed ?? (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25))
+  isFeatEffectActive(c, 'Verdant Metamorphosis') ? 0
+    : Math.max(5, (activeBattleForm(c, entries)?.speed ?? (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25))
     + speedBonuses(c, entries, options).reduce((sum, bonus) => sum + bonus.feet, 0))
 
 export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
@@ -1959,6 +1962,7 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
 }
 
 export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
+  if (isFeatEffectActive(c, 'Verdant Metamorphosis')) return [{ name: 'Land', feet: 0, source: 'Verdant Rest', status: 0 }]
   const form = activeBattleForm(c, entries)
   if (form) {
     const bonuses = speedBonuses(c, entries, options)
@@ -3682,6 +3686,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     : undefined
   const notes = [
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
+    ...(name === 'Reflex' && isFeatEffectActive(c, 'Verdant Metamorphosis')
+      ? ['Verdant Rest: Reflex successes and critical successes become failures.'] : []),
     ...(activeFeatsNamed(c, 'Timeless Nature').length
       ? ['Timeless Nature: +2 status against diseases and primal magic; status bonuses do not stack.'] : []),
     ...(activeFeatsNamed(c, 'Breath Control').length || isFeatEffectActive(c, 'Fisheye')
@@ -4011,6 +4017,17 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const form = activeBattleForm(c, entries)
   const raisedBoneShield = boneShieldActive(c) && c.boneShieldRaised ? 2 : 0
   const currentSpell = activeFeatsNamed(c, 'Current Spell').length && c.currentSpell ? 1 : 0
+  if (isFeatEffectActive(c, 'Verdant Metamorphosis')) {
+    const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
+    const best = Math.max(shield, raisedBoneShield, currentSpell)
+    return { total: 30 + best, parts: [{ label: 'Verdant Rest', value: 30 },
+      ...(best ? [{ label: [
+        ...(raisedBoneShield === best ? ['Raise Bone Shield'] : []),
+        ...(shield === best ? ['Shield cantrip'] : []),
+        ...(currentSpell === best ? ['Current Spell'] : []),
+      ].join(' / ') + ' (circumstance)', value: best }] : [])],
+      notes: currentSpell ? [`Current Spell: AC ${30 + Math.max(best, 2)} against ranged attacks; circumstance bonuses do not stack.`] : [] }
+  }
   if (form) {
     const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
     const best = Math.max(shield, raisedBoneShield, currentSpell)
@@ -4478,9 +4495,11 @@ export function companionSpellTarget(c: Character, savedId?: string) {
   return c.companions?.find((companion) => companion.id === savedId)?.id ?? c.companions?.[0]?.id
 }
 
-export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> {
+export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects'>> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
-    && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])] }
+    && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])],
+  ...(active && (BATTLE_FORM_SPELLS.has(name) || name === 'Untamed Form')
+    && isFeatEffectActive(c, 'Verdant Metamorphosis') ? featEffectChange(c, 'Verdant Metamorphosis', false) : {}) }
 }
 
 export const boneShieldActive = (c: Character) => !!c.activeSpells?.includes('Bone Shield')

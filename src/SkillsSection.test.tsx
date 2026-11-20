@@ -1782,6 +1782,26 @@ it('shows level-scaled Gnome healing benefits without changing maximum Hit Point
   expect(builder.maxHp(c, [])).toBe(builder.maxHp({ ...c, feats: [] }, []))
 })
 
+it('applies Verdant Rest plant form AC, immobility, Reflex limitation and mutually exclusive forms', () => {
+  const c: Character = { ...base, level: 14, feats: [{ name: 'Verdant Metamorphosis', type: 'Class Feat', level: 14 }],
+    activeSpells: ['Untamed Form'], weapons: [{ id: 'sword', name: 'Longsword', potency: 0, striking: 0, runes: [] }] }
+  const resting = { ...c, ...builder.featEffectChange(c, 'Verdant Metamorphosis', true) }
+  expect(resting.activeSpells).toEqual([])
+  expect(builder.armorClass(resting, [])).toBe(30)
+  expect(builder.speed(resting, [])).toBe(0)
+  expect(builder.movementSpeeds(resting, [])).toMatchObject([{ name: 'Land', feet: 0 }])
+  expect(builder.savingThrowBreakdown(resting, [], 'Reflex').notes)
+    .toContain('Verdant Rest: Reflex successes and critical successes become failures.')
+  expect(builder.ownedWeapons(resting, []).some(weapon => weapon.id === 'sword')).toBe(true)
+  const next = { ...resting, ...builder.spellActiveChange(resting, 'Untamed Form', true) }
+  expect(builder.isFeatEffectActive(next, 'Verdant Metamorphosis')).toBe(false)
+  expect(builder.armorClass(next, [])).not.toBe(30)
+  expect(builder.speed({ ...resting, level: 13 }, [])).not.toBe(0)
+  const html = renderToStaticMarkup(<SkillsSection c={resting} entries={[]} save={() => {}} part="defense" />)
+  expect(html).toContain('aria-label="Verdant Rest active" checked=""')
+  expect(html).toContain('Cannot move or affect anything outside the plant')
+})
+
 it('gives Subtle Cyborg Deception or an extra skill-array choice when already trained', () => {
   const background: ContentEntry = { ...feyBound, name: 'Deceiver', data: { skill: 'Deception' } }
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Subtle Cyborg', type: 'Ancestry Feat', level: 1 }] }

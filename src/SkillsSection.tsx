@@ -649,6 +649,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {isFeatEffectActive(c, 'Fisheye') && <SourceNote source="Fisheye"
             note="Hold your breath 25 times as long as usual. Temporary Breath Control cannot qualify you for permanent options." />}
         </>}
+        {!!activeFeatsNamed(c, 'Verdant Metamorphosis').length && <>
+          <label><input type="checkbox" aria-label="Verdant Rest active" checked={isFeatEffectActive(c, 'Verdant Metamorphosis')}
+            onChange={event => save(featEffectChange(c, 'Verdant Metamorphosis', event.target.checked))} /> Verdant Rest active</label>
+          {isFeatEffectActive(c, 'Verdant Metamorphosis') && <SourceNote source="Verdant Rest"
+            note={`Cannot move or affect anything outside the plant. In natural sunlight, 10 minutes restores ${Math.floor(maxHp(c, entries) / 2)} Hit Points. Daily rest restores full Hit Points and removes non-permanent drained, enfeebled, clumsy and stupefied conditions, and poisons and diseases of level 19 or lower.`} />}
+        </>}
         {form && <div className="defense-summary">
           <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
             <SourceNote source={form.source} note="Granted when cast; not added to maximum Hit Points." inlineSource={false} /></b></span>
