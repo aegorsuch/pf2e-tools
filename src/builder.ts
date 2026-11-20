@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, crocodileBattleForm, dinosaurBattleForm } from './battleForms'
+import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm } from './battleForms'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
@@ -1932,6 +1932,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
 // Land Speed: ancestry speed (25 if unknown) plus feat bonuses
 export const speed = (c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) =>
   isFeatEffectActive(c, 'Verdant Metamorphosis') ? 0
+    : activeBattleForm(c, entries)?.speed === 0 ? 0
     : Math.max(5, (activeBattleForm(c, entries)?.speed ?? (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25))
     + speedBonuses(c, entries, options).reduce((sum, bonus) => sum + bonus.feet, 0))
 
@@ -1969,6 +1970,8 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     const status = bonuses.find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
     return [{ name: 'Land', feet: speed(c, entries, options), source: form.source, status },
       ...(form.swimSpeed ? [{ name: 'Swim', feet: Math.max(5, form.swimSpeed + bonuses.reduce((total, bonus) => total + bonus.feet, 0)),
+        source: form.source, status }] : []),
+      ...(form.climbSpeed ? [{ name: 'Climb', feet: Math.max(5, form.climbSpeed + bonuses.reduce((total, bonus) => total + bonus.feet, 0)),
         source: form.source, status }] : [])]
   }
   const trailblazing = hellknightBenefitActive(c, 'Trailblazing Stride') ? 10 : 0
@@ -4455,8 +4458,8 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
       if (c.untamedForm.form === 'Dinosaur Form') {
         const form = dinosaurBattleForm(c.untamedForm.shape, rank, c.level)
         if (form) return { ...form, source: 'Untamed Form' }
-      } else if (c.untamedForm.form === 'Animal Form' && /^crocodile$/i.test(c.untamedForm.shape.trim())) {
-        const form = crocodileBattleForm(rank, c.level)
+      } else if (c.untamedForm.form === 'Animal Form') {
+        const form = animalBattleForm(c.untamedForm.shape, rank, c.level)
         if (form) return { ...form, source: 'Untamed Form' }
       }
     } else if (name === 'Dinosaur Form') {
@@ -5563,8 +5566,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     pristineWeapon,
     rageDamage,
     areaAttacks,
-    additionalDamage: [...supportDamage, ...(formAttack ? formAttack.data.persistent_bleed && form
-      ? [{ source: form.source, value: `${formAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []
+    additionalDamage: [...supportDamage, ...(formAttack ? [
+      ...(formAttack.data.persistent_bleed && form
+        ? [{ source: form.source, value: `${formAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []),
+      ...(formAttack.data.extra_damage && form
+        ? [{ source: form.source, value: String(formAttack.data.extra_damage), note: 'Additional damage from the battle form.' }] : []),
+    ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])])],

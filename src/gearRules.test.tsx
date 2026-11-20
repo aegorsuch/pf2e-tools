@@ -440,7 +440,28 @@ it('applies supported Untamed Form battle statistics and Ferocious Shape without
   expect(activeBattleForm({ ...c, activeSpells: [] }, entries)).toBeUndefined()
   expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Crocodile', rank: 10 } }, entries))
     .toMatchObject({ name: 'Crocodile', source: 'Untamed Form', swimSpeed: 30 })
-  expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Bear', rank: 10 } }, entries)).toBeUndefined()
+  expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Bear', rank: 10 } }, entries))
+    .toMatchObject({ name: 'Bear', source: 'Untamed Form', speed: 30 })
+  expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Unknown', rank: 10 } }, entries)).toBeUndefined()
+})
+
+it('applies animal form movement and attack details across Untamed Form shapes', () => {
+  const c: Character = { ...base, className: 'Druid', level: 10, feats: [feat('Untamed Form', 1)],
+    activeSpells: ['Untamed Form'], untamedForm: { form: 'Animal Form', shape: 'Snake', rank: 5 } }
+  expect(movementSpeeds(c, [])).toEqual([
+    { name: 'Land', feet: 20, source: 'Untamed Form', status: 0 },
+    { name: 'Swim', feet: 20, source: 'Untamed Form', status: 0 },
+    { name: 'Climb', feet: 20, source: 'Untamed Form', status: 0 },
+  ])
+  expect(weaponAttack(c, [], ownedWeapons(c, [])[0])).toMatchObject({ damage: '4d4+7 piercing',
+    additionalDamage: [{ value: '2d6 poison', source: 'Untamed Form' }] })
+  const shark = { ...c, untamedForm: { ...c.untamedForm, shape: 'Shark' } }
+  expect(movementSpeeds(shark, [])).toEqual([
+    { name: 'Land', feet: 0, source: 'Untamed Form', status: 0 },
+    { name: 'Swim', feet: 35, source: 'Untamed Form', status: 0 },
+  ])
+  expect(renderToStaticMarkup(<SkillsSection c={shark} entries={[]} save={() => {}} part="defense" />))
+    .toContain('Breathe underwater but not in air.')
 })
 
 it.each([
