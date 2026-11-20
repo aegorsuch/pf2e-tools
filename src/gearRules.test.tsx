@@ -818,6 +818,15 @@ it('offers Scouring Rage using the chosen instinct damage type once per Rage', (
   expect(html({ ...c, spiritRage: false })).not.toContain('Roll Scouring Rage')
 })
 
+it("offers Spirit's Wrath with Constitution damage only while raging", () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Spirit', level: 12, raging: true,
+    abilities: { ...base.abilities, str: 18, con: 8 }, feats: [feat("Spirit's Wrath", 12)] }
+  const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
+  expect(html(c)).toContain('4d8-1 spirit')
+  expect(html(c)).toContain('120 feet')
+  expect(html({ ...c, raging: false })).not.toContain("Roll Spirit&#x27;s Wrath")
+})
+
 it('keeps Rage off ordinary ranged Strikes and halves Agile damage only without the house rule', () => {
   const agile = { ...sword, traits: ['Agile'] }
   const thrown = content('weapon', 'Javelin', { weapon_type: 'Ranged', damage: '1d6 P', hands: 1 }, 0, ['Thrown'])

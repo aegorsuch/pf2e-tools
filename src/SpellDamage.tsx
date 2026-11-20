@@ -145,7 +145,7 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll 
   const [result, setResult] = useState<number | number[] | { primary: number; additional: number }>()
   const formula = damage.outcomes ? `${damage.outcomes.map(outcome => `${outcome.dice}d${damage.sides}`).join(' / ')} ${damage.type}`
     : damage.dice > 0
-    ? `${damage.dice}d${damage.sides}${damage.bonus ? `+${damage.bonus}` : ''} ${damage.type}`
+    ? `${damage.dice}d${damage.sides}${damage.bonus ? `${damage.bonus > 0 ? '+' : ''}${damage.bonus}` : ''} ${damage.type}`
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" disabled={disabled} className={actions ? 'spell-action-button' : undefined}

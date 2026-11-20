@@ -7,7 +7,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { classDifficultyClass, elementalRageType, withoutBattleForm } from './builder'
+import { abilityMod, classDifficultyClass, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, weaponRanks, withoutBattleForm } from './builder'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
@@ -130,6 +130,13 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       {instinct === 'spirit' && <div className="col" aria-label="Spirit Instinct">
         <label><input type="checkbox" aria-label="Use Spirit Rage" checked={!!c.spiritRage} disabled={!!c.raging}
           onChange={event => save({ spiritRage: event.target.checked })} /> Use Spirit Rage</label>
+        {c.raging && !!activeFeatsNamed(c, "Spirit's Wrath").length && <span>
+          Spirit's Wrath: {signed(proficiencyBonus(weaponRanks(c, entries).Martial, c.level) + abilityMod(c.abilities.str) + 2
+            + (isFeatEffectActive(c, 'Desperate Wrath') ? 2 : 0))}{' '}
+          <DamageRoll name="Spirit's Wrath" actions="Single Action"
+            damage={{ label: 'Damage', dice: 4, sides: 8, bonus: abilityMod(c.abilities.con), type: 'spirit' }} />
+          <SourceNote source="Spirit's Wrath" note="Melee wisp rush against a target within 120 feet. Uses and increases your multiple attack penalty. On a critical hit, deal double damage and inflict frightened 1. Apply other applicable status and circumstance modifiers." />
+        </span>}
       </div>}
       {instinct === 'superstition' && c.level >= 9 && <label>Raging Resistance{' '}
         <select aria-label="Superstition Raging Resistance" value={c.superstitionTraditions ?? ''} onChange={event => {
