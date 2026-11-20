@@ -1,4 +1,4 @@
-import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, parryBonus, proficiencyBonus, signed, type Ability } from './builder'
+import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, parryBonus, proficiencyBonus, raisedShieldBonus, shieldRaised, signed, type Ability } from './builder'
 import { beastmasterAbilities } from './beastmasterFeats'
 import { companionProgressionStage, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import type { Character, CompanionEquipment, ContentEntry } from './types'
@@ -386,6 +386,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const mountedParry = companion && companionId === c.mountedCompanionId && activeFeatsNamed(c, 'Mounted Parry').length
     ? parryBonus(c, entries) : 0
+  const mountedShield = companion && companionId === c.mountedCompanionId && activeFeatsNamed(c, 'Mounted Shield').length
+    && shieldRaised(c) ? raisedShieldBonus(c, entries) : 0
   const senses = String(d.sense ?? '')
   const mountSenses = (apex || celestialMount || fiendishMount) && !/\bdarkvision\b/i.test(senses)
     ? [senses, 'Darkvision'].filter(Boolean).join(', ') : senses
@@ -397,9 +399,9 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     apex, temporaryHp: apex ? 30 : 0, reach: apex ? 15 : undefined, ignoreAllDifficultTerrain: apex,
     ignoreDifficultTerrain: chiardmar ? 10 : 0,
     ac: 10 + (barding ? Math.min(mods.dex, num(barding.data.dex_cap)) + proficiencyBonus(rank.Barding ?? 1, level) + num(barding.data.ac)
-      : mods.dex + prof('Unarmored')) + magicHide - clumsy + mountedParry,
+      : mods.dex + prof('Unarmored')) + magicHide - clumsy + Math.max(mountedParry, mountedShield),
     barding, bardingCheckPenalty, antiDragon,
-    magicHide, mountedParry, canopyCrawler, enlarge, clumsy, stealthyCompanion,
+    magicHide, mountedParry, mountedShield, canopyCrawler, enlarge, clumsy, stealthyCompanion,
     ferocity: type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
       ? minionFerocity(c) : undefined,
     primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,

@@ -3,7 +3,7 @@ import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, crocodileBattleForm, dinosaurB
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
-import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore } from './backgrounds'
+import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { armigerArmorEntry, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
 export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
@@ -405,16 +405,21 @@ export function shieldCoverAcBonus(entries: ContentEntry[], shield: OwnedShield)
   const match = /(?:take cover[^.\n]*\+(\d+)[^.\n]*(?:bonus|AC)|\+(\d+)[^.\n]*(?:bonus|AC)[^.\n]*take cover)/i.exec(description)
   return match ? Number(match[1] ?? match[2]) : 0
 }
-export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
+export function raisedShieldBonus(c: Character, entries: ContentEntry[]) {
   const shield = equippedShield(c)
   if (!shield) return 0
   const entry = shieldEntry(entries, shield.name)
   const bonus = num(entry?.data.ac)
   const normal = bonus > 0 ? bonus : isBucklerShield(shield.name) ? 1 : 2
   const elegant = isBucklerShield(shield.name) && normal === 1 && activeFeatsNamed(c, 'Elegant Buckler').length ? 1 : 0
+  return normal + elegant
+}
+export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
+  const shield = equippedShield(c)
+  if (!shield) return 0
   const cover = shieldRaised(c) && (shield.takingCover || activeFeatsNamed(c, 'Great Shield Mastery').length > 0)
     ? shieldCoverAcBonus(entries, shield) : 0
-  return Math.max(normal + elegant, cover)
+  return Math.max(raisedShieldBonus(c, entries), cover)
 }
 export const isBucklerShield = (name: string) => /buckler/i.test(name)
 export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {
@@ -1366,6 +1371,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name !== 'Assurance' && typeof fixedBackgroundChoice === 'string') return [fixedBackgroundChoice]
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === 'Gnome Obsession' && c.systems.includes('pf2e')) {
+    const selected = index >= 0 ? c.feats[index]?.choice : undefined
+    const lores = [...commonLoreOptions(deityGrantedLores(c), c.deity), ...c.lores.map(lore => lore.name),
+      ...backgroundSkills(byName(entries, 'background', c.background), c), ...featLores(c, entries),
+      ...(selected ? [selected] : [])].filter(lore => /.+\s+lore$/i.test(lore))
+    return [...new Map(lores.map(lore => [lore.toLowerCase(), lore])).values()].sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Lizardfolk Lore') return ['Nature, Astrology Lore', 'Nature, Lizardfolk Lore',
     'Occultism, Astrology Lore', 'Occultism, Lizardfolk Lore']
   if (name === 'Iruxi Armaments') {
@@ -2635,7 +2647,8 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   }),
   ...c.feats.flatMap(feat => feat.name === 'Lizardfolk Lore' && featTakenLevel(feat) <= c.level
     ? [lizardfolkLoreSelection(feat).lore].filter((lore): lore is string => !!lore) : []),
-  ...activeFeatsNamed(c, 'Additional Lore').flatMap((feat) => {
+  ...[...activeFeatsNamed(c, 'Additional Lore'),
+    ...(c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Gnome Obsession') : [])].flatMap((feat) => {
     const choice = feat.choice?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
   }),
@@ -2661,6 +2674,17 @@ const CLAN_LORE_OPTIONS: Record<string, { hilt: 'Goldhilt' | 'Steelhilt' | 'Iron
 }
 
 export const CLAN_LORES = [...new Set(Object.values(CLAN_LORE_OPTIONS).map(grant => `${grant.lore} Lore`))]
+
+export const COMMON_LORES = [...new Set([
+  'Abadar', 'Erastil', 'Iomedae', 'Demon', 'Giant', 'Vampire', 'Astral Plane', 'Heaven', 'Outer Rifts',
+  'Hellknights', 'Pathfinder Society', 'Absalom', 'Magnimar', 'Mountain', 'River',
+  ...FAVORED_TERRAINS, 'Highhelm', 'Necrovite', 'Apostae', 'Heaven',
+].map(topic => `${topic} Lore`).concat(PROFESSION_LORES, CLAN_LORES))].sort((a, b) => a.localeCompare(b))
+
+export function commonLoreOptions(deityLores: string[] = [], deity?: string) {
+  return [...new Map([...COMMON_LORES, ...deityLores, ...(deity?.trim() ? [`${deity.trim()} Lore`] : [])]
+    .map(lore => [lore.toLowerCase(), lore])).values()].sort((a, b) => a.localeCompare(b))
+}
 
 export function clanLoreLabel(clan: string) {
   const grant = CLAN_LORE_OPTIONS[clan]
@@ -3064,6 +3088,12 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     if (lore && featTakenLevel(feat) <= c.level) grants.push({
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
+  }
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Gnome Obsession')) {
+    const choice = feat.choice?.trim()
+    if (!choice || !/.+\s+lore$/i.test(choice)) continue
+    grants.push({ name: 'Additional Lore', choice: choice.replace(/\s+lore$/i, ''), source: feat.name, level: featTakenLevel(feat) })
+    grants.push({ name: 'Assurance', choice, source: feat.name, level: featTakenLevel(feat) })
   }
   for (const [source, name] of [["Gecko's Grip", 'Combat Climber'], ['Rider', 'Ride'], ['Reptile Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
     ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump']]) {

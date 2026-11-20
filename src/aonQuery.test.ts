@@ -1,6 +1,35 @@
 import { expect, it } from 'vitest'
-import { fetchAonHits, parseCompanion, parseFeatSpellGrants } from './aonQuery'
+import { fetchAonHits, parseCompanion, parseFeatFocus, parseFeatSpellGrants } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
+
+it('extracts Beastmaster Trance and Impaling Briars focus grants from their source wording', () => {
+  expect(parseFeatFocus('You gain the focus spell [_beastmaster trance_](/Spells.aspx?ID=1962).').spells).toBe('beastmaster trance')
+  expect(parseFeatFocus('You gain the [_impaling briars_](/Spells.aspx?ID=1857) order.').spells).toBe('impaling briars')
+  expect(parseFeatFocus('You gain the [storm lord](/Spells.aspx?ID=1) order spell.').spells).toBe('storm lord')
+  expect(parseFeatFocus('You gain the [storm lord](/Spells.aspx?ID=1) order ability.').spells).toBe('')
+})
+
+it('imports focus spell grants through the snapshot fetch and mapping pipeline', async () => {
+  const feats = [
+    { name: "Beastmaster's Trance", spell: 'beastmaster trance', text: 'You gain the focus spell [_beastmaster trance_](/Spells.aspx?ID=1962).' },
+    { name: 'Impaling Briars', spell: 'impaling briars', text: 'You gain the [_impaling briars_](/Spells.aspx?ID=1857) order.' },
+  ]
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'feat' ? feats.map(feat => ({
+      _id: feat.name, _source: { category, name: feat.name, markdown: `Header\n\n---\n\n${feat.text}` },
+    })) : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  for (const { name, spell } of feats) {
+    expect(entries.find(entry => entry.name === name)).toMatchObject({
+      data: { grants_focus_spells: spell },
+      spellGrants: [{ kind: 'focus', spells: [spell], heightened: true }],
+    })
+  }
+})
 
 it('imports full familiar and master ability rules from the familiar-ability source', async () => {
   const queried: string[] = []

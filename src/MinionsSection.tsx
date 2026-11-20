@@ -286,10 +286,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1)' : undefined
               const acNote = [stats?.barding ? `+${stats.barding.data.ac} Item (${stats.barding.name}); Dexterity cap +${stats.barding.data.dex_cap}` : undefined,
                 stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
-                stats?.mountedParry ? `+${stats.mountedParry} Circumstance (Mounted Parry)` : undefined,
+                stats?.mountedParry && stats.mountedParry >= stats.mountedShield ? `+${stats.mountedParry} Circumstance (Mounted Parry)` : undefined,
+                stats?.mountedShield && stats.mountedShield >= stats.mountedParry ? `+${stats.mountedShield} Circumstance (Mounted Shield)` : undefined,
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
               const acSource = [stats?.barding?.name, stats?.magicHide ? 'Magic Hide' : undefined,
-                stats?.mountedParry ? 'Mounted Parry' : undefined,
+                stats?.mountedParry && stats.mountedParry >= stats.mountedShield ? 'Mounted Parry' : undefined,
+                stats?.mountedShield && stats.mountedShield >= stats.mountedParry ? 'Mounted Shield' : undefined,
                 stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
               const specials = [
                 ...(stats?.mount ? [{ name: 'Mount', note: undefined }] : []),
@@ -315,7 +317,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
-                ...(activeFeatsNamed(c, 'Mounted Parry').length ? [{ name: 'Mounted', element: <label><input type="checkbox"
+                ...(['Mounted Parry', 'Mounted Shield'].some(name => activeFeatsNamed(c, name).length) ? [{ name: 'Mounted', element: <label><input type="checkbox"
                   aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
                   onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined })} /> Mounted</label> }] : []),
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"

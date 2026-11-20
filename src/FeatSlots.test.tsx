@@ -115,6 +115,21 @@ it.each(['Nature, Astrology Lore', 'Nature, Lizardfolk Lore', 'Occultism, Astrol
   },
 )
 
+it('selects Gnome Obsession Lore in the feat picker and shows both granted feats', () => {
+  const feat: ContentEntry = { id: 'gnome-obsession', name: 'Gnome Obsession', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Gnome'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Gnome', level: 1 }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
+    search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('Gnome Obsession (Circus Lore)')
+  findButton(tree(), 'L01 Ancestry: Gnome Obsession (Circus Lore)')!()
+  expect(c.feats[0].choice).toBe('Circus Lore')
+  expect(ranksAt(c, [feat])['Circus Lore']).toBe(1)
+  const skillFeats = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} categories={['skill']} save={() => {}} />)
+  expect(skillFeats).toContain('Additional Lore (Circus)')
+  expect(skillFeats).toContain('Assurance (Circus Lore)')
+})
+
 it('clears selected skill prerequisite warnings while planning without changing character skills', () => {
   const c: Character = { ...emptyRanger(), level: 20,
     skillPicks: ['Athletics'], skillIncreases: { 15: 'Athletics' },

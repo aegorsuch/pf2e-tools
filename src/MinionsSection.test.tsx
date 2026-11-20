@@ -80,6 +80,19 @@ it('selects one mounted companion for Mounted Parry and shows its AC source', ()
   expect(renderToStaticMarkup(MinionsContent({ c: { ...c, feats: [] }, entries, save }))).not.toContain('Mounted on A')
 })
 
+it('allows selecting a mount for Mounted Shield and displays its shared AC bonus', () => {
+  const animal: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'bear', name: 'Bear', traits: ['Animal'] }
+  let c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 6, className: 'Champion',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Mounted Shield', type: 'Archetype Feat', level: 6 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true },
+    companions: [{ id: 'a', type: 'Bear', name: 'A' }] }
+  const content = () => MinionsContent({ c, entries: [animal], save: patch => { c = { ...c, ...patch } } })
+  findToggle(content(), 'Mounted on A')!({ target: { checked: true } })
+  expect(c.mountedCompanionId).toBe('a')
+  expect(renderToStaticMarkup(content())).toContain('+2 Circumstance (Mounted Shield)')
+})
+
 const familiarAbility = (name: string, description: string, abilityType = 'Familiar'): ContentEntry => ({
   id: `familiar:${name}`, systems: ['pf2e'], name, kind: 'familiar', source: 'official', level: 1,
   traits: [], description, data: { ability_type: abilityType }, effects: [], updatedAt: 0,

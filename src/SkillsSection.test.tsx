@@ -311,6 +311,46 @@ it("shows Cavalier's Banner's conditional Will save and DC without changing ordi
   expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
   const future = renderToStaticMarkup(<SkillsSection c={{ ...c, level: 3 }} entries={[ranger]} save={() => {}} part="defense" />)
   expect(future).not.toContain("Cavalier&#x27;s Banner note")
+  const standard = { ...c, level: 10, feats: [...c.feats, { name: 'Stalwart Standard', type: 'Archetype Feat', level: 10 }] }
+  const banner = renderToStaticMarkup(<SkillsSection c={standard} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(banner).toContain('Allies benefiting from the banner gain +1 circumstance to Fortitude and Reflex DCs')
+  expect(banner).toContain('within the last round')
+  expect(defenseSummary(standard, [ranger])).toEqual(defenseSummary({ ...standard, feats: c.feats }, [ranger]))
+})
+
+it('shows conditional Gnome defenses without changing ordinary modifiers', () => {
+  const feats = ['Fey Fellowship', 'Illusion Sense', 'Grim Insight'].map(name =>
+    ({ name, type: 'Ancestry Feat', level: 1 }))
+  const c: Character = { ...base, level: 1, feats }
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(html).toContain('against fey (+2 circumstance)')
+  expect(html).toContain('against illusions (+1 circumstance)')
+  expect(html).toContain('a success becomes a critical success and the source is off-guard')
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="senses" />))
+    .toContain('GM rolls a secret check to disbelieve')
+  expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
+})
+
+it('shows Druid terrain and shield benefits only when applicable', () => {
+  const c: Character = { ...base, level: 12, feats: [
+    { name: 'Shore Step', type: 'Class Feat', level: 1 },
+    { name: 'Steadying Stone', type: 'Class Feat', level: 1 },
+    { name: 'Forest Passage', type: 'Class Feat', level: 4 },
+    { name: 'Necromantic Deflection', type: 'Class Feat', level: 12 },
+  ], shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} part="defense" />)
+  expect(defense).toContain('against spells or effects that would knock you prone')
+  expect(defense).toContain('against necromancy spells while your shield is raised (+2 circumstance)')
+  expect(defenseSummary(c, [ranger])).toEqual(defenseSummary({ ...c, feats: [] }, [ranger]))
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)
+  expect(skills).toContain('Balance on a slippery or wet surface becomes a critical success')
+  expect(skills).toContain('Balance on uneven earth or rock becomes a critical success')
+  const speed = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[ranger]} save={() => {}} />)
+  expect(speed).toContain('Ignore difficult terrain caused by shallow water')
+  expect(speed).toContain('Ignore difficult terrain caused by plants and fungi')
+  const unraised = renderToStaticMarkup(<SkillsSection c={{ ...c, shield: { ...c.shield!, raised: false } }}
+    entries={[ranger]} save={() => {}} part="defense" />)
+  expect(unraised).not.toContain('Necromantic Deflection note')
 })
 
 it('saves Rage state through the shared toggle and isolates summary clicks', () => {

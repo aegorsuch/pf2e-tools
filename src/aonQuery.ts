@@ -164,7 +164,10 @@ export function parseFeatLanguages(md: string) {
 export function parseFeatFocus(md: string) {
   md = md.replace(/[_*]/g, '')
   const name = (s: string) => s.replace(/^_+|_+$/g, '').trim()
-  const spells = [...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell/gi)].map((m) => name(m[1]))
+  const spells = [
+    ...[...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell|order(?=[.!?]))/gi)].map((m) => name(m[1])),
+    ...[...md.matchAll(/\b(?:gain|learn) the (?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map((m) => name(m[1])),
+  ]
   const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/?Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
   return { spells: spells.join(', '), byOrder: byOrder.join(', '), point: /Increase the number of Focus Points in your focus pool by 1/i.test(md) }
 }

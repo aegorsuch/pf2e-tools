@@ -1864,6 +1864,26 @@ describe('languageAllowance', () => {
     expect(additionalSkillCount(trained, [performerClass])).toBe(additionalSkillCount({ ...trained, feats: [] }, [performerClass]) + 1)
   })
 
+  it('grants Gnome Obsession Lore progression and Assurance for its selected specialty', () => {
+    const obsession = { name: 'Gnome Obsession', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Circus Lore' }
+    const c: Character = { ...base, level: 15, ancestry: 'Gnome', feats: [obsession], lores: [{ name: 'Custom Lore', rank: 0 }] }
+    const options = featChoiceOptions('Gnome Obsession', c, [], obsession.slot)!
+    expect(options).toContain('Circus Lore')
+    expect(options).toContain('Custom Lore')
+    for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]] as const) {
+      expect(ranksAt({ ...c, level }, [])['Circus Lore']).toBe(rank)
+    }
+    expect(automaticFeatGrants(c, [])).toEqual(expect.arrayContaining([
+      { name: 'Additional Lore', choice: 'Circus', source: 'Gnome Obsession', level: 1 },
+      { name: 'Assurance', choice: 'Circus Lore', source: 'Gnome Obsession', level: 1 },
+    ]))
+    const changed = { ...c, feats: [{ ...obsession, choice: 'Custom Lore' }] }
+    expect(featLores(changed, [])).toContain('Custom Lore')
+    expect(featLores(changed, [])).not.toContain('Circus Lore')
+    expect(automaticFeatGrants({ ...c, level: 1, feats: [{ ...obsession, slot: 'ancestry:5:0' }] }, []))
+      .not.toEqual(expect.arrayContaining([{ name: 'Assurance', choice: 'Circus Lore', source: 'Gnome Obsession', level: 5 }]))
+  })
+
   it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {
     const multilingual = [
       { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },

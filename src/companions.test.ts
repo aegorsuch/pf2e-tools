@@ -40,6 +40,24 @@ describe('animal companions', () => {
     expect(stats({ ...c, level: 5 }).mountedParry).toBe(0)
   })
 
+  it('shares only the raised shield bonus with the selected mount without stacking parry or cover', () => {
+    const weapon = entry('weapon', 'Parrying Sword', { weapon_type: 'Melee', hands: 1 }, 0, ['Parry'])
+    const shield = { id: 's', name: 'Tower Shield', hardness: 5, hp: 20, damage: 0, raised: true, takingCover: true }
+    const c: Character = { ...base, level: 8, mountedCompanionId: 'bear', parrying: true, shield,
+      feats: [{ ...feat('Mounted Shield'), level: 6 }, { ...feat('Mounted Parry'), level: 6 }],
+      weapons: [{ id: 'sword', name: weapon.name, potency: 0, striking: 0, runes: [] }],
+      companions: [{ id: 'bear', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }] }
+    const stats = (character: Character, id = 'bear') => companionStats(character, [bear, weapon], 'Bear', undefined, id)!
+    const baseAc = stats({ ...c, shield: undefined, parrying: false }).ac
+    expect(stats(c).mountedShield).toBe(2)
+    expect(stats(c).ac).toBe(baseAc + 2)
+    expect(stats(c, 'other').mountedShield).toBe(0)
+    expect(stats({ ...c, shield: { ...shield, raised: false }, parrying: false }).ac).toBe(baseAc)
+    expect(stats({ ...c, level: 5, parrying: false }).mountedShield).toBe(0)
+    expect(stats({ ...c, mountedCompanionId: undefined, parrying: false }).ac).toBe(baseAc)
+    expect(stats({ ...c, shield: { ...shield, name: 'Buckler' }, parrying: false }).mountedShield).toBe(1)
+  })
+
   it('offers light/heavy base and specific barding with stable automatically scaling anti-dragon choices', () => {
     const item = (name: string, level = 0, description = '', data: ContentEntry['data'] = {}) =>
       ({ ...entry('item', name, { item_subcategory: 'Companion Items', ...data }, level), description })

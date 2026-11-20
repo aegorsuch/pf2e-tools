@@ -1,12 +1,11 @@
 import { resistances, activeBattleForm,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
-  proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
+  proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, ownedWeapons, weaponEquipped, installedWeaponUpgrades, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, giantWeaponClumsy, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
-import { PROFESSION_LORES } from './backgrounds'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -19,26 +18,13 @@ import { getSettings } from './settings'
 import { backgroundSkillSlots, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
-import { artifactItemSkillBonus, hunterArrowheadBonus, CLAN_LORES } from './builder'
+import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
 import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { witchwarperParadox } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
-export const COMMON_LORES = [...new Set([
-  // https://2e.aonprd.com/Skills.aspx?ID=41
-  'Abadar', 'Erastil', 'Iomedae', 'Demon', 'Giant', 'Vampire', 'Astral Plane', 'Heaven', 'Outer Rifts',
-  'Hellknights', 'Pathfinder Society', 'Absalom', 'Magnimar', 'Mountain', 'River',
-  ...FAVORED_TERRAINS,
-  'Highhelm',
-  // https://2e.aonsrd.com/skills/9-lore
-  'Necrovite', 'Apostae', 'Heaven',
-].map(topic => `${topic} Lore`).concat(PROFESSION_LORES, CLAN_LORES))].sort((a, b) => a.localeCompare(b))
-
-export function commonLoreOptions(deityLores: string[] = [], deity?: string) {
-  return [...new Map([...COMMON_LORES, ...deityLores, ...(deity?.trim() ? [`${deity.trim()} Lore`] : [])]
-    .map(lore => [lore.toLowerCase(), lore])).values()].sort((a, b) => a.localeCompare(b))
-}
+export { commonLoreOptions } from './builder'
 
 const RESISTANCE_NOTES: Record<string, string> = {
   'Poison Resistance': '+1 status bonus to saving throws against poisons.',
@@ -120,6 +106,8 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
       {athlete && <SourceNote source="Raging Athlete"
         note={`High/Long Jump DCs ${athlete.jumpDCAdjustment}; successful Long Jump +${athlete.longJumpExtra} ft.; Leap ${athlete.verticalLeap} ft. vertical${athlete.horizontalLeap ? ` / ${athlete.horizontalLeap} ft. horizontal` : ''}.`} />}
+      {!!activeFeatsNamed(c, 'Shore Step').length && <SourceNote source="Shore Step" note="Ignore difficult terrain caused by shallow water." />}
+      {!!activeFeatsNamed(c, 'Forest Passage').length && <SourceNote source="Forest Passage" note="Ignore difficult terrain caused by plants and fungi." />}
       {hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
       source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
     <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
@@ -463,10 +451,22 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Woodland Elf" note="Climb trees, vines, or foliage at half your Speed on a success and full Speed on a critical success; Quick Climb allows full Speed on a success. No effect on a climb Speed. You can always Take Cover in forest terrain." />}
           {s.name === 'Athletics' && !!activeFeatsNamed(c, 'Athletic Might').length && <SourceNote source="Athletic Might"
             note="On an Athletics check to Climb or Swim, a success becomes a critical success." />}
+          {['Acrobatics', 'Athletics'].includes(s.name) && !!activeFeatsNamed(c, 'Shore Step').length && <SourceNote source="Shore Step"
+            note={s.name === 'Acrobatics' ? 'A success to Balance on a slippery or wet surface becomes a critical success.' : 'A success to Swim becomes a critical success.'} />}
+          {s.name === 'Acrobatics' && !!activeFeatsNamed(c, 'Steadying Stone').length && <SourceNote source="Steadying Stone"
+            note="A success to Balance on uneven earth or rock becomes a critical success." />}
+          {s.kind === 'save' && !!activeFeatsNamed(c, 'Steadying Stone').length && <SourceNote source="Steadying Stone"
+            note={`${conditionalTotal(heritages.has('Rock Dwarf') ? 3 : 2)} against spells or effects that would knock you prone while on the ground (+${heritages.has('Rock Dwarf') ? 3 : 2} circumstance). Fortitude and Reflex DCs gain the same bonus against Shove or Trip.`} />}
+          {s.kind === 'save' && shieldRaised(c) && !!activeFeatsNamed(c, 'Necromantic Deflection').length && <SourceNote source="Necromantic Deflection"
+            note={`${conditionalTotal(raisedShieldBonus(c, entries))} against necromancy spells while your shield is raised (+${raisedShieldBonus(c, entries)} circumstance). If you have Shield Block, it can also prevent nonphysical damage from necromancy spells.`} />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
             note="Against mental effects that directly control your actions, a successful save becomes a critical success." />}
+          {s.kind === 'save' && !!activeFeatsNamed(c, 'Grim Insight').length && <SourceNote source="Grim Insight"
+            note="Against fear, a success becomes a critical success and the source is off-guard to you until the end of your next turn." />}
+          {s.name === 'Perception' && !!activeFeatsNamed(c, 'Illusion Sense').length && <SourceNote source="Illusion Sense"
+            note="Within 10 feet of an illusion that can be disbelieved, the GM rolls a secret check to disbelieve it, even without interacting." />}
           {s.name === 'Will' && !!activeFeatsNamed(c, "Cavalier's Banner").length && <SourceNote source="Cavalier's Banner"
-            note={`${conditionalTotal(1)}, DC ${10 + total + Math.max(0, 1 - (circumstance?.value ?? 0))} against fear while within 30 feet of your mount's banner (+1 circumstance; applies to allies too). If the banner is destroyed or removed, allies within 30 feet become frightened 1.`} />}
+            note={`${conditionalTotal(1)}, DC ${10 + total + Math.max(0, 1 - (circumstance?.value ?? 0))} against fear while within 30 feet of your mount's banner (+1 circumstance; applies to allies too). If the banner is destroyed or removed, allies within 30 feet become frightened 1.${activeFeatsNamed(c, 'Stalwart Standard').length ? ' Allies benefiting from the banner gain +1 circumstance to Fortitude and Reflex DCs against Disarm, Grapple, Shove, and Trip, and +1 status to attacks against creatures that damaged a lower-level innocent within the last round. Summoned creatures, companions, and creatures deliberately endangered by you or your allies do not count as innocents.' : ''}`} />}
           {s.name === 'Intimidation' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
             note="A creature's failure to Coerce you becomes a critical failure; it cannot Coerce you again for 1 week." />}
           {trainedLores.filter(grant => grant.name === s.name).map(grant => <SourceNote key={grant.source} inlineSource={false}
