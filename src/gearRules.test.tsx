@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import {
   activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown,
-  equippedWeaponHands, featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, speed, weaponAttack, weaponEntry, weaponEquipped,
+  equippedWeaponHands, featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponEntry, weaponEquipped,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
@@ -255,6 +255,13 @@ it('shows Galloping Launch range only for thrown weapons and an earned feat', ()
   expect(render({ ...c, feats: [] })).not.toContain('Galloping Launch')
   expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [main] }} entries={[sword]} save={() => {}} displayOnly />))
     .not.toContain('Galloping Launch')
+})
+
+it("shows Cavalier's Charge as a conditional attack bonus", () => {
+  const c: Character = { ...base, level: 4, feats: [feat("Cavalier's Charge", 4)], weapons: [main] }
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.breakdown.notes).toContain(`Cavalier's Charge: ${signed(attack.attack + 1)} on the Strike while riding your mount, within reach or the first range increment (+1 circumstance; circumstance bonuses do not stack).`)
+  expect(weaponAttack({ ...c, level: 3 }, [sword], main).breakdown.notes?.join('')).not.toContain("Cavalier's Charge")
 })
 const osteoClass = content('class', 'Champion', { attack_proficiency: 'Trained in simple weapons and martial weapons' })
 

@@ -5624,6 +5624,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
+        ...(activeFeatsNamed(c, "Cavalier's Charge").length
+          ? [`Cavalier's Charge: ${signed(attack + 1)} on the Strike while riding your mount, within reach or the first range increment (+1 circumstance; circumstance bonuses do not stack).`] : []),
         ...(activeFeatsNamed(c, 'Spirit Coffin').length
           ? ['Spirit Coffin: weapon and unarmed Strikes are magical against incorporeal creatures; if already magical, they gain ghost touch.'] : []),
       ],
