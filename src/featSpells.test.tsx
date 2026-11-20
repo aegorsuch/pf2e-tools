@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -840,6 +840,23 @@ it('uses Energized Font once daily to restore one focus point without resetting 
   expect(findUseButton(tree(), 'Use Energized Font')?.disabled).toBe(true)
   expect(EnergizedFont({ c: { ...c, level: 4 }, save, points: 3 })).toBeNull()
   expect(EnergizedFont({ c, save, points: 0 })).toBeNull()
+})
+
+it('uses Floral Restoration once daily, restores focus if spent, and scales healing', () => {
+  let c: Character = { ...base, level: 9, feats: [taken('Floral Restoration', 8)], spentFocusPoints: [0, 2] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => FloralRestoration({ c, save, points: 3 })
+  expect(renderToStaticMarkup(tree())).toContain('5d8 HP')
+  findUseButton(tree(), 'Use Floral Restoration')!.onClick()
+  expect(c.spentFocusPoints).toEqual([2])
+  expect(c.focusPointsSpentSinceRefocus).toBe(2)
+  expect(findUseButton(tree(), 'Use Floral Restoration')?.disabled).toBe(true)
+  expect(c.dailyFeatUses?.['Floral Restoration']).toBe(true)
+  c = { ...c, level: 20, spentFocusPoints: [], dailyFeatUses: {} }
+  expect(renderToStaticMarkup(tree())).toContain('10d8 HP')
+  findUseButton(tree(), 'Use Floral Restoration')!.onClick()
+  expect(c.dailyFeatUses?.['Floral Restoration']).toBe(true)
+  expect(FloralRestoration({ c: { ...c, level: 7 }, save, points: 3 })).toBeNull()
 })
 
 it('applies earned Refocus feats, tracks conditional spending between Refocuses, and excludes Mythic actions', () => {

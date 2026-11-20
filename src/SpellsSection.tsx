@@ -159,6 +159,29 @@ export function EnergizedFont({ c, save, points }: Pick<SectionProps, 'c' | 'sav
   </span>
 }
 
+export function FloralRestoration({ c, save, points }: Pick<SectionProps, 'c' | 'save'> & { points: number }) {
+  if (!activeFeatsNamed(c, 'Floral Restoration').length) return null
+  const capacity = Math.min(3, Math.max(0, points))
+  const spent = (c.spentFocusPoints ?? []).find(index => Number.isInteger(index) && index >= 0 && index < capacity)
+  const used = !!c.dailyFeatUses?.['Floral Restoration']
+  return <span>
+    <button type="button" aria-label="Use Floral Restoration" disabled={used}
+      title="Requires a 15-foot by 15-foot area of healthy plant life not used for Floral Restoration in the past 24 hours."
+      onClick={() => {
+        if (used) return
+        save({ ...(spent !== undefined ? {
+          spentFocusPoints: (c.spentFocusPoints ?? []).filter(index => index !== spent),
+          focusPointsSpentSinceRefocus: c.focusPointsSpentSinceRefocus ?? new Set((c.spentFocusPoints ?? [])
+            .filter(index => Number.isInteger(index) && index >= 0 && index < capacity)).size,
+        } : {}),
+          dailyFeatUses: { ...c.dailyFeatUses, 'Floral Restoration': true } })
+      }}>Floral Restoration <ActionIcon actions="Single Action" /></button>
+    <DamageRoll name="Floral Restoration" damage={{ label: 'Healing', dice: 4 + Math.floor((c.level - 7) / 2), sides: 8, type: 'HP' }} />
+    <label><input type="checkbox" aria-label="Floral Restoration used" checked={used}
+      onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Floral Restoration': event.target.checked } })} /> Used</label>
+  </span>
+}
+
 export function InnateSpellUses({ c, save, grant, additionalGrants = [] }: Pick<SectionProps, 'c' | 'save'> & {
   grant: ReturnType<typeof grantedFeatSpells>[number]
   additionalGrants?: ReturnType<typeof grantedFeatSpells>
@@ -1493,10 +1516,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <div hidden={activeCategory !== 'focus'}>
       {spellcastingSummary}
       <DevotionSpellChoice c={c} entries={entries} save={save} />
-      {(focusPoints > 0 || allFocus.length > 0) && (
+      {(focusPoints > 0 || allFocus.length > 0 || !!activeFeatsNamed(c, 'Floral Restoration').length) && (
         <div>
           <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} />
-            <EnergizedFont c={c} save={save} points={focusPoints} /></div>
+            <EnergizedFont c={c} save={save} points={focusPoints} /><FloralRestoration c={c} save={save} points={focusPoints} /></div>
           {allFocus.length > 0 && <section className="innate-spell-group">
             <SpellColumns />
             <ul>
