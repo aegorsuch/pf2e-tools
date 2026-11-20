@@ -833,7 +833,8 @@ it('offers Scouring Rage using the chosen instinct damage type once per Rage', (
   expect(html(c)).toContain('10 spirit')
   expect(html(c)).toContain('basic Fortitude save')
   expect(html({ ...c, scouringRageUsed: true })).toContain('disabled="" class="spell-action-button"')
-  expect(html({ ...c, spiritRage: false })).not.toContain('Roll Scouring Rage')
+  expect(html({ ...c, spiritRage: false })).toContain('Scouring Rage damage type')
+  expect(html({ ...c, spiritRage: false, scouringRageDamage: 'slashing' })).toContain('10 slashing')
 })
 
 it("offers Spirit's Wrath with Constitution damage only while raging", () => {

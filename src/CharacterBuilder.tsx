@@ -420,6 +420,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       if (!next.raging) {
         next.elementalExplosionUsed = false
         next.scouringRageUsed = false
+        next.scouringRageDamage = undefined
       }
       if (next.activeFeatEffects) next.activeFeatEffects = next.activeFeatEffects.filter(effect =>
         !['Desperate Wrath', 'Come and Get Me', "Spirits' Interference"].includes(effect) || !!next.raging && !!activeFeatsNamed(next, effect).length)

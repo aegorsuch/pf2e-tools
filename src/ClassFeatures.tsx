@@ -12,6 +12,9 @@ import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_INSTINCTS, ELEMENTAL_
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
 
+const SCOURING_DAMAGE_TYPES = ['acid', 'bludgeoning', 'cold', 'electricity', 'fire', 'force', 'mental',
+  'piercing', 'poison', 'slashing', 'sonic', 'spirit', 'vitality', 'void']
+
 export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
   const features = classFeatures(entries, c)
@@ -29,6 +32,8 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const scouringType = instinct === 'elemental' ? elementalType
     : instinct === 'dragon' && c.draconicRage && c.barbarianDragon ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage
     : instinct === 'spirit' && c.spiritRage ? 'spirit' : undefined
+  const scouringEligible = ['dragon', 'elemental', 'spirit'].includes(instinct ?? '')
+  const chosenScouringType = scouringType ?? (SCOURING_DAMAGE_TYPES.includes(c.scouringRageDamage ?? '') ? c.scouringRageDamage : undefined)
   const verdant = c.systems.includes('pf2e') && ['Verdant Weapon', 'Verdant Weapon Jousting']
     .some(name => activeFeatsNamed(c, name).length > 0)
   const verdantWeapon = weapons.find(weapon => weapon.verdantWeapon)
@@ -179,12 +184,20 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           <SourceNote source="Elemental Explosion" note={`15-foot emanation; basic Reflex save against ${classDifficultyClass(c, entries) ?? 'class DC'}. ${c.barbarianElement} trait; once per Rage.`} />
         </span>}
       </div>}
-      {c.raging && scouringType && !!activeFeatsNamed(c, 'Scouring Rage').length && <span>
+      {c.raging && scouringEligible && !!activeFeatsNamed(c, 'Scouring Rage').length && !scouringType && <label>
+        Scouring Rage damage{' '}
+        <select aria-label="Scouring Rage damage type" value={c.scouringRageDamage ?? ''} disabled={!!c.scouringRageUsed}
+          onChange={event => save({ scouringRageDamage: SCOURING_DAMAGE_TYPES.find(type => type === event.target.value) })}>
+          <option value="">Choose damage type</option>
+          {SCOURING_DAMAGE_TYPES.map(type => <option key={type}>{type}</option>)}
+        </select>
+      </label>}
+      {c.raging && scouringEligible && chosenScouringType && !!activeFeatsNamed(c, 'Scouring Rage').length && <span>
         Scouring Rage{' '}
         <DamageRoll name="Scouring Rage" actions="Free Action" disabled={!!c.scouringRageUsed}
           onRoll={() => save({ scouringRageUsed: true })}
-          damage={{ label: 'Damage', dice: 0, sides: 0, bonus: c.level, type: scouringType }} />
-        <SourceNote source="Scouring Rage" note={`When you Rage: enemies within 20 feet; basic Fortitude save against ${classDifficultyClass(c, entries) ?? 'class DC'}.`} />
+          damage={{ label: 'Damage', dice: 0, sides: 0, bonus: c.level, type: chosenScouringType }} />
+        <SourceNote source="Scouring Rage" note={`When you Rage: enemies within 20 feet; basic Fortitude save against ${classDifficultyClass(c, entries) ?? 'class DC'}. Damage type matches your Rage damage.`} />
       </span>}
       {verdant && <div className="col" aria-label="Verdant Weapon selection">
         {weaponChoice('Verdant Weapon', verdantWeapon?.id, weapon => canBeVerdantWeapon(c, entries, weapon),
