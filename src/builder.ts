@@ -5617,7 +5617,12 @@ export function effectiveHandwraps(c: Character, entries: ContentEntry[] = []): 
     return { ...handwraps, grade, potency, striking }
   }
   const automatic = automaticWeaponFundamentals(c.level)
-  return { ...handwraps, potency: Math.max(handwraps.potency, automatic.potency), striking: Math.max(handwraps.striking, automatic.striking) }
+  const potency = Math.max(handwraps.potency, automatic.potency)
+  const free = ['Grievous', 'Grappling', 'Shoving'].slice(0, maxPropertyRunes(potency))
+  const runes = free.length
+    ? [...free, ...handwraps.runes.filter(rune => !free.includes(runeName(rune)))].slice(0, maxPropertyRunes(potency))
+    : handwraps.runes
+  return { ...handwraps, potency, striking: Math.max(handwraps.striking, automatic.striking), runes }
 }
 
 export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {

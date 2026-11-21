@@ -767,7 +767,7 @@ it.each([undefined, 'Gloves', 'Hands'] as const)('separates handwrap inventory a
     expect(gloves).not.toContain('Handwraps')
     expect(handwraps).toContain('Potency')
     expect(handwraps).not.toContain('automatically upgrade with character level')
-    expect(handwraps).toContain('Flaming')
+    expect(handwraps).toContain('Grievous')
     const glovesSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Gloves" />)
     const handwrapsSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Handwraps" />)
     expect(glovesSearch).toContain('Add Gloves of Storing')

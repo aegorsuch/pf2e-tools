@@ -1766,11 +1766,12 @@ it.each<[number, number, number, HardlightGrade]>([
   [11, 2, 1, 'Superior'], [12, 2, 2, 'Elite'], [15, 2, 2, 'Elite'],
   [16, 3, 2, 'Ultimate'], [18, 3, 2, 'Ultimate'], [19, 3, 3, 'Paragon'],
 ])('automatically scales both handwrap types at level %i without changing saved configuration', (level, potency, striking, grade) => {
+  const free = ['Grievous', 'Grappling', 'Shoving']
   for (const kind of [undefined, 'hardlight'] as const) {
     const c: Character = { ...base, level, handwraps: { ...(kind ? { kind, grade: 'Commercial' } : {}), potency: 0, striking: 0, runes: ['Impactful'] } }
     const before = JSON.stringify(c)
     const effective = effectiveHandwraps(c)
-    expect(effective).toMatchObject({ potency, striking, runes: ['Impactful'], ...(kind ? { grade } : {}) })
+    expect(effective).toMatchObject({ potency, striking, runes: kind || !potency ? ['Impactful'] : free.slice(0, potency), ...(kind ? { grade } : {}) })
     const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
     expect(effectiveWeapon(c, [], fist)).toMatchObject({ potency, striking })
     expect(JSON.stringify(c)).toBe(before)
@@ -1782,6 +1783,12 @@ it.each<[number, number, number, HardlightGrade]>([
   expect(automaticHardlightGrade(level)).toBe(grade)
 })
 
+it('gives Handwraps of Mighty Blows automatic property runes by potency', () => {
+  for (const [level, runes] of [[2, ['Grievous']], [10, ['Grievous', 'Grappling']], [16, ['Grievous', 'Grappling', 'Shoving']]] as const) {
+    expect(effectiveHandwraps({ ...base, level, handwraps: undefined })?.runes).toEqual(runes)
+  }
+})
+
 it('chooses automatic handwraps from class metadata with both systems enabled, including homebrew classes', () => {
   const fighter = content('class', 'Fighter')
   const mechanic: ContentEntry = { ...content('class', 'Mechanic'), systems: ['sf2e'] }
@@ -1791,7 +1798,7 @@ it('chooses automatic handwraps from class metadata with both systems enabled, i
     const c: Character = { ...base, systems: ['pf2e', 'sf2e'], className: klass.name, level: 12 }
     const before = JSON.stringify(c)
     const wraps = effectiveHandwraps(c, entries)!
-    expect(wraps).toMatchObject({ potency: 2, striking: 2, runes: [] })
+    expect(wraps).toMatchObject({ potency: 2, striking: 2, runes: klass === fighter ? ['Grievous', 'Grappling'] : [] })
     expect(wraps.kind).toBe(klass === fighter ? undefined : 'hardlight')
     expect(wraps.grade).toBe(klass === fighter ? undefined : 'Elite')
     const fist = ownedWeapons(c, entries).find(weapon => weapon.name === 'Fist')!
@@ -1803,10 +1810,10 @@ it('chooses automatic handwraps from class metadata with both systems enabled, i
 
 it('preserves stronger saved upgrades without stacking PF values onto hardlight grades', () => {
   const handwraps = { potency: 3, striking: 3, runes: ['Impactful'] }
-  expect(effectiveHandwraps({ ...base, level: 2, handwraps })).toEqual(handwraps)
+  expect(effectiveHandwraps({ ...base, level: 2, handwraps })).toEqual({ ...handwraps, runes: ['Grievous', 'Grappling', 'Shoving'] })
   expect(effectiveHandwraps({ ...base, level: 2, handwraps: { ...handwraps, kind: 'hardlight', grade: 'Elite' } }))
     .toMatchObject({ grade: 'Elite', potency: 2, striking: 2, runes: ['Impactful'] })
-  expect(effectiveHandwraps({ ...base, handwraps: undefined })).toMatchObject({ potency: 2, striking: 1, runes: [] })
+  expect(effectiveHandwraps({ ...base, handwraps: undefined })).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
   expect(effectiveHandwraps({ ...base, className: undefined, handwraps: undefined })).toBeUndefined()
 })
 
@@ -1963,7 +1970,7 @@ it('preserves a favored Fist alongside armor gauntlets and reuses an already-gra
   const fist = ownedWeapons(c, [fistDeity]).find(w => w.name === 'Fist')!
   expect(fist).toBeDefined()
   expect(effectiveWeapon(c, [fistDeity], fist)).toMatchObject({ potency: 3, striking: 3 })
-  expect(effectiveWeapon({ ...c, handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }, [fistDeity], fist).runes).toEqual(['Flaming'])
+  expect(effectiveWeapon({ ...c, handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }, [fistDeity], fist).runes).toEqual(['Grievous', 'Grappling', 'Shoving'])
   const gauntletDeity = { ...deity, data: { favored_weapon: 'gauntlet' } }
   const gauntlets = ownedWeapons(c, [gauntletDeity]).filter(w => w.name === 'Gauntlet')
   expect(gauntlets).toHaveLength(1)
@@ -3220,14 +3227,14 @@ it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', ()
   const fistEntry = content('weapon', 'Test Fist', { weapon_category: 'Unarmed', damage: '1d4 bludgeoning', hands: 1 }, 0, ['Unarmed'])
   const fist: OwnedWeapon = { id: fistEntry.id, name: fistEntry.name, potency: 0, striking: 0, runes: [] }
   expect(weaponAttack(c, [fistEntry], fist).traits).not.toContain('Ghost Touch')
-  expect(effectiveWeapon(c, [fistEntry], fist).runes).toEqual(['Ghost Touch'])
+  expect(effectiveWeapon(c, [fistEntry], fist).runes).toEqual(['Grievous', 'Grappling', 'Ghost Touch'])
   const weapon = content('weapon', 'Shortsword', { damage: '1d6 piercing', hands: 1 }, 0, [])
   const held: OwnedWeapon = { id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }
   expect(weaponAttack(c, [weapon], held).traits).not.toContain('Ghost Touch')
   expect(effectiveWeapon(c, [weapon], held).runes).not.toContain('Ghost Touch')
   expect(effectiveWeapon({ ...c, level: 12 }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
   const withRune = { ...c, handwraps: { potency: 1, striking: 0, runes: ['Ghost Touch'] } }
-  expect(effectiveWeapon(withRune, [fistEntry], fist).runes).toEqual(['Ghost Touch'])
+  expect(effectiveWeapon(withRune, [fistEntry], fist).runes).toEqual(['Grievous', 'Grappling', 'Ghost Touch'])
   expect(effectiveWeapon({ ...c, ancestry: 'Human' }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
   expect(effectiveWeapon({ ...c, feats: [] }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
   for (const choice of ['Claws', 'Fangs', 'Tail']) {
