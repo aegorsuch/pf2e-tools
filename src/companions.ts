@@ -91,6 +91,10 @@ export function minionFerocity(c: Character) {
   return { temporaryHp: activeFeatsNamed(c, 'Undying Ferocity').length ? c.level : 0 }
 }
 
+// Horseshoes are renamed for companions that aren't equines
+export const companionItemName = (type: string, name: string) =>
+  /\b(?:horse|pony|ponies|mule|donkey)\b/i.test(type) ? name : name.replace(/\bHorseshoes\b/g, 'Paw Guards')
+
 const HORSESHOE_EFFECTS: Record<string, { speed: number; athletics: number }> = {
   'Alacritous Horseshoes': { speed: 5, athletics: 2 },
   'Alacritous Horseshoes (Greater)': { speed: 10, athletics: 3 },
@@ -358,7 +362,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const shoes = companion?.equipment?.Shoes
   const shoesEntry = shoes && entries.find(entry => entry.id === shoes.entryId && isCompanionEquipmentItem(entry))
   const horseshoes = shoesEntry && HORSESHOE_EFFECTS[shoesEntry.name]
-  if (horseshoes && shoesEntry) speedBonuses.push({ source: shoesEntry.name, feet: horseshoes.speed })
+  if (horseshoes && shoesEntry) speedBonuses.push({ source: companionItemName(type, shoesEntry.name), feet: horseshoes.speed })
   const breed = type === 'Horse' && firstCompanion ? c.feats
     .filter(feat => ['Chiardmar Steed', 'Nidarrmar Steed'].includes(feat.name) && featTakenLevel(feat) <= c.level)
     .sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]?.name : undefined
@@ -402,27 +406,27 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ...SPIRIT_ASPECTS[aspectName] } : undefined
   const aspectNote = (skill: string, current: number) => aspect?.conditional[skill]
     ? `Aspect of ${aspect.name}: ${signed(current + aspect.bonus)} to ${aspect.conditional[skill]} (+${aspect.bonus} status bonus).` : undefined
-  const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
+  const aspectText = (skill: string) => aspect?.skills.includes(skill) ? `+${aspect.bonus} Aspect of ${aspect.name}`
+    : aspect?.conditional[skill] ? `+${aspect.bonus} ${aspect.conditional[skill].replace(/^.* checks to /, '')} (Aspect of ${aspect.name})` : undefined
+  const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string; aspectText?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
       + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0),
+      aspectText: aspectText(k),
       note: [
-        aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.`
-          : aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? `${signed(bardingCheckPenalty)} check penalty (${barding?.name}).` : undefined,
       ].filter(Boolean).join(' ') || undefined,
       noteSource: [
-        aspect?.skills.includes(k) || aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? barding?.name : undefined,
       ].filter(Boolean).join(', ') || undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const horseshoeNote = horseshoes && shoesEntry
-    ? `${shoesEntry.name}: ${signed(total('Athletics', 'str') + (aspect?.skills.includes('Athletics') ? aspect.bonus : 0) + bardingCheckPenalty + horseshoes.athletics)} to Athletics checks to High Jump and Long Jump (+${horseshoes.athletics} circumstance bonus); when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
+    ? `${companionItemName(type, shoesEntry.name)}: ${signed(total('Athletics', 'str') + (aspect?.skills.includes('Athletics') ? aspect.bonus : 0) + bardingCheckPenalty + horseshoes.athletics)} to Athletics checks to High Jump and Long Jump (+${horseshoes.athletics} circumstance bonus); when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
     : undefined
   const companionSkills = skills.map(skill => skill.name === 'Athletics' && horseshoeNote && shoesEntry
     ? { ...skill, note: [skill.note, horseshoeNote].filter(Boolean).join(' '),
-      noteSource: [skill.noteSource, shoesEntry.name].filter(Boolean).join(', ') } : skill)
+      noteSource: [skill.noteSource, companionItemName(type, shoesEntry.name)].filter(Boolean).join(', ') } : skill)
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const mountedParry = companion && companionId === c.mountedCompanionId && activeFeatsNamed(c, 'Mounted Parry').length

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
+import { companionItemName } from './companions'
 import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
 import { bardingOptions, companionAdvancement, companionAdvancementFor, companionStats, equippedBarding, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
@@ -526,6 +527,11 @@ describe('animal companions', () => {
     expect(rank(stats(skillFeats), 'Stealth')).toBeUndefined()
     expect(rank(stats(skillFeats), 'Intimidation')).toBe(1)
     expect(featChoiceOptions('Splendid Companion', c, [], 'archetype:12:0')).toEqual(['Nimble', 'Savage'])
+  })
+
+  it('renames Horseshoes for companions that are not equines', () => {
+    expect(companionItemName('Wolf', 'Alacritous Horseshoes (Greater)')).toBe('Alacritous Paw Guards (Greater)')
+    expect(companionItemName('Horse', 'Horseshoes of Speed')).toBe('Horseshoes of Speed')
   })
 
   it('seeds a Medium Riding Dog with Mount and otherwise identical Wolf rules', () => {
