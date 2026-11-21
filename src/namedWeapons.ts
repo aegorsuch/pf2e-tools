@@ -36,7 +36,6 @@ const BASES: Record<string, string[]> = {
   'Phoenix Fighting Fan': ['Fighting Fan'],
   Ridill: ['Greatsword'],
   Serithtial: ['Longsword', 'Bastard Sword', 'Dagger', 'Shortsword', 'Scimitar', 'Falchion', 'Greatsword', 'Rapier'],
-  Soulcutter: ['Elven Curve Blade'],
   'Soulcutter (Artifact)': ['Elven Curve Blade'],
   "Sorshen's Sinuous Guisarme": ['Guisarme'],
   "Spear of the Destroyer's Flame": ['Longspear'],

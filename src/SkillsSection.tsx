@@ -368,13 +368,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     Serithtial: '+4 status to saves against death and void effects created by followers of Zon-Kuthon; void resistance 10, suppressed doomed, and unfettered movement apply only against those followers.',
     Ridill: '+2 circumstance to saves against fear; +4 instead if the effect is from a dragon. Does not stack with other circumstance bonuses.',
     'Kortos Diamond': '+2 item to saves against mental effects; does not stack with resilient or other item bonuses.',
-    Soulcutter: '+2 item to saves against mental effects; +4 against possession effects.',
     'Soulcutter (Artifact)': '+3 item to saves against mental effects; +5 against possession effects.',
   }
   const artifactNotes = part === 'defense' ? [...new Set(ownedWeapons(c, entries)
     .filter(weapon => {
       const source = String(weaponEntry(entries, weapon.name)?.data.named_weapon_source ?? '')
-      return !!artifactSaves[source] && (source.startsWith('Soulcutter') || weaponHeld(c, entries, weapon))
+      return !!artifactSaves[source] && (source === 'Soulcutter (Artifact)' || weaponHeld(c, entries, weapon))
     }).map(weapon => String(weaponEntry(entries, weapon.name)?.data.named_weapon_source ?? '')))] : []
   const dwarvenAxe = ownedWeapons(c, entries).some(weapon =>
     weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Axe of the Dwarven Lords')

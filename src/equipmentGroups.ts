@@ -10,7 +10,8 @@ export function specificMagicItemName(entry: ContentEntry | undefined, name = en
   const rawBase = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base
     ?? (entry?.data.named_shield || sourceName === 'Scale of Igroon' ? 'Shield' : ''))
   const base = !!entry?.data.named_armor_elven && rawBase === 'Chain Shirt' ? 'Elven Chain Shirt' : rawBase
-  const source = owned ? sourceName.replace(/ \(Artifact\)/gi, '') : sourceName
+  const source = sourceName === 'Soulcutter (Artifact)' ? 'Soulcutter'
+    : owned ? sourceName.replace(/ \(Artifact\)/gi, '') : sourceName
   return base && !source.toLowerCase().endsWith(base.toLowerCase()) ? `${source} ${base}` : source
 }
 

@@ -5,6 +5,7 @@ import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, 
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
 import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases } from './namedWeapons'
+import { specificMagicItemName } from './equipmentGroups'
 import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
 import { gearAccess } from './gearAccess'
@@ -381,32 +382,32 @@ it('keeps Serithtial blade selection and item abilities in Equipment only', () =
   expect(offense).toContain('Damage ')
 })
 
-it.each([
-  ['Soulcutter', ['Magical', 'Unique'], '+2 greater striking astral', 2, ['Astral'], '+2 item to saves against mental effects; +4 against possession effects.', false],
-  ['Soulcutter (Artifact)', ['Apex', 'Artifact', 'Intelligent', 'Invested', 'Magical', 'Unique'],
-    '+3 major striking greater astral holy', 3, ['Astral (Greater)', 'Holy', 'Grievous'],
-    '+3 item to saves against mental effects; +5 against possession effects.', true],
-] as const)('implements %s on an Elven Curve Blade', (name, traits, magic, potency, runes, saveNote, artifact) => {
-  const item = specific(name, 'Elven Curve Blade', magic, [
+it('offers only Soulcutter artifact, labeled with its base weapon', () => {
+  const name = 'Soulcutter (Artifact)'
+  const item = specific(name, 'Elven Curve Blade', '+3 major striking greater astral holy', [
     'As long as you carry Soulcutter, you gain its potency bonus as an item bonus to all saving throws against mental effects. This bonus increases by 2 against possession effects.',
-    'Activate\u2014Soothe Souls (concentrate, healing, manipulate, primal, vitality) Frequency once per day; Effect Restore the living and damage fiends and undead in a 20-foot emanation.',
-    'Activate\u2014Soulcutting Storm (concentrate, manipulate, primal) Frequency once per day; Effect Cast a 7th-rank weapon storm as spirit damage.',
-    ...(artifact ? ['Activate\u2014Shame Demon (concentrate) Effect Trigger a demon’s sin vulnerability.'] : []),
+    'Activate\u2014Soothe Souls (concentrate, healing, manipulate, vitality) Frequency once per hour; Effect Restore the living and damage fiends and undead in a 30-foot emanation.',
+    'Activate\u2014Soulcutting Storm (concentrate, manipulate, spirit) Frequency once per hour; Effect Cast a 9th-rank weapon storm as spirit damage.',
+    'Activate\u2014Shame Demon (concentrate) Effect Trigger a demon’s sin vulnerability.',
   ])
-  item.traits = [...traits]
-  const entries = [...namedCatalog, item, rune('Astral (Greater)'), rune('Grievous')]
-  const entry = gearPickerEntries(entries, 'weapon').find(candidate => candidate.data.named_weapon_source === name)
+  const ordinary = specific('Soulcutter', 'Elven Curve Blade', '+2 greater striking astral', [])
+  ordinary.traits = ['Magical', 'Unique']
+  const entries = [...namedCatalog, ordinary, item, rune('Astral (Greater)'), rune('Grievous')]
+  const soulcutters = gearPickerEntries(entries, 'weapon')
+    .filter(candidate => String(candidate.data.named_weapon_source).startsWith('Soulcutter'))
+  expect(soulcutters).toHaveLength(1)
+  const entry = soulcutters[0]
+  expect(entry.data.named_weapon_source).toBe(name)
+  expect(specificMagicItemName(entry)).toBe('Soulcutter Elven Curve Blade')
   expect(entry).toMatchObject({ name, data: { named_weapon_base: 'Elven Curve Blade' } })
   expect(effectiveWeapon(c, entries, owned(name))).toMatchObject({
-    potency, runes: expect.arrayContaining([...runes]),
+    potency: 3, runes: expect.arrayContaining(['Astral (Greater)', 'Holy', 'Grievous']),
   })
   const abilities = namedWeaponAbilities(entry)
-  expect(abilities.map(ability => ability.name)).toEqual(expect.arrayContaining([
-    'Soothe Souls', 'Soulcutting Storm', ...(artifact ? ['Shame Demon'] : []),
-  ]))
+  expect(abilities.map(ability => ability.name)).toEqual(expect.arrayContaining(['Soothe Souls', 'Soulcutting Storm', 'Shame Demon']))
   const character = { ...c, weapons: [owned(name)] }
   const defense = renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="defense" />)
-  expect(defense).toContain(saveNote)
+  expect(defense).toContain('+3 item to saves against mental effects; +5 against possession effects.')
   expect(savingThrowBreakdown(character, entries, 'Will').total).toBe(savingThrowBreakdown(c, entries, 'Will').total)
 })
 
