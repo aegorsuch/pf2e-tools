@@ -667,6 +667,14 @@ describe('animal companions', () => {
     if (stealth()) expect(stealth('Swiftness')).toBe(stealth()! + 1)
   })
 
+  it('applies every aspect at +3 with Spirit of the Alpha', () => {
+    const c = { ...base, level: 20, feats: [feat('Spirit of the Alpha', undefined, 'archetype:20:0')], companions: [{ id: 'a', name: '', type: 'Bear' }] }
+    const alpha = companionStats(c, [bear], 'Bear', undefined, 'a')!
+    const none = companionStats({ ...c, feats: [] }, [bear], 'Bear', undefined, 'a')!
+    expect([alpha.fortitude - none.fortitude, alpha.reflex - none.reflex, alpha.will - none.will, alpha.perception - none.perception]).toEqual([3, 3, 3, 3])
+    expect(alpha.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 3)
+  })
+
   it('hides legacy Beastmaster Heal Animal while preserving saved selections and native healing', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const heal = entry('feat', 'Heal Animal', { archetype: 'Beastmaster' }, 4, ['Archetype'])

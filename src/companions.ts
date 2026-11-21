@@ -220,6 +220,7 @@ function growSize(size: string) {
 }
 
 type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[] }
+type AppliedAspect = { name: string; bonus: number; saves: string[]; skills: string[] }
 const SPIRIT_ASPECTS: Record<'Might' | 'Swiftness' | 'Insight', SpiritAspect> = {
   Might: { save: 'Fortitude', skills: ['Athletics', 'Intimidation'] },
   Swiftness: { save: 'Reflex', skills: ['Acrobatics', 'Stealth'] },
@@ -401,8 +402,10 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const aspectName = companion?.spiritAspect && knowsSpell(c, entries, 'Spirit of the Beast') ? companion.spiritAspect : undefined
   const aspectRank = Math.ceil(level / 2)
-  const aspect = aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
-    ...SPIRIT_ASPECTS[aspectName] } : undefined
+  const aspect: AppliedAspect | undefined = c.feats.some(feat => feat.name === 'Spirit of the Alpha' && featTakenLevel(feat) <= c.level)
+    ? { name: 'Alpha', bonus: 3, saves: Object.values(SPIRIT_ASPECTS).map(a => a.save), skills: Object.values(SPIRIT_ASPECTS).flatMap(a => a.skills) }
+    : aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
+      saves: [SPIRIT_ASPECTS[aspectName].save], skills: SPIRIT_ASPECTS[aspectName].skills } : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
@@ -447,9 +450,9 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,
     aspect,
     perception: total('Perception', 'wis') + (aspect?.skills.includes('Perception') ? aspect.bonus : 0),
-    fortitude: total('Fortitude', 'con') + (aspect?.save === 'Fortitude' ? aspect.bonus : 0),
-    reflex: total('Reflex', 'dex') + (aspect?.save === 'Reflex' ? aspect.bonus : 0),
-    will: total('Will', 'wis') + (aspect?.save === 'Will' ? aspect.bonus : 0),
+    fortitude: total('Fortitude', 'con') + (aspect?.saves.includes('Fortitude') ? aspect.bonus : 0),
+    reflex: total('Reflex', 'dex') + (aspect?.saves.includes('Reflex') ? aspect.bonus : 0),
+    will: total('Will', 'wis') + (aspect?.saves.includes('Will') ? aspect.bonus : 0),
     senses: mountSenses,
     support: String(d.companion_support ?? ''),
     ...(trainedMature ? MESMERIZING_PERFORMANCE : {
