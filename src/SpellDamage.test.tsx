@@ -136,6 +136,16 @@ it('uses a spell action icon for a supported damage roll and keeps non-rolling s
   expect(multiple).toContain('8d8 sonic')
 })
 
+it('rolls Corrosive Haze acid damage and heightens by 1d8 and 1d6 persistent', () => {
+  expect(spellDamage('Corrosive Haze', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'acid', additional: { dice: 1, sides: 6 } }, { dice: 3, sides: 8 }])
+  expect(spellDamage('Corrosive Haze', 8)).toMatchObject([{ dice: 8, additional: { dice: 3 } }, { dice: 5 }])
+})
+
+it('rolls Inject Nanobots acid damage and heightens by 2d6 per rank', () => {
+  expect(spellDamage('Inject Nanobots', 2)).toMatchObject([{ dice: 4, sides: 6, type: 'acid' }])
+  expect(spellDamage('Inject Nanobots', 5)).toMatchObject([{ dice: 10, sides: 6 }])
+})
+
 it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightened ranks', () => {
   const fireball: ContentEntry = { id: 'fireball', name: 'Fireball', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 3, traits: [], data: { actions: 'Two Actions' }, effects: [], updatedAt: 1,
@@ -711,4 +721,23 @@ it('renders rank-scaled rollers beside owned spells and omits unavailable spell 
   expect(renderToStaticMarkup(<SpellsSection c={{ ...c, spells: [] }} entries={[]} save={() => {}} />)).not.toContain('aria-label="Roll ')
   for (const name of ['Warning Stripes', "Ranger's Bramble", 'Gluttonous Growth', 'Pulverizing Wake'])
     expect(spellDamage(name, 2)).toEqual([])
+})
+
+it('scales Entropy Strike void and tech persistent acid damage by rank', () => {
+  expect(spellDamage('Entropy Strike', 2)).toEqual([])
+  expect(spellDamage('Entropy Strike', 3)[0]).toMatchObject({ dice: 5, sides: 8, type: 'void', additional: { dice: 2, sides: 6, type: 'persistent acid' } })
+  expect(spellDamage('Entropy Strike', 5)[0]).toMatchObject({ dice: 7, additional: { dice: 4 } })
+  expect(spellDamage('Entropy Strike', 10)[0]).toMatchObject({ dice: 12, additional: { dice: 9 } })
+})
+
+it('scales Supercharge Weapon extra damage every two ranks', () => {
+  expect(spellDamage('Supercharge Weapon', 1)[0]).toMatchObject({ dice: 1, sides: 6 })
+  expect(spellDamage('Supercharge Weapon', 4)[0]).toMatchObject({ dice: 2 })
+  expect(spellDamage('Supercharge Weapon', 10)[0]).toMatchObject({ dice: 5 })
+})
+
+it('scales Rocket Dash fire and critical failure persistent damage', () => {
+  expect(spellDamage('Rocket Dash', 5)).toEqual([])
+  expect(spellDamage('Rocket Dash', 6)[0]).toMatchObject({ dice: 6, sides: 12, additional: { dice: 2, sides: 6 } })
+  expect(spellDamage('Rocket Dash', 10)[0]).toMatchObject({ dice: 10, additional: { dice: 4 } })
 })

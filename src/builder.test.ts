@@ -4,7 +4,7 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
-import { shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
+import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -917,6 +917,13 @@ describe('official passive feat mechanics', () => {
     expect(movementSpeeds(flying, []).map(({ name, feet }) => ({ name, feet }))).toEqual([
       { name: 'Land', feet: 30 }, { name: 'Climb', feet: 40 }, { name: 'Fly', feet: 40 },
     ])
+  })
+
+  it('applies Mystic Armor to AC and saves only while active', () => {
+    const c: Character = { ...base, level: 12, spells: [{ name: 'Mystic Armor', rank: 6, cantrip: false }], activeSpells: ['Mystic Armor'] }
+    const on = armorClass(c, []), off = armorClass({ ...c, activeSpells: [] }, [])
+    expect(on - off).toBe(2)
+    expect(savingThrowBreakdown(c, [], 'Will').parts.find(part => part.label === 'Mystic Armor (item)')?.value).toBe(1)
   })
 
   it('grants Stormwind Flight Speed only while the known spell is active', () => {
@@ -2681,4 +2688,20 @@ it('gives Hellknight Dedication mental resistance of 1 plus its archetype feats'
   const c: Character = { ...base, level: 4, feats: feats.slice(0, 1) }
   expect(resistances(c, [dedication, other]).find(r => r.damage === 'Mental')?.value).toBe(1)
   expect(resistances({ ...c, feats }, [dedication, other]).find(r => r.damage === 'Mental')?.value).toBe(2)
+})
+
+describe('apex augmentations', () => {
+  const apexAug = (id: string, name: string) => ({ id, entryId: name, name, slot: 'apex' })
+  const abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+  const sf = { ...base, systems: ['sf2e' as const], boosts: {}, abilities }
+
+  it('raises only the chosen apex attribute to at least +4 or by 1', () => {
+    const c = { ...sf, augmentations: [apexAug('a', 'Muscle Invigorator'), apexAug('b', 'Hypernerves')] }
+    expect(computeAbilities(c, []).str).toBe(18)
+    expect(computeAbilities({ ...c, apexAugmentationId: 'b' }, [])).toMatchObject({ str: 10, dex: 18 })
+    expect(computeAbilities({ ...c, apexAugmentationId: 'none' }, []).str).toBe(10)
+    expect(apexSkillBonus(c, 'Athletics')).toBe(3)
+    expect(apexSkillBonus(c, 'Acrobatics')).toBe(3)
+    expect(apexSkillBonus({ ...c, augmentations: [apexAug('p', 'Presence Intensifier')] }, 'Intimidation')).toBe(2)
+  })
 })

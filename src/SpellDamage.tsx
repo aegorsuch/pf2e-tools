@@ -93,6 +93,16 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
     case 'Massacre':
       return rank >= 9 ? [{ label: 'Success', dice: rank >= 10 ? 10 : 9, sides: 6, type: 'void' }] : []
+    case 'Entropy Strike':
+      return rank >= 3 ? [{ label: 'Damage', dice: rank + 2, sides: 8, type: 'void',
+        additional: { label: 'Tech creature persistent', dice: rank - 1, sides: 6, type: 'persistent acid' },
+        note: 'Double damage on a critical hit' }] : []
+    case 'Supercharge Weapon':
+      return rank >= 1 ? [{ label: 'Extra damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 6, type: 'weapon damage type',
+        note: 'Added to the next Strike with the chosen weapon' }] : []
+    case 'Rocket Dash':
+      return rank >= 6 ? [{ label: 'Damage', dice: 6 + 2 * Math.floor((rank - 6) / 2), sides: 12, type: 'fire',
+        additional: { label: 'Critical failure persistent', dice: 2 + Math.floor((rank - 6) / 2), sides: 6, type: 'persistent fire' } }] : []
     case 'Void Warp':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
     case 'Deathly Scream':
@@ -107,6 +117,14 @@ export function spellDamage(name: string, rank: number): Damage[] {
       ] : []
     case 'Slime Spit':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'poison' }] : []
+    case 'Inject Nanobots':
+    case 'Inject Nanobot':
+      return rank >= 2 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'acid',
+        note: 'Critical hit: double damage' }] : []
+    case 'Corrosive Haze':
+      return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'acid',
+        additional: { label: 'Persistent', dice: rank - 5, sides: 6, type: 'persistent acid' } },
+      { label: 'Unattended objects', dice: rank - 3, sides: 8, type: 'acid' }] : []
     case 'Warning Stripes':
       return rank >= 3 ? [{ label: 'Contact damage', dice: 2 + Math.floor((rank - 3) / 2), sides: 8, type: 'poison' }] : []
     case "Ranger's Bramble":

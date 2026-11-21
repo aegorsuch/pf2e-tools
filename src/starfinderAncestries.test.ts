@@ -86,7 +86,7 @@ it('applies heritage senses and Vesk movement and tail without stacking duplicat
 it('grants Blood Sense only once the feat is active', () => {
   const c: Character = { ...base, ancestry: 'Vesk', level: 5,
     feats: [{ name: 'Blood Sense', type: 'Ancestry Feat', level: 5 }] }
-  const sense = 'Blood sense (imprecise) 30 feet, wounded living creatures with blood'
+  const sense = 'Blood sense (imprecise) 30 feet'
   expect(senses(c, entries).map(item => item.value)).toContain(sense)
   expect(senses({ ...c, level: 4 }, entries).map(item => item.value)).not.toContain(sense)
 })
@@ -171,4 +171,24 @@ it('grants both Battle Saint spells independently as seventh-rank divine spells'
   expect(grants.every(grant => grant.rule.rank === 7 && grant.rule.tradition?.toLowerCase() === 'divine'
     && grant.rule.frequency === 'once per day' && !grant.rule.shared)).toBe(true)
   expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(2)
+})
+
+it('applies Android heritage attributes, training, fixed skill feats and Nightvision Adaptation', () => {
+  const androidEntries = mapAonHits(hits.filter(hit => ['Android', 'Operative'].includes(String(hit._source?.name))
+    && ['ancestry', 'class'].includes(String(hit._source?.category))), 'sf2e')
+  const android: Character = { ...base, ancestry: 'Android', level: 2 }
+  const heritage = (name: string) => ({ ...android, heritage: name })
+  expect(ancestryFlaws(android, androidEntries)).toEqual(['cha'])
+  expect(ancestryFlaws(heritage('Biotech Android'), androidEntries)).toEqual(['con'])
+  expect(ancestryFlaws(heritage('Electronica Android'), androidEntries)).toEqual(['wis'])
+  expect(boostSlots(heritage('Hellforged Android'), androidEntries).find(slot => slot.key === 'ancestry:0')?.fixed).toBe('str')
+  expect(boostSlots(heritage('Electronica Android'), androidEntries).find(slot => slot.key === 'ancestry:1')?.fixed).toBe('cha')
+  expect(ranksAt(heritage('Artificial Scion Android'), androidEntries).Computers).toBe(1)
+  expect(ranksAt(heritage('Biotech Android'), androidEntries).Nature).toBe(1)
+  expect(ranksAt(heritage('Electronica Android'), androidEntries).Performance).toBe(1)
+  expect(ranksAt(heritage('Replicant Android'), androidEntries).Deception).toBe(1)
+  expect(automaticFeatGrants(heritage('Artificial Scion Android'), androidEntries)).toContainEqual({ name: 'Phreaker', source: 'Artificial Scion Android', level: 1 })
+  expect(automaticFeatGrants(heritage('Renewed Android'), androidEntries).map(grant => grant.name)).toContain('Dubious Knowledge')
+  const nightvision = { ...android, feats: [{ name: 'Nightvision Adaptation', type: 'Ancestry Feat', level: 1 }] }
+  expect(senses(nightvision, androidEntries).map(sense => sense.value)).toContain('Darkvision')
 })

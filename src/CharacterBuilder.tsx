@@ -14,7 +14,7 @@ import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, commonLoreOptions, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
-import { SpellsContent, SpellsSummary } from './SpellsSection'
+import { SpellsPanel } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
@@ -891,10 +891,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
           <SkillsSection {...section} deityLores={availableDeityLores} />
         </div>
       </DeferredDetails>
-      <DeferredDetails>
-        <SpellsSummary {...section} />
-        <SpellsContent {...section} />
-      </DeferredDetails>
+      <SpellsPanel {...section} />
       <DeferredDetails>
         <StancesSummary {...section} />
         <StancesContent {...section} />

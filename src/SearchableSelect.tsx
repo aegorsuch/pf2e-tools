@@ -10,6 +10,7 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   onClear?: () => void
   optionCount?: number
   alwaysSearchable?: boolean
+  filters?: ReactNode
   primaryDetails?: boolean
   renderDetails?: (value: string) => ReactNode
   searchText?: (value: string) => string
@@ -17,7 +18,7 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, primaryDetails = false, renderDetails, searchText, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, filters, primaryDetails = false, renderDetails, searchText, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -63,6 +64,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     {searchable && open && <PickerDialog label={`${props['aria-label']} picker`} searchLabel={searchLabel}
       container={container}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
+      {filters}
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>
           {option.group && (index === 0 || shown[index - 1].group !== option.group)

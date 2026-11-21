@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -536,6 +536,8 @@ it("lets Damoritosh's Grip switch a two-handed weapon's grip while enforcing han
   const entries = [rifle, sword]
   const tree = (displayOnly = true) => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly })
   const grip = () => findElement(tree(), e => e.props['aria-label'] === 'Hands: Rifle')!
+  expect(grip().props.value).toBe(1)
+  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
   expect(grip().props.value).toBe(2)
   ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
   ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
@@ -2118,6 +2120,7 @@ it('installs compatible weapon upgrades within capacity without changing saved r
     { id: 'laser', name: laser.name, potency: 1, striking: 0, runes: ['Flaming'] },
   ] }
   const entries = [laser, sight, bipod]
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)).not.toContain('Weapon material')
   const tree = () => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'WeaponUpgrades')!
   const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
@@ -2131,6 +2134,27 @@ it('installs compatible weapon upgrades within capacity without changing saved r
   expect(full).not.toContain('aria-label="Add weapon upgrade"')
 })
 
+it('treats Starfinder weapons without a tech trait but with upgrade slots as upgrade weapons and lists installed upgrades once', () => {
+  const rifle: ContentEntry = { ...weapon, id: 'sho', name: 'Shobhad Longrifle', systems: ['sf2e'], traits: ['Kickback'],
+    data: { hands: 2, weapon_type: 'Ranged', damage: '1d8 P', upgrade_slots: 0 } }
+  const flaming: ContentEntry = { ...shifting, id: 'flame', name: 'Flaming Module', systems: ['sf2e'],
+    data: { item_subcategory: 'Weapon Upgrades', usage: 'installed in a ranged weapon', url: 'flame' } }
+  expect(usesWeaponUpgrades(rifle)).toBe(true)
+  expect(usesWeaponUpgrades({ ...rifle, name: 'Other', data: {} })).toBe(false)
+  const c: Character = { ...character([]), systems: ['sf2e'], weapons: [
+    { id: 'w', name: rifle.name, potency: 0, striking: 0, runes: [], upgrades: ['flame'] },
+  ] }
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[rifle, flaming]} save={() => {}} />)
+  expect(html.match(/Remove Flaming Module upgrade/g)).toHaveLength(1)
+})
+
+it('reads armor upgrade slots from the description when the data field is missing', () => {
+  const suit = { id: 'a', name: 'Suit', systems: ['sf2e'], data: {}, description: 'Upgrades 2\nBody text' } as unknown as ContentEntry
+  expect(armorUpgradeSlots(suit)).toBe(2)
+  expect(armorUpgradeSlots({ ...suit, data: { upgrade_slots: 1 } })).toBe(1)
+  expect(armorUpgradeSlots({ ...suit, description: '' })).toBe(0)
+})
+
 it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   const suit: ContentEntry = { ...weapon, id: 'starfinder-armor', name: 'Starfinder Armor', kind: 'armor', systems: ['sf2e'],
     data: { ac: 4, dex_cap: 2, armor_category: 'Light', upgrade_slots: 1 } }
@@ -2140,9 +2164,11 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
     { id: 'starfinder-armor', name: suit.name, potency: 2, resilient: 2, runes: ['Shadow'], worn: true },
   ] }
   const entries = [suit, upgrade]
+  expect(renderToStaticMarkup(ArmorList({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} }))).toContain('Armor upgrade slots: 0/2.')
   const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Add armor upgrade')
+  expect(markup).not.toContain('Armor material')
   expect(markup).not.toContain('Add property rune')
   expect(markup).not.toContain('Shadow')
   expect(markup).not.toContain('<label>Potency')
@@ -2184,4 +2210,19 @@ it('keeps the base name when displaying upgraded SF2E weapon grades', () => {
   expect(markup).toContain('Doshko (Level 20)')
   expect(markup).toContain('value="Tactical Doshko">Doshko (Level 2)</option>')
   expect(markup).toContain('value="Paragon Doshko" selected="">Doshko (Level 20)</option>')
+})
+
+it.each([false, true])('orders weapons alphabetically by displayed name regardless of equipped state (displayOnly=%s)', displayOnly => {
+  const axe = { ...weapon, id: 'axe', name: 'Axe' }
+  const spear = { ...weapon, id: 'spear', name: 'Spear' }
+  const c: Character = { ...character([]), weapons: [
+    { id: 's', name: 'Spear', potency: 0, striking: 0, runes: [] },
+    { id: 'l', name: 'Longsword', potency: 0, striking: 0, runes: [], stowed: true },
+    { id: 'a', name: 'Axe', potency: 0, striking: 0, runes: [], stowed: true },
+  ] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[axe, weapon, spear]} save={() => {}} displayOnly={displayOnly} />)
+  const at = (name: string) => markup.indexOf(name)
+  expect(at('Axe')).toBeGreaterThan(-1)
+  expect(at('Axe')).toBeLessThan(at('Longsword'))
+  expect(at('Longsword')).toBeLessThan(at('Spear'))
 })

@@ -9,7 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { armorBulk, armorStrengthMet } from './builder'
+import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
@@ -42,6 +42,12 @@ import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
+export function armorUpgradeSlots(entry?: ContentEntry) {
+  if (!entry) return 0
+  const slots = Number(entry.data.upgrade_slots)
+  if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
+  return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
+}
 const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
 const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[] = [
   { name: 'Commercial', level: 1, hardness: 5 }, { name: 'Tactical', level: 4, hardness: 10 },
@@ -145,7 +151,7 @@ const weaponCapacity = (entry?: ContentEntry) => {
 }
 
 export function Augmentations({ c, entries, save }: SectionProps) {
-  const [picked, setPicked] = useState('')
+  const [apexOnly, setApexOnly] = useState(false)
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
@@ -169,9 +175,11 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && String(entry.data.item_category).toLowerCase() === 'augmentations')
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
-  const selected = options.find(entry => entry.id === picked)
-  const exemption = selected && augmentationExemption(selected)
-  const available = !!selected && canInstallAugmentation(c, selected, 'standard')
+  const apexInstalled = installedApexAugmentations(c)
+  const apexActive = activeApexAugmentation(c)
+  const isApex = (entry: ContentEntry) => !!APEX_AUGMENTATIONS[entry.name] || entry.traits.some(trait => trait.toLowerCase() === 'apex')
+  const installable = options.filter(entry => canInstallAugmentation(c, entry, 'standard'))
+  const shownOptions = apexOnly ? installable.filter(isApex) : installable
   const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
   const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
   const powerControl = (id: string, name: string) => {
@@ -202,14 +210,14 @@ export function Augmentations({ c, entries, save }: SectionProps) {
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
-      return <li key={item.id}><EntryDescription name={item.name} entry={entry} entries={entries} />
+      return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
+        <button type="button" aria-label={`Remove ${item.name} augmentation`} onClick={() => confirmRemoval(`augmentation "${item.name}"`,
+          () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
+            secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>×</button></div>
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : 'implant limit'})</small>
-        {powerControl(item.id, item.name)}
-        {' '}<button type="button" onClick={() => confirmRemoval(`augmentation "${item.name}"`,
-          () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
-            secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>Remove</button></li>
+        {powerControl(item.id, item.name)}</li>
     })}</ul>
     {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <>
       <label>Dermal plating grade{' '}<select aria-label="Dermal plating grade" value={dermalGrade.name} onChange={event => {
@@ -246,16 +254,20 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       </select>
       <SourceNote inlineSource={false} source="Hardpoint" note="Only one-handed weapons of light Bulk or less fit (1 Bulk or less with Thresher Ko-1 Frame). While drawn, the weapon is integrated and cannot be disarmed, dropped, or stolen." />
     </label>}
-    <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value={picked} onChange={event => setPicked(event.target.value)}>
-      <option value="">Choose augmentation</option>
-      {options.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
-    </SearchableSelect>
-    <button type="button" disabled={!available} onClick={() => {
-      if (!selected || !available) return
-      save({ augmentations: [...installed, { id: newId(), entryId: selected.id, name: selected.name, slot: exemption ?? 'standard' }] })
-      setPicked('')
-    }}>Add augmentation</button>
-    {selected && !available && <small role="status">This augmentation is unavailable. Check its source and your implant limit.</small>}
+    {apexInstalled.length > 1 && <label>Apex attribute increase{' '}<select aria-label="Apex attribute increase" value={apexActive?.id ?? 'none'}
+      onChange={event => save({ apexAugmentationId: event.target.value })}>
+      {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}
+      <option value="none">None</option>
+    </select></label>}
+    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" alwaysSearchable={installable.some(isApex)}
+      filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
+      const chosen = installable.find(entry => entry.id === event.target.value)
+      if (!chosen) return
+      save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
+    }}>
+      <option value="">Add augmentation...</option>
+      {shownOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
+    </SearchableSelect>}
   </section>
 }
 
@@ -1040,6 +1052,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
     && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
     .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
       .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))
+  const displayNames = new Map<string, string>()
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
@@ -1106,6 +1119,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : sourceWeapon ? specificMagicItemName(withNamedWeaponState(weaponEntry(entries, sourceWeapon.name), sourceWeapon, c.level),
             combinationName(entries, sourceWeapon.name), true).replace(/\bDueling Pistols$/, 'Dueling Pistol') : ''
         const displayName = `${equipmentDisplayName(adoptedAncestryText(c, grantedName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
+        displayNames.set(w.id, displayName)
         const forms = combinationForms(entries, w.name)
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const strength = hasAnimalStrength(c, entries, w)
@@ -1460,7 +1474,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
             {!upgradeWeapon && !fixed && !unarmed && <WeaponFundamentals {...enhanced} entries={entries} />}
-            <AttackUpgrades attack={a} />
+            {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
@@ -1505,7 +1519,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                     : builtIn?.material === enhanced.material ? `Built into ${namedSource}` : 'Granted by Verdant Weapon'}
                   onRemove={livingWeapon || plate || innovation || giantWeapon || w.verdantWeapon && canUseVerdantWeapon || builtIn?.material === enhanced.material ? undefined : () =>
                     update(w.id, { material: undefined, ...(upgradeWeapon ? {} : { runes: w.runes.slice(0, maxPropertyRunes(enhanced.potency, undefined, runeCapacity)) }) })} />
-              </div> : plate ? <small>Material: Standard (from {plate.name})</small> : <span>Material{' '}
+              </div> : plate ? <small>Material: Standard (from {plate.name})</small> : a.entry?.systems.includes('sf2e') ? null : <span>Material{' '}
                 <SearchableSelect aria-label="Weapon material" value="" onChange={(e) => {
                   const material = WEAPON_MATERIALS.find((name) => name === e.target.value)
                   if (!material) return
@@ -1555,7 +1569,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
         )
-      })}
+      }).sort((x, y) => (displayNames.get(String(x?.key)) ?? '').localeCompare(displayNames.get(String(y?.key)) ?? ''))}
       <TurretWeapon c={c} entries={entries} save={save} displayOnly={displayOnly} />
     </div>
   )
@@ -1573,7 +1587,7 @@ function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displa
         <SourceNote source={upgrade.source} note={upgrade.note} inlineSource={false} /></Fragment>)}; range {attack.range} feet.</small>
     {attack.traits.length > 0 && <GearTraits traits={attack.traits} entries={entries} system={entry.systems[0]} />}
     <small>{entry.data.weapon_group as string}.</small>
-    <AttackUpgrades attack={attack} />
+    {displayOnly && <AttackUpgrades attack={attack} />}
     <MechanicWeaponMods c={c} weapon={weapon} attack={attack} save={save} />
     {!displayOnly && <>
       <label>Turret grade{' '}
@@ -1753,6 +1767,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const sf2eArmor = !!entry?.systems.includes('sf2e')
+        const upgradeSlots = armorUpgradeSlots(entry) + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
@@ -1826,8 +1841,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
             <NamedArmorAbilities entry={entry} inlineSummary />
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
-            {Number(entry?.data.upgrade_slots) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
-              && <small>Armor upgrade slots: {Number(entry?.data.upgrade_slots)}.</small>}
+            {armorUpgradeSlots(entry) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
+              && <small>Armor upgrade slots: {armorUpgradeSlots(entry)}.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
@@ -1860,7 +1875,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   : typeof entry?.data.granted_by === 'string' ? entry.data.granted_by : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>
                     update(a.id, { material: undefined, runes: a.runes.slice(0, runeLimit(a.potency, undefined)) })} />
-              </div> : body ? null : <span>Material{' '}
+              </div> : body || sf2eArmor ? null : <span>Material{' '}
                 <SearchableSelect aria-label="Armor material" value="" onChange={(e) => {
                   if (isWoodArmor(entries, a)) return
                   const material = ARMOR_MATERIALS.find((name) => name === e.target.value)
@@ -1871,9 +1886,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
-              {sf2eArmor && entry && Number(entry.data.upgrade_slots) > 0 && entry.data.upgrades_allowed !== false
+              {sf2eArmor && entry && upgradeSlots > 0 && entry.data.upgrades_allowed !== false
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
-                  limit={Number(entry.data.upgrade_slots)}
+                  limit={upgradeSlots}
                   onChange={upgrades => update(a.id, { upgrades })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}

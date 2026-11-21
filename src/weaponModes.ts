@@ -24,12 +24,14 @@ export function weaponWithMode(weapon: OwnedWeapon, entry?: ContentEntry) {
   const modes = entry?.weaponModes
   if (!entry || !modes?.length) return entry
   const selected = modes.find(mode => mode.id === weapon.weaponMode) ?? modes[0]
-  const key = (trait: string) => trait.toLowerCase().replace(/\s+(?:d\d+|\+\d+)$/, '')
+  const key = (trait: string) => trait.toLowerCase().replace(/\s*[[(][^\])]*[\])]\s*$/, '').replace(/\s+(?:d\d+|\+\d+)$/, '')
+  const display = (trait: string) => trait.replace(/^[a-z]/, letter => letter.toUpperCase())
+    .replace(/\s*\[([^\]]+)\]$/, (_, value: string) => ` (${value.replace(/\b[a-z]/g, letter => letter.toUpperCase())})`)
   const conditional = new Set(modes.flatMap(mode => mode.traits).map(key)
     .filter(trait => !modes.every(mode => mode.traits.some(value => key(value) === trait))))
   const traits = entry.traits.filter(trait => !conditional.has(key(trait)))
   for (const trait of selected.traits) {
-    if (!traits.some(value => key(value) === key(trait))) traits.push(trait)
+    if (!traits.some(value => key(value) === key(trait))) traits.push(display(trait))
   }
   return { ...entry, traits, data: { ...entry.data,
     damage: String(entry.data.damage ?? '').replace(/(\d+d\d+)\s*[A-Za-z]+/, `$1 ${selected.damageType}`),

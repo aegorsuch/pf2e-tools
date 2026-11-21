@@ -62,3 +62,15 @@ it('inherits mode rules for source-linked homebrew while preserving its custom d
   expect(weaponEntry([phase, clone], clone.name)?.weaponModes).toEqual(phase.weaponModes)
   expect(weaponAttack(c, [phase, clone], { ...weapon, name: clone.name, weaponMode: 'mode-2' }).damage).toBe('3d10+4 void')
 })
+
+it('shows parameterized and lowercase mode traits cleanly without a duplicate bare trait', () => {
+  const claw: ContentEntry = { ...phase, id: 'claw', name: 'Crimson Claw', weaponModes: parseWeaponModes(
+    '<title level="2">Mode 1</title><traits><trait label="Agile" /><trait label="critical [flame]" /><trait label="tech" /></traits>\n**Damage** 1d4 F\n'
+    + '<title level="2">Mode 2</title><traits><trait label="Agile" /><trait label="analog" /></traits>\n**Damage** 1d4 S'),
+  traits: ['Agile', 'Modular', 'Critical', 'Tech', 'Analog'], data: { ...phase.data, damage: '1d4 Modular' } }
+  const traits = (weaponMode: string) => weaponAttack(c, [claw], { id: 'w', name: claw.name, potency: 0, striking: 0, runes: [], weaponMode }).traits
+  expect(traits('mode-2')).toContain('Analog')
+  expect(traits('mode-2')).not.toContain('analog')
+  expect(traits('mode-1')).toContain('Critical (Flame)')
+  expect(traits('mode-1')).not.toContain('Critical')
+})

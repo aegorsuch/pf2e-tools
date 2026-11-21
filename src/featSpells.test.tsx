@@ -919,6 +919,14 @@ it('alphabetizes innate spell names independently of feat selection order', () =
   expect(innate.indexOf('aria-haspopup="dialog">Alpha</button>')).toBeLessThan(innate.indexOf('aria-haspopup="dialog">Zebra</button>'))
 })
 
+it('grants Sure Strike from the Android Advanced Targeting System feat only', () => {
+  const entries = [entry('Sure Strike', 'spell')]
+  const android: Character = { ...base, ancestry: 'Android', feats: [taken('Advanced Targeting System')] }
+  expect(grantedFeatSpells(android, entries).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
+    .toEqual([['Sure Strike', 1, 'arcane', 'once per day']])
+  expect(grantedFeatSpells({ ...android, ancestry: 'Human' }, entries)).toEqual([])
+})
+
 it('shows original duration units, touch range and Sure Strike self-targeting without an Invisibility toggle', () => {
   const spells = [
     entry('Invisibility', 'spell', { duration: 600, duration_text: '10 minutes', range: 0, range_text: 'touch', target: '1 creature' }),
@@ -2227,4 +2235,23 @@ it('shows feat-granted and manual rituals as spell rows below focus and innate s
   expect(rituals).not.toContain('aria-label="Remove ritual Create Undead"')
   const empty = renderToStaticMarkup(<SpellsSection c={{ ...character, rituals: [], feats: [] }} entries={entries} save={() => {}} />)
   expect(empty).not.toContain('<h5>Rituals</h5>')
+})
+
+it('grants Creature Ally and Creature Shape as daily innate spells from common summon and polymorph spells', () => {
+  const spells = [
+    entry('Summon Animal', 'spell', { tradition: 'Primal, Arcane' }, ['Summon']),
+    entry('Summon Dragon', 'spell', { tradition: 'Arcane' }, ['Summon']),
+    entry('Insect Form', 'spell', { tradition: 'Primal' }, ['Polymorph']),
+    entry('Disguise', 'spell', { tradition: 'Arcane' }, ['Polymorph']),
+  ]
+  spells[1].level = 9
+  spells[2].description = 'You transform into a battle form.'
+  const c: Character = { ...base, systems: ['pf2e'], level: 17, feats: [
+    { name: 'Creature Ally', type: 'Ancestry Feat', level: 13, choice: 'Summon Animal' },
+    { name: 'Creature Shape', type: 'Ancestry Feat', level: 17, choice: 'Insect Form' },
+  ] }
+  expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name)).toEqual(['Summon Animal'])
+  expect(featSpellOptions(c, spells, c.feats[1])?.map(spell => spell.name)).toEqual(['Insect Form'])
+  expect(grantedFeatSpells(c, spells).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition]))
+    .toEqual([['Summon Animal', 5, 'Primal'], ['Insect Form', 8, 'Primal']])
 })

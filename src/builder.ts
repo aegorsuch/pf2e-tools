@@ -191,8 +191,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   if (c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries)) {
     for (let i = 0; i < 2; i++) slots.push({ key: `ancestryAlternate:${i}`, label: 'Ancestry (free)', group: 'ancestry' })
   } else {
-    ancestryBoosts(ancestry?.data.attribute).map(t => c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
-      && c.heritage === 'Fierce Ysoki' && t === 'Dexterity' ? 'Strength' : t).forEach((t, i) => {
+    ancestryBoosts(ancestry?.data.attribute).map(t => starfinderHeritageBoost(c, t)).forEach((t, i) => {
       const fixed = ABILITY_NAMES[t.toLowerCase()]
       slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed, group: 'ancestry' })
     })
@@ -218,11 +217,27 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   return slots
 }
 
+const starfinderHeritageBoost = (c: Character, boost: string) => {
+  if (!c.systems.includes('sf2e')) return boost
+  const swaps: Record<string, Record<string, [string, string]>> = {
+    Ysoki: { 'Fierce Ysoki': ['Dexterity', 'Strength'] },
+    Android: { 'Hellforged Android': ['Dexterity', 'Strength'], 'Electronica Android': ['Intelligence', 'Charisma'] },
+  }
+  const swap = swaps[c.ancestry ?? '']?.[c.heritage ?? '']
+  return swap && boost === swap[0] ? swap[1] : boost
+}
+
+const starfinderHeritageFlaw = (c: Character): Ability[] | undefined => {
+  if (!c.systems.includes('sf2e')) return undefined
+  if (c.ancestry === 'Ysoki' && c.heritage === 'Fierce Ysoki') return ['dex']
+  if (c.ancestry === 'Android') return ({ 'Biotech Android': ['con'], 'Electronica Android': ['wis'] } as Record<string, Ability[]>)[c.heritage ?? '']
+  return undefined
+}
+
 export const ancestryFlaws = (c: Character, entries: ContentEntry[]) => {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
   return c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries) ? []
-    : c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Fierce Ysoki'
-      ? ['dex'] as Ability[] : parseAbilities(ancestry?.data.attribute_flaw)
+    : starfinderHeritageFlaw(c) ?? parseAbilities(ancestry?.data.attribute_flaw)
 }
 
 // A boost is +2 below 18, otherwise +1
@@ -233,8 +248,33 @@ export function computeAbilities(c: Character, entries: ContentEntry[]): Charact
     const a = s.fixed ?? c.boosts?.[s.key]
     if (a) out[a] += out[a] < 18 ? 2 : 1
   }
+  const apex = activeApexAugmentation(c)
+  if (apex) out[apex.ability] = 10 + 2 * Math.max(abilityMod(out[apex.ability]) + 1, 4)
   return out
 }
+
+export const APEX_AUGMENTATIONS: Record<string, { ability: Ability; skills?: Record<string, number> }> = {
+  'Muscle Invigorator': { ability: 'str', skills: { Athletics: 3 } },
+  Hypernerves: { ability: 'dex', skills: { Acrobatics: 3 } },
+  'Artificial Immortalizer': { ability: 'con' },
+  'Cognition Accelerator': { ability: 'int' },
+  'Cosmic Connector': { ability: 'wis' },
+  'Presence Intensifier': { ability: 'cha', skills: { Diplomacy: 2, Intimidation: 2 } },
+}
+
+export const installedApexAugmentations = (c: Character) => c.systems.includes('sf2e')
+  ? (c.augmentations ?? []).filter(item => item.slot === 'apex' && APEX_AUGMENTATIONS[item.name]) : []
+
+// Only one installed apex augmentation supplies its attribute increase; the player picks which during daily preparations
+export function activeApexAugmentation(c: Character) {
+  const installed = installedApexAugmentations(c)
+  const chosen = c.apexAugmentationId === 'none' ? undefined
+    : installed.find(item => item.id === c.apexAugmentationId) ?? installed[0]
+  return chosen && { id: chosen.id, name: chosen.name, ability: APEX_AUGMENTATIONS[chosen.name].ability }
+}
+
+export const apexSkillBonus = (c: Character, skill: string) => Math.max(0,
+  ...installedApexAugmentations(c).map(item => APEX_AUGMENTATIONS[item.name].skills?.[skill] ?? 0))
 
 // Within a group, boosting the same ability twice is not allowed
 export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
@@ -493,6 +533,8 @@ const starfinderHeritageSkill = (c: Character) => {
   if (!c.systems.includes('sf2e') || c.level < 1) return undefined
   if (c.ancestry === 'Ysoki') return ({ 'Akitonian Ysoki': 'Crafting', 'Shipborn Ysoki': 'Piloting',
     'Listener Ysoki': 'Occultism' } as Record<string, string>)[c.heritage ?? '']
+  if (c.ancestry === 'Android') return ({ 'Artificial Scion Android': 'Computers', 'Biotech Android': 'Nature',
+    'Electronica Android': 'Performance', 'Replicant Android': 'Deception' } as Record<string, string>)[c.heritage ?? '']
   return c.ancestry === 'Vesk' && c.heritage === 'Frilled Vesk' ? 'Intimidation' : undefined
 }
 
@@ -1361,6 +1403,12 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       if (skillSources.has(equivalence) && skillSources.get(equivalence) !== entry) return false
       if (seen.has(equivalence)) return false
       seen.add(equivalence)
+      if (entry.source === 'official' && entry.description.trim()) {
+        const rules = entry.description.split(/\n\s*---\s*\n/).at(-1)!.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+        const sameText = `${entry.name.toLowerCase()}|${entry.level}|${String(entry.data.prerequisite ?? '').toLowerCase()}|${rules}`
+        if (seen.has(sameText) && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name && feat.sourceId === entry.id)) return false
+        seen.add(sameText)
+      }
       return true
     }).map(({ entry }) => entry)
 }
@@ -2227,7 +2275,8 @@ function hasParryTrait(entry?: ContentEntry) {
 }
 
 function operativeGun(entry?: ContentEntry) {
-  return !!entry && isRanged(entry) && entry.traits.some(trait => /^(analog|tech)$/i.test(trait))
+  return !!entry && isRanged(entry) && (entry.traits.some(trait => /^(analog|tech)$/i.test(trait))
+    || /^(firearm|gun)s?$/i.test(String(entry.data.weapon_group ?? '').trim()))
 }
 
 function defensiveGunnerParry(c: Character, entry?: ContentEntry) {
@@ -3176,9 +3225,10 @@ export function senses(c: Character, entries: ContentEntry[]) {
     if (typeof vision === 'string' && vision) addVision(vision, heritage.name)
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
   }
+  if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
-    addVision('Blood sense (imprecise) 30 feet, wounded living creatures with blood', 'Blood Sense')
+    addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
   }
   if (isFeatEffectActive(c, 'Briny Beverage')) addVision('Wavesense (imprecise) 20 feet', 'Briny Beverage')
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
@@ -3299,6 +3349,10 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (testSubjectAdaptation(c) === 'Cybernetic Augmentation') {
     grants.push({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
   }
+  const androidFeat = c.systems.includes('sf2e') && c.ancestry === 'Android' ? ({
+    'Artificial Scion Android': 'Phreaker', 'Biotech Android': 'Train Animal',
+    'Replicant Android': 'Favored Disguise', 'Renewed Android': 'Dubious Knowledge' } as Record<string, string>)[c.heritage ?? ''] : undefined
+  if (androidFeat) grants.push({ name: androidFeat, source: c.heritage!, level: 1 })
   if (c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Tunnel Ysoki') {
     grants.push({ name: 'Quick Squeeze', source: 'Tunnel Ysoki', level: 1 })
   }
@@ -3866,7 +3920,16 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
   return ranks
 }
 
+// Mystic Armor replaces worn armor while active: item bonus to AC, Dex cap +5, unarmored proficiency
+export function mysticArmor(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || !isSpellActive(c, entries, 'Mystic Armor')) return undefined
+  const rank = Math.max(1, Math.min(10, Math.ceil(c.level / 2)))
+  return { rank, ac: rank >= 10 ? 3 : rank >= 6 ? 2 : 1, save: c.level >= 4 && rank >= 4 ? rank >= 10 ? 3 : rank >= 8 ? 2 : 1 : 0 }
+}
+
 export function armorSaveBonus(c: Character, entries: ContentEntry[]) {
+  const mystic = mysticArmor(c, entries)
+  if (mystic) return mystic.save
   const worn = wornArmor(c, entries)
   return Math.max(worn?.resilient ?? 0, num(worn && armorEntry(c, entries, worn.name, worn.id)?.data.grade_save_bonus))
 }
@@ -3884,7 +3947,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const parts: TotalPart[] = [
     { label: ABILITY_LABEL[ability[name]], value: abilityMod(c.abilities[ability[name]]) },
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
-    { label: armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
+    { label: mysticArmor(c, entries) ? 'Mystic Armor (item)' : armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
   ]
   if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
     parts.push({ label: 'Desperate Wrath', value: -1 })
@@ -4330,13 +4393,14 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
       ].join(' / ') + ' (circumstance)', value: best }] : [])],
       notes: currentSpell ? [`Current Spell: AC ${form.ac + Math.max(best, 2) + ragePenalty} against ranged attacks; circumstance bonuses do not stack.`] : [] }
   }
-  const worn = wornArmor(c, entries)
-  const armor = equippedArmorEntry(c, entries)
+  const mystic = mysticArmor(c, entries)
+  const worn = mystic ? undefined : wornArmor(c, entries)
+  const armor = mystic ? undefined : equippedArmorEntry(c, entries)
   const armorCategory = armor ? armorCategory_(armor) : 'unarmored'
   const rank = armorProficiencyRank(c, entries, armor)
   const dexterity = abilityMod(c.abilities.dex)
   const skin = animalSkinBenefits(c, entries)
-  const dexCap = skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
+  const dexCap = mystic ? 5 : skin?.dexCap ?? (armor ? num(armor.data.dex_cap) : Number.POSITIVE_INFINITY)
   const raised = shieldRaised(c) ? shieldAcBonus(c, entries) : 0
   const raisedCantrip = isSpellActive(c, entries, 'Shield') ? 1 : 0
   const parry = parryBonus(c, entries)
@@ -4354,6 +4418,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Base', value: 10 },
     { label: armor?.name ?? 'Armor', value: num(armor?.data.ac) },
     { label: worn ? `${worn.name} potency` : 'Armor potency', value: worn?.potency ?? 0 },
+    ...(mystic ? [{ label: 'Mystic Armor (item)', value: mystic.ac }] : []),
     ...(skin ? [{ label: 'Animal Skin (item)', value: skin.itemBonus }] : []),
     { label: 'Dexterity', value: Math.min(dexterity, dexCap),
       note: Number.isFinite(dexCap) ? `Modifier ${signed(dexterity)}; cap ${signed(dexCap)}` : undefined },
@@ -4508,7 +4573,7 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Ch
   if (weaponCategory(entry) === 'Unarmed'
     || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
   if (weaponCanUseTwoHands(entry, c) && weapon.handsHeld) return weapon.handsHeld
-  if (String(entry.data.hands).trim() === '1 or 2') return 1
+  if (String(entry.data.hands).trim() === '1 or 2' || (String(entry.data.hands).trim() === '2' && weaponCanUseTwoHands(entry, c))) return 1
   const match = /^([12])(?:\+)?$/.exec(String(entry.data.hands ?? '').trim())
   return match ? Number(match[1]) : undefined
 }
@@ -5609,7 +5674,9 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
 }
 
 export function usesWeaponUpgrades(entry?: ContentEntry) {
-  return !!entry?.systems.includes('sf2e') && entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
+  return !!entry?.systems.includes('sf2e') && (entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
+    || typeof entry.data.upgrade_slots === 'number' && weaponCategory(entry) !== 'Unarmed'
+    || /^Shobhad Longrifle(?: \(Starfinder\))?$/.test(entry.name))
 }
 
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
