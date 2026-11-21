@@ -764,6 +764,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note={`After resting for 10 minutes, regain ${Math.max(0, abilityMod(c.abilities.con) * Math.floor(c.level / 2))} Hit Points. This vitality healing stacks with Treat Wounds.`} />}
             {!!activeFeatsNamed(c, 'Scar-Thick Skin').length && <SourceNote source="Scar-Thick Skin"
               note="Flat check to end persistent bleed: DC 10, or DC 5 with especially appropriate assistance." />}
+            {!!activeFeatsNamed(c, 'Incredible Ferocity').length && <SourceNote source="Incredible Ferocity"
+              note="Use Orc Ferocity once per hour instead of once per day." />}
+            {!!activeFeatsNamed(c, 'Defy Death').length && <SourceNote source="Defy Death"
+              note={`Recovery check DC is ${activeFeatsNamed(c, 'Toughness').length ? 8 : 9} + your dying value.`} />}
+            {!!activeFeatsNamed(c, "Lifeblood's Call").length && <SourceNote source="Lifeblood's Call"
+              note="+2 circumstance to melee Strike damage per wounded and doomed value combined (max +8)." />}
+            {!!activeFeatsNamed(c, 'Bloody Blows').length && <SourceNote source="Bloody Blows"
+              note="Critical hits with lethal unarmed Strikes deal 1d4 persistent bleed damage." />}
+            {!!activeFeatsNamed(c, 'Dogfang Bite').length && <SourceNote source="Dogfang Bite"
+              note="Your beak unarmed attack gains versatile S." />}
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>

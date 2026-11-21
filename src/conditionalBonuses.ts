@@ -39,6 +39,7 @@ export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
   check('Monstrous Peacemaker', 'Diplomacy', 1, 'against non-humanoid intelligent creatures and humanoids marginalized in human society'),
   check('Overlooked Mastermind', 'Deception', 2, 'to Lie when claiming ignorance, and to Deception DCs against Sense Motive when you do'),
   check("Scavenger's Search", 'Perception', 2, 'to locate objects (including secret doors and hazards) within 30 feet with Seek'),
+  check('Ritual Researcher', 'Occultism', 2, 'to primary and secondary checks of rituals you attempt'),
   check('Death Speaker', 'Diplomacy', 1, 'to Make an Impression or Request of undead creatures'),
   check('Elven Instincts', 'Perception', 2, 'on Perception checks attempted as initiative rolls'),
   check('Climbing Tail', 'Athletics', 2, 'to Climb'),
