@@ -12,6 +12,15 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('scales other cantrips with their heightening steps', () => {
+  expect(spellDamage('Daze', 1)[0]).toMatchObject({ dice: 1, sides: 6, type: 'mental' })
+  expect(spellDamage('Daze', 5)[0].dice).toBe(3)
+  expect(spellDamage('Divine Lance', 4)[0]).toMatchObject({ dice: 5, sides: 4, type: 'spirit' })
+  expect(spellDamage('Spirit Object', 3)[0].dice).toBe(6)
+  expect(spellDamage('Ghostly Shift', 6)[0].dice).toBe(2)
+  expect(spellDamage('Vitality Lash', 0)).toEqual([])
+})
+
 it.each([[1, 2], [5, 6], [10, 11]])('scales Electric Arc, Frostbite, and Gouging Claw at rank %i', (rank, dice) => {
   for (const [name, sides, type] of [
     ['Electric Arc', 4, 'electricity'], ['Frostbite', 4, 'cold'], ['Gouging Claw', 6, 'piercing or slashing'],

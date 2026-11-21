@@ -137,8 +137,51 @@ export function spellDamage(name: string, rank: number): Damage[] {
         { label: 'Cone', dice: 6 + rank - 5, sides: 8, type: 'sonic' },
       ] : []
     default:
-      return []
+      return cantripDamage(name, rank)
   }
+}
+
+// Cantrip damage by heightened rank: [base dice, dice added per step, rank step, sides, type]
+const CANTRIP_DAMAGE: Record<string, [number, number, number, number, string]> = {
+  'Ancient Dust': [1, 1, 2, 6, 'void'],
+  'Astral Rain': [4, 1, 1, 4, 'bludgeoning or piercing'],
+  'Bramble Bush': [1, 1, 2, 4, 'piercing'],
+  'Buzzing Bites': [1, 1, 1, 4, 'piercing'],
+  'Clinging Ice': [1, 1, 1, 4, 'cold'],
+  'Cosmic Cannon': [2, 1, 1, 4, 'force'],
+  'Dancing Blade': [3, 1, 2, 6, 'weapon damage type'],
+  'Daze': [1, 1, 2, 6, 'mental'],
+  'Divine Lance': [2, 1, 1, 4, 'spirit'],
+  'Eldritch Lance': [2, 1, 1, 6, 'mental'],
+  'Emoticon': [2, 1, 1, 4, 'bludgeoning or force'],
+  'Forbidden Thought': [2, 1, 1, 6, 'mental'],
+  'Gale Blast': [1, 1, 1, 6, 'bludgeoning'],
+  'Ghostly Shift': [2, 0, 1, 6, 'force'],
+  'Ignition': [2, 1, 1, 4, 'fire'],
+  'Imaginary Weapon': [2, 1, 1, 6, 'force'],
+  'Live Wire': [1, 1, 2, 4, 'slashing'],
+  'Murmuration': [1, 1, 1, 4, 'piercing or sonic'],
+  'Pact Broker': [2, 1, 1, 4, 'mental'],
+  'Phase Bolt': [3, 1, 1, 4, 'piercing'],
+  'Puff of Poison': [1, 1, 2, 4, 'poison'],
+  'Redistribute Potential': [4, 1, 1, 4, 'void'],
+  'Ricochet': [2, 1, 1, 4, 'bludgeoning or slashing'],
+  'Scatter Scree': [2, 1, 1, 4, 'bludgeoning'],
+  'Shatter Mind': [3, 1, 1, 4, 'mental'],
+  'Slashing Gust': [2, 1, 1, 4, 'slashing'],
+  'Spirit Object': [2, 2, 1, 4, 'weapon damage type'],
+  'Spout': [2, 1, 1, 4, 'bludgeoning'],
+  'Telekinetic Rend': [1, 1, 2, 6, 'bludgeoning or slashing'],
+  'Timber': [2, 1, 1, 4, 'bludgeoning'],
+  'Trade Death for Life': [1, 1, 1, 4, 'void'],
+  'Vitality Lash': [2, 1, 1, 6, 'vitality'],
+}
+
+function cantripDamage(name: string, rank: number): Damage[] {
+  const formula = CANTRIP_DAMAGE[name]
+  if (!formula || rank < 1) return []
+  const [base, added, step, sides, type] = formula
+  return [{ label: 'Damage', dice: base + added * Math.floor((rank - 1) / step), sides, type }]
 }
 
 export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
