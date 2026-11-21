@@ -1829,8 +1829,18 @@ export function spellDCText(c: Character, entries: ContentEntry[], text: string)
   })
 }
 
+function bardSpellSlots(c: Character) {
+  const slots: Record<number, number> = {}
+  if (c.level < 1) return slots
+  slots[0] = 5 + (activeFeatsNamed(c, 'Cantrip Expansion').length ? 2 : 0)
+  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++) slots[rank] = c.level === rank * 2 - 1 ? 2 : 3
+  if (c.level >= 19) slots[10] = 1
+  return slots
+}
+
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
+  if (c.className === 'Bard' && c.systems.includes('pf2e')) return bardSpellSlots(c)
   if (!['Druid', 'Necromancer'].includes(c.className ?? '') || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   const necromancer = c.className === 'Necromancer'
   const slots: Record<number, number> = {}
@@ -3227,6 +3237,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
+  if (activeFeatsNamed(c, 'Soulsight').length) addVision('Spiritsense (imprecise) 60 feet', 'Soulsight')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
     addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
   }

@@ -1002,7 +1002,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const extraSlots = automaticSlots ? necromancerExtraSlots(c) : []
   const sc: Character['spellcasting'] = ['Druid', 'Necromancer'].includes(c.className ?? '') ? { ...c.spellcasting,
     ability: necromancer ? 'int' : 'wis', tradition: necromancer ? 'Occult' : 'Primal', rank: casting?.rank ?? 1,
-    slots: automaticSlots ?? c.spellcasting?.slots ?? {} } : c.spellcasting
+    slots: automaticSlots ?? c.spellcasting?.slots ?? {} }
+    : c.className === 'Bard' && automaticSlots ? { ability: 'cha', tradition: 'Occult', rank: casting?.rank ?? 1,
+      ...c.spellcasting, slots: automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const traditions = casting?.traditions ?? []
   const spellIndex = useMemo(() => {

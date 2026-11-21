@@ -5,6 +5,7 @@ import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
+import { classSpellSlots } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -2703,5 +2704,24 @@ describe('apex augmentations', () => {
     expect(apexSkillBonus(c, 'Athletics')).toBe(3)
     expect(apexSkillBonus(c, 'Acrobatics')).toBe(3)
     expect(apexSkillBonus({ ...c, augmentations: [apexAug('p', 'Presence Intensifier')] }, 'Intimidation')).toBe(2)
+  })
+})
+
+describe('Bard spellcasting', () => {
+  const bard = { id: 'b', name: 'B', className: 'Bard', systems: ['pf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
+  it.each([[1, [5, 2]], [2, [5, 3]], [3, [5, 3, 2]], [19, [5, ...Array(9).fill(3), 1]]])(
+    'derives spontaneous slots at level %i', (level, counts) => {
+      expect(Object.values(classSpellSlots({ ...bard, level })!)).toEqual(counts)
+    })
+  it('adds two cantrips for Cantrip Expansion only once acquired', () => {
+    const feats = [{ name: 'Cantrip Expansion', level: 2, type: 'Class Feat' }]
+    expect(classSpellSlots({ ...bard, level: 2, feats })?.[0]).toBe(7)
+    expect(classSpellSlots({ ...bard, level: 1, feats })?.[0]).toBe(5)
+  })
+  it('grants Soulsight spiritsense', () => {
+    expect(senses({ ...bard, level: 8, feats: [{ name: 'Soulsight', level: 8, type: 'Class Feat' }] }, [])
+      .map(sense => sense.value)).toContain('Spiritsense (imprecise) 60 feet')
   })
 })
