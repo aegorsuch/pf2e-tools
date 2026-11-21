@@ -401,8 +401,8 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [
     { id: 'homebrew:riding-badger', name: 'Riding Badger', base: 'Badger', size: 'Small', mount: true,
       description: 'A stocky, sure-footed badger trained to carry a rider. Its strong digging claws and fierce temper serve it above and below ground.' },
-    { id: 'homebrew:riding-wolf', name: 'Riding Wolf', base: 'Wolf', size: 'Medium', mount: true,
-      description: 'A large, sturdy wolf or hound bred to carry a rider. It keeps the pack tactics of its wild kin while bearing a mount\'s burden.' },
+    { id: 'homebrew:riding-dog', name: 'Riding Dog', base: 'Wolf', size: 'Medium', mount: true,
+      description: 'A large, sturdy hound bred to carry a rider, and the traditional mount of halflings. It keeps the pack tactics of its wild kin while bearing a rider\'s weight.' },
     { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium',
       description: "A powerful, keen-nosed direwolf raised among Sarkoris's hunting traditions. It tracks quarry over rough ground and fights alongside its bonded partner." },
     { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Small',
