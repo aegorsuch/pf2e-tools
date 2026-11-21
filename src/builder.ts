@@ -1834,8 +1834,32 @@ function bardSpellSlots(c: Character) {
   if (c.level < 1) return slots
   slots[0] = 5 + (activeFeatsNamed(c, 'Cantrip Expansion').length ? 2 : 0)
   for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++) slots[rank] = c.level === rank * 2 - 1 ? 2 : 3
-  if (c.level >= 19) slots[10] = 1
+  if (c.level >= 19) slots[10] = 1 + (c.level >= 20 && activeFeatsNamed(c, 'Perfect Encore').length ? 1 : 0)
   return slots
+}
+
+// Spontaneous casters know as many spells per rank as they have slots; feats and Magnum Opus add repertoire spells without adding slots.
+export function bardRepertoire(c: Character) {
+  const rows: Record<number, number> = { ...bardSpellSlots(c) }
+  const extras: { key: string; rank: number; spell: string; source: string }[] = []
+  if (c.level < 1) return { rows, extras }
+  if (activeFeatsNamed(c, 'Deep Lore').length)
+    for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++) rows[rank]++
+  if (c.level >= 19) rows[10] = 2
+  if (activeFeatsNamed(c, 'Faceless Trickster').length) {
+    extras.push({ key: 'faceless-trickster-pest-form', rank: 1, spell: 'Pest Form', source: 'Faceless Trickster' },
+      { key: 'faceless-trickster-animal-form', rank: 2, spell: 'Animal Form', source: 'Faceless Trickster' })
+    for (const extra of extras) rows[extra.rank] = (rows[extra.rank] ?? 0) + 1
+  }
+  return { rows, extras }
+}
+
+export function classRepertoireRows(c: Character) {
+  return c.className === 'Bard' && c.systems.includes('pf2e') ? bardRepertoire(c).rows : classSpellSlots(c)
+}
+
+export function classExtraSlots(c: Character) {
+  return c.className === 'Bard' && c.systems.includes('pf2e') ? bardRepertoire(c).extras : necromancerExtraSlots(c)
 }
 
 export function classSpellSlots(c: Character): Record<number, number> | undefined {

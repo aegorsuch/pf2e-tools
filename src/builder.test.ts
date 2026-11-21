@@ -5,7 +5,7 @@ import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
-import { classSpellSlots } from './builder'
+import { classExtraSlots, classRepertoireRows, classSpellSlots } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -2723,5 +2723,25 @@ describe('Bard spellcasting', () => {
   it('grants Soulsight spiritsense', () => {
     expect(senses({ ...bard, level: 8, feats: [{ name: 'Soulsight', level: 8, type: 'Class Feat' }] }, [])
       .map(sense => sense.value)).toContain('Spiritsense (imprecise) 60 feet')
+  })
+})
+
+describe('Bard repertoire', () => {
+  const bard = { id: 'b', name: 'B', className: 'Bard', systems: ['pf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
+  const feat = (name: string) => ({ name, level: 1, type: 'Class Feat' })
+  it('gives Magnum Opus two rank-ten spells but one slot, and Perfect Encore a second slot', () => {
+    expect(classRepertoireRows(bard)?.[10]).toBe(2)
+    expect(classSpellSlots(bard)?.[10]).toBe(1)
+    expect(classSpellSlots({ ...bard, feats: [feat('Perfect Encore')] })?.[10]).toBe(2)
+    expect(classRepertoireRows({ ...bard, level: 18 })?.[10]).toBeUndefined()
+  })
+  it('adds Deep Lore spells per rank and fixed Faceless Trickster spells without extra slots', () => {
+    const c = { ...bard, level: 18, feats: [feat('Deep Lore'), feat('Faceless Trickster')] }
+    expect(classRepertoireRows(c)?.[9]).toBe(4)
+    expect(classRepertoireRows(c)?.[1]).toBe(5)
+    expect(classSpellSlots(c)?.[1]).toBe(3)
+    expect(classExtraSlots(c).map(extra => extra.spell)).toEqual(['Pest Form', 'Animal Form'])
   })
 })
