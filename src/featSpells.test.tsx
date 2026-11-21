@@ -362,6 +362,29 @@ it('adds Tengu Feather Fan spells with Wind God\'s and Thunder God\'s Fan sharin
   expect(names({ ...base, level: 13, feats: [fan, taken("Thunder God's Fan", 13)] })).toEqual(['Gust of Wind:1:2', 'Lightning Bolt:5:2'])
 })
 
+it('grants Hurricane Swing a choice of 6th-rank lightning bolt or gust of wind in one daily pool', () => {
+  const entries = ['Lightning Bolt', 'Gust of Wind'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 17, feats: [taken('Hurricane Swing', 17)] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank])).toEqual([['Lightning Bolt', 6], ['Gust of Wind', 6]])
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+  expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
+})
+
+it('grants Trickster Tengu a choice of 7th-rank aerial form or cursed metamorphosis in one daily pool', () => {
+  const entries = ['Aerial Form', 'Cursed Metamorphosis'].map(name => entry(name, 'spell'))
+  const grants = grantedFeatSpells({ ...base, level: 17, feats: [taken('Trickster Tengu', 17)] }, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank])).toEqual([['Aerial Form', 7], ['Cursed Metamorphosis', 7]])
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+})
+
+it('grants Great Tengu Form 4th-rank enlarge and fly from one daily use', () => {
+  const entries = ['Enlarge', 'Fly'].map(name => entry(name, 'spell'))
+  const grants = grantedFeatSpells({ ...base, level: 17, feats: [taken('Great Tengu Form', 17)] }, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank])).toEqual([['Enlarge', 4], ['Fly', 4]])
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+})
+
 it('grants True Shapeshifter one daily class spell with its permitted forms', () => {
   const nature = { ...entry('Nature Incarnate', 'spell', { tradition: 'Primal' }), level: 10 }
   const c: Character = { ...base, className: 'Druid', level: 20, feats: [taken('True Shapeshifter', 20)] }

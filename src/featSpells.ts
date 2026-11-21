@@ -334,6 +334,23 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       }
       continue
     }
+    const choiceFeat = feat.name === 'Hurricane Swing'
+      ? { names: ['Lightning Bolt', 'Gust of Wind'], rank: 6, condition: 'Reaction when you critically hit with a slashing weapon Strike; choose one spell' }
+      : feat.name === 'Trickster Tengu'
+        ? { names: ['Aerial Form', 'Cursed Metamorphosis'], rank: 7, condition: 'Choose one spell; Aerial Form must take the form of a bird' }
+        : feat.name === 'Great Tengu Form'
+          ? { names: ['Enlarge', 'Fly'], rank: 4, condition: 'Gained together as part of Long-Nosed Form; lasts 5 minutes or until you shift out of it' }
+          : undefined
+    if (choiceFeat && c.systems.includes('pf2e')) {
+      for (const name of choiceFeat.names) {
+        const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'feat', spells: [entry.name], tradition: 'primal', frequency: 'once per day', shared: true,
+            condition: choiceFeat.condition },
+          rank: choiceFeat.rank, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      }
+      continue
+    }
     if (feat.name === 'True Shapeshifter' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Nature Incarnate').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
