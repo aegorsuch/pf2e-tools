@@ -194,14 +194,15 @@ it('applies Android heritage attributes, training, fixed skill feats and Nightvi
 })
 
 it('automates Pahtra and Kasatha ancestry feats', () => {
-  const names = ['Predatory', 'Climbing Claws', 'Remix World\'s Rhythm', 'Adat Training', 'A Little Piece of Home', 'Pahtra Lore', 'Harmonic Shielding', 'Ancestral Darkvision']
+  const names = ['Predatory', 'Climbing Claws', 'Remix World\'s Rhythm', 'Adat Training', 'A Little Piece of Home', 'Pahtra Lore', 'Harmonic Shielding', 'Melodic Adaptation', 'Ancestral Darkvision']
   const feats = mapAonHits(hits.filter(hit => hit._source?.category === 'feat' && names.includes(String(hit._source?.name))
     && (hit._source?.trait as string[] | undefined)?.some(trait => ['Pahtra', 'Kasatha'].includes(trait))), 'sf2e')
   const spells = ['Haste', 'Slow', 'Holographic Memory', 'Void Whispers', 'Verdant Code'].map((name): ContentEntry => ({
     id: name, systems: ['sf2e'], kind: 'spell', source: 'official', name, level: 3, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }))
   const catalog = [...feats, ...spells, ...entries]
   const taken = (name: string, extra: Partial<Character['feats'][number]> = {}) => ({ name, type: 'Ancestry Feat', level: 1, ...extra })
-  const pahtra: Character = { ...base, ancestry: 'Pahtra', level: 13, feats: [taken('Predatory', { choice: 'Jaws' }), taken('Climbing Claws'), taken('Pahtra Lore')] }
+  const pahtra: Character = { ...base, ancestry: 'Pahtra', level: 13, feats: [taken('Predatory', { choice: 'Jaws' }), taken('Climbing Claws'), taken('Pahtra Lore'),
+    taken('Harmonic Shielding'), taken('Melodic Adaptation')] }
   const jaws = ownedWeapons(pahtra, catalog).find(weapon => weapon.id === 'sf2e:pahtra:jaws')!
   expect(weaponAttack(pahtra, catalog, jaws)).toMatchObject({ damage: expect.stringMatching(/d6.* piercing/), criticalSpecialization: true,
     traits: expect.arrayContaining(['Finesse', 'Grapple']) })
@@ -209,6 +210,9 @@ it('automates Pahtra and Kasatha ancestry feats', () => {
   expect(movementSpeeds(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: speed(pahtra, catalog) }))
   expect(automaticFeatGrants(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Additional Lore', choice: 'Pahtra' }))
   expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{ value: 'Darkvision', source: 'Pahtra' }]))
+  expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{ value: 'Detect magic (30-foot emanation, rank 3)', source: 'Melodic Adaptation' }]))
+  expect(resistances(pahtra, catalog)).toContainEqual({ damage: 'Sonic', value: 6, source: 'Harmonic Shielding' })
+  expect(savingThrowBreakdown(pahtra, catalog, 'Will').notes?.join(' ')).toContain('a successful save against a sonic effect becomes a critical success')
   expect(eligibleFeats(catalog, pahtra, { key: 'ancestry:13:0', category: 'ancestry', level: 13 }).map(feat => feat.name))
     .not.toContain('Ancestral Darkvision')
   const casters: Character = { ...base, ancestry: 'Kasatha', level: 13,
@@ -241,6 +245,21 @@ it('provides Solarian attunement, solar weapons, twin weapons, flare, and Solar 
     solarianShield: expect.objectContaining({ raised: true }),
   })
   expect(ownedWeapons({ ...solarian, solarianAttunement: 'Unattuned' }, []).some(item => item.name === 'Solar Weapon')).toBe(false)
+
+  const extended: Character = { ...solarian, level: 13, solarianAttunement: 'Photon',
+    solarianShield: { raised: true },
+    feats: [...solarian.feats, { name: 'Distant Flare', type: 'Class Feat', level: 2 },
+      { name: 'Propulsive Shield', type: 'Class Feat', level: 8 }] }
+  const extendedFlare = ownedWeapons(extended, []).find(item => item.name === 'Solar Flare')!
+  expect(weaponAttack(extended, [], extendedFlare)).toMatchObject({
+    range: 55,
+  })
+  expect(weaponAttack(extended, [], extendedFlare).additionalDamage).toContainEqual(expect.objectContaining({
+    source: 'Propulsive Shield',
+  }))
+  expect(speed({ ...extended, feats: [...extended.feats, { name: 'Solar Wind', type: 'Class Feat', level: 8 }] }, [])).toBe(35)
+  expect(movementSpeeds({ ...extended, feats: [...extended.feats, { name: 'Defy Gravity', type: 'Class Feat', level: 8 }],
+    solarianAttunement: 'Graviton' }, [])).toContainEqual(expect.objectContaining({ name: 'Fly', feet: 25, source: 'Defy Gravity' }))
 })
 
 it('grants skill feats, senses and resistances from Pahtra and Kasatha feats', () => {

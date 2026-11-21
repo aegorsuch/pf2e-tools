@@ -2336,6 +2336,9 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
   const armorPenalty = form ? 0 : starfinderArmorPenalties(c, entries).speed
   const fortressShieldPenalty = equippedShield(c)?.name === SCALE_OF_IGROON_FORTRESS ? -10 : 0
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
+    ...(c.systems.includes('sf2e') && c.className === 'Solarian' && activeFeatsNamed(c, 'Solar Wind').length
+      && (c.solarianAttunement ?? 'Graviton') === 'Photon'
+      ? [{ source: 'Solar Wind (circumstance)', feet: 10 }] : []),
     ...(c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Briskwander Vesk'
       ? [{ source: 'Briskwander Vesk', feet: 5 }] : []),
     ...(hellknightBenefitActive(c, 'Trailblazing Stride') ? [{ source: 'Trailblazing Stride (circumstance)', feet: 10 }] : []),
@@ -2456,6 +2459,10 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     movement.push(atLandSpeed('Climb', 'Horizon Seeker Vesk'))
   }
   if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', boostingTheBasics(c) ? 20 : 10, 'Magnetic Levitators'))
+  if (c.systems.includes('sf2e') && c.className === 'Solarian' && activeFeatsNamed(c, 'Defy Gravity').length
+    && (c.solarianAttunement ?? 'Graviton') === 'Graviton') {
+    movement.push(atLandSpeed('Fly', 'Defy Gravity'))
+  }
   if (activeFeatsNamed(c, 'Soaring Armor').length && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) {
     movement.push(atLandSpeed('Fly', 'Soaring Armor'))
   }
@@ -3466,6 +3473,10 @@ export function senses(c: Character, entries: ContentEntry[]) {
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Vibration Whiskers').length) {
     addVision('Motion sense (imprecise) 30 feet', 'Vibration Whiskers')
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Melodic Adaptation').length) {
+    const rank = c.level >= 17 ? 4 : c.level >= 13 ? 3 : 1
+    addVision(`Detect magic (30-foot emanation, rank ${rank})`, 'Melodic Adaptation')
+  }
   if (activeFeatsNamed(c, 'Soulsight').length) addVision('Spiritsense (imprecise) 60 feet', 'Soulsight')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
     addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
@@ -4275,6 +4286,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
       ? ['Danger Awareness +1 circumstance against traps; circumstance bonuses do not stack.'] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Fearless').length
       ? ['Fearless: a successful save against a fear effect becomes a critical success.'] : []),
+    ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Harmonic Shielding').length
+      ? ['Harmonic Shielding: a successful save against a sonic effect becomes a critical success.'] : []),
     ...(activeFeatsNamed(c, 'Parthenogenic Hatchling').length
       ? ['Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.'] : []),
   ]
@@ -6294,10 +6307,19 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   if (entry && w.id === solarianFlare.id) {
     const attunement = c.solarianAttunement ?? 'Graviton'
+    const distant = activeFeatsNamed(c, 'Distant Flare').length > 0
+    const propulsive = activeFeatsNamed(c, 'Propulsive Shield').length > 0
+      && activeFeatsNamed(c, 'Solar Shield').length > 0
+      && c.solarianShield?.raised
+    const rangeBoost = (distant ? 15 : 0) + (propulsive ? 10 : 0)
     entry = attunement === 'Photon'
-      ? { ...entry, data: { ...entry.data, damage: '1d6 fire', range: 30, range_increment: 30 } }
+      ? { ...entry, data: { ...entry.data,
+        damage: propulsive ? '1d6 fire' : '1d6 fire',
+        range: 30 + rangeBoost, range_increment: 30 + rangeBoost } }
       : attunement === 'Graviton'
-        ? { ...entry, data: { ...entry.data, damage: '1d8 bludgeoning', range: 15, range_increment: 15 } }
+        ? { ...entry, data: { ...entry.data,
+          damage: propulsive ? '1d8 bludgeoning' : '1d8 bludgeoning',
+          range: 15 + rangeBoost, range_increment: 15 + rangeBoost } }
         : entry
   }
   if (w.id === OVERSIZED_THROW.id) {
@@ -6538,7 +6560,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...((w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon')
         && (c.solarianAttunement ?? 'Graviton') === 'Photon'
         ? [{ source: 'Photon-Attuned', value: `${Math.ceil(c.level / 2)} fire`,
-          note: 'A photon-attuned solar weapon adds fire damage equal to half your level, rounded up.' }] : [])])],
+          note: 'A photon-attuned solar weapon adds fire damage equal to half your level, rounded up.' }] : []),
+      ...(w.id === solarianFlare.id && activeFeatsNamed(c, 'Propulsive Shield').length > 0
+        && c.solarianShield?.raised
+        ? [{ source: 'Propulsive Shield',
+          value: `1 ${(c.solarianAttunement ?? 'Graviton') === 'Photon' ? 'fire' : 'bludgeoning'} per weapon damage die`,
+          note: 'Propulsive Shield adds 1 damage per solar flare damage die.' }] : [])])],
     traits: [...new Set([...(entry?.traits ?? []).filter(trait => !(c.systems.includes('sf2e')
       && c.className === 'Operative' && c.subclass === 'Sniper' && isRanged(entry)
       && String(entry?.data.weapon_group ?? '').toLowerCase() === 'sniper'
@@ -6568,6 +6595,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait))),
     criticalNote: w.id === venomousVeskJaws.id ? `${dice} persistent poison damage on a critical hit.`
       : formAttack?.data.critical_bleed ? `${formAttack.data.critical_bleed} persistent bleed on a critical hit.`
+      : w.id === solarianFlare.id && activeFeatsNamed(c, 'Propulsive Shield').length > 0
+        && c.solarianShield?.raised && (c.solarianAttunement ?? 'Graviton') === 'Photon'
+        ? '1d8 persistent fire damage on a critical hit.'
       : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Photon'
         ? '1d6 persistent fire damage on a critical hit.'
       : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Graviton'
