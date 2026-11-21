@@ -402,8 +402,9 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const aspectName = companion?.spiritAspect && knowsSpell(c, entries, 'Spirit of the Beast') ? companion.spiritAspect : undefined
   const aspectRank = Math.ceil(level / 2)
-  const aspect: AppliedAspect | undefined = c.feats.some(feat => feat.name === 'Spirit of the Alpha' && featTakenLevel(feat) <= c.level)
-    ? { name: 'Alpha', bonus: 3, saves: Object.values(SPIRIT_ASPECTS).map(a => a.save), skills: Object.values(SPIRIT_ASPECTS).flatMap(a => a.skills) }
+  const alphaKnown = c.feats.some(feat => feat.name === 'Spirit of the Alpha' && featTakenLevel(feat) <= c.level)
+  const aspect: AppliedAspect | undefined = aspectName === 'Alpha'
+    ? alphaKnown ? { name: 'Alpha', bonus: 3, saves: Object.values(SPIRIT_ASPECTS).map(a => a.save), skills: Object.values(SPIRIT_ASPECTS).flatMap(a => a.skills) } : undefined
     : aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
       saves: [SPIRIT_ASPECTS[aspectName].save], skills: SPIRIT_ASPECTS[aspectName].skills } : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)

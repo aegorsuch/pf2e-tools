@@ -230,7 +230,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'While mounted, your mount also gains the circumstance bonus to AC from your active parry.',
       { archetype: 'Cavalier', prerequisite: 'Cavalier Dedication' }),
     homebrewFeat('spirit-of-the-alpha', 'Spirit of the Alpha', 20, ['Archetype'],
-      'Your bond with your companions grants them the full might of the wild. Until your next daily preparations, each of your animal companions gains a +3 status bonus from all three aspects of Spirit of the Beast at once: Might (Fortitude saves, Athletics and Intimidation), Swiftness (Reflex saves, Acrobatics and Stealth) and Insight (Will saves, Perception and Survival).',
+      'Your bond with your companions grants them the full might of the wild. Spirit of the Beast gains a new option, Aspect of the Alpha, which lasts until your next daily preparations. It gives a +3 status bonus from all three aspects at once: Might (Fortitude saves, Athletics and Intimidation), Swiftness (Reflex saves, Acrobatics and Stealth) and Insight (Will saves, Perception and Survival).',
       { archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication' }),
     homebrewFeat('greywatch-initiate', 'Greywatch Initiate', 4, ['Gunslinger', 'Investigator', 'Ranger', 'Rare'],
       "You've received the basic training developed for all Greywatch recruits. You become an expert in Deception and gain the Face in the Crowd and Lengthy Diversion skill feats.",

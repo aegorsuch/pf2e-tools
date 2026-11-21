@@ -757,10 +757,18 @@ function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: Planne
   return replacements
 }
 
+const archetypeCache = new WeakMap<ContentEntry, { source: unknown; names: string[] }>()
+const NO_ARCHETYPES: string[] = []
+// Memoized per entry; callers treat the result as read-only
 const archetypesOf = (e?: ContentEntry): string[] => {
   const a = e?.data.archetype
-  return (Array.isArray(a) ? a : typeof a === 'string' ? a.split(',') : [])
+  if (a === undefined || a === '') return NO_ARCHETYPES
+  const cached = archetypeCache.get(e!)
+  if (cached && cached.source === a) return cached.names
+  const names = (Array.isArray(a) ? a : typeof a === 'string' ? a.split(',') : [])
     .flatMap((name) => typeof name === 'string' && name.trim() ? [name.trim()] : [])
+  archetypeCache.set(e!, { source: a, names })
+  return names
 }
 const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase() === 'dedication')
 
@@ -774,6 +782,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
   const dedications = taken.filter(({ entry }) => isDedication(entry))
   const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
   let availableDedications: ContentEntry[] | undefined
+  let dedicationsByArchetype: Map<string, ContentEntry[]> | undefined
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
@@ -781,7 +790,12 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
     if (!isDedication(e)) {
       if (dedications.some(({ entry }) => shares(entry))) return []
       availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
-      const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
+      dedicationsByArchetype ??= availableDedications.reduce((map, dedication) => {
+        for (const name of archetypesOf(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
+        return map
+      }, new Map<string, ContentEntry[]>())
+      const names = [...new Set(availableDedications.filter((dedication) => archetypes.some(name => dedicationsByArchetype!.get(name)?.includes(dedication)))
+        .map((dedication) => dedication.name))]
       return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
     }
     if (ignoreDedicationLock || getSettings().ignoreArchetypeFeatMinimums) return []

@@ -667,10 +667,11 @@ describe('animal companions', () => {
     if (stealth()) expect(stealth('Swiftness')).toBe(stealth()! + 1)
   })
 
-  it('applies every aspect at +3 with Spirit of the Alpha', () => {
-    const c = { ...base, level: 20, feats: [feat('Spirit of the Alpha', undefined, 'archetype:20:0')], companions: [{ id: 'a', name: '', type: 'Bear' }] }
+  it('applies every aspect at +3 with Aspect of the Alpha', () => {
+    const c = { ...base, level: 20, spells: [{ name: 'Spirit of the Beast', rank: 1, level: 1 }] as never, feats: [feat('Spirit of the Alpha', undefined, 'archetype:20:0')], companions: [{ id: 'a', name: '', type: 'Bear', spiritAspect: 'Alpha' as const }] }
     const alpha = companionStats(c, [bear], 'Bear', undefined, 'a')!
-    const none = companionStats({ ...c, feats: [] }, [bear], 'Bear', undefined, 'a')!
+    const none = companionStats({ ...c, companions: [{ id: 'a', name: '', type: 'Bear' }] }, [bear], 'Bear', undefined, 'a')!
+    expect(companionStats({ ...c, feats: [] }, [bear], 'Bear', undefined, 'a')!.fortitude).toBe(none.fortitude)
     expect([alpha.fortitude - none.fortitude, alpha.reflex - none.reflex, alpha.will - none.will, alpha.perception - none.perception]).toEqual([3, 3, 3, 3])
     expect(alpha.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 3)
   })

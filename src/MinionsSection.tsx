@@ -207,6 +207,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     : entries
   const types = companionEntries.filter((e) => e.kind === 'companion' && !e.deleted).sort((a, b) => a.name.localeCompare(b.name))
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
+  const hasAlpha = activeFeatsNamed(c, 'Spirit of the Alpha').length > 0
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
     || activeFeatsNamed(c, 'Animal Companion').length > 0
     || activeFeatsNamed(c, 'Animal Trainer Dedication').length > 0
@@ -333,11 +334,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
                 ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element:
                   <SearchableSelect aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
-                    const choice = (['Might', 'Swiftness', 'Insight'] as const).find(aspect => aspect === event.target.value)
+                    const choice = (['Might', 'Swiftness', 'Insight', 'Alpha'] as const).find(aspect => aspect === event.target.value)
                     update(comp.id, { spiritAspect: choice })
                   }}>
                     <option value="">Spirit of the Beast…</option>
-                    {['Insight', 'Might', 'Swiftness'].map(aspect => <option key={aspect} value={aspect}>Aspect of {aspect}</option>)}
+                    {['Insight', 'Might', 'Swiftness', ...(hasAlpha ? ['the Alpha'] : [])].map(aspect => <option key={aspect} value={aspect === 'the Alpha' ? 'Alpha' : aspect}>Aspect of {aspect}</option>)}
                   </SearchableSelect> }] : []),
                 ...(stats?.peerlessMascot ? [{ name: 'Banner affixed', element: <label><input type="checkbox"
                   aria-label={`Banner affixed to ${comp.name || comp.type}`} checked={!!comp.mascotBannerAffixed}
