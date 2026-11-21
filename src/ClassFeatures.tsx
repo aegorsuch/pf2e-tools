@@ -73,6 +73,50 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       {!imported && <p>Class feature data is still loading.</p>}
       <MechanicFeatures c={c} save={save} />
       <WitchwarperFeatures c={c} save={save} />
+      {(c.className === 'Solarian' || activeFeatsNamed(c, 'Solarian Dedication').length > 0) && <div className="col" aria-label="Solarian manifestations">
+        <label>Attunement{' '}
+          <select aria-label="Solarian attunement" value={c.solarianAttunement ?? 'Graviton'}
+            onChange={event => {
+              const value = event.target.value
+              if (value === 'Graviton' || value === 'Photon' || value === 'Unattuned')
+                save({ solarianAttunement: value })
+            }}>
+            <option>Graviton</option>
+            <option>Photon</option>
+            <option>Unattuned</option>
+          </select>
+        </label>
+        {c.solarianAttunement !== 'Unattuned' && <>
+          <label>Solar Weapon damage{' '}
+            <select aria-label="Solar Weapon damage type" value={c.solarianWeapon?.damageType ?? 'Bludgeoning'}
+              onChange={event => save({ solarianWeapon: { ...c.solarianWeapon, damageType: event.target.value as 'Bludgeoning' | 'Piercing' | 'Slashing' } })}>
+              <option>Bludgeoning</option><option>Piercing</option><option>Slashing</option>
+            </select>
+          </label>
+          <label>Solar Weapon group{' '}
+            <select aria-label="Solar Weapon weapon group" value={c.solarianWeapon?.weaponGroup ?? 'Brawling'}
+              onChange={event => save({ solarianWeapon: { damageType: c.solarianWeapon?.damageType ?? 'Bludgeoning', ...c.solarianWeapon, weaponGroup: event.target.value } })}>
+              {['Axe', 'Brawling', 'Club', 'Flail', 'Knife', 'Pick', 'Polearm', 'Shield', 'Spear', 'Sword'].map(name =>
+                <option key={name}>{name}</option>)}
+            </select>
+          </label>
+          {activeFeatsNamed(c, 'Twin Weapons').length > 0 && <>
+            <label>Twin Solar Weapon damage{' '}
+              <select aria-label="Twin Solar Weapon damage type" value={c.solarianTwinWeapon?.damageType ?? 'Bludgeoning'}
+                onChange={event => save({ solarianTwinWeapon: { ...c.solarianTwinWeapon, damageType: event.target.value as 'Bludgeoning' | 'Piercing' | 'Slashing' } })}>
+                <option>Bludgeoning</option><option>Piercing</option><option>Slashing</option>
+              </select>
+            </label>
+            <label>Twin Solar Weapon group{' '}
+              <select aria-label="Twin Solar Weapon weapon group" value={c.solarianTwinWeapon?.weaponGroup ?? 'Brawling'}
+                onChange={event => save({ solarianTwinWeapon: { damageType: c.solarianTwinWeapon?.damageType ?? 'Bludgeoning', ...c.solarianTwinWeapon, weaponGroup: event.target.value } })}>
+                {['Axe', 'Brawling', 'Club', 'Flail', 'Knife', 'Pick', 'Polearm', 'Shield', 'Spear', 'Sword'].map(name =>
+                  <option key={name}>{name}</option>)}
+              </select>
+            </label>
+          </>}
+        </>}
+      </div>}
       {giant && <div className="col" aria-label="Giant Instinct">
         {weaponChoice('Giant Instinct weapon', c.giantWeaponId, weapon => canBeGiantWeapon(c, entries, weapon),
           id => save({ giantWeaponId: id || undefined }))}

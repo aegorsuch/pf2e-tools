@@ -195,6 +195,18 @@ export interface Character {
   monthlyFeatUses?: Record<string, boolean>
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string
+  solarianAttunement?: 'Graviton' | 'Photon' | 'Unattuned'
+  solarianWeapon?: {
+    damageType: 'Bludgeoning' | 'Piercing' | 'Slashing'
+    traits?: string[]
+    weaponGroup?: string
+  }
+  solarianTwinWeapon?: {
+    damageType: 'Bludgeoning' | 'Piercing' | 'Slashing'
+    traits?: string[]
+    weaponGroup?: string
+  }
+  solarianShield?: { equipped?: boolean; raised?: boolean; damage?: number }
   // Druidic order, which grants a skill
   order?: string
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)

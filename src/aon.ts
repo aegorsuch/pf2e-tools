@@ -135,6 +135,58 @@ function heritageResistances(markdown: string) {
   return [...grants]
 }
 
+function featAttackEntries(feat: ContentEntry, markdown: string): ContentEntry[] {
+  if (feat.name === 'Ancestral Unarmed Attack') return []
+  const sentences = plain(markdown).split(/(?<=[.!?])\s+/)
+  const entries: ContentEntry[] = []
+  const damageTypes = 'acid|bludgeoning|cold|electricity|fire|force|mental|negative|piercing|poison|slashing|sonic|spirit|vitality|void'
+  const addAttack = (attackName: string, dice: string, damageType: string, group: string, traits: string[], ranged: boolean, range: number, description: string) => {
+    const name = attackName.replace(/\b\w/g, value => value.toUpperCase())
+    const id = `${feat.id}:attack:${attackName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+    if (entries.some(entry => entry.id === id)) return
+    const weaponTraits = [...new Set(traits.map(trait => trait[0].toUpperCase() + trait.slice(1).toLowerCase()))]
+    if (!weaponTraits.some(trait => trait.toLowerCase() === 'unarmed')) weaponTraits.push('Unarmed')
+    entries.push({
+      id,
+      systems: feat.systems,
+      kind: 'weapon',
+      source: 'official',
+      name,
+      level: feat.level,
+      traits: weaponTraits,
+      description,
+      data: {
+        weapon_category: 'Unarmed',
+        weapon_type: ranged ? 'Ranged' : 'Melee',
+        weapon_group: group[0].toUpperCase() + group.slice(1),
+        hands: 0,
+        damage: `${dice} ${damageType}`,
+        ...(range ? { range, range_increment: range } : {}),
+        granted_by_feat: feat.name,
+        granted_by_feat_choice: attackName,
+      },
+      effects: [],
+      updatedAt: feat.updatedAt,
+    })
+  }
+  for (const sentence of sentences) {
+    const match = /\b(?:you\s+)?(?:gain|gains|grants?|granted)\s+(?:a|an)\s+([a-z][a-z -]*?)\s+(?:(ranged|melee)\s+)?unarmed attack\b/i.exec(sentence)
+    if (!match || /\b(?:if|when|while|unless)\b/i.test(sentence)) continue
+    const damage = new RegExp(`\\bdeals?\\s+(\\d+d\\d+)\\s+(${damageTypes})(?:\\s+damage)?\\b`, 'i').exec(sentence)
+      ?? new RegExp(`\\b(\\d+d\\d+)\\s+(${damageTypes})\\s+damage\\b`, 'i').exec(sentence)
+    if (!damage) continue
+    const attackName = match[1].trim()
+    const group = /\bin the ([a-z -]+?) (?:weapon )?group\b/i.exec(sentence)?.[1] ?? 'Brawling'
+    const traitMatch = /\b(?:has|have)\s+(?:the\s+)?([^.]+?)\s+traits?\b/i.exec(sentence)?.[1]
+      ?? /\band\s+has\s+(?:the\s+)?([^.]+?)(?:\s+traits?)\b/i.exec(sentence)?.[1]
+    const traits = (traitMatch ?? '').split(/,\s*|\s+and\s+/i).map(trait => trait.trim()).filter(Boolean)
+    const range = Number(/\brange(?: increment)?(?:\s+of)?\s+(\d+)\s+feet\b/i.exec(sentence)?.[1] ?? 0)
+    addAttack(attackName, damage[1], damage[2], group, traits,
+      match[2]?.toLowerCase() === 'ranged' || range > 0, range, sentence)
+  }
+  return entries
+}
+
 function heritageAttackEntries(heritage: ContentEntry, markdown: string): ContentEntry[] {
   if (heritage.name === 'Fork-Tongued Vesk') return []
   const sentences = plain(markdown).split(/(?<=[.!?])\s+/)
@@ -427,6 +479,7 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
     } else if (adjusted.kind === 'background') entries.push(...backgroundEntries(adjusted, text(h._source?.markdown)))
     else {
       entries.push(adjusted)
+      if (adjusted.kind === 'feat') entries.push(...featAttackEntries(adjusted, text(h._source?.markdown)))
       if (adjusted.kind === 'heritage') entries.push(...heritageAttackEntries(adjusted, text(h._source?.markdown)))
     }
   }

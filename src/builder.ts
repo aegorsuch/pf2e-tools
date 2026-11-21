@@ -406,6 +406,18 @@ export function canInstallAugmentation(c: Character, entry: ContentEntry, slot: 
   if (augmentationExemption(entry)) return true
   return slot === 'standard' && augmentationLimitUsed(c) < augmentationLimit(c)
 }
+export function solarianShield(c: Character): OwnedShield | undefined {
+  if (!activeFeatsNamed(c, 'Solar Shield').length) return undefined
+  return {
+    id: 'granted-shield:solarian',
+    name: 'Solar Shield',
+    hardness: Math.ceil(c.level / 2),
+    hp: 5 + 2 * c.level,
+    damage: c.solarianShield?.damage ?? 0,
+    raised: c.solarianAttunement !== 'Unattuned' && !!c.solarianShield?.raised,
+    equipped: c.solarianAttunement !== 'Unattuned' && (c.solarianShield?.equipped ?? true),
+  }
+}
 export function hardwoodShield(c: Character): OwnedShield | undefined {
   if (!hardwoodHasShield(c)) return undefined
   const increments = Math.floor((c.level - 1) / 3)
@@ -435,12 +447,13 @@ export function inventorBuckler(c: Character): OwnedShield | undefined {
     attachedWeapon: c.inventorBuckler?.attachedWeapon }
 }
 export function ownedShields(c: Character): OwnedShield[] {
-  return [c.shield, hardwoodShield(c), inventorBuckler(c)].filter((shield): shield is OwnedShield => !!shield)
+  return [c.shield, hardwoodShield(c), inventorBuckler(c), solarianShield(c)].filter((shield): shield is OwnedShield => !!shield)
 }
 export function shieldChange(c: Character, shield: OwnedShield,
   patch: Partial<Pick<OwnedShield, 'equipped' | 'raised' | 'takingCover' | 'damage' | 'reinforcingRune' | 'attachedWeapon'>>): Partial<Character> {
   if (shield.id === 'granted-shield:hardwood') return { hardwoodShield: { ...c.hardwoodShield, ...patch } }
   if (shield.id === 'granted-shield:inventor') return { inventorBuckler: { ...c.inventorBuckler, ...patch } }
+  if (shield.id === 'granted-shield:solarian') return { solarianShield: { ...c.solarianShield, ...patch } }
   return { shield: { ...shield, ...patch } }
 }
 type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
@@ -513,7 +526,7 @@ export function raisedShieldBonus(c: Character, entries: ContentEntry[]) {
   if (!shield) return 0
   const entry = shieldEntry(entries, shield.name)
   const bonus = num(entry?.data.ac)
-  const normal = bonus > 0 ? bonus : isBucklerShield(shield.name) ? 1 : 2
+  const normal = bonus > 0 ? bonus : shield.name === 'Solar Shield' || isBucklerShield(shield.name) ? 1 : 2
   const elegant = isBucklerShield(shield.name) && normal === 1 && activeFeatsNamed(c, 'Elegant Buckler').length ? 1 : 0
   return normal + elegant
 }
@@ -1378,6 +1391,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
         { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level, sourceId: e.id }))
       && !(e.id === 'homebrew:bony-plates' && c.ancestry === 'Lizardfolk' && c.heritage === 'Bakuwa Lizardfolk')
+      && !(e.name === 'Ancestral Darkvision' && c.systems.includes('sf2e') && ancestryFeatTraits(c).includes('pahtra'))
       && !(e.name === 'Ancestral Unarmed Attack' && (traits.has('ancestry') && redundantUnarmedTraits.size
         || [...redundantUnarmedTraits].some(ancestry => traits.has(ancestry)))
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
@@ -3468,6 +3482,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
       Maraquoi: 'Dermal Hearing (imprecise) 30 feet',
       Moyishuu: 'Emotionsense (imprecise) 20 feet',
       Talphi: 'Scent (imprecise) 30 feet',
+      Pahtra: 'Darkvision',
     }
     if (c.ancestry && native[c.ancestry]) addVision(native[c.ancestry], c.ancestry)
     if (c.ancestry === 'Ysoki' && c.heritage === 'Longsnout Ysoki') addVision('Scent (imprecise) 30 feet', c.heritage)
@@ -4724,6 +4739,20 @@ const veskAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:vesk:tail', name: 'Tail', systems: ['sf2e'],
     traits: ['Sweep', 'Trip', 'Unarmed', 'Vesk'], data: { ...FIST.data, damage: '1d6 bludgeoning' } },
 ]
+const solarianFlare: ContentEntry = {
+  ...FIST, id: 'sf2e:solarian:flare', name: 'Solar Flare', systems: ['sf2e'],
+  source: 'official', level: 1, traits: ['Attuned', 'Martial', 'Solarian'],
+  data: { ...FIST.data, weapon_category: 'Martial', weapon_group: 'Brawling', weapon_type: 'Ranged',
+    damage: '1d8 bludgeoning', hands: 0, range: 15, range_increment: 15 },
+}
+const solarianWeaponEntry = (twin = false): ContentEntry => ({
+  ...FIST, id: twin ? 'sf2e:solarian:twin-weapon' : 'sf2e:solarian:solar-weapon',
+  name: twin ? 'Twin Solar Weapon' : 'Solar Weapon', systems: ['sf2e'],
+  source: 'official', level: 1, traits: ['Attuned', 'Martial', 'Solarian', ...(twin ? ['Agile', 'Twin'] : [])],
+  data: { ...FIST.data, weapon_category: 'Martial', weapon_group: 'Brawling', weapon_type: 'Melee',
+    damage: '1d8 bludgeoning', hands: 1 },
+})
+
 const pahtraAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:pahtra:claw', name: 'Claw', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Pahtra', 'Unarmed'], data: { ...FIST.data, damage: '1d6 slashing' } },
@@ -5027,6 +5056,54 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && entry.systems.some(system => c.systems.includes(system)))) {
     if (!weapons.some(weapon => weapon.id === entry.id)) {
       weapons.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
+    }
+  }
+  const featAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
+    && typeof entry.data.granted_by_feat === 'string')
+  for (const entry of featAttacks) {
+    if (!entry.systems.some(system => c.systems.includes(system))) continue
+    const featName = String(entry.data.granted_by_feat)
+    const selectedFeat = activeFeatsNamed(c, featName).find(feat =>
+      !entry.data.granted_by_feat_choice
+      || !feat.choice
+      || feat.choice.toLowerCase().replace(/s$/, '') === String(entry.data.granted_by_feat_choice).toLowerCase().replace(/s$/, '')
+      || feat.choice.toLowerCase() === entry.name.toLowerCase())
+    if (!selectedFeat) continue
+    if (!weapons.some(weapon => weapon.id === entry.id || weapon.name === entry.name)) {
+      weapons.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
+    }
+  }
+  const solarian = c.className === 'Solarian'
+  const dedication = activeFeatsNamed(c, 'Solarian Dedication').length > 0
+  const attunement = c.solarianAttunement ?? 'Graviton'
+  if ((solarian || dedication) && attunement !== 'Unattuned') {
+    const primaryConfig = c.solarianWeapon
+    const primary = { ...solarianWeaponEntry(false),
+      traits: ['Attuned', 'Martial', 'Solarian', ...(primaryConfig?.traits ?? [])],
+      data: { ...solarianWeaponEntry(false).data,
+        damage: `1d8 ${primaryConfig?.damageType?.toLowerCase() ?? 'bludgeoning'}`,
+        weapon_group: primaryConfig?.weaponGroup ?? 'Brawling' } }
+    if (!weapons.some(weapon => weapon.id === primary.id)) {
+      weapons.push({ id: primary.id, name: primary.name, potency: 0, striking: 0, runes: [] })
+    }
+    if (solarian && activeFeatsNamed(c, 'Twin Weapons').length > 0) {
+      const twinConfig = c.solarianTwinWeapon
+      const twin = { ...solarianWeaponEntry(true),
+        traits: ['Attuned', 'Martial', 'Solarian', 'Agile', 'Twin', ...(twinConfig?.traits ?? [])],
+        data: { ...solarianWeaponEntry(true).data,
+          damage: `1d8 ${twinConfig?.damageType?.toLowerCase() ?? 'bludgeoning'}`,
+          weapon_group: twinConfig?.weaponGroup ?? 'Brawling' } }
+      if (!weapons.some(weapon => weapon.id === twin.id)) {
+        weapons.push({ id: twin.id, name: twin.name, potency: 0, striking: 0, runes: [] })
+      }
+    }
+    if (solarian || activeFeatsNamed(c, 'Solar Flare').length > 0) {
+      const flare = attunement === 'Photon'
+        ? { ...solarianFlare, data: { ...solarianFlare.data, damage: '1d6 fire', range: 30, range_increment: 30 } }
+        : solarianFlare
+      if (!weapons.some(weapon => weapon.id === flare.id)) {
+        weapons.push({ id: flare.id, name: flare.name, potency: 0, striking: 0, runes: [] })
+      }
     }
   }
   for (const grant of dwarfClanWeaponGrants(c, entries)) {
@@ -5358,6 +5435,8 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
   || entries.some(entry => entry.kind === 'weapon' && entry.data.granted_by_heritage
     && (id ? entry.id === id : entry.name === name))
+  || entries.some(entry => entry.kind === 'weapon' && entry.data.granted_by_feat
+    && (id ? entry.id === id : entry.name === name))
   || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
 export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
   let entry = resolveWeaponEntry(entries, name, id)
@@ -5387,6 +5466,9 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
+  if (id === solarianFlare.id || name === solarianFlare.name) return solarianFlare
+  if (id === 'sf2e:solarian:solar-weapon' || name === 'Solar Weapon') return solarianWeaponEntry(false)
+  if (id === 'sf2e:solarian:twin-weapon' || name === 'Twin Solar Weapon') return solarianWeaponEntry(true)
   const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
   if (jaws) return jaws
   const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
@@ -6198,6 +6280,26 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (sparkFist && (activeFeatsNamed(c, 'Iron Fists').length || activeFeatsNamed(c, 'Iron Fist').length) && entry) {
     entry = { ...entry, traits: [...new Set([...entry.traits, 'Shove'])] }
   }
+  if (entry && w.id === 'sf2e:solarian:solar-weapon') {
+    const config = c.solarianWeapon
+    entry = { ...entry, traits: [...new Set([...entry.traits, ...(config?.traits ?? [])])],
+      data: { ...entry.data, weapon_group: config?.weaponGroup ?? 'Brawling',
+        damage: `1d8 ${config?.damageType?.toLowerCase() ?? 'bludgeoning'}` } }
+  }
+  if (entry && w.id === 'sf2e:solarian:twin-weapon') {
+    const config = c.solarianTwinWeapon
+    entry = { ...entry, traits: [...new Set([...entry.traits, 'Agile', 'Twin', ...(config?.traits ?? [])])],
+      data: { ...entry.data, weapon_group: config?.weaponGroup ?? 'Brawling',
+        damage: `1d8 ${config?.damageType?.toLowerCase() ?? 'bludgeoning'}` } }
+  }
+  if (entry && w.id === solarianFlare.id) {
+    const attunement = c.solarianAttunement ?? 'Graviton'
+    entry = attunement === 'Photon'
+      ? { ...entry, data: { ...entry.data, damage: '1d6 fire', range: 30, range_increment: 30 } }
+      : attunement === 'Graviton'
+        ? { ...entry, data: { ...entry.data, damage: '1d8 bludgeoning', range: 15, range_increment: 15 } }
+        : entry
+  }
   if (w.id === OVERSIZED_THROW.id) {
     const specialization = classFeatures(entries, c).map((feature) => feature.name.toLowerCase())
     const simpleSpecialization = c.className === 'Barbarian' && c.level >= 7
@@ -6432,7 +6534,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(bestial && traits.includes('venomous') ? [{ source: 'Venomous', value: `${w.striking >= 2 ? 2 : 1} persistent poison`,
         note: 'Persistent poison from a venomous unarmed attack.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
-        note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : [])])],
+        note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : []),
+      ...((w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon')
+        && (c.solarianAttunement ?? 'Graviton') === 'Photon'
+        ? [{ source: 'Photon-Attuned', value: `${Math.ceil(c.level / 2)} fire`,
+          note: 'A photon-attuned solar weapon adds fire damage equal to half your level, rounded up.' }] : [])])],
     traits: [...new Set([...(entry?.traits ?? []).filter(trait => !(c.systems.includes('sf2e')
       && c.className === 'Operative' && c.subclass === 'Sniper' && isRanged(entry)
       && String(entry?.data.weapon_group ?? '').toLowerCase() === 'sniper'
@@ -6456,11 +6562,16 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
       || c.level >= 5 && veskAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Brutal Anatomy').length > 0
       || c.level >= 5 && pahtraAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Predatory').length > 0
+      || c.level >= 7 && (w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon' || w.id === solarianFlare.id)
       || c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 5 && rank >= 2
       || c.systems.includes('sf2e') && c.className === 'Mechanic' && c.level >= 5 && rank >= 2
       || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait))),
     criticalNote: w.id === venomousVeskJaws.id ? `${dice} persistent poison damage on a critical hit.`
       : formAttack?.data.critical_bleed ? `${formAttack.data.critical_bleed} persistent bleed on a critical hit.`
+      : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Photon'
+        ? '1d6 persistent fire damage on a critical hit.'
+      : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Graviton'
+        ? 'Attempt to Trip the target as a free action, even without a free hand or adjacency.'
       : cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
     ability,
     mod,

@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -194,7 +194,7 @@ it('applies Android heritage attributes, training, fixed skill feats and Nightvi
 })
 
 it('automates Pahtra and Kasatha ancestry feats', () => {
-  const names = ['Predatory', 'Climbing Claws', 'Remix World\'s Rhythm', 'Adat Training', 'A Little Piece of Home', 'Pahtra Lore', 'Harmonic Shielding']
+  const names = ['Predatory', 'Climbing Claws', 'Remix World\'s Rhythm', 'Adat Training', 'A Little Piece of Home', 'Pahtra Lore', 'Harmonic Shielding', 'Ancestral Darkvision']
   const feats = mapAonHits(hits.filter(hit => hit._source?.category === 'feat' && names.includes(String(hit._source?.name))
     && (hit._source?.trait as string[] | undefined)?.some(trait => ['Pahtra', 'Kasatha'].includes(trait))), 'sf2e')
   const spells = ['Haste', 'Slow', 'Holographic Memory', 'Void Whispers', 'Verdant Code'].map((name): ContentEntry => ({
@@ -208,11 +208,39 @@ it('automates Pahtra and Kasatha ancestry feats', () => {
   expect(ownedWeapons(pahtra, catalog).some(weapon => weapon.id === 'sf2e:pahtra:claw')).toBe(false)
   expect(movementSpeeds(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: speed(pahtra, catalog) }))
   expect(automaticFeatGrants(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Additional Lore', choice: 'Pahtra' }))
+  expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{ value: 'Darkvision', source: 'Pahtra' }]))
+  expect(eligibleFeats(catalog, pahtra, { key: 'ancestry:13:0', category: 'ancestry', level: 13 }).map(feat => feat.name))
+    .not.toContain('Ancestral Darkvision')
   const casters: Character = { ...base, ancestry: 'Kasatha', level: 13,
     feats: [taken('Remix World\'s Rhythm'), taken('Adat Training'), taken('A Little Piece of Home')] }
   expect(grantedFeatSpells(casters, catalog).map(grant => [grant.entry.name, grant.rule.tradition, grant.rule.frequency]).sort()).toEqual([
     ['Haste', 'primal', 'once per day'], ['Holographic Memory', 'divine', 'once per day'], ['Slow', 'primal', 'once per day'],
     ['Verdant Code', 'arcane', 'once per hour'], ['Void Whispers', 'divine', 'once per day']])
+})
+
+it('provides Solarian attunement, solar weapons, twin weapons, flare, and Solar Shield', () => {
+  const solarian: Character = { ...base, ancestry: 'Human', className: 'Solarian', level: 5,
+    solarianAttunement: 'Photon',
+    solarianWeapon: { damageType: 'Slashing', weaponGroup: 'Sword' },
+    feats: [{ name: 'Twin Weapons', type: 'Class Feat', level: 1 },
+      { name: 'Solar Shield', type: 'Class Feat', level: 1 }] }
+  const weapons = ownedWeapons(solarian, [])
+  expect(weapons.map(weapon => weapon.name)).toEqual(expect.arrayContaining(['Solar Weapon', 'Twin Solar Weapon', 'Solar Flare']))
+  const weapon = weapons.find(item => item.name === 'Solar Weapon')!
+  const weaponAttackResult = weaponAttack(solarian, [], weapon)
+  expect(weaponAttackResult.damage).toBe('1d8 slashing')
+  expect(weaponAttackResult.additionalDamage).toEqual(expect.arrayContaining([
+    expect.objectContaining({ source: 'Photon-Attuned', value: '3 fire' }),
+  ]))
+  const flare = weapons.find(item => item.name === 'Solar Flare')!
+  expect(weaponAttack(solarian, [], flare)).toMatchObject({ damage: '1d6 fire', criticalNote: '1d6 persistent fire damage on a critical hit.' })
+  const shield = ownedShields(solarian).find(item => item.name === 'Solar Shield')!
+  expect(shield).toMatchObject({ hardness: 3, hp: 15, equipped: true })
+  expect(shieldAcBonus({ ...solarian, solarianShield: { ...solarian.solarianShield, raised: true } }, [])).toBe(1)
+  expect(shieldRaisedChange({ ...solarian, solarianShield: { raised: false } }, true)).toMatchObject({
+    solarianShield: expect.objectContaining({ raised: true }),
+  })
+  expect(ownedWeapons({ ...solarian, solarianAttunement: 'Unattuned' }, []).some(item => item.name === 'Solar Weapon')).toBe(false)
 })
 
 it('grants skill feats, senses and resistances from Pahtra and Kasatha feats', () => {
