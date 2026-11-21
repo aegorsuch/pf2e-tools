@@ -553,6 +553,21 @@ function DirgeIcon() {
   </svg>
 }
 
+function SignatureCast({ name, baseRank, slots, spent, onCast }: { name: string; baseRank: number
+  slots: Record<number, number>; spent: string[]; onCast: (key: string) => void }) {
+  const ranks = Object.keys(slots).map(Number).filter(value => value > 0 && value >= baseRank && slots[value] > 0)
+  const [chosen, setChosen] = useState(baseRank)
+  const rank = ranks.includes(chosen) ? chosen : ranks[0] ?? baseRank
+  const free = Array.from({ length: slots[rank] ?? 0 }, (_, index) => `${rank}:${index}`).find(key => !spent.includes(key))
+  return <>
+    <button type="button" disabled={!free} aria-label={`Cast signature spell ${name} at rank ${rank}`}
+      onClick={() => free && onCast(free)}>Cast</button>
+    <select aria-label={`Cast rank for ${name}`} value={rank} onChange={event => setChosen(Number(event.target.value))}>
+      {ranks.map(value => <option key={value} value={value}>Rank {value}</option>)}
+    </select>
+  </>
+}
+
 export function DirgeRankButton({ rank, onOpen }: { rank: number; onOpen: (rank: number) => void }) {
   const label = rank === 0 ? 'Open Dirge cantrips' : `Open Dirge rank ${rank}`
   return <button type="button" className="dirge-rank-button" aria-label={label} title={label}
@@ -1372,6 +1387,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const selectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
               const valid = !!selectedOption
+              const signature = bard && c.level >= 3 && !cantrip && valid
+                && (!!extra || activeFeatsNamed(c, 'Ultimate Polymath').length > 0 || sc.signatureSpells?.[rank] === slotKey)
               const displayedSelection = preparedClass && selectedOption && selectedValue === selectedOption.name
                 ? { ...selectedOption, entryId: undefined } : selectedOption
               const slotOptions = extra ? options.filter(option => option.name === extra.spell)
@@ -1380,11 +1397,21 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const showOptions = slotOptions.length <= 10 || preparedSlot === slotKey
               return <li className="spellbook-row" key={slotKey}>
                 <div className="spellbook-slot">
-                  {!cantrip && <button type="button" disabled={!valid || spent || exhausted} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
+                  {signature && automaticSlots && selectedOption
+                    ? <SignatureCast name={selectedOption.name} baseRank={selectedOption.baseRank} slots={automaticSlots}
+                      spent={sc.spentSlots ?? []} onCast={key => setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), key])] })} />
+                    : !cantrip && <button type="button" disabled={!valid || spent || exhausted} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
                     onClick={() => {
                       if (!valid || spent || exhausted) return
                       setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), slotKey])] })
                     }}>Cast</button>}
+                  {bard && c.level >= 3 && !cantrip && valid && !extra && !activeFeatsNamed(c, 'Ultimate Polymath').length
+                    && <button type="button" className={signature ? 'on' : ''} aria-pressed={signature}
+                      aria-label={`Signature spell rank ${rank} choice ${index + 1}`} onClick={() => {
+                        const select = () => setSc({ signatureSpells: { ...sc.signatureSpells, [rank]: signature ? '' : slotKey } })
+                        if (signature) confirmRemoval(`signature spell "${selectedEntry?.name ?? selectedValue}"`, select)
+                        else select()
+                      }}>Signature</button>}
                   {selectedValue ? <SelectedSlotSpell name={selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}
                     entry={selectedEntry} disabled={spent} source={extra?.source}
                     heightened={!cantrip && selectedOption ? Math.max(0, rank - selectedOption.baseRank) : 0}
