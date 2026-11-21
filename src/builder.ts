@@ -1418,14 +1418,20 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = 
   "Diplomat's Facade": { skill: 'Deception', feat: 'Lie to Me' },
   'Broken Hand Technique': { skill: 'Athletics', feat: 'Titan Wrestler' },
   Spelunker: { skill: 'Acrobatics', feat: 'Quick Squeeze' },
+  'Adroit Manipulation': { skill: 'Thievery' },
+  Innocuous: { skill: 'Deception' },
+  'Prairie Rider': { skill: 'Nature' },
 }
 const SKILLS_TAB_ANCESTRY_GRANTS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
-  'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker']
-export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication']
+  'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
+  'Adroit Manipulation', 'Innocuous', 'Prairie Rider']
+export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
+  'Adroit Manipulation', 'Innocuous', 'Prairie Rider']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
-  const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears', 'Sociable'].includes(name)
+  const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
+    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider'].includes(name)
     ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined
   const source = selectedFeatEntry(c, entries, name)
@@ -2555,6 +2561,20 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  if (c.level >= 1 && c.systems.includes('pf2e') && ['Bard', 'Oracle'].includes(c.className ?? '')) {
+    const subclass = selectedSubclass(c, entries)
+    const subclasses = [subclass, ...(c.className === 'Bard' ? active
+      .filter(feat => feat.name === 'Multifarious Muse' && feat.choice)
+      .map(feat => feat.choice) : [])]
+    for (const name of new Set(subclasses.filter((value): value is string => !!value))) {
+      const source = entries.find(entry => entry.kind === 'subclass' && !entry.deleted
+        && entry.data.class === c.className && entry.name === name
+        && entry.systems.includes('pf2e'))
+      if (typeof source?.data.grants_focus_spells === 'string') {
+        add(source.data.grants_focus_spells, `${name} ${c.className === 'Bard' ? 'muse' : 'mystery'}`)
+      }
+    }
+  }
   if (c.className === 'Necromancer' && c.systems.includes('pf2e') && c.level >= 1) {
     add('Necrotic Bomb', 'Grave Spells')
     const fascination = subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries))
@@ -2888,9 +2908,10 @@ export function clanLoreLabel(clan: string) {
 
 export function loreReplacementChoices(c: Character, entries: ContentEntry[], index: number) {
   const feat = c.feats[index]
-  if (!feat || !['Clan Lore', 'Dwarven Lore'].includes(feat.name)) return []
+  if (!feat || !['Clan Lore', 'Dwarven Lore', 'Halfling Lore'].includes(feat.name)) return []
   const skills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
-    : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
+    : feat.name === 'Halfling Lore' ? ancestryLoreGrant(c, entries, feat.name)?.skills ?? []
+      : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
   const ranks = ancestrySkillBefore(c, entries, index)
   const trained = skills.filter(skill => (ranks[skill] ?? 0) > 0)
   const available = statDefs(c).filter(stat => stat.kind === 'skill' && !(ranks[stat.name] ?? 0)).map(stat => stat.name)
@@ -2936,7 +2957,7 @@ export function normalizeConditionalSkillChoices(c: Character, entries: ContentE
   }
   const feats = c.feats.map((feat, index) => {
     if (featTakenLevel(feat) > c.level) return feat
-    if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
+    if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || feat.name === 'Halfling Lore') {
       const replacements = [...(feat.replacements ?? [])]
       loreReplacementChoices(c, entries, index).forEach((row, i) => {
         if (row.value && row.options.includes(row.value)) {
@@ -3067,7 +3088,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   })
   c.feats.forEach((feat, index) => {
     if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name) && !ancestryLoreGrant(c, entries, feat.name)) return
-    const simpleSkills = feat.name === 'Dwarven Lore' || feat.name === 'Lizardfolk Lore' ? undefined
+    const simpleSkills = feat.name === 'Dwarven Lore' || feat.name === 'Lizardfolk Lore' || feat.name === 'Halfling Lore' ? undefined
       : ancestryLoreGrant(c, entries, feat.name)?.skills ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
     if (simpleSkills && feat.name !== 'Pick On Someone My Size') {
       trained.push(...simpleSkills)
@@ -3076,9 +3097,10 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if (simpleSkills) {
       if (feat.name !== 'Pick On Someone My Size' || !ranks.Intimidation) trained.push(...simpleSkills)
-    } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore') {
+    } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || feat.name === 'Halfling Lore') {
       const baseSkills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
-        : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
+        : feat.name === 'Halfling Lore' ? ancestryLoreGrant(c, entries, feat.name)?.skills ?? []
+          : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
       let replacementIndex = 0
       for (const skill of baseSkills) {
         if (!(ranks[skill] ?? 0)) trained.push(skill)
@@ -3240,6 +3262,20 @@ export function senses(c: Character, entries: ContentEntry[]) {
 const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string }[] = []
+  if (c.systems.includes('pf2e') && c.className === 'Bard' && c.level >= 1) {
+    const primaryMuse = selectedSubclass(c, entries)
+    const muses = [
+      ...(primaryMuse ? [{ name: primaryMuse, level: 1 }] : []),
+      ...activeFeatsNamed(c, 'Multifarious Muse').flatMap(feat => feat.choice
+        ? [{ name: feat.choice, level: featTakenLevel(feat) }] : []),
+    ]
+    for (const muse of new Map(muses.map(muse => [muse.name, muse])).values()) {
+      const feat = entries.find(entry => entry.kind === 'subclass' && !entry.deleted
+        && entry.data.class === 'Bard' && entry.name === muse.name
+        && entry.systems.includes('pf2e'))?.data.grants_muse_feat
+      if (typeof feat === 'string' && feat) grants.push({ name: feat, source: `${muse.name} Muse`, level: muse.level })
+    }
+  }
   for (const benefit of hellknightTrainingBenefits(c)) {
     if (benefit.name === 'Dedication to the Five' && benefit.choice && GODCLAW_DOMAINS.includes(benefit.choice)) {
       grants.push({ name: 'Domain Initiate', source: benefit.feat.name, level: featTakenLevel(benefit.feat), choice: benefit.choice })
@@ -6270,7 +6306,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         : warmask ? [warmask.skill] : [])
       if (!named.length) return total
       const ranks = ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)
-      const replacementChoices = feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore'
+      const replacementChoices = feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || feat.name === 'Halfling Lore'
         ? loreReplacementChoices(c, entries, index) : feat.name === 'Lizardfolk Lore'
           ? lizardfolkLoreReplacementChoices(c, entries, index) : undefined
       const choices = !replacementChoices && !warmask && feat.choice

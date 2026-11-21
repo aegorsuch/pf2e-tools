@@ -1734,6 +1734,112 @@ describe('defenses', () => {
     expect(r.points).toBe(3)
   })
 
+  it('grants Bard muse feats and focus spells, including additional muses', () => {
+    const maestro = entry('subclass', 'Maestro', {
+      class: 'Bard', grants_muse_feat: 'Lingering Composition', grants_focus_spells: 'soothe',
+    })
+    const enigma = entry('subclass', 'Enigma', {
+      class: 'Bard', grants_muse_feat: 'Bardic Lore', grants_focus_spells: 'sure strike',
+    })
+    const bard: Character = { ...base, className: 'Bard', subclass: 'Maestro', level: 2,
+      feats: [{ name: 'Multifarious Muse', type: 'Class Feat', level: 2, choice: 'Enigma' }] }
+    expect(automaticFeatGrants(bard, [maestro, enigma])).toEqual([
+      { name: 'Lingering Composition', source: 'Maestro Muse', level: 1 },
+      { name: 'Bardic Lore', source: 'Enigma Muse', level: 2 },
+    ])
+    expect(focusSpells(bard, [maestro, enigma])).toMatchObject({
+      spells: [
+        { name: 'Soothe', source: 'Maestro muse' },
+        { name: 'Sure Strike', source: 'Enigma muse' },
+      ],
+      points: 2,
+    })
+  })
+
+  it('grants an Oracle mystery initial revelation spell and focus point', () => {
+    const life = entry('subclass', 'Life', {
+      class: 'Oracle', grants_focus_spells: 'vitality lash',
+    })
+    const oracle: Character = { ...base, className: 'Oracle', subclass: 'Life', level: 1 }
+    expect(focusSpells(oracle, [life])).toEqual({
+      spells: [{ name: 'Vitality Lash', source: 'Life mystery' }],
+      points: 1,
+    })
+    expect(focusSpells({ ...oracle, level: 0 }, [life])).toEqual({ spells: [], points: 0 })
+  })
+
+  it.each([
+    ['Halfling', 'Halfling Lore', 'Acrobatics', 'Stealth', 'Halfling Lore'],
+    ['Tengu', 'Tengu Lore', 'Society', 'Survival', 'Tengu Lore'],
+  ])('applies %s Lore skill and Additional Lore grants', (ancestry, name, firstSkill, secondSkill, lore) => {
+    const feat = mapAonHit({ _id: name, _source: {
+      category: 'feat', name, level: 1, trait: [ancestry],
+      markdown: `You gain the trained proficiency rank in [${firstSkill}](/Skills.aspx?ID=1) and [${secondSkill}](/Skills.aspx?ID=2). You also gain the [Additional Lore](/Feats.aspx?ID=1) general feat for [${lore}](/Skills.aspx?ID=3).`,
+    } }, 'pf2e')!
+    const character: Character = { ...base, ancestry, className: undefined, background: undefined,
+      feats: [{ name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    expect(ranksAt(character, [feat])).toMatchObject({ [firstSkill]: 1, [secondSkill]: 1 })
+    expect(automaticFeatGrants(character, [feat])).toContainEqual({
+      name: 'Additional Lore', choice: ancestry, source: name, level: 1,
+    })
+  })
+
+  it('grants Prairie Rider Nature training and a replacement skill when already trained', () => {
+    const feat = entry('feat', 'Prairie Rider', {}, 1, ['Halfling'])
+    const selection = { name: 'Prairie Rider', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    const character: Character = { ...base, className: undefined, background: undefined, feats: [selection] }
+    expect(ranksAt(character, [feat]).Nature).toBe(1)
+    const alreadyTrained: Character = { ...character, skillPicks: ['Nature'],
+      feats: [{ ...selection, choice: 'Acrobatics' }] }
+    expect(ranksAt(alreadyTrained, [feat])).toMatchObject({ Nature: 1, Acrobatics: 1 })
+    expect(featChoiceOptions('Prairie Rider', alreadyTrained, [feat], selection.slot, 0)).toContain('Acrobatics')
+  })
+
+  it.each([
+    ['Adroit Manipulation', 'Thievery', 'Arcana'],
+    ['Innocuous', 'Deception', 'Acrobatics'],
+  ])('replaces already-trained %s training', (name, skill, replacement) => {
+    const feat = entry('feat', name, {}, 1, ['Halfling'])
+    const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}` })
+    const selection = { name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: replacement }
+    const character: Character = { ...base, ancestry: 'Halfling', className: 'Rogue', background: undefined,
+      feats: [selection] }
+    expect(featChoiceOptions(name, { ...character, feats: [{ ...selection, choice: undefined }] },
+      [feat, klass], selection.slot, 0)).toContain(replacement)
+    expect(ranksAt(character, [feat, klass])).toMatchObject({ [skill]: 1, [replacement]: 1 })
+  })
+
+  it.each([
+    ['Trained in Athletics', 0],
+    ['Trained in Acrobatics', 1],
+    ['Trained in Acrobatics, Trained in Stealth', 2],
+  ])('handles Halfling Lore with %s and %i overlaps', (proficiencies, overlapCount) => {
+    const feat = mapAonHit({ _id: 'halfling-lore', _source: {
+      category: 'feat', name: 'Halfling Lore', level: 1, trait: ['Halfling'],
+      markdown: 'You gain the trained proficiency rank in Acrobatics and Stealth. You also gain the Additional Lore general feat for Halfling Lore.',
+    } }, 'pf2e')!
+    const klass = entry('class', 'Ranger', { skill_proficiency: proficiencies })
+    const selection = { name: 'Halfling Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    const character: Character = { ...base, ancestry: 'Halfling', className: 'Ranger', background: undefined,
+      feats: [selection] }
+    const withoutFeat = additionalSkillCount({ ...character, feats: [] }, [klass, feat])
+    expect(additionalSkillCount(character, [klass, feat]) - withoutFeat).toBe(overlapCount)
+    const replacements = ['Arcana', 'Society'].slice(0, overlapCount)
+    const selected: Character = { ...character, feats: [{ ...selection, ...(replacements.length ? { replacements } : {}) }] }
+    const choices = loreReplacementChoices(selected, [klass, feat], 0)
+    expect(choices).toHaveLength(overlapCount)
+    if (overlapCount === 2) {
+      expect(choices[1].options).not.toContain(replacements[0])
+      expect(ranksAt(selected, [klass, feat])).toMatchObject({ Arcana: 1, Society: 1 })
+      const duplicate: Character = { ...character, feats: [{ ...selection, replacements: ['Arcana', 'Arcana'] }] }
+      expect(loreReplacementChoices(duplicate, [klass, feat], 0)[1].options).not.toContain('Arcana')
+      expect(additionalSkillCount(duplicate, [klass, feat]) - withoutFeat).toBe(1)
+    }
+    const normalized = normalizeConditionalSkillChoices(selected, [klass, feat])
+    expect(normalized.skillPicks).toEqual(expect.arrayContaining(replacements.slice(0, overlapCount)))
+    expect(normalized.feats[0].replacements).toBeUndefined()
+  })
+
   it('finds feats stranded in slots that no longer exist', () => {
     updateSettings({ freeArchetype: true, rangerSnarecrafter: true })
     const ranger = { ...base, className: 'Ranger', level: 2 }

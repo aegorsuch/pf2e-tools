@@ -72,7 +72,19 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const parent = /^ancestries--\d+-(.+?)--heritages/.exec(hit._id ?? '')
   if (text(s.resistances)) data.resistances = text(s.resistances)
   if (kind === 'classFeature') data.class = text(s.class)
-  if (kind === 'subclass') data.class = SUBCLASS_CLASSES[text(s.category).toLowerCase()]
+  if (kind === 'subclass') {
+    const category = text(s.category).toLowerCase()
+    data.class = SUBCLASS_CLASSES[category]
+    if (category === 'muse') {
+      const feat = /\*\*Muse Feat\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
+      const spell = /\*\*Muse Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
+      if (feat) data.grants_muse_feat = plain(feat)
+      if (spell) data.grants_focus_spells = plain(spell)
+    } else if (category === 'mystery') {
+      const spell = /\*\*Initial Revelation Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
+      if (spell) data.grants_focus_spells = plain(spell)
+    }
+  }
   if (kind === 'familiar') {
     const type = /\*\*Ability Type\*\*\s+([^\n]+)/i.exec(markdown)?.[1]
     if (type) data.ability_type = plain(type)

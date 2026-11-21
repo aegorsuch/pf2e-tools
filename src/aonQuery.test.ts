@@ -72,6 +72,21 @@ it('fetches and imports all four grim fascinations with their starting focus spe
     && entry.description.includes('Thrall Enhancement Full thrall rules.'))).toBe(true)
 })
 
+it('maps Bard muse feat/spell grants and Oracle initial revelation spells', () => {
+  const bard = mapAonHit({ _id: 'muse-maestro', _source: {
+    category: 'muse', name: 'Maestro', markdown: '**Muse Feat** [Lingering Composition](/Feats.aspx?ID=1)\n\n**Muse Spell** [_soothe_](/Spells.aspx?ID=1)',
+  } }, 'pf2e')
+  const oracle = mapAonHit({ _id: 'mystery-life', _source: {
+    category: 'mystery', name: 'Life', markdown: '**Initial Revelation Spell** [_vitality lash_](/Spells.aspx?ID=1)',
+  } }, 'pf2e')
+  expect(bard).toMatchObject({
+    kind: 'subclass', data: { class: 'Bard', grants_muse_feat: 'Lingering Composition', grants_focus_spells: 'soothe' },
+  })
+  expect(oracle).toMatchObject({
+    kind: 'subclass', data: { class: 'Oracle', grants_focus_spells: 'vitality lash' },
+  })
+})
+
 it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier', 'Necrotic Bomb'])('parses %s as a granted grave focus spell', name => {
   const markdown = `<title>Feat</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.`
   expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])

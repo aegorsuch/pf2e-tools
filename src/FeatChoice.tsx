@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -117,6 +117,29 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !clans.includes(feat.choice) && <option disabled>{feat.choice}</option>}
         {clans.map(clan => <option key={clan} value={clan}>{clanLoreLabel(clan)}</option>)}
       </SearchableSelect>}
+    </span>
+  }
+  if (feat.name === 'Halfling Lore') {
+    const replacements = loreReplacementChoices(c, entries, index)
+    if (!replacements.length) return null
+    const setReplacement = (replacementIndex: number, value: string) => {
+      const row = replacements[replacementIndex]
+      if (!row || value && !row.options.includes(value)) return
+      const next = [...(feat.replacements ?? [])]
+      next[replacementIndex] = value
+      while (next.length && !next[next.length - 1]) next.pop()
+      save({ feats: c.feats.map((existing, i) => i === index
+        ? { ...existing, replacements: next.length ? next : undefined } : existing) })
+    }
+    return <span className="feat-choice feat-choice-with-note">
+      {replacements.map((row, replacementIndex) => <label key={row.skill}>{row.skill} replacement{' '}
+        <select aria-label={`Halfling Lore ${row.skill} replacement`} value={row.value ?? ''}
+          onChange={event => setReplacement(replacementIndex, event.target.value)}>
+          <option value="">Choose replacement skill</option>
+          {row.value && !row.options.includes(row.value) && <option disabled>{row.value}</option>}
+          {row.options.map(option => <option key={option}>{option}</option>)}
+        </select>
+      </label>)}
     </span>
   }
   if (feat.name === 'Lizardfolk Lore') {
