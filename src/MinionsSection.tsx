@@ -501,7 +501,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
                         {stats.antiDragon && <SourceNote source={stats.antiDragon.source}
                           note={`+${stats.antiDragon.bonus} item bonus to Reflex DC against Grapple, Reposition, Shove, or Trip.`} />}</span>
-                      <span><small>Will</small>{signed(stats.will)}{stats.aspect?.save === 'Will' && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Insight).`} inlineSource={false} />}</span>
+                      <span><small>Will</small>{signed(stats.will)}</span>
                     </div>
                     {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                     {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
@@ -528,8 +528,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   <section className="companion-actions">
                     <h5>Senses</h5>
                     <div><small>Perception</small> <b>{signed(stats.perception)}</b>{stats.senses && <> · {stats.senses}</>}
-                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}
-                      {stats.perceptionNote && <SourceNote source="Spirit of the Beast" note={stats.perceptionNote} inlineSource={false} />}</div>
+                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}</div>
                   </section>
                   {stats.skills.length > 0 && <section className="companion-actions">
                     <h5>Skills</h5>

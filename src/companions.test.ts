@@ -662,7 +662,9 @@ describe('animal companions', () => {
     if (intimidation) expect(intimidation.bonus).toBe(none.skills.find(s => s.name === 'Intimidation')!.bonus + 2)
     expect(at(15, 'Swiftness').reflex).toBe(at(15).reflex + 3)
     expect(at(1, 'Insight').will).toBe(at(1).will + 1)
-    expect(at(1, 'Insight').perceptionNote).toContain('Seek')
+    expect(at(1, 'Insight').perception).toBe(at(1).perception + 1)
+    const stealth = (a?: 'Swiftness') => at(1, a).skills.find(s => s.name === 'Stealth')?.bonus
+    if (stealth()) expect(stealth('Swiftness')).toBe(stealth()! + 1)
   })
 
   it('hides legacy Beastmaster Heal Animal while preserving saved selections and native healing', () => {

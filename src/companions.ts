@@ -219,12 +219,11 @@ function growSize(size: string) {
   return i >= 0 && i <= 2 ? SIZES[i + 1] : size
 }
 
-type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[]; conditional: Record<string, string> }
+type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[] }
 const SPIRIT_ASPECTS: Record<'Might' | 'Swiftness' | 'Insight', SpiritAspect> = {
-  Might: { save: 'Fortitude', skills: ['Athletics', 'Intimidation'], conditional: {} },
-  Swiftness: { save: 'Reflex', skills: ['Acrobatics'], conditional: { Stealth: 'Stealth checks to Hide or Sneak' } },
-  Insight: { save: 'Will', skills: [], conditional: { Perception: 'Perception checks to Seek',
-    Survival: 'Survival checks to Sense Direction or Track' } },
+  Might: { save: 'Fortitude', skills: ['Athletics', 'Intimidation'] },
+  Swiftness: { save: 'Reflex', skills: ['Acrobatics', 'Stealth'] },
+  Insight: { save: 'Will', skills: ['Perception', 'Survival'] },
 }
 
 export function companionStats(c: Character, entries: ContentEntry[], type: string, advancement = { mature: false, advanced: undefined as string | undefined, specializations: [] as string[] }, companionId = c.companions?.[0]?.id) {
@@ -404,18 +403,14 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const aspectRank = Math.ceil(level / 2)
   const aspect = aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
     ...SPIRIT_ASPECTS[aspectName] } : undefined
-  const aspectNote = (skill: string, current: number) => aspect?.conditional[skill]
-    ? `Aspect of ${aspect.name}: ${signed(current + aspect.bonus)} to ${aspect.conditional[skill]} (+${aspect.bonus} status bonus).` : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
       + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0),
       note: [
-        aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? `${signed(bardingCheckPenalty)} check penalty (${barding?.name}).` : undefined,
       ].filter(Boolean).join(' ') || undefined,
       noteSource: [
-        aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? barding?.name : undefined,
       ].filter(Boolean).join(', ') || undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
@@ -450,8 +445,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ferocity: type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
       ? minionFerocity(c) : undefined,
     primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,
-    aspect, perceptionNote: aspectNote('Perception', total('Perception', 'wis')),
-    perception: total('Perception', 'wis'),
+    aspect,
+    perception: total('Perception', 'wis') + (aspect?.skills.includes('Perception') ? aspect.bonus : 0),
     fortitude: total('Fortitude', 'con') + (aspect?.save === 'Fortitude' ? aspect.bonus : 0),
     reflex: total('Reflex', 'dex') + (aspect?.save === 'Reflex' ? aspect.bonus : 0),
     will: total('Will', 'wis') + (aspect?.save === 'Will' ? aspect.bonus : 0),
