@@ -201,7 +201,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   if (cantrip && /innate spell at[- ]will/i.test(body)) {
     grants.push({ kind: 'innate', spells: [], choice: 'cantrip', tradition: cantrip[1], heightened: true, frequency: 'at will', ...(ability ? { ability } : {}) })
   }
-  const separateDaily = /You gain ([^\n]+?) as (\d+)(?:st|nd|rd|th)-rank (arcane|divine|occult|primal) innate spells\.\s*You can cast each of these (?:arcane|divine|occult|primal) innate spells once per day\./i.exec(body)
+  const separateDaily = /You gain ([^\n]+?) as (\d+)(?:st|nd|rd|th)-rank (arcane|divine|occult|primal) innate spells\.\s*You can cast each (?:of these )?(?:(?:arcane|divine|occult|primal) )?(?:innate )?spells? once\s+per day[.,]/i.exec(body)
   if (separateDaily) {
     const spells = [...separateDaily[1].matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
       .map(match => match[1])
@@ -210,7 +210,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   }
   const higherDC = /using the higher of your class DC or\s+spell DC/i.test(body)
   if ((!higherDC && /class DC|whichever is higher/i.test(body)) || /At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants
-  const sentences = body.split(/(?<=[.!?])\s+/)
+  const sentences = body.replace(/<br\s*\/?>/gi, ' ').split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
     if (!/^(?:additionally,? )?(?:(?:(?:once|twice|\d+ times) per day|once before your next daily preparations?),? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
     const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
@@ -219,7 +219,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
     if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
       if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
       const tradition = /\b(arcane|divine|occult|primal)\b/i.exec(sentence)?.[1]
-      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b|\bonce before your next daily preparations?\b/gi)]
+      const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per (?:day|hour)\b|\bat[- ]will\b|\bonce before your next daily preparations?\b/gi)]
         .map(match => /before your next daily preparations?/i.test(match[0]) ? 'once per day' : match[0])
       if (!frequencies.length && /\binnate cantrip\b/i.test(sentence) && names.length === 1) frequencies.push('at will')
       if (!frequencies.length && headerFrequency && names.length === 1

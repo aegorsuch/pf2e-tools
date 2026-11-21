@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -191,4 +191,39 @@ it('applies Android heritage attributes, training, fixed skill feats and Nightvi
   expect(automaticFeatGrants(heritage('Renewed Android'), androidEntries).map(grant => grant.name)).toContain('Dubious Knowledge')
   const nightvision = { ...android, feats: [{ name: 'Nightvision Adaptation', type: 'Ancestry Feat', level: 1 }] }
   expect(senses(nightvision, androidEntries).map(sense => sense.value)).toContain('Darkvision')
+})
+
+it('automates Pahtra and Kasatha ancestry feats', () => {
+  const names = ['Predatory', 'Climbing Claws', 'Remix World\'s Rhythm', 'Adat Training', 'A Little Piece of Home', 'Pahtra Lore', 'Harmonic Shielding']
+  const feats = mapAonHits(hits.filter(hit => hit._source?.category === 'feat' && names.includes(String(hit._source?.name))
+    && (hit._source?.trait as string[] | undefined)?.some(trait => ['Pahtra', 'Kasatha'].includes(trait))), 'sf2e')
+  const spells = ['Haste', 'Slow', 'Holographic Memory', 'Void Whispers', 'Verdant Code'].map((name): ContentEntry => ({
+    id: name, systems: ['sf2e'], kind: 'spell', source: 'official', name, level: 3, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }))
+  const catalog = [...feats, ...spells, ...entries]
+  const taken = (name: string, extra: Partial<Character['feats'][number]> = {}) => ({ name, type: 'Ancestry Feat', level: 1, ...extra })
+  const pahtra: Character = { ...base, ancestry: 'Pahtra', level: 13, feats: [taken('Predatory', { choice: 'Jaws' }), taken('Climbing Claws'), taken('Pahtra Lore')] }
+  const jaws = ownedWeapons(pahtra, catalog).find(weapon => weapon.name === 'Pahtra Jaws')!
+  expect(weaponAttack(pahtra, catalog, jaws)).toMatchObject({ damage: expect.stringMatching(/d6.* piercing/), criticalSpecialization: true,
+    traits: expect.arrayContaining(['Finesse', 'Grapple']) })
+  expect(ownedWeapons(pahtra, catalog).some(weapon => weapon.name === 'Pahtra Claw')).toBe(false)
+  expect(movementSpeeds(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: speed(pahtra, catalog) }))
+  expect(automaticFeatGrants(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Additional Lore', choice: 'Pahtra' }))
+  const casters: Character = { ...base, ancestry: 'Kasatha', level: 13,
+    feats: [taken('Remix World\'s Rhythm'), taken('Adat Training'), taken('A Little Piece of Home')] }
+  expect(grantedFeatSpells(casters, catalog).map(grant => [grant.entry.name, grant.rule.tradition, grant.rule.frequency]).sort()).toEqual([
+    ['Haste', 'primal', 'once per day'], ['Holographic Memory', 'divine', 'once per day'], ['Slow', 'primal', 'once per day'],
+    ['Verdant Code', 'arcane', 'once per hour'], ['Void Whispers', 'divine', 'once per day']])
+})
+
+it('grants skill feats, senses and resistances from Pahtra and Kasatha feats', () => {
+  const taken = (name: string, extra: Partial<Character['feats'][number]> = {}) => ({ name, type: 'Ancestry Feat', level: 1, ...extra })
+  const c: Character = { ...base, ancestry: 'Kasatha', level: 13, feats: [taken('Land Feet First'), taken('Night Eyes'), taken('Well-Connected'),
+    taken('Pulonis Softstep'), taken('Electromagnetic Whiskers'), taken('Vibration Whiskers'), taken('Perfectly Balanced'),
+    taken('Ancestral Resistance', { choice: 'Fire' })] }
+  expect(automaticFeatGrants(c, entries).map(grant => grant.name)).toEqual(expect.arrayContaining(['Cat Fall', 'Terrain Stalker', 'Streetwise', 'Feather Step']))
+  expect(senses(c, entries).map(sense => sense.value)).toEqual(expect.arrayContaining(['Electromagnetic sense (imprecise) 15 feet', 'Motion sense (imprecise) 30 feet']))
+  expect(resistances(c, entries)).toEqual(expect.arrayContaining([{ damage: 'Cold', value: 5, source: 'Perfectly Balanced' },
+    { damage: 'Fire', value: 5, source: 'Perfectly Balanced' }]))
+  const trained = { ...base, feats: [taken('Harmonic Sensitivity')], skillPicks: ['Performance'] }
+  expect(automaticFeatGrants(trained, entries)).toContainEqual(expect.objectContaining({ name: 'Assurance', choice: 'Performance' }))
 })
