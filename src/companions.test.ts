@@ -748,6 +748,18 @@ describe('animal companions', () => {
     } finally { updateSettings({ singleAnimalCompanion: previous }) }
   })
 
+  it('hides other classes\' rank-up feats once the Beastmaster feat of that stage is owned', () => {
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const beastmaster = entry('feat', 'Mature Beastmaster Companion', { archetype: 'Beastmaster' }, 4, ['Archetype'])
+    const mount = entry('feat', 'Impressive Mount', {}, 4, ['Champion'])
+    const entries = [dedication, beastmaster, mount]
+    const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+    const c: Character = { ...base, className: 'Champion', level: 6, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
+    expect(eligibleFeats(entries, c, slot)).toContain(mount)
+    const owned = { ...c, feats: [...c.feats, feat(beastmaster.name, undefined, 'archetype:4:0')] }
+    expect(eligibleFeats(entries, owned, slot)).not.toContain(mount)
+  })
+
   it('uses only native progression available in the character ruleset', () => {
     const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
     const mature = entry('feat', 'Mature Beastmaster Companion', { archetype: 'Beastmaster' }, 4, ['Archetype'])

@@ -1184,6 +1184,12 @@ function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: Co
   const owned = [...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= level),
     ...automaticFeatGrants({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)]
   if (owned.some(feat => base(feat.name) === base(entry.name))) return true
+  const stage = companionProgressionStage(entry.name)
+  const beastmasterStage = (name: string) => /^(?:Mature|Incredible|Specialized) Beastmaster Companion\b/.test(name)
+  if (stage && !beastmasterStage(entry.name)
+    && !owned.some(feat => companionProgressionStage(feat.name) && !beastmasterStage(feat.name))
+    && owned.some(feat => beastmasterStage(feat.name)
+      && companionProgressionStage(feat.name) === stage)) return true
   if (getSettings().singleAnimalCompanion) {
     const advancement = companionAdvancement({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) })
     if (isCompanionAdvancement(entry.name) && advancement.advanced) return true
@@ -1316,7 +1322,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
-      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Incredible Mount|Incredible Beastmaster Companion|Mature Animal Companion|Mature Beastmaster Companion|Impressive Mount|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
+      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Incredible Mount|Incredible Beastmaster Companion|Mature Animal Companion|Mature Beastmaster Companion|Impressive Mount|Loyal Warhorse|Battle-Tested Companion|Imposing Destrier|Battle-Hardened Companion|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
       && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call|Lead the Pack|Pack Takedown)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
