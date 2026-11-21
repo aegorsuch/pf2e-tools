@@ -3,7 +3,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -230,7 +230,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const familiarSecrets = leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
   const oaken = leshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 ? oakenResilience(c, entries, 'familiar') : undefined
   const highestSlot = Math.max(c.className === 'Druid' ? Math.ceil(c.level / 2) : 0,
-    ...Object.entries(c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
+    ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
   const petAbilities = c.pet?.abilities ?? []
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
     .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)))

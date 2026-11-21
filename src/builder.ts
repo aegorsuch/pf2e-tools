@@ -1886,7 +1886,45 @@ export function bardRepertoire(c: Character) {
   return { rows, extras }
 }
 
+// Slots per rank: `newest` at the level a rank is first gained, `other` afterwards. Verified against each class's Spellcasting and Spell Repertoire text.
+const SLOT_TABLES: Record<string, { system: 'pf2e' | 'sf2e'; spontaneous: boolean; newest: number; other: number; tenth: boolean; tenthFeat?: string; curriculum?: boolean }> = {
+  Cleric: { system: 'pf2e', spontaneous: false, newest: 2, other: 3, tenth: true, tenthFeat: 'Maker of Miracles' },
+  Wizard: { system: 'pf2e', spontaneous: false, newest: 2, other: 3, tenth: true, tenthFeat: "Archwizard's Might", curriculum: true },
+  Witch: { system: 'pf2e', spontaneous: false, newest: 2, other: 3, tenth: true, tenthFeat: "Patron's Truth" },
+  Magus: { system: 'pf2e', spontaneous: false, newest: 1, other: 2, tenth: false },
+  Oracle: { system: 'pf2e', spontaneous: true, newest: 3, other: 4, tenth: true, tenthFeat: 'Oracular Providence' },
+  Sorcerer: { system: 'pf2e', spontaneous: true, newest: 3, other: 4, tenth: true, tenthFeat: 'Bloodline Perfection' },
+  Psychic: { system: 'pf2e', spontaneous: true, newest: 1, other: 2, tenth: true, tenthFeat: 'Mind over Matter' },
+  Summoner: { system: 'pf2e', spontaneous: true, newest: 1, other: 2, tenth: false },
+  Mystic: { system: 'sf2e', spontaneous: true, newest: 3, other: 4, tenth: true },
+  Technomancer: { system: 'sf2e', spontaneous: false, newest: 2, other: 3, tenth: true },
+}
+
+const slotTable = (c: Character) => {
+  const table = SLOT_TABLES[c.className ?? '']
+  return table && c.systems.includes(table.system) ? table : undefined
+}
+
+export const isSpontaneousClass = (c: Character) =>
+  (c.className === 'Bard' && c.systems.includes('pf2e')) || !!slotTable(c)?.spontaneous
+
+function tableSpellSlots(c: Character, table: NonNullable<ReturnType<typeof slotTable>>) {
+  const slots: Record<number, number> = {}
+  if (c.level < 1) return slots
+  slots[0] = 5
+  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
+    slots[rank] = (c.level === rank * 2 - 1 ? table.newest : table.other) + (table.curriculum ? 1 : 0)
+  if (table.tenth && c.level >= 19) slots[10] = 1 + (c.level >= 20 && table.tenthFeat && activeFeatsNamed(c, table.tenthFeat).length ? 1 : 0)
+  return slots
+}
+
 export function classRepertoireRows(c: Character) {
+  const table = slotTable(c)
+  if (table?.spontaneous) {
+    const rows = tableSpellSlots(c, table)
+    if (c.level >= 19 && table.tenth) rows[10] = 2
+    return rows
+  }
   return c.className === 'Bard' && c.systems.includes('pf2e') ? bardRepertoire(c).rows : classSpellSlots(c)
 }
 
@@ -1897,6 +1935,8 @@ export function classExtraSlots(c: Character) {
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
   if (c.className === 'Bard' && c.systems.includes('pf2e')) return bardSpellSlots(c)
+  const table = slotTable(c)
+  if (table) return tableSpellSlots(c, table)
   if (!['Druid', 'Necromancer'].includes(c.className ?? '') || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   const necromancer = c.className === 'Necromancer'
   const slots: Record<number, number> = {}

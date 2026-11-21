@@ -2110,11 +2110,11 @@ it('uses class DC and selected slot rank for prepared spell metadata', () => {
       prepared: { '1:0': fear.id, '4:0': tracks.id } } }
   const entries = [fear, tracks, master, entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' })]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  const rows = html.match(/<li class="spellbook-row">[\s\S]*?<\/li>/g)
+  const rows = html.match(/<li class="spellbook-row">[\s\S]*?<\/li>/g)?.filter(row => !row.includes("Cantrip slot"))
   expect(rows?.[0]).toContain('<small>Save</small>Will DC 42')
-  expect(rows?.[1]).toContain('<small>Duration</small>8 hours')
-  expect(rows?.[1]).toContain('<small>Range</small>20 feet')
-  expect(rows?.[1]).toContain('<small>Area/Targets</small>Up to 10 creatures')
+  expect(rows?.find(row => row.includes("Vanishing Tracks"))).toContain('<small>Duration</small>8 hours')
+  expect(rows?.find(row => row.includes("Vanishing Tracks"))).toContain('<small>Range</small>20 feet')
+  expect(rows?.find(row => row.includes("Vanishing Tracks"))).toContain('<small>Area/Targets</small>Up to 10 creatures')
 })
 
 it('grants only selected qi and domain spells, never linked alternatives or future selections', () => {

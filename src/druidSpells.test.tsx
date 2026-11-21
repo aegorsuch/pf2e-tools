@@ -76,7 +76,7 @@ it('applies Hierophant power once, only when acquired, without changing other ca
   expect(classSpellSlots(c)?.[10]).toBe(2)
   expect(classSpellSlots({ ...c, level: 19 })?.[10]).toBe(1)
   expect(classSpellSlots({ ...c, feats: [taken("Hierophant's Power", 21)] })?.[10]).toBe(1)
-  expect(classSpellSlots({ ...c, className: 'Wizard' })).toBeUndefined()
+  expect(classSpellSlots({ ...c, className: 'Fighter' })).toBeUndefined()
   expect(classSpellSlots({ ...base, level: 0 })).toEqual({})
 })
 

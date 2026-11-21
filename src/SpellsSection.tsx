@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classExtraSlots, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
+import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1014,13 +1014,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const druid = c.className === 'Druid' && automaticSlots !== undefined
   const necromancer = c.className === 'Necromancer'
   const preparedClass = druid || necromancer
-  const bard = c.className === 'Bard' && automaticSlots !== undefined
+  const bard = automaticSlots !== undefined && isSpontaneousClass(c)
   const extraSlots = automaticSlots ? classExtraSlots(c) : []
   const sc: Character['spellcasting'] = ['Druid', 'Necromancer'].includes(c.className ?? '') ? { ...c.spellcasting,
     ability: necromancer ? 'int' : 'wis', tradition: necromancer ? 'Occult' : 'Primal', rank: casting?.rank ?? 1,
     slots: automaticSlots ?? c.spellcasting?.slots ?? {} }
     : c.className === 'Bard' && automaticSlots ? { ability: 'cha', tradition: 'Occult', rank: casting?.rank ?? 1,
-      ...c.spellcasting, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
+      ...c.spellcasting, slots: classRepertoireRows(c) ?? automaticSlots }
+      : automaticSlots ? { ability: casting?.ability ?? 'int', tradition: casting?.traditions[0] ?? '',
+        rank: casting?.rank ?? 1, ...c.spellcasting, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const traditions = casting?.traditions ?? []
   const spellIndex = useMemo(() => {
