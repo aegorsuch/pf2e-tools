@@ -351,6 +351,17 @@ it('tracks Natural Illusionist alternatives in one daily pool with their specifi
   expect(html).toContain('Tradition and spell DC are not specified')
 })
 
+it('adds Tengu Feather Fan spells with Wind God\'s and Thunder God\'s Fan sharing up to three daily activations', () => {
+  const entries = [['Gust of Wind', 3], ['Wall of Wind', 3], ['Lightning Bolt', 3]].map(([name]) => entry(name as string, 'spell'))
+  const fan = taken('Tengu Feather Fan', 5)
+  const names = (c: Character) => grantedFeatSpells(c, entries).map(grant => `${grant.entry.name}:${grant.rank}:${dailyInnateUses(c, grant)?.limit}`)
+  expect(names({ ...base, level: 5, feats: [fan] })).toEqual(['Gust of Wind:1:1'])
+  expect(names({ ...base, level: 9, feats: [fan, taken("Wind God's Fan", 9)] })).toEqual(['Gust of Wind:1:2', 'Wall of Wind:3:2'])
+  expect(names({ ...base, level: 13, feats: [fan, taken("Wind God's Fan", 9), taken("Thunder God's Fan", 13)] }))
+    .toEqual(['Gust of Wind:1:3', 'Wall of Wind:3:3', 'Lightning Bolt:5:3'])
+  expect(names({ ...base, level: 13, feats: [fan, taken("Thunder God's Fan", 13)] })).toEqual(['Gust of Wind:1:2', 'Lightning Bolt:5:2'])
+})
+
 it('grants True Shapeshifter one daily class spell with its permitted forms', () => {
   const nature = { ...entry('Nature Incarnate', 'spell', { tradition: 'Primal' }), level: 10 }
   const c: Character = { ...base, className: 'Druid', level: 20, feats: [taken('True Shapeshifter', 20)] }
