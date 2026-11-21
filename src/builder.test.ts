@@ -1806,6 +1806,7 @@ describe('defenses', () => {
   it.each([
     ['Adroit Manipulation', 'Thievery', 'Arcana'],
     ['Innocuous', 'Deception', 'Acrobatics'],
+    ['Magically Melodious', 'Performance', 'Acrobatics'],
   ])('replaces already-trained %s training', (name, skill, replacement) => {
     const feat = entry('feat', name, {}, 1, ['Halfling'])
     const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}` })

@@ -1479,18 +1479,19 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = 
   Spelunker: { skill: 'Acrobatics', feat: 'Quick Squeeze' },
   'Adroit Manipulation': { skill: 'Thievery' },
   Innocuous: { skill: 'Deception' },
+  'Magically Melodious': { skill: 'Performance' },
   'Prairie Rider': { skill: 'Nature' },
 }
 const SKILLS_TAB_ANCESTRY_GRANTS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
   'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
-  'Adroit Manipulation', 'Innocuous', 'Prairie Rider']
+  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider']
 export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
-  'Adroit Manipulation', 'Innocuous', 'Prairie Rider']
+  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
   const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
-    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider'].includes(name)
+    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider'].includes(name)
     ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined
   const source = selectedFeatEntry(c, entries, name)

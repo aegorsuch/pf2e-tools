@@ -406,17 +406,16 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ...SPIRIT_ASPECTS[aspectName] } : undefined
   const aspectNote = (skill: string, current: number) => aspect?.conditional[skill]
     ? `Aspect of ${aspect.name}: ${signed(current + aspect.bonus)} to ${aspect.conditional[skill]} (+${aspect.bonus} status bonus).` : undefined
-  const aspectText = (skill: string) => aspect?.skills.includes(skill) ? `+${aspect.bonus} Aspect of ${aspect.name}`
-    : aspect?.conditional[skill] ? `+${aspect.bonus} ${aspect.conditional[skill].replace(/^.* checks to /, '')} (Aspect of ${aspect.name})` : undefined
-  const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string; aspectText?: string }> = Object.entries(rank)
+  const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
       + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0),
-      aspectText: aspectText(k),
       note: [
+        aspect?.name !== 'Swiftness' && aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.` : aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? `${signed(bardingCheckPenalty)} check penalty (${barding?.name}).` : undefined,
       ].filter(Boolean).join(' ') || undefined,
       noteSource: [
+        (aspect?.name !== 'Swiftness' && aspect?.skills.includes(k)) || aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? barding?.name : undefined,
       ].filter(Boolean).join(', ') || undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))

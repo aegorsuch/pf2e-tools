@@ -212,7 +212,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   if ((!higherDC && /class DC|whichever is higher/i.test(body)) || /At \d+(?:st|nd|rd|th) level|if you could|if its modifier/i.test(body)) return grants
   const sentences = body.split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
-    if (!/^(?:(?:(?:once|twice|\d+ times) per day|once before your next daily preparations?),? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
+    if (!/^(?:additionally,? )?(?:(?:(?:once|twice|\d+ times) per day|once before your next daily preparations?),? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
     const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
       .map(match => plain(match[1]))
     if (!names.length) continue
@@ -221,6 +221,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
       const tradition = /\b(arcane|divine|occult|primal)\b/i.exec(sentence)?.[1]
       const frequencies = [...sentence.matchAll(/\b(?:once|twice|\d+ times) per day\b|\bat[- ]will\b|\bonce before your next daily preparations?\b/gi)]
         .map(match => /before your next daily preparations?/i.test(match[0]) ? 'once per day' : match[0])
+      if (!frequencies.length && /\binnate cantrip\b/i.test(sentence) && names.length === 1) frequencies.push('at will')
       if (!frequencies.length && headerFrequency && names.length === 1
         && sentences.filter(text => /\byou can cast\b.*\binnate\b/i.test(text)).length === 1) frequencies.push(headerFrequency)
       const ranks = [...sentence.matchAll(/\b(\d+)(?:st|nd|rd|th)-(?:rank|level)\b/gi)]

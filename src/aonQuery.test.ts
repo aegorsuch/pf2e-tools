@@ -481,3 +481,8 @@ it('drops the Hellknight order training prerequisite and splits Mortification by
     ['Mortification (Slashing)', 'slashing=hellknight'],
   ])
 })
+
+it('parses an additional innate cantrip grant', () => {
+  expect(parseFeatSpellGrants('x\n---\nYou become trained in Performance. Additionally, you gain _[summon instrument](/spells/302-summon-instrument)_ as an occult innate cantrip. A cantrip is heightened to a spell rank equal to half your level rounded up.'))
+    .toEqual([expect.objectContaining({ kind: 'innate', spells: ['summon instrument'], tradition: 'occult', frequency: 'at will', heightened: true })])
+})

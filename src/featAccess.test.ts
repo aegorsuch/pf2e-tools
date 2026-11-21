@@ -369,7 +369,7 @@ it('offers only ethnicities associated with the selected ancestry', () => {
   expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Ergaksen (Surface)', 'Grondaksen (Underground)', 'Holtaksen (Mountain)'])
   expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ekujae', 'Ilverani', 'Mualijae', 'Spiresworn', 'Vourinoi'])
   expect(ethnicityOptions(entries, 'Orc')).toEqual(['Belkzen', 'Matanji'])
-  expect(ethnicityOptions(entries, 'Halfling')).toEqual(['Jaric'])
+  expect(ethnicityOptions(entries, 'Halfling')).toEqual(['Isgeri', 'Jaric (Mountain)', 'Mihrini', "Song'o (Jungle)", 'Uhlam (Forest)'])
   expect(ethnicityOptions(entries, 'Android')).toEqual([])
 })
 
