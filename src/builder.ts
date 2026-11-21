@@ -2235,6 +2235,11 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     && characterHeritages(c, entries).some(heritage => heritage.name === 'Cliffscale Lizardfolk')) {
     movement.push(fixed('Climb', 15, "Gecko's Grip"))
   }
+  if (activeFeatsNamed(c, 'Climbing Specialist').length) {
+    const source = selectedFeatEntry(c, entries, 'Climbing Specialist')
+    const feet = Number(/Option\(s\)\*{0,2}:\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])
+    if (feet > 0) movement.push(fixed('Climb', feet, 'Climbing Specialist'))
+  }
   if (activeFeatsNamed(c, 'Burrowing Specialist').length) {
     const source = selectedFeatEntry(c, entries, 'Burrowing Specialist')
     const feet = Number(/Option\(s\):\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])

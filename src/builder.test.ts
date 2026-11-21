@@ -557,6 +557,14 @@ it('applies Cyborg frame training, granted feats, and selected resistance', () =
   expect(automaticFeatGrants(pistons, [])).toContainEqual({ name: 'Quick Jump', source: 'Hydraulic Pistons', level: 5 })
 })
 
+it('gives Halfling Climbing Specialist a 15-foot climb Speed', () => {
+  const feat = mapAonHit({ _id: 'cs', _source: { category: 'feat', name: 'Climbing Specialist', level: 5, trait: ['Halfling'],
+    markdown: 'x\n---\nYou can climb.<br/><br/>**[Option(s)](/feats/1059-climbing-specialist)**: 15 feet' } }, 'sf2e')!
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Halfling', level: 5,
+    feats: [{ name: 'Climbing Specialist', type: 'Ancestry Feat', level: 5 }] }
+  expect(movementSpeeds(c, [feat])).toContainEqual(expect.objectContaining({ name: 'Climb', feet: 15 }))
+})
+
 it('applies sensory upgrades and ancestry-specific burrowing', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 9, feats: [
     { name: 'Adaptive Visual Receptors', type: 'Ancestry Feat', level: 1 },
