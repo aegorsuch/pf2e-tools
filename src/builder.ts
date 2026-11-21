@@ -13,7 +13,7 @@ import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterF
 import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -4522,7 +4522,7 @@ export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassB
 const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
-const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id])
+const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
 const ysokiJaws: ContentEntry[] = [
   { ...FIST, id: 'sf2e:ysoki:jaws', name: 'Ysoki Jaws', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Unarmed'], data: { ...FIST.data, damage: '1d4 piercing' } },
@@ -4855,6 +4855,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
   const nativeJaws = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
     ? [ysokiJaws[c.heritage === 'Fierce Ysoki' ? 1 : 0]] : []
+  const tenguBite = c.systems.includes('pf2e') && c.ancestry === 'Tengu'
+    ? [activeFeatsNamed(c, 'Dogfang Bite').length ? TENGU_DOGFANG_BITE : TENGU_BITE] : []
   const brutalAttacks = activeFeatsNamed(c, 'Brutal Anatomy').flatMap(feat =>
     veskAttacks.filter(entry => entry.name === `Vesk ${feat.choice}`))
   const venomousJaws = c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Fork-Tongued Vesk'
@@ -4869,6 +4871,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
     && (!veskAttacks.some(entry => entry.id === weapon.id) || brutalAttacks.some(entry => entry.id === weapon.id))
     && (weapon.id !== venomousVeskJaws.id || venomousJaws.length > 0)
+    && (![TENGU_BITE.id, TENGU_DOGFANG_BITE.id].includes(weapon.id) || tenguBite.some(entry => entry.id === weapon.id))
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
@@ -4876,7 +4879,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nativeJaws, ...brutalAttacks, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {

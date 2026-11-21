@@ -772,8 +772,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note="+2 circumstance to melee Strike damage per wounded and doomed value combined (max +8)." />}
             {!!activeFeatsNamed(c, 'Bloody Blows').length && <SourceNote source="Bloody Blows"
               note="Critical hits with lethal unarmed Strikes deal 1d4 persistent bleed damage." />}
-            {!!activeFeatsNamed(c, 'Dogfang Bite').length && <SourceNote source="Dogfang Bite"
-              note="Your beak unarmed attack gains versatile S." />}
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>

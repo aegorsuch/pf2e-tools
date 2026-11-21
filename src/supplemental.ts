@@ -122,6 +122,18 @@ export const ORC_TUSKS: ContentEntry = {
   data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonprd.com/Feats.aspx?ID=4519' },
 }
 
+export const TENGU_BITE: ContentEntry = {
+  ...FIST, id: 'supplemental:tengu-bite', name: 'Bite', systems: ['pf2e'],
+  traits: ['Unarmed'],
+  description: 'Tengu have a beak that deals 1d6 piercing damage as an unarmed attack in the brawling group.',
+  data: { ...FIST.data, damage: '1d6 piercing' },
+}
+
+export const TENGU_DOGFANG_BITE: ContentEntry = {
+  ...TENGU_BITE, id: 'supplemental:tengu-dogfang-bite', traits: ['Unarmed', 'Versatile S'],
+  description: 'Dogfang Bite gives your beak the versatile S trait.',
+}
+
 export const IRUXI_CLAWS: ContentEntry = {
   ...FIST, id: 'supplemental:iruxi-claws', name: 'Claws',
   traits: ['Agile', 'Finesse', 'Unarmed', 'Versatile P'],
@@ -396,7 +408,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
   Paragon: { potency: 3, striking: 3, upgrades: 4 },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS,
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS, TENGU_BITE, TENGU_DOGFANG_BITE,
   IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
