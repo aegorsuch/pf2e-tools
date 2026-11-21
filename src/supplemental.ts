@@ -401,7 +401,7 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [
     { id: 'homebrew:riding-badger', name: 'Riding Badger', base: 'Badger', size: 'Small', mount: true,
       description: 'A stocky, sure-footed badger trained to carry a rider. Its strong digging claws and fierce temper serve it above and below ground.' },
-    { id: 'homebrew:riding-dog', name: 'Riding Dog', base: 'Wolf', size: 'Medium', mount: true,
+    { id: 'homebrew:riding-dog', name: 'Riding Dog', base: 'Wolf', size: 'Medium', mount: true, riding: 'Horse',
       description: 'A large, sturdy hound bred to carry a rider, and the traditional mount of halflings. It keeps the pack tactics of its wild kin while bearing a rider\'s weight.' },
     { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium',
       description: "A powerful, keen-nosed direwolf raised among Sarkoris's hunting traditions. It tracks quarry over rough ground and fights alongside its bonded partner." },
@@ -416,11 +416,16 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
         const noun = plural ? 'direwolves' : 'direwolf'
         return /^[A-Z]/.test(match) ? noun[0].toUpperCase() + noun.slice(1) : noun
       }) : text
+    const riding = variant.riding ? entries.find(entry => entry.kind === 'companion' && entry.source === 'official' && entry.systems.includes('pf2e') && !entry.deleted && entry.name === variant.riding) : undefined
+    // A riding variant swaps in the mount's rider-oriented support benefit and maneuver
+    const ridingRules = riding ? Object.fromEntries(Object.entries(riding.data)
+      .filter(([key]) => key === 'companion_support' || key.startsWith('companion_maneuver'))
+      .map(([key, value]) => [key, typeof value === 'string' ? value.replace(/\bhorse\b/g, 'dog').replace(/\bHorse\b/g, 'Dog') : value])) : {}
     return [{
       ...base, id: variant.id, name: variant.name, source: 'homebrew',
       traits: base.traits.filter(trait => trait.toLowerCase() !== 'mount'),
       description: variant.description,
-      data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: variant.mount ?? false, fixed_size: false })
+      data: Object.fromEntries(Object.entries({ ...base.data, ...ridingRules, size: variant.size, mount: variant.mount ?? false, fixed_size: false })
         .map(([key, value]) => [key, typeof value === 'string' ? rename(value) : value])),
       // Fresh-device defaults must not supersede synced user edits or deletions.
       updatedAt: 1,

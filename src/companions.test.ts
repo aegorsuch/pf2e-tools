@@ -506,9 +506,12 @@ describe('animal companions', () => {
 
   it('seeds a Medium Riding Dog with Mount and otherwise identical Wolf rules', () => {
     const wolf = entry('companion', 'Wolf', { ...bear.data, mount: false, size: 'Small', speed_raw: '40 feet' }, 1, ['Animal', 'Minion'])
-    const riding = homebrewCompanions([wolf]).find(e => e.id === 'homebrew:riding-dog')!
+    const horse = entry('companion', 'Horse', { ...bear.data, mount: true, companion_support: 'Your horse helps you charge.',
+      companion_maneuver: 'Gallop', companion_maneuver_description: 'The horse Strides twice.' }, 1, ['Animal', 'Minion'])
+    const riding = homebrewCompanions([wolf, horse]).find(e => e.id === 'homebrew:riding-dog')!
     expect(riding).toMatchObject({ name: 'Riding Dog', description: expect.stringContaining('halflings'), source: 'homebrew', updatedAt: 1 })
-    expect(riding.data).toEqual({ ...wolf.data, size: 'Medium', mount: true, fixed_size: false })
+    expect(riding.data).toEqual({ ...wolf.data, companion_support: 'Your dog helps you charge.', companion_maneuver: 'Gallop',
+      companion_maneuver_description: 'The dog Strides twice.', size: 'Medium', mount: true, fixed_size: false })
     const stats = companionStats({ ...base, level: 1 }, [riding], riding.name)!
     expect(stats.mount).toBe(true)
     expect(stats.size).toBe('Medium')
