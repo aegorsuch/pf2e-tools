@@ -857,9 +857,12 @@ function featEquivalence(entry: ContentEntry, ancestries: Set<string>) {
   const sharedSkill = entry.source === 'official' && entry.traits.some(trait => trait.toLowerCase() === 'skill')
   const sharedRules = sharedSkill ? SHARED_SKILL_FEATS[entry.id] : undefined
   const normalize = (text: string) => text.toLowerCase().replace(/[\u2019\u2018]/g, "'").replace(/\s+/g, ' ').trim()
-  const rules = (sharedSkill ? entry.comparisonRules ?? entry.description : entry.description).split(/\n\s*---\s*\n/).at(-1)!.toLowerCase()
+  const lowered = (sharedSkill ? entry.comparisonRules ?? entry.description : entry.description).split(/\n\s*---\s*\n/).at(-1)!.toLowerCase()
     .replace(/[\u2019\u2018]/g, "'").replace(/\b(you|they|we)'ve\b/g, '$1 have').replace(/\b(you|they|we)'re\b/g, '$1 are')
-    .replace(/\bthat's\b/g, 'that is').replace(/\(such as [^)]*\)/g, '').replace(/\b[^.\n]* leads to\.\.\.[\s\S]*$/, '')
+    .replace(/\bthat's\b/g, 'that is').replace(/\(such as [^)]*\)/g, '')
+  // Linear-time cut of the trailing "X leads to..." sentence; the equivalent regex is quadratic on long text
+  const leads = lowered.indexOf(' leads to...')
+  const rules = (leads < 0 ? lowered : lowered.slice(0, Math.max(lowered.lastIndexOf('.', leads - 1), lowered.lastIndexOf('\n', leads - 1)) + 1))
     .replace(/[^a-z0-9]+/g, ' ').trim()
   const data = Object.entries(entry.data).filter(([key]) => !['url', 'sourceBook'].includes(key))
     .map(([key, value]) => {
@@ -5367,7 +5370,14 @@ const runeSort = (a: string, b: string) => {
   const grade = (n: string) => GRADE_ORDER.indexOf(/ \((\w+)\)(?=$|:)/.exec(n)?.[1] ?? '')
   return a.replace(/ \(\w+\)/, '').localeCompare(b.replace(/ \(\w+\)/, '')) || grade(a) - grade(b)
 }
+const propertyRuneCache = new WeakMap<ContentEntry[], Partial<Record<'Armor' | 'Weapon', { name: string; level?: number }[]>>>()
+// Cached per catalog array; callers treat the result as read-only
 export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
+  let byKind = propertyRuneCache.get(entries)
+  if (!byKind) propertyRuneCache.set(entries, byKind = {})
+  return byKind[kind] ??= computePropertyRunes(entries, kind)
+}
+function computePropertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
   const names = new Map<string, number>()
   for (const entry of entries.filter((e) => e.kind === 'item' && e.data.item_subcategory === `${kind} Property Runes`)) {
     const name = runeName(entry.name)

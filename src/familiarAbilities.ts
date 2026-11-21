@@ -58,10 +58,20 @@ export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slo
   }
 }
 
+const familiarEntryCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
+  let bySystems = familiarEntryCache.get(entries)
+  if (!bySystems) familiarEntryCache.set(entries, bySystems = new Map())
+  const systemsKey = c.systems.join()
+  let result = bySystems.get(systemsKey)
+  if (!result) bySystems.set(systemsKey, result = computeFamiliarAbilityEntries(entries, c))
+  return result
+}
+
+function computeFamiliarAbilityEntries(entries: ContentEntry[], c: Character) {
   const seen = new Set<string>()
-  return [...entries].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)).filter(entry => {
-    if (entry.deleted || entry.kind !== 'familiar' || /^pet\b/i.test(String(entry.data.ability_type ?? ''))
+  return entries.filter(entry => entry.kind === 'familiar').sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)).filter(entry => {
+    if (entry.deleted || /^pet\b/i.test(String(entry.data.ability_type ?? ''))
       || !entry.systems.some(system => c.systems.includes(system))) return false
     const identity = `${key(entry.name)}:${key(String(entry.data.ability_type ?? 'familiar'))}`
     if (seen.has(identity)) return false
