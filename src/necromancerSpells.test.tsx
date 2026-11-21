@@ -47,7 +47,7 @@ it('gives Mortem Ultimatum its additional rank-ten slot only when acquired', () 
   expect(classSpellSlots({ ...c, level: 19 })?.[10]).toBe(1)
   expect(classSpellSlots({ ...c, feats: [taken('Mortem Ultimatum', 21)] })?.[10]).toBe(1)
   expect(classSpellSlots({ ...c, className: 'Druid' })?.[10]).toBe(1)
-  expect(classSpellSlots({ ...c, className: 'Wizard' })).toBeUndefined()
+  expect(classSpellSlots({ ...c, className: 'Wizard' })?.[10]).toBe(1)
 })
 
 it.each([[1, 1], [7, 2], [15, 3], [19, 4]])('fixes Occult Intelligence spellcasting at level %i', (level, rank) => {

@@ -855,6 +855,35 @@ describe('official passive feat mechanics', () => {
     expect(terrainExpertiseBenefits(JSON.parse(JSON.stringify(c)))).toEqual(terrainExpertiseBenefits(c))
   })
 
+  it('applies the selected terrain for a heritage-granted Terrain Expertise feat', () => {
+    const heritage = mapAonHit({ _id: 'heritage-deep-orc', _source: {
+      category: 'heritage', name: 'Deep Orc', trait: ['Orc'],
+      markdown: 'You gain the [Terrain Expertise](/Feats.aspx?ID=5223) skill feat.',
+    } }, 'pf2e')!
+    const c: Character = { ...base, ancestry: 'Orc', heritage: heritage.name,
+      automaticFeatChoices: { [JSON.stringify([heritage.name, 'Terrain Expertise'])]: 'Underground' } }
+
+    expect(automaticFeatGrants(c, [heritage])).toContainEqual({
+      name: 'Terrain Expertise', source: heritage.name, level: 1,
+    })
+    expect(terrainExpertiseBenefits(c, [heritage])).toEqual({ terrains: ['Underground'], bonus: 0 })
+  })
+
+  it('applies the chosen Lore and level scaling for heritage-granted Additional Lore', () => {
+    const heritage = mapAonHit({ _id: 'heritage-sage-jotunborn', _source: {
+      category: 'heritage', name: 'Sage Jotunborn', trait: ['Jotunborn'],
+      markdown: 'You gain the [Additional Lore](/Feats.aspx?ID=5114) general feat for a lore skill of your choice.',
+    } }, 'pf2e')!
+    const c: Character = { ...base, level: 7, ancestry: 'Jotunborn', heritage: heritage.name,
+      automaticFeatChoices: { [JSON.stringify([heritage.name, 'Additional Lore'])]: 'Sailing' } }
+
+    expect(automaticFeatGrants(c, [heritage])).toContainEqual({
+      name: 'Additional Lore', source: heritage.name, level: 1,
+    })
+    expect(featLores(c, [heritage])).toContain('Sailing Lore')
+    expect(ranksAt(c, [heritage])['Sailing Lore']).toBe(3)
+  })
+
   it('grants ancestry-specific Ancestral Skills training and replacement choices for class/background overlaps', () => {
     const feat = mapAonHit({ _id: 'human-ancestral-skills', _source: {
       category: 'feat', name: 'Ancestral Skills', level: 1, trait: ['Human'],
@@ -1090,6 +1119,35 @@ describe('official passive feat mechanics', () => {
     const mastery = { ...entry('classFeature', 'Armor Mastery', { class: 'Wizard' }, 13),
       description: 'Your proficiency ranks for light armor and unarmored defense increase to master.' }
     expect(armorRanks({ ...base, level: 13, feats: [selected('Armor Proficiency')] }, [wizard, mastery]).Light).toBe(3)
+  })
+
+  it('applies armor training from a heritage-granted Armor Proficiency feat', () => {
+    const heritage = mapAonHit({ _id: 'heritage-cataphract-fleshwarp', _source: {
+      category: 'heritage', name: 'Cataphract Fleshwarp', trait: ['Fleshwarp'],
+      markdown: 'You gain the [Armor Proficiency](/Feats.aspx?ID=788) general feat.',
+    } }, 'pf2e')!
+    const c: Character = { ...base, ancestry: 'Fleshwarp', heritage: heritage.name }
+
+    expect(automaticFeatGrants(c, [wizard, heritage])).toContainEqual({
+      name: 'Armor Proficiency', source: heritage.name, level: 1,
+    })
+    expect(armorRanks(c, [wizard, heritage])).toMatchObject({ Light: 1, Medium: 0, Heavy: 0 })
+    expect(armorRanks({ ...c, level: 13 }, [wizard, heritage])).toMatchObject({ Light: 2, Medium: 0, Heavy: 0 })
+  })
+
+  it('applies Toughness HP from a heritage-granted general feat', () => {
+    const automaton = entry('ancestry', 'Automaton', { hp: 8 })
+    const heritage = mapAonHit({ _id: 'heritage-defensive-automaton', _source: {
+      category: 'heritage', name: 'Defensive Automaton', trait: ['Automaton'],
+      markdown: 'You gain the [Toughness](/Feats.aspx?ID=855) general feat.',
+    } }, 'pf2e')!
+    const c: Character = { ...base, level: 5, ancestry: 'Automaton', heritage: heritage.name }
+
+    const withoutGrant = { ...heritage, data: { ...heritage.data, grants_heritage_feats: '' } }
+    expect(maxHp(c, [automaton, heritage]) - maxHp(c, [automaton, withoutGrant])).toBe(5)
+    expect(hitPointBonuses(c, [automaton, heritage])).toContainEqual({
+      source: 'Toughness (Defensive Automaton)', value: 5,
+    })
   })
 
   it('grants martial weapons first, then only the chosen advanced weapons, with level-11 scaling', () => {

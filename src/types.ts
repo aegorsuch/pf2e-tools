@@ -190,6 +190,7 @@ export interface Character {
   activeHandPair?: number
   ysokiDailyUses?: { contaminate?: boolean; retinalHud?: boolean }
   dailyFeatUses?: Record<string, boolean>
+  automaticFeatChoices?: Record<string, string>
   hourlyFeatUses?: Record<string, boolean>
   monthlyFeatUses?: Record<string, boolean>
   pioneerEnvironment?: 'Cold' | 'Heat'

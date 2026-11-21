@@ -66,3 +66,10 @@ export function characterHeritages(c: Character, entries: ContentEntry[]) {
   return [...(primary ? [primary] : []),
     ...elfAtavismOptions(c, entries).filter(entry => choices.has(entry.name) && entry.name !== primary?.name)]
 }
+
+export function characterSize(c: Character, entries: ContentEntry[]) {
+  const heritageSize = characterHeritages(c, entries).find(entry => typeof entry.data.size === 'string')?.data.size
+  const ancestrySize = entries.find(entry => entry.kind === 'ancestry' && entry.name === c.ancestry && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system)))?.data.size
+  return String(heritageSize ?? ancestrySize ?? 'Medium')
+}

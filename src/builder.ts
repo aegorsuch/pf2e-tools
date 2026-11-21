@@ -2,7 +2,7 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrad
 import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, ancestralMagicAvailable, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
+import { DOMAIN_FEATS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -30,7 +30,7 @@ import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
-import { characterHeritages, elfAtavismOptions, isVersatileHeritage } from './heritages'
+import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage } from './heritages'
 import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
 import { makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
@@ -91,7 +91,11 @@ const LEVEL_HP_FEATS = ['Fey Skin', 'Golem Grafter Dedication', 'Gremlin Hide', 
   'Stonebound Dedication', 'Strength of Eight Legions', 'Thick Skin', 'Toughness']
 
 export function maxHp(c: Character, entries: ContentEntry[]) {
-  const heritageHp = c.heritage ? HERITAGE_HP[c.heritage] : undefined
+  const heritage = entries.find(entry => entry.kind === 'heritage' && entry.name === c.heritage
+    && !entry.deleted && entry.systems.some(system => c.systems.includes(system)))
+  const heritageHp = c.heritage
+    ? heritage?.data.hp !== undefined ? num(heritage.data.hp) : HERITAGE_HP[c.heritage]
+    : undefined
   const ancestry = c.ancestry === 'Orc' && c.heritage === 'Hold-Scarred Orc'
     ? 12 : heritageHp ?? num(byName(entries, 'ancestry', c.ancestry)?.data.hp)
   const cls = num(byName(entries, 'class', c.className)?.data.hp)
@@ -101,12 +105,20 @@ export function maxHp(c: Character, entries: ContentEntry[]) {
 }
 
 export function hitPointBonuses(c: Character, entries?: ContentEntry[]) {
+  const automaticGrants = entries ? automaticFeatGrants(c, entries) : []
   const owned = (name: string) => c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)
+    || automaticGrants.some(grant => grant.name.toLowerCase() === name.toLowerCase())
   const guardianFeatCount = entries ? c.feats.filter(feat => featTakenLevel(feat) <= c.level
     && archetypesOf(selectedFeatEntry(c, entries, feat.name, feat.sourceId)).includes('Guardian')).length : 0
   const falseVitalityRank = c.falseVitalityRank
   return [
-    ...LEVEL_HP_FEATS.filter(owned).map(source => ({ source, value: c.level })),
+    ...LEVEL_HP_FEATS.flatMap(name => {
+      if (c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)) {
+        return [{ source: name, value: c.level }]
+      }
+      const grant = automaticGrants.find(feat => feat.name.toLowerCase() === name.toLowerCase())
+      return grant ? [{ source: `${name} (${grant.source})`, value: c.level }] : []
+    }),
     ...(owned('Guardian Resiliency') && guardianFeatCount
       ? [{ source: 'Guardian Resiliency', value: guardianFeatCount * 3 }] : []),
     ...(owned('Unbreakable-er Goblin') ? [{ source: 'Unbreakable-er Goblin', value: 10 }] : []),
@@ -188,13 +200,27 @@ export function canUseAlternateAncestryBoosts(c: Character, entries: ContentEntr
 export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   const slots: BoostSlot[] = []
   const ancestry = byName(entries, 'ancestry', c.ancestry)
+  const heritages = characterHeritages(c, entries)
+  const boostOverride = heritages.find(heritage => typeof heritage.data.heritage_ability_boosts_override === 'string')
+  const freeExclusions = [...new Set(heritages.flatMap(heritage => tokens(heritage.data.heritage_free_boost_exclusions)))]
+  const options = (boost: string) => /^free$/i.test(boost) && freeExclusions.length
+    ? ABILITIES.filter(ability => !freeExclusions.includes(ABILITY_LABEL[ability])) : undefined
   if (c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries)) {
     for (let i = 0; i < 2; i++) slots.push({ key: `ancestryAlternate:${i}`, label: 'Ancestry (free)', group: 'ancestry' })
   } else {
-    ancestryBoosts(ancestry?.data.attribute).map(t => starfinderHeritageBoost(c, t)).forEach((t, i) => {
+    const baseBoosts = ancestryBoosts(boostOverride?.data.heritage_ability_boosts_override ?? ancestry?.data.attribute)
+    baseBoosts.map(boost => starfinderHeritageBoost(c,
+      swapHeritageAbility(boost, heritages, 'heritage_ability_boost_swaps'))).forEach((t, i) => {
       const fixed = ABILITY_NAMES[t.toLowerCase()]
-      slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed, group: 'ancestry' })
+      slots.push({ key: `ancestry:${i}`, label: fixed ? `Ancestry (${t})` : 'Ancestry (free)', fixed,
+        options: fixed ? undefined : options(t), group: 'ancestry' })
     })
+    if (!boostOverride) for (const [heritageIndex, heritage] of heritages.entries()) {
+      for (const boost of parseAbilities(heritage.data.heritage_ability_boosts)) {
+        slots.push({ key: `heritage:${heritageIndex}:boost:${slots.length}`, label: `Heritage (${heritage.name})`,
+          fixed: boost, group: 'ancestry' })
+      }
+    }
   }
   const bg = byName(entries, 'background', c.background)
   if (bg) {
@@ -236,8 +262,29 @@ const starfinderHeritageFlaw = (c: Character): Ability[] | undefined => {
 
 export const ancestryFlaws = (c: Character, entries: ContentEntry[]) => {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  return c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries) ? []
-    : starfinderHeritageFlaw(c) ?? parseAbilities(ancestry?.data.attribute_flaw)
+  if (c.alternateAncestryBoosts && canUseAlternateAncestryBoosts(c, entries)) return []
+  const heritages = characterHeritages(c, entries)
+  const flawOverride = heritages.find(heritage => typeof heritage.data.heritage_ability_flaws_override === 'string')
+  const hasParsedFlaws = heritages.some(heritage => heritage.data.heritage_ability_flaw_swaps
+    || heritage.data.heritage_ability_flaws || heritage.data.heritage_ability_flaws_override)
+  if (!hasParsedFlaws && starfinderHeritageFlaw(c)) return starfinderHeritageFlaw(c)!
+  let flaws = parseAbilities(flawOverride?.data.heritage_ability_flaws_override ?? ancestry?.data.attribute_flaw)
+  for (const heritage of heritages) {
+    flaws = flaws.map(flaw => ABILITY_NAMES[swapHeritageAbility(ABILITY_LABEL[flaw], [heritage],
+      'heritage_ability_flaw_swaps').toLowerCase()] ?? flaw)
+    flaws.push(...parseAbilities(heritage.data.heritage_ability_flaws))
+  }
+  return [...new Set(flaws)]
+}
+
+function swapHeritageAbility(ability: string, heritages: ContentEntry[], field: string) {
+  let result = ability
+  for (const heritage of heritages) {
+    const swap = String(heritage.data[field] ?? '').split(';').map(pair => pair.split(':').map(value => value.trim()))
+      .find(([from, to]) => from && to && from.toLowerCase() === result.toLowerCase())
+    if (swap?.[1]) result = swap[1]
+  }
+  return result
 }
 
 // A boost is +2 below 18, otherwise +1
@@ -246,7 +293,7 @@ export function computeAbilities(c: Character, entries: ContentEntry[]): Charact
   for (const f of ancestryFlaws(c, entries)) out[f] -= 2
   for (const s of boostSlots(c, entries)) {
     const a = s.fixed ?? c.boosts?.[s.key]
-    if (a) out[a] += out[a] < 18 ? 2 : 1
+    if (a && (!s.options || s.options.includes(a))) out[a] += out[a] < 18 ? 2 : 1
   }
   const apex = activeApexAugmentation(c)
   if (apex) out[apex.ability] = 10 + 2 * Math.max(abilityMod(out[apex.ability]) + 1, 4)
@@ -281,7 +328,8 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
   const seen = new Set<string>()
   const dupes = new Set<string>()
   for (const s of boostSlots(c, entries)) {
-    const a = s.fixed ?? c.boosts?.[s.key]
+    const choice = c.boosts?.[s.key]
+    const a = s.fixed ?? (choice && (!s.options || s.options.includes(choice)) ? choice : undefined)
     if (!a) continue
     const id = `${s.group}:${a}`
     if (seen.has(id)) dupes.add(s.key)
@@ -529,13 +577,20 @@ const operativeSpecializationSkill = (c: Character) => c.className === 'Operativ
   ? ({ Ghost: 'Deception', Infiltrator: 'Computers', Skirmisher: 'Acrobatics',
     Sniper: 'Stealth', Striker: 'Athletics' } as Record<string, string>)[c.subclass ?? ''] : undefined
 
-const starfinderHeritageSkill = (c: Character) => {
-  if (!c.systems.includes('sf2e') || c.level < 1) return undefined
-  if (c.ancestry === 'Ysoki') return ({ 'Akitonian Ysoki': 'Crafting', 'Shipborn Ysoki': 'Piloting',
-    'Listener Ysoki': 'Occultism' } as Record<string, string>)[c.heritage ?? '']
-  if (c.ancestry === 'Android') return ({ 'Artificial Scion Android': 'Computers', 'Biotech Android': 'Nature',
-    'Electronica Android': 'Performance', 'Replicant Android': 'Deception' } as Record<string, string>)[c.heritage ?? '']
-  return c.ancestry === 'Vesk' && c.heritage === 'Frilled Vesk' ? 'Intimidation' : undefined
+const STARFINDER_HERITAGE_SKILLS: Record<string, string> = {
+  'Akitonian Ysoki': 'Crafting', 'Shipborn Ysoki': 'Piloting', 'Listener Ysoki': 'Occultism',
+  'Artificial Scion Android': 'Computers', 'Biotech Android': 'Nature', 'Electronica Android': 'Performance',
+  'Replicant Android': 'Deception', 'Frilled Vesk': 'Intimidation',
+}
+
+function heritageSkillGrants(c: Character, entries: ContentEntry[]) {
+  if (c.level < 1) return []
+  const skills = characterHeritages(c, entries).flatMap(heritage =>
+    typeof heritage.data.grants_skill === 'string' ? [heritage.data.grants_skill] : [])
+  if (c.systems.includes('sf2e') && c.heritage && STARFINDER_HERITAGE_SKILLS[c.heritage]) {
+    skills.push(STARFINDER_HERITAGE_SKILLS[c.heritage])
+  }
+  return [...new Set(skills)]
 }
 
 export function plannedSlots(c: Character, entries: ContentEntry[] = []): PlannedSlot[] {
@@ -1532,6 +1587,12 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(damage => damage !== c.elementalDamage).map(cap) : []
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
+    return KITSUNE_SPELL_FAMILIARITY_CANTRIPS.filter(spell =>
+      entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === spell
+        && entry.systems.includes('pf2e') && entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+        && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes('divine')))
+  }
   if (name === 'Gnome Obsession' && c.systems.includes('pf2e')) {
     const selected = index >= 0 ? c.feats[index]?.choice : undefined
     const lores = [...commonLoreOptions(deityGrantedLores(c), c.deity), ...c.lores.map(lore => lore.name),
@@ -1790,7 +1851,14 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   if (c.className === 'Witchwarper') return witchwarperSpellcasting(c)
   const klass = byName(entries, 'class', c.className)
-  const traditions = c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult'] : tokens(klass?.data.tradition)
+  const chosenSubclass = ['Mystic', 'Sorcerer', 'Summoner', 'Witch'].includes(c.className ?? '')
+    ? subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries)) : undefined
+  const traditions = c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult']
+    : c.className === 'Mystic' && c.systems.includes('sf2e')
+      ? STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? ''] ? [STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? '']] : []
+      : c.className === 'Technomancer' && c.systems.includes('sf2e') ? ['Arcane']
+        : chosenSubclass && tokens(chosenSubclass.data.tradition).length
+          ? tokens(chosenSubclass.data.tradition) : tokens(klass?.data.tradition)
   const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
   if (!traditions.length && !focusOnlyCaster) return undefined
 
@@ -1803,6 +1871,8 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
     'legendary spellcasting': 4,
   }
   const features = classFeatures(entries, c)
+  const hasLevelBasedRank = ['Druid', 'Necromancer'].includes(c.className ?? '')
+    || c.systems.includes('sf2e') && ['Mystic', 'Technomancer'].includes(c.className ?? '')
   const rank = features.reduce((best, feature) => {
     let rank = progression[feature.name.toLowerCase()] ?? 0
     for (const match of feature.description.matchAll(/proficiency(?: ranks?)? (?:for|in) ([^.]*?) increases? to (expert|master|legendary)/gi)) {
@@ -1811,7 +1881,7 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
       }
     }
     return Math.max(best, rank)
-  }, ['Druid', 'Necromancer'].includes(c.className ?? '') ? c.level >= 19 ? 4 : c.level >= 15 ? 3 : c.level >= 7 ? 2 : 1 : 1)
+  }, hasLevelBasedRank ? c.level >= 19 ? 4 : c.level >= 15 ? 3 : c.level >= 7 ? 2 : 1 : 1)
   return { traditions, rank, ability: CASTING_ABILITY[c.className ?? ''] as Ability | undefined }
 }
 
@@ -1831,18 +1901,81 @@ export function spellDCText(c: Character, entries: ContentEntry[], text: string)
 
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
-  if (!['Druid', 'Necromancer'].includes(c.className ?? '') || activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
-  const necromancer = c.className === 'Necromancer'
+  const starfinder = c.systems.includes('sf2e')
+  const className = c.className ?? ''
+  const profile = (starfinder ? STARFINDER_SLOT_PROFILES[className] : undefined)
+    ?? (c.systems.includes('pf2e') ? PATHFINDER_SLOT_PROFILES[className] : undefined)
+  if (!profile || FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
+    && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   const slots: Record<number, number> = {}
   if (c.level < 1) return slots
-  slots[0] = 5
-  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
-    slots[rank] = (c.level === rank * 2 - 1 ? 2 : 3) - (necromancer ? 1 : 0)
-  if (c.level >= 19) slots[10] = 1 + (c.level >= 20
-    && activeFeatsNamed(c, necromancer ? 'Mortem Ultimatum' : "Hierophant's Power").length ? 1 : 0)
+  if (c.className === 'Animist') {
+    const progression = ANIMIST_SLOT_PROGRESSION[Math.min(20, c.level) - 1]
+    progression.forEach((count, rank) => { if (count) slots[rank] = count })
+    return slots
+  }
+  slots[0] = profile.cantrips
+  for (let rank = 1; rank <= Math.min(profile.maxRank, Math.ceil(c.level / 2)); rank++) {
+    slots[rank] = rank === 1
+      ? c.level === 1 ? profile.initialSlots : profile.slotsPerRank
+      : c.level === rank * 2 - 1 ? profile.newRankSlots : profile.slotsPerRank
+  }
+  if (c.className === 'Cleric') {
+    const fontRank = Math.min(9, Math.ceil(c.level / 2))
+    slots[fontRank] = (slots[fontRank] ?? 0) + clericDivineFontSlotCount(c)
+  }
+  if (profile.rankTen && c.level >= 19) slots[10] = 1
+  if (c.className === 'Druid' && c.level >= 20 && activeFeatsNamed(c, "Hierophant's Power").length)
+    slots[10]++
+  if (c.className === 'Necromancer' && c.level >= 20 && activeFeatsNamed(c, 'Mortem Ultimatum').length)
+    slots[10]++
   for (const extra of necromancerExtraSlots(c)) slots[extra.rank]++
   return slots
 }
+
+interface ClassSlotProfile {
+  cantrips: number
+  initialSlots: number
+  slotsPerRank: number
+  newRankSlots: number
+  maxRank: number
+  rankTen?: boolean
+}
+
+const PATHFINDER_SLOT_PROFILES: Record<string, ClassSlotProfile> = {
+  Bard: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+  Cleric: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+  Druid: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+  Animist: { cantrips: 4, initialSlots: 2, slotsPerRank: 4, newRankSlots: 2, maxRank: 9, rankTen: true },
+  Magus: { cantrips: 5, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9 },
+  Necromancer: { cantrips: 5, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9, rankTen: true },
+  Oracle: { cantrips: 5, initialSlots: 3, slotsPerRank: 4, newRankSlots: 3, maxRank: 9, rankTen: true },
+  Psychic: { cantrips: 6, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9, rankTen: true },
+  Sorcerer: { cantrips: 5, initialSlots: 3, slotsPerRank: 4, newRankSlots: 3, maxRank: 9, rankTen: true },
+  Summoner: { cantrips: 5, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9 },
+  Witch: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+  Wizard: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+}
+
+const STARFINDER_SLOT_PROFILES: Record<string, ClassSlotProfile> = {
+  Mystic: { cantrips: 5, initialSlots: 3, slotsPerRank: 4, newRankSlots: 3, maxRank: 9, rankTen: true },
+  Technomancer: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+}
+
+const FLEXIBLE_SPELLCASTER_CLASSES = new Set([
+  'Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard',
+])
+
+// Animist's separate spell pools share one preparation list in the current character model.
+const ANIMIST_SLOT_PROGRESSION = [
+  [4, 2], [4, 3], [4, 3, 2], [4, 3, 3], [4, 3, 3, 2], [4, 3, 3, 3],
+  [5, 3, 3, 3, 2], [5, 3, 3, 3, 3], [5, 3, 3, 3, 3, 2],
+  [5, 4, 4, 4, 3, 3], [5, 4, 4, 4, 4, 3, 2], [5, 4, 4, 4, 4, 3, 3],
+  [5, 4, 4, 4, 4, 4, 3, 2], [5, 4, 4, 4, 4, 4, 3, 3],
+  [6, 4, 4, 4, 4, 4, 4, 3, 2], [6, 4, 4, 4, 4, 4, 4, 3, 3],
+  [6, 4, 4, 4, 4, 4, 4, 4, 3, 2], [6, 4, 4, 4, 4, 4, 4, 4, 3, 3],
+  [6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1], [6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1],
+]
 
 export function necromancerConjurerRank(c: Character) {
   // Epitaph excludes its 10th-rank slots from abilities that grant additional slots.
@@ -1860,6 +1993,29 @@ export function necromancerExtraSlots(c: Character) {
     && c.sanctification !== 'Holy' && !activeFeatsNamed(c, 'The Hallowed Dead').length && !activeFeatsNamed(c, 'Hallowed Dead').length)
     slots.push({ key: 'unholy-resurrection', rank: Math.min(9, Math.ceil(c.level / 2)), spell: 'Raise Dead', source: 'Unholy Resurrection' })
   return slots
+}
+
+export interface ClassSpellSlotExtra {
+  key: string
+  rank: number
+  source: string
+  spell?: string
+  allowedSpells?: string[]
+}
+
+function clericDivineFontSlotCount(c: Character) {
+  return c.level >= 15 ? 6 : c.level >= 5 ? 5 : 4
+}
+
+export function classSpellSlotExtras(c: Character): ClassSpellSlotExtra[] {
+  const extras: ClassSpellSlotExtra[] = necromancerExtraSlots(c)
+  if (c.className === 'Cleric' && c.level >= 1) {
+    const rank = Math.min(9, Math.ceil(c.level / 2))
+    extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
+      key: `divine-font:${rank}:${index}`, rank, source: 'Divine Font', allowedSpells: ['Heal', 'Harm'],
+    })))
+  }
+  return extras
 }
 
 export function necromancerGrantedDirgeSpells(c: Character) {
@@ -1933,6 +2089,11 @@ export function druidSpellList(c: Character, entries: ContentEntry[]) {
 const CASTING_ABILITY: Record<string, Ability> = {
   Animist: 'wis', Bard: 'cha', Cleric: 'wis', Druid: 'wis', Magus: 'int', Necromancer: 'int', Oracle: 'cha', Psychic: 'int',
   Monk: 'wis', Ranger: 'wis', Sorcerer: 'cha', Summoner: 'cha', Thaumaturge: 'cha', Witch: 'int', Wizard: 'int', Champion: 'cha', Kineticist: 'con',
+  Mystic: 'wis', Technomancer: 'int',
+}
+
+const STARFINDER_MYSTIC_TRADITIONS: Record<string, string> = {
+  Akashic: 'Occult', Elemental: 'Primal', Healing: 'Divine', Rhythm: 'Primal', Shadow: 'Divine',
 }
 
 const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend: 4 }
@@ -1971,18 +2132,24 @@ export const isPioneerHuman = (c: Character) => c.heritage?.trim().toLowerCase()
 export const terrainExpertiseTerrains = (c: Character) =>
   [...FAVORED_TERRAINS, ...(c.systems.includes('sf2e') ? ['Space'] : [])].sort((a, b) => a.localeCompare(b))
 
-export function terrainExpertiseOptions(c: Character, source: number | 'pioneer' = -1) {
+export function terrainExpertiseOptions(c: Character, source: number | 'pioneer' = -1, automaticChoices: string[] = []) {
   const used = new Set([
     ...c.feats.flatMap((feat, index) => feat.name === 'Terrain Expertise' && index !== source && feat.choice ? [feat.choice] : []),
     ...(isPioneerHuman(c) && source !== 'pioneer' && c.pioneerTerrain ? [c.pioneerTerrain] : []),
+    ...automaticChoices,
   ].map(terrain => terrain.trim().toLowerCase()))
   return terrainExpertiseTerrains(c).filter(terrain => !used.has(terrain.toLowerCase()))
 }
 
-export function terrainExpertiseBenefits(c: Character) {
+export function terrainExpertiseBenefits(c: Character, entries?: ContentEntry[]) {
   const choices = [
     ...activeFeatsNamed(c, 'Terrain Expertise').flatMap(feat => feat.choice ? [feat.choice] : []),
     ...(isPioneerHuman(c) && c.pioneerTerrain ? [c.pioneerTerrain] : []),
+    ...(entries ? automaticFeatGrants(c, entries).filter(grant => grant.name === 'Terrain Expertise')
+      .flatMap(grant => {
+        const choice = grant.choice ?? c.automaticFeatChoices?.[automaticFeatChoiceKey(grant.source, grant.name)]
+        return choice ? [choice] : []
+      }) : []),
   ].map(terrain => terrain.trim().toLowerCase())
   const terrains = terrainExpertiseTerrains(c).filter(terrain => choices.includes(terrain.toLowerCase()))
   return terrains.length ? { terrains, bonus: c.activeFeatEffects?.includes('Terrain Expertise') ? 1 : 0 } : undefined
@@ -2088,8 +2255,17 @@ export const speed = (c: Character, entries: ContentEntry[], options: MovementSp
   isFeatEffectActive(c, 'Verdant Metamorphosis') ? 0
     : activeBattleForm(c, entries)?.source === 'Animal Rage' ? speed(withoutBattleForm(c), entries, options)
     : activeBattleForm(c, entries)?.speed === 0 ? 0
-    : Math.max(5, (activeBattleForm(c, entries)?.speed ?? (num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25))
+    : Math.max(5, (activeBattleForm(c, entries)?.speed ?? heritageLandSpeed(c, entries))
     + speedBonuses(c, entries, options).reduce((sum, bonus) => sum + bonus.feet, 0))
+
+function heritageLandSpeed(c: Character, entries: ContentEntry[]) {
+  const heritages = characterHeritages(c, entries)
+  const fixed = heritages.map(heritage => num(heritage.data.speed_land)).find(value => value > 0)
+  if (fixed) return fixed
+  const ancestrySpeed = num(byName(entries, 'ancestry', c.ancestry)?.data.speed) || 25
+  const adjustment = heritages.reduce((sum, heritage) => sum + num(heritage.data.speed_land_adjustment), 0)
+  return Math.max(5, ancestrySpeed + adjustment)
+}
 
 export function ragingAthleteBenefits(c: Character, entries: ContentEntry[]) {
   if (!c.raging || !activeFeatsNamed(c, 'Raging Athlete').length) return undefined
@@ -2161,6 +2337,13 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ...(features.includes('Wings') ? [atLandSpeed('Fly', 'Animal Feature')] : []),
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
+  for (const heritage of characterHeritages(c, entries)) {
+    for (const [mode, name] of [['climb', 'Climb'], ['swim', 'Swim'], ['fly', 'Fly'], ['burrow', 'Burrow']] as const) {
+      const value = heritage.data[`speed_${mode}`]
+      if (value === 'land') movement.push(atLandSpeed(name, heritage.name))
+      else if (num(value) > 0) movement.push(fixed(name, num(value), heritage.name))
+    }
+  }
   if (characterHeritages(c, entries).some(heritage => heritage.name === 'Wetlander Lizardfolk')) {
     movement.push(fixed('Swim', 15, 'Wetlander Lizardfolk'))
   }
@@ -2916,6 +3099,11 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
     const choice = feat.choice?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
   }),
+  ...characterHeritages(c, entries).flatMap(heritage => {
+    if (!String(heritage.data.grants_heritage_feats ?? '').split(';').includes('Additional Lore')) return []
+    const choice = c.automaticFeatChoices?.[automaticFeatChoiceKey(heritage.name, 'Additional Lore')]?.trim()
+    return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
+  }),
 ])]
 
 const CLAN_LORE_OPTIONS: Record<string, { hilt: 'Goldhilt' | 'Steelhilt' | 'Ironhilt'; skills: [string, string]; lore: string }> = {
@@ -3224,6 +3412,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     const vision = heritage.data.grants_vision ?? heritage.data.vision
     if (typeof vision === 'string' && vision) addVision(vision, heritage.name)
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
+    for (const sense of tokens(heritage.data.grants_senses)) addVision(sense, heritage.name)
   }
   if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
@@ -3379,6 +3568,20 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (c.ancestry === 'Orc' && c.heritage === 'Hold-Scarred Orc') {
     grants.push({ name: 'Diehard', source: 'Hold-Scarred Orc', level: 1 })
   }
+  if (c.level >= 1 && c.heritage) {
+    const normalizeAncestry = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const heritage = entries.find(entry => entry.kind === 'heritage' && !entry.deleted
+      && entry.name === c.heritage && entry.systems.some(system => c.systems.includes(system))
+      && (typeof entry.data.ancestry !== 'string'
+        || normalizeAncestry(entry.data.ancestry) === normalizeAncestry(c.ancestry ?? '')))
+    const featNames = typeof heritage?.data.grants_heritage_feats === 'string'
+      ? heritage.data.grants_heritage_feats.split(';').filter(Boolean) : []
+    for (const name of featNames) {
+      if (!grants.some(grant => grant.name === name && grant.source === c.heritage)) {
+        grants.push({ name, source: c.heritage, level: 1 })
+      }
+    }
+  }
   for (const feat of c.feats) {
     const grant = ancestrySkillGrant(c, entries, feat.name)
     if (grant?.feat && featTakenLevel(feat) <= c.level) grants.push({ name: grant.feat, source: feat.name, level: featTakenLevel(feat) })
@@ -3483,8 +3686,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   const ranks: Record<string, number> = {}
   const bump = (n: string) => { ranks[n] = Math.max(ranks[n] ?? 0, 1) }
   if (testSubjectAdaptation(c) === 'Cybernetic Augmentation' && beforeLevel > 1) bump('Computers')
-  const heritageSkill = beforeLevel > 1 ? starfinderHeritageSkill(c) : undefined
-  if (heritageSkill) bump(heritageSkill)
+  if (beforeLevel > 1) heritageSkillGrants(c, entries).forEach(bump)
   autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   const erudite = eruditeWarrior({ ...c, level: Math.min(c.level, beforeLevel - 1) })
   if (erudite) for (const skill of [erudite.skill, ...(erudite.lore ? [erudite.lore] : [])]) {
@@ -3696,7 +3898,7 @@ export function untrainedSkillProficiency(c: Character) {
 export function bulkLimits(c: Character, entries: ContentEntry[]) {
   const strength = abilityMod(c.abilities.str)
   const size = activeBattleForm(c, entries)?.size ?? giantStatureSize(c, entries) ?? (activeFeatsNamed(c, "Jotun's Heart").length
-    ? 'Huge' : String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
+    ? 'Huge' : characterSize(c, entries)
   )
   const sizeMultipliers: Record<string, number> = { tiny: 0.5, large: 2, huge: 4, gargantuan: 8 }
   const sizeMultiplier = sizeMultipliers[size.trim().toLowerCase()] ?? 1
@@ -3903,7 +4105,12 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
     if (grantedRank >= 2) for (const group of guardianArmorGroups) ranks[group] = Math.max(ranks[group], grantedRank)
   }
   const granted = new Set<typeof ARMOR_GROUPS[number]>()
-  for (const { feat } of proficiencyFeats(c, 'Armor Proficiency')) {
+  const armorProficiencyGrants = [
+    ...proficiencyFeats(c, 'Armor Proficiency'),
+    ...automaticFeatGrants(c, entries).filter(grant => grant.name === 'Armor Proficiency')
+      .map(grant => ({ feat: { name: grant.name, type: 'General Feat', level: grant.level }, index: -1 })),
+  ].sort((a, b) => featTakenLevel(a.feat) - featTakenLevel(b.feat) || a.index - b.index)
+  for (const { feat } of armorProficiencyGrants) {
     const prior = baseArmorRanks({ ...c, level: featTakenLevel(feat) }, entries)
     const group = ARMOR_GROUPS.find((group) => group !== 'Unarmored' && !prior[group] && !granted.has(group))
     if (!group) continue
@@ -4749,7 +4956,16 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   if (form?.source === 'Animal Rage') return ownedWeapons(withoutBattleForm(c), entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
   if (form) return form.attacks.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
-  const weapons = [...carriedWeapons(c, entries)]
+  const heritageAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
+    && typeof entry.data.granted_by_heritage === 'string')
+  const selectedHeritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
+  const weapons = [...carriedWeapons(c, entries).filter(weapon => !heritageAttacks.some(entry => entry.id === weapon.id))]
+  for (const entry of heritageAttacks.filter(entry => selectedHeritages.has(String(entry.data.granted_by_heritage))
+    && entry.systems.some(system => c.systems.includes(system)))) {
+    if (!weapons.some(weapon => weapon.id === entry.id)) {
+      weapons.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
+    }
+  }
   for (const grant of dwarfClanWeaponGrants(c, entries)) {
     const index = weapons.findIndex(weapon => weapon.id === grant.id || weapon.name === grant.name)
     if (index >= 0) {
@@ -5071,6 +5287,8 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
+  || entries.some(entry => entry.kind === 'weapon' && entry.data.granted_by_heritage
+    && (id ? entry.id === id : entry.name === name))
   || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
 export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
   let entry = resolveWeaponEntry(entries, name, id)
@@ -5573,7 +5791,7 @@ export function elementalRageType(c: Character, entries: ContentEntry[]) {
 }
 
 export function canUseGiantStature(c: Character, entries: ContentEntry[]) {
-  const naturalSize = String(activeBattleForm(c, entries)?.size ?? byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium').toLowerCase()
+  const naturalSize = String(activeBattleForm(c, entries)?.size ?? characterSize(c, entries)).toLowerCase()
   return !!c.raging && !!activeFeatsNamed(c, "Giant's Stature").length && !activeFeatsNamed(c, "Jotun's Heart").length
     && ['tiny', 'small', 'medium'].includes(naturalSize)
 }
@@ -5616,7 +5834,7 @@ export function giantWeaponClumsy(c: Character, entries: ContentEntry[]) {
 }
 
 function giantWeaponSize(c: Character, entries: ContentEntry[]): NonNullable<OwnedWeapon['size']> {
-  const size = String(giantStatureSize(c, entries) ?? byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium').toLowerCase()
+  const size = String(giantStatureSize(c, entries) ?? characterSize(c, entries)).toLowerCase()
   return size === 'tiny' ? 'Small' : size === 'large' ? 'Huge' : size === 'huge' ? 'Gargantuan' : 'Large'
 }
 
@@ -6345,9 +6563,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
   Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
     + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries)
-    + Number(!!starfinderHeritageSkill(c) && c.heritage !== 'Akitonian Ysoki'
+    + heritageSkillGrants(c, entries).filter(skill => c.heritage !== 'Akitonian Ysoki'
       && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))]
-        .includes(starfinderHeritageSkill(c)!))
+        .includes(skill)).length
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
     + (() => {
       const klass = classSkills(byName(entries, 'class', c.className))
@@ -6855,21 +7073,38 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
   const known = new Set(allLanguages(entries).map((l) => l.toLowerCase()))
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
+  const heritageGrants = characterHeritages(c, entries).flatMap(heritage =>
+    tokens(heritage.data.grants_languages).map(lang => ({ lang: titleCase(lang), source: heritage.name })))
+    .filter(grant => known.has(grant.lang.toLowerCase()))
   const featGrants = c.feats.flatMap((f) => tokens(selectedFeatEntry(c, entries, f.name, f.sourceId)?.data.grants_languages).map((l) => ({ lang: titleCase(l), source: f.name })))
     .filter((g) => known.has(g.lang.toLowerCase()))
   const fromFeats = featGrants.map((g) => g.lang)
+  const heritageSlots = characterHeritages(c, entries).flatMap(heritage =>
+    typeof heritage.data.grants_language_slots === 'string' ? heritage.data.grants_language_slots.split(';') : [])
+    .reduce((total, grant) => {
+      const [level, count] = grant.split(':').map(Number)
+      return Number.isInteger(level) && level <= c.level && Number.isInteger(count) ? total + count : total
+    }, 0)
+  const grantsMultilingual = characterHeritages(c, entries).some(heritage =>
+    typeof heritage.data.grants_heritage_feats === 'string'
+      && heritage.data.grants_heritage_feats.split(';').includes('Multilingual'))
+  const multilingualCount = Math.max(activeFeatsNamed(c, 'Multilingual').length, grantsMultilingual ? 1 : 0)
+  const polyglotBonus = characterHeritages(c, entries).some(heritage => heritage.name === 'Polyglot Android')
+    && multilingualCount > 0 ? 1 : 0
   const sources: Record<string, string> = Object.fromEntries([
     ...fromAncestry.map((l) => [l.toLowerCase(), `${c.ancestry} Ancestry`]),
+    ...heritageGrants.map((grant) => [grant.lang.toLowerCase(), grant.source]),
     ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []).map((l) => [l.toLowerCase(), `${c.className} Class`]),
     ...featGrants.map((g) => [g.lang.toLowerCase(), g.source]),
   ])
-  const locked = [...new Set(['Common', ...fromAncestry, ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []), ...fromFeats])]
+  const locked = [...new Set(['Common', ...fromAncestry, ...heritageGrants.map(grant => grant.lang),
+    ...(c.className ? CLASS_LANGUAGES[c.className] ?? [] : []), ...fromFeats])]
   const society = ranksAt(c, entries).Society ?? 0
   const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
   const polyglot = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Gnome Polyglot').length
-  const feats = (prodigy ? 2 : 0) + (polyglot ? 3 : 0) + activeFeatsNamed(c, 'Multilingual').length
+  const feats = (prodigy ? 2 : 0) + (polyglot ? 3 : 0) + multilingualCount
     * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0) + (polyglot ? 1 : 0))
   const commonOnlySlots = officerEducationSlots(c).length
-  return { locked, sources, commonOnlySlots, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats
+  return { locked, sources, commonOnlySlots, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats + heritageSlots + polyglotBonus
     + activeFeatsNamed(c, 'Ancestral Linguistics').length + commonOnlySlots }
 }

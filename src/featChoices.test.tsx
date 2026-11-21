@@ -761,6 +761,7 @@ it('derives caster status, traditions and spell proficiency from class features'
     { id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 1 },
     { id: 'wizard', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Wizard', level: 1, traits: [], description: '', data: { tradition: 'Arcane' }, effects: [], updatedAt: 1 },
     { id: 'witch', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Witch', level: 1, traits: [], description: '', data: { tradition: 'Arcane, Divine, Occult, Primal' }, effects: [], updatedAt: 1 },
+    { id: 'patron-winter', systems: ['pf2e'], kind: 'subclass', source: 'official', name: 'Winter', level: 1, traits: [], description: '', data: { class: 'Witch', tradition: 'Primal' }, effects: [], updatedAt: 1 },
     { id: 'expert', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Expert Spellcaster', level: 7, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
     { id: 'master', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Master Spellcaster', level: 15, traits: [], description: '', data: { class: 'Wizard' }, effects: [], updatedAt: 1 },
     { id: 'ranger-expert', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Ranger Expertise', level: 9, traits: [], description: 'Your proficiency rank for your ranger class DC increases to expert.', data: { class: 'Ranger' }, effects: [], updatedAt: 1 },
@@ -771,6 +772,7 @@ it('derives caster status, traditions and spell proficiency from class features'
   expect(classSpellcasting({ ...base, className: 'Wizard', level: 8 }, classes)).toEqual({ traditions: ['Arcane'], rank: 2, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Wizard', level: 15 }, classes)).toEqual({ traditions: ['Arcane'], rank: 3, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Witch' }, classes)?.traditions).toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
+  expect(classSpellcasting({ ...base, className: 'Witch', subclass: 'Winter' }, classes)?.traditions).toEqual(['Primal'])
 })
 
 it('shows spell DC proficiency but no spell slots for focus-only casters', () => {

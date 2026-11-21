@@ -10,7 +10,8 @@ function addBoost(group: BoostSlot[], boosts: Record<string, Ability>, ability: 
     for (const slot of group) {
       if (slot.fixed || visited.has(slot.key) || (slot.options && !slot.options.includes(a))) continue
       const held = next[slot.key]
-      if (!held || place(held, new Set([...visited, slot.key]))) {
+      const validHeld = held && (!slot.options || slot.options.includes(held))
+      if (!validHeld || place(held, new Set([...visited, slot.key]))) {
         next[slot.key] = a
         return true
       }
@@ -40,7 +41,8 @@ export function AbilityBoostChoices({ c, entries, save, groups: visibleGroups }:
           <div className="boost-checks">
             {ABILITIES.map((a) => {
               const fixed = gs.some((s) => s.fixed === a)
-              const checked = fixed || gs.some((s) => !s.fixed && c.boosts?.[s.key] === a)
+              const checked = fixed || gs.some((s) => !s.fixed && c.boosts?.[s.key] === a
+                && (!s.options || s.options.includes(a)))
               const next = checked ? undefined : addBoost(gs, boosts, a)
               const disabled = fixed || (!checked && !next)
               const forbidden = !checked && !gs.some((s) => !s.fixed && (!s.options || s.options.includes(a)))

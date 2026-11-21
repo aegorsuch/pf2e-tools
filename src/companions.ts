@@ -1,6 +1,7 @@
 import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, parryBonus, proficiencyBonus, raisedShieldBonus, shieldRaised, signed, type Ability } from './builder'
 import { beastmasterAbilities } from './beastmasterFeats'
 import { companionProgressionStage, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
+import { characterSize } from './heritages'
 import type { Character, CompanionEquipment, ContentEntry } from './types'
 import { getSettings } from './settings'
 
@@ -295,7 +296,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const clumsy = enlarge ? 1 : 0
   const total = (k: string, ability: Ability) => mods[ability] + prof(k) - (ability === 'dex' ? clumsy : 0)
   const size = apex ? 'Huge' : enlarge?.size ?? naturalSize
-  const riderSizes = String(byName(entries, 'ancestry', c.ancestry)?.data.size ?? 'Medium')
+  const riderSizes = characterSize(c, entries)
     .match(/tiny|small|medium|large|huge|gargantuan/gi) ?? ['Medium']
   const riderSize = Math.max(...riderSizes.map(value => SIZES.findIndex(candidate => candidate.toLowerCase() === value.toLowerCase())))
   const riderMount = d.mount !== true && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))

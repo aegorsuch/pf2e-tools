@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerExtraSlots, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
+import { classDifficultyClass, classSpellSlotExtras, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -921,7 +921,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
   const slots = baseSlots ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
-  const extraSlots = baseSlots ? necromancerExtraSlots(c) : []
+  const extraSlots = baseSlots ? classSpellSlotExtras(c) : []
   const choices = witchwarper ? witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => !!(slot.granted || slot.value))
     : slots ? Array.from({ length: 11 }, (_, rank) => {
       const baseCount = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
@@ -933,7 +933,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
         const key = extra?.key ?? (index === normalCount && rank === 0 && benefits.cantrip
           ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
             ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
-        return !!extra || !!c.spellcasting?.prepared?.[key]
+        return extra?.spell ? true : !!c.spellcasting?.prepared?.[key]
       })
     }).flat() : []
   const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size
@@ -998,11 +998,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const witchwarper = witchwarperParadox(c)
   const druid = c.className === 'Druid' && automaticSlots !== undefined
   const necromancer = c.className === 'Necromancer'
-  const preparedClass = druid || necromancer
-  const extraSlots = automaticSlots ? necromancerExtraSlots(c) : []
-  const sc: Character['spellcasting'] = ['Druid', 'Necromancer'].includes(c.className ?? '') ? { ...c.spellcasting,
-    ability: necromancer ? 'int' : 'wis', tradition: necromancer ? 'Occult' : 'Primal', rank: casting?.rank ?? 1,
-    slots: automaticSlots ?? c.spellcasting?.slots ?? {} } : c.spellcasting
+  const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
+    .includes(c.className ?? '')
+  const extraSlots = automaticSlots ? classSpellSlotExtras(c) : []
+  const sc: Character['spellcasting'] = automaticSlots ? { ...c.spellcasting,
+    ability: casting?.ability ?? c.spellcasting?.ability ?? 'int',
+    tradition: casting?.traditions.length === 1 ? casting.traditions[0]
+      : c.spellcasting?.tradition ?? casting?.traditions[0] ?? '',
+    rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const traditions = casting?.traditions ?? []
   const spellIndex = useMemo(() => {
@@ -1321,7 +1324,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           ))}
         </div>
       )}
-      {['Druid', 'Necromancer'].includes(c.className ?? '') && !automaticSlots && <small role="status">
+      {['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
+        .includes(c.className ?? '') && !automaticSlots && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length > 0 && <small role="status">
         Flexible Spellcaster preparation is not automated; your manual spell-slot settings are retained.
       </small>}
       {witchwarper && <WitchwarperRepertoire c={c} entries={entries} save={save} />}
@@ -1346,7 +1350,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
                 ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
                   ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
-              const selectedValue = extra ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
+              const selectedValue = extra?.spell ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
                 : sc.prepared?.[slotKey] ?? ''
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
               const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
@@ -1355,17 +1359,27 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             }).sort((a, b) => compareSelectedSpells(a.selectedSpell?.name ?? a.selectedEntry?.name ?? a.selectedValue,
               b.selectedSpell?.name ?? b.selectedEntry?.name ?? b.selectedValue))
               .map(({ index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }) => {
-              const restricted = !!extra
+              const restricted = !!extra?.spell
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
               const spent = sc.spentSlots?.includes(slotKey) ?? false
-              const selectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
+              const extraOptions = extra?.allowedSpells?.flatMap(name => {
+                const entry = spellIndex.byName.get(name)
+                return entry && spellAccessGranted(c, entry) ? [{ name: entry.name, entryId: entry.id,
+                  baseRank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] : []
+              }) ?? []
+              const baseSelectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
+                || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
+              const baseDisplayedSelection = preparedClass && baseSelectedOption && selectedValue === baseSelectedOption.name
+                ? { ...baseSelectedOption, entryId: undefined } : baseSelectedOption
+              const slotOptions = extra?.allowedSpells ? extraOptions
+                : extra ? options.filter(option => option.name === extra.spell)
+                  : preparedClass && baseDisplayedSelection
+                    ? choices.map(option => option.name === baseDisplayedSelection.name ? baseDisplayedSelection : option) : choices
+              const selectedOption = slotOptions.find(spell => (spell.entryId ?? spell.name) === selectedValue
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
               const valid = !!selectedOption
               const displayedSelection = preparedClass && selectedOption && selectedValue === selectedOption.name
                 ? { ...selectedOption, entryId: undefined } : selectedOption
-              const slotOptions = extra ? options.filter(option => option.name === extra.spell)
-                : preparedClass && displayedSelection
-                  ? choices.map(option => option.name === displayedSelection.name ? displayedSelection : option) : choices
               const showOptions = slotOptions.length <= 10 || preparedSlot === slotKey
               return <li className="spellbook-row" key={slotKey}>
                 <div className="spellbook-slot">
@@ -1396,7 +1410,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     onChange={event => {
                       if (restricted) return
                       const value = event.target.value
-                      if (value && !(valid && value === selectedValue) && !options.some(spell => (spell.entryId ?? spell.name) === value)) return
+                      if (value && !(valid && value === selectedValue)
+                        && !slotOptions.some(spell => (spell.entryId ?? spell.name) === value)) return
                       const prepare = () => {
                         const prepared = { ...sc.prepared }
                         if (value) prepared[slotKey] = value

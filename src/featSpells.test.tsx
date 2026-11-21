@@ -6,7 +6,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, spellDifficultyClass, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
-import { boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
+import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
@@ -147,6 +147,21 @@ it('grants Lizardfolk innate spells with fixed ranks and daily use tracking', ()
     ['Dinosaur Form', 5, 'primal'], ['Mask of Terror', 1, 'primal'], ['Talking Corpse', 1, 'primal'],
   ])
   expect(grants.every(grant => dailyInnateUses(c, grant)?.limit === 1)).toBe(true)
+})
+
+it('applies selected cantrip from the automatically granted Kitsune Spell Familiarity feat', () => {
+  const heritage = mapAonHit({ _id: 'heritage-empty-sky-kitsune', _source: {
+    category: 'heritage', name: 'Empty Sky Kitsune', trait: ['Kitsune'],
+    markdown: 'You gain the [Kitsune Spell Familiarity](/Feats.aspx?ID=2619) ancestry feat.',
+  } }, 'pf2e')!
+  const spell = { ...entry('Daze', 'spell', { tradition: 'Divine' }, ['Cantrip']), level: 0 }
+  const c: Character = { ...base, level: 5, ancestry: 'Kitsune', heritage: heritage.name,
+    automaticFeatChoices: { [automaticFeatChoiceKey(heritage.name, 'Kitsune Spell Familiarity')]: 'Daze' } }
+
+  expect(grantedFeatSpells(c, [heritage, spell])).toMatchObject([{
+    entry: { name: 'Daze' }, source: 'Empty Sky Kitsune', rank: 3,
+    rule: { kind: 'innate', tradition: 'divine', frequency: 'at will', heightened: true },
+  }])
 })
 
 it('casts and dismisses a selected Dinosaur Form from its two-action control at its actual innate rank', () => {
@@ -2076,11 +2091,11 @@ it('uses class DC and selected slot rank for prepared spell metadata', () => {
       prepared: { '1:0': fear.id, '4:0': tracks.id } } }
   const entries = [fear, tracks, master, entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' })]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  const rows = html.match(/<li class="spellbook-row">[\s\S]*?<\/li>/g)
-  expect(rows?.[0]).toContain('<small>Save</small>Will DC 42')
-  expect(rows?.[1]).toContain('<small>Duration</small>8 hours')
-  expect(rows?.[1]).toContain('<small>Range</small>20 feet')
-  expect(rows?.[1]).toContain('<small>Area/Targets</small>Up to 10 creatures')
+  expect(html).toContain('<small>Save</small>Will DC 42')
+  expect(html).toContain('aria-label="Cast spell slot rank 4 slot 1"')
+  expect(html).toContain('<small>Duration</small>8 hours')
+  expect(html).toContain('<small>Range</small>20 feet')
+  expect(html).toContain('<small>Area/Targets</small>Up to 10 creatures')
 })
 
 it('grants only selected qi and domain spells, never linked alternatives or future selections', () => {

@@ -1019,7 +1019,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
   const saveWeapons = (next: OwnedWeapon[], extra?: Partial<Character>) => save({
     ...(livingSource ? { livingWeaponEnhancements: livingWeaponEnhancements(c, entries, livingSource) } : {}),
-    weapons: [...next.filter(weapon => !weapon.attachedTo), ...(c.weapons ?? []).filter((weapon) =>
+    weapons: [...next.filter(weapon => !weapon.attachedTo
+      && !entries.some(entry => entry.kind === 'weapon' && entry.id === weapon.id && entry.data.granted_by_heritage)),
+      ...(c.weapons ?? []).filter((weapon) =>
       (isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id) && !weapons.some((visible) => visible.id === weapon.id))],
     ...extra,
   })

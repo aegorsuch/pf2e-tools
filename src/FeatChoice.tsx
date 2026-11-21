@@ -1,7 +1,7 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, automaticFeatGrants, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import type { SectionProps } from './builder'
-import { DOMAIN_FEATS, featSpellOptions } from './featSpells'
+import { DOMAIN_FEATS, automaticFeatChoiceKey, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
@@ -37,6 +37,61 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
       </select>
     </label>
   </span>
+}
+
+export function AutomaticFeatChoice({ c, entries, save, name, source, choice }: SectionProps & {
+  name: string; source: string; choice?: string
+}) {
+  if (name === 'Additional Lore') {
+    const key = automaticFeatChoiceKey(source, name)
+    return <label className="feat-choice">
+      Lore subcategory{' '}
+      <input key={`${source}:${name}:${choice ?? ''}`} aria-label={`${source} Additional Lore subcategory`} defaultValue={choice ?? ''}
+        onBlur={event => {
+          const selected = event.target.value.trim() || undefined
+          const automaticFeatChoices = { ...c.automaticFeatChoices }
+          if (selected) automaticFeatChoices[key] = selected
+          else delete automaticFeatChoices[key]
+          save({ automaticFeatChoices })
+        }} />
+    </label>
+  }
+  if (name === 'Terrain Expertise' && source !== 'Pioneer Human') {
+    const key = automaticFeatChoiceKey(source, name)
+    const used = automaticFeatGrants(c, entries).filter(grant => grant.name === name && grant.source !== source)
+      .map(grant => grant.choice ?? c.automaticFeatChoices?.[automaticFeatChoiceKey(grant.source, grant.name)])
+      .filter((terrain): terrain is string => !!terrain)
+    const options = terrainExpertiseOptions(c, -1, used)
+    return <SearchableSelect label={`${name} terrain`} aria-label={`${name} terrain`} value={choice ?? ''} onChange={event => {
+      const selected = event.target.value || undefined
+      if (selected && !options.includes(selected)) return
+      const automaticFeatChoices = { ...c.automaticFeatChoices }
+      if (selected) automaticFeatChoices[key] = selected
+      else delete automaticFeatChoices[key]
+      save({ automaticFeatChoices })
+    }}>
+      <option value="">Choose terrain</option>
+      {choice && !options.includes(choice) && <option value={choice} disabled>{choice} (unavailable)</option>}
+      {options.map(terrain => <option key={terrain}>{terrain}</option>)}
+    </SearchableSelect>
+  }
+  if (name !== 'Kitsune Spell Familiarity') return null
+  const options = featSpellOptions(c, entries, { name, type: 'Ancestry Feat', level: 1, slot: '' }) ?? []
+  return <label className="feat-choice">
+    <SearchableSelect label="Daily cantrip" aria-label={`${name} spell`} value={choice ?? ''} onChange={event => {
+      const selected = event.target.value || undefined
+      if (selected && !options.some(spell => spell.name === selected)) return
+      const key = automaticFeatChoiceKey(source, name)
+      const automaticFeatChoices = { ...c.automaticFeatChoices }
+      if (selected) automaticFeatChoices[key] = selected
+      else delete automaticFeatChoices[key]
+      save({ automaticFeatChoices })
+    }}>
+      <option value="">Choose cantrip</option>
+      {choice && !options.some(spell => spell.name === choice) && <option value={choice} disabled>{choice}</option>}
+      {options.map(spell => <option key={spell.id} value={spell.name}>{spell.name}</option>)}
+    </SearchableSelect>
+  </label>
 }
 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {

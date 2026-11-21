@@ -7,7 +7,7 @@ import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
 import { eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
-import { grantedFeatSpells } from './featSpells'
+import { automaticFeatChoiceKey, grantedFeatSpells } from './featSpells'
 import { getSettings, updateSettings } from './settings'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
@@ -89,6 +89,52 @@ it('counts a fixed background feat once and includes temporary granted skill fea
     feats: [{ name: 'Carry Their Memories', type: 'Ancestry Feat', level: 5 }] }
   expect(render(memory)).toContain('Feat slots 1/11</h4>')
   expect(render({ ...memory, feats: [{ ...memory.feats[0], takenLevel: 21 }] })).toContain('Feat slots 0/10</h4>')
+})
+
+it('shows fixed heritage-granted ancestry feats in the ancestry feat list', () => {
+  const heritage: ContentEntry = { id: 'heritage-grant', name: 'Empty Sky Kitsune', kind: 'heritage', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['Kitsune'], description: '', data: {
+      ancestry: 'Kitsune', grants_heritage_feats: 'Kitsune Spell Familiarity',
+    }, effects: [], updatedAt: 0 }
+  const feat: ContentEntry = { id: 'kitsune-spell-familiarity', name: 'Kitsune Spell Familiarity', kind: 'feat',
+    source: 'official', systems: ['pf2e'], level: 1, traits: ['Ancestry', 'Kitsune'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const daze: ContentEntry = { id: 'daze', name: 'Daze', kind: 'spell', source: 'official', systems: ['pf2e'],
+    level: 0, traits: ['Cantrip'], description: '', data: { tradition: 'Divine' }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), ancestry: 'Kitsune', heritage: heritage.name,
+    automaticFeatChoices: { [automaticFeatChoiceKey(heritage.name, feat.name)]: 'Daze' } }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[heritage, feat, daze]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).toContain('Kitsune Spell Familiarity')
+  expect(markup).toContain('Empty Sky Kitsune')
+  expect(markup).toContain('aria-label="Kitsune Spell Familiarity spell"')
+  expect(markup).toContain('<option value="Daze" selected="">Daze</option>')
+})
+
+it('shows terrain selection for a heritage-granted Terrain Expertise feat', () => {
+  const heritage = mapAonHit({ _id: 'heritage-deep-orc', _source: {
+    category: 'heritage', name: 'Deep Orc', trait: ['Orc'],
+    markdown: 'You gain the [Terrain Expertise](/Feats.aspx?ID=5223) skill feat.',
+  } }, 'pf2e')!
+  const c: Character = { ...emptyRanger(), ancestry: 'Orc', heritage: heritage.name,
+    automaticFeatChoices: { [automaticFeatChoiceKey(heritage.name, 'Terrain Expertise')]: 'Underground' } }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[heritage]} categories={['skill']} save={() => {}} />)
+
+  expect(markup).toContain('Terrain Expertise')
+  expect(markup).toContain('aria-label="Terrain Expertise terrain"')
+  expect(markup).toContain('<option selected="">Underground</option>')
+})
+
+it('shows editable Lore choice for a heritage-granted Additional Lore feat', () => {
+  const heritage = mapAonHit({ _id: 'heritage-sage-jotunborn', _source: {
+    category: 'heritage', name: 'Sage Jotunborn', trait: ['Jotunborn'],
+    markdown: 'You gain the [Additional Lore](/Feats.aspx?ID=5114) general feat for a lore skill of your choice.',
+  } }, 'pf2e')!
+  const c: Character = { ...emptyRanger(), ancestry: 'Jotunborn', heritage: heritage.name,
+    automaticFeatChoices: { [automaticFeatChoiceKey(heritage.name, 'Additional Lore')]: 'Sailing' } }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[heritage]} categories={['skill']} save={() => {}} />)
+
+  expect(markup).toContain('Additional Lore')
+  expect(markup).toContain('aria-label="Sage Jotunborn Additional Lore subcategory"')
+  expect(markup).toContain('value="Sailing"')
 })
 
 it('uses Iruxi Armaments variants without a trailing selector', () => {

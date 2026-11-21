@@ -71,12 +71,12 @@ it.each([
   expect(Object.values(classSpellSlots({ ...base, level })!)).toEqual(counts)
 })
 
-it('applies Hierophant power once, only when acquired, without changing other casters', () => {
+it('applies Hierophant power once, only when acquired, and preserves Wizard slot progression', () => {
   const c = { ...base, level: 20, feats: [taken("Hierophant's Power", 20), taken("Hierophant's Power", 20)] }
   expect(classSpellSlots(c)?.[10]).toBe(2)
   expect(classSpellSlots({ ...c, level: 19 })?.[10]).toBe(1)
   expect(classSpellSlots({ ...c, feats: [taken("Hierophant's Power", 21)] })?.[10]).toBe(1)
-  expect(classSpellSlots({ ...c, className: 'Wizard' })).toBeUndefined()
+  expect(classSpellSlots({ ...c, className: 'Wizard' })?.[10]).toBe(1)
   expect(classSpellSlots({ ...base, level: 0 })).toEqual({})
 })
 

@@ -8,6 +8,8 @@ import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
+export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
+export const automaticFeatChoiceKey = (source: string, feat: string) => JSON.stringify([source, feat])
 
 const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function domainFeatSpells(c: Character, entries: ContentEntry[], featName: string, domain: string) {
@@ -159,6 +161,13 @@ export function widespreadFascinationOptions(c: Character, entries: ContentEntry
 }
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (feat.name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
+      && KITSUNE_SPELL_FAMILIARITY_CANTRIPS.includes(spell.name)
+      && spell.traits.some(trait => trait.toLowerCase() === 'cantrip')
+      && String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes('divine'))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Widespread Fascination' && c.className === 'Necromancer' && c.systems.includes('pf2e')) {
     const names = new Set(widespreadFascinationOptions(c, entries, feat).map(entry => entry.data.grants_focus_spells))
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
@@ -295,10 +304,30 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'at will', heightened: true },
       rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', 'Venomthought Vesk', entry.name]) })
   }
+  for (const heritage of characterHeritages(c, entries)) {
+    const granted = typeof heritage.data.grants_heritage_feats === 'string'
+      && heritage.data.grants_heritage_feats.split(';').includes('Kitsune Spell Familiarity')
+    if (!granted) continue
+    const choice = c.automaticFeatChoices?.[automaticFeatChoiceKey(heritage.name, 'Kitsune Spell Familiarity')]
+    const entry = choice && featSpellOptions(c, entries, {
+      name: 'Kitsune Spell Familiarity', type: 'Ancestry Feat', level: 1, slot: '',
+    })?.find(spell => spell.name === choice)
+    if (entry) out.push({ entry, source: heritage.name,
+      rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'at will', heightened: true },
+      rank: Math.ceil(c.level / 2),
+      usageKey: JSON.stringify(['heritage-feat', heritage.name, 'Kitsune Spell Familiarity', entry.name]) })
+  }
   for (const [index, feat] of c.feats.entries()) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Kitsune Spell Familiarity') {
+      const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
       const rank = highestDruidSlotRank(c)
       if (!hasUntamedForm(c) && rank !== undefined && rank >= 5) {

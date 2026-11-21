@@ -3,13 +3,13 @@ import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
 import { MASTERMIND_SKILLS, SKILL_GRANT_REPLACEMENT_FEATS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
-import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
+import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { adoptedAncestryText, compareFeatSelections, featDisplayName } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
-import { DOMAIN_FEATS, domainSpellDescription, featSpellOptions, fixedAncestralCantrip, widespreadFascinationOptions } from './featSpells'
+import { DOMAIN_FEATS, automaticFeatChoiceKey, domainSpellDescription, featSpellOptions, fixedAncestralCantrip, widespreadFascinationOptions } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { getSettings } from './settings'
@@ -65,13 +65,15 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
         && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
         ? [feat] : []
     }) : []
-  const grants = !categories || categories.some(category => ['class', 'skill', 'general'].includes(category))
+  const grants = !categories || categories.some(category => ['class', 'skill', 'general', 'ancestry'].includes(category))
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
       && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession')
         || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
+    .map(grant => ({ ...grant, choice: grant.choice
+      ?? c.automaticFeatChoices?.[automaticFeatChoiceKey(grant.source, grant.name)] }))
     .filter((grant, index, all) => {
       if (grant.name !== 'Additional Lore' || !grant.choice) return true
       const key = grant.choice.trim().replace(/\s+lore$/i, '').toLowerCase()
@@ -332,6 +334,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
                   entry={entry} choice={row.kind === 'automatic' ? row.feat.choice : undefined} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
+                {row.kind === 'automatic' && <AutomaticFeatChoice c={c} entries={entries} save={save}
+                  name={feat.name} source={row.feat.source} choice={row.feat.choice} />}
                 <button type="button" aria-label={`Add L${String(row.level).padStart(2, '0')} ${LABEL[category]} feat slot`}
                   onClick={() => addSlot(category, row.level)}>+</button>
               </li>
