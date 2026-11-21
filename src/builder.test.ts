@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { classExtraSlots, classRepertoireRows, classSpellSlots } from './builder'
@@ -269,10 +269,10 @@ it('applies Jotunborn skill grants, senses, resistance, size, and reach', () => 
     name: 'Titan Wrestler', source: 'Jotunborn Grappler', level: 1,
   })
   const alreadyTrained: Character = { ...athlete, skillPicks: ['Athletics'] }
-  expect(featChoiceOptions('Jotunborn Grappler', alreadyTrained, [grappler], 'ancestry:1:0')).toContain('Arcana')
   const replacement = normalizeConditionalSkillChoices({ ...alreadyTrained,
     feats: [{ ...alreadyTrained.feats[0], choice: 'Arcana' }] }, [grappler])
-  expect(replacement.feats[0].choice).toBe('Arcana')
+  expect(replacement.feats[0].choice).toBeUndefined()
+  expect(replacement.skillPicks).toContain('Arcana')
   expect(ranksAt(replacement, [grappler]).Arcana).toBe(1)
   expect(ranksAt({ ...athlete, feats: [{ name: "Caretaker's Intuition", type: 'Ancestry Feat', level: 1 }] },
     [entry('feat', "Caretaker's Intuition")]).Nature).toBe(1)
@@ -377,10 +377,10 @@ it('adds trained slots for repeated Lizardfolk Lore skills and preserves legacy 
   const occultism = { ...c, feats: [{ ...feat, choice: 'Occultism, Astrology Lore' }] }
   expect(additionalSkillCount(occultism, [klass]) - additionalSkillCount({ ...occultism, feats: [] }, [klass])).toBe(1)
   const legacy = { ...c, feats: [{ ...feat, choice: 'Nature', replacements: ['Astrology Lore', 'Athletics', 'Society'] }] }
-  expect(ranksAt(legacy, [klass])).toMatchObject({ Survival: 1, Nature: 1, 'Astrology Lore': 1, Athletics: 1, Society: 1 })
   const normalized = normalizeConditionalSkillChoices(legacy, [klass])
   expect(normalized.skillPicks).toEqual(expect.arrayContaining(['Athletics', 'Society']))
   expect(featLores(normalized, [klass])).toContain('Astrology Lore')
+  expect(ranksAt(normalized, [klass])).toMatchObject({ Survival: 1, Nature: 1, 'Astrology Lore': 1, Athletics: 1, Society: 1 })
 })
 
 describe('replacement slots for redundant fixed feat grants', () => {
@@ -771,7 +771,7 @@ it('limits advanced domains to eligible initial choices available at the feat le
 })
 
 describe('official passive feat mechanics', () => {
-  it('grants Dwarven Lore and Clan Lore skills, lore, and replacements for already-trained skills', () => {
+  it('grants Dwarven Lore and Clan Lore skills and lore, adding a trained token for already-trained skills', () => {
     const dwarvenLore = { name: 'Dwarven Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
     const clanLore = { name: 'Clan Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Breakiron' }
     const dwarf = { ...base, ancestry: 'Dwarf', background: undefined }
@@ -779,23 +779,10 @@ describe('official passive feat mechanics', () => {
     expect(ranksAt(dwarven, entries)).toMatchObject({ Crafting: 1, Religion: 1, 'Dwarven Lore': 1 })
     expect(featLores(dwarven, entries)).toContain('Dwarven Lore')
 
-    const replacedDwarven = { ...dwarf, skillPicks: ['Crafting', 'Religion'], feats: [
-      { ...dwarvenLore, replacements: ['Society', 'Athletics'] },
-    ] }
-    const dwarfChoices = loreReplacementChoices(replacedDwarven, entries, 0)
-    expect(dwarfChoices.map(({ skill, value }) => [skill, value])).toEqual([
-      ['Crafting', 'Society'], ['Religion', 'Athletics'],
-    ])
-    expect(dwarfChoices[1].options).not.toContain('Society')
-    expect(ranksAt(replacedDwarven, entries)).toMatchObject({ Society: 1, Athletics: 1 })
-
     const clan = { ...dwarf, skillPicks: ['Crafting'], feats: [clanLore] }
     expect(featChoiceOptions('Clan Lore', clan, entries, clanLore.slot, 0)).toContain('Breakiron')
     expect(featLores(clan, entries)).toContain('Alchemy Lore')
     expect(ranksAt(clan, entries)).toMatchObject({ Crafting: 1, Survival: 1 })
-    const replacedClan = { ...clan, feats: [{ ...clanLore, replacements: ['Society'] }] }
-    expect(loreReplacementChoices(replacedClan, entries, 0).map(({ skill }) => skill)).toEqual(['Crafting'])
-    expect(ranksAt(replacedClan, entries).Society).toBe(1)
   })
 
   it('grants Stonemason’s Eye and Eye for Treasure mechanics only when their prerequisites apply', () => {
@@ -1875,22 +1862,6 @@ describe('defenses', () => {
   })
 
   it.each([
-    ['Adroit Manipulation', 'Thievery', 'Arcana'],
-    ['Innocuous', 'Deception', 'Acrobatics'],
-    ['Magically Melodious', 'Performance', 'Acrobatics'],
-  ])('replaces already-trained %s training', (name, skill, replacement) => {
-    const sf = name === 'Magically Melodious'
-    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
-    const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}` })
-    const selection = { name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: replacement }
-    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined,
-      feats: [selection] }
-    expect(featChoiceOptions(name, { ...character, feats: [{ ...selection, choice: undefined }] },
-      [feat, klass], selection.slot, 0)).toContain(replacement)
-    expect(ranksAt(character, [feat, klass])).toMatchObject({ [skill]: 1, [replacement]: 1 })
-  })
-
-  it.each([
     ['Adroit Manipulation', 'Thievery'],
     ['Innocuous', 'Deception'],
     ['Magically Melodious', 'Performance'],
@@ -1931,20 +1902,6 @@ describe('defenses', () => {
       feats: [selection] }
     const withoutFeat = additionalSkillCount({ ...character, feats: [] }, [klass, feat])
     expect(additionalSkillCount(character, [klass, feat]) - withoutFeat).toBe(overlapCount)
-    const replacements = ['Arcana', 'Society'].slice(0, overlapCount)
-    const selected: Character = { ...character, feats: [{ ...selection, ...(replacements.length ? { replacements } : {}) }] }
-    const choices = loreReplacementChoices(selected, [klass, feat], 0)
-    expect(choices).toHaveLength(overlapCount)
-    if (overlapCount === 2) {
-      expect(choices[1].options).not.toContain(replacements[0])
-      expect(ranksAt(selected, [klass, feat])).toMatchObject({ Arcana: 1, Society: 1 })
-      const duplicate: Character = { ...character, feats: [{ ...selection, replacements: ['Arcana', 'Arcana'] }] }
-      expect(loreReplacementChoices(duplicate, [klass, feat], 0)[1].options).not.toContain('Arcana')
-      expect(additionalSkillCount(duplicate, [klass, feat]) - withoutFeat).toBe(1)
-    }
-    const normalized = normalizeConditionalSkillChoices(selected, [klass, feat])
-    expect(normalized.skillPicks).toEqual(expect.arrayContaining(replacements.slice(0, overlapCount)))
-    expect(normalized.feats[0].replacements).toBeUndefined()
   })
 
   it('finds feats stranded in slots that no longer exist', () => {

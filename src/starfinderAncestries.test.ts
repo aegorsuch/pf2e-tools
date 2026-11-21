@@ -16,12 +16,12 @@ const base: Character = {
 }
 
 it('provides native Ysoki jaws and replaces them for Fierce Ysoki', () => {
-  const normal = ownedWeapons(base, entries).find(weapon => weapon.name === 'Ysoki Jaws')!
+  const normal = ownedWeapons(base, entries).find(weapon => weapon.id === 'sf2e:ysoki:jaws')!
   expect(weaponAttack(base, entries, normal)).toMatchObject({ damage: '1d4 piercing', traits: expect.arrayContaining(['Agile', 'Finesse']) })
   const fierce = { ...base, heritage: 'Fierce Ysoki' }
-  const jaws = ownedWeapons(fierce, entries).find(weapon => weapon.name === 'Fierce Ysoki Jaws')!
+  const jaws = ownedWeapons(fierce, entries).find(weapon => weapon.id === 'sf2e:ysoki:fierce-jaws')!
   expect(weaponAttack(fierce, entries, jaws)).toMatchObject({ damage: '1d8 piercing', traits: expect.arrayContaining(['Grapple']) })
-  expect(ownedWeapons(fierce, entries).some(weapon => weapon.name === 'Ysoki Jaws')).toBe(false)
+  expect(ownedWeapons(fierce, entries).some(weapon => weapon.id === 'sf2e:ysoki:jaws')).toBe(false)
   expect(maxHp(fierce, entries) - maxHp(base, entries)).toBe(2)
   expect(boostSlots(fierce, entries).find(slot => slot.key === 'ancestry:0')?.fixed).toBe('str')
   expect(ancestryFlaws(fierce, entries)).toEqual(['dex'])
@@ -63,7 +63,7 @@ it('provides Warblood Vesk two distinct Brutal Anatomy choices and attacks', () 
     type: 'Ancestry Feat', level: 1, slot: slots[0].key }] }
   expect(featChoiceOptions('Brutal Anatomy', selected, entries, slots[1].key)).toEqual(['Jaws', 'Tail'])
   expect(eligibleFeats(entries, selected, slots[1]).map(feat => feat.name)).toEqual(['Brutal Anatomy'])
-  const claw = ownedWeapons(selected, entries).find(weapon => weapon.name === 'Vesk Claw')!
+  const claw = ownedWeapons(selected, entries).find(weapon => weapon.id === 'sf2e:vesk:claw')!
   expect(weaponAttack(selected, entries, claw)).toMatchObject({ damage: expect.stringMatching(/d6 slashing/), criticalSpecialization: true,
     traits: expect.arrayContaining(['Agile', 'Finesse']) })
   expect(weaponAttack({ ...selected, level: 4 }, entries, claw).criticalSpecialization).toBe(false)
@@ -100,7 +100,7 @@ it('shows Fearless as a conditional saving throw effect', () => {
 
 it('provides Fork-Tongued Vesk venomous jaws and its special critical damage', () => {
   const c: Character = { ...base, ancestry: 'Vesk', heritage: 'Fork-Tongued Vesk', level: 1 }
-  const jaws = ownedWeapons(c, entries).find(weapon => weapon.name === 'Venomous Vesk Jaws')!
+  const jaws = ownedWeapons(c, entries).find(weapon => weapon.id === 'sf2e:vesk:venomous-jaws')!
   expect(weaponAttack(c, entries, jaws)).toMatchObject({ damage: expect.stringMatching(/1d4.*poison/),
     traits: expect.arrayContaining(['Grapple', 'Unarmed']), criticalSpecialization: false,
     criticalNote: '1 persistent poison damage on a critical hit.' })
@@ -158,7 +158,7 @@ it('shows Advantageous Assault conditional damage only for weapons', () => {
   const owned: OwnedWeapon = { id: 'blade', name: 'Blade', potency: 0, striking: 0, runes: [] }
   const result = weaponAttack(c, [weapon], owned)
   expect(result.breakdown.notes?.join(' ')).toContain('a Strike against a frightened or bleeding creature deals +1 circumstance damage')
-  const jaws = ownedWeapons({ ...c, heritage: 'Fork-Tongued Vesk' }, entries).find(item => item.name === 'Venomous Vesk Jaws')!
+  const jaws = ownedWeapons({ ...c, heritage: 'Fork-Tongued Vesk' }, entries).find(item => item.id === 'sf2e:vesk:venomous-jaws')!
   expect(weaponAttack(c, entries, jaws).breakdown.notes?.join(' ')).not.toContain('Advantageous Assault')
 })
 
@@ -202,10 +202,10 @@ it('automates Pahtra and Kasatha ancestry feats', () => {
   const catalog = [...feats, ...spells, ...entries]
   const taken = (name: string, extra: Partial<Character['feats'][number]> = {}) => ({ name, type: 'Ancestry Feat', level: 1, ...extra })
   const pahtra: Character = { ...base, ancestry: 'Pahtra', level: 13, feats: [taken('Predatory', { choice: 'Jaws' }), taken('Climbing Claws'), taken('Pahtra Lore')] }
-  const jaws = ownedWeapons(pahtra, catalog).find(weapon => weapon.name === 'Pahtra Jaws')!
+  const jaws = ownedWeapons(pahtra, catalog).find(weapon => weapon.id === 'sf2e:pahtra:jaws')!
   expect(weaponAttack(pahtra, catalog, jaws)).toMatchObject({ damage: expect.stringMatching(/d6.* piercing/), criticalSpecialization: true,
     traits: expect.arrayContaining(['Finesse', 'Grapple']) })
-  expect(ownedWeapons(pahtra, catalog).some(weapon => weapon.name === 'Pahtra Claw')).toBe(false)
+  expect(ownedWeapons(pahtra, catalog).some(weapon => weapon.id === 'sf2e:pahtra:claw')).toBe(false)
   expect(movementSpeeds(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: speed(pahtra, catalog) }))
   expect(automaticFeatGrants(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Additional Lore', choice: 'Pahtra' }))
   const casters: Character = { ...base, ancestry: 'Kasatha', level: 13,

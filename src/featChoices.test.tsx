@@ -584,29 +584,6 @@ it('selects distinct warden spells per feat and derives grants from current choi
   expect(grantedWardenSpells(c, entries).map((s) => s.name)).toEqual(['Heal Companion'])
 })
 
-it('offers a distinct replacement for each overlapping Halfling Lore skill grant', () => {
-  const feat = mapAonHit({ _id: 'halfling-lore', _source: {
-    category: 'feat', name: 'Halfling Lore', level: 1, trait: ['Halfling'],
-    markdown: 'You gain the trained proficiency rank in Acrobatics and Stealth. You also gain the Additional Lore general feat for Halfling Lore.',
-  } }, 'pf2e')!
-  const klass: ContentEntry = { id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official',
-    name: 'Ranger', level: 1, traits: [], description: '',
-    data: { skill_proficiency: 'Trained in Acrobatics, Trained in Stealth' }, effects: [], updatedAt: 1 }
-  let c: Character = { ...base, ancestry: 'Halfling', feats: [
-    { name: 'Halfling Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
-  ] }
-  const render = () => FeatChoice({ c, entries: [feat, klass],
-    save: patch => { c = { ...c, ...patch } }, index: 0 })
-  expect(findSelects(render())).toHaveLength(2)
-  findSelects(render())[0].onChange({ target: { value: 'Arcana' } })
-  expect(c.feats[0].replacements).toEqual(['Arcana'])
-  const second = findSelects(render())[1]
-  second.onChange({ target: { value: 'Arcana' } })
-  expect(c.feats[0].replacements).toEqual(['Arcana'])
-  second.onChange({ target: { value: 'Society' } })
-  expect(c.feats[0].replacements).toEqual(['Arcana', 'Society'])
-})
-
 it('hides another Warden feat when all distinct spells are chosen', () => {
   const allSpells = Array.from({ length: 3 }, (_, i) => spell(`Initiate ${i}`, 'Initiate'))
   const initiate: ContentEntry = {

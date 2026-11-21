@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, SIMPLE_LORE_REPLACEMENT_FEATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, featSpellOptions } from './featSpells'
@@ -98,20 +98,6 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice }: 
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
-  if (SKILL_GRANT_REPLACEMENT_FEATS.includes(feat.name)) {
-    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
-    if (!options) return null
-    return <SearchableSelect label={`${feat.name} replacement skill`} aria-label={`${feat.name} replacement skill`}
-      value={feat.choice ?? ''} onChange={event => {
-        const choice = event.target.value || undefined
-        if (choice && !options.includes(choice)) return
-        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
-      }}>
-      <option value="">Choose replacement skill</option>
-      {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
-      {options.map(skill => <option key={skill}>{skill}</option>)}
-    </SearchableSelect>
-  }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (feat.name === 'Memories of Valor' && c.systems.includes('sf2e')) {
@@ -175,33 +161,9 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </SearchableSelect>}
     </span>
   }
-  if (SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name)) {
-    const replacements = loreReplacementChoices(c, entries, index)
-    if (!replacements.length) return null
-    const setReplacement = (replacementIndex: number, value: string) => {
-      const row = replacements[replacementIndex]
-      if (!row || value && !row.options.includes(value)) return
-      const next = [...(feat.replacements ?? [])]
-      next[replacementIndex] = value
-      while (next.length && !next[next.length - 1]) next.pop()
-      save({ feats: c.feats.map((existing, i) => i === index
-        ? { ...existing, replacements: next.length ? next : undefined } : existing) })
-    }
-    return <span className="feat-choice feat-choice-with-note">
-      {replacements.map((row, replacementIndex) => <label key={row.skill}>{row.skill} replacement{' '}
-        <select aria-label={`${feat.name} ${row.skill} replacement`} value={row.value ?? ''}
-          onChange={event => setReplacement(replacementIndex, event.target.value)}>
-          <option value="">Choose replacement skill</option>
-          {row.value && !row.options.includes(row.value) && <option disabled>{row.value}</option>}
-          {row.options.map(option => <option key={option}>{option}</option>)}
-        </select>
-      </label>)}
-    </span>
-  }
   if (feat.name === 'Lizardfolk Lore') {
     if (feat.choice?.includes(', ')) return null
     const options = ['Nature', 'Occultism']
-    const replacements = lizardfolkLoreReplacementChoices(c, entries, index)
     const setReplacement = (replacementIndex: number, value: string) => {
       const next = [...(feat.replacements ?? [])]
       next[replacementIndex] = value
@@ -227,14 +189,6 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           <option>Lizardfolk Lore</option>
         </select>
       </label>
-      {replacements.map(row => <label key={row.index}>{row.skill} replacement{' '}
-        <select aria-label={`Lizardfolk Lore ${row.skill} replacement`} value={row.value ?? ''}
-          onChange={event => setReplacement(row.index, event.target.value)}>
-          <option value="">Choose replacement skill</option>
-          {row.value && !row.options.includes(row.value) && <option disabled>{row.value}</option>}
-          {row.options.map(option => <option key={option}>{option}</option>)}
-        </select>
-      </label>)}
     </span>
   }
   if (['Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Experienced Laborer'].includes(feat.name)) return null

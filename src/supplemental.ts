@@ -123,7 +123,7 @@ export const ORC_TUSKS: ContentEntry = {
 }
 
 export const TENGU_BITE: ContentEntry = {
-  ...FIST, id: 'supplemental:tengu-bite', name: 'Bite', systems: ['pf2e'],
+  ...FIST, id: 'supplemental:tengu-bite', name: 'Beak', systems: ['pf2e'],
   traits: ['Finesse', 'Unarmed'],
   description: 'Your beak is a 1d6 piercing unarmed attack in the brawling group with the finesse trait.',
   data: { ...FIST.data, damage: '1d6 piercing' },

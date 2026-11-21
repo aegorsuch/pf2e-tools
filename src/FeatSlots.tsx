@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, SKILL_GRANT_REPLACEMENT_FEATS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -348,7 +348,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex, s.category) : undefined
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories',
-            ...SKILL_GRANT_REPLACEMENT_FEATS,
             'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body'].includes(selection.name)
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
@@ -566,7 +565,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 </PickerDialog>
               )}
               {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
-                || SKILL_GRANT_REPLACEMENT_FEATS.includes(selection.name)
                 || ['Bone Magic', 'Reinforced Skeleton'].includes(selection.name)
                 || selection.name === 'Lizardfolk Lore' && !selectedChoices.includes(selection.choice)
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())

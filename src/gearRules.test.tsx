@@ -3201,18 +3201,18 @@ it('gives two-handed weapons the Parry trait from Raise Haft and improves existi
     [content('weapon', 'Parrying Greatsword', { hands: 2, damage: '1d12 slashing' }, 0, ['Parry']), raisedHaft])).toBe(2)
 })
 
-it('gives tengu an innate Bite that gains versatile S from Dogfang Bite', () => {
+it('gives tengu an innate Beak that gains versatile S from Dogfang Bite', () => {
   const c: Character = { ...base, ancestry: 'Tengu', level: 5, feats: [] }
-  const bite = ownedWeapons(c, []).filter(weapon => weapon.name === 'Bite')
+  const bite = ownedWeapons(c, []).filter(weapon => weapon.name === 'Beak')
   expect(bite).toHaveLength(1)
   expect(weaponAttack(c, [], bite[0]).damage).toContain('d6')
   expect(weaponAttack(c, [], bite[0]).traits).toContain('Finesse')
   expect(weaponAttack(c, [], bite[0]).traits).not.toContain('Versatile S')
   const dogfang = { ...c, feats: [feat('Dogfang Bite', 5)] }
-  const upgraded = ownedWeapons(dogfang, []).filter(weapon => weapon.name === 'Bite')
+  const upgraded = ownedWeapons(dogfang, []).filter(weapon => weapon.name === 'Beak')
   expect(upgraded).toHaveLength(1)
   expect(weaponAttack(dogfang, [], upgraded[0]).traits).toContain('Versatile S')
-  expect(ownedWeapons({ ...c, ancestry: 'Human' }, []).some(weapon => weapon.name === 'Bite')).toBe(false)
+  expect(ownedWeapons({ ...c, ancestry: 'Human' }, []).some(weapon => weapon.name === 'Beak')).toBe(false)
 })
 
 it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', () => {
