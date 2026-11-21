@@ -238,6 +238,7 @@ it('provides Solarian attunement, solar weapons, twin weapons, flare, and Solar 
   ]))
   const flare = weapons.find(item => item.name === 'Solar Flare')!
   expect(weaponAttack(solarian, [], flare)).toMatchObject({ damage: '1d6 fire', criticalNote: '1d6 persistent fire damage on a critical hit.' })
+  expect(automaticFeatGrants(solarian, [])).toContainEqual({ name: 'Shield Block', source: 'Solar Shield', level: 1 })
   const shield = ownedShields(solarian).find(item => item.name === 'Solar Shield')!
   expect(shield).toMatchObject({ hardness: 3, hp: 15, equipped: true })
   expect(shieldAcBonus({ ...solarian, solarianShield: { ...solarian.solarianShield, raised: true } }, [])).toBe(1)

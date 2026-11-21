@@ -1391,7 +1391,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
             {summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet
             {summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait)) && <GallopingLaunchNote c={c} range={summary.attack.range} />}</small>)}
-          {w.id === OVERSIZED_THROW.id && <small>Requires Rage and a free hand.</small>}
           {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
         </div>
         return (

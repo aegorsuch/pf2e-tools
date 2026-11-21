@@ -411,7 +411,7 @@ it.each([false, true])('hides automatic unarmed, Free-Hand and source-dependent 
   const c: Character = { ...character([
     { name: 'Haft Striker Stance', type: 'Class Feat', level: 4 },
     { name: 'Oversized Throw', type: 'Class Feat', level: 4 },
-  ]), activeStance: haftStance.name, weapons: [
+  ]), raging: true, className: 'Barbarian', activeStance: haftStance.name, weapons: [
     { id: 'spear', name: spear.name, potency: 0, striking: 0, runes: [] },
     { id: 'free', name: freeHand.name, potency: 0, striking: 0, runes: [], stowed: true },
   ] }

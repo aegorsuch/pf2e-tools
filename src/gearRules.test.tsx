@@ -3128,17 +3128,7 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
   for (const patch of [{ level: 3 }, { feats: [] }]) {
     expect(ownedWeapons({ ...c, ...patch }, []).map((weapon) => weapon.name)).not.toContain(OVERSIZED_THROW.name)
   }
-  const crossbow = content('weapon', 'Crossbow', { hands: 2, weapon_type: 'Ranged', range: 120, damage: '1d8 piercing' })
-  const notRaging: Character = { ...c, raging: false, className: 'Ranger', weapons: [{ ...main, name: 'Crossbow' }],
-    feats: [...c.feats, feat('Strong Arm')] }
-  const thrown = ownedWeapons(notRaging, [crossbow]).find(weapon => weapon.id === OVERSIZED_THROW.id)!
-  expect(weaponEquipped(notRaging, [crossbow], { ...thrown, stowed: true })).toBe(true)
-  expect(equippedWeaponHands(notRaging, [crossbow])).toBe(2)
-  const offense = renderToStaticMarkup(<WeaponList c={notRaging} entries={[crossbow]} save={() => {}} displayOnly />)
-  expect(offense).toContain('Range 30 feet')
-  expect(offense).toContain('Range 120 feet')
-  expect(offense).toContain('Requires Rage and a free hand.')
-  expect(offense).not.toContain('aria-label="Equipped Oversized Throw"')
+  expect(ownedWeapons({ ...c, raging: false }, []).map(weapon => weapon.name)).not.toContain(OVERSIZED_THROW.name)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('aria-haspopup="dialog">Oversized Throw</button>')
   expect(markup).not.toContain('aria-label="Weapon material"')
@@ -3147,7 +3137,7 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
 })
 
 it('requires simple weapon specialization to increase Oversized Throw dice', () => {
-  const c: Character = { ...base, level: 10, className: 'Fighter', feats: [feat('Oversized Throw', 4)] }
+  const c: Character = { ...base, level: 10, className: 'Fighter', raging: true, feats: [feat('Oversized Throw', 4)] }
   const weapon = ownedWeapons(c, []).find(item => item.id === OVERSIZED_THROW.id)!
   const klass = content('class', 'Fighter', { attack_proficiency: 'Trained in simple weapons' })
   const specialization = content('classFeature', 'Weapon Specialization', { class: 'Fighter' }, 7)

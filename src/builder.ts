@@ -3749,6 +3749,10 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (talon && !activeFeatsNamed(c, 'Hefty Hauler').some(feat => featTakenLevel(feat) <= featTakenLevel(talon))) {
     grants.push({ name: 'Hefty Hauler', source: 'Talon Transporter', level: sourceLevel('Talon Transporter') })
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Solar Shield').length
+    && !grants.some(grant => grant.name === 'Shield Block')) {
+    grants.push({ name: 'Shield Block', source: 'Solar Shield', level: sourceLevel('Solar Shield') })
+  }
   return grants
 }
 
@@ -4995,7 +4999,7 @@ export function canEquipShield(c: Character, entries: ContentEntry[], shield: Ow
       && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
 }
 
-const canOversizedThrow = (c: Character) => c.level >= 4 && activeFeatsNamed(c, 'Oversized Throw').length > 0
+const canOversizedThrow = (c: Character) => c.level >= 4 && !!c.raging && activeFeatsNamed(c, 'Oversized Throw').length > 0
 const OFFENSIVE_DEFENSE_WEAPON_ID = 'sf2e:soldier:offensive-defense'
 const OFFENSIVE_DEFENSE_GRADES = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
 
