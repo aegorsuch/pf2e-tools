@@ -330,15 +330,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ...(['Apex Companion', 'Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
-                ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element: <label>Spirit of the Beast{' '}
-                  <select aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
+                ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element:
+                  <SearchableSelect aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
                     const choice = (['Might', 'Swiftness', 'Insight'] as const).find(aspect => aspect === event.target.value)
                     update(comp.id, { spiritAspect: choice })
                   }}>
-                    <option value="">Inactive</option>
+                    <option value="">Spirit of the Beast…</option>
                     {['Insight', 'Might', 'Swiftness'].map(aspect => <option key={aspect} value={aspect}>Aspect of {aspect}</option>)}
-                  </select>
-                </label> }] : []),
+                  </SearchableSelect> }] : []),
                 ...(stats?.peerlessMascot ? [{ name: 'Banner affixed', element: <label><input type="checkbox"
                   aria-label={`Banner affixed to ${comp.name || comp.type}`} checked={!!comp.mascotBannerAffixed}
                   onChange={event => update(comp.id, { mascotBannerAffixed: event.target.checked })} /> Banner affixed</label> }] : []),
