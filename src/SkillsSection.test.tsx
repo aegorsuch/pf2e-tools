@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { ArmorProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
-import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, weaponRanks } from './builder'
+import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, speed, weaponRanks } from './builder'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -1755,6 +1755,13 @@ it('adds and marks Imitate Fauna status bonus only while the known spell is acti
     expect(inactive).toContain('Deception <b>+0</b>')
     expect(inactive).not.toContain('Imitate Fauna note')
   }
+})
+
+it('applies the Tailwind status Speed bonus only while the known spell is active', () => {
+  const c: Character = { ...base, spells: [{ name: 'Tailwind', rank: 1, cantrip: false }] }
+  const off = speed(c, [])
+  expect(speed({ ...c, activeSpells: ['Tailwind'] }, [])).toBe(off + 10)
+  expect(speed({ ...c, spells: [], activeSpells: ['Tailwind'] }, [])).toBe(off)
 })
 
 it('applies Athletic Rush to Athletics and Speed only while the known spell is active', () => {

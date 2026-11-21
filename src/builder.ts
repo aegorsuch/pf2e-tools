@@ -2328,6 +2328,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     { source: 'Uncanny Dash (status)', feet: dashSpeed },
     { source: 'Reinforced Skeleton (status)', feet: skeletonSpeed },
     { source: 'Athletic Rush (status)', feet: isSpellActive(c, entries, 'Athletic Rush') ? 10 : 0 },
+    { source: 'Tailwind (status)', feet: isSpellActive(c, entries, 'Tailwind') ? 10 : 0 },
     { source: 'Quantum Field (status)', feet: witchwarperParadox(c)?.name === 'Precog' && c.witchwarper?.movingInQuantumField ? 5 : 0 },
     { source: 'On the Move (status)', feet: c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 11
       ? c.level >= 16 ? 10 : 5 : 0 },
