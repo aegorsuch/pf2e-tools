@@ -1498,17 +1498,18 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = 
   Innocuous: { skill: 'Deception' },
   'Magically Melodious': { skill: 'Performance' },
   'Prairie Rider': { skill: 'Nature' },
+  'Overlooked Mastermind': { skill: 'Deception' },
 }
 const SKILLS_TAB_ANCESTRY_GRANTS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
   'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
-  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider']
+  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider', 'Overlooked Mastermind']
 export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
-  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider']
+  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider', 'Overlooked Mastermind']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
   const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
-    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider'].includes(name)
+    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider', 'Overlooked Mastermind'].includes(name)
     ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined
   const source = selectedFeatEntry(c, entries, name)
@@ -3447,6 +3448,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     grants.push({ name: 'Adopted Ancestry', choice: 'Orc', source: 'Orc Kinship',
       level: Math.min(...activeFeatsNamed(c, 'Orc Kinship').map(featTakenLevel)) })
   }
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Bardic Lore')) {
+    grants.push({ name: 'Additional Lore', choice: 'Bardic', source: feat.name, level: featTakenLevel(feat) })
+  }
   if (c.ancestry === 'Orc' && c.heritage === 'Hold-Scarred Orc') {
     grants.push({ name: 'Diehard', source: 'Hold-Scarred Orc', level: 1 })
   }
@@ -3466,7 +3470,7 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     grants.push({ name: 'Assurance', choice, source: feat.name, level: featTakenLevel(feat) })
   }
   for (const [source, name] of [["Gecko's Grip", 'Combat Climber'], ['Rider', 'Ride'], ['Reptile Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
-    ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump']]) {
+    ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump'], ['Uncanny Agility', 'Steady Balance']]) {
     for (const feat of activeFeatsNamed(c, source)) grants.push({ name, source, level: featTakenLevel(feat) })
   }
   for (const feat of activeFeatsNamed(c, 'Pick On Someone My Size')) {
@@ -3755,8 +3759,10 @@ export function skillDownload(c: Character, entries: ContentEntry[]) {
 }
 
 export function untrainedSkillProficiency(c: Character) {
+  const eclectic = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Eclectic Skill').length
   const clever = !!activeFeatsNamed(c, 'Clever Improviser').length
-  if (!clever && !activeFeatsNamed(c, 'Untrained Improvisation').length) return undefined
+  if (!eclectic && !clever && !activeFeatsNamed(c, 'Untrained Improvisation').length) return undefined
+  if (eclectic) return { bonus: c.level, source: 'Eclectic Skill', trainedActions: true }
   return {
     bonus: Math.max(0, c.level - (c.level >= 7 ? 0 : c.level >= 5 ? 1 : 2)),
     source: clever ? 'Clever Improviser' : 'Untrained Improvisation',

@@ -990,6 +990,11 @@ describe('official passive feat mechanics', () => {
     expect(JSON.stringify(c)).toBe(before)
   })
 
+  it('Eclectic Skill gives untrained skills full level proficiency with trained actions', () => {
+    const c = { ...base, level: 8, feats: [{ name: 'Eclectic Skill', type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+    expect(untrainedSkillProficiency(c)).toEqual({ bonus: 8, source: 'Eclectic Skill', trainedActions: true })
+  })
+
   it.each([[3, 1], [4, 2], [5, 4], [6, 5], [7, 7], [15, 15]])('scales Untrained Improvisation at level %i without granting trained ranks', (level, bonus) => {
     const feat = { name: 'Untrained Improvisation', type: 'General Feat', level: 3, slot: 'general:3:0' }
     const c = { ...base, level, feats: [feat] }
