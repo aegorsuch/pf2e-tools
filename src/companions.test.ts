@@ -658,6 +658,8 @@ describe('animal companions', () => {
     expect(might.fortitude).toBe(none.fortitude + 2)
     expect(might.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 2)
     expect(might.reflex).toBe(none.reflex)
+    const intimidation = might.skills.find(s => s.name === 'Intimidation')
+    if (intimidation) expect(intimidation.bonus).toBe(none.skills.find(s => s.name === 'Intimidation')!.bonus + 2)
     expect(at(15, 'Swiftness').reflex).toBe(at(15).reflex + 3)
     expect(at(1, 'Insight').will).toBe(at(1).will + 1)
     expect(at(1, 'Insight').perceptionNote).toContain('Seek')

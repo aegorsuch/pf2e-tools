@@ -494,7 +494,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       {stats.temporaryHp > 0 && <span><small>Temporary Hit Points</small><b>{stats.temporaryHp}</b>
                         <SourceNote source="Apex Companion" note="Gain 30 temporary Hit Points when cast; not added to maximum Hit Points." inlineSource={false} /></span>}
                       <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
-                      <span><small>Fortitude</small>{signed(stats.fortitude)}{stats.aspect?.save === 'Fortitude' && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Might).`} inlineSource={false} />}
+                      <span><small>Fortitude</small>{signed(stats.fortitude)}
                         {stats.antiDragon && <SourceNote source={stats.antiDragon.source}
                           note={`+${stats.antiDragon.bonus} item bonus to Fortitude DC against Grapple, Reposition, Shove, or Trip. A creature that Grapples this companion takes ${stats.antiDragon.damage} piercing damage.`} />}</span>
                       <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote

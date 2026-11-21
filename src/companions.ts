@@ -221,7 +221,7 @@ function growSize(size: string) {
 
 type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[]; conditional: Record<string, string> }
 const SPIRIT_ASPECTS: Record<'Might' | 'Swiftness' | 'Insight', SpiritAspect> = {
-  Might: { save: 'Fortitude', skills: ['Athletics'], conditional: { Intimidation: 'Intimidation checks to Demoralize' } },
+  Might: { save: 'Fortitude', skills: ['Athletics', 'Intimidation'], conditional: {} },
   Swiftness: { save: 'Reflex', skills: ['Acrobatics'], conditional: { Stealth: 'Stealth checks to Hide or Sneak' } },
   Insight: { save: 'Will', skills: [], conditional: { Perception: 'Perception checks to Seek',
     Survival: 'Survival checks to Sense Direction or Track' } },
@@ -411,11 +411,11 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
       + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0),
       note: [
-        aspect?.name !== 'Swiftness' && aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.` : aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
+        aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? `${signed(bardingCheckPenalty)} check penalty (${barding?.name}).` : undefined,
       ].filter(Boolean).join(' ') || undefined,
       noteSource: [
-        (aspect?.name !== 'Swiftness' && aspect?.skills.includes(k)) || aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
+        aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? barding?.name : undefined,
       ].filter(Boolean).join(', ') || undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
