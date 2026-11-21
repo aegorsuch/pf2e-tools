@@ -976,6 +976,15 @@ it('grants Sure Strike from the Android Advanced Targeting System feat only', ()
   expect(grantedFeatSpells({ ...android, ancestry: 'Human' }, entries)).toEqual([])
 })
 
+it('grants Pest Form at will from Ancestral Pest with its mechanics noted', () => {
+  const spell = { ...entry('Pest Form', 'spell'), systems: ['sf2e' as const] }
+  const pahtra: Character = { ...base, systems: ['sf2e'], ancestry: 'Pahtra', feats: [taken('Ancestral Pest')] }
+  const grants = grantedFeatSpells(pahtra, [spell])
+  expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.frequency])).toEqual([['Pest Form', 1, 'at will']])
+  expect(grants[0].rule.condition).toContain('20-foot swim Speed')
+  expect(grantedFeatSpells({ ...pahtra, feats: [] }, [spell])).toEqual([])
+})
+
 it('shows original duration units, touch range and Sure Strike self-targeting without an Invisibility toggle', () => {
   const spells = [
     entry('Invisibility', 'spell', { duration: 600, duration_text: '10 minutes', range: 0, range_text: 'touch', target: '1 creature' }),
