@@ -504,6 +504,26 @@ describe('animal companions', () => {
     expect(JSON.stringify(badger)).toBe(before)
   })
 
+  it('applies Animal Trainer companion feats: Performance, Mesmerizing Performance and Splendid Companion', () => {
+    const hound = entry('companion', 'Hound', { ...bear.data, skill: 'Survival', companion_maneuver: 'Gallop' }, 1, ['Animal', 'Minion'])
+    const c: Character = { ...base, level: 12, companions: [{ id: 'c1', type: 'Hound', name: '' }],
+      feats: [feat('Animal Trainer Dedication'), feat('Mature Trained Companion'), feat('Splendid Companion', 'Savage')] }
+    const stats = (feats: Character['feats']) => {
+      const ch = { ...c, feats }
+      return companionStats(ch, [hound], 'Hound', companionAdvancement(ch), 'c1')!
+    }
+    const rank = (s: ReturnType<typeof stats>, name: string) => s.skills.find(x => x.name === name)?.rank
+    const dedication = stats(c.feats.slice(0, 1))
+    expect(rank(dedication, 'Performance')).toBe(1)
+    expect(rank(dedication, 'Survival')).toBeUndefined()
+    const mature = stats(c.feats.slice(0, 2))
+    expect(rank(mature, 'Performance')).toBe(2)
+    expect(mature.maneuver).toBe('Mesmerizing Performance')
+    const splendid = stats(c.feats)
+    expect(rank(splendid, 'Performance')).toBe(3)
+    expect(rank(splendid, 'Athletics')).toBe(1)
+  })
+
   it('seeds a Medium Riding Dog with Mount and otherwise identical Wolf rules', () => {
     const wolf = entry('companion', 'Wolf', { ...bear.data, mount: false, size: 'Small', speed_raw: '40 feet' }, 1, ['Animal', 'Minion'])
     const horse = entry('companion', 'Horse', { ...bear.data, mount: true, companion_support: 'Your horse helps you charge.',

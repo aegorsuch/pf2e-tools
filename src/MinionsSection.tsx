@@ -208,6 +208,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
     || activeFeatsNamed(c, 'Animal Companion').length > 0
+    || activeFeatsNamed(c, 'Animal Trainer Dedication').length > 0
     || activeFeatsNamed(c, "Commander's Companion").length > 0
   const beastmaster = activeFeatsNamed(c, 'Beastmaster Dedication').length > 0
   const companionGrant = faithfulSteed ? 'Faithful Steed'

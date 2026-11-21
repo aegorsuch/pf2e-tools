@@ -147,9 +147,16 @@ export const COMPANION_SPECS: Record<string, Spec> = {
   Wrecker: { mods: { str: 1 }, set: { Athletics: 3 } },
 }
 
+// Replaces the type's advanced maneuver for Mature Trained Companion
+const MESMERIZING_PERFORMANCE = {
+  maneuver: 'Mesmerizing Performance', maneuverActions: 'Single Action', maneuverTraits: 'Concentrate, Emotion, Uncommon',
+  maneuverRequirements: "The companion's last action was a successful Performance check to Perform.",
+  maneuverDescription: 'The companion maintains its performance to captivate a single target within 30 feet that witnessed its successful performance. The target must attempt a Will save. Success: The target is unaffected and temporarily immune for 1 hour. Failure: The target is fascinated by the companion for its next action and then is temporarily immune for 1 hour. Critical Failure: The target is fascinated by the companion for 1 round. While it remains fascinated, it can\'t use reactions.',
+}
+
 export const ADVANCED_TYPES = ['Nimble', 'Savage'] as const
 
-const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Religion: 'wis', Stealth: 'dex', Survival: 'wis', 'Warfare Lore': 'int' }
+const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Religion: 'wis', Performance: 'cha', Stealth: 'dex', Survival: 'wis', 'Warfare Lore': 'int' }
 
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
@@ -265,10 +272,18 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const typeSkills = String(d.skill ?? '').split(',').map((s) => s.trim()).filter(Boolean)
   const rank: Record<string, number> = { Acrobatics: 1, Athletics: 1, Unarmored: 1, Perception: mature ? 2 : 1, Fortitude: mature ? 2 : 1, Reflex: mature ? 2 : 1, Will: mature ? 2 : 1 }
-  for (const s of typeSkills) rank[s] = 1
+  const trainer = firstCompanion && has('Animal Trainer Dedication')
+  const trainedMature = trainer && has('Mature Trained Companion')
+  const splendid = trainer && has('Splendid Companion')
+  // Animal Trainer swaps the type's skill for Performance and trades some advancement for Performance ranks
+  for (const s of trainer ? ['Performance'] : typeSkills) rank[s] = 1
   if (mature) for (const s of ['Intimidation', 'Stealth', 'Survival']) rank[s] = rank[s] ? 2 : 1
-  if (advanced === 'Nimble') rank.Acrobatics = Math.max(rank.Acrobatics, 2)
-  if (advanced === 'Savage') rank.Athletics = Math.max(rank.Athletics, 2)
+  if (trainedMature) rank.Performance = Math.max(rank.Performance, 2)
+  if (splendid) rank.Performance = 3
+  else {
+    if (advanced === 'Nimble') rank.Acrobatics = Math.max(rank.Acrobatics, 2)
+    if (advanced === 'Savage') rank.Athletics = Math.max(rank.Athletics, 2)
+  }
   for (const s of specs) {
     for (const k of s.bump ?? []) rank[k] = bumpRank(rank[k] ?? 0)
     for (const [k, v] of Object.entries(s.set ?? {})) rank[k] = Math.max(rank[k] ?? 0, v)
@@ -437,11 +452,13 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     will: total('Will', 'wis') + (aspect?.save === 'Will' ? aspect.bonus : 0),
     senses: mountSenses,
     support: String(d.companion_support ?? ''),
-    maneuver: String(d.companion_maneuver ?? ''),
-    maneuverActions: String(d.companion_maneuver_actions ?? ''),
-    maneuverTraits: String(d.companion_maneuver_traits ?? ''),
-    maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
-    maneuverDescription: String(d.companion_maneuver_description ?? ''),
+    ...(trainedMature ? MESMERIZING_PERFORMANCE : {
+      maneuver: String(d.companion_maneuver ?? ''),
+      maneuverActions: String(d.companion_maneuver_actions ?? ''),
+      maneuverTraits: String(d.companion_maneuver_traits ?? ''),
+      maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
+      maneuverDescription: String(d.companion_maneuver_description ?? ''),
+    }),
     beastmasterManeuvers: beastmaster.maneuvers, beastmasterSpecial: beastmaster.special,
     mount: d.mount === true || riderMount, riderMount,
   }

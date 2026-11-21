@@ -1137,12 +1137,14 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       missing.push('Disable Multiple Animal Companions must be disabled')
     }
     if (getSettings().singleAnimalCompanion
-      && ['Incredible Beastmaster Companion', 'Incredible Mount', 'Specialized Beastmaster Companion', 'Specialized Mount'].includes(entry.name)) {
+      && ['Incredible Beastmaster Companion', 'Incredible Mount', 'Splendid Companion', 'Specialized Beastmaster Companion', 'Specialized Mount', 'Specialized Companion'].includes(entry.name)) {
       const advancement = companionAdvancement(character)
       const required = entry.name === 'Incredible Beastmaster Companion' ? 'Mature Beastmaster Companion'
         : entry.name === 'Incredible Mount' ? 'Impressive Mount'
-          : entry.name === 'Specialized Beastmaster Companion' ? 'Incredible Beastmaster Companion' : 'Incredible Mount'
-      if (entry.name.startsWith('Incredible') ? advancement.mature : advancement.advanced) {
+          : entry.name === 'Splendid Companion' ? 'Mature Trained Companion'
+            : entry.name === 'Specialized Beastmaster Companion' ? 'Incredible Beastmaster Companion'
+              : entry.name === 'Specialized Companion' ? 'Splendid Companion' : 'Incredible Mount'
+      if (['Incredible', 'Splendid'].some(prefix => entry.name.startsWith(prefix)) ? advancement.mature : advancement.advanced) {
         for (let i = missing.length - 1; i >= 0; i--) if (missing[i] === required) missing.splice(i, 1)
       }
     }
@@ -1193,7 +1195,7 @@ function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: Co
   if (getSettings().singleAnimalCompanion) {
     const advancement = companionAdvancement({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) })
     if (isCompanionAdvancement(entry.name) && advancement.advanced) return true
-    if (/^(?:Mature (?:Animal|Beastmaster) Companion|Impressive Mount)\b/.test(entry.name) && advancement.mature) return true
+    if (/^(?:Mature (?:Animal|Beastmaster|Trained) Companion|Impressive Mount)\b/.test(entry.name) && advancement.mature) return true
   }
   if (base(entry.name) !== 'Heal Animal') return false
   return focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
