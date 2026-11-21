@@ -2553,6 +2553,17 @@ describe('homebrew feat rules', () => {
     expect(slot('Druid')).toBeUndefined()
   })
 
+  it('adds locked Animal Trainer, Beastmaster and Cavalier Dedication slots for Bards at level 2', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true })
+    const keys = (level: number) => plannedSlots({ ...base, className: 'Bard', level }).map(s => s.key)
+    expect(keys(2)).toEqual(expect.arrayContaining(['archetype:2:g90', 'archetype:2:g89', 'archetype:2:g88']))
+    expect(keys(1)).not.toContain('archetype:2:g90')
+    updateSettings({ bardCavalier: false })
+    expect(keys(2)).not.toContain('archetype:2:g88')
+  })
+
   it('adds a locked Snarecrafter Dedication slot for Rangers at level 2 when enabled', () => {
     const ranger = { ...base, className: 'Ranger', level: 2 }
     updateSettings({ rangerSnarecrafter: true })
