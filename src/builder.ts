@@ -1274,7 +1274,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
-      && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
+      && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
       && !(slot.category === 'archetype' && e.source === 'official' && e.name === 'Heal Animal'
         && archetypesOf(e).includes('Beastmaster'))

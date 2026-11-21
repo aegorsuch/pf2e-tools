@@ -1360,7 +1360,7 @@ describe('official passive feat mechanics', () => {
   it('toggles both grouped ancestry restrictions independently without changing saved feats', () => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))
-    const names = ['Adopted Ancestry', 'Multitalented', 'Orc Kinship', 'Social Chameleon']
+    const names = ['Adopted Ancestry', 'Cultural Adaptability', 'Multitalented', 'Orc Kinship', 'Social Chameleon']
     const data = names.map(name => entry('feat', name, {}, 1, ['General']))
     const c: Character = { ...base, level: 9, feats: [
       { name: 'Shield Block', type: 'General Feat', level: 1 },
@@ -1371,7 +1371,7 @@ describe('official passive feat mechanics', () => {
     updateSettings({ disableAdoptedAncestry: true, disableAncientElfMultitalented: true })
     expect(options()).toEqual([])
     updateSettings({ disableAdoptedAncestry: false })
-    expect(options()).toEqual(['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'])
+    expect(options()).toEqual(['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'])
     updateSettings({ disableAdoptedAncestry: true, disableAncientElfMultitalented: false })
     expect(options()).toEqual(['Multitalented'])
     updateSettings({ disableAdoptedAncestry: false })

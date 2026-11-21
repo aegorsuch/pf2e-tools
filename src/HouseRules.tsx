@@ -25,7 +25,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'commanderCavalier', label: 'Commander Cavalier Dedication' },
   { key: 'cyborgTestSubject', label: 'Cyborg Heritage adds Test-Subject Ysoki Heritage' },
   { key: 'deityLore', label: 'Deity Grants Lore' },
-  { key: 'disableAdoptedAncestry', label: 'Disable Adopted Ancestry, Orc Kinship, Social Chameleon' },
+  { key: 'disableAdoptedAncestry', label: 'Disable Adopted Ancestry, Cultural Adaptability, Orc Kinship, Social Chameleon' },
   { key: 'disableAncientElfMultitalented', label: 'Disable Ancient Elf, Multitalented' },
   { key: 'disableBeastmasterWardenSpells', label: 'Disable Warden spells for Beastmaster except for Heal Companion and Magic Hide' },
   { key: 'druidBeastmaster', label: 'Druid Beastmaster Dedication' },
