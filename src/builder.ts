@@ -1543,6 +1543,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(damage => damage !== c.elementalDamage).map(cap) : []
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === 'Splendid Companion') return ['Nimble', 'Savage']
+  if (name === 'Mature Trained Companion') return ['Intimidation', 'Stealth', 'Survival']
   if (name === 'Gnome Obsession' && c.systems.includes('pf2e')) {
     const selected = index >= 0 ? c.feats[index]?.choice : undefined
     const lores = [...commonLoreOptions(deityGrantedLores(c), c.deity), ...c.lores.map(lore => lore.name),

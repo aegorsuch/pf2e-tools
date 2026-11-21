@@ -231,7 +231,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     ...Object.entries(c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
   const petAbilities = c.pet?.abilities ?? []
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
-    .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)))
+    .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)))
     .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
       || (isCompanionAdvancement(a.feat.name) && isCompanionAdvancement(b.feat.name)
         ? Number(!ADVANCED_TYPES.some(type => type === a.feat.choice)) - Number(!ADVANCED_TYPES.some(type => type === b.feat.choice))

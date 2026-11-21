@@ -277,7 +277,9 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const splendid = trainer && has('Splendid Companion')
   // Animal Trainer swaps the type's skill for Performance and trades some advancement for Performance ranks
   for (const s of trainer ? ['Performance'] : typeSkills) rank[s] = 1
-  if (mature) for (const s of ['Intimidation', 'Stealth', 'Survival']) rank[s] = rank[s] ? 2 : 1
+  const trainedChoice = trainedMature ? c.feats.find(feat => feat.name === 'Mature Trained Companion')?.choice : undefined
+  // Mature Trained Companion trades one of the three mature skill increases for Performance
+  if (mature) for (const s of ['Intimidation', 'Stealth', 'Survival']) if (s !== trainedChoice) rank[s] = rank[s] ? 2 : 1
   if (trainedMature) rank.Performance = Math.max(rank.Performance, 2)
   if (splendid) rank.Performance = 3
   else {

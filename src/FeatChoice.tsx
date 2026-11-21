@@ -362,7 +362,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   </span>
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
     || feat.name === 'Ancestral Paragon' || feat.name === 'Multitalented' || feat.name === 'Armor Proficiency' || feat.name === 'Multilingual'
-    || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null
+    || isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)) return null
   if (feat.name === 'Canny Acumen') {
     const available = cannyAcumenOptions(c, entries)
     return (
