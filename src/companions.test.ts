@@ -504,6 +504,16 @@ describe('animal companions', () => {
     expect(JSON.stringify(badger)).toBe(before)
   })
 
+  it('seeds a Medium Riding Wolf with Mount and otherwise identical Wolf rules', () => {
+    const wolf = entry('companion', 'Wolf', { ...bear.data, mount: false, size: 'Small', speed_raw: '40 feet' }, 1, ['Animal', 'Minion'])
+    const riding = homebrewCompanions([wolf]).find(e => e.id === 'homebrew:riding-wolf')!
+    expect(riding).toMatchObject({ name: 'Riding Wolf', source: 'homebrew', updatedAt: 1 })
+    expect(riding.data).toEqual({ ...wolf.data, size: 'Medium', mount: true, fixed_size: false })
+    const stats = companionStats({ ...base, level: 1 }, [riding], riding.name)!
+    expect(stats.mount).toBe(true)
+    expect(stats.size).toBe('Medium')
+  })
+
   it.each([[16, 20], [18, 25], [20, 30]])('applies Auspice benefits at level %i without granting them to other companions', (level, extraHP) => {
     const c: Character = { ...base, level, className: 'Champion',
       companions: [{ id: 'mount', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }],
