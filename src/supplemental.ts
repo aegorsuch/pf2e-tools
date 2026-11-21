@@ -124,13 +124,13 @@ export const ORC_TUSKS: ContentEntry = {
 
 export const TENGU_BITE: ContentEntry = {
   ...FIST, id: 'supplemental:tengu-bite', name: 'Bite', systems: ['pf2e'],
-  traits: ['Unarmed'],
-  description: 'Tengu have a beak that deals 1d6 piercing damage as an unarmed attack in the brawling group.',
+  traits: ['Finesse', 'Unarmed'],
+  description: 'Your beak is a 1d6 piercing unarmed attack in the brawling group with the finesse trait.',
   data: { ...FIST.data, damage: '1d6 piercing' },
 }
 
 export const TENGU_DOGFANG_BITE: ContentEntry = {
-  ...TENGU_BITE, id: 'supplemental:tengu-dogfang-bite', traits: ['Unarmed', 'Versatile S'],
+  ...TENGU_BITE, id: 'supplemental:tengu-dogfang-bite', traits: ['Finesse', 'Unarmed', 'Versatile S'],
   description: 'Dogfang Bite gives your beak the versatile S trait.',
 }
 

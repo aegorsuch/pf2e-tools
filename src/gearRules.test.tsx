@@ -3199,6 +3199,7 @@ it('gives tengu an innate Bite that gains versatile S from Dogfang Bite', () => 
   const bite = ownedWeapons(c, []).filter(weapon => weapon.name === 'Bite')
   expect(bite).toHaveLength(1)
   expect(weaponAttack(c, [], bite[0]).damage).toContain('d6')
+  expect(weaponAttack(c, [], bite[0]).traits).toContain('Finesse')
   expect(weaponAttack(c, [], bite[0]).traits).not.toContain('Versatile S')
   const dogfang = { ...c, feats: [feat('Dogfang Bite', 5)] }
   const upgraded = ownedWeapons(dogfang, []).filter(weapon => weapon.name === 'Bite')
