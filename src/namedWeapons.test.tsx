@@ -333,6 +333,7 @@ const namedCatalog: ContentEntry[] = [...catalog, rune('Ghost Touch'), rune('Vor
   melee('Longsword', '1d8 slashing', ['Versatile P']),
   melee('Shortsword', '1d6 piercing', ['Agile', 'Finesse', 'Versatile S']),
   melee('Bastard Sword', '1d8 slashing', ['Two-Hand d12']),
+  melee('Elven Curve Blade', '1d8 slashing', ['Elf', 'Finesse', 'Forceful'], 2),
   melee('Rapier', '1d6 piercing', ['Finesse', 'Deadly d8', 'Disarm']),
   gunMelee, gunRanged, shadowpiercer, callooh, fallenStars, finalStand,
 ]
@@ -340,6 +341,8 @@ const namedCatalog: ContentEntry[] = [...catalog, rune('Ghost Touch'), rune('Vor
 it.each([false, true])('locks Greater Astral on every Serithtial blade form (%s)', displayOnly => {
   const serithtial = specific('Serithtial', 'Bastard Sword', '+4 major striking holy', [])
   const entries = [...namedCatalog, serithtial, rune('Astral (Greater)'), rune('Grievous')]
+  expect(weaponEntry(entries, 'Serithtial')?.data.named_weapon_base).toBe('Longsword')
+  expect(namedWeaponBases(weaponEntry(entries, 'Serithtial'))[0]).toBe('Longsword')
   const forms = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === serithtial.name)
   expect(forms).toHaveLength(1)
   for (const name of ['Serithtial', 'Serithtial (Longsword)', 'Serithtial (Rapier)']) {
@@ -376,6 +379,35 @@ it('keeps Serithtial blade selection and item abilities in Equipment only', () =
     expect(offense).not.toContain(`<summary>${heading} `)
   }
   expect(offense).toContain('Damage ')
+})
+
+it.each([
+  ['Soulcutter', ['Magical', 'Unique'], '+2 greater striking astral', 2, ['Astral'], '+2 item to saves against mental effects; +4 against possession effects.', false],
+  ['Soulcutter (Artifact)', ['Apex', 'Artifact', 'Intelligent', 'Invested', 'Magical', 'Unique'],
+    '+3 major striking greater astral holy', 3, ['Astral (Greater)', 'Holy', 'Grievous'],
+    '+3 item to saves against mental effects; +5 against possession effects.', true],
+] as const)('implements %s on an Elven Curve Blade', (name, traits, magic, potency, runes, saveNote, artifact) => {
+  const item = specific(name, 'Elven Curve Blade', magic, [
+    'As long as you carry Soulcutter, you gain its potency bonus as an item bonus to all saving throws against mental effects. This bonus increases by 2 against possession effects.',
+    'Activate\u2014Soothe Souls (concentrate, healing, manipulate, primal, vitality) Frequency once per day; Effect Restore the living and damage fiends and undead in a 20-foot emanation.',
+    'Activate\u2014Soulcutting Storm (concentrate, manipulate, primal) Frequency once per day; Effect Cast a 7th-rank weapon storm as spirit damage.',
+    ...(artifact ? ['Activate\u2014Shame Demon (concentrate) Effect Trigger a demon’s sin vulnerability.'] : []),
+  ])
+  item.traits = [...traits]
+  const entries = [...namedCatalog, item, rune('Astral (Greater)'), rune('Grievous')]
+  const entry = gearPickerEntries(entries, 'weapon').find(candidate => candidate.data.named_weapon_source === name)
+  expect(entry).toMatchObject({ name, data: { named_weapon_base: 'Elven Curve Blade' } })
+  expect(effectiveWeapon(c, entries, owned(name))).toMatchObject({
+    potency, runes: expect.arrayContaining([...runes]),
+  })
+  const abilities = namedWeaponAbilities(entry)
+  expect(abilities.map(ability => ability.name)).toEqual(expect.arrayContaining([
+    'Soothe Souls', 'Soulcutting Storm', ...(artifact ? ['Shame Demon'] : []),
+  ]))
+  const character = { ...c, weapons: [owned(name)] }
+  const defense = renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="defense" />)
+  expect(defense).toContain(saveNote)
+  expect(savingThrowBreakdown(character, entries, 'Will').total).toBe(savingThrowBreakdown(c, entries, 'Will').total)
 })
 
 it.each([false, true])('includes full base weapon names in specific weapon titles (%s)', displayOnly => {

@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classSpellSlotExtras, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
+import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
 import { divineAttackDamage } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -553,6 +553,21 @@ function DirgeIcon() {
   </svg>
 }
 
+function SignatureCast({ name, baseRank, slots, spent, onCast }: { name: string; baseRank: number
+  slots: Record<number, number>; spent: string[]; onCast: (key: string) => void }) {
+  const ranks = Object.keys(slots).map(Number).filter(value => value > 0 && value >= baseRank && slots[value] > 0)
+  const [chosen, setChosen] = useState(baseRank)
+  const rank = ranks.includes(chosen) ? chosen : ranks[0] ?? baseRank
+  const free = Array.from({ length: slots[rank] ?? 0 }, (_, index) => `${rank}:${index}`).find(key => !spent.includes(key))
+  return <>
+    <button type="button" disabled={!free} aria-label={`Cast signature spell ${name} at rank ${rank}`}
+      onClick={() => free && onCast(free)}>Cast</button>
+    <select aria-label={`Cast rank for ${name}`} value={rank} onChange={event => setChosen(Number(event.target.value))}>
+      {ranks.map(value => <option key={value} value={value}>Rank {value}</option>)}
+    </select>
+  </>
+}
+
 export function DirgeRankButton({ rank, onOpen }: { rank: number; onOpen: (rank: number) => void }) {
   const label = rank === 0 ? 'Open Dirge cantrips' : `Open Dirge rank ${rank}`
   return <button type="button" className="dirge-rank-button" aria-label={label} title={label}
@@ -920,8 +935,8 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const baseSlots = classSpellSlots(c)
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
-  const slots = baseSlots ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
-  const extraSlots = baseSlots ? classSpellSlotExtras(c) : []
+  const slots = classRepertoireRows(c) ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
+  const extraSlots = baseSlots ? classExtraSlots(c) : []
   const choices = witchwarper ? witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => !!(slot.granted || slot.value))
     : slots ? Array.from({ length: 11 }, (_, rank) => {
       const baseCount = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
@@ -1000,12 +1015,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const necromancer = c.className === 'Necromancer'
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
     .includes(c.className ?? '')
-  const extraSlots = automaticSlots ? classSpellSlotExtras(c) : []
+  const bard = automaticSlots !== undefined && isSpontaneousClass(c)
+  const extraSlots = automaticSlots ? classExtraSlots(c) : []
   const sc: Character['spellcasting'] = automaticSlots ? { ...c.spellcasting,
     ability: casting?.ability ?? c.spellcasting?.ability ?? 'int',
     tradition: casting?.traditions.length === 1 ? casting.traditions[0]
       : c.spellcasting?.tradition ?? casting?.traditions[0] ?? '',
-    rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: automaticSlots } : c.spellcasting
+    rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const traditions = casting?.traditions ?? []
   const spellIndex = useMemo(() => {
@@ -1177,8 +1193,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }
   innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.rank - b.rank)
   const preparedOptions = useMemo(() => {
-    const available = ((druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
-      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') })) ?? c.spells ?? [])
+    const forced = bard ? extraSlots.flatMap(extra => {
+      const entry = extra.spell ? spellIndex.byName.get(extra.spell) : undefined
+      return entry ? [{ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: false, forced: true }] : []
+    }) : []
+    const available = [...((druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? (c.spells ?? [])
+      .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .map(spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         const baseRank = entry && Number.isInteger(entry.level) && entry.level >= 1 && entry.level <= 10
@@ -1187,17 +1208,17 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       })
     return Array.from({ length: 11 }, (_, rank) => {
       const options = available
-      .filter(spell => rank === 0 ? spell.cantrip : !spell.cantrip && spell.rank <= rank)
+      .filter(spell => rank === 0 ? spell.cantrip : !spell.cantrip && (bard ? spell.baseRank === rank : spell.rank <= rank))
       .filter(spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)
-        return preparedClass || !selectedTradition || !entry || traditions.includes(selectedTradition.toLowerCase())
+        return preparedClass || spell.forced || !selectedTradition || !entry || traditions.includes(selectedTradition.toLowerCase())
       })
       .sort((a, b) => (rank === 0 ? 0 : b.baseRank - a.baseRank)
         || a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
       return { options, choices: preparedClass ? uniqueSpellNames(options) : options }
     })
-  }, [druidAvailable, dirge, c.spells, preparedClass, selectedTradition, spellIndex])
+  }, [druidAvailable, dirge, c.spells, preparedClass, selectedTradition, spellIndex, bard, c.feats, c.level])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
@@ -1377,17 +1398,32 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? choices.map(option => option.name === baseDisplayedSelection.name ? baseDisplayedSelection : option) : choices
               const selectedOption = slotOptions.find(spell => (spell.entryId ?? spell.name) === selectedValue
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
+              const exhausted = bard && !spent && !!automaticSlots && (sc.spentSlots ?? [])
+                .filter(key => /^\d+:\d+$/.test(key) ? key.startsWith(`${rank}:`) : extras.some(slot => slot.key === key)).length
+                >= (automaticSlots[rank] ?? 0)
               const valid = !!selectedOption
+              const signature = bard && c.level >= 3 && !cantrip && valid
+                && (!!extra || activeFeatsNamed(c, 'Ultimate Polymath').length > 0 || sc.signatureSpells?.[rank] === slotKey)
               const displayedSelection = preparedClass && selectedOption && selectedValue === selectedOption.name
                 ? { ...selectedOption, entryId: undefined } : selectedOption
               const showOptions = slotOptions.length <= 10 || preparedSlot === slotKey
               return <li className="spellbook-row" key={slotKey}>
                 <div className="spellbook-slot">
-                  {!cantrip && <button type="button" disabled={!valid || spent} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
+                  {signature && automaticSlots && selectedOption
+                    ? <SignatureCast name={selectedOption.name} baseRank={selectedOption.baseRank} slots={automaticSlots}
+                      spent={sc.spentSlots ?? []} onCast={key => setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), key])] })} />
+                    : !cantrip && <button type="button" disabled={!valid || spent || exhausted} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
                     onClick={() => {
-                      if (!valid || spent) return
+                      if (!valid || spent || exhausted) return
                       setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), slotKey])] })
                     }}>Cast</button>}
+                  {bard && c.level >= 3 && !cantrip && valid && !extra && !activeFeatsNamed(c, 'Ultimate Polymath').length
+                    && <button type="button" className={signature ? 'on' : ''} aria-pressed={signature}
+                      aria-label={`Signature spell rank ${rank} choice ${index + 1}`} onClick={() => {
+                        const select = () => setSc({ signatureSpells: { ...sc.signatureSpells, [rank]: signature ? '' : slotKey } })
+                        if (signature) confirmRemoval(`signature spell "${selectedEntry?.name ?? selectedValue}"`, select)
+                        else select()
+                      }}>Signature</button>}
                   {selectedValue ? <SelectedSlotSpell name={selectedSpell?.name ?? selectedEntry?.name ?? selectedValue}
                     entry={selectedEntry} disabled={spent} source={extra?.source}
                     heightened={!cantrip && selectedOption ? Math.max(0, rank - selectedOption.baseRank) : 0}

@@ -122,6 +122,18 @@ export const ORC_TUSKS: ContentEntry = {
   data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonprd.com/Feats.aspx?ID=4519' },
 }
 
+export const TENGU_BITE: ContentEntry = {
+  ...FIST, id: 'supplemental:tengu-bite', name: 'Bite', systems: ['pf2e'],
+  traits: ['Finesse', 'Unarmed'],
+  description: 'Your beak is a 1d6 piercing unarmed attack in the brawling group with the finesse trait.',
+  data: { ...FIST.data, damage: '1d6 piercing' },
+}
+
+export const TENGU_DOGFANG_BITE: ContentEntry = {
+  ...TENGU_BITE, id: 'supplemental:tengu-dogfang-bite', traits: ['Finesse', 'Unarmed', 'Versatile S'],
+  description: 'Dogfang Bite gives your beak the versatile S trait.',
+}
+
 export const IRUXI_CLAWS: ContentEntry = {
   ...FIST, id: 'supplemental:iruxi-claws', name: 'Claws',
   traits: ['Agile', 'Finesse', 'Unarmed', 'Versatile P'],
@@ -229,6 +241,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('mounted-parry', 'Mounted Parry', 6, ['Archetype'],
       'While mounted, your mount also gains the circumstance bonus to AC from your active parry.',
       { archetype: 'Cavalier', prerequisite: 'Cavalier Dedication' }),
+    homebrewFeat('spirit-of-the-alpha', 'Spirit of the Alpha', 20, ['Archetype'],
+      'Your bond with your companions grants them the full might of the wild. Spirit of the Beast gains a new option, Aspect of the Alpha, which lasts until your next daily preparations. It gives a +3 status bonus from all three aspects at once: Might (Fortitude saves, Athletics and Intimidation), Swiftness (Reflex saves, Acrobatics and Stealth) and Insight (Will saves, Perception and Survival).',
+      { archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication' }),
     homebrewFeat('greywatch-initiate', 'Greywatch Initiate', 4, ['Gunslinger', 'Investigator', 'Ranger', 'Rare'],
       "You've received the basic training developed for all Greywatch recruits. You become an expert in Deception and gain the Face in the Crowd and Lengthy Diversion skill feats.",
       { class: 'Gunslinger, Investigator, Ranger', prerequisite: 'Trained in Deception' }),
@@ -393,7 +408,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
   Paragon: { potency: 3, striking: 3, upgrades: 4 },
 }
 
-export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS,
+export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS, TENGU_BITE, TENGU_DOGFANG_BITE,
   IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
@@ -401,6 +416,8 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
   const variants = [
     { id: 'homebrew:riding-badger', name: 'Riding Badger', base: 'Badger', size: 'Small', mount: true,
       description: 'A stocky, sure-footed badger trained to carry a rider. Its strong digging claws and fierce temper serve it above and below ground.' },
+    { id: 'homebrew:riding-dog', name: 'Riding Dog', base: 'Wolf', size: 'Medium', mount: true, riding: 'Horse',
+      description: 'A large, sturdy hound bred to carry a rider, and the traditional mount of halflings. It keeps the pack tactics of its wild kin while bearing a rider\'s weight.' },
     { id: 'homebrew:sarkorian-direwolf', name: 'Sarkorian Direwolf', base: 'Isgeri Boarhound', size: 'Medium',
       description: "A powerful, keen-nosed direwolf raised among Sarkoris's hunting traditions. It tracks quarry over rough ground and fights alongside its bonded partner." },
     { id: 'homebrew:snow-leopard', name: 'Snow Leopard', base: 'Cat', size: 'Small',
@@ -414,11 +431,16 @@ export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {
         const noun = plural ? 'direwolves' : 'direwolf'
         return /^[A-Z]/.test(match) ? noun[0].toUpperCase() + noun.slice(1) : noun
       }) : text
+    const riding = variant.riding ? entries.find(entry => entry.kind === 'companion' && entry.source === 'official' && entry.systems.includes('pf2e') && !entry.deleted && entry.name === variant.riding) : undefined
+    // A riding variant swaps in the mount's rider-oriented support benefit and maneuver
+    const ridingRules = riding ? Object.fromEntries(Object.entries(riding.data)
+      .filter(([key]) => key === 'companion_support' || key.startsWith('companion_maneuver'))
+      .map(([key, value]) => [key, typeof value === 'string' ? value.replace(/\bhorse\b/g, 'dog').replace(/\bHorse\b/g, 'Dog') : value])) : {}
     return [{
       ...base, id: variant.id, name: variant.name, source: 'homebrew',
       traits: base.traits.filter(trait => trait.toLowerCase() !== 'mount'),
       description: variant.description,
-      data: Object.fromEntries(Object.entries({ ...base.data, size: variant.size, mount: variant.mount ?? false, fixed_size: false })
+      data: Object.fromEntries(Object.entries({ ...base.data, ...ridingRules, size: variant.size, mount: variant.mount ?? false, fixed_size: false })
         .map(([key, value]) => [key, typeof value === 'string' ? rename(value) : value])),
       // Fresh-device defaults must not supersede synced user edits or deletions.
       updatedAt: 1,

@@ -6,7 +6,7 @@ export function briarSharpnessPoints(value: number | undefined) {
   return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? Math.min(value, BRIAR_MAX_SHARPNESS) : 0
 }
 
-const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club"
+const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club"
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
 const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
 const BASES: Record<string, string[]> = {
@@ -35,7 +35,9 @@ const BASES: Record<string, string[]> = {
   Ovinrbaane: ['Greatsword'],
   'Phoenix Fighting Fan': ['Fighting Fan'],
   Ridill: ['Greatsword'],
-  Serithtial: ['Bastard Sword', 'Dagger', 'Shortsword', 'Longsword', 'Scimitar', 'Falchion', 'Greatsword', 'Rapier'],
+  Serithtial: ['Longsword', 'Bastard Sword', 'Dagger', 'Shortsword', 'Scimitar', 'Falchion', 'Greatsword', 'Rapier'],
+  Soulcutter: ['Elven Curve Blade'],
+  'Soulcutter (Artifact)': ['Elven Curve Blade'],
   "Sorshen's Sinuous Guisarme": ['Guisarme'],
   "Spear of the Destroyer's Flame": ['Longspear'],
   'Whisperer of Souls': ['Glaive'],
@@ -121,7 +123,8 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
   const items = entries.filter(entry => entry.kind === 'item' && !entry.deleted
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
   return items.flatMap(item => {
-    const originalBase = weaponBase.exec(item.description)?.[1]?.replace(/Dwarven War Axe/i, 'Dwarven Waraxe')
+    const originalBase = (item.name === 'Serithtial' ? 'Longsword' : undefined)
+      ?? weaponBase.exec(item.description)?.[1]?.replace(/Dwarven War Axe/i, 'Dwarven Waraxe')
       ?? (item.name === 'Wintershot (Artifact)' && /\bcomposite shortbow\b/i.test(item.description) ? 'Composite Shortbow' : undefined)
       ?? (item.name === "Ghosthand's Comet" ? item.name : undefined)
     if (!originalBase || !BASES[item.name] && !/\b(?:shortbow|longbow)$/i.test(originalBase)) return []

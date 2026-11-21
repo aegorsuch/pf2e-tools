@@ -30,7 +30,18 @@ const BAKUWA_PLATES_PICKER_NOTE = 'Bony Plates automatically match your highest 
 export const isVersatileHeritage = (entry: ContentEntry) => VERSATILE_HERITAGES.has(slug(entry.name))
   || entry.data.versatile === true || entry.traits.some(trait => slug(trait) === 'versatile')
 
+const heritageCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+// Cached per catalog array; callers treat the result as read-only
 export function heritagesFor(entries: ContentEntry[], ancestry?: string) {
+  let byAncestry = heritageCache.get(entries)
+  if (!byAncestry) heritageCache.set(entries, byAncestry = new Map())
+  const key = ancestry ?? ''
+  let result = byAncestry.get(key)
+  if (!result) byAncestry.set(key, result = computeHeritagesFor(entries, ancestry))
+  return result
+}
+
+function computeHeritagesFor(entries: ContentEntry[], ancestry?: string) {
   const all = entries.filter((e) => e.kind === 'heritage' && !e.deleted)
   const withPickerText = (heritage: ContentEntry) => heritage.name === 'Bakuwa Lizardfolk'
     ? { ...heritage, description: [heritage.description.trim(), BAKUWA_PLATES_PICKER_NOTE].filter(Boolean).join('\n\n') }

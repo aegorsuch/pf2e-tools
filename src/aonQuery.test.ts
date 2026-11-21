@@ -7,6 +7,10 @@ it('extracts Beastmaster Trance and Impaling Briars focus grants from their sour
   expect(parseFeatFocus('You gain the [_impaling briars_](/Spells.aspx?ID=1857) order.').spells).toBe('impaling briars')
   expect(parseFeatFocus('You gain the [storm lord](/Spells.aspx?ID=1) order spell.').spells).toBe('storm lord')
   expect(parseFeatFocus('You gain the [storm lord](/Spells.aspx?ID=1) order ability.').spells).toBe('')
+  expect(parseFeatFocus('You learn the [_allegro_](/Spells.aspx?ID=1761) [composition](/Traits.aspx?ID=559) cantrip.').spells).toBe('allegro')
+  expect(parseFeatFocus('You learn the [_fortissimo composition_](/Spells.aspx?ID=1766)  spellshape focus spell.').spells).toBe('fortissimo composition')
+  expect(parseFeatSpellGrants('x\n---\nYou learn the [_song of strength_](/Spells.aspx?ID=1775) composition cantrip.'))
+    .toMatchObject([{ kind: 'focus', spells: ['song of strength'] }])
 })
 
 it('imports focus spell grants through the snapshot fetch and mapping pipeline', async () => {
@@ -476,4 +480,9 @@ it('drops the Hellknight order training prerequisite and splits Mortification by
     ['Mortification (Piercing)', 'piercing=hellknight'],
     ['Mortification (Slashing)', 'slashing=hellknight'],
   ])
+})
+
+it('parses an additional innate cantrip grant', () => {
+  expect(parseFeatSpellGrants('x\n---\nYou become trained in Performance. Additionally, you gain _[summon instrument](/spells/302-summon-instrument)_ as an occult innate cantrip. A cantrip is heightened to a spell rank equal to half your level rounded up.'))
+    .toEqual([expect.objectContaining({ kind: 'innate', spells: ['summon instrument'], tradition: 'occult', frequency: 'at will', heightened: true })])
 })

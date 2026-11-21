@@ -1,9 +1,9 @@
 import { Fragment } from 'react'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { ADVANCED_TYPES, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
+import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -117,9 +117,10 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
     else delete equipment.Other
     saveEquipment(equipment)
   }
+  const itemName = (name: string) => companionItemName(companion.type, name)
   const itemTag = (slot: CompanionEquipmentSlot, item: CompanionEquipment, entry?: ContentEntry) =>
     <div key={item.entryId} className="rune">
-      <EntryDescription name={entry?.name ?? item.name} entry={entry} entries={entries} character={c} />
+      <EntryDescription name={itemName(entry?.name ?? item.name)} entry={entry} entries={entries} character={c} />
       {!entry && <span> (unavailable)</span>}
       <button type="button" aria-label={`Remove ${companion.name || companion.type} ${slot}: ${entry?.name ?? item.name}`}
         onClick={() => confirmRemoval(`"${entry?.name ?? item.name}"`, () =>
@@ -140,13 +141,13 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
           {remaining.length > 0 && <SearchableSelect aria-label={`${companion.name || companion.type} Add other equipment`}
             value="" optionCount={remaining.length} renderDetails={value => {
               const entry = remaining.find(option => option.id === value)
-              return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+              return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" />
             }} onChange={event => {
               const entry = remaining.find(option => option.id === event.target.value)
               if (entry) updateOther({ entryId: entry.id, name: entry.name }, true)
             }}>
             <option value="">Choose other equipment...</option>
-            {remaining.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            {remaining.map(entry => <option key={entry.id} value={entry.id}>{itemName(entry.name)}</option>)}
           </SearchableSelect>}
         </div>
       }
@@ -160,14 +161,14 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
           value="" optionCount={slotOptions.length}
           renderDetails={value => {
             const entry = slotOptions.find(option => option.id === value)
-            return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+            return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" />
           }}
           onChange={event => {
             const entry = slotOptions.find(option => option.id === event.target.value)
             if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: 1 })
           }}>
           <option value="">{slot === 'Barding' ? 'None' : `Choose ${slot.toLowerCase()}...`}</option>
-          {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{itemName(entry.name)}</option>)}
         </SearchableSelect>}
       </div>
     })}
@@ -206,8 +207,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     : entries
   const types = companionEntries.filter((e) => e.kind === 'companion' && !e.deleted).sort((a, b) => a.name.localeCompare(b.name))
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
+  const hasAlpha = activeFeatsNamed(c, 'Spirit of the Alpha').length > 0
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
     || activeFeatsNamed(c, 'Animal Companion').length > 0
+    || activeFeatsNamed(c, 'Animal Trainer Dedication').length > 0
     || activeFeatsNamed(c, "Commander's Companion").length > 0
   const beastmaster = activeFeatsNamed(c, 'Beastmaster Dedication').length > 0
   const companionGrant = faithfulSteed ? 'Faithful Steed'
@@ -227,10 +230,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const familiarSecrets = leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
   const oaken = leshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 ? oakenResilience(c, entries, 'familiar') : undefined
   const highestSlot = Math.max(c.className === 'Druid' ? Math.ceil(c.level / 2) : 0,
-    ...Object.entries(c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
+    ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
   const petAbilities = c.pet?.abilities ?? []
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
-    .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)))
+    .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)))
     .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
       || (isCompanionAdvancement(a.feat.name) && isCompanionAdvancement(b.feat.name)
         ? Number(!ADVANCED_TYPES.some(type => type === a.feat.choice)) - Number(!ADVANCED_TYPES.some(type => type === b.feat.choice))
@@ -329,15 +332,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ...(['Apex Companion', 'Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
-                ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element: <label>Spirit of the Beast{' '}
-                  <select aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
-                    const choice = (['Might', 'Swiftness', 'Insight'] as const).find(aspect => aspect === event.target.value)
+                ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element:
+                  <SearchableSelect aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
+                    const choice = (['Might', 'Swiftness', 'Insight', 'Alpha'] as const).find(aspect => aspect === event.target.value)
                     update(comp.id, { spiritAspect: choice })
                   }}>
-                    <option value="">Inactive</option>
-                    {['Insight', 'Might', 'Swiftness'].map(aspect => <option key={aspect} value={aspect}>Aspect of {aspect}</option>)}
-                  </select>
-                </label> }] : []),
+                    <option value="">Spirit of the Beast…</option>
+                    {['Insight', 'Might', 'Swiftness', ...(hasAlpha ? ['the Alpha'] : [])].map(aspect => <option key={aspect} value={aspect === 'the Alpha' ? 'Alpha' : aspect}>Aspect of {aspect}</option>)}
+                  </SearchableSelect> }] : []),
                 ...(stats?.peerlessMascot ? [{ name: 'Banner affixed', element: <label><input type="checkbox"
                   aria-label={`Banner affixed to ${comp.name || comp.type}`} checked={!!comp.mascotBannerAffixed}
                   onChange={event => update(comp.id, { mascotBannerAffixed: event.target.checked })} /> Banner affixed</label> }] : []),
@@ -493,17 +495,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       {stats.temporaryHp > 0 && <span><small>Temporary Hit Points</small><b>{stats.temporaryHp}</b>
                         <SourceNote source="Apex Companion" note="Gain 30 temporary Hit Points when cast; not added to maximum Hit Points." inlineSource={false} /></span>}
                       <span><small>Armor Class</small><b>{stats.ac}{acNote && <SourceNote source={acSource} note={acNote} inlineSource={false} />}</b></span>
-                      <span><small>Fortitude</small>{signed(stats.fortitude)}{stats.aspect?.save === 'Fortitude'
-                        && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Might).`} inlineSource={false} />}
+                      <span><small>Fortitude</small>{signed(stats.fortitude)}
                         {stats.antiDragon && <SourceNote source={stats.antiDragon.source}
                           note={`+${stats.antiDragon.bonus} item bonus to Fortitude DC against Grapple, Reposition, Shove, or Trip. A creature that Grapples this companion takes ${stats.antiDragon.damage} piercing damage.`} />}</span>
                       <span><small>Reflex</small>{signed(stats.reflex)}{clumsyNote
                         && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}
-                        {stats.aspect?.save === 'Reflex' && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Swiftness).`} inlineSource={false} />}
                         {stats.antiDragon && <SourceNote source={stats.antiDragon.source}
                           note={`+${stats.antiDragon.bonus} item bonus to Reflex DC against Grapple, Reposition, Shove, or Trip.`} />}</span>
-                      <span><small>Will</small>{signed(stats.will)}{stats.aspect?.save === 'Will'
-                        && <SourceNote source="Spirit of the Beast" note={`+${stats.aspect.bonus} status bonus (Aspect of Insight).`} inlineSource={false} />}</span>
+                      <span><small>Will</small>{signed(stats.will)}</span>
                     </div>
                     {stats.weakness && <small>Weakness: {stats.weakness}</small>}
                     {stats.paleHorse && <div><small>Resistance</small> {stats.paleHorse.damage} {stats.paleHorse.resistance} (Pale Horse).
@@ -530,8 +529,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   <section className="companion-actions">
                     <h5>Senses</h5>
                     <div><small>Perception</small> <b>{signed(stats.perception)}</b>{stats.senses && <> · {stats.senses}</>}
-                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}
-                      {stats.perceptionNote && <SourceNote source="Spirit of the Beast" note={stats.perceptionNote} inlineSource={false} />}</div>
+                      {stats.apex && <SourceNote source="Apex Companion" note="Grants darkvision." inlineSource={false} />}</div>
                   </section>
                   {stats.skills.length > 0 && <section className="companion-actions">
                     <h5>Skills</h5>

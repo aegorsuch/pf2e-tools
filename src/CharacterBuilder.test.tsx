@@ -53,6 +53,18 @@ it('counts granted feats alongside filled and empty slots in Skill and General h
   expect(JSON.stringify(c)).toBe(before)
 })
 
+it('lists Steady Balance as a granted skill feat for Uncanny Agility', () => {
+  const steady: ContentEntry = { id: 'steady', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Steady Balance', level: 1,
+    traits: ['General', 'Skill'], description: '', data: {}, effects: [], updatedAt: 0 }
+  content.entries = [steady]
+  const c: Character = { id: 'ua', systems: ['pf2e'], name: 'Test', level: 1, className: 'Fighter', ancestry: 'Tengu',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Uncanny Agility', type: 'Ancestry Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={content.entries} categories={['skill']} save={() => {}} />)
+  expect(markup).toContain('Steady Balance')
+})
+
 it('restricts custom Grifter Lore suggestions to professions without changing unrestricted backgrounds', () => {
   const background: ContentEntry = {
     id: 'grifter', systems: ['sf2e'], kind: 'background', source: 'official', name: 'Grifter', level: 1,
@@ -755,7 +767,7 @@ it.each([undefined, 'Gloves', 'Hands'] as const)('separates handwrap inventory a
     expect(gloves).not.toContain('Handwraps')
     expect(handwraps).toContain('Potency')
     expect(handwraps).not.toContain('automatically upgrade with character level')
-    expect(handwraps).toContain('Flaming')
+    expect(handwraps).toContain('Grievous')
     const glovesSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Gloves" />)
     const handwrapsSearch = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Handwraps" />)
     expect(glovesSearch).toContain('Add Gloves of Storing')

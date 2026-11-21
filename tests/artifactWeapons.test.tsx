@@ -128,7 +128,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
   it('keeps Serithtial legal shapes official and uses each shape rather than bastard-sword statistics', () => {
     const picker = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === 'Serithtial')
     expect(picker).toHaveLength(1)
-    expect(picker[0].data.named_weapon_base).toBe('Bastard Sword')
+    expect(picker[0].data.named_weapon_base).toBe('Longsword')
     const forms = namedWeaponBases(weaponEntry(entries, 'Serithtial')).map(base => `Serithtial (${base})`)
     expect(forms).toHaveLength(8)
     expect(forms.every(name => weaponEntry(entries, name)?.source === 'official')).toBe(true)
@@ -150,7 +150,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     expect(dagger.traits).toContain('Agile')
     expect(dagger.thrownRange).toBe(10)
     expect(weaponAttack(c, entries, own('Serithtial (Greatsword)')).damage).toBe('4d12+2 S')
-    expect(weaponEntry(entries, 'Serithtial')?.data.named_weapon_base).toBe('Bastard Sword')
+    expect(weaponEntry(entries, 'Serithtial')?.data.named_weapon_base).toBe('Longsword')
   })
 
   it('uses five dice for Ghosthand and mythic striking, with no inherited fake base traits', () => {

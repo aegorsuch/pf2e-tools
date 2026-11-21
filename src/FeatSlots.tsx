@@ -220,7 +220,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const choose = (key: string, category: FeatSlotCategory, level: number, name: string, sourceId?: string) => {
     const slot = allSlots.find((slot) => slot.key === key) ?? { key, category, level }
     if (slot.grantedBy === 'Eldritch Trickster' && name === 'N/A') return
-    const option = eligibleFeats(entries, c, slot).flatMap((entry) => optionsFor(entry, slot))
+    const wantedName = name.startsWith('[') ? (JSON.parse(name) as string[])[0] : name
+    const option = eligibleFeats(entries, c, slot).filter(entry => entry.name === wantedName).flatMap((entry) => optionsFor(entry, slot))
       .find((option) => option.value === name && !option.disabled && (!sourceId || option.entry.id === sourceId))
     if (name && name !== 'N/A' && !option) return
     const changedAncestry = slot.grantedBy === 'Social Chameleon' && category === 'general'

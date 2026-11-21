@@ -5,6 +5,7 @@ import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, loreReplacementChoices, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
+import { classExtraSlots, classRepertoireRows, classSpellSlots } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -556,6 +557,14 @@ it('applies Cyborg frame training, granted feats, and selected resistance', () =
   expect(automaticFeatGrants(pistons, [])).toContainEqual({ name: 'Quick Jump', source: 'Hydraulic Pistons', level: 5 })
 })
 
+it('gives Halfling Climbing Specialist a 15-foot climb Speed', () => {
+  const feat = mapAonHit({ _id: 'cs', _source: { category: 'feat', name: 'Climbing Specialist', level: 5, trait: ['Halfling'],
+    markdown: 'x\n---\nYou can climb.<br/><br/>**[Option(s)](/feats/1059-climbing-specialist)**: 15 feet' } }, 'sf2e')!
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Halfling', level: 5,
+    feats: [{ name: 'Climbing Specialist', type: 'Ancestry Feat', level: 5 }] }
+  expect(movementSpeeds(c, [feat])).toContainEqual(expect.objectContaining({ name: 'Climb', feet: 15 }))
+})
+
 it('applies sensory upgrades and ancestry-specific burrowing', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 9, feats: [
     { name: 'Adaptive Visual Receptors', type: 'Ancestry Feat', level: 1 },
@@ -1010,6 +1019,11 @@ describe('official passive feat mechanics', () => {
     expect(JSON.stringify(c)).toBe(before)
   })
 
+  it('Eclectic Skill gives untrained skills full level proficiency with trained actions', () => {
+    const c = { ...base, level: 8, feats: [{ name: 'Eclectic Skill', type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+    expect(untrainedSkillProficiency(c)).toEqual({ bonus: 8, source: 'Eclectic Skill', trainedActions: true })
+  })
+
   it.each([[3, 1], [4, 2], [5, 4], [6, 5], [7, 7], [15, 15]])('scales Untrained Improvisation at level %i without granting trained ranks', (level, bonus) => {
     const feat = { name: 'Untrained Improvisation', type: 'General Feat', level: 3, slot: 'general:3:0' }
     const c = { ...base, level, feats: [feat] }
@@ -1417,7 +1431,7 @@ describe('official passive feat mechanics', () => {
   it('toggles both grouped ancestry restrictions independently without changing saved feats', () => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))
-    const names = ['Adopted Ancestry', 'Multitalented', 'Orc Kinship', 'Social Chameleon']
+    const names = ['Adopted Ancestry', 'Cultural Adaptability', 'Multitalented', 'Orc Kinship', 'Social Chameleon']
     const data = names.map(name => entry('feat', name, {}, 1, ['General']))
     const c: Character = { ...base, level: 9, feats: [
       { name: 'Shield Block', type: 'General Feat', level: 1 },
@@ -1428,7 +1442,7 @@ describe('official passive feat mechanics', () => {
     updateSettings({ disableAdoptedAncestry: true, disableAncientElfMultitalented: true })
     expect(options()).toEqual([])
     updateSettings({ disableAdoptedAncestry: false })
-    expect(options()).toEqual(['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'])
+    expect(options()).toEqual(['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'])
     updateSettings({ disableAdoptedAncestry: true, disableAncientElfMultitalented: false })
     expect(options()).toEqual(['Multitalented'])
     updateSettings({ disableAdoptedAncestry: false })
@@ -1863,15 +1877,43 @@ describe('defenses', () => {
   it.each([
     ['Adroit Manipulation', 'Thievery', 'Arcana'],
     ['Innocuous', 'Deception', 'Acrobatics'],
+    ['Magically Melodious', 'Performance', 'Acrobatics'],
   ])('replaces already-trained %s training', (name, skill, replacement) => {
-    const feat = entry('feat', name, {}, 1, ['Halfling'])
+    const sf = name === 'Magically Melodious'
+    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
     const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}` })
     const selection = { name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: replacement }
-    const character: Character = { ...base, ancestry: 'Halfling', className: 'Rogue', background: undefined,
+    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined,
       feats: [selection] }
     expect(featChoiceOptions(name, { ...character, feats: [{ ...selection, choice: undefined }] },
       [feat, klass], selection.slot, 0)).toContain(replacement)
     expect(ranksAt(character, [feat, klass])).toMatchObject({ [skill]: 1, [replacement]: 1 })
+  })
+
+  it.each([
+    ['Adroit Manipulation', 'Thievery'],
+    ['Innocuous', 'Deception'],
+    ['Magically Melodious', 'Performance'],
+  ])('adds a skill token when %s duplicates trained %s', (name, skill) => {
+    const sf = name === 'Magically Melodious'
+    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
+    const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}, Trained in additional skills equal to 4` })
+    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined,
+      feats: [{ name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    expect(additionalSkillCount(character, [feat, klass]) - additionalSkillCount({ ...character, feats: [] }, [klass])).toBe(1)
+  })
+
+  it.each([
+    ['Innocuous', 'Deception'],
+    ['Magically Melodious', 'Performance'],
+  ])('keeps a free skill token when %s duplicates a picked skill', (name, skill) => {
+    const sf = name === 'Magically Melodious'
+    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
+    const klass = entry('class', 'Rogue', { skill_proficiency: 'Trained in Stealth, Trained in additional skills equal to 4' })
+    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined, skillPicks: [skill],
+      feats: [{ name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    const before = skillRankBudget({ ...character, feats: [] }, [klass]).trained
+    expect(skillRankBudget(character, [feat, klass]).trained).toBe(before + 1)
   })
 
   it.each([
@@ -2610,6 +2652,17 @@ describe('homebrew feat rules', () => {
     expect(slot('Druid')).toBeUndefined()
   })
 
+  it('adds locked Animal Trainer, Beastmaster and Cavalier Dedication slots for Bards at level 2', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true })
+    const keys = (level: number) => plannedSlots({ ...base, className: 'Bard', level }).map(s => s.key)
+    expect(keys(2)).toEqual(expect.arrayContaining(['archetype:2:g90', 'archetype:2:g89', 'archetype:2:g88']))
+    expect(keys(1)).not.toContain('archetype:2:g90')
+    updateSettings({ bardCavalier: false })
+    expect(keys(2)).not.toContain('archetype:2:g88')
+  })
+
   it('adds a locked Snarecrafter Dedication slot for Rangers at level 2 when enabled', () => {
     const ranger = { ...base, className: 'Ranger', level: 2 }
     updateSettings({ rangerSnarecrafter: true })
@@ -2761,5 +2814,44 @@ describe('apex augmentations', () => {
     expect(apexSkillBonus(c, 'Athletics')).toBe(3)
     expect(apexSkillBonus(c, 'Acrobatics')).toBe(3)
     expect(apexSkillBonus({ ...c, augmentations: [apexAug('p', 'Presence Intensifier')] }, 'Intimidation')).toBe(2)
+  })
+})
+
+describe('Bard spellcasting', () => {
+  const bard = { id: 'b', name: 'B', className: 'Bard', systems: ['pf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
+  it.each([[1, [5, 2]], [2, [5, 3]], [3, [5, 3, 2]], [19, [5, ...Array(9).fill(3), 1]]])(
+    'derives spontaneous slots at level %i', (level, counts) => {
+      expect(Object.values(classSpellSlots({ ...bard, level })!)).toEqual(counts)
+    })
+  it('adds two cantrips for Cantrip Expansion only once acquired', () => {
+    const feats = [{ name: 'Cantrip Expansion', level: 2, type: 'Class Feat' }]
+    expect(classSpellSlots({ ...bard, level: 2, feats })?.[0]).toBe(7)
+    expect(classSpellSlots({ ...bard, level: 1, feats })?.[0]).toBe(5)
+  })
+  it('grants Soulsight spiritsense', () => {
+    expect(senses({ ...bard, level: 8, feats: [{ name: 'Soulsight', level: 8, type: 'Class Feat' }] }, [])
+      .map(sense => sense.value)).toContain('Spiritsense (imprecise) 60 feet')
+  })
+})
+
+describe('Bard repertoire', () => {
+  const bard = { id: 'b', name: 'B', className: 'Bard', systems: ['pf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
+  const feat = (name: string) => ({ name, level: 1, type: 'Class Feat' })
+  it('gives Magnum Opus two rank-ten spells but one slot, and Perfect Encore a second slot', () => {
+    expect(classRepertoireRows(bard)?.[10]).toBe(2)
+    expect(classSpellSlots(bard)?.[10]).toBe(1)
+    expect(classSpellSlots({ ...bard, feats: [feat('Perfect Encore')] })?.[10]).toBe(2)
+    expect(classRepertoireRows({ ...bard, level: 18 })?.[10]).toBeUndefined()
+  })
+  it('adds Deep Lore spells per rank and fixed Faceless Trickster spells without extra slots', () => {
+    const c = { ...bard, level: 18, feats: [feat('Deep Lore'), feat('Faceless Trickster')] }
+    expect(classRepertoireRows(c)?.[9]).toBe(4)
+    expect(classRepertoireRows(c)?.[1]).toBe(5)
+    expect(classSpellSlots(c)?.[1]).toBe(3)
+    expect(classExtraSlots(c).map(extra => extra.spell)).toEqual(['Pest Form', 'Animal Form'])
   })
 })

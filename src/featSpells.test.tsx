@@ -366,6 +366,40 @@ it('tracks Natural Illusionist alternatives in one daily pool with their specifi
   expect(html).toContain('Tradition and spell DC are not specified')
 })
 
+it('adds Tengu Feather Fan spells with Wind God\'s and Thunder God\'s Fan sharing up to three daily activations', () => {
+  const entries = [['Gust of Wind', 3], ['Wall of Wind', 3], ['Lightning Bolt', 3]].map(([name]) => entry(name as string, 'spell'))
+  const fan = taken('Tengu Feather Fan', 5)
+  const names = (c: Character) => grantedFeatSpells(c, entries).map(grant => `${grant.entry.name}:${grant.rank}:${dailyInnateUses(c, grant)?.limit}`)
+  expect(names({ ...base, level: 5, feats: [fan] })).toEqual(['Gust of Wind:1:1'])
+  expect(names({ ...base, level: 9, feats: [fan, taken("Wind God's Fan", 9)] })).toEqual(['Gust of Wind:1:2', 'Wall of Wind:3:2'])
+  expect(names({ ...base, level: 13, feats: [fan, taken("Wind God's Fan", 9), taken("Thunder God's Fan", 13)] }))
+    .toEqual(['Gust of Wind:1:3', 'Wall of Wind:3:3', 'Lightning Bolt:5:3'])
+  expect(names({ ...base, level: 13, feats: [fan, taken("Thunder God's Fan", 13)] })).toEqual(['Gust of Wind:1:2', 'Lightning Bolt:5:2'])
+})
+
+it('grants Hurricane Swing a choice of 6th-rank lightning bolt or gust of wind in one daily pool', () => {
+  const entries = ['Lightning Bolt', 'Gust of Wind'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 17, feats: [taken('Hurricane Swing', 17)] }
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank])).toEqual([['Lightning Bolt', 6], ['Gust of Wind', 6]])
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+  expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
+})
+
+it('grants Trickster Tengu a choice of 7th-rank aerial form or cursed metamorphosis in one daily pool', () => {
+  const entries = ['Aerial Form', 'Cursed Metamorphosis'].map(name => entry(name, 'spell'))
+  const grants = grantedFeatSpells({ ...base, level: 17, feats: [taken('Trickster Tengu', 17)] }, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank])).toEqual([['Aerial Form', 7], ['Cursed Metamorphosis', 7]])
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+})
+
+it('grants Great Tengu Form 4th-rank enlarge and fly from one daily use', () => {
+  const entries = ['Enlarge', 'Fly'].map(name => entry(name, 'spell'))
+  const grants = grantedFeatSpells({ ...base, level: 17, feats: [taken('Great Tengu Form', 17)] }, entries)
+  expect(grants.map(grant => [grant.entry.name, grant.rank])).toEqual([['Enlarge', 4], ['Fly', 4]])
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(1)
+})
+
 it('grants True Shapeshifter one daily class spell with its permitted forms', () => {
   const nature = { ...entry('Nature Incarnate', 'spell', { tradition: 'Primal' }), level: 10 }
   const c: Character = { ...base, className: 'Druid', level: 20, feats: [taken('True Shapeshifter', 20)] }
@@ -2091,11 +2125,13 @@ it('uses class DC and selected slot rank for prepared spell metadata', () => {
       prepared: { '1:0': fear.id, '4:0': tracks.id } } }
   const entries = [fear, tracks, master, entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' })]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(html).toContain('<small>Save</small>Will DC 42')
+  const rows = html.match(/<li class="spellbook-row">[\s\S]*?<\/li>/g)?.filter(row => !row.includes("Cantrip slot"))
+  expect(rows?.[0]).toContain('<small>Save</small>Will DC 42')
   expect(html).toContain('aria-label="Cast spell slot rank 4 slot 1"')
-  expect(html).toContain('<small>Duration</small>8 hours')
-  expect(html).toContain('<small>Range</small>20 feet')
-  expect(html).toContain('<small>Area/Targets</small>Up to 10 creatures')
+  const tracksRow = rows?.find(row => row.includes('aria-label="Cast spell slot rank 4 slot 1"'))
+  expect(tracksRow).toContain('<small>Duration</small>8 hours')
+  expect(tracksRow).toContain('<small>Range</small>20 feet')
+  expect(tracksRow).toContain('<small>Area/Targets</small>Up to 10 creatures')
 })
 
 it('grants only selected qi and domain spells, never linked alternatives or future selections', () => {

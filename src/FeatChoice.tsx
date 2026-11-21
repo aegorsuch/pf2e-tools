@@ -1,5 +1,6 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, SKILL_GRANT_REPLACEMENT_FEATS, automaticFeatGrants, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, SIMPLE_LORE_REPLACEMENT_FEATS, SKILL_GRANT_REPLACEMENT_FEATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, lizardfolkLoreReplacementChoices, loreReplacementChoices, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
@@ -174,7 +175,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </SearchableSelect>}
     </span>
   }
-  if (feat.name === 'Halfling Lore') {
+  if (SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name)) {
     const replacements = loreReplacementChoices(c, entries, index)
     if (!replacements.length) return null
     const setReplacement = (replacementIndex: number, value: string) => {
@@ -188,7 +189,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     }
     return <span className="feat-choice feat-choice-with-note">
       {replacements.map((row, replacementIndex) => <label key={row.skill}>{row.skill} replacement{' '}
-        <select aria-label={`Halfling Lore ${row.skill} replacement`} value={row.value ?? ''}
+        <select aria-label={`${feat.name} ${row.skill} replacement`} value={row.value ?? ''}
           onChange={event => setReplacement(replacementIndex, event.target.value)}>
           <option value="">Choose replacement skill</option>
           {row.value && !row.options.includes(row.value) && <option disabled>{row.value}</option>}
@@ -375,10 +376,10 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </details>
       : choiceControl
   }
-  if (feat.name === 'Additional Lore') {
+  if (feat.name === 'Additional Lore' || feat.name === 'Historian' && c.systems.includes('sf2e')) {
     return <label className="feat-choice">
       Lore subcategory{' '}
-      <input key={`${index}:${feat.name}:${feat.choice ?? ''}`} aria-label="Additional Lore subcategory" defaultValue={feat.choice ?? ''}
+      <input key={`${index}:${feat.name}:${feat.choice ?? ''}`} aria-label={`${feat.name} subcategory`} defaultValue={feat.choice ?? ''}
         onBlur={(e) => {
           const choice = e.target.value.trim() || undefined
           if (choice !== feat.choice) save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
@@ -417,7 +418,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   </span>
   if (feat.name === 'Living Weapon' || feat.name === 'General Training' || feat.name === 'Advanced General Training'
     || feat.name === 'Ancestral Paragon' || feat.name === 'Multitalented' || feat.name === 'Armor Proficiency' || feat.name === 'Multilingual'
-    || isCompanionAdvancement(feat.name) || isCompanionSpecialization(feat.name)) return null
+    || isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)) return null
   if (feat.name === 'Canny Acumen') {
     const available = cannyAcumenOptions(c, entries)
     return (

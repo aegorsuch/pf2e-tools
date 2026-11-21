@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCompanion } from './aonQuery'
-import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
+import { companionItemName } from './companions'
+import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
 import { bardingOptions, companionAdvancement, companionAdvancementFor, companionStats, equippedBarding, faithfulSteedChange, minionFerocity, specializationOptions } from './companions'
 import { homebrewCompanions } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -504,6 +505,48 @@ describe('animal companions', () => {
     expect(JSON.stringify(badger)).toBe(before)
   })
 
+  it('applies Animal Trainer companion feats: Performance, Mesmerizing Performance and Splendid Companion', () => {
+    const hound = entry('companion', 'Hound', { ...bear.data, skill: 'Survival', companion_maneuver: 'Gallop' }, 1, ['Animal', 'Minion'])
+    const c: Character = { ...base, level: 12, companions: [{ id: 'c1', type: 'Hound', name: '' }],
+      feats: [feat('Animal Trainer Dedication'), feat('Mature Trained Companion'), feat('Splendid Companion', 'Savage')] }
+    const stats = (feats: Character['feats']) => {
+      const ch = { ...c, feats }
+      return companionStats(ch, [hound], 'Hound', companionAdvancement(ch), 'c1')!
+    }
+    const rank = (s: ReturnType<typeof stats>, name: string) => s.skills.find(x => x.name === name)?.rank
+    const dedication = stats(c.feats.slice(0, 1))
+    expect(rank(dedication, 'Performance')).toBe(1)
+    expect(rank(dedication, 'Survival')).toBeUndefined()
+    const mature = stats(c.feats.slice(0, 2))
+    expect(rank(mature, 'Performance')).toBe(2)
+    expect(mature.maneuver).toBe('Mesmerizing Performance')
+    const splendid = stats(c.feats)
+    expect(rank(splendid, 'Performance')).toBe(3)
+    expect(rank(splendid, 'Athletics')).toBe(1)
+    const skillFeats = [c.feats[0], { ...c.feats[1], choice: 'Stealth' }]
+    expect(rank(stats(skillFeats), 'Stealth')).toBeUndefined()
+    expect(rank(stats(skillFeats), 'Intimidation')).toBe(1)
+    expect(featChoiceOptions('Splendid Companion', c, [], 'archetype:12:0')).toEqual(['Nimble', 'Savage'])
+  })
+
+  it('renames Horseshoes for companions that are not equines', () => {
+    expect(companionItemName('Wolf', 'Alacritous Horseshoes (Greater)')).toBe('Alacritous Paw Guards (Greater)')
+    expect(companionItemName('Horse', 'Horseshoes of Speed')).toBe('Horseshoes of Speed')
+  })
+
+  it('seeds a Medium Riding Dog with Mount and otherwise identical Wolf rules', () => {
+    const wolf = entry('companion', 'Wolf', { ...bear.data, mount: false, size: 'Small', speed_raw: '40 feet' }, 1, ['Animal', 'Minion'])
+    const horse = entry('companion', 'Horse', { ...bear.data, mount: true, companion_support: 'Your horse helps you charge.',
+      companion_maneuver: 'Gallop', companion_maneuver_description: 'The horse Strides twice.' }, 1, ['Animal', 'Minion'])
+    const riding = homebrewCompanions([wolf, horse]).find(e => e.id === 'homebrew:riding-dog')!
+    expect(riding).toMatchObject({ name: 'Riding Dog', description: expect.stringContaining('halflings'), source: 'homebrew', updatedAt: 1 })
+    expect(riding.data).toEqual({ ...wolf.data, companion_support: 'Your dog helps you charge.', companion_maneuver: 'Gallop',
+      companion_maneuver_description: 'The dog Strides twice.', size: 'Medium', mount: true, fixed_size: false })
+    const stats = companionStats({ ...base, level: 1 }, [riding], riding.name)!
+    expect(stats.mount).toBe(true)
+    expect(stats.size).toBe('Medium')
+  })
+
   it.each([[16, 20], [18, 25], [20, 30]])('applies Auspice benefits at level %i without granting them to other companions', (level, extraHP) => {
     const c: Character = { ...base, level, className: 'Champion',
       companions: [{ id: 'mount', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }],
@@ -615,9 +658,22 @@ describe('animal companions', () => {
     expect(might.fortitude).toBe(none.fortitude + 2)
     expect(might.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 2)
     expect(might.reflex).toBe(none.reflex)
+    const intimidation = might.skills.find(s => s.name === 'Intimidation')
+    if (intimidation) expect(intimidation.bonus).toBe(none.skills.find(s => s.name === 'Intimidation')!.bonus + 2)
     expect(at(15, 'Swiftness').reflex).toBe(at(15).reflex + 3)
     expect(at(1, 'Insight').will).toBe(at(1).will + 1)
-    expect(at(1, 'Insight').perceptionNote).toContain('Seek')
+    expect(at(1, 'Insight').perception).toBe(at(1).perception + 1)
+    const stealth = (a?: 'Swiftness') => at(1, a).skills.find(s => s.name === 'Stealth')?.bonus
+    if (stealth()) expect(stealth('Swiftness')).toBe(stealth()! + 1)
+  })
+
+  it('applies every aspect at +3 with Aspect of the Alpha', () => {
+    const c = { ...base, level: 20, spells: [{ name: 'Spirit of the Beast', rank: 1, level: 1 }] as never, feats: [feat('Spirit of the Alpha', undefined, 'archetype:20:0')], companions: [{ id: 'a', name: '', type: 'Bear', spiritAspect: 'Alpha' as const }] }
+    const alpha = companionStats(c, [bear], 'Bear', undefined, 'a')!
+    const none = companionStats({ ...c, companions: [{ id: 'a', name: '', type: 'Bear' }] }, [bear], 'Bear', undefined, 'a')!
+    expect(companionStats({ ...c, feats: [] }, [bear], 'Bear', undefined, 'a')!.fortitude).toBe(none.fortitude)
+    expect([alpha.fortitude - none.fortitude, alpha.reflex - none.reflex, alpha.will - none.will, alpha.perception - none.perception]).toEqual([3, 3, 3, 3])
+    expect(alpha.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 3)
   })
 
   it('hides legacy Beastmaster Heal Animal while preserving saved selections and native healing', () => {
@@ -746,6 +802,18 @@ describe('animal companions', () => {
       for (const option of archetype) expect(eligibleFeats(entries, c, slot)).toContain(option)
       expect(JSON.stringify(c)).toBe(before)
     } finally { updateSettings({ singleAnimalCompanion: previous }) }
+  })
+
+  it('hides other classes\' rank-up feats once the Beastmaster feat of that stage is owned', () => {
+    const dedication = entry('feat', 'Beastmaster Dedication', { archetype: 'Beastmaster' }, 2, ['Archetype', 'Dedication'])
+    const beastmaster = entry('feat', 'Mature Beastmaster Companion', { archetype: 'Beastmaster' }, 4, ['Archetype'])
+    const mount = entry('feat', 'Impressive Mount', {}, 4, ['Champion'])
+    const entries = [dedication, beastmaster, mount]
+    const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+    const c: Character = { ...base, className: 'Champion', level: 6, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
+    expect(eligibleFeats(entries, c, slot)).toContain(mount)
+    const owned = { ...c, feats: [...c.feats, feat(beastmaster.name, undefined, 'archetype:4:0')] }
+    expect(eligibleFeats(entries, owned, slot)).not.toContain(mount)
   })
 
   it('uses only native progression available in the character ruleset', () => {

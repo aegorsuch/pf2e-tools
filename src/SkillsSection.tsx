@@ -368,9 +368,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     Serithtial: '+4 status to saves against death and void effects created by followers of Zon-Kuthon; void resistance 10, suppressed doomed, and unfettered movement apply only against those followers.',
     Ridill: '+2 circumstance to saves against fear; +4 instead if the effect is from a dragon. Does not stack with other circumstance bonuses.',
     'Kortos Diamond': '+2 item to saves against mental effects; does not stack with resilient or other item bonuses.',
+    Soulcutter: '+2 item to saves against mental effects; +4 against possession effects.',
+    'Soulcutter (Artifact)': '+3 item to saves against mental effects; +5 against possession effects.',
   }
-  const heldArtifacts = part === 'defense' ? [...new Set(ownedWeapons(c, entries).filter(weapon => weaponHeld(c, entries, weapon))
-    .map(weapon => String(weaponEntry(entries, weapon.name)?.data.named_weapon_source ?? '')).filter(name => artifactSaves[name]))] : []
+  const artifactNotes = part === 'defense' ? [...new Set(ownedWeapons(c, entries)
+    .filter(weapon => {
+      const source = String(weaponEntry(entries, weapon.name)?.data.named_weapon_source ?? '')
+      return !!artifactSaves[source] && (source.startsWith('Soulcutter') || weaponHeld(c, entries, weapon))
+    }).map(weapon => String(weaponEntry(entries, weapon.name)?.data.named_weapon_source ?? '')))] : []
   const dwarvenAxe = ownedWeapons(c, entries).some(weapon =>
     weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Axe of the Dwarven Lords')
   const renderRows = (rows: typeof stats) => rows.map((s) => {
@@ -611,7 +616,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note={`${signed(total + 2)} against darkness and shadow effects while wielding Shadowpiercer (+2 status). Also applies to allies within 60 feet; does not stack with other status bonuses.`} />}
           {s.kind === 'skill' && memoriesOfValor?.choice === s.name && <SourceNote source="Memories of Valor"
             note={`Once ${memoriesHourly ? 'per hour' : 'per day'}, use one action to increase this skill's proficiency by one rank for 1 minute (up to master).`} />}
-          {s.kind === 'save' && heldArtifacts.map(source => <SourceNote key={source} inlineSource={false} source={source} note={artifactSaves[source]} />)}
+          {s.kind === 'save' && artifactNotes.map(source => <SourceNote key={source} inlineSource={false} source={source} note={artifactSaves[source]} />)}
           {s.kind === 'skill' && hasDivineIntercession(c, 'Kazutal', 'major-boon') && <SourceNote inlineSource={false}
             source="Kazutal (Major Boon)" note="When you Aid, or another creature Aids you, the helper can automatically succeed. If rolling, a success becomes a critical success granting +4 circumstance, regardless of proficiency. Applies only to Aid, not ordinary checks." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
@@ -764,6 +769,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note={`After resting for 10 minutes, regain ${Math.max(0, abilityMod(c.abilities.con) * Math.floor(c.level / 2))} Hit Points. This vitality healing stacks with Treat Wounds.`} />}
             {!!activeFeatsNamed(c, 'Scar-Thick Skin').length && <SourceNote source="Scar-Thick Skin"
               note="Flat check to end persistent bleed: DC 10, or DC 5 with especially appropriate assistance." />}
+            {!!activeFeatsNamed(c, 'Incredible Ferocity').length && <SourceNote source="Incredible Ferocity"
+              note="Use Orc Ferocity once per hour instead of once per day." />}
+            {!!activeFeatsNamed(c, 'Defy Death').length && <SourceNote source="Defy Death"
+              note={`Recovery check DC is ${activeFeatsNamed(c, 'Toughness').length ? 8 : 9} + your dying value.`} />}
+            {!!activeFeatsNamed(c, "Lifeblood's Call").length && <SourceNote source="Lifeblood's Call"
+              note="+2 circumstance to melee Strike damage per wounded and doomed value combined (max +8)." />}
+            {!!activeFeatsNamed(c, 'Bloody Blows').length && <SourceNote source="Bloody Blows"
+              note="Critical hits with lethal unarmed Strikes deal 1d4 persistent bleed damage." />}
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
         </div>

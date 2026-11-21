@@ -142,9 +142,17 @@ const DWARF_ETHNICITIES: Record<string, string[]> = {
   'Holtaksen (Mountain)': ['Holtaksen', 'Mountain Dwarf'],
 }
 
+const HALFLING_ETHNICITIES: Record<string, string[]> = {
+  Isgeri: [],
+  'Jaric (Mountain)': ['Jaric', 'Mountain Halfling'],
+  Mihrini: [],
+  "Song'o (Jungle)": ["Song'o", 'Jungle Halfling'],
+  'Uhlam (Forest)': ['Uhlam', 'Forest Halfling'],
+}
+
 export function ethnicityLabel(name: string) {
   const key = name.trim().toLowerCase()
-  return Object.entries(DWARF_ETHNICITIES).find(([label, aliases]) =>
+  return Object.entries({ ...DWARF_ETHNICITIES, ...HALFLING_ETHNICITIES }).find(([label, aliases]) =>
     [label, ...aliases].some(alias => alias.toLowerCase() === key))?.[0] ?? name
 }
 
@@ -160,6 +168,7 @@ function accessEthnicities(access: string) {
 export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
   const target = ancestry?.trim().toLowerCase()
   if (target === 'dwarf') return Object.keys(DWARF_ETHNICITIES)
+  if (target === 'halfling') return Object.keys(HALFLING_ETHNICITIES)
   const additional = target === 'human' ? [
     'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
   ] : target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []

@@ -77,6 +77,7 @@ it('applies Hierophant power once, only when acquired, and preserves Wizard slot
   expect(classSpellSlots({ ...c, level: 19 })?.[10]).toBe(1)
   expect(classSpellSlots({ ...c, feats: [taken("Hierophant's Power", 21)] })?.[10]).toBe(1)
   expect(classSpellSlots({ ...c, className: 'Wizard' })?.[10]).toBe(1)
+  expect(classSpellSlots({ ...c, className: 'Fighter' })).toBeUndefined()
   expect(classSpellSlots({ ...base, level: 0 })).toEqual({})
 })
 

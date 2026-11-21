@@ -13,7 +13,7 @@ import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterF
 import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -552,6 +552,9 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'commanderBeastmaster', className: 'Commander', name: 'Beastmaster Dedication', slot: 'archetype:2:g93', replacesFreeArchetype: true },
   { setting: 'druidBeastmaster', className: 'Druid', name: 'Beastmaster Dedication', slot: 'archetype:2:g92', replacesFreeArchetype: true },
   { setting: 'commanderCavalier', className: 'Commander', name: 'Cavalier Dedication', slot: 'archetype:2:g91', replacesFreeArchetype: true },
+  { setting: 'bardAnimalTrainer', className: 'Bard', name: 'Animal Trainer Dedication', slot: 'archetype:2:g90', replacesFreeArchetype: true },
+  { setting: 'bardBeastmaster', className: 'Bard', name: 'Beastmaster Dedication', slot: 'archetype:2:g89', replacesFreeArchetype: true },
+  { setting: 'bardCavalier', className: 'Bard', name: 'Cavalier Dedication', slot: 'archetype:2:g88', replacesFreeArchetype: true },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
@@ -809,10 +812,18 @@ function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: Planne
   return replacements
 }
 
+const archetypeCache = new WeakMap<ContentEntry, { source: unknown; names: string[] }>()
+const NO_ARCHETYPES: string[] = []
+// Memoized per entry; callers treat the result as read-only
 const archetypesOf = (e?: ContentEntry): string[] => {
   const a = e?.data.archetype
-  return (Array.isArray(a) ? a : typeof a === 'string' ? a.split(',') : [])
+  if (a === undefined || a === '') return NO_ARCHETYPES
+  const cached = archetypeCache.get(e!)
+  if (cached && cached.source === a) return cached.names
+  const names = (Array.isArray(a) ? a : typeof a === 'string' ? a.split(',') : [])
     .flatMap((name) => typeof name === 'string' && name.trim() ? [name.trim()] : [])
+  archetypeCache.set(e!, { source: a, names })
+  return names
 }
 const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase() === 'dedication')
 
@@ -826,6 +837,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
   const dedications = taken.filter(({ entry }) => isDedication(entry))
   const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
   let availableDedications: ContentEntry[] | undefined
+  let dedicationsByArchetype: Map<string, ContentEntry[]> | undefined
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
@@ -833,7 +845,12 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
     if (!isDedication(e)) {
       if (dedications.some(({ entry }) => shares(entry))) return []
       availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
-      const names = [...new Set(availableDedications.filter((dedication) => shares(dedication)).map((dedication) => dedication.name))]
+      dedicationsByArchetype ??= availableDedications.reduce((map, dedication) => {
+        for (const name of archetypesOf(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
+        return map
+      }, new Map<string, ContentEntry[]>())
+      const names = [...new Set(availableDedications.filter((dedication) => archetypes.some(name => dedicationsByArchetype!.get(name)?.includes(dedication)))
+        .map((dedication) => dedication.name))]
       return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
     }
     if (ignoreDedicationLock || getSettings().ignoreArchetypeFeatMinimums) return []
@@ -895,9 +912,12 @@ function featEquivalence(entry: ContentEntry, ancestries: Set<string>) {
   const sharedSkill = entry.source === 'official' && entry.traits.some(trait => trait.toLowerCase() === 'skill')
   const sharedRules = sharedSkill ? SHARED_SKILL_FEATS[entry.id] : undefined
   const normalize = (text: string) => text.toLowerCase().replace(/[\u2019\u2018]/g, "'").replace(/\s+/g, ' ').trim()
-  const rules = (sharedSkill ? entry.comparisonRules ?? entry.description : entry.description).split(/\n\s*---\s*\n/).at(-1)!.toLowerCase()
+  const lowered = (sharedSkill ? entry.comparisonRules ?? entry.description : entry.description).split(/\n\s*---\s*\n/).at(-1)!.toLowerCase()
     .replace(/[\u2019\u2018]/g, "'").replace(/\b(you|they|we)'ve\b/g, '$1 have').replace(/\b(you|they|we)'re\b/g, '$1 are')
-    .replace(/\bthat's\b/g, 'that is').replace(/\(such as [^)]*\)/g, '').replace(/\b[^.\n]* leads to\.\.\.[\s\S]*$/, '')
+    .replace(/\bthat's\b/g, 'that is').replace(/\(such as [^)]*\)/g, '')
+  // Linear-time cut of the trailing "X leads to..." sentence; the equivalent regex is quadratic on long text
+  const leads = lowered.indexOf(' leads to...')
+  const rules = (leads < 0 ? lowered : lowered.slice(0, Math.max(lowered.lastIndexOf('.', leads - 1), lowered.lastIndexOf('\n', leads - 1)) + 1))
     .replace(/[^a-z0-9]+/g, ' ').trim()
   const data = Object.entries(entry.data).filter(([key]) => !['url', 'sourceBook'].includes(key))
     .map(([key, value]) => {
@@ -1189,12 +1209,14 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       missing.push('Disable Multiple Animal Companions must be disabled')
     }
     if (getSettings().singleAnimalCompanion
-      && ['Incredible Beastmaster Companion', 'Incredible Mount', 'Specialized Beastmaster Companion', 'Specialized Mount'].includes(entry.name)) {
+      && ['Incredible Beastmaster Companion', 'Incredible Mount', 'Splendid Companion', 'Specialized Beastmaster Companion', 'Specialized Mount', 'Specialized Companion'].includes(entry.name)) {
       const advancement = companionAdvancement(character)
       const required = entry.name === 'Incredible Beastmaster Companion' ? 'Mature Beastmaster Companion'
         : entry.name === 'Incredible Mount' ? 'Impressive Mount'
-          : entry.name === 'Specialized Beastmaster Companion' ? 'Incredible Beastmaster Companion' : 'Incredible Mount'
-      if (entry.name.startsWith('Incredible') ? advancement.mature : advancement.advanced) {
+          : entry.name === 'Splendid Companion' ? 'Mature Trained Companion'
+            : entry.name === 'Specialized Beastmaster Companion' ? 'Incredible Beastmaster Companion'
+              : entry.name === 'Specialized Companion' ? 'Splendid Companion' : 'Incredible Mount'
+      if (['Incredible', 'Splendid'].some(prefix => entry.name.startsWith(prefix)) ? advancement.mature : advancement.advanced) {
         for (let i = missing.length - 1; i >= 0; i--) if (missing[i] === required) missing.splice(i, 1)
       }
     }
@@ -1236,10 +1258,16 @@ function duplicatesOwnedAbility(c: Character, entries: ContentEntry[], entry: Co
   const owned = [...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= level),
     ...automaticFeatGrants({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)]
   if (owned.some(feat => base(feat.name) === base(entry.name))) return true
+  const stage = companionProgressionStage(entry.name)
+  const beastmasterStage = (name: string) => /^(?:Mature|Incredible|Specialized) Beastmaster Companion\b/.test(name)
+  if (stage && !beastmasterStage(entry.name)
+    && !owned.some(feat => companionProgressionStage(feat.name) && !beastmasterStage(feat.name))
+    && owned.some(feat => beastmasterStage(feat.name)
+      && companionProgressionStage(feat.name) === stage)) return true
   if (getSettings().singleAnimalCompanion) {
     const advancement = companionAdvancement({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) })
     if (isCompanionAdvancement(entry.name) && advancement.advanced) return true
-    if (/^(?:Mature (?:Animal|Beastmaster) Companion|Impressive Mount)\b/.test(entry.name) && advancement.mature) return true
+    if (/^(?:Mature (?:Animal|Beastmaster|Trained) Companion|Impressive Mount)\b/.test(entry.name) && advancement.mature) return true
   }
   if (base(entry.name) !== 'Heal Animal') return false
   return focusSpells({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries)
@@ -1318,7 +1346,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0)
       && !(generalOnly && traits.has('skill'))
-      && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
+      && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
       && !(slot.category === 'archetype' && e.source === 'official' && e.name === 'Heal Animal'
         && archetypesOf(e).includes('Beastmaster'))
@@ -1368,7 +1396,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
       && (options.includeUnmetPrerequisites || !prerequisites(e).missing.length)
-      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Incredible Mount|Incredible Beastmaster Companion|Mature Animal Companion|Mature Beastmaster Companion|Impressive Mount|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
+      && !(/^(?:Animal Companion|Animal Empathy|Heal Animal|Incredible Companion|Incredible Mount|Incredible Beastmaster Companion|Mature Animal Companion|Mature Beastmaster Companion|Impressive Mount|Loyal Warhorse|Battle-Tested Companion|Imposing Destrier|Battle-Hardened Companion|Side by Side)\b/.test(e.name) && duplicatesOwnedAbility(c, entries, e, slot))
       && !(getSettings().singleAnimalCompanion && /^(?:Additional Companion|Swift Guardian|Beastmaster's Call|Lead the Pack|Pack Takedown)\b/.test(e.name))
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
@@ -1389,7 +1417,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
-        || ['Iruxi Armaments', 'Brutal Anatomy'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
+        || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
@@ -1523,18 +1551,25 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = 
   Spelunker: { skill: 'Acrobatics', feat: 'Quick Squeeze' },
   'Adroit Manipulation': { skill: 'Thievery' },
   Innocuous: { skill: 'Deception' },
+  'Magically Melodious': { skill: 'Performance' },
   'Prairie Rider': { skill: 'Nature' },
+  'Overlooked Mastermind': { skill: 'Deception' },
+  'Land Feet First': { skill: 'Acrobatics', feat: 'Cat Fall' },
+  'Night Eyes': { skill: 'Stealth', feat: 'Terrain Stalker' },
+  'Well-Connected': { skill: 'Society', feat: 'Streetwise' },
+  'Harmonic Sensitivity': { skill: 'Performance' },
 }
 const SKILLS_TAB_ANCESTRY_GRANTS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
   'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
-  'Adroit Manipulation', 'Innocuous', 'Prairie Rider']
+  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider', 'Overlooked Mastermind',
+  'Land Feet First', 'Night Eyes', 'Well-Connected', 'Harmonic Sensitivity']
 export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
-  'Adroit Manipulation', 'Innocuous', 'Prairie Rider']
+  'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider', 'Overlooked Mastermind', 'Land Feet First']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
   const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
-    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider'].includes(name)
+    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider', 'Overlooked Mastermind'].includes(name)
     ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined
   const source = selectedFeatEntry(c, entries, name)
@@ -1593,6 +1628,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
         && entry.systems.includes('pf2e') && entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
         && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes('divine')))
   }
+  if (name === 'Splendid Companion') return ['Nimble', 'Savage']
+  if (name === 'Mature Trained Companion') return ['Intimidation', 'Stealth', 'Survival']
   if (name === 'Gnome Obsession' && c.systems.includes('pf2e')) {
     const selected = index >= 0 ? c.feats[index]?.choice : undefined
     const lores = [...commonLoreOptions(deityGrantedLores(c), c.deity), ...c.lores.map(lore => lore.name),
@@ -1618,6 +1655,16 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set(c.feats.flatMap((feat, featIndex) =>
       featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
     return ['Claw', 'Jaws', 'Tail'].filter(choice => !used.has(choice))
+  }
+  if (name === 'Ancestral Resistance' && c.systems.includes('sf2e') && c.ancestry === 'Kasatha') {
+    const used = new Set(c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return ['Cold', 'Fire'].filter(choice => !used.has(choice))
+  }
+  if (name === 'Predatory' && c.systems.includes('sf2e')) {
+    const used = new Set(c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return ['Claw', 'Jaws'].filter(choice => !used.has(choice))
   }
   if (name === 'Reinforced Skeleton') return ['Cold, Slashing', 'Cold, Piercing', 'Electricity, Slashing',
     'Electricity, Piercing', 'Fire, Slashing', 'Fire, Piercing']
@@ -1899,67 +1946,119 @@ export function spellDCText(c: Character, entries: ContentEntry[], text: string)
   })
 }
 
-export function classSpellSlots(c: Character): Record<number, number> | undefined {
-  if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
-  const starfinder = c.systems.includes('sf2e')
-  const className = c.className ?? ''
-  const profile = (starfinder ? STARFINDER_SLOT_PROFILES[className] : undefined)
-    ?? (c.systems.includes('pf2e') ? PATHFINDER_SLOT_PROFILES[className] : undefined)
-  if (!profile || FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
-    && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+function bardSpellSlots(c: Character) {
   const slots: Record<number, number> = {}
   if (c.level < 1) return slots
-  if (c.className === 'Animist') {
-    const progression = ANIMIST_SLOT_PROGRESSION[Math.min(20, c.level) - 1]
-    progression.forEach((count, rank) => { if (count) slots[rank] = count })
-    return slots
-  }
-  slots[0] = profile.cantrips
-  for (let rank = 1; rank <= Math.min(profile.maxRank, Math.ceil(c.level / 2)); rank++) {
-    slots[rank] = rank === 1
-      ? c.level === 1 ? profile.initialSlots : profile.slotsPerRank
-      : c.level === rank * 2 - 1 ? profile.newRankSlots : profile.slotsPerRank
-  }
-  if (c.className === 'Cleric') {
-    const fontRank = Math.min(9, Math.ceil(c.level / 2))
-    slots[fontRank] = (slots[fontRank] ?? 0) + clericDivineFontSlotCount(c)
-  }
-  if (profile.rankTen && c.level >= 19) slots[10] = 1
-  if (c.className === 'Druid' && c.level >= 20 && activeFeatsNamed(c, "Hierophant's Power").length)
-    slots[10]++
-  if (c.className === 'Necromancer' && c.level >= 20 && activeFeatsNamed(c, 'Mortem Ultimatum').length)
-    slots[10]++
-  for (const extra of necromancerExtraSlots(c)) slots[extra.rank]++
+  slots[0] = 5 + (activeFeatsNamed(c, 'Cantrip Expansion').length ? 2 : 0)
+  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++) slots[rank] = c.level === rank * 2 - 1 ? 2 : 3
+  if (c.level >= 19) slots[10] = 1 + (c.level >= 20 && activeFeatsNamed(c, 'Perfect Encore').length ? 1 : 0)
   return slots
 }
 
-interface ClassSlotProfile {
-  cantrips: number
-  initialSlots: number
-  slotsPerRank: number
-  newRankSlots: number
-  maxRank: number
-  rankTen?: boolean
+// Spontaneous casters know as many spells per rank as they have slots; feats and Magnum Opus add repertoire spells without adding slots.
+export function bardRepertoire(c: Character) {
+  const rows: Record<number, number> = { ...bardSpellSlots(c) }
+  const extras: { key: string; rank: number; spell: string; source: string }[] = []
+  if (c.level < 1) return { rows, extras }
+  if (activeFeatsNamed(c, 'Deep Lore').length)
+    for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++) rows[rank]++
+  if (c.level >= 19) rows[10] = 2
+  if (activeFeatsNamed(c, 'Faceless Trickster').length) {
+    extras.push({ key: 'faceless-trickster-pest-form', rank: 1, spell: 'Pest Form', source: 'Faceless Trickster' },
+      { key: 'faceless-trickster-animal-form', rank: 2, spell: 'Animal Form', source: 'Faceless Trickster' })
+    for (const extra of extras) rows[extra.rank] = (rows[extra.rank] ?? 0) + 1
+  }
+  return { rows, extras }
 }
 
-const PATHFINDER_SLOT_PROFILES: Record<string, ClassSlotProfile> = {
-  Bard: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
-  Cleric: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
-  Druid: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
-  Animist: { cantrips: 4, initialSlots: 2, slotsPerRank: 4, newRankSlots: 2, maxRank: 9, rankTen: true },
-  Magus: { cantrips: 5, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9 },
-  Necromancer: { cantrips: 5, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9, rankTen: true },
-  Oracle: { cantrips: 5, initialSlots: 3, slotsPerRank: 4, newRankSlots: 3, maxRank: 9, rankTen: true },
-  Psychic: { cantrips: 6, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9, rankTen: true },
-  Sorcerer: { cantrips: 5, initialSlots: 3, slotsPerRank: 4, newRankSlots: 3, maxRank: 9, rankTen: true },
-  Summoner: { cantrips: 5, initialSlots: 1, slotsPerRank: 2, newRankSlots: 1, maxRank: 9 },
-  Witch: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
-  Wizard: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+// Slots per rank: `newest` at the level a rank is first gained, `other` afterwards. Verified against each class's Spellcasting and Spell Repertoire text.
+const SLOT_TABLES: Record<string, { system: 'pf2e' | 'sf2e'; spontaneous: boolean; newest: number; other: number; tenth: boolean; tenthFeat?: string; curriculum?: boolean; cantrips?: number }> = {
+  Cleric: { system: 'pf2e', spontaneous: false, newest: 2, other: 3, tenth: true, tenthFeat: 'Maker of Miracles' },
+  Wizard: { system: 'pf2e', spontaneous: false, newest: 2, other: 3, tenth: true, tenthFeat: "Archwizard's Might", curriculum: true },
+  Witch: { system: 'pf2e', spontaneous: false, newest: 2, other: 3, tenth: true, tenthFeat: "Patron's Truth" },
+  Magus: { system: 'pf2e', spontaneous: false, newest: 1, other: 2, tenth: false },
+  Oracle: { system: 'pf2e', spontaneous: true, newest: 3, other: 4, tenth: true, tenthFeat: 'Oracular Providence' },
+  Sorcerer: { system: 'pf2e', spontaneous: true, newest: 3, other: 4, tenth: true, tenthFeat: 'Bloodline Perfection' },
+  Psychic: { system: 'pf2e', spontaneous: true, newest: 1, other: 2, tenth: true, tenthFeat: 'Mind over Matter', cantrips: 6 },
+  Summoner: { system: 'pf2e', spontaneous: true, newest: 1, other: 2, tenth: false },
+  Mystic: { system: 'sf2e', spontaneous: true, newest: 3, other: 4, tenth: true },
+  Technomancer: { system: 'sf2e', spontaneous: false, newest: 2, other: 3, tenth: true },
 }
 
-const STARFINDER_SLOT_PROFILES: Record<string, ClassSlotProfile> = {
-  Mystic: { cantrips: 5, initialSlots: 3, slotsPerRank: 4, newRankSlots: 3, maxRank: 9, rankTen: true },
-  Technomancer: { cantrips: 5, initialSlots: 2, slotsPerRank: 3, newRankSlots: 2, maxRank: 9, rankTen: true },
+const slotTable = (c: Character) => {
+  const table = SLOT_TABLES[c.className ?? '']
+  return table && c.systems.includes(table.system) ? table : undefined
+}
+
+export const isSpontaneousClass = (c: Character) =>
+  (c.className === 'Bard' && c.systems.includes('pf2e')) || !!slotTable(c)?.spontaneous
+
+function tableSpellSlots(c: Character, table: NonNullable<ReturnType<typeof slotTable>>) {
+  const slots: Record<number, number> = {}
+  if (c.level < 1) return slots
+  slots[0] = (table.cantrips ?? 5) + Number(!!table.curriculum)
+  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
+    slots[rank] = (c.level === rank * 2 - 1 ? table.newest : table.other) + (table.curriculum ? 1 : 0)
+  if (table.tenth && c.level >= 19) slots[10] = 1 + (c.level >= 20 && table.tenthFeat && activeFeatsNamed(c, table.tenthFeat).length ? 1 : 0)
+  return slots
+}
+
+export function classRepertoireRows(c: Character) {
+  if (FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
+    && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+  const table = slotTable(c)
+  if (table?.spontaneous) {
+    const rows = tableSpellSlots(c, table)
+    if (c.level >= 19 && table.tenth) rows[10] = 2
+    return rows
+  }
+  return c.className === 'Bard' && c.systems.includes('pf2e') ? bardRepertoire(c).rows : classSpellSlots(c)
+}
+
+export function classExtraSlots(c: Character) {
+  const extras: ClassSpellSlotExtra[] = c.className === 'Bard' && c.systems.includes('pf2e')
+    ? bardRepertoire(c).extras : necromancerExtraSlots(c)
+  if (c.className === 'Cleric' && c.systems.includes('pf2e') && c.level >= 1) {
+    const rank = Math.min(9, Math.ceil(c.level / 2))
+    extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
+      key: `divine-font:${rank}:${index}`, rank, source: 'Divine Font', allowedSpells: ['Heal', 'Harm'],
+    })))
+  }
+  return extras
+}
+
+export function classSpellSlots(c: Character): Record<number, number> | undefined {
+  if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
+  if (FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
+    && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+  if (c.level < 1) return {}
+  if (c.className === 'Animist' && c.systems.includes('pf2e')) {
+    const progression = ANIMIST_SLOT_PROGRESSION[Math.min(20, c.level) - 1]
+    const slots: Record<number, number> = {}
+    progression.forEach((count, rank) => { if (count) slots[rank] = count })
+    return slots
+  }
+  if (c.className === 'Bard' && c.systems.includes('pf2e')) return bardSpellSlots(c)
+  const table = slotTable(c)
+  if (table) {
+    const slots = tableSpellSlots(c, table)
+    if (c.className === 'Cleric' && c.level >= 1) {
+      const rank = Math.min(9, Math.ceil(c.level / 2))
+      slots[rank] = (slots[rank] ?? 0) + clericDivineFontSlotCount(c)
+    }
+    return slots
+  }
+  if (!['Druid', 'Necromancer'].includes(c.className ?? '')) return undefined
+  const necromancer = c.className === 'Necromancer'
+  const slots: Record<number, number> = {}
+  if (c.level < 1) return slots
+  slots[0] = 5
+  for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
+    slots[rank] = (c.level === rank * 2 - 1 ? 2 : 3) - (necromancer ? 1 : 0)
+  if (c.level >= 19) slots[10] = 1 + (c.level >= 20
+    && activeFeatsNamed(c, necromancer ? 'Mortem Ultimatum' : "Hierophant's Power").length ? 1 : 0)
+  for (const extra of necromancerExtraSlots(c)) slots[extra.rank]++
+  return slots
 }
 
 const FLEXIBLE_SPELLCASTER_CLASSES = new Set([
@@ -2005,17 +2104,6 @@ export interface ClassSpellSlotExtra {
 
 function clericDivineFontSlotCount(c: Character) {
   return c.level >= 15 ? 6 : c.level >= 5 ? 5 : 4
-}
-
-export function classSpellSlotExtras(c: Character): ClassSpellSlotExtra[] {
-  const extras: ClassSpellSlotExtra[] = necromancerExtraSlots(c)
-  if (c.className === 'Cleric' && c.level >= 1) {
-    const rank = Math.min(9, Math.ceil(c.level / 2))
-    extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
-      key: `divine-font:${rank}:${index}`, rank, source: 'Divine Font', allowedSpells: ['Heal', 'Harm'],
-    })))
-  }
-  return extras
 }
 
 export function necromancerGrantedDirgeSpells(c: Character) {
@@ -2370,14 +2458,22 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     && characterHeritages(c, entries).some(heritage => heritage.name === 'Cliffscale Lizardfolk')) {
     movement.push(fixed('Climb', 15, "Gecko's Grip"))
   }
+  if (activeFeatsNamed(c, 'Climbing Specialist').length) {
+    const source = selectedFeatEntry(c, entries, 'Climbing Specialist')
+    const feet = Number(/Option\(s\)\*{0,2}:\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])
+    if (feet > 0) movement.push(fixed('Climb', feet, 'Climbing Specialist'))
+  }
   if (activeFeatsNamed(c, 'Burrowing Specialist').length) {
     const source = selectedFeatEntry(c, entries, 'Burrowing Specialist')
     const feet = Number(/Option\(s\):\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])
     if (feet > 0) movement.push(fixed('Burrow', feet, 'Burrowing Specialist'))
   }
   if (activeFeatsNamed(c, 'Tree Climber').length && ancestryFeatTraits(c).includes('elf')) movement.push(fixed('Climb', 10, 'Tree Climber'))
+  const pahtraClimb = c.systems.includes('sf2e') && ancestryFeatTraits(c).includes('pahtra')
+    && activeFeatsNamed(c, 'Climbing Claws').length > 0
+  if (pahtraClimb) movement.push(atLandSpeed('Climb', 'Climbing Claws'))
   for (const [feat, speeds] of Object.entries(ANCESTRY_MOVEMENT_FEATS)) {
-    if (!activeFeatsNamed(c, feat).length) continue
+    if (!activeFeatsNamed(c, feat).length || feat === 'Climbing Claws' && pahtraClimb) continue
     for (const [name, feet] of Object.entries(speeds)) {
       const swiftSwimmerSpeed = feat === 'Swift Swimmer' && characterHeritages(c, entries)
         .some(heritage => heritage.name === 'Wetlander Lizardfolk') ? 25 : feet
@@ -3095,7 +3191,8 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
   ...c.feats.flatMap(feat => feat.name === 'Lizardfolk Lore' && featTakenLevel(feat) <= c.level
     ? [lizardfolkLoreSelection(feat).lore].filter((lore): lore is string => !!lore) : []),
   ...[...activeFeatsNamed(c, 'Additional Lore'),
-    ...(c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Gnome Obsession') : [])].flatMap((feat) => {
+    ...(c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Gnome Obsession') : []),
+    ...(c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Historian') : [])].flatMap((feat) => {
     const choice = feat.choice?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
   }),
@@ -3145,9 +3242,9 @@ export function clanLoreLabel(clan: string) {
 
 export function loreReplacementChoices(c: Character, entries: ContentEntry[], index: number) {
   const feat = c.feats[index]
-  if (!feat || !['Clan Lore', 'Dwarven Lore', 'Halfling Lore'].includes(feat.name)) return []
+  if (!feat || !['Clan Lore', 'Dwarven Lore', ...SIMPLE_LORE_REPLACEMENT_FEATS].includes(feat.name)) return []
   const skills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
-    : feat.name === 'Halfling Lore' ? ancestryLoreGrant(c, entries, feat.name)?.skills ?? []
+    : SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name) ? ancestryLoreGrant(c, entries, feat.name)?.skills ?? []
       : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
   const ranks = ancestrySkillBefore(c, entries, index)
   const trained = skills.filter(skill => (ranks[skill] ?? 0) > 0)
@@ -3194,7 +3291,7 @@ export function normalizeConditionalSkillChoices(c: Character, entries: ContentE
   }
   const feats = c.feats.map((feat, index) => {
     if (featTakenLevel(feat) > c.level) return feat
-    if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || feat.name === 'Halfling Lore') {
+    if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name)) {
       const replacements = [...(feat.replacements ?? [])]
       loreReplacementChoices(c, entries, index).forEach((row, i) => {
         if (row.value && row.options.includes(row.value)) {
@@ -3281,6 +3378,7 @@ export function trainedFeatLores(c: Character) {
   ]
 }
 
+export const SIMPLE_LORE_REPLACEMENT_FEATS = ['Halfling Lore', 'Pahtra Lore', 'Kasatha Lore']
 const ANCESTRY_LORE_GRANTS: Record<string, { skills: string[]; lore: string }> = {
   "Grandmother's Lore": { skills: ['Deception', 'Thievery'], lore: 'Lao Shu Po Lore' },
   'Ysoki Lore': { skills: ['Acrobatics', 'Stealth'], lore: 'Ysoki Lore' },
@@ -3325,7 +3423,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   })
   c.feats.forEach((feat, index) => {
     if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name) && !ancestryLoreGrant(c, entries, feat.name)) return
-    const simpleSkills = feat.name === 'Dwarven Lore' || feat.name === 'Lizardfolk Lore' || feat.name === 'Halfling Lore' ? undefined
+    const simpleSkills = feat.name === 'Dwarven Lore' || feat.name === 'Lizardfolk Lore' || SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name) ? undefined
       : ancestryLoreGrant(c, entries, feat.name)?.skills ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
     if (simpleSkills && feat.name !== 'Pick On Someone My Size') {
       trained.push(...simpleSkills)
@@ -3334,9 +3432,9 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if (simpleSkills) {
       if (feat.name !== 'Pick On Someone My Size' || !ranks.Intimidation) trained.push(...simpleSkills)
-    } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || feat.name === 'Halfling Lore') {
+    } else if (feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name)) {
       const baseSkills = feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
-        : feat.name === 'Halfling Lore' ? ancestryLoreGrant(c, entries, feat.name)?.skills ?? []
+        : SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name) ? ancestryLoreGrant(c, entries, feat.name)?.skills ?? []
           : CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
       let replacementIndex = 0
       for (const skill of baseSkills) {
@@ -3416,6 +3514,13 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Electromagnetic Whiskers').length) {
+    addVision('Electromagnetic sense (imprecise) 15 feet', 'Electromagnetic Whiskers')
+  }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Vibration Whiskers').length) {
+    addVision('Motion sense (imprecise) 30 feet', 'Vibration Whiskers')
+  }
+  if (activeFeatsNamed(c, 'Soulsight').length) addVision('Spiritsense (imprecise) 60 feet', 'Soulsight')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
     addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
   }
@@ -3565,6 +3670,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     grants.push({ name: 'Adopted Ancestry', choice: 'Orc', source: 'Orc Kinship',
       level: Math.min(...activeFeatsNamed(c, 'Orc Kinship').map(featTakenLevel)) })
   }
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Bardic Lore')) {
+    grants.push({ name: 'Additional Lore', choice: 'Bardic', source: feat.name, level: featTakenLevel(feat) })
+  }
   if (c.ancestry === 'Orc' && c.heritage === 'Hold-Scarred Orc') {
     grants.push({ name: 'Diehard', source: 'Hold-Scarred Orc', level: 1 })
   }
@@ -3598,8 +3706,13 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     grants.push({ name: 'Assurance', choice, source: feat.name, level: featTakenLevel(feat) })
   }
   for (const [source, name] of [["Gecko's Grip", 'Combat Climber'], ['Rider', 'Ride'], ['Reptile Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
-    ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump']]) {
+    ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump'], ['Uncanny Agility', 'Steady Balance'],
+    ...(c.systems.includes('sf2e') ? [['Pulonis Softstep', 'Feather Step'], ['Absolute Unit', 'Intimidating Glare']] : [])]) {
     for (const feat of activeFeatsNamed(c, source)) grants.push({ name, source, level: featTakenLevel(feat) })
+  }
+  if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Harmonic Sensitivity')) {
+    if (ancestrySkillBefore(c, entries, c.feats.indexOf(feat)).Performance)
+      grants.push({ name: 'Assurance', choice: 'Performance', source: feat.name, level: featTakenLevel(feat) })
   }
   for (const feat of activeFeatsNamed(c, 'Pick On Someone My Size')) {
     if (ancestrySkillBefore(c, entries, c.feats.indexOf(feat)).Intimidation)
@@ -3886,8 +3999,10 @@ export function skillDownload(c: Character, entries: ContentEntry[]) {
 }
 
 export function untrainedSkillProficiency(c: Character) {
+  const eclectic = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Eclectic Skill').length
   const clever = !!activeFeatsNamed(c, 'Clever Improviser').length
-  if (!clever && !activeFeatsNamed(c, 'Untrained Improvisation').length) return undefined
+  if (!eclectic && !clever && !activeFeatsNamed(c, 'Untrained Improvisation').length) return undefined
+  if (eclectic) return { bonus: c.level, source: 'Eclectic Skill', trainedActions: true }
   return {
     bonus: Math.max(0, c.level - (c.level >= 7 ? 0 : c.level >= 5 ? 1 : 2)),
     source: clever ? 'Clever Improviser' : 'Untrained Improvisation',
@@ -4328,6 +4443,16 @@ export function resistances(c: Character, entries: ContentEntry[]) {
       out.push({ damage: feat.choice.toLowerCase(), value: half, source: 'Planar Resilience' })
     }
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Perfectly Balanced').length) {
+    for (const damage of ['cold', 'fire']) out.push({ damage, value: 5, source: 'Perfectly Balanced' })
+  }
+  if (c.systems.includes('sf2e') && c.ancestry === 'Kasatha') {
+    for (const feat of activeFeatsNamed(c, 'Ancestral Resistance')) {
+      if (feat.choice && ['Cold', 'Fire'].includes(feat.choice)) {
+        out.push({ damage: feat.choice.toLowerCase(), value: half, source: 'Ancestral Resistance' })
+      }
+    }
+  }
   for (const feat of activeFeatsNamed(c, 'Reinforced Skeleton')) {
     const [energy, physical] = feat.choice?.split(',').map(value => value.trim()) ?? []
     if (['Cold', 'Electricity', 'Fire'].includes(energy ?? '')
@@ -4652,7 +4777,7 @@ export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassB
 const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
-const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id])
+const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
 const ysokiJaws: ContentEntry[] = [
   { ...FIST, id: 'sf2e:ysoki:jaws', name: 'Ysoki Jaws', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Unarmed'], data: { ...FIST.data, damage: '1d4 piercing' } },
@@ -4666,6 +4791,12 @@ const veskAttacks: ContentEntry[] = [
     traits: ['Grapple', 'Unarmed', 'Vesk'], data: { ...FIST.data, damage: '1d6 piercing' } },
   { ...FIST, id: 'sf2e:vesk:tail', name: 'Vesk Tail', systems: ['sf2e'],
     traits: ['Sweep', 'Trip', 'Unarmed', 'Vesk'], data: { ...FIST.data, damage: '1d6 bludgeoning' } },
+]
+const pahtraAttacks: ContentEntry[] = [
+  { ...FIST, id: 'sf2e:pahtra:claw', name: 'Pahtra Claw', systems: ['sf2e'],
+    traits: ['Agile', 'Finesse', 'Pahtra', 'Unarmed'], data: { ...FIST.data, damage: '1d6 slashing' } },
+  { ...FIST, id: 'sf2e:pahtra:jaws', name: 'Pahtra Jaws', systems: ['sf2e'],
+    traits: ['Finesse', 'Grapple', 'Pahtra', 'Unarmed'], data: { ...FIST.data, damage: '1d6 piercing' } },
 ]
 const venomousVeskJaws: ContentEntry = { ...FIST, id: 'sf2e:vesk:venomous-jaws', name: 'Venomous Vesk Jaws',
   systems: ['sf2e'], traits: ['Grapple', 'Unarmed', 'Vesk'],
@@ -4994,8 +5125,12 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
   const nativeJaws = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
     ? [ysokiJaws[c.heritage === 'Fierce Ysoki' ? 1 : 0]] : []
+  const tenguBite = c.systems.includes('pf2e') && c.ancestry === 'Tengu'
+    ? [activeFeatsNamed(c, 'Dogfang Bite').length ? TENGU_DOGFANG_BITE : TENGU_BITE] : []
   const brutalAttacks = activeFeatsNamed(c, 'Brutal Anatomy').flatMap(feat =>
     veskAttacks.filter(entry => entry.name === `Vesk ${feat.choice}`))
+  const predatoryAttacks = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Predatory').flatMap(feat =>
+    pahtraAttacks.filter(entry => entry.name === `Pahtra ${feat.choice}`)) : []
   const venomousJaws = c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Fork-Tongued Vesk'
     ? [venomousVeskJaws] : []
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
@@ -5007,7 +5142,9 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
     && (!veskAttacks.some(entry => entry.id === weapon.id) || brutalAttacks.some(entry => entry.id === weapon.id))
+    && (!pahtraAttacks.some(entry => entry.id === weapon.id) || predatoryAttacks.some(entry => entry.id === weapon.id))
     && (weapon.id !== venomousVeskJaws.id || venomousJaws.length > 0)
+    && (![TENGU_BITE.id, TENGU_DOGFANG_BITE.id].includes(weapon.id) || tenguBite.some(entry => entry.id === weapon.id))
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
     && (weapon.id !== OVERSIZED_THROW.id || oversizedThrow)
     && (weapon.id !== GAUNTLET.id || !!gauntlet)
@@ -5015,7 +5152,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nativeJaws, ...brutalAttacks, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...predatoryAttacks, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
@@ -5256,7 +5393,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
-  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, venomousVeskJaws].some(entry => entry.name === name)
+  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, venomousVeskJaws].some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -5318,7 +5455,7 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
-  const jaws = [...ysokiJaws, ...veskAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
+  const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
   if (jaws) return jaws
   const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
   if (bestial) return bestial
@@ -5517,7 +5654,14 @@ const runeSort = (a: string, b: string) => {
   const grade = (n: string) => GRADE_ORDER.indexOf(/ \((\w+)\)(?=$|:)/.exec(n)?.[1] ?? '')
   return a.replace(/ \(\w+\)/, '').localeCompare(b.replace(/ \(\w+\)/, '')) || grade(a) - grade(b)
 }
+const propertyRuneCache = new WeakMap<ContentEntry[], Partial<Record<'Armor' | 'Weapon', { name: string; level?: number }[]>>>()
+// Cached per catalog array; callers treat the result as read-only
 export function propertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
+  let byKind = propertyRuneCache.get(entries)
+  if (!byKind) propertyRuneCache.set(entries, byKind = {})
+  return byKind[kind] ??= computePropertyRunes(entries, kind)
+}
+function computePropertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon') {
   const names = new Map<string, number>()
   for (const entry of entries.filter((e) => e.kind === 'item' && e.data.item_subcategory === `${kind} Property Runes`)) {
     const name = runeName(entry.name)
@@ -5748,7 +5892,12 @@ export function effectiveHandwraps(c: Character, entries: ContentEntry[] = []): 
     return { ...handwraps, grade, potency, striking }
   }
   const automatic = automaticWeaponFundamentals(c.level)
-  return { ...handwraps, potency: Math.max(handwraps.potency, automatic.potency), striking: Math.max(handwraps.striking, automatic.striking) }
+  const potency = Math.max(handwraps.potency, automatic.potency)
+  const free = ['Grievous', 'Grappling', 'Shoving'].slice(0, maxPropertyRunes(potency))
+  const runes = free.length
+    ? [...free, ...handwraps.runes.filter(rune => !free.includes(runeName(rune)))].slice(0, maxPropertyRunes(potency))
+    : handwraps.runes
+  return { ...handwraps, potency, striking: Math.max(handwraps.striking, automatic.striking), runes }
 }
 
 export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
@@ -6374,6 +6523,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
       || c.level >= 5 && veskAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Brutal Anatomy').length > 0
+      || c.level >= 5 && pahtraAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Predatory').length > 0
       || c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 5 && rank >= 2
       || c.systems.includes('sf2e') && c.className === 'Mechanic' && c.level >= 5 && rank >= 2
       || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait))),
@@ -6591,7 +6741,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         : warmask ? [warmask.skill] : [])
       if (!named.length) return total
       const ranks = ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)
-      const replacementChoices = feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || feat.name === 'Halfling Lore'
+      const replacementChoices = feat.name === 'Dwarven Lore' || feat.name === 'Clan Lore' || SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name)
         ? loreReplacementChoices(c, entries, index) : feat.name === 'Lizardfolk Lore'
           ? lizardfolkLoreReplacementChoices(c, entries, index) : undefined
       const choices = !replacementChoices && !warmask && feat.choice

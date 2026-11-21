@@ -405,7 +405,7 @@ export interface Character {
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
     beastmasterAdvancement?: 'Nimble' | 'Savage'; beastmasterSpecializations?: Record<string, string>;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceSubtype?: 'Angel' | 'Devil'; auspiceLanguage?: string;
-    mascotLanguage?: string; mascotBannerAffixed?: boolean; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' }[]
+    mascotLanguage?: string; mascotBannerAffixed?: boolean; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' | 'Alpha' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
   pet?: { name?: string; aquatic?: boolean; abilities?: string[] }

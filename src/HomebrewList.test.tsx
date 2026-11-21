@@ -127,7 +127,7 @@ it('alphabetizes clarified rule labels and keeps renamed rules searchable', () =
     'Cyborg Machine Heart or Mortal Heart Exclusive',
     'Druid Order Explorer Grants Skills',
     'Deity Grants Lore',
-    'Disable Adopted Ancestry, Orc Kinship, Social Chameleon',
+    'Disable Adopted Ancestry, Cultural Adaptability, Orc Kinship, Social Chameleon',
     'Disable Ancient Elf, Multitalented',
     'Disable Warden spells for Beastmaster except for Heal Companion and Magic Hide',
     'Disable Multiple Animal Companions',

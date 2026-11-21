@@ -92,6 +92,10 @@ export function minionFerocity(c: Character) {
   return { temporaryHp: activeFeatsNamed(c, 'Undying Ferocity').length ? c.level : 0 }
 }
 
+// Horseshoes are renamed for companions that aren't equines
+export const companionItemName = (type: string, name: string) =>
+  /\b(?:horse|pony|ponies|mule|donkey)\b/i.test(type) ? name : name.replace(/\bHorseshoes\b/g, 'Paw Guards')
+
 const HORSESHOE_EFFECTS: Record<string, { speed: number; athletics: number }> = {
   'Alacritous Horseshoes': { speed: 5, athletics: 2 },
   'Alacritous Horseshoes (Greater)': { speed: 10, athletics: 3 },
@@ -148,9 +152,16 @@ export const COMPANION_SPECS: Record<string, Spec> = {
   Wrecker: { mods: { str: 1 }, set: { Athletics: 3 } },
 }
 
+// Replaces the type's advanced maneuver for Mature Trained Companion
+const MESMERIZING_PERFORMANCE = {
+  maneuver: 'Mesmerizing Performance', maneuverActions: 'Single Action', maneuverTraits: 'Concentrate, Emotion, Uncommon',
+  maneuverRequirements: "The companion's last action was a successful Performance check to Perform.",
+  maneuverDescription: 'The companion maintains its performance to captivate a single target within 30 feet that witnessed its successful performance. The target must attempt a Will save. Success: The target is unaffected and temporarily immune for 1 hour. Failure: The target is fascinated by the companion for its next action and then is temporarily immune for 1 hour. Critical Failure: The target is fascinated by the companion for 1 round. While it remains fascinated, it can\'t use reactions.',
+}
+
 export const ADVANCED_TYPES = ['Nimble', 'Savage'] as const
 
-const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Religion: 'wis', Stealth: 'dex', Survival: 'wis', 'Warfare Lore': 'int' }
+const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Religion: 'wis', Performance: 'cha', Stealth: 'dex', Survival: 'wis', 'Warfare Lore': 'int' }
 
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
@@ -209,12 +220,12 @@ function growSize(size: string) {
   return i >= 0 && i <= 2 ? SIZES[i + 1] : size
 }
 
-type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[]; conditional: Record<string, string> }
+type SpiritAspect = { save: 'Fortitude' | 'Reflex' | 'Will'; skills: string[] }
+type AppliedAspect = { name: string; bonus: number; saves: string[]; skills: string[] }
 const SPIRIT_ASPECTS: Record<'Might' | 'Swiftness' | 'Insight', SpiritAspect> = {
-  Might: { save: 'Fortitude', skills: ['Athletics'], conditional: { Intimidation: 'Intimidation checks to Demoralize' } },
-  Swiftness: { save: 'Reflex', skills: ['Acrobatics'], conditional: { Stealth: 'Stealth checks to Hide or Sneak' } },
-  Insight: { save: 'Will', skills: [], conditional: { Perception: 'Perception checks to Seek',
-    Survival: 'Survival checks to Sense Direction or Track' } },
+  Might: { save: 'Fortitude', skills: ['Athletics', 'Intimidation'] },
+  Swiftness: { save: 'Reflex', skills: ['Acrobatics', 'Stealth'] },
+  Insight: { save: 'Will', skills: ['Perception', 'Survival'] },
 }
 
 export function companionStats(c: Character, entries: ContentEntry[], type: string, advancement = { mature: false, advanced: undefined as string | undefined, specializations: [] as string[] }, companionId = c.companions?.[0]?.id) {
@@ -266,10 +277,20 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const typeSkills = String(d.skill ?? '').split(',').map((s) => s.trim()).filter(Boolean)
   const rank: Record<string, number> = { Acrobatics: 1, Athletics: 1, Unarmored: 1, Perception: mature ? 2 : 1, Fortitude: mature ? 2 : 1, Reflex: mature ? 2 : 1, Will: mature ? 2 : 1 }
-  for (const s of typeSkills) rank[s] = 1
-  if (mature) for (const s of ['Intimidation', 'Stealth', 'Survival']) rank[s] = rank[s] ? 2 : 1
-  if (advanced === 'Nimble') rank.Acrobatics = Math.max(rank.Acrobatics, 2)
-  if (advanced === 'Savage') rank.Athletics = Math.max(rank.Athletics, 2)
+  const trainer = firstCompanion && has('Animal Trainer Dedication')
+  const trainedMature = trainer && has('Mature Trained Companion')
+  const splendid = trainer && has('Splendid Companion')
+  // Animal Trainer swaps the type's skill for Performance and trades some advancement for Performance ranks
+  for (const s of trainer ? ['Performance'] : typeSkills) rank[s] = 1
+  const trainedChoice = trainedMature ? c.feats.find(feat => feat.name === 'Mature Trained Companion')?.choice : undefined
+  // Mature Trained Companion trades one of the three mature skill increases for Performance
+  if (mature) for (const s of ['Intimidation', 'Stealth', 'Survival']) if (s !== trainedChoice) rank[s] = rank[s] ? 2 : 1
+  if (trainedMature) rank.Performance = Math.max(rank.Performance, 2)
+  if (splendid) rank.Performance = 3
+  else {
+    if (advanced === 'Nimble') rank.Acrobatics = Math.max(rank.Acrobatics, 2)
+    if (advanced === 'Savage') rank.Athletics = Math.max(rank.Athletics, 2)
+  }
   for (const s of specs) {
     for (const k of s.bump ?? []) rank[k] = bumpRank(rank[k] ?? 0)
     for (const [k, v] of Object.entries(s.set ?? {})) rank[k] = Math.max(rank[k] ?? 0, v)
@@ -342,7 +363,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const shoes = companion?.equipment?.Shoes
   const shoesEntry = shoes && entries.find(entry => entry.id === shoes.entryId && isCompanionEquipmentItem(entry))
   const horseshoes = shoesEntry && HORSESHOE_EFFECTS[shoesEntry.name]
-  if (horseshoes && shoesEntry) speedBonuses.push({ source: shoesEntry.name, feet: horseshoes.speed })
+  if (horseshoes && shoesEntry) speedBonuses.push({ source: companionItemName(type, shoesEntry.name), feet: horseshoes.speed })
   const breed = type === 'Horse' && firstCompanion ? c.feats
     .filter(feat => ['Chiardmar Steed', 'Nidarrmar Steed'].includes(feat.name) && featTakenLevel(feat) <= c.level)
     .sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]?.name : undefined
@@ -382,31 +403,29 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
 
   const aspectName = companion?.spiritAspect && knowsSpell(c, entries, 'Spirit of the Beast') ? companion.spiritAspect : undefined
   const aspectRank = Math.ceil(level / 2)
-  const aspect = aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
-    ...SPIRIT_ASPECTS[aspectName] } : undefined
-  const aspectNote = (skill: string, current: number) => aspect?.conditional[skill]
-    ? `Aspect of ${aspect.name}: ${signed(current + aspect.bonus)} to ${aspect.conditional[skill]} (+${aspect.bonus} status bonus).` : undefined
+  const alphaKnown = c.feats.some(feat => feat.name === 'Spirit of the Alpha' && featTakenLevel(feat) <= c.level)
+  const aspect: AppliedAspect | undefined = aspectName === 'Alpha'
+    ? alphaKnown ? { name: 'Alpha', bonus: 3, saves: Object.values(SPIRIT_ASPECTS).map(a => a.save), skills: Object.values(SPIRIT_ASPECTS).flatMap(a => a.skills) } : undefined
+    : aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
+      saves: [SPIRIT_ASPECTS[aspectName].save], skills: SPIRIT_ASPECTS[aspectName].skills } : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)
     .filter(([k, r]) => r > 0 && (k in SKILL_ABILITY || typeSkills.includes(k)))
     .map(([k]) => ({ name: k, rank: rank[k], bonus: total(k, SKILL_ABILITY[k] ?? 'wis') + (aspect?.skills.includes(k) ? aspect.bonus : 0)
       + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0),
       note: [
-        aspect?.skills.includes(k) ? `Aspect of ${aspect.name}: +${aspect.bonus} status bonus.`
-          : aspectNote(k, total(k, SKILL_ABILITY[k] ?? 'wis') + (['str', 'dex'].includes(SKILL_ABILITY[k]) ? bardingCheckPenalty : 0)),
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? `${signed(bardingCheckPenalty)} check penalty (${barding?.name}).` : undefined,
       ].filter(Boolean).join(' ') || undefined,
       noteSource: [
-        aspect?.skills.includes(k) || aspectNote(k, 0) ? 'Spirit of the Beast' : undefined,
         bardingCheckPenalty && ['str', 'dex'].includes(SKILL_ABILITY[k]) ? barding?.name : undefined,
       ].filter(Boolean).join(', ') || undefined,
       clumsy: SKILL_ABILITY[k] === 'dex' && !!clumsy }))
     .sort((a, b) => a.name.localeCompare(b.name))
   const horseshoeNote = horseshoes && shoesEntry
-    ? `${shoesEntry.name}: ${signed(total('Athletics', 'str') + (aspect?.skills.includes('Athletics') ? aspect.bonus : 0) + bardingCheckPenalty + horseshoes.athletics)} to Athletics checks to High Jump and Long Jump (+${horseshoes.athletics} circumstance bonus); when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
+    ? `${companionItemName(type, shoesEntry.name)}: ${signed(total('Athletics', 'str') + (aspect?.skills.includes('Athletics') ? aspect.bonus : 0) + bardingCheckPenalty + horseshoes.athletics)} to Athletics checks to High Jump and Long Jump (+${horseshoes.athletics} circumstance bonus); when Leaping, move 5 feet farther horizontally or 3 feet higher vertically.`
     : undefined
   const companionSkills = skills.map(skill => skill.name === 'Athletics' && horseshoeNote && shoesEntry
     ? { ...skill, note: [skill.note, horseshoeNote].filter(Boolean).join(' '),
-      noteSource: [skill.noteSource, shoesEntry.name].filter(Boolean).join(', ') } : skill)
+      noteSource: [skill.noteSource, companionItemName(type, shoesEntry.name)].filter(Boolean).join(', ') } : skill)
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
   const mountedParry = companion && companionId === c.mountedCompanionId && activeFeatsNamed(c, 'Mounted Parry').length
@@ -431,18 +450,20 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     ferocity: type !== CONSTRUCT_COMPANION_NAME && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
       ? minionFerocity(c) : undefined,
     primalHowl: has('Primal Howl') ? `${Math.floor(level / 2)}d6` : undefined,
-    aspect, perceptionNote: aspectNote('Perception', total('Perception', 'wis')),
-    perception: total('Perception', 'wis'),
-    fortitude: total('Fortitude', 'con') + (aspect?.save === 'Fortitude' ? aspect.bonus : 0),
-    reflex: total('Reflex', 'dex') + (aspect?.save === 'Reflex' ? aspect.bonus : 0),
-    will: total('Will', 'wis') + (aspect?.save === 'Will' ? aspect.bonus : 0),
+    aspect,
+    perception: total('Perception', 'wis') + (aspect?.skills.includes('Perception') ? aspect.bonus : 0),
+    fortitude: total('Fortitude', 'con') + (aspect?.saves.includes('Fortitude') ? aspect.bonus : 0),
+    reflex: total('Reflex', 'dex') + (aspect?.saves.includes('Reflex') ? aspect.bonus : 0),
+    will: total('Will', 'wis') + (aspect?.saves.includes('Will') ? aspect.bonus : 0),
     senses: mountSenses,
     support: String(d.companion_support ?? ''),
-    maneuver: String(d.companion_maneuver ?? ''),
-    maneuverActions: String(d.companion_maneuver_actions ?? ''),
-    maneuverTraits: String(d.companion_maneuver_traits ?? ''),
-    maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
-    maneuverDescription: String(d.companion_maneuver_description ?? ''),
+    ...(trainedMature ? MESMERIZING_PERFORMANCE : {
+      maneuver: String(d.companion_maneuver ?? ''),
+      maneuverActions: String(d.companion_maneuver_actions ?? ''),
+      maneuverTraits: String(d.companion_maneuver_traits ?? ''),
+      maneuverRequirements: String(d.companion_maneuver_requirements ?? ''),
+      maneuverDescription: String(d.companion_maneuver_description ?? ''),
+    }),
     beastmasterManeuvers: beastmaster.maneuvers, beastmasterSpecial: beastmaster.special,
     mount: d.mount === true || riderMount, riderMount,
   }
