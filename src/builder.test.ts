@@ -1808,14 +1808,41 @@ describe('defenses', () => {
     ['Innocuous', 'Deception', 'Acrobatics'],
     ['Magically Melodious', 'Performance', 'Acrobatics'],
   ])('replaces already-trained %s training', (name, skill, replacement) => {
-    const feat = entry('feat', name, {}, 1, ['Halfling'])
+    const sf = name === 'Magically Melodious'
+    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
     const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}` })
     const selection = { name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: replacement }
-    const character: Character = { ...base, ancestry: 'Halfling', className: 'Rogue', background: undefined,
+    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined,
       feats: [selection] }
     expect(featChoiceOptions(name, { ...character, feats: [{ ...selection, choice: undefined }] },
       [feat, klass], selection.slot, 0)).toContain(replacement)
     expect(ranksAt(character, [feat, klass])).toMatchObject({ [skill]: 1, [replacement]: 1 })
+  })
+
+  it.each([
+    ['Adroit Manipulation', 'Thievery'],
+    ['Innocuous', 'Deception'],
+    ['Magically Melodious', 'Performance'],
+  ])('adds a skill token when %s duplicates trained %s', (name, skill) => {
+    const sf = name === 'Magically Melodious'
+    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
+    const klass = entry('class', 'Rogue', { skill_proficiency: `Trained in ${skill}, Trained in additional skills equal to 4` })
+    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined,
+      feats: [{ name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    expect(additionalSkillCount(character, [feat, klass]) - additionalSkillCount({ ...character, feats: [] }, [klass])).toBe(1)
+  })
+
+  it.each([
+    ['Innocuous', 'Deception'],
+    ['Magically Melodious', 'Performance'],
+  ])('keeps a free skill token when %s duplicates a picked skill', (name, skill) => {
+    const sf = name === 'Magically Melodious'
+    const feat = { ...entry('feat', name, {}, 1, ['Halfling']), systems: sf ? ['sf2e' as const] : ['pf2e' as const] }
+    const klass = entry('class', 'Rogue', { skill_proficiency: 'Trained in Stealth, Trained in additional skills equal to 4' })
+    const character: Character = { ...base, systems: [sf ? 'sf2e' : 'pf2e'], ancestry: 'Halfling', className: 'Rogue', background: undefined, skillPicks: [skill],
+      feats: [{ name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    const before = skillRankBudget({ ...character, feats: [] }, [klass]).trained
+    expect(skillRankBudget(character, [feat, klass]).trained).toBe(before + 1)
   })
 
   it.each([

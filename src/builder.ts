@@ -1491,7 +1491,7 @@ export const SKILL_GRANT_REPLACEMENT_FEATS = ["Caretaker's Intuition", 'Jotunbor
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
   const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
-    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider'].includes(name)
+    'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider'].includes(name)
     ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined
   const source = selectedFeatEntry(c, entries, name)
