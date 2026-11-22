@@ -10,6 +10,7 @@ import { spellAccessGranted } from './featAccess'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
+export const EXTRAPLANAR_SUPPLICATION_SPELLS = ['Bane', 'Bless']
 export const automaticFeatChoiceKey = (source: string, feat: string, instance?: string) =>
   JSON.stringify(instance === undefined ? [source, feat] : [source, feat, instance])
 const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; rank: number }> = {
@@ -376,6 +377,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'light']) })
+      continue
+    }
+    if (feat.name === 'Extraplanar Supplication') {
+      const choice = feat.choice
+      const entry = c.systems.includes('pf2e') && choice && EXTRAPLANAR_SUPPLICATION_SPELLS.includes(choice)
+        ? matchingSpells(entries, choice).find(spell => spell.systems.includes('pf2e')) : undefined
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'once per day', fixedRank: true },
+        rank: 1, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
     if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
@@ -746,6 +756,11 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
     const source = featSource(c, entries, feat.name)
     if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Light').some(entry => entry.systems.includes('pf2e')) ? [] : [{ name: 'Light', source }]
+    }
+    if (feat.name === 'Extraplanar Supplication') {
+      const choice = feat.choice
+      return c.systems.includes('pf2e') && choice && EXTRAPLANAR_SUPPLICATION_SPELLS.includes(choice)
+        && !matchingSpells(entries, choice).some(entry => entry.systems.includes('pf2e')) ? [{ name: choice, source }] : []
     }
     const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined
     if (psychicSpells) {

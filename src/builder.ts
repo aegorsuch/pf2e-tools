@@ -2,7 +2,7 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, H
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
+import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -1710,6 +1710,8 @@ function scrapperVariants(ranks: Record<string, number>) {
     .map(skill => ({ skill, rank, label: `${skill} to ${RANKS[rank]}` }))
 }
 
+const NEPHILIM_RESISTANCE_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic']
+
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
@@ -1724,6 +1726,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(damage => damage !== c.elementalDamage).map(cap) : []
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === 'Nephilim Resistance' && c.systems.includes('pf2e')) return NEPHILIM_RESISTANCE_TYPES
+  if (name === 'Extraplanar Supplication' && c.systems.includes('pf2e')) return EXTRAPLANAR_SUPPLICATION_SPELLS
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
@@ -4784,7 +4788,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut', 'Nephilim Resistance'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
     ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name, wornArmor(c, entries)!.id) : undefined,
@@ -4794,6 +4798,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   const juggernaut = activeFeatsNamed(c, 'Unstoppable Juggernaut').length > 0
   const ragingResistance = Math.max(0, (juggernaut ? 8 : 3) + abilityMod(c.abilities.con))
   if (juggernaut) out.push({ damage: 'all damage', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Unstoppable Juggernaut' })
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Nephilim Resistance')) {
+    if (feat.choice && NEPHILIM_RESISTANCE_TYPES.includes(feat.choice)) {
+      out.push({ damage: feat.choice, value: 5, source: feat.name })
+    }
+  }
   for (const feat of activeFeatsNamed(c, 'Planar Resilience')) {
     if (feat.choice && ['Cold', 'Fire'].includes(feat.choice)) {
       out.push({ damage: feat.choice.toLowerCase(), value: half, source: 'Planar Resilience' })

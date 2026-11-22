@@ -1671,6 +1671,23 @@ it('offers explicit favored-terrain variants and persists the chosen terrain', (
   ])
 })
 
+it.each([
+  ['Nephilim Resistance', ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic'], 'Fire'],
+  ['Extraplanar Supplication', ['Bane', 'Bless'], 'Bless'],
+] as const)('offers and saves %s variants in the ancestry feat picker', (name, choices, choice) => {
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', level: 5 }
+  const feat: ContentEntry = {
+    id: name, systems: ['pf2e'], kind: 'feat', name, level: 5, traits: ['Human'],
+    source: 'official', description: '', data: {}, effects: [], updatedAt: 1,
+  }
+  const tree = () => FeatSlots({ c, entries: [feat], save: patch => { c = { ...c, ...patch } }, categories: ['ancestry'] })
+  const markup = renderToStaticMarkup(tree())
+  for (const option of choices) expect(markup).toContain(`${name} (${option})`)
+  findSelect(tree(), 'L05 Ancestry feat')!({ target: { value: JSON.stringify([name, choice]) } })
+  expect(c.feats).toContainEqual(expect.objectContaining({ name, choice, slot: 'ancestry:5:0' }))
+  expect(renderToStaticMarkup(tree())).toContain(`${name} (${choice})`)
+})
+
 it('opens Multitalented directly on multiclass dedications and removes its granted choice with the ancestry feat', () => {
   let c: Character = {
     id: 'multi', systems: ['pf2e'], name: 'Test', level: 9, ancestry: 'Human', className: 'Ranger',

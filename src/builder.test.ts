@@ -503,6 +503,28 @@ it.each(['Diplomacy', 'Intimidation'])('grants Nephilim Lore %s and chosen plana
   expect(featLores({ ...c, feats: [] }, [])).not.toContain('Heaven Lore')
 })
 
+it('offers all five Nephilim Resistance variants and grants only the selected resistance', () => {
+  const choiceFeat = { name: 'Nephilim Resistance', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }
+  const c: Character = { ...base, level: 5, feats: [
+    { name: 'Pitborn', type: 'Ancestry Feat', level: 1 }, choiceFeat,
+  ] }
+  const options = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic']
+  expect(featChoiceOptions(choiceFeat.name, c, [], choiceFeat.slot)).toEqual(options)
+  const imported = entry('feat', choiceFeat.name, { resistances: 'fire=5' }, 5)
+  for (const choice of options) {
+    const selected = { ...c, feats: [c.feats[0], { ...choiceFeat, choice }] }
+    expect(resistances(selected, [imported]).filter(item => item.source === choiceFeat.name))
+      .toEqual([{ damage: choice, value: 5, source: choiceFeat.name }])
+    expect(resistances({ ...selected, level: 20 }, [imported])).toContainEqual({ damage: choice, value: 5, source: choiceFeat.name })
+    expect(resistances({ ...selected, level: 4 }, [imported]).some(item => item.source === choiceFeat.name)).toBe(false)
+  }
+  expect(resistances(c, [imported]).some(item => item.source === choiceFeat.name)).toBe(false)
+  expect(resistances({ ...c, feats: [{ ...choiceFeat, choice: 'Poison' }] }, [imported])
+    .some(item => item.source === choiceFeat.name)).toBe(false)
+  expect(resistances({ ...c, systems: ['sf2e'], feats: [{ ...choiceFeat, choice: 'Fire' }] }, [imported])
+    .some(item => item.source === choiceFeat.name)).toBe(false)
+})
+
 it('adds trained slots for repeated Lizardfolk Lore skills and preserves legacy selections', () => {
   const klass = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival' })
   const feat = { name: 'Lizardfolk Lore', type: 'Ancestry Feat', level: 1, choice: 'Nature, Astrology Lore' }

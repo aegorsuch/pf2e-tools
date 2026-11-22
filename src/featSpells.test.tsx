@@ -366,6 +366,24 @@ it('shows Halo Light as a heightened divine innate spell without helper text', (
   expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [light])).toEqual([])
 })
 
+it.each(['Bane', 'Bless'])('grants Extraplanar Supplication %s as a daily divine innate spell', choice => {
+  const source = feat('Extraplanar Supplication', 'Choose either bane or bless.', 5)
+  const spells = ['Bane', 'Bless'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 5, feats: [taken(source.name, 5, choice)] }
+  const entries = [source, ...spells]
+  expect(featChoiceOptions(source.name, c, entries, 'ancestry:5:0')).toEqual(['Bane', 'Bless'])
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants).toHaveLength(1)
+  expect(grants[0]).toMatchObject({ entry: { name: choice }, source: source.name, rank: 1,
+    rule: { kind: 'innate', tradition: 'divine', frequency: 'once per day', fixedRank: true } })
+  expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
+  expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: choice }])
+  expect(grantedFeatSpells({ ...c, level: 4 }, entries)).toEqual([])
+  expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, entries)).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 5, 'Fear')] }, entries)).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 5)] }, entries)).toEqual([])
+})
+
 it('offers Psychic Talent occult cantrips in Innate Spells and heightens the selected spell', () => {
   const talent = mapAonHit({ _id: 'psychic-talent', _source: { name: 'Psychic Talent', category: 'feat', level: 1,
     trait: ['Lashunta', 'Shirren'], markdown: 'Header\n\n---\n\nChoose one cantrip from the occult spell list. You can cast this cantrip as an occult innate spell at will.' } }, 'sf2e')!
