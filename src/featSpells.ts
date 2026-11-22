@@ -578,7 +578,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         && entry.systems.includes('sf2e')) ?? {
         id: 'reference:divine-decree', systems: ['sf2e'], kind: 'spell', source: 'official',
         name: 'Divine Decree', level: 7, traits: [], description: 'Starfinder spell details are unavailable in the catalog. The linked Pathfinder reference may require GM confirmation.',
-        data: { url: 'https://2e.aonprd.com/Spells.aspx?ID=1495', sourceBook: 'Pathfinder Player Core reference' },
+        data: { url: 'https://2e.aonprd.com/Spells.aspx?ID=1495', sourceBook: 'Pathfinder Player Core reference', actions: 'Two Actions' },
         effects: [], updatedAt: 0,
       }
       out.push({ entry: spell, source: feat.name,

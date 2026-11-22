@@ -73,6 +73,19 @@ it('rolls Wall of Fire damage at its actual cast rank', () => {
   }
 })
 
+it('rolls Divine Decree spirit damage at its cast rank without save outcomes', () => {
+  const entry: ContentEntry = { id: 'divine-decree', name: 'Divine Decree', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 7, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 6)).toEqual([])
+  for (const rank of [7, 8, 10]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank, sides: 10, type: 'spirit' })
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)).toContain(`${rank}d10 spirit`)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollSpellDamage(damage)).toBe(rank)
+  }
+})
+
 it.each([
   [0, 'Supernova', 'fire', 'electricity', undefined],
   [1, 'Earthquake', 'bludgeoning', undefined, undefined],

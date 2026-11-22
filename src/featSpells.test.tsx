@@ -984,6 +984,10 @@ it("grants Grandmother's Favorite with an explicitly labeled Pathfinder referenc
     rank: 7, rule: { tradition: 'divine', frequency: 'once per day', condition: expect.stringContaining('Pathfinder reference') } })
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
   expect(unresolvedFeatSpells(c, [])).toEqual([])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Roll Divine Decree: Damage"')
+  expect(markup).toContain('7d10 spirit')
+  expect(markup.match(/aria-label="Roll Divine Decree: Damage"/g)).toHaveLength(1)
   const sfSpell = { ...entry('Divine Decree', 'spell'), systems: ['sf2e' as const] }
   expect(grantedFeatSpells(c, [sfSpell])[0].entry).toBe(sfSpell)
   expect(grantedFeatSpells({ ...c, level: 16 }, [])).toEqual([])

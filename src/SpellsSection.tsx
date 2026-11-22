@@ -1216,12 +1216,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }
   }
   const attackDamage = divineAttackDamage(c)
-  const controls = (name: string, rank = Math.ceil(c.level / 2), spellcastingModifier?: number) => <>
+  const controls = (name: string, rank = Math.ceil(c.level / 2), spellcastingModifier?: number, spell?: ContentEntry) => <>
     {attackDamage.length > 0 && entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === name
       && entry.systems.some(system => c.systems.includes(system)) && spellResolution(entry).attack)
       && attackDamage.map(damage => <small key={damage.source}>+{damage.value} <SourceNote inlineSource={false}
         source={damage.source} note={damage.note} /></small>)}
-    {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name), spellcastingModifier).length
+    {!spellActionRolls(name, rank, spell ?? entries.find(entry => entry.kind === 'spell' && entry.name === name), spellcastingModifier).length
       && <SpellDamageRolls name={name} rank={rank} spellcastingModifier={spellcastingModifier} />}
   </>
   const effectControls = (name: string) => name === 'Oaken Resilience' && (grownOfOakSpell
@@ -1457,7 +1457,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
-              {controls(grant.entry.name, grant.rank, details.spellcastingModifier)}
+              {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
             </SpellItem>
           })}</ul>
         </section>)}
@@ -1815,7 +1815,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               effectControls={effectControls(grant.entry.name)}
               effectRank={activeRank(grant.entry.name)}
               {...buffProps(grant.entry.name)}>
-              {controls(grant.entry.name, grant.rank, details.spellcastingModifier)}
+              {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
             </InnateSpellRow>
           })}</ul>
         </section>)}

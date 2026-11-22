@@ -128,6 +128,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Divine Decree':
+      return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'spirit' }] : []
     case 'Vampiric Feast':
       return rank >= 3 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'void' }] : []
     case 'Blood Vendetta':
