@@ -115,6 +115,14 @@ describe('Witchwarper class setup', () => {
     expect(html).toContain(greater)
   })
 
+  it('grants Quantum Negation as a focus spell only when the feat is active', () => {
+    const feat = { name: 'Quantum Negation', level: 20, type: 'Class Feat' }
+    const c: Character = { ...base, level: 20, feats: [feat] }
+    expect(focusSpells(c, []).spells).toContainEqual({ name: 'Quantum Negation', source: 'Quantum Negation' })
+    expect(focusSpells({ ...c, level: 19 }, []).spells.map(spell => spell.name)).not.toContain('Quantum Negation')
+    expect(focusSpells({ ...c, systems: ['pf2e'] }, []).spells.map(spell => spell.name)).not.toContain('Quantum Negation')
+  })
+
   it('renders clickable damage actions for Anomaly paradox spells', () => {
     const spells = [
       { ...magic('Eldritch Wrath', 4), data: { actions: 'Two Actions' } },

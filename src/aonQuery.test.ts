@@ -96,6 +96,12 @@ it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier', 'Necrotic Bomb'
   expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])
 })
 
+it('imports warp spell grants as focus spells', () => {
+  const markdown = '<title>Feat</title>\n\n---\n\nYou learn the [quantum negation](/spells/397-quantum-negation) warp spell.'
+  expect(parseFeatFocus(markdown).spells).toBe('quantum negation')
+  expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: ['quantum negation'], heightened: true }])
+})
+
 it.each([
   ['Bone Investiture', 'You can cast [_dinosaur form_](/Spells.aspx?ID=1) on yourself as a 5th-rank innate spell once per day.',
     { kind: 'innate', spells: ['dinosaur form'], frequency: 'once per day', rank: 5, heightened: false, fixedRank: true, shared: false }],

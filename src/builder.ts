@@ -2973,6 +2973,7 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     }
   }
   const paradox = witchwarperParadox(c)
+  if (c.systems.includes('sf2e') && active.some(feat => feat.name === 'Quantum Negation')) add('Quantum Negation', 'Quantum Negation')
   if (paradox) {
     add(paradox.initialWarpSpell, `${paradox.name} paradox`)
     if (active.some(feat => feat.name === 'Advanced Warp')) add(paradox.advancedWarpSpell, 'Advanced Warp')

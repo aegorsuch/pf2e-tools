@@ -12,6 +12,25 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('offers Quantum Negation damage by target level without calculating save outcomes', () => {
+  const entry: ContentEntry = { id: 'quantum-negation', name: 'Quantum Negation', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 10, traits: ['Focus'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 9)).toEqual([])
+  const rolls = spellActionRolls(entry.name, 10, entry)
+  expect(rolls.map(roll => roll.damage)).toMatchObject([
+    { label: 'Target level 13 or lower', bonus: 9999, dice: 0 },
+    { label: 'Target level 14-16', dice: 25, sides: 10 },
+    { label: 'Target level 17 or higher', dice: 20, sides: 10 },
+  ])
+  expect(rolls.every(roll => roll.actions === 'Two Actions')).toBe(true)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([9999, 25, 20])
+  const html = renderToStaticMarkup(<SpellActions name={entry.name} rank={10} entry={entry} />)
+  expect(html).toContain('Reduce Will save success by one step')
+  expect(html).toContain('25d10 untyped damage')
+  expect(html).toContain('20d10 untyped damage')
+})
+
 it('scales other cantrips with their heightening steps', () => {
   expect(spellDamage('Daze', 1)[0]).toMatchObject({ dice: 1, sides: 6, type: 'mental' })
   expect(spellDamage('Daze', 5)[0].dice).toBe(3)

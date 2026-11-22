@@ -43,6 +43,15 @@ export function spellDamage(name: string, rank: number): Damage[] {
       return [{ label: 'Damage', dice, sides: 12, type: 'cold',
         additional: { dice, sides: 12, type: 'fire' } }]
     }
+    case 'Quantum Negation':
+      return rank >= 10 ? [
+        { label: 'Target level 13 or lower', dice: 0, sides: 0, bonus: 9999, type: 'untyped damage',
+          note: 'Reduce Will save success by one step; target reduced to 0 HP ceases to exist; immune for 1 minute' },
+        { label: 'Target level 14-16', dice: 25, sides: 10, type: 'untyped damage',
+          note: 'Target reduced to 0 HP ceases to exist; immune for 1 minute' },
+        { label: 'Target level 17 or higher', dice: 20, sides: 10, type: 'untyped damage',
+          note: 'Target reduced to 0 HP dies instantly; immune for 1 minute' },
+      ] : []
     case 'Needle Darts':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
     case 'Telekinetic Projectile':

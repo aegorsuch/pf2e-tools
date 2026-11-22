@@ -165,7 +165,7 @@ export function parseFeatFocus(md: string) {
   md = md.replace(/[_*]/g, '').replace(/\[(composition)\]\([^)]*\)/gi, '$1')
   const name = (s: string) => s.replace(/^_+|_+$/g, '').trim()
   const spells = [
-    ...[...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:(?:spellshape )?(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) (?:spell|cantrip)|order(?=[.!?]))/gi)].map((m) => name(m[1])),
+    ...[...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:(?:spellshape )?(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi|warp) (?:spell|cantrip)|order(?=[.!?]))/gi)].map((m) => name(m[1])),
     ...[...md.matchAll(/\b(?:gain|learn) the (?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map((m) => name(m[1])),
   ]
   const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/?Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
@@ -242,7 +242,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
       if (!heightened && scales(next)) {
         grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))
       } else grants.push(rule)
-    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition|grave) (?:spells?|cantrips?)\b/i.test(sentence)
+    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition|grave|warp) (?:spells?|cantrips?)\b/i.test(sentence)
       || /\byou gain the \[[^\]]+\]\(\/?Spells\.aspx[^)]*\) order\.$/i.test(sentence.trim())) {
       if (/\b(?:if|choose|depending|based on)\b/i.test(sentence) || /\bor\b/i.test(sentence) && names.length <= 1) continue
       grants.push({ kind: 'focus', spells: names, heightened: true, ...(ability ? { ability } : {}),
