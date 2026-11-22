@@ -280,6 +280,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     save({
       ...patch, feats, entryIds: next.entryIds.filter((id) => !removedIds.has(id)),
       featAccessOverrides: next.featAccessOverrides?.filter(id => !removedIds.has(id)),
+      skippedFeatSlots: next.skippedFeatSlots?.filter(key => !isGrantedSlot(key) || keys.has(key)),
       dismissedFeatSlots: (next.dismissedFeatSlots ?? []).filter((key) => !visibleKeys.has(key) && (!isGrantedSlot(key) || keys.has(key))),
     })
   }
@@ -304,7 +305,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
-    if (category === 'archetype' && name === 'N/A') skippedFeatSlots.push(key)
+    if ((category === 'archetype' || category === 'ancestry') && name === 'N/A') skippedFeatSlots.push(key)
     saveFeatChanges({ feats, entryIds, skippedFeatSlots,
       ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}) })
   }
@@ -590,6 +591,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               ) : <select aria-label={`${label} feat`} value={current}
                 onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">{emptyLabel}</option>
+                {s.category === 'ancestry' && <option value="N/A">N/A</option>}
                 {suggested.length > 0 && <optgroup label="Suggested prerequisites">
                   {suggested.sort((a, b) => displayName(a.entry.name).localeCompare(displayName(b.entry.name)) || a.label.localeCompare(b.label))
                     .map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
@@ -635,7 +637,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     </div>}
                     <ul className="feat-modal-list">
                       <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>{emptyLabel}</button></li>
-                      {picksType && s.grantedBy !== 'Eldritch Trickster' && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
+                      {(s.category === 'ancestry' || picksType && s.grantedBy !== 'Eldritch Trickster') && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
                       {sort === 'suggested' && <>
                         {suggested.length > 0 && <><li className="feat-modal-level">Suggested prerequisites</li>{popupOptions(suggested)}</>}
                         {paired.length > 0 && <><li className="feat-modal-level">Suggested combinations</li>{popupOptions(paired)}</>}

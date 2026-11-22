@@ -2782,6 +2782,46 @@ it('greys out ineffective Canny Acumen options and refuses their selection', () 
   expect(c.feats[0]).toMatchObject({ name: 'Canny Acumen', choice: 'Will' })
 })
 
+it('allows N/A in ancestry pickers and clears it when a feat is chosen', () => {
+  const feat: ContentEntry = { id: 'human-choice', name: 'Human Choice', systems: ['pf2e'], kind: 'feat',
+    source: 'official', level: 1, traits: ['Human'], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', level: 1 }
+  const search = { 'ancestry:1:0:open': '1' }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], search, onSearch: () => {},
+    save: patch => { c = { ...c, ...patch } } })
+  findButton(tree(), 'L01 Ancestry N/A')!()
+  expect(c.skippedFeatSlots).toEqual(['ancestry:1:0'])
+  expect(c.feats).toEqual([])
+  expect(renderToStaticMarkup(tree())).toContain('<span>N/A</span>')
+  findButton(tree(), 'L01 Ancestry: Human Choice')!()
+  expect(c.skippedFeatSlots).toEqual([])
+  expect(c.feats.map(selection => selection.name)).toEqual(['Human Choice'])
+  findButton(tree(), 'L01 Ancestry N/A')!()
+  expect(c.feats).toEqual([])
+  expect(c.entryIds).toEqual([])
+  findButton(tree(), 'Clear L01 Ancestry feat selection')!()
+  expect(c.skippedFeatSlots).toEqual([])
+  const native = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'],
+    save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(native())).toContain('<option value="N/A">N/A</option>')
+  findSelect(native(), 'L01 Ancestry feat')!({ target: { value: 'N/A' } })
+  expect(c.skippedFeatSlots).toEqual(['ancestry:1:0'])
+  const complete = { ...c, feats: plannedSlots(c).filter(slot => slot.key !== 'ancestry:1:0')
+    .map(slot => ({ name: 'Selected', type: 'Class Feat', level: slot.level, slot: slot.key })) }
+  expect(builder.hasRemainingFeatSelections(complete)).toBe(false)
+})
+
+it('clears skipped granted ancestry slots when their granting feat is removed', () => {
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Witchwarper', ancestry: 'Human', level: 12,
+    feats: [{ name: 'In Another Life', type: 'Class Feat', level: 12, slot: 'class:12:0' }] }
+  const tree = (categories: ('ancestry' | 'class')[]) => FeatSlots({ c, entries: [], categories,
+    search: { 'ancestry:1:in-another-life:open': '1' }, onSearch: () => {}, save: patch => { c = { ...c, ...patch } } })
+  findButton(tree(['ancestry']), 'L12 Ancestry N/A')!()
+  expect(c.skippedFeatSlots).toEqual(['ancestry:1:in-another-life'])
+  findButton(tree(['class']), 'Clear L12 Class feat selection')!()
+  expect(c.skippedFeatSlots).toEqual([])
+})
+
 it('persists N/A for a dedication slot without creating a feat and allows replacing it', () => {
   let c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, className: 'Wizard',
