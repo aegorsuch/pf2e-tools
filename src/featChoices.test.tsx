@@ -667,7 +667,16 @@ it('shows action icons beside selected spells', () => {
   expect(markup).toContain('aria-label="Single Action"')
 })
 
-it('preserves selected Animal Feature effects without tracker-only or instantaneous spell toggles', () => {
+it('allows Gravity Weapon activation as soon as the warden spell is learned', () => {
+  const c: Character = { ...base, level: 1,
+    feats: [{ name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' }] }
+  const render = (character: Character) => renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Gravity Weapon active"')
+  expect(render({ ...c, activeSpells: ['Gravity Weapon'] })).toContain('aria-label="Gravity Weapon active" checked=""')
+  expect(render({ ...c, feats: [] })).not.toContain('aria-label="Gravity Weapon active"')
+})
+
+it('preserves selected Animal Feature effects and tracks Gravity Weapon but not instantaneous spells', () => {
   const c: Character = {
     ...base, level: 8, activeSpells: ['Animal Feature'], feats: [
       { name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
@@ -678,7 +687,7 @@ it('preserves selected Animal Feature effects without tracker-only or instantane
   const spells = entries.map((entry) => entry.name === 'Gravity Weapon' ? { ...entry, data: { ...entry.data, duration: 60 } } : entry)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(markup).toContain('aria-label="Animal Feature: Claws" checked=""')
-  expect(markup).not.toContain('aria-label="Gravity Weapon active"')
+  expect(markup).toContain('aria-label="Gravity Weapon active"')
   expect(markup).not.toContain('aria-label="Heal Companion active"')
   expect(renderToStaticMarkup(<SpellsSection c={{ ...c, activeSpells: [] }} entries={spells} save={() => {}} />))
     .not.toContain('aria-label="Animal Feature: Claws" checked=""')

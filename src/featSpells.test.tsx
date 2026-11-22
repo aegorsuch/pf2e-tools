@@ -2001,7 +2001,7 @@ it.each(['Athletic Rush', 'Enduring Might'])('shows Self range and target for %s
 })
 
 it('omits Active trackers for spells without automated character effects, regardless of duration or saved state', () => {
-  const names = ['Gravity Weapon', 'Warning Stripes', 'Impaling Briars', 'Combustion', 'Unimplemented Buff']
+  const names = ['Warning Stripes', 'Impaling Briars', 'Combustion', 'Unimplemented Buff']
   const c: Character = { ...base, className: 'Ranger', activeSpells: names,
     spells: names.map(name => ({ name, rank: 1, cantrip: false })) }
   const before = JSON.stringify(c)

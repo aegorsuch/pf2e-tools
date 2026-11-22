@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -30,6 +30,25 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it('shows Gravity Weapon only for the first weapon Strike and scales with weapon damage dice', () => {
+  const c: Character = { ...character([{ name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' }]),
+    className: 'Ranger', level: 1 }
+  const sword = c.weapons![0]
+  const active = { ...c, ...spellActiveChange(c, 'Gravity Weapon', true) }
+  const bonus = (character: Character, owned: OwnedWeapon) => weaponAttack(character, [weapon], owned).additionalDamage
+    .find(damage => damage.source === 'Gravity Weapon')
+  expect(bonus(c, sword)).toBeUndefined()
+  expect(bonus(active, { ...sword, striking: 0 })).toMatchObject({ value: '2 status' })
+  expect(bonus(active, sword)).toMatchObject({ value: '4 status', note: expect.stringContaining('first weapon Strike each round') })
+  expect(bonus(active, { ...sword, striking: 3 })).toMatchObject({ value: '8 status' })
+  expect(bonus({ ...active, feats: [] }, sword)).toBeUndefined()
+  expect(bonus({ ...active, ...spellActiveChange(active, 'Gravity Weapon', false) }, sword)).toBeUndefined()
+  expect(bonus(active, { id: IRUXI_CLAWS.id, name: IRUXI_CLAWS.name, potency: 0, striking: 0, runes: [] })).toBeUndefined()
+  const html = renderToStaticMarkup(<WeaponList c={active} entries={[weapon]} save={() => {}} displayOnly />)
+  expect(html).toContain('Gravity Weapon')
+  expect(html).toContain('first weapon Strike each round')
 })
 
 it('inherits Vesk tail traits and replaces its attack when the tailblade matches its damage', () => {
