@@ -2327,6 +2327,49 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   expect(extraSlot).not.toContain('Armor upgrade slots:')
 })
 
+it.each([
+  ['Jetpack (Commercial)', 20],
+  ['Jetpack (Tactical)', 40],
+] as const)('toggles %s flight only while installed on worn armor', (name, flySpeed) => {
+  const suit: ContentEntry = { ...weapon, id: 'suit', name: 'Suit', kind: 'armor', systems: ['sf2e'],
+    data: { armor_category: 'Light', ac: 2, upgrade_slots: 1 } }
+  const jetpack: ContentEntry = { ...shifting, id: 'jetpack', name, systems: ['sf2e'],
+    data: { item_subcategory: 'Armor Upgrades' } }
+  let c: Character = { ...character([]), systems: ['sf2e'], armors: [
+    { id: 'suit', name: suit.name, potency: 0, resilient: 0, runes: [], upgrades: [jetpack.id], worn: true },
+  ] }
+  const entries = [suit, jetpack]
+  const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const upgradeContent = () => {
+    const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+    return (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  }
+  expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toBeUndefined()
+  const activate = findElement(upgradeContent(), element => element.props['aria-label'] === `Activate ${name}`)!
+  expect(renderToStaticMarkup(activate)).toContain('aria-label="Two Actions"')
+  ;(activate.props.onClick as () => void)()
+  expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toMatchObject({ feet: flySpeed, source: name })
+  expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, entries)
+    .find(speed => speed.name === 'Fly')).toBeUndefined()
+  expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], upgrades: [] }] }, entries)
+    .find(speed => speed.name === 'Fly')).toBeUndefined()
+  expect(movementSpeeds(c, [{ ...suit, data: { ...suit.data, upgrade_slots: 0 } }, jetpack])
+    .find(speed => speed.name === 'Fly')).toBeUndefined()
+  const dismiss = findElement(upgradeContent(), element => element.props['aria-label'] === `Dismiss ${name}`)!
+  ;(dismiss.props.onClick as () => void)()
+  expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toBeUndefined()
+  ;(findElement(upgradeContent(), element => element.props['aria-label'] === `Activate ${name}`)!.props.onClick as () => void)()
+  const wear = findElement(tree(), element => element.props['aria-label'] === 'Worn Suit')!
+  ;(wear.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(c.armors?.[0].activeJetpack).toBeUndefined()
+  ;(findElement(tree(), element => element.props['aria-label'] === 'Worn Suit')!.props.onChange as
+    (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  ;(findElement(upgradeContent(), element => element.props['aria-label'] === `Activate ${name}`)!.props.onClick as () => void)()
+  const upgrade = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+  ;(upgrade.props.onChange as (ids: string[]) => void)([])
+  expect(c.armors?.[0].activeJetpack).toBeUndefined()
+})
+
 it('places leveled SF2e and homebrew specific armor separately from standard armor', () => {
   const armor: ContentEntry = { ...weapon, kind: 'armor', systems: ['sf2e'], name: 'Carvesong', level: 9,
     data: { item_subcategory: 'Base Armor' } }

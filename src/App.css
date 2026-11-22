@@ -623,6 +623,7 @@
 .companion-description { white-space: pre-line; }
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+.gear-runes .spell-action-button[aria-pressed='true'] { background: var(--accent, #7c6cf0); color: #fff; }
 .rune { display: inline-flex; align-items: center; }
 .entry-dialog { background: #1a1b22; color: inherit; border: 1px solid var(--border, #2c3340); border-radius: 8px; width: min(32rem, 85vw); max-height: 80vh; overflow-y: auto; font-weight: normal; }
 .entry-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }

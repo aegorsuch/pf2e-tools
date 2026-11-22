@@ -42,15 +42,11 @@ import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { shieldEntry } from './builder'
 import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
+import { armorUpgradeSlots, jetpackSpeed } from './builder'
+export { armorUpgradeSlots } from './builder'
 
 const POTENCY = [0, 1, 2, 3]
 const WEAPON_MATERIALS = ['Orichalcum', 'Peachwood'] as const
-export function armorUpgradeSlots(entry?: ContentEntry) {
-  if (!entry) return 0
-  const slots = Number(entry.data.upgrade_slots)
-  if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
-  return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
-}
 const ARMOR_MATERIALS = ['Duskwood', 'Grisantian Hide', 'Orichalcum'] as const
 const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[] = [
   { name: 'Commercial', level: 1, hardness: 5 }, { name: 'Tactical', level: 4, hardness: 10 },
@@ -495,8 +491,9 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
   </div>
 }
 
-export function ArmorUpgrades({ entries, upgrades, limit, onChange }: {
-  entries: ContentEntry[]; upgrades: string[]; limit: number; onChange: (ids: string[]) => void
+export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, onToggleJetpack, onChange }: {
+  entries: ContentEntry[]; upgrades: string[]; limit: number; worn: boolean; activeJetpack?: string
+  onToggleJetpack: (id: string) => void; onChange: (ids: string[]) => void
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && entry.data.item_subcategory === 'Armor Upgrades')
@@ -504,8 +501,15 @@ export function ArmorUpgrades({ entries, upgrades, limit, onChange }: {
   const options = catalog.filter(entry => !installed.some(item => item?.id === entry.id))
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="gear-runes">
-    {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
-      kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
+    {upgrades.map((id, index) => <span className="rune" key={`${id}:${index}`}>
+      <GearTag name={installed[index]?.name ?? id} entry={installed[index]}
+        kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
+      {jetpackSpeed(installed[index]) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
+        aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${installed[index]?.name}`}
+        aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}
+        title={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(installed[index]) === 20 ? '; off-guard while hovering' : ''})`}
+        onClick={() => onToggleJetpack(id)}><ActionIcon actions="Two Actions" /></button>}
+    </span>)}
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
     {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
@@ -1817,7 +1821,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           : armorEntry(c, entries, armor.name, armor.id)?.systems.includes('sf2e')
             ? saved?.runes ?? armor.runes
           : armor.runes
-      return { ...armor, runes, ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
+      return { ...armor, runes, ...(!armor.worn ? { activeJetpack: undefined } : {}),
+        ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
   ], ...extra })
   const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
@@ -1981,8 +1986,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               </span>}
               {sf2eArmor && entry && (upgradeSlots > 0 || !!a.upgrades?.length) && entry.data.upgrades_allowed !== false
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
-                  limit={upgradeSlots}
-                  onChange={upgrades => update(a.id, { upgrades })} />}
+                  limit={upgradeSlots} worn={a.worn} activeJetpack={a.activeJetpack}
+                  onToggleJetpack={id => update(a.id, { activeJetpack: a.activeJetpack === id ? undefined : id })}
+                  onChange={upgrades => update(a.id, { upgrades,
+                    ...(!upgrades.includes(a.activeJetpack ?? '') ? { activeJetpack: undefined } : {}) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}

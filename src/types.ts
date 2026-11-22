@@ -99,6 +99,7 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   upgrades?: string[]
+  activeJetpack?: string
   worn: boolean
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'

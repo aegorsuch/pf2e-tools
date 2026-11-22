@@ -2426,6 +2426,20 @@ export function magneticLevitatorsActive(c: Character, entries: ContentEntry[]) 
     && !!armor && !!c.mechanicArmorMods?.[armor.id]?.magneticLevitators
 }
 
+export function armorUpgradeSlots(entry?: ContentEntry) {
+  if (!entry) return 0
+  const slots = Number(entry.data.upgrade_slots)
+  if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
+  return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
+}
+
+export function jetpackSpeed(entry?: ContentEntry) {
+  if (!entry || entry.deleted || entry.kind !== 'item' || !entry.systems.includes('sf2e')
+    || entry.data.item_subcategory !== 'Armor Upgrades') return 0
+  return /^Jetpack(?: \(Commercial\))?$/i.test(entry.name) ? 20
+    : /^Jetpack \(Tactical\)$/i.test(entry.name) ? 40 : 0
+}
+
 // Unconditional movement Speeds granted by ancestry and class feats
 const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
   'Aqueous Dragonblood': { Swim: 15 }, 'Burrowing Tripkee': { Burrow: 15 }, 'Cave Climber': { Climb: 10 }, 'Climbing Claws': { Climb: 10 },
@@ -2503,6 +2517,15 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     movement.push(atLandSpeed('Climb', 'Horizon Seeker Vesk'))
   }
   if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', boostingTheBasics(c) ? 20 : 10, 'Magnetic Levitators'))
+  const jetpackArmor = c.systems.includes('sf2e') ? wornArmor(c, entries) : undefined
+  const jetpackEntry = jetpackArmor?.activeJetpack ? entries.find(entry => entry.id === jetpackArmor.activeJetpack) : undefined
+  const jetpackArmorEntry = jetpackArmor && armorEntry(c, entries, jetpackArmor.name, jetpackArmor.id)
+  const jetpackLimit = armorUpgradeSlots(jetpackArmorEntry)
+    + (c.heritage === 'Mod Fanatic Android' && jetpackArmorEntry?.data.upgrades_allowed !== false ? 1 : 0)
+  const jetpackIndex = jetpackArmor?.upgrades?.findIndex(id => id === jetpackArmor.activeJetpack) ?? -1
+  const jetpack = jetpackSpeed(jetpackEntry)
+  if (jetpack && jetpackArmorEntry?.systems.includes('sf2e') && jetpackArmorEntry.data.upgrades_allowed !== false
+    && jetpackIndex >= 0 && jetpackIndex < jetpackLimit) movement.push(fixed('Fly', jetpack, jetpackEntry!.name))
   if (c.systems.includes('sf2e') && c.className === 'Solarian' && activeFeatsNamed(c, 'Defy Gravity').length
     && (c.solarianAttunement ?? 'Graviton') === 'Graviton') {
     movement.push(atLandSpeed('Fly', 'Defy Gravity'))
