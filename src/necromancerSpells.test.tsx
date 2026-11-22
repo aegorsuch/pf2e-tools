@@ -24,8 +24,8 @@ const spell = (name: string, level = 1, tradition = 'Occult', traits: string[] =
 const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat' })
 const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
-const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '') => {
-  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, rank, query])
+const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', defense = 'all') => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, rank, query, defense])
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
@@ -343,6 +343,18 @@ it('learns accessible, current-rank occult spells rather than granting the entir
   expect(learnOptions(renderAtDirgeRank({ ...base, ethnicity: 'Kellid' }, entries, 1))).toContain('aria-label="Learn Restricted Magic"')
 })
 
+it('filters learnable Dirge spells by defense and search', () => {
+  const entries = [
+    { ...spell('Fear'), data: { tradition: 'Occult', saving_throw: 'Will' } },
+    { ...spell('Fireball'), data: { tradition: 'Occult', saving_throw: 'basic Reflex' } },
+    { ...spell('Flame Bolt'), data: { tradition: 'Occult', saving_throw: 'AC' } },
+  ]
+  const results = learnOptions(renderAtDirgeRank(base, entries, 1, 'f', 'reflex'))
+  expect(results).toContain('aria-label="Learn Fireball"')
+  expect(results).not.toContain('aria-label="Learn Fear"')
+  expect(results).not.toContain('aria-label="Learn Flame Bolt"')
+})
+
 it('adds spells with inline plus buttons without opening another picker', () => {
   const fear = spell('Fear')
   const bane = spell('Bane')
@@ -369,7 +381,7 @@ it('keeps the Dirge editor open when a nested spell description closes', () => {
   const setOpen = vi.fn()
   vi.mocked(useState).mockReturnValueOnce(['class', vi.fn()]).mockReturnValueOnce(['', vi.fn()])
     .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce([true, setOpen])
-    .mockReturnValueOnce([1, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()])
+    .mockReturnValueOnce([1, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()]).mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useMemo).mockImplementation(fn => fn())
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('dirge')

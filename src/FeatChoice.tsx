@@ -79,7 +79,8 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice }: 
   if (name !== 'Kitsune Spell Familiarity') return null
   const options = featSpellOptions(c, entries, { name, type: 'Ancestry Feat', level: 1, slot: '' }) ?? []
   return <label className="feat-choice">
-    <SearchableSelect label="Daily cantrip" aria-label={`${name} spell`} value={choice ?? ''} onChange={event => {
+    <SearchableSelect label="Daily cantrip" aria-label={`${name} spell`} value={choice ?? ''}
+      optionSpell={value => options.find(spell => spell.name === value)} onChange={event => {
       const selected = event.target.value || undefined
       if (selected && !options.some(spell => spell.name === selected)) return
       const key = automaticFeatChoiceKey(source, name)
@@ -361,7 +362,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''}
-      optionLevel={value => spellOptions.find(spell => spell.name === value)?.level} onChange={event => {
+      optionLevel={value => spellOptions.find(spell => spell.name === value)?.level}
+      optionSpell={value => spellOptions.find(spell => spell.name === value)} onChange={event => {
       const choice = event.target.value || undefined
       if (choice && !spellOptions.some(spell => spell.name === choice)) return
       save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
@@ -439,7 +441,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   return (
     <span className="feat-choice">
       <SearchableSelect aria-label={`${feat.name} warden spell`} value={feat.choice ?? ''}
-        optionLevel={value => options.find(spell => spell.name === value)?.level} onChange={(e) => {
+        optionLevel={value => options.find(spell => spell.name === value)?.level}
+        optionSpell={value => options.find(spell => spell.name === value)} onChange={(e) => {
         const choice = e.target.value || undefined
         save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
       }}>

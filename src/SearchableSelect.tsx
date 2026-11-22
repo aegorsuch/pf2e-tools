@@ -2,6 +2,9 @@ import { Fragment, useId, useMemo, useRef, useState, type ComponentPropsWithoutR
 import { PickerDialog } from './PickerDialog'
 import { selectOptionCount, selectOptionList } from './searchSelectOptions'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
+import { SpellDefenseFilter } from './SpellDefenseFilter'
+import { matchesSpellDefense, type SpellDefense } from './spellDefense'
+import type { ContentEntry } from './types'
 
 type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue' | 'value'> & {
   'aria-label': string
@@ -17,21 +20,23 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   searchText?: (value: string) => string
   optionLevel?: (value: string) => number | undefined
   optionSortName?: (value: string) => string | undefined
+  optionSpell?: (value: string) => ContentEntry | undefined
 }
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
   const [container, setContainer] = useState<HTMLElement>()
   const [sort, setSort] = useState<PickerSortOrder>('name')
+  const [defense, setDefense] = useState<SpellDefense>('all')
   const select = useRef<HTMLSelectElement>(null)
   const generatedId = useId()
   const id = props.id ?? generatedId
   const searchLabel = `Search ${props['aria-label'].replace(/^(?:add|choose)\s+/i, '').toLowerCase()}`
-  const searchable = useMemo(() => alwaysSearchable || !!optionLevel || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable, optionLevel])
+  const searchable = useMemo(() => alwaysSearchable || !!optionLevel || !!optionSpell || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable, optionLevel, optionSpell])
   const options = useMemo(() => selectOptionList(children), [children])
   const levels = useMemo(() => optionLevel && open && sort === 'level'
     ? new Map(options.map(option => [option.value, optionLevel(option.value)])) : undefined, [optionLevel, open, options, sort])
@@ -40,8 +45,9 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const matching: typeof options = []
   if (open) for (const option of options) {
     const match = !activeQuery || `${option.label} ${option.value} ${searchText?.(option.value) ?? ''}`.toLowerCase().includes(activeQuery)
-    if (activeQuery && option.value && match) matches++
-    if ((!primaryDetails || option.value) && (match || !option.value || option.value === value)) matching.push(option)
+    const defenseMatch = !optionSpell || defense === 'all' || matchesSpellDefense(optionSpell(option.value), defense)
+    if (option.value && match && defenseMatch) matches++
+    if ((!primaryDetails || option.value) && ((!option.value || match || option.value === value) && (!option.value || defenseMatch))) matching.push(option)
   }
   const ordered = optionLevel && open ? [
     ...matching.filter(option => !option.value),
@@ -56,6 +62,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     control.dispatchEvent(new Event('change', { bubbles: true }))
     setOpen(false)
     setQuery('')
+    setDefense('all')
   }
   return <span className="searchable-select">
     {label && <label htmlFor={id}>{label}</label>}
@@ -81,6 +88,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
       container={container}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
       {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort} onChange={next => { setSort(next); setLimit(PAGE) }} />}
+      {optionSpell && <SpellDefenseFilter value={defense} onChange={next => { setDefense(next); setLimit(PAGE) }} />}
       {filters}
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>
@@ -99,7 +107,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
           </li>
         </Fragment>)}
       </ul>
-      {activeQuery && !matches && <small role="status">No matches.</small>}
+      {(activeQuery || defense !== 'all') && !matches && <small role="status">No matches.</small>}
       {matching.length > shown.length && <button type="button" onClick={() => setLimit(limit + PAGE)}>
         Show more ({matching.length - shown.length} left, or use search)
       </button>}

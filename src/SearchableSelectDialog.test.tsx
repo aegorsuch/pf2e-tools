@@ -4,6 +4,8 @@ import { PickerDialog } from './PickerDialog'
 import { SearchableSelect } from './SearchableSelect'
 import { EntryDescription } from './EntryDescription'
 import { PickerSort } from './PickerSort'
+import { SpellDefenseFilter } from './SpellDefenseFilter'
+import type { ContentEntry } from './types'
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
@@ -15,6 +17,7 @@ it('opens a searchable picker in the enclosing native dialog', () => {
   const setContainer = vi.fn()
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([false, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, setContainer]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
@@ -35,6 +38,7 @@ it('opens a searchable picker in the enclosing native dialog', () => {
   expect(setContainer).toHaveBeenCalledWith(dialog)
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([dialog, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   expect(find(SearchableSelect(props), PickerDialog)?.container).toBe(dialog)
 })
 
@@ -43,6 +47,7 @@ it('keeps spell details separate from the plus selection action', () => {
   const select = { value: '', dispatchEvent: vi.fn() }
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, setOpen])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: select })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
@@ -70,6 +75,7 @@ it('keeps spell details separate from the plus selection action', () => {
 it('searches option labels and extra text while retaining the selected option and disabled groups', () => {
   vi.mocked(useState).mockReturnValueOnce(['  flame  ', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
@@ -96,6 +102,7 @@ it('searches option labels and extra text while retaining the selected option an
 it('reports no matches even when the selected option remains visible', () => {
   vi.mocked(useState).mockReturnValueOnce(['missing', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
@@ -119,6 +126,7 @@ it.each([
   const setLimit = vi.fn()
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, setLimit]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce([sort, setSort])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
@@ -144,6 +152,7 @@ it.each([
 it('sorts by underlying spell name before pagination, ignoring heightened labels', () => {
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([2, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
@@ -165,10 +174,40 @@ it('sorts by underlying spell name before pagination, ignoring heightened labels
 it('does not resolve option levels while the picker is closed', () => {
   vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([false, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['level', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
   const optionLevel = vi.fn(() => 1)
   SearchableSelect({ 'aria-label': 'Rune', value: '', optionLevel, children: <option value="one">One</option> })
   expect(optionLevel).not.toHaveBeenCalled()
+})
+
+it('filters spell choices by defense together with search and resets pagination', () => {
+  const setDefense = vi.fn()
+  const setLimit = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, setLimit]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['reflex', setDefense])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const spell = (name: string, defense: string): ContentEntry => ({ id: name, name, kind: 'spell', systems: ['sf2e'],
+    source: 'official', level: 1, traits: [], description: '', data: { saving_throw: defense }, effects: [], updatedAt: 0 })
+  const entries = [spell('Flame Burst', 'basic Reflex'), spell('Flame Bolt', 'AC'), spell('Frost', 'Reflex')]
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({ 'aria-label': 'Spell', value: '', primaryDetails: true,
+    optionSpell: value => entries.find(entry => entry.id === value),
+    children: <>{entries.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</> }))
+  expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Select '))
+    .map(item => item.props['aria-label'])).toEqual(['Select Flame Burst'])
+  const filter = found.find(item => item.type === SpellDefenseFilter)!
+  ;(filter.props.onChange as (value: string) => void)('ac')
+  expect(setDefense).toHaveBeenCalledWith('ac')
+  expect(setLimit).toHaveBeenCalledWith(100)
 })

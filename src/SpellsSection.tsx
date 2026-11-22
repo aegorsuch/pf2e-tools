@@ -26,6 +26,8 @@ import { spellAccessGranted } from './featAccess'
 import { ANIMAL_FORMS, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
+import { SpellDefenseFilter } from './SpellDefenseFilter'
+import { matchesSpellDefense, spellResolution, type SpellDefense } from './spellDefense'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
@@ -710,17 +712,6 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
   }
 }
 
-function spellResolution(entry: ContentEntry) {
-  const defense = spellMetadata(entry).save
-  return {
-    save: /\b(?:Fortitude|Reflex|Will)\b/i.test(defense)
-      || /\b(?:Fortitude|Reflex|Will) (?:saving throws?|saves?)\b/i.test(entry.description),
-    attack: entry.name !== 'Pulverizing Wake' && (entry.traits.some(trait => /^attack$/i.test(trait))
-      || /\b(?:AC|Armor Class)\b/i.test(defense)
-      || /\b(?:make|attempt) (?:a |an )?(?:ranged |melee )?spell attack\b/i.test(entry.description)),
-  }
-}
-
 function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, effectControls, effectRank, actionControls, children, saveDC }: {
   c: Character
   grant: ReturnType<typeof grantedFeatSpells>[number]
@@ -829,7 +820,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 : slot.value ? <SelectedSlotSpell name={slot.entry?.name ?? slot.value} entry={slot.entry}
                   onClear={() => setSc({ repertoire: { ...sc.repertoire, [slot.key]: '' } })} />
                 : <SearchableSelect aria-label={`Witchwarper ${rank === 0 ? 'cantrip' : `rank ${rank} spell`} ${index + 1}`}
-                  value={value} alwaysSearchable primaryDetails optionLevel={choice => spellIndex.byId.get(choice)?.level} renderDetails={choice => {
+                  value={value} alwaysSearchable primaryDetails optionLevel={choice => spellIndex.byId.get(choice)?.level}
+                  optionSpell={choice => spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)} renderDetails={choice => {
                     const entry = spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)
                     return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} /></span>
                   }} onChange={event => {
@@ -1005,6 +997,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [dirgeOpen, setDirgeOpen] = useState(false)
   const [dirgeRank, setDirgeRank] = useState(0)
   const [dirgeQuery, setDirgeQuery] = useState('')
+  const [dirgeDefense, setDirgeDefense] = useState<SpellDefense>('all')
   const dirgeDialog = useRef<HTMLDialogElement>(null)
   const dirgeTitleId = useId()
   const casting = classSpellcasting(c, entries)
@@ -1048,7 +1041,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const rankedDirgeOptions = dirgeOptions.filter(entry => (dirgeRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-    && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()))
+    && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()) && matchesSpellDefense(entry, dirgeDefense))
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -1263,6 +1256,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const openDirge = (rank: number) => {
     setDirgeRank(rank)
     setDirgeQuery('')
+    setDirgeDefense('all')
     setDirgeOpen(true)
     dirgeDialog.current?.showModal()
     dirgeDialog.current?.querySelector('h4')?.focus()
@@ -1310,6 +1304,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             <div className="dirge-rank" key={group} hidden={group !== (dirgeRank === 0 ? 'Cantrips' : `Rank ${dirgeRank}`)}>{renderSpellGroup(group)}</div>)}
           <label>Search spells{' '}<input type="search" aria-label="Search dirge spells" value={dirgeQuery}
             onChange={event => setDirgeQuery(event.target.value)} /></label>
+          <SpellDefenseFilter value={dirgeDefense} onChange={setDirgeDefense} />
           {dirgeOpen && <DirgeLearnOptions options={rankedDirgeOptions} onLearn={entry => {
             if (!rankedDirgeOptions.some(option => option.id === entry.id)) return
             save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
@@ -1440,6 +1435,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   : <SearchableSelect aria-label={`${cantrip ? 'Cantrip' : `Spell Rank ${rank}`} slot ${index + 1}`}
                     value={selectedValue} optionCount={slotOptions.length} disabled={spent || restricted} alwaysSearchable primaryDetails
                     optionLevel={value => spellOption(value)?.baseRank} optionSortName={value => spellOption(value)?.name}
+                    optionSpell={value => {
+                      const option = spellOption(value)
+                      return option && spellEntry(option.name, option.entryId)
+                    }}
                     renderDetails={value => {
                       const option = slotOptions.find(spell => (spell.entryId ?? spell.name) === value)
                       const entry = option && spellEntry(option.name, option.entryId)
@@ -1508,6 +1507,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             }}><option value="">Choose tradition</option>{['Arcane', 'Divine', 'Occult'].map(value => <option key={value}>{value}</option>)}</select>
           </label>}
           {tradition && <SearchableSelect label={`${c.heritage} cantrip`} aria-label={`${c.heritage} cantrip`} value={current}
+            optionSpell={value => options.find(entry => entry.name === value)}
             onChange={event => {
               const value = event.target.value
               if (value && !options.some(entry => entry.name === value)) return
@@ -1526,6 +1526,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         const options = mageAutomatonOptions(c, entries)
         const current = c.mageAutomatonCantrip ?? ''
         return <SearchableSelect label="Mage Automaton cantrip" aria-label="Mage Automaton cantrip" value={current}
+          optionSpell={value => options.find(entry => entry.name === value)}
           onChange={event => {
             const value = event.target.value
             if (value && !options.some(entry => entry.name === value)) return
@@ -1542,7 +1543,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         if (feat.name !== 'First World Magic' || featTakenLevel(feat) > c.level) return null
         const options = featSpellOptions(c, entries, feat) ?? []
         return <span className="feat-choice" key={feat.slot ?? `${feat.name}:${index}`}>
-          <SearchableSelect label={`${feat.name} spell`} aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
+          <SearchableSelect label={`${feat.name} spell`} aria-label={`${feat.name} spell`} value={feat.choice ?? ''}
+            optionSpell={value => options.find(entry => entry.name === value)} onChange={event => {
             const choice = event.target.value || undefined
             if (choice && !options.some(spell => spell.name === choice)) return
             save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
@@ -1566,7 +1568,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const current = choices[index] ?? ''
           const options = minorMagicOptions(c, entries).filter(entry => entry.name === current || !choices.includes(entry.name))
           return <SearchableSelect key={index} label={`Minor Magic cantrip ${index + 1}`}
-            aria-label={`Minor Magic cantrip ${index + 1}`} value={current} onChange={event => {
+            aria-label={`Minor Magic cantrip ${index + 1}`} value={current}
+            optionSpell={value => options.find(entry => entry.name === value)} onChange={event => {
               const value = event.target.value
               if (value && !options.some(entry => entry.name === value)) return
               const next = Array.from({ length: 2 }, (_, i) => i === index ? value : choices[i] ?? '')
