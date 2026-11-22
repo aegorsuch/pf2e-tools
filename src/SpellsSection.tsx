@@ -9,7 +9,8 @@ import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
 import { intensifiedElementDamage } from './builder'
 import { companionAdvancementFor, companionStats } from './companions'
-import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { fiendOptions, type SummonedFiend } from './summonedFiends'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
@@ -424,6 +425,56 @@ export function LashuntaAllyOptions({ c, save }: Pick<SectionProps, 'c' | 'save'
     </select>
     <SourceNote source="Shotalashu" note="GM approval required: shotalashu has the beast trait, not the animal trait required by Summon Animal." />
   </label>
+}
+
+export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly = false, requiredTrait, disabled }: SectionProps & {
+  entry?: ContentEntry; rank: number; lineageOnly?: boolean; requiredTrait?: string; disabled?: boolean
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const [fiends, setFiends] = useState<SummonedFiend[]>()
+  const [error, setError] = useState('')
+  const lineage = lineageOnly ? originalNephilimLineage(c, entries) ?? '' : undefined
+  const options = fiendOptions(fiends ?? [], rank, lineageOnly ? lineage || 'unknown' : undefined, requiredTrait)
+  const open = () => {
+    dialog.current?.showModal()
+    dialog.current?.querySelector('h4')?.focus()
+    if (fiends) return
+    setError('')
+    void fetch(`${import.meta.env.BASE_URL}data/aon-fiends.json`).then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.json() as Promise<SummonedFiend[]>
+    }).then(data => {
+      if (!Array.isArray(data)) throw new Error('Invalid fiend catalog')
+      setFiends(data)
+    }).catch((failure: unknown) => setError(`Unable to load fiends: ${failure instanceof Error ? failure.message : String(failure)}`))
+  }
+  return <>
+    <button type="button" className="spell-action-button" aria-label="Summon Fiend options" aria-haspopup="dialog" disabled={disabled} onClick={open}>
+      <ActionIcon actions="Three Actions" />
+    </button>
+    <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
+      <h4 id={titleId} tabIndex={-1}>Summon Fiend (Rank {rank})</h4>
+      {error ? <p role="alert">{error}</p> : !fiends ? <p role="status">Loading fiends...</p> : <SearchableSelect
+        label="Summoned fiend" aria-label="Summoned fiend" value={c.summonedFiend?.id ?? ''} alwaysSearchable
+        onChange={event => {
+          const value = event.target.value
+          const selected = options.find(fiend => fiend.id === value)
+          if (value && !selected) return
+          const select = () => save({ summonedFiend: selected })
+          if (c.summonedFiend && c.summonedFiend.id !== value) confirmRemoval(`summoned ${c.summonedFiend.name}`, select)
+          else select()
+        }}>
+        <option value="">None</option>
+        {c.summonedFiend && !options.some(fiend => fiend.id === c.summonedFiend?.id)
+          && <option value={c.summonedFiend.id} disabled>{c.summonedFiend.name} (unavailable)</option>}
+        {options.map(fiend => <option key={fiend.id} value={fiend.id}>{fiend.name} (Level {fiend.level})</option>)}
+      </SearchableSelect>}
+      <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
+      <form method="dialog"><button autoFocus>Close</button></form>
+    </dialog>
+  </>
 }
 
 function CrocodileFormActions({ c, entries, save, rank }: SectionProps & { rank: number }) {
@@ -963,6 +1014,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
               </select>}
               {slot.entry && (slot.entry.name === 'Bone Shield'
                 ? <BoneShieldActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : slot.entry.name === 'Summon Fiend'
+                ? <SummonFiendActions c={c} entries={entries} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'False Vitality'
                 ? <FalseVitalityActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'Tailwind'
@@ -1405,6 +1458,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
          attackBonus={classSpellDC === undefined ? undefined : classSpellDC - 10}
          spellcastingModifier={castAbility ? abilityMod(c.abilities[castAbility]) : undefined}
+        actionControls={spell.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save} entry={entry} rank={rank} /> : undefined}
         inlineControls={inlineControls(spell.name, rank)} effectControls={effectControls(spell.name)}
         effectRank={activeRank(spell.name)} {...buffProps(spell.name)}
         onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((saved, index) => necromancer
@@ -1456,6 +1510,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
             return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
               entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
+              actionControls={grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save} entry={grant.entry} rank={grant.rank}
+                requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} /> : undefined}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
               {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
@@ -1667,6 +1723,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   </SearchableSelect>}
                   {selectedEntry && (selectedEntry.name === 'Bone Shield'
                     ? <BoneShieldActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
+                    : selectedEntry.name === 'Summon Fiend'
+                    ? <SummonFiendActions c={c} entries={entries} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'False Vitality'
                     ? <FalseVitalityActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Tailwind'
@@ -1795,6 +1853,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
               actionControls={grant.source === 'Heroic Presence' ? <><ActionIcon actions="Single Action" />
                 <SourceNote source="Heroic Presence" note="A repugnant command immediately ends the effect on that target." /></>
+                : grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save}
+                  entry={grant.entry} rank={grant.rank} lineageOnly={grant.source === 'Summon Nephilim Kin'}
+                  requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
                 : c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
@@ -1876,6 +1937,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             ? <BoneShieldActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
             : spell.name === 'False Vitality'
             ? <FalseVitalityActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
+            : spell.name === 'Summon Fiend'
+            ? <SummonFiendActions c={c} entries={entries} save={save} entry={spell.entry} rank={spell.rank} />
             : spell.actions ? <ActionIcon actions={spell.actions}
             showOther={!(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
             : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank}

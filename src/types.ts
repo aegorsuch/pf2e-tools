@@ -405,6 +405,7 @@ export interface Character {
   creatureShape?: { form: string; rank: number }
   creatureAllyActive?: boolean
   lashuntaCreatureAlly?: 'Shotalashu' | 'Squox'
+  summonedFiend?: import('./summonedFiends.ts').SummonedFiend
   untamedForm?: {
     form?: string
     shape?: string

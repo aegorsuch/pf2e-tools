@@ -457,6 +457,10 @@ it.each([
   expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
   expect(unresolvedFeatSpells(c, [source]).map(item => item.name)).toEqual([name])
   expect(featSpellOptions(c, [source, spell], c.feats[2])).toBeUndefined()
+  if (name === 'Summon Fiend') {
+    expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />))
+      .toContain('aria-label="Summon Fiend options"')
+  }
   expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
   expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [source, spell])).toEqual([])
 })

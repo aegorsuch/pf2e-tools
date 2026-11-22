@@ -34,7 +34,7 @@ const NEPHILIM_SUMMONS: Record<string, string> = {
   Aeonbound: 'Summon Monitor', Battleblooded: 'Summon Monitor', Proteankin: 'Summon Monitor',
 }
 
-function originalNephilimLineage(c: Character, entries: ContentEntry[]) {
+export function originalNephilimLineage(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('pf2e') || c.level < 1) return undefined
   return c.feats.find(feat => {
     if (featTakenLevel(feat) !== 1) return false

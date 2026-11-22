@@ -2858,6 +2858,29 @@ describe('armor specialization from feats', () => {
 })
 
 describe('homebrew feat rules', () => {
+  it('grants ancestry dedications at level 2 without replacing Free Archetype', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ orcTattooedHistorian: true, dwarfStalwartDefender: true, freeArchetype: true })
+    for (const [ancestry, name, slot] of [
+      ['Orc', 'Tattooed Historian Dedication', 'archetype:2:g87'],
+      ['Dwarf', 'Stalwart Defender Dedication', 'archetype:2:g86'],
+    ]) {
+      const character = { ...base, systems: ['pf2e'] as Character['systems'], ancestry, className: 'Fighter', level: 2 }
+      expect(activeHomebrewDedications(character)).toContainEqual(expect.objectContaining({ name, slot }))
+      expect(plannedSlots(character).map(item => item.key)).toEqual(expect.arrayContaining([slot, 'archetype:2:0']))
+      expect(plannedSlots({ ...character, level: 1 }).map(item => item.key)).not.toContain(slot)
+      expect(plannedSlots({ ...character, systems: ['sf2e'] }).map(item => item.key)).not.toContain(slot)
+      expect(plannedSlots({ ...character, ancestry: 'Human' }).map(item => item.key)).not.toContain(slot)
+    }
+    updateSettings({ orcTattooedHistorian: false, dwarfStalwartDefender: false, freeArchetype: false })
+    expect(activeHomebrewDedications({ ...base, ancestry: 'Orc', className: 'Fighter', level: 2 })).toEqual([])
+    expect(activeHomebrewDedications({ ...base, ancestry: 'Dwarf', className: 'Fighter', level: 2 })).toEqual([])
+    updateSettings({ orcTattooedHistorian: true })
+    expect(plannedSlots({ ...base, systems: ['pf2e'], ancestry: 'Orc', className: 'Fighter', level: 2 }).map(item => item.key))
+      .toContain('archetype:2:g87')
+  })
+
   it('grants Rangers a separate Cavalier slot without displacing saved choices or requiring Free Archetype', ({ onTestFinished }) => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))

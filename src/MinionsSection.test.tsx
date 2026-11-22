@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { CompanionEquipmentSlots, MinionsContent, MinionsSection, MinionsSummary } from './MinionsSection'
+import { CompanionEquipmentSlots, MinionsContent, MinionsSection, MinionsSummary, SummonedFiendCard } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, SpellsSection } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
@@ -14,6 +14,7 @@ import { homebrewCharacterOptions } from './supplemental'
 import { featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import { FeatChoice } from './FeatChoice'
 import { FeatSlots } from './FeatSlots'
+import { normalizeFiends } from './summonedFiends'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let found: ((event: { target: { value: string } }) => void) | undefined
@@ -60,6 +61,31 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+it('displays and dismisses a saved summoned fiend', () => {
+  const [fiend] = normalizeFiends([{ _id: 'creature-1', _source: {
+    name: 'Test Demon', url: '/Monsters.aspx?ID=1', level: 4, rarity: 'common', trait: ['Fiend', 'Demon'],
+    hp: 40, ac: 20, strength: 3,
+  } }])
+  let c: Character = { id: 'fiend', name: 'Test', systems: ['pf2e'], level: 13,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    summonedFiend: JSON.parse(JSON.stringify(fiend)) }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={save} />)
+  expect(markup).toContain('Summoned Test Demon')
+  expect(markup).toContain('Hit Points</small><b>40</b>')
+  expect(markup).toContain('Armor Class</small><b>20</b>')
+  expect(markup).toContain('—')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Test Demon')
+  const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+  vi.stubGlobal('window', { confirm })
+  const dismiss = findButton(SummonedFiendCard({ fiend, save }), 'Dismiss summoned Test Demon')!
+  dismiss()
+  expect(c.summonedFiend).toBeDefined()
+  dismiss()
+  expect(c.summonedFiend).toBeUndefined()
+})
 
 it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape animal form', () => {
   const spell = (name: string, level: number, trait: string): ContentEntry => ({

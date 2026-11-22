@@ -1709,6 +1709,21 @@ it('offers explicit favored-terrain variants and persists the chosen terrain', (
 })
 
 it.each([
+  ['Hold Mark', 'Burning Sun', 'Diplomacy', 9],
+  ['Orc Warmask', 'The Land', 'Nature', 1],
+] as const)('shows %s variant skills while preserving saved choices', (name, choice, skill, level) => {
+  let c: Character = { ...emptyRanger(), ancestry: 'Orc', level }
+  const feat: ContentEntry = {
+    id: name, systems: ['pf2e'], kind: 'feat', name, level, traits: ['Orc'],
+    source: 'official', description: '', data: {}, effects: [], updatedAt: 1,
+  }
+  const tree = () => FeatSlots({ c, entries: [feat], save: patch => { c = { ...c, ...patch } }, categories: ['ancestry'] })
+  expect(renderToStaticMarkup(tree())).toContain(`${name} (${choice}, ${skill})`)
+  findSelect(tree(), `L${String(level).padStart(2, '0')} Ancestry feat`)!({ target: { value: JSON.stringify([name, choice]) } })
+  expect(c.feats).toContainEqual(expect.objectContaining({ name, choice }))
+})
+
+it.each([
   ['Nephilim Resistance', ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic'], 'Fire'],
   ['Extraplanar Supplication', ['Bane', 'Bless'], 'Bless'],
 ] as const)('offers and saves %s variants in the ancestry feat picker', (name, choices, choice) => {

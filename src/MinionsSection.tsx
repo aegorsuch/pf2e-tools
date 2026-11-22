@@ -14,6 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
 import { activeCaypinAlly, activeLashuntaAlly } from './featSpells'
+import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
   familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds } from './familiarAbilities'
@@ -106,6 +107,28 @@ function SummonedCreature({ name }: { name: keyof typeof SUMMONED_CREATURES }) {
         <p className="companion-action-description">{special.description}</p>
       </div>)}</section>
     <a href={creature.url} target="_blank" rel="noreferrer">{name} abilities and statistics</a>
+  </details>
+}
+
+export function SummonedFiendCard({ fiend, save }: { fiend: SummonedFiend; save: SectionProps['save'] }) {
+  const bonus = (value: number | null | undefined) => value == null ? '—' : signed(value)
+  return <details className="character-subsection" open>
+    <summary><h4>Summoned {fiend.name}</h4></summary>
+    <div className="gear-traits"><span>Level {fiend.level}</span>{fiend.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
+    <div className="gear-stats">{ABILITIES.map((ability, index) =>
+      <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{bonus(fiend.abilities[index])}</span>)}</div>
+    <section className="companion-actions"><h5>Attacks</h5>{fiend.attacks.map((attack, index) =>
+      <div key={index} className="companion-action"><ActionIcon actions="Single Action" /> {attack}</div>)}</section>
+    <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
+      <span><small>Hit Points</small><b>{fiend.hp ?? '—'}</b></span><span><small>Armor Class</small><b>{fiend.ac ?? '—'}</b></span>
+      {['Fortitude', 'Reflex', 'Will'].map((name, index) => <span key={name}><small>{name}</small>{bonus(fiend.saves[index])}</span>)}
+    </div>{fiend.resistances && <div>Resistances {fiend.resistances}</div>}
+      {fiend.weaknesses && <div>Weaknesses {fiend.weaknesses}</div>}</section>
+    <section className="companion-actions"><h5>Senses</h5><div><small>Perception</small> <b>{bonus(fiend.perception)}</b> · {fiend.senses}</div></section>
+    <section className="companion-actions"><h5>Skills</h5><div>{fiend.skills}</div></section>
+    <section className="companion-actions"><h5>Speed</h5><div>{fiend.speed}</div></section>
+    <a href={fiend.url} target="_blank" rel="noreferrer">{fiend.name} abilities and statistics</a>
+    <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save({ summonedFiend: undefined }))}>Dismiss</button>
   </details>
 }
 
@@ -290,7 +313,8 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
-      ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : [])].join(', ') || '0 minions'}</span>
+      ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
+      ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
 
@@ -353,6 +377,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       <div className="character-section-content minions-section-content">
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
+        {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />

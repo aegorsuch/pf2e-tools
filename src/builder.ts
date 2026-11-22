@@ -610,10 +610,13 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'bardAnimalTrainer', className: 'Bard', name: 'Animal Trainer Dedication', slot: 'archetype:2:g90', replacesFreeArchetype: true },
   { setting: 'bardBeastmaster', className: 'Bard', name: 'Beastmaster Dedication', slot: 'archetype:2:g89', replacesFreeArchetype: true },
   { setting: 'bardCavalier', className: 'Bard', name: 'Cavalier Dedication', slot: 'archetype:2:g88', replacesFreeArchetype: true },
+  { setting: 'orcTattooedHistorian', ancestry: 'Orc', name: 'Tattooed Historian Dedication', slot: 'archetype:2:g87', replacesFreeArchetype: false },
+  { setting: 'dwarfStalwartDefender', ancestry: 'Dwarf', name: 'Stalwart Defender Dedication', slot: 'archetype:2:g86', replacesFreeArchetype: false },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
-  HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.className === d.className && c.level >= 2)
+  HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.level >= 2
+    && ('className' in d ? c.className === d.className : c.systems.includes('pf2e') && c.ancestry === d.ancestry))
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key === 'class:1:fury-instinct'
   || key.startsWith('skill:1:operative-specialization:') || key === 'class:1:operative-sniper'
@@ -2879,6 +2882,12 @@ export const parryBonus = (c: Character, entries: ContentEntry[]) =>
 const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
 const HOLD_MARK_SKILLS: Record<string, string> = {
   'Burning Sun': 'Diplomacy', "Death's Head": 'Survival', 'Defiled Corpse': 'Religion', 'Empty Hand': 'Intimidation',
+}
+
+export function featSkillChoiceLabel(name: string, choice: string) {
+  const skill = name === 'Hold Mark' ? HOLD_MARK_SKILLS[choice]
+    : name === 'Orc Warmask' ? Object.entries(WARMASK_SOURCES).find(([key]) => key === choice)?.[1].skill : undefined
+  return skill ? `${choice}, ${skill}` : choice
 }
 
 function researchedTraditionOptions(ranks: Record<string, number>, traditions: string[]) {

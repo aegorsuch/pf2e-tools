@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, orderMagicOptions, statDefs, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, featSpellOptions } from './featSpells'
@@ -192,7 +192,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
         }}>
         <option value="">Choose source</option>
-        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
+        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option} value={option}>{featSkillChoiceLabel(feat.name, option)}</option>)}
       </select></label>
       <small>Source cannot be changed after selection.</small>
     </span>
@@ -305,7 +305,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       }}>
         <option value="">Choose {label.toLowerCase()}</option>
         {feat.choice && !options.includes(feat.choice) && <option disabled>{feat.choice}</option>}
-        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
+        {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option} value={option}>{featSkillChoiceLabel(feat.name, option)}</option>)}
       </select>
     </label>
   }
