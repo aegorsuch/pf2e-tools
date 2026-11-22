@@ -489,6 +489,20 @@ it.each([
   expect(featLores(c, [])).toContain(lore)
 })
 
+it.each(['Diplomacy', 'Intimidation'])('grants Nephilim Lore %s and chosen planar Lore', skill => {
+  const feat = { name: 'Nephilim Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: skill }
+  const c: Character = { ...base, className: undefined, background: undefined, feats: [feat],
+    automaticFeatChoices: { [JSON.stringify(['Nephilim Lore', 'Additional Lore'])]: 'Heaven' } }
+  expect(featChoiceOptions(feat.name, c, [], feat.slot)).toEqual(['Diplomacy', 'Intimidation'])
+  expect(ranksAt(c, [])).toMatchObject({ Religion: 1, [skill]: 1, 'Heaven Lore': 1 })
+  expect(ranksAt({ ...c, level: 7 }, [])['Heaven Lore']).toBe(3)
+  expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Additional Lore', source: feat.name, level: 1 })
+  const klass = entry('class', 'Theologian', { skill_proficiency: `Trained in Religion, Trained in ${skill}` })
+  const trained = { ...c, className: 'Theologian' }
+  expect(additionalSkillCount(trained, [klass]) - additionalSkillCount({ ...trained, feats: [] }, [klass])).toBe(2)
+  expect(featLores({ ...c, feats: [] }, [])).not.toContain('Heaven Lore')
+})
+
 it('adds trained slots for repeated Lizardfolk Lore skills and preserves legacy selections', () => {
   const klass = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival' })
   const feat = { name: 'Lizardfolk Lore', type: 'Ancestry Feat', level: 1, choice: 'Nature, Astrology Lore' }

@@ -1721,6 +1721,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
+  if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return KITSUNE_SPELL_FAMILIARITY_CANTRIPS.filter(spell =>
       entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === spell
@@ -3454,6 +3455,10 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
     const choice = c.automaticFeatChoices?.[grant.choiceKey]?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
   }),
+  ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Nephilim Lore').length
+    ? [c.automaticFeatChoices?.[automaticFeatChoiceKey('Nephilim Lore', 'Additional Lore')]]
+      .flatMap(choice => choice?.trim() ? [/\s+lore$/i.test(choice.trim()) ? choice.trim().replace(/\s+lore$/i, ' Lore') : `${choice.trim()} Lore`] : [])
+    : []),
   ...featData({ ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level) }, entries, 'grants_lore').map((g) => g.value),
   ...ancestralSkillLores(c, entries),
   ...(c.feats.some(feat => feat.name === 'Dwarven Lore' && featTakenLevel(feat) <= c.level) ? ['Dwarven Lore'] : []),
@@ -3655,7 +3660,7 @@ const ANCESTRY_SKILL_ONLY_GRANTS: Record<string, string[]> = {
 function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) {
   if (ANCESTRY_LORE_GRANTS[name]) return ANCESTRY_LORE_GRANTS[name]
   if (name === 'Dwarven Lore') return { skills: ['Crafting', 'Religion'], lore: 'Dwarf Lore' }
-  if (!name.endsWith(' Lore') || name === 'Clan Lore' || name === 'Additional Lore' || name === 'Lizardfolk Lore') return undefined
+  if (!name.endsWith(' Lore') || name === 'Clan Lore' || name === 'Additional Lore' || name === 'Lizardfolk Lore' || name === 'Nephilim Lore') return undefined
   const source = selectedFeatEntry(c, entries, name)
   const text = source?.description ?? ''
   const skillsText = /(?:trained proficiency rank in|become trained in|you're trained in)\s+([^.]+)/i.exec(text)?.[1]
@@ -3665,7 +3670,7 @@ function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) 
     && new RegExp(`\\b${stat.name}\\b`, 'i').test(skillsText)).map(stat => stat.name)
   return skills.length ? { skills, lore } : undefined
 }
-const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Lizardfolk Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD', ...Object.keys(ANCESTRY_LORE_GRANTS), ...Object.keys(ANCESTRY_SKILL_ONLY_GRANTS)])
+const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Lizardfolk Lore', 'Nephilim Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD', ...Object.keys(ANCESTRY_LORE_GRANTS), ...Object.keys(ANCESTRY_SKILL_ONLY_GRANTS)])
 
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -3683,7 +3688,7 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   })
   c.feats.forEach((feat, index) => {
     if (featTakenLevel(feat) > c.level || !rankDependentFeats.has(feat.name) && !ancestryLoreGrant(c, entries, feat.name)) return
-    const simpleSkills = feat.name === 'Dwarven Lore' || feat.name === 'Lizardfolk Lore' || SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name) ? undefined
+    const simpleSkills = feat.name === 'Dwarven Lore' || feat.name === 'Lizardfolk Lore' || feat.name === 'Nephilim Lore' || SIMPLE_LORE_REPLACEMENT_FEATS.includes(feat.name) ? undefined
       : ancestryLoreGrant(c, entries, feat.name)?.skills ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
     if (simpleSkills && feat.name !== 'Pick On Someone My Size') {
       trained.push(...simpleSkills)
@@ -3700,6 +3705,10 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     } else if (feat.name === 'Lizardfolk Lore') {
       for (const skill of ['Survival', lizardfolkLoreSelection(feat).skill ?? '']) {
         if (['Survival', 'Nature', 'Occultism'].includes(skill) && !(ranks[skill] ?? 0)) trained.push(skill)
+      }
+    } else if (feat.name === 'Nephilim Lore' && c.systems.includes('pf2e')) {
+      for (const skill of ['Religion', feat.choice ?? '']) {
+        if (['Religion', 'Diplomacy', 'Intimidation'].includes(skill) && !(ranks[skill] ?? 0)) trained.push(skill)
       }
     } else if (feat.name === 'Munitions Crafter' && !(ranks.Crafting ?? 0)) {
       trained.push('Crafting')
@@ -3887,6 +3896,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
   if (vindicatorDeadlySimplicity(c, entries)) grants.push({ name: 'Deadly Simplicity', source: 'Vindicator', level: 1 })
   grants.push(...damayaSelfPerfectionLoreGrants(c))
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Nephilim Lore')) {
+    grants.push({ name: 'Additional Lore', source: feat.name, level: featTakenLevel(feat) })
+  }
   if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Damaya Self-Perfection')) {
     grants.push({ name: 'Legendary Professional', source: feat.name, level: featTakenLevel(feat) })
   }
@@ -7526,6 +7538,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         : feat.name === 'Pick On Someone My Size' ? []
         : feat.name === 'Ancestral Skills' ? ancestralSkills(c, entries, [feat])
         : feat.name === 'Lizardfolk Lore' ? ['Survival', ...[lizardfolkLoreSelection(feat).skill].filter((skill): skill is string => !!skill)]
+        : feat.name === 'Nephilim Lore' && c.systems.includes('pf2e') ? ['Religion', ...(['Diplomacy', 'Intimidation'].includes(feat.choice ?? '') ? [feat.choice!] : [])]
         : (feat.name === 'Dwarven Lore' ? undefined : ancestryLoreGrant(c, entries, feat.name)?.skills) ?? ANCESTRY_SKILL_ONLY_GRANTS[feat.name]
         ?? (feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
         : feat.name === 'Clan Lore' ? CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
