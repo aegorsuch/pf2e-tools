@@ -1235,6 +1235,7 @@ it.each([[8, 4], [19, 9], [20, 10]])('rolls Hellfire Gaze at companion level %i'
       companion_maneuver_actions: 'Two Actions', companion_maneuver_description: 'Basic Reflex save.' } }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={() => {}} />)
   expect(markup).toContain('aria-label="Roll Hellfire Gaze: Damage"')
+  expect(markup).toContain('>Mount<')
   expect(markup).toContain(`title="Two Actions; Damage: ${dice}d6 fire"`)
 })
 

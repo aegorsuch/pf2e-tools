@@ -317,7 +317,8 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const clumsy = enlarge ? 1 : 0
   const total = (k: string, ability: Ability) => mods[ability] + prof(k) - (ability === 'dex' ? clumsy : 0)
   const size = apex ? 'Huge' : enlarge?.size ?? naturalSize
-  const riderMount = d.mount !== true && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
+  const nativeMount = d.mount === true || type === 'Thruneosaurus Rex'
+  const riderMount = !nativeMount && !entry.traits.some(trait => ['construct', 'eidolon'].includes(trait.toLowerCase()))
     && c.feats.some(feat => feat.name === 'Rider' && featTakenLevel(feat) <= c.level)
     && (() => {
       const riderSizes = characterSize(c, entries).match(/tiny|small|medium|large|huge|gargantuan/gi) ?? ['Medium']
@@ -466,7 +467,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
       maneuverDescription: String(d.companion_maneuver_description ?? ''),
     }),
     beastmasterManeuvers: beastmaster.maneuvers, beastmasterSpecial: beastmaster.special,
-    mount: d.mount === true || riderMount, riderMount,
+    mount: nativeMount || riderMount, riderMount,
   }
 
 }

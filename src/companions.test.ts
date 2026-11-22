@@ -256,6 +256,14 @@ describe('animal companions', () => {
     expect(companionStats({ ...c, feats: [] }, [horse], horse.name)).toMatchObject({ mount: true, riderMount: false })
   })
 
+  it('grants Thruneosaurus Rex the Mount special without Rider', () => {
+    const rex = entry('companion', 'Thruneosaurus Rex', { ...bear.data, size: 'Large', mount: false }, 1, ['Beast'])
+    expect(companionStats(base, [rex], rex.name)).toMatchObject({ mount: true, riderMount: false })
+    const rider = { ...base, feats: [feat('Rider')] }
+    expect(companionStats(rider, [rex], rex.name)).toMatchObject({ mount: true, riderMount: false })
+    expect(companionStats(base, [bear], bear.name)?.mount).toBe(false)
+  })
+
   it('applies Pale Horse only while mounted on the faithful steed and scales retaliation', () => {
     const companions: NonNullable<Character['companions']> = [
       { id: 'first', type: 'Bear', name: '', paleHorse: 'Fire' },

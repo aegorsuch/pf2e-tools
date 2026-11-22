@@ -7313,7 +7313,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const thruneosaurusSupport = !ranged && (c.companions ?? []).reduce((dice, companion, index) =>
     companion.type === 'Thruneosaurus Rex' && companion.supportActive
       ? Math.max(dice, !!companionAdvancementFor(c, index).advanced ? 2 : 1) : dice, 0)
-  const drakeSupport = (c.companions ?? []).reduce((dice, companion, index) =>
+  const drakeSupport = !ranged && (c.companions ?? []).reduce((dice, companion, index) =>
     companion.type === 'Riding Drake' && companion.supportActive
       ? Math.max(dice, !!companionAdvancementFor(c, index).advanced ? 2 : 1) : dice, 0)
   const supportDamage = [
