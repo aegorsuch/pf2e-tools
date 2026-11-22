@@ -3,21 +3,22 @@ import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { contentAccessGranted, featRarity } from './featAccess'
-import { formulaGrants, formulaKey as key, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
+import { formulaGrants, formulaKey as key, isCauldronConsumable, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { ContentEntry } from './types'
 
 export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const grants = formulaGrants(c, entries)
-  const { sources, gadgets, snares: snareRanks, munitions, grenades } = grants
+  const { sources, gadgets, snares: snareRanks, munitions, grenades, cauldron } = grants
   const known = knownFormulas(c, entries, grants)
   const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0)
-    + (munitions ? munitions.formulaChoices : 0) + (grenades?.formulas ?? 0) + snareRanks.length * 3
+    + (munitions ? munitions.formulaChoices : 0) + (grenades?.formulas ?? 0) + snareRanks.length * 3 + cauldron.length
   const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
     + (sources.brastlewark ? c.brastlewarkFormulaMode === 'standard' ? 2
       : c.brastlewarkFormulaMode === 'other' ? (c.brastlewarkFormulaChoices ?? []).slice(0, 2).filter(Boolean).length : 0 : 0)
     + (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0).filter(Boolean).length
     + (c.munitionsFormulaChoices ?? []).slice(0, munitions?.formulaChoices ?? 0).filter(Boolean).length
     + (c.grenadeFormulaChoices ?? []).slice(0, grenades?.formulas ?? 0).filter(Boolean).length
+    + (c.cauldronFormulaChoices ?? []).slice(0, cauldron.length).filter(Boolean).length
     + snareRanks.reduce((sum, { rank }) => sum + (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3).filter(Boolean).length, 0)
   return <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} feat choices`}</span></summary>
 }
@@ -32,7 +33,7 @@ export function FormulasSection(props: SectionProps) {
 export function FormulasContent({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
   const grants = formulaGrants(c, entries)
-  const { sources, gadgets, munitions, grenades, snares: snareRanks } = grants
+  const { sources, gadgets, munitions, grenades, snares: snareRanks, cauldron } = grants
   const known = knownFormulas(c, entries, grants)
   const knownKeys = new Set(known.map(formula => key(formula.name)))
   const items = useMemo(() => entries.filter(entry => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
@@ -48,7 +49,7 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
     .filter(item => contentAccessGranted(c, item) || c.gearAccessOverrides?.includes(item.id))
     .sort((a, b) => a.name.localeCompare(b.name))
   const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices'
-    | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices', count: number, candidates: ContentEntry[], label: string,
+    | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices' | 'cauldronFormulaChoices', count: number, candidates: ContentEntry[], label: string,
     offset = 0, distinct = false) => {
     const values = c[field] ?? []
     return Array.from({ length: count }, (_, i) => {
@@ -109,6 +110,12 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
       {grenades && <div className="col">
         <b>Grenade Specialist</b>
         {options('grenadeFormulaChoices', grenades.formulas, items.filter(item => isGrenade(item) && !featRarity(item)), 'Grenade formula', 0, true)}
+      </div>}
+      {cauldron.length > 0 && <div className="col">
+        <b>Cauldron</b>
+        {cauldron.map((level, index) => index > 0 && level === 1 ? null : <span key={index}>{options('cauldronFormulaChoices',
+          level === 1 ? cauldron.filter(value => value === 1).length : 1,
+          items.filter(item => isCauldronConsumable(item) && item.level <= level), `Cauldron level ${level} formula`, index)}</span>)}
       </div>}
       {snareRanks.map(({ rank, level }) => {
         const title = ['Expert', 'Master', 'Legendary'][rank - 2]

@@ -21,7 +21,7 @@ import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBon
 import { PARRYING_RUNE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
-import { activeBattleForm, animalRageFormChange, bulkLimits, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange, thrashDamage } from './builder'
+import { activeBattleForm, animalRageFormChange, bulkLimits, classSpellcasting, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange, thrashDamage } from './builder'
 
 const base: Character = {
   id: 'c', systems: ['pf2e'], name: 'Test', level: 10, className: 'Champion', deity: 'Iomedae',
@@ -3343,4 +3343,39 @@ it('summarizes heritage, ancestry, subclass, and final level without duplicating
   const c = { ...base, ancestry: 'Human', heritage: 'Wintertouched Human', className: 'Ranger', subclass: 'Outwit', level: 20 }
   expect(characterSummary(c, [])).toBe('Wintertouched Human Outwit Edge Ranger 20')
   expect(characterSummary({ ...c, heritage: 'Wintertouched' }, [])).toBe('Wintertouched Human Outwit Edge Ranger 20')
+})
+
+it("adds Witch's Armaments attacks, then upgrades them with Wild Witch's Armaments and the hair feats", () => {
+  const witch: Character = { ...base, className: 'Witch', level: 6, feats: [feat("Witch's Armaments", 1, 'Living Hair'), feat("Witch's Armaments", 2, 'Eldritch Nails')] }
+  const names = (c: Character) => ownedWeapons(c, []).map(weapon => weapon.name)
+  expect(names(witch)).toEqual(expect.arrayContaining(['Hair', 'Nails']))
+  expect(names(witch)).not.toContain('Quills')
+  const hair = (c: Character) => weaponAttack(c, [], ownedWeapons(c, []).find(weapon => weapon.name === 'Hair')!)
+  expect(hair(witch).damage).toContain('d4')
+  const upgraded: Character = { ...witch, level: 20, feats: [...witch.feats, feat("Wild Witch's Armaments", 6),
+    feat("Syu Tak-Nwa's Deadly Hair", 6), feat("Syu Tak-Nwa's Hexed Locks", 8), feat("Demon's Hair", 20)] }
+  expect(names(upgraded)).toContain('Quills')
+  expect(hair(upgraded).damage).toContain('d8')
+  expect(hair(upgraded).traits).toEqual(expect.arrayContaining(['Grapple', 'Reach', 'Sweep', 'Versatile S']))
+})
+
+it('applies the Bloodrager instinct rage damage, bleed, resistances and dedication casting', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 9, raging: true }
+  const attack = weaponAttack(c, [sword], main)
+  expect(attack.rageDamage).toBe(4)
+  expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Blood Rage', value: '2 persistent bleed' }))
+  expect(weaponAttack({ ...c, level: 15 }, [sword], main).rageDamage).toBe(8)
+  expect(resistances(c, []).filter(item => item.source === 'Raging Resistance').map(item => item.damage))
+    .toEqual(expect.arrayContaining(['Slashing', 'Persistent bleed']))
+  const dedicated = { ...c, feats: [{ ...feat('Bloodrager Dedication', 2), choice: 'Divine' }] }
+  expect(classSpellcasting(dedicated, [])).toEqual({ traditions: ['Divine'], rank: 1, ability: 'cha' })
+  expect(classSpellcasting(c, [])).toBeUndefined()
+})
+
+it('links feat-granted Witch attacks to the granting feat', () => {
+  const armaments: ContentEntry = { id: 'wa', systems: ['pf2e'], kind: 'feat', name: "Witch's Armaments", level: 1,
+    traits: [], data: {}, description: 'Your nails grow into claws.' } as ContentEntry
+  const c: Character = { ...base, className: 'Witch', level: 1, feats: [feat("Witch's Armaments", 1, 'Eldritch Nails')] }
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[armaments]} save={() => {}} displayOnly />)
+  expect(html).toContain('Your nails grow into claws.')
 })

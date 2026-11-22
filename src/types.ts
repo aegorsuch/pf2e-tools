@@ -280,6 +280,7 @@ export interface Character {
   gadgetPreparations?: string[]
   gadgetUsed?: boolean[]
   grenadeFormulaChoices?: string[]
+  cauldronFormulaChoices?: string[]
   grenadePreparations?: string[]
   grenadeUsed?: boolean[]
   mechanicGrenadeMods?: Record<string, {

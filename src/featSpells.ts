@@ -160,7 +160,21 @@ export function widespreadFascinationOptions(c: Character, entries: ContentEntry
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+const WITCH_LESSON_RANKS: Record<string, number> = { 'Basic Lesson': 1, 'Greater Lesson': 3, 'Major Lesson': 5 }
+
+export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  const maxRank = WITCH_LESSON_RANKS[feat.name]
+  if (!maxRank || c.className !== 'Witch' || !c.systems.includes('pf2e')) return []
+  const used = new Set(c.feats.filter(other => other.name in WITCH_LESSON_RANKS && featTakenLevel(other) <= c.level
+    && (feat.slot ? other.slot !== feat.slot : other !== feat)).flatMap(other => other.choice ? [other.choice.toLowerCase()] : []))
+  return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted && spell.systems.includes('pf2e')
+    && typeof spell.data.witch_lesson === 'string' && spell.traits.some(trait => trait.toLowerCase() === 'hex')
+    && spell.level <= maxRank && !used.has(spell.name.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (feat.name in WITCH_LESSON_RANKS) return witchLessonOptions(c, entries, feat)
   if (feat.name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
       && KITSUNE_SPELL_FAMILIARITY_CANTRIPS.includes(spell.name)
@@ -569,6 +583,18 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         && rule.spells.some(name => name.toLowerCase() === 'web')
         ? { ...rule, condition: 'Requires a free hand to pluck and throw hairs' } : rule)
     const options = featSpellOptions(c, entries, feat)
+    if (feat.name === 'Cackle' && c.className === 'Witch' && c.systems.includes('pf2e')) {
+      const spell = matchingSpells(entries, 'Cackle')[0]
+      if (spell) out.push({ entry: spell, source: feat.name, rule: { kind: 'focus', spells: [spell.name], heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'hex']) })
+      continue
+    }
+    if (feat.name in WITCH_LESSON_RANKS && feat.choice) {
+      const spell = witchLessonOptions(c, entries, feat).find(option => option.name === feat.choice)
+      if (spell) out.push({ entry: spell, source: feat.name, rule: { kind: 'focus', spells: [spell.name], heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'lesson', spell.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Qi Spells' && feat.choice && options?.some(spell => spell.name === feat.choice)) {
       const entry = options.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name, rule: { kind: 'focus', spells: [entry.name], heightened: true },

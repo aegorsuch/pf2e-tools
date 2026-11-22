@@ -2811,6 +2811,11 @@ describe('Bard spellcasting', () => {
     expect(classSpellSlots({ ...bard, level: 2, feats })?.[0]).toBe(7)
     expect(classSpellSlots({ ...bard, level: 1, feats })?.[0]).toBe(5)
   })
+  it('adds Cantrip Expansion cantrips for table-based casters', () => {
+    const wizard = { ...bard, className: 'Wizard', level: 2 }
+    const base = classSpellSlots(wizard)?.[0]
+    expect(classSpellSlots({ ...wizard, feats: [{ name: 'Cantrip Expansion', level: 2, type: 'Class Feat' }] })?.[0]).toBe(base! + 2)
+  })
   it('grants Soulsight spiritsense', () => {
     expect(senses({ ...bard, level: 8, feats: [{ name: 'Soulsight', level: 8, type: 'Class Feat' }] }, [])
       .map(sense => sense.value)).toContain('Spiritsense (imprecise) 60 feet')
@@ -2835,4 +2840,12 @@ describe('Bard repertoire', () => {
     expect(classSpellSlots(c)?.[1]).toBe(3)
     expect(classExtraSlots(c).map(extra => extra.spell)).toEqual(['Pest Form', 'Animal Form'])
   })
+})
+
+it('labels Witches by their patron', () => {
+  const witch = { id: 'w', name: 'W', className: 'Witch', systems: ['pf2e'], level: 1, subclass: 'The Resentment',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
+  expect(classLabel(witch)).toBe('Witch of the Resentment')
+  expect(classLabel({ ...witch, subclass: "Faith's Flamekeeper" })).toBe("Witch of Faith's Flamekeeper")
 })

@@ -351,6 +351,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       const value = match ? plain(match[1]) : ''
       if (value) data[`${field}_text`] = value
     }
+    const lesson = /\*\*Lesson\*\*\s*\[([^\]]+)\]/i.exec(header)?.[1]
+    if (lesson) data.witch_lesson = plain(lesson)
   }
   if (kind === 'feat') {
     const special = /\*\*Special\*\*\s*([^\n]*)/i.exec(text(s.markdown))?.[1] ?? ''
@@ -399,15 +401,17 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       const spell = /\*\*Muse Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
       if (feat) data.grants_muse_feat = plain(feat)
       if (spell) data.grants_focus_spells = plain(spell)
-    } else if (category === 'mystery') {
-      const spell = /\*\*Initial Revelation Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
-      if (spell) data.grants_focus_spells = plain(spell)
     } else if (category === 'patron') {
+      const spell = /\b(?:gain|learn) the \[([^\]]+)\]\([^)]*\) hex(?: cantrip)?\b/i.exec(markdown)?.[1]
+      if (spell) data.grants_focus_spells = plain(spell)
       const ability = /\*\*(Familiar of [^*]+)\*\*\s*([\s\S]*?)(?=\n\s*<\/column\b|$)/i.exec(markdown)
       if (ability) {
         data.grants_familiar_ability = plain(ability[1])
         data.familiar_ability_description = plain(ability[2])
       }
+    } else if (category === 'mystery') {
+      const spell = /\*\*Initial Revelation Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
+      if (spell) data.grants_focus_spells = plain(spell)
     }
   }
   if (kind === 'familiar') {

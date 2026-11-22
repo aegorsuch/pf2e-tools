@@ -250,3 +250,18 @@ it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily ba
   expect(preparation).not.toContain('Black Powder Keg')
   expect(preparation).not.toContain('Firearm Ammunition')
 })
+
+it('Cauldron grants four 1st-level oil or potion formulas plus one every even level from 4', () => {
+  const witch: Character = { ...c, className: 'Witch', level: 6, feats: [{ name: 'Cauldron', type: 'Class Feat', level: 1 }],
+    cauldronFormulaChoices: ['Minor Healing Potion', '', '', '', 'Potion of Swiftness'] }
+  const catalog = [item('Minor Healing Potion', 1, ['Potion', 'Consumable']), item('Potion of Swiftness', 4, ['Potion']),
+    item('Rare Oil', 1, ['Oil', 'Rare']), item('Lesser Potion', 6, ['Potion'])]
+  expect(builder.featTakenLevel(witch.feats[0])).toBe(1)
+  expect(knownFormulas(witch, catalog)).toEqual([{ name: 'Minor Healing Potion', source: 'Cauldron' },
+    { name: 'Potion of Swiftness', source: 'Cauldron' }])
+  const markup = renderToStaticMarkup(<FormulasContent c={witch} entries={catalog} save={() => {}} />)
+  expect(markup).toContain('Cauldron level 6 formula 1')
+  expect(markup).toContain('Cauldron level 1 formula 4')
+  expect(markup).not.toContain('Rare Oil')
+  expect(renderToStaticMarkup(<FormulasSummary c={witch} entries={catalog} />)).toContain('2/6 feat choices')
+})
