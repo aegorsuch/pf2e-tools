@@ -77,6 +77,30 @@ it('applies Damaya Lashunta ability adjustments, Diplomacy and Additional Lore f
     - additionalSkillCount({ ...withBackground, heritage: undefined }, [...catalog, background])).toBe(1)
 })
 
+it('grants two independent advancing lores and Legendary Professional from Damaya Self-Perfection', () => {
+  const catalog = mapAonHits(hits.filter(hit => ['Lashunta', 'Damaya Lashunta', 'Damaya Self-Perfection',
+    'Additional Lore', 'Legendary Professional'].includes(String(hit._source?.name))), 'sf2e')
+  const feat = catalog.find(entry => entry.name === 'Damaya Self-Perfection')!
+  const slot = 'ancestry:17:0'
+  const key = (index: number) => automaticFeatChoiceKey(feat.name, 'Additional Lore', `${slot}:${index}`)
+  const c: Character = { ...base, ancestry: 'Lashunta', heritage: 'Damaya Lashunta', level: 17,
+    feats: [{ name: feat.name, sourceId: feat.id, type: 'Ancestry Feat', level: 17, slot }],
+    automaticFeatChoices: { [key(1)]: 'Engineering', [key(2)]: 'Warfare' } }
+  expect(featPrerequisiteChecker(c, catalog)(feat).missing).toEqual([])
+  expect(featPrerequisiteChecker({ ...c, heritage: 'Korasha Lashunta' }, catalog)(feat).missing).toContain('Damaya Lashunta heritage')
+  expect(automaticFeatGrants(c, catalog).filter(grant => grant.source === feat.name)).toEqual([
+    expect.objectContaining({ name: 'Additional Lore', choiceKey: key(1) }),
+    expect.objectContaining({ name: 'Additional Lore', choiceKey: key(2) }),
+    expect.objectContaining({ name: 'Legendary Professional' }),
+  ])
+  expect(featLores(c, catalog)).toEqual(expect.arrayContaining(['Engineering Lore', 'Warfare Lore']))
+  expect(ranksAt(c, catalog)).toMatchObject({ 'Engineering Lore': 4, 'Warfare Lore': 4 })
+  expect(featLores({ ...c, level: 16 }, catalog)).not.toContain('Engineering Lore')
+  expect(automaticFeatGrants({ ...c, level: 16 }, catalog).some(grant => grant.source === feat.name)).toBe(false)
+  expect(featLores({ ...c, feats: [] }, catalog)).not.toContain('Warfare Lore')
+  expect(featLores(c, catalog)).toContain('Warfare Lore')
+})
+
 it('grants doshko training and Vesk weapon familiarity without affecting unrelated weapons', () => {
   const c: Character = { ...base, className: undefined, ancestry: 'Vesk', level: 5,
     feats: [{ name: 'Vesk Weapon Familiarity', type: 'Ancestry Feat', level: 1 }] }

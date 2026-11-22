@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { FeatSlots, featPickerEligibility } from './FeatSlots'
 import { EntryDescription } from './EntryDescription'
-import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
+import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
 import { eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
@@ -157,6 +157,33 @@ it('shows editable Lore choice for a heritage-granted Additional Lore feat', () 
   expect(markup).toContain('Additional Lore')
   expect(markup).toContain('aria-label="Sage Jotunborn Additional Lore subcategory"')
   expect(markup).toContain('value="Sailing"')
+})
+
+it('renders two separately saved Damaya Self-Perfection Lore choices', () => {
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 17, ancestry: 'Lashunta',
+    heritage: 'Damaya Lashunta', feats: [{ name: 'Damaya Self-Perfection', type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const keys = [1, 2].map(index => automaticFeatChoiceKey('Damaya Self-Perfection', 'Additional Lore', `ancestry:17:0:${index}`))
+  const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['skill']} save={save} />)
+  expect(render()).toContain('aria-label="Damaya Self-Perfection Additional Lore subcategory 1"')
+  expect(render()).toContain('aria-label="Damaya Self-Perfection Additional Lore subcategory 2"')
+  expect(render()).toContain('Legendary Professional')
+  const saveChoice = (index: number, value: string) => {
+    const control = AutomaticFeatChoice({ c, entries: [], save, name: 'Additional Lore',
+      source: 'Damaya Self-Perfection', choiceKey: keys[index], choiceIndex: index + 1 })
+    const input = Children.toArray(control!.props.children).find(child => isValidElement(child) && child.type === 'input')
+    if (!isValidElement<{ onBlur: (event: unknown) => void }>(input)) throw new Error('Missing Lore input')
+    const target = { value, setCustomValidity: vi.fn(), reportValidity: vi.fn() }
+    input.props.onBlur({ target })
+    return target
+  }
+  saveChoice(0, 'Engineering')
+  const duplicate = saveChoice(1, 'engineering Lore')
+  expect(duplicate.setCustomValidity).toHaveBeenCalledWith('Choose a different Lore subcategory.')
+  expect(c.automaticFeatChoices?.[keys[1]]).toBeUndefined()
+  saveChoice(1, 'Warfare')
+  expect(c.automaticFeatChoices).toMatchObject({ [keys[0]]: 'Engineering', [keys[1]]: 'Warfare' })
+  expect(ranksAt(c, [])).toMatchObject({ 'Engineering Lore': 4, 'Warfare Lore': 4 })
 })
 
 it('uses Iruxi Armaments variants without a trailing selector', () => {

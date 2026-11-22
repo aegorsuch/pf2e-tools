@@ -40,16 +40,28 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
   </span>
 }
 
-export function AutomaticFeatChoice({ c, entries, save, name, source, choice }: SectionProps & {
-  name: string; source: string; choice?: string
+export function AutomaticFeatChoice({ c, entries, save, name, source, choice, choiceKey, choiceIndex }: SectionProps & {
+  name: string; source: string; choice?: string; choiceKey?: string; choiceIndex?: number
 }) {
   if (name === 'Additional Lore') {
-    const key = automaticFeatChoiceKey(source, name)
+    const key = choiceKey ?? automaticFeatChoiceKey(source, name)
     return <label className="feat-choice">
       Lore subcategory{' '}
-      <input key={`${source}:${name}:${choice ?? ''}`} aria-label={`${source} Additional Lore subcategory`} defaultValue={choice ?? ''}
+      <input key={`${key}:${choice ?? ''}`} aria-label={`${source} Additional Lore subcategory${choiceIndex ? ` ${choiceIndex}` : ''}`} defaultValue={choice ?? ''}
+        onInput={event => event.currentTarget.setCustomValidity('')}
         onBlur={event => {
           const selected = event.target.value.trim() || undefined
+          if (choiceKey && selected) {
+            const normalize = (value: string) => value.trim().replace(/\s+lore$/i, '').toLowerCase()
+            const others = automaticFeatGrants(c, entries).filter(grant => grant.name === name && grant.choiceKey !== key)
+              .map(grant => grant.choice ?? c.automaticFeatChoices?.[grant.choiceKey ?? automaticFeatChoiceKey(grant.source, grant.name)])
+            others.push(...c.feats.filter(feat => feat.name === name && (feat.takenLevel ?? feat.level) <= c.level).map(feat => feat.choice))
+            if (others.some(other => other && normalize(other) === normalize(selected))) {
+              event.target.setCustomValidity('Choose a different Lore subcategory.')
+              event.target.reportValidity()
+              return
+            }
+          }
           const automaticFeatChoices = { ...c.automaticFeatChoices }
           if (selected) automaticFeatChoices[key] = selected
           else delete automaticFeatChoices[key]

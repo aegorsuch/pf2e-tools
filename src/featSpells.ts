@@ -10,7 +10,8 @@ import { spellAccessGranted } from './featAccess'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
-export const automaticFeatChoiceKey = (source: string, feat: string) => JSON.stringify([source, feat])
+export const automaticFeatChoiceKey = (source: string, feat: string, instance?: string) =>
+  JSON.stringify(instance === undefined ? [source, feat] : [source, feat, instance])
 const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; rank: number }> = {
   'Lush Psychic': { names: ['Cellular Stimulant', 'Gentle Landing'], tradition: 'primal', rank: 1 },
   'Psychic Investigator': { names: ['Hypercognition', 'Mind Reading'], tradition: 'occult', rank: 3 },

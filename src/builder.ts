@@ -3283,9 +3283,22 @@ function dongunEducationLores(c: Character) {
   return activeFeatsNamed(c, 'Dongun Education').flatMap(feat => DONGUN_EDUCATION_LORES[feat.choice ?? ''] ?? [])
 }
 
+function damayaSelfPerfectionLoreGrants(c: Character) {
+  if (!c.systems.includes('sf2e')) return []
+  return activeFeatsNamed(c, 'Damaya Self-Perfection').flatMap((feat, featIndex) =>
+    [1, 2].map(index => ({
+      name: 'Additional Lore', source: feat.name, level: featTakenLevel(feat), choiceIndex: index,
+      choiceKey: automaticFeatChoiceKey(feat.name, 'Additional Lore', `${feat.slot ?? `unslotted-${featIndex}`}:${index}`),
+    })))
+}
+
 // Automatically advancing Lore skills, including ancestry-specific grants.
 export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set([
   ...dongunEducationLores(c),
+  ...damayaSelfPerfectionLoreGrants(c).flatMap(grant => {
+    const choice = c.automaticFeatChoices?.[grant.choiceKey]?.trim()
+    return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
+  }),
   ...featData({ ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level) }, entries, 'grants_lore').map((g) => g.value),
   ...ancestralSkillLores(c, entries),
   ...(c.feats.some(feat => feat.name === 'Dwarven Lore' && featTakenLevel(feat) <= c.level) ? ['Dwarven Lore'] : []),
@@ -3689,7 +3702,11 @@ export function senses(c: Character, entries: ContentEntry[]) {
 
 const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
-  const grants: { name: string; source: string; level: number; choice?: string }[] = []
+  const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
+  grants.push(...damayaSelfPerfectionLoreGrants(c))
+  if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Damaya Self-Perfection')) {
+    grants.push({ name: 'Legendary Professional', source: feat.name, level: featTakenLevel(feat) })
+  }
   if (c.systems.includes('pf2e') && c.className === 'Bard' && c.level >= 1) {
     const primaryMuse = selectedSubclass(c, entries)
     const muses = [
