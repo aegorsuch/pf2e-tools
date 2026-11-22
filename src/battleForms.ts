@@ -55,9 +55,17 @@ export const ANIMAL_FORMS: { name: string; speed: number; swimSpeed?: number; cl
   { name: 'Seal', speed: 20, swimSpeed: 30, note: 'Can hold your breath throughout the transformation.', attacks: [{ name: 'Jaws', damage: '2d6 piercing', traits: ['Grapple'] }] },
 ]
 
-const ANIMAL_WEAPONS: ContentEntry[] = ANIMAL_FORMS.flatMap(form => form.attacks.map(attack => ({
+export const CAYPIN_FORM: typeof ANIMAL_FORMS[number] = {
+  name: 'Caypin', speed: 40, swimSpeed: 30, note: 'Breathe in water and air.', attacks: [
+    { name: 'Claw', damage: '2d6 slashing', traits: ['Agile'] },
+    { name: 'Jaws', damage: '2d8 piercing' },
+  ],
+}
+const ALL_ANIMAL_FORMS = [...ANIMAL_FORMS, CAYPIN_FORM]
+
+const ANIMAL_WEAPONS: ContentEntry[] = ALL_ANIMAL_FORMS.flatMap(form => form.attacks.map(attack => ({
   id: `spell:animal-form:${form.name.toLowerCase()}:${attack.name.toLowerCase()}`, name: `${form.name} ${attack.name}`,
-  kind: 'weapon', systems: ['pf2e'], source: 'official', level: 2, traits: ['Unarmed', ...(attack.traits ?? [])],
+  kind: 'weapon', systems: ['pf2e'], source: form === CAYPIN_FORM ? 'homebrew' : 'official', level: 2, traits: ['Unarmed', ...(attack.traits ?? [])],
   description: '', effects: [], updatedAt: 0,
   data: { weapon_category: 'Unarmed', weapon_type: 'Melee', hands: 0, damage: attack.damage,
     reach: attack.reach ?? 5, battle_form: form.name, extra_damage: attack.extra ?? '' },
@@ -135,7 +143,7 @@ export function insectBattleForm(name: string, rank: number, level: number) {
 }
 
 export function animalBattleForm(name: string, rank: number, level: number) {
-  const form = ANIMAL_FORMS.find(form => form.name.toLowerCase() === name.trim().toLowerCase())
+  const form = ALL_ANIMAL_FORMS.find(form => form.name.toLowerCase() === name.trim().toLowerCase())
   if (!form || !Number.isInteger(rank) || rank < 2 || rank > 10) return undefined
   const tier = Math.min(rank, 5)
   return {

@@ -94,6 +94,14 @@ it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape an
   expect(armorClass(c, entries)).toBe(Math.max(normalAC, 35))
   expect(movementSpeeds(c, entries).find(speed => speed.name === 'Land')?.feet).toBe(30)
   expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Bear Jaws', 'Bear Claw'])
+  findSelect(shape(), 'Caypin battle form')!({ target: { value: 'Caypin' } })
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Caypin', source: 'Creature Shape', speed: 40, swimSpeed: 30,
+    attacks: [{ name: 'Caypin Claw', data: expect.objectContaining({ damage: '4d6 slashing' }), traits: expect.arrayContaining(['Agile']) },
+      { name: 'Caypin Jaws', data: expect.objectContaining({ damage: '4d8 piercing' }) }] })
+  expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Caypin Claw', 'Caypin Jaws'])
+  expect(movementSpeeds(c, entries)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: 'Land', feet: 40 }), expect.objectContaining({ name: 'Swim', feet: 30 }),
+  ]))
   expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
   expect(spellActiveChange(c, 'Dinosaur Form', true).creatureShape).toBeUndefined()
   const dismiss = Children.toArray(shape().props.children).find(child =>

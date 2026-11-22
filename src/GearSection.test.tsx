@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -30,6 +30,53 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it('inherits Vesk tail traits and replaces its attack when the tailblade matches its damage', () => {
+  const blade: ContentEntry = { ...weapon, id: 'tailblade', name: 'Tailblade', systems: ['sf2e'],
+    traits: ['Agile', 'Finesse', 'Free-hand'], data: { weapon_category: 'Martial', hands: 0, damage: '1d4 slashing' } }
+  const owned: OwnedWeapon = { id: 'blade', name: blade.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...character([{ name: 'Brutal Anatomy', choice: 'Tail', type: 'Ancestry Feat', level: 1 }]),
+    ancestry: 'Vesk', systems: ['sf2e'], level: 1, weapons: [owned] }
+  const attack = weaponAttack(c, [blade], owned)
+  expect(attack.traits).toEqual(expect.arrayContaining(['Agile', 'Finesse', 'Sweep', 'Trip', 'Versatile B']))
+  expect(attack.traits).not.toContain('Unarmed')
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[blade]} save={() => {}} displayOnly />)
+  expect(markup).toContain('Tailblade attack')
+  expect(markup).not.toContain('Tail attack')
+  expect(ownedWeapons(c, [blade]).some(item => item.id === 'sf2e:vesk:tail')).toBe(true)
+  expect(weaponAttack({ ...c, feats: [] }, [blade], owned).traits).not.toContain('Versatile B')
+  expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [{ ...owned, stowed: true }] }} entries={[blade]}
+    save={() => {}} displayOnly />)).toContain('Tail attack')
+})
+
+it('inherits tail parry while retaining weaker or non-bludgeoning tails', () => {
+  const blade: ContentEntry = { ...weapon, id: 'tailblade', name: 'Tailblade', systems: ['sf2e'],
+    traits: ['Free-hand'], data: { weapon_category: 'Martial', hands: 0, damage: '1d6 slashing' } }
+  const tail: ContentEntry = { ...weapon, id: 'custom-tail', name: 'Spiked Tail', kind: 'weapon', systems: ['sf2e'],
+    traits: ['Parry', 'Trip', 'Unarmed'], data: { weapon_category: 'Unarmed', hands: 0, damage: '1d4 bludgeoning', granted_by_feat: 'Tail Feat' } }
+  const owned: OwnedWeapon = { id: 'blade', name: blade.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...character([{ name: 'Tail Feat', type: 'Ancestry Feat', level: 1 }]),
+    systems: ['sf2e'], level: 1, weapons: [owned] }
+  const check = (tailEntry: ContentEntry) => {
+    const entries = [blade, tailEntry]
+    return { attack: weaponAttack(c, entries, owned), markup: renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />) }
+  }
+  const weaker = check(tail)
+  expect(weaker.attack.traits).toEqual(expect.arrayContaining(['Parry', 'Trip']))
+  expect(weaker.attack.traits).not.toContain('Versatile B')
+  expect(weaker.markup).toContain('Spiked Tail attack')
+  const equal = check({ ...tail, data: { ...tail.data, damage: '1d6 bludgeoning' } })
+  expect(equal.attack.traits).toContain('Versatile B')
+  expect(equal.markup).not.toContain('Spiked Tail attack')
+  const piercing = check({ ...tail, data: { ...tail.data, damage: '1d8 piercing' } })
+  expect(piercing.attack.traits).not.toContain('Versatile B')
+  expect(piercing.markup).toContain('Spiked Tail attack')
+  const manyDice = check({ ...tail, data: { ...tail.data, damage: '2d4 bludgeoning' } })
+  expect(manyDice.attack.traits).toContain('Versatile B')
+  expect(manyDice.markup).not.toContain('Spiked Tail attack')
+  expect(hasParryWeapon(c, [blade, tail])).toBe(true)
+  expect(weaponAttack({ ...c, weapons: [{ ...owned, stowed: true }] }, [blade, tail], { ...owned, stowed: true }).traits).not.toContain('Parry')
 })
 
 it('shows target-limited Intensified Element Stance damage on weapon attacks', () => {

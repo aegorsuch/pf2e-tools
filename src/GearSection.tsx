@@ -45,7 +45,7 @@ import { shieldEntry } from './builder'
 import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
 import { armorUpgradeSlots, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
-import { isDuplicateVeskAttack } from './builder'
+import { isDuplicateVeskAttack, tailbladeInheritance } from './builder'
 export { armorUpgradeSlots } from './builder'
 
 const POTENCY = [0, 1, 2, 3]
@@ -1108,7 +1108,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
     } else saveWeapons(weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)))
   }
   const sparkFist = weapons.some(weapon => weapon.name === SPARK_FIST.name)
-  const sorted = weapons.filter(weapon => (!sparkFist || ![FIST.name, IRON_FIST.name].includes(weapon.name))
+  const replacedTails = new Set(weapons.flatMap(weapon => tailbladeInheritance(c, entries, weapon).replacedTailIds))
+  const sorted = weapons.filter(weapon => !replacedTails.has(weapon.id) && (!sparkFist || ![FIST.name, IRON_FIST.name].includes(weapon.name))
     && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
     .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
       .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))

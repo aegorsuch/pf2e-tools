@@ -23,7 +23,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
-import { ANIMAL_FORMS, animalBattleForm, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
+import { ANIMAL_FORMS, CAYPIN_FORM, animalBattleForm, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
@@ -352,16 +352,16 @@ export function CreatureShapeOptions({ c, entries, save, rank }: SectionProps & 
     <label>Battle form{' '}
       <select aria-label="Caypin battle form" value={active ? c.creatureShape?.form ?? '' : ''}
         onChange={event => {
-          if (!ANIMAL_FORMS.some(option => option.name === event.target.value)) return
+          if (![...ANIMAL_FORMS, CAYPIN_FORM].some(option => option.name === event.target.value)) return
           save({ ...spellActiveChange(c, 'Animal Form', true), creatureShape: { form: event.target.value, rank } })
         }}>
         <option value="">Choose form</option>
-        {ANIMAL_FORMS.map(option => <option key={option.name}>{option.name}</option>)}
+        {[...ANIMAL_FORMS, CAYPIN_FORM].map(option => <option key={option.name}>{option.name}</option>)}
       </select>
     </label>
     {active && form && <p>{form.size}; AC {form.ac}; temporary HP {form.temporaryHp}; Speed {form.speed} feet;
       attack {signed(form.attack)}; Athletics {signed(form.athletics)}.</p>}
-    <SourceNote source="Creature Shape" note="Caypin uses the closest battle form chosen by the GM. Use your normal AC if higher." />
+    <SourceNote source="Creature Shape" note="Caypin battle form is a custom option requiring GM approval; other forms use the closest battle form chosen by the GM. Use your normal AC if higher." />
     <button type="button" disabled={!active} onClick={() => save({
       creatureShape: undefined, ...spellActiveChange(c, 'Animal Form', false),
     })}>Dismiss Creature Shape</button>

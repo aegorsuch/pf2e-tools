@@ -2657,6 +2657,7 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const enhanced = effectiveWeapon(c, entries, weapon)
   const entry = weaponEntry(entries, enhanced.name, enhanced.id)
   return hasParryTrait(entry) || isFistWeapon(entry, weapon) && inheritedGauntletTraits(c, entries).some(trait => /^parry$/i.test(trait))
+    || isTailblade(entry) && tailbladeInheritance(c, entries, weapon).traits.some(trait => /^parry$/i.test(trait))
     || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
     && weaponHands(entries, enhanced, c) === 2) || defensiveArmamentsParry(c, enhanced, entry)
     || enhanced.runes.some(rune => runeName(rune) === 'Parrying'
@@ -6591,7 +6592,39 @@ function inheritedGauntletTraits(c: Character, entries: ContentEntry[]): string[
   }).filter(trait => !/^(?:unarmed|free[- ]hand)$/i.test(trait.trim())))]
 }
 
-export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean } = {}) {
+function isTailblade(entry?: ContentEntry) {
+  return !!entry && entry.systems.includes('sf2e') && /\btailblade\b/i.test(entry.name)
+}
+
+function damageAverage(damage: string) {
+  const match = /^(\d+)d(\d+)([+-]\d+)?\s+(\w+)/i.exec(damage)
+  return match ? { average: Number(match[1]) * (Number(match[2]) + 1) / 2 + Number(match[3] ?? 0),
+    type: match[4].toLowerCase() } : undefined
+}
+
+export function tailbladeInheritance(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const empty = { traits: [] as string[], replacedTailIds: [] as string[] }
+  const blade = weaponEntry(entries, weapon.name, weapon.id)
+  if (!isTailblade(blade) || weapon.stowed || weapon.cheekStored) return empty
+  const tails = ownedWeapons(c, entries).filter(tail => /\btail\b/i.test(tail.name)
+    && weaponCategory(weaponEntry(entries, tail.name, tail.id)) === 'Unarmed')
+  if (!tails.length) return empty
+  const bladeDamage = damageAverage(weaponAttack(c, entries, weapon, { skipTailbladeInheritance: true }).damage)
+  const traits: string[] = []
+  const replacedTailIds: string[] = []
+  for (const tail of tails) {
+    const attack = weaponAttack(c, entries, tail)
+    traits.push(...attack.traits.filter(trait => !/^(?:unarmed|free[- ]hand)$/i.test(trait.trim())))
+    const damage = damageAverage(attack.damage)
+    if (bladeDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.average >= bladeDamage.average) {
+      traits.push('Versatile B')
+      replacedTailIds.push(tail.id)
+    }
+  }
+  return { traits: [...new Set(traits)], replacedTailIds }
+}
+
+export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean; skipTailbladeInheritance?: boolean } = {}) {
   const upgrades = installedWeaponUpgrades(c, entries, w)
   w = effectiveWeapon(c, entries, w)
   if (combinationForms(entries, w.name).length || PLAYING_CARD_WEAPONS.some(card => card.id === w.id)) {
@@ -6656,6 +6689,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   entry = weaponWithMode(w, entry)
   entry = weaponWithModifications(c, w, entry)
+  if (entry && isTailblade(entry) && !options.skipTailbladeInheritance) {
+    const inherited = tailbladeInheritance(c, entries, w).traits
+    const existing = new Set(entry.traits.map(trait => trait.toLowerCase()))
+    entry = { ...entry, traits: [...entry.traits, ...inherited.filter(trait => !existing.has(trait.toLowerCase()))] }
+  }
   if (entry && hasDivineIntercession(c, 'Erastil', 'moderate-boon')
     && /\blongbow\b/i.test(namedWeaponBaseName(entry))) {
     entry = { ...entry, traits: entry.traits.map(trait => /^volley\b/i.test(trait) ? 'Volley (if beneficial)' : trait),
