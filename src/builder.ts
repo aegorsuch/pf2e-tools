@@ -6450,6 +6450,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     }
     if (chosen.length) entry = { ...entry, traits: [...entry.traits, ...chosen] }
   }
+  const tethered = !!entry && entry.traits.some(trait => /^thrown\b/i.test(trait.trim())) && (
+    !!w.livingWeapon && activeFeatsNamed(c, 'Tethered Living Weapon').length > 0 && canBeLivingWeapon(c, entries, w)
+    || !!w.verdantWeapon && activeFeatsNamed(c, 'Tethered Verdant Weapon').length > 0 && canBeVerdantWeapon(c, entries, w)
+    || !!w.osteoArmament && activeFeatsNamed(c, 'Tethered Osteo Weapon').length > 0 && canBeOsteoArmament(c, entries, w)
+    || activeFeatsNamed(c, 'Tethered Favored Weapon').length > 0 && isFavoredWeapon(c, entries, w.name))
+  if (tethered && entry && !entry.traits.some(trait => /^tethered$/i.test(trait.trim()))) {
+    entry = { ...entry, traits: [...entry.traits, 'Tethered'] }
+  }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const thrown = traits.some((t) => t.startsWith('thrown'))
   const ranged = isRanged(entry) || !!options.thrown && thrown

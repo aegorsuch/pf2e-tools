@@ -243,6 +243,26 @@ const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1,
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
 
+it.each([
+  ['Tethered Living Weapon', 'Living Weapon', 'Ranger', 'livingWeapon'],
+  ['Tethered Verdant Weapon', 'Verdant Weapon', 'Druid', 'verdantWeapon'],
+  ['Tethered Osteo Weapon', 'Osteo Armaments', 'Necromancer', 'osteoArmament'],
+  ['Tethered Favored Weapon', undefined, 'Cleric', undefined],
+] as const)('adds Tethered to eligible thrown weapons for %s', (featName, sourceFeat, className, tag) => {
+  const thrown = content('weapon', 'Javelin',
+    { damage: '1d6 piercing', weapon_category: 'Simple', weapon_type: 'Melee', thrown_range: 30 }, 0, ['Thrown 30 feet'])
+  const favoredDeity = content('deity', 'Iomedae', { favored_weapon: 'javelin' })
+  const necromancer = content('class', 'Necromancer', { attack_proficiency: 'Trained in simple weapons' })
+  const feats = [feat(featName, 20), ...(sourceFeat ? [feat(sourceFeat, 1)] : [])]
+  const c: Character = { ...base, level: 20, className, feats }
+  const entries = [thrown, sword, favoredDeity, necromancer]
+  const weapon: OwnedWeapon = { ...main, id: 'javelin', name: thrown.name,
+    livingWeapon: tag === 'livingWeapon', verdantWeapon: tag === 'verdantWeapon', osteoArmament: tag === 'osteoArmament' }
+  expect(weaponAttack(c, entries, weapon).entry?.traits).toContain('Tethered')
+  expect(weaponAttack({ ...c, level: 19 }, entries, weapon).entry?.traits).not.toContain('Tethered')
+  expect(weaponAttack(c, entries, { ...weapon, name: sword.name }).entry?.traits).not.toContain('Tethered')
+})
+
 it('increases only held melee weapon reach while Reckless Riding Lunge is active and mounted', () => {
   const c: Character = { ...base, level: 8, feats: [feat('Reckless Riding Lunge', 4)],
     companions: [{ id: 'mount', type: 'Horse', name: '' }], mountedCompanionId: 'mount',
@@ -2219,6 +2239,28 @@ it('caps Deadly Simplicity favored unarmed improvements at d6 without shrinking 
     const weapon = { ...main, name: attack.name }
     expect(weaponAttack(c, [attack, favored], weapon).damage).toBe(`3d${after}+1 slashing`)
     expect(weaponAttack({ ...c, feats: [] }, [attack, favored], weapon).damage).toBe(`3d${before}+1 slashing`)
+  }
+})
+
+it('offers Tethered weapon feats at level twenty for their source features', () => {
+  const tetheredFeats = homebrewCharacterOptions([])
+  const living = content('feat', 'Living Weapon', { class: 'Ranger' }, 1, ['Ranger'])
+  const dedication = content('feat', 'Wild Hunter Dedication', { archetype: 'Wild Hunter' }, 2, ['Archetype', 'Dedication'])
+  const verdant = content('feat', 'Verdant Weapon', { class: 'Druid' }, 1, ['Druid'])
+  const osteo = content('feat', 'Osteo Armaments', { class: 'Necromancer' }, 4, ['Necromancer'])
+  const entries = [...tetheredFeats, living, dedication, verdant, osteo]
+  const check = (name: string, c: Character, category: 'class' | 'archetype') => {
+    const featEntry = tetheredFeats.find(entry => entry.name === name)!
+    const slot = { key: `${category}:20:0`, category, level: 20 }
+    expect(eligibleFeats(entries, c, slot)).toContain(featEntry)
+    expect(eligibleFeats(entries, { ...c, level: 19 }, { ...slot, key: `${category}:18:0`, level: 18 })).not.toContain(featEntry)
+  }
+  check('Tethered Living Weapon', { ...base, level: 20, className: 'Ranger',
+    feats: [feat('Living Weapon', 1), feat('Wild Hunter Dedication', 2)] }, 'archetype')
+  check('Tethered Verdant Weapon', { ...base, level: 20, className: 'Druid', feats: [feat('Verdant Weapon', 1)] }, 'class')
+  check('Tethered Osteo Weapon', { ...base, level: 20, className: 'Necromancer', feats: [feat('Osteo Armaments', 4)] }, 'class')
+  for (const className of ['Champion', 'Cleric']) {
+    check('Tethered Favored Weapon', { ...base, level: 20, className }, 'class')
   }
 })
 

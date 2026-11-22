@@ -36,6 +36,22 @@ it('marks homebrew Watch Initiate feats rare', () => {
   }
 })
 
+it('offers level-20 Tethered weapon feats for each weapon feature', () => {
+  const entries = homebrewCharacterOptions([])
+  expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({
+    level: 20, traits: ['Archetype'], data: { archetype: 'Wild Hunter', prerequisite: 'Living Weapon, Wild Hunter Dedication' },
+  })
+  expect(entries.find(entry => entry.name === 'Tethered Verdant Weapon')).toMatchObject({
+    level: 20, traits: ['Druid'], data: { class: 'Druid', prerequisite: 'Verdant Weapon' },
+  })
+  expect(entries.find(entry => entry.name === 'Tethered Osteo Weapon')).toMatchObject({
+    level: 20, traits: ['Necromancer'], data: { class: 'Necromancer', prerequisite: 'Osteo Armaments' },
+  })
+  expect(entries.find(entry => entry.name === 'Tethered Favored Weapon')).toMatchObject({
+    level: 20, traits: ['Champion', 'Cleric'], data: { class: 'Champion, Cleric' },
+  })
+})
+
 it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Caravan Contortionist')!
   const c = { ...base, background: background.name }
