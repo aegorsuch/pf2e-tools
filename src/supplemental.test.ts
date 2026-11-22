@@ -8,6 +8,7 @@ import { MinionsContent } from './MinionsSection'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { removeColdIronTusks } from './supplemental'
+import { mapAonHits } from './aon'
 
 it('retires Cold Iron Tusks without touching other feats, weapons or character choices', () => {
   const c: Character = { ...base, entryIds: ['homebrew:cold-iron-tusks', 'other'],
@@ -503,6 +504,20 @@ it('provides a default fist until a different unarmed attack is available', () =
   expect(weapons.map((weapon) => weapon.name)).toEqual(['Tusks'])
   expect(weaponAttack(c, [], weapons[0])).toMatchObject({ attack: 18, damage: '2d6+1 piercing', traits: ['Finesse', 'Grapple', 'Unarmed'] })
   expect(ownedWeapons({ ...c, weapons, feats: [] }, []).map((weapon) => weapon.name)).toEqual(['Fist'])
+})
+
+it('uses Tusks instead of the legacy Tusks-granted Jaws while preserving unrelated jaws', () => {
+  const entries = mapAonHits([{ _id: 'feat-963', _source: { name: 'Tusks', category: 'feat', level: 1,
+    markdown: 'You gain a jaws unarmed attack that deals 1d6 piercing damage.' } }], 'pf2e')
+  const legacyJaws = entries.find(entry => entry.kind === 'weapon' && entry.name === 'Jaws')!
+  expect(legacyJaws).toBeDefined()
+  const otherJaws: ContentEntry = { ...legacyJaws, id: 'other-jaws', data: { ...legacyJaws.data, granted_by_feat: 'Bite' } }
+  const c: Character = { ...base, ancestry: 'Orc', feats: [{ name: 'Tusks', type: 'Ancestry Feat', level: 1 }] }
+  const saved = { id: legacyJaws.id, name: legacyJaws.name, potency: 0, striking: 0, runes: [] }
+  expect(ownedWeapons(c, [legacyJaws]).map(weapon => weapon.name)).toEqual(['Tusks'])
+  expect(ownedWeapons({ ...c, weapons: [saved] }, [legacyJaws]).map(weapon => weapon.name)).toEqual(['Tusks'])
+  expect(ownedWeapons({ ...c, feats: [...c.feats, { name: 'Bite', type: 'Ancestry Feat', level: 1 }] },
+    [legacyJaws, otherJaws]).map(weapon => weapon.name)).toEqual(['Jaws', 'Tusks'])
 })
 
 it.each(['Gauntlet', 'Spiked Gauntlet', 'Bladed Gauntlet', 'Clawed Gauntlet', 'Custom Gauntlets'])('hides covered fists for %s without hiding other natural attacks or losing saved fist configuration', (name) => {

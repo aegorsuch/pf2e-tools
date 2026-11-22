@@ -5356,8 +5356,10 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   }
   const featAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
     && typeof entry.data.granted_by_feat === 'string')
+  const legacyTusksJaws = new Set(featAttacks.filter(entry => entry.data.granted_by_feat === 'Tusks'
+    && entry.name === 'Jaws').map(entry => entry.id))
   for (const entry of featAttacks) {
-    if (!entry.systems.some(system => c.systems.includes(system))) continue
+    if (legacyTusksJaws.has(entry.id) || !entry.systems.some(system => c.systems.includes(system))) continue
     const featName = String(entry.data.granted_by_feat)
     const selectedFeat = activeFeatsNamed(c, featName).find(feat =>
       !entry.data.granted_by_feat_choice
@@ -5442,7 +5444,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
-    (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
+    !legacyTusksJaws.has(weapon.id)
+    && (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
     && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
     && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
