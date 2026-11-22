@@ -62,6 +62,7 @@ const DERMAL_GRADES: { name: HardlightGrade; level: number; hardness: number }[]
 const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weaponAttack>, entries: ContentEntry[], formSpecific: boolean) => {
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
+    && !/^(?:Bloodthirsty|Cunning)$/i.test(runeBaseName(rune))
     && !['Animated', 'Disarming', 'Parrying', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Shoving', 'Crushing', 'Crushing (Greater)', 'Vorpal', 'Speed', 'Quickstrike', 'Spell Reservoir', 'Bane'].includes(runeName(rune))
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {

@@ -1962,6 +1962,19 @@ it('keeps Grievous visible as a rune but excludes it from both damage displays',
   expect(markup).toContain('aria-label="Remove Grievous rune"')
 })
 
+it.each(['Bloodthirsty', 'Cunning', 'Greater Bloodthirsty', 'Cunning (Greater)'])(
+  'keeps %s visible as a rune without adding its name to damage', (rune) => {
+    const c = character([])
+    c.weapons![0].runes = [rune, 'Impactful']
+    for (const displayOnly of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={c} entries={[weapon]} save={() => {}} displayOnly={displayOnly} />)
+      expect(markup).toContain('Damage 2d8 S + 1d6 force')
+      expect(markup).not.toContain(` + ${rune}`)
+      expect(markup).toContain(`>${rune}</button>`)
+    }
+  },
+)
+
 it.each(['Crushing', 'Crushing (Greater)', 'Greater Crushing'])('shows %s critical conditions and Shockwave splash separately from normal damage', (rune) => {
   for (const striking of [1, 3]) {
     const c = character([])
