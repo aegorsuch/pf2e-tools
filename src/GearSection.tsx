@@ -1846,6 +1846,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           if (!grades.has(grade) || candidate.name === a.name) grades.set(grade, candidate)
         }
         const gradeOptions = [...grades.values()].sort((left, right) => left.level - right.level || left.name.localeCompare(right.name))
+        const displayName = armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) }, entry)
+        const labelName = armorDisplayName({ name: a.name }, entry)
         const upgradeSlots = armorUpgradeSlots(entry) + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
@@ -1884,8 +1886,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
-              <strong><EntryDescription name={armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) })} entry={entry} className="equipment-name" /></strong>
-              <label><input type="checkbox" aria-label={`Worn ${a.name}`} checked={a.worn} disabled={wornLocked}
+              <strong><EntryDescription name={displayName} entry={entry} className="equipment-name" /></strong>
+              <label><input type="checkbox" aria-label={`Worn ${labelName}`} checked={a.worn} disabled={wornLocked}
                 title={body ? 'Attached to character' : wornLocked ? 'Cannot wear armor over attached body armor' : undefined}
                 onChange={(e) => {
                   if (wornLocked) return
@@ -1910,22 +1912,22 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {' '}Magnetic Levitators (Modify)
             </label>}
             {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 13 && <label>
-              <input type="checkbox" aria-label={`Enduring Magnetic Levitators: ${a.name}`}
+              <input type="checkbox" aria-label={`Enduring Magnetic Levitators: ${labelName}`}
                 checked={c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id
                   && c.mechanicEnduringMod.mod === 'magneticLevitators'}
                 onChange={event => save(setEnduringMod(c, event.target.checked
-                  ? { kind: 'armor', item: a.id, mod: 'magneticLevitators', label: a.name } : undefined))} />
+                  ? { kind: 'armor', item: a.id, mod: 'magneticLevitators', label: labelName } : undefined))} />
               {' '}Enduring Magnetic Levitators
             </label>}
             {c.mechanicArmorMods?.[a.id]?.magneticLevitators && c.className === 'Mechanic'
               && c.systems.includes('sf2e') && <SourceNote source="Magnetic Levitators"
                 note="Land Speed gains hover; Fly Speed 10 feet while worn." />}
-            <EnergyNeutralizer c={c} save={save} id={a.id} label={a.name} />
-            <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
+            <EnergyNeutralizer c={c} save={save} id={a.id} label={labelName} />
+            <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
             <NamedArmorAbilities entry={entry} inlineSummary />
             {gradeOptions.length > 1 && <label>Armor grade{' '}
-              <select aria-label={`Armor grade: ${a.name}`} value={gradeOptions.some(grade => grade.name === a.name) ? a.name : gradeOptions[0].name}
+              <select aria-label={`Armor grade: ${labelName}`} value={gradeOptions.some(grade => grade.name === a.name) ? a.name : gradeOptions[0].name}
                 onChange={event => {
                   if (gradeOptions.some(grade => grade.name === event.target.value)) update(a.id, { name: event.target.value })
                 }}>
@@ -2000,8 +2002,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               limit={bonyPlates ? 0 : Math.max(0, runeLimit(runePotency, a.material) - (named?.runes.length ?? 0))}
               onChange={bonyPlates ? undefined : (runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} /></>
               : !sf2eArmor && <small>Armor runes cannot be etched onto this shell.</small>}
-            {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"
-              onClick={() => confirmRemoval(`armor "${a.name}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),
+            {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${labelName}`} title="Remove"
+              onClick={() => confirmRemoval(`armor "${labelName}"`, () => saveArmors(armors.filter((x) => x.id !== a.id),
                 { ...(c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id ? setEnduringMod(c) : {}),
                   ...clearItemGlitching(c, 'armor', a.id) }))}>×</button>}
           </article>

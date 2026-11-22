@@ -4301,7 +4301,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const parts: TotalPart[] = [
     { label: ABILITY_LABEL[ability[name]], value: abilityMod(c.abilities[ability[name]]) },
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
-    { label: mysticArmor(c, entries) ? 'Mystic Armor (item)' : armor ? `${armor.name} (resilient or grade)` : 'Item', value: item },
+    { label: mysticArmor(c, entries) ? 'Mystic Armor (item)' : armor
+      ? `${armorDisplayName({ name: armor.name }, armorEntry(c, entries, armor.name, armor.id))} (resilient or grade)` : 'Item', value: item },
   ]
   if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
     parts.push({ label: 'Desperate Wrath', value: -1 })
@@ -4322,7 +4323,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const armorAce = name === 'Reflex' && !!armor && activeFeatsNamed(c, 'Armor Ace').length > 0
   const naturalBulwark = !!armor && !!armorEntry(c, entries, armor.name, armor.id)?.traits.some(trait => trait.toLowerCase() === 'bulwark')
   const bulwark = name === 'Reflex' && (mightyBulwark ? 'Mighty Bulwark' : armor && (activeFeatsNamed(c, 'Infernal Bulwark').length ? 'Infernal Bulwark'
-    : armorEntry(c, entries, armor.name, armor.id)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? armor.name : undefined))
+    : armorEntry(c, entries, armor.name, armor.id)?.traits.some(trait => trait.toLowerCase() === 'bulwark')
+      ? armorDisplayName({ name: armor.name }, armorEntry(c, entries, armor.name, armor.id)) : undefined))
   const guardianArmorBonus = name === 'Reflex' && armor && c.className === 'Guardian'
     && classFeatures(entries, c).some(feature => feature.name === 'Guardian Mastery')
     ? num(armorEntry(c, entries, armor.name, armor.id)?.data.ac) + (armor.potency ?? 0)
@@ -4438,7 +4440,7 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const summary = benefit ? `${benefit.value} ${rule.label}`
     : rule ? `Value not specified for ${category || 'unknown-category'} armor` : undefined
   return {
-    group: group.name, armor: worn.name, feat: fromClass ? undefined : fromFeat?.name ?? preferment?.name, feature: fromClass?.name,
+    group: group.name, armor: armorDisplayName({ name: worn.name }, armor), feat: fromClass ? undefined : fromFeat?.name ?? preferment?.name, feature: fromClass?.name,
     effect: group.description.replace(/^Source .*?pg\. \d+\s*/i, ''), benefit, summary,
   }
 }
@@ -4787,7 +4789,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const parts: TotalPart[] = [
     { label: 'Base', value: 10 },
     { label: armor?.name ?? 'Armor', value: num(armor?.data.ac) },
-    { label: worn ? `${worn.name} potency` : 'Armor potency', value: worn?.potency ?? 0 },
+    { label: worn ? `${armorDisplayName({ name: worn.name }, armorEntry(c, entries, worn.name, worn.id))} potency` : 'Armor potency', value: worn?.potency ?? 0 },
     ...(mystic ? [{ label: 'Mystic Armor (item)', value: mystic.ac }] : []),
     ...(skin ? [{ label: 'Animal Skin (item)', value: skin.itemBonus }] : []),
     { label: 'Dexterity', value: Math.min(dexterity, dexCap),
@@ -5699,12 +5701,15 @@ function hammerMultipistolEntries(entries: ContentEntry[]) {
     data: { ...entry.data },
   }))
 }
-export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>) {
-  if (isNamedArmor(armor.name)) return armor.name
+export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>, entry?: ContentEntry) {
+  const grade = entry?.systems.includes('sf2e') ? String(entry.data.armor_grade ?? '') : ''
+  const name = grade && armor.name.toLowerCase().startsWith(`${grade.toLowerCase()} `)
+    ? armor.name.slice(grade.length + 1) : armor.name
+  if (isNamedArmor(name)) return name
   const material = armor.material?.replace(/\s+\([^)]*\)$/, '')
-  if (!material || armor.name.toLowerCase().startsWith(material.toLowerCase())) return armor.name
-  const base = material === 'Grisantian Hide' ? armor.name.replace(/^Hide(?:\s+|$)/i, '')
-    : material === 'Duskwood' ? armor.name.replace(/^(?:Wood|Wooden)(?:\s+|$)/i, '') : armor.name
+  if (!material || name.toLowerCase().startsWith(material.toLowerCase())) return name
+  const base = material === 'Grisantian Hide' ? name.replace(/^Hide(?:\s+|$)/i, '')
+    : material === 'Duskwood' ? name.replace(/^(?:Wood|Wooden)(?:\s+|$)/i, '') : name
   return `${material} ${base}`.trim()
 }
 

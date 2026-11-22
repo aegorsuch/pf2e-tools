@@ -2348,7 +2348,30 @@ it('changes SF2e armor grades without discarding installed upgrades', () => {
   expect(renderToStaticMarkup(select).match(/Commercial \(Level 0\)/g)).toHaveLength(1)
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: tactical.name } })
   expect(c.armors?.[0]).toMatchObject({ name: tactical.name, upgrades: ['upgrade'], worn: true })
-  expect(renderToStaticMarkup(tree())).toContain('Armor upgrade slots: 1/2')
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('Armor upgrade slots: 1/2')
+  expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Armored Coat</button>')
+  expect(markup).toContain('aria-label="Armor grade: Armored Coat"')
+  expect(markup).toContain('value="Tactical Armored Coat" selected="">Tactical (Level 5)</option>')
+  expect(markup).not.toContain('aria-label="Worn Tactical Armored Coat"')
+})
+
+it('keeps the base name for paragon armor while retaining its grade and AC', () => {
+  const armor: ContentEntry = { ...weapon, id: 'tempweave', name: 'Tempweave', kind: 'armor', systems: ['sf2e'],
+    data: { url: 'tempweave', armor_category: 'Light', ac: 2, armor_grade: 'Commercial', upgrade_slots: 1 } }
+  const paragon: ContentEntry = { ...armor, id: 'paragon', name: 'Paragon Tempweave', level: 20,
+    data: { ...armor.data, ac: 5, armor_grade: 'Paragon', upgrade_slots: 4, grade_save_bonus: 3 } }
+  const c: Character = { ...character([]), systems: ['sf2e'], armors: [
+    { id: 'armor', name: paragon.name, potency: 0, resilient: 0, runes: [], upgrades: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[armor, paragon]} save={() => {}} />)
+  expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Tempweave</button>')
+  expect(markup).toContain('aria-label="Armor grade: Tempweave"')
+  expect(markup).toContain('value="Paragon Tempweave" selected="">Paragon (Level 20)</option>')
+  expect(markup).toContain('<small>Armor Class</small><b>5</b>')
+  expect(markup).toContain('Armor upgrade slots: 0/4')
+  expect(c.armors?.[0].name).toBe('Paragon Tempweave')
+  expect(armorDisplayName({ name: 'Paragon Tempweave' }, { ...paragon, systems: ['pf2e'] })).toBe('Paragon Tempweave')
 })
 
 it('shows Vesk granted unarmed attacks without repeating Vesk in their names', () => {
