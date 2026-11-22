@@ -1003,12 +1003,20 @@ it('grants Sure Strike from the Android Advanced Targeting System feat only', ()
   expect(grantedFeatSpells({ ...android, ancestry: 'Human' }, entries)).toEqual([])
 })
 
-it('grants Pest Form at will from Ancestral Pest with its mechanics noted', () => {
+it('grants Pest Form at will from Ancestral Pest without helper text', () => {
   const spell = { ...entry('Pest Form', 'spell'), systems: ['sf2e' as const] }
   const pahtra: Character = { ...base, systems: ['sf2e'], ancestry: 'Pahtra', feats: [taken('Ancestral Pest')] }
   const grants = grantedFeatSpells(pahtra, [spell])
-  expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.frequency])).toEqual([['Pest Form', 1, 'at will']])
-  expect(grants[0].rule.condition).toContain('20-foot swim Speed')
+  expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
+    .toEqual([['Pest Form', 1, 'primal', 'at will']])
+  expect(grantedFeatSpells({ ...pahtra, ancestry: 'Lashunta' }, [spell])[0].rule.tradition).toBe('primal')
+  const markup = renderToStaticMarkup(<SpellsSection c={pahtra} entries={[spell]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Ancestral Pest active"')
+  expect(markup).toContain('Primal Spell Rank 1')
+  expect(markup).not.toContain('transform only into your chosen tiny animal')
+  const lashunta = { ...pahtra, ancestry: 'Lashunta' }
+  const lashuntaMarkup = renderToStaticMarkup(<SpellsSection c={lashunta} entries={[spell]} save={() => {}} />)
+  expect(lashuntaMarkup).toContain('Squox form')
   expect(grantedFeatSpells({ ...pahtra, feats: [] }, [spell])).toEqual([])
 })
 

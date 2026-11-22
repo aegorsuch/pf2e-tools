@@ -446,8 +446,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (feat.name === 'Ancestral Pest' && c.systems.includes('sf2e')) {
       const entry = matchingSpells(entries, 'Pest Form').find(spell => spell.systems.some(system => c.systems.includes(system)))
       if (entry) out.push({ entry, source: feat.name,
-        rule: { kind: 'innate', spells: [entry.name], frequency: 'at will', fixedRank: true,
-          condition: 'Two actions; transform only into your chosen tiny animal (a smaller, younger version if larger than Tiny) and use your normal Speed if higher; gain a 20-foot swim Speed if the animal normally swims' },
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'at will', fixedRank: true },
         rank: 1, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }

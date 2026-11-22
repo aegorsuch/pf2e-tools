@@ -364,7 +364,7 @@ export function PestFormActions({ c, save, entry, rank, source = 'Pest Form', di
         if (next && (disabled || !valid)) return
         save({ ...spellActiveChange(c, 'Pest Form', next),
           pestForm: next ? { rank, source, flying: state?.flying, swimming: state?.swimming } : undefined })
-      }} /> Active</label>
+      }} /> {source === 'Ancestral Pest' && c.ancestry === 'Lashunta' ? 'Squox form' : 'Active'}</label>
   </ActiveSpellActions>
 }
 

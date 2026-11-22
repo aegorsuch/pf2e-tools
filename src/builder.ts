@@ -5545,7 +5545,7 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
         || c.ancestry === 'Entu Colony' && !!c.pestForm.swimming)
       const form = pestBattleForm(ancestral ? 1 : c.pestForm.rank, c.level, !ancestral && !!c.pestForm.flying,
         ancestral ? heritageLandSpeed(c, entries) : 0, swimming)
-      if (form) return { ...form, source: c.pestForm.source }
+      if (form) return { ...form, name: ancestral && c.ancestry === 'Lashunta' ? 'Squox' : form.name, source: c.pestForm.source }
     } else if (name === 'Dinosaur Form') {
       const form = dinosaurForm(c, entries)
       if (form) return form

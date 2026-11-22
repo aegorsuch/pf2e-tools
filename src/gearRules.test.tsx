@@ -580,6 +580,7 @@ it('applies Ancestral Pest base Speed and swimming only to eligible forms', () =
     { name: 'Swim', feet: 20, source: 'Ancestral Pest', status: 0 },
   ])
   expect(movementSpeeds({ ...c, ancestry: 'Lashunta' }, [ancestry]).map(move => move.name)).toEqual(['Land'])
+  expect(activeBattleForm({ ...c, ancestry: 'Lashunta' }, [ancestry])).toMatchObject({ name: 'Squox', source: 'Ancestral Pest' })
   expect(movementSpeeds({ ...c, ancestry: 'Entu Colony', pestForm: { ...c.pestForm!, swimming: true } }, [ancestry])
     .map(move => move.name)).toEqual(['Land', 'Swim'])
   expect(activeBattleForm({ ...c, feats: [] }, [ancestry])).toBeUndefined()
