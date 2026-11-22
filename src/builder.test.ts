@@ -260,6 +260,23 @@ it('uses Bloodrager starting skills and replaces duplicate background training',
   expect(additionalSkillCount({ ...c, subclass: 'Fury' }, [barbarian])).toBe(3)
 })
 
+it.each([
+  ['Burning Sun', 'Diplomacy'], ["Death's Head", 'Survival'],
+  ['Defiled Corpse', 'Religion'], ['Empty Hand', 'Intimidation'],
+])('returns a trained skill token when Hold Mark %s duplicates %s', (choice, skill) => {
+  const klass = entry('class', 'Ranger', { skill_proficiency: `Trained in ${skill}, Trained in a number of additional skills equal to 4 plus your Intelligence modifier` })
+  const hold = { name: 'Hold Mark', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice }
+  const c: Character = { ...base, className: 'Ranger', ancestry: 'Orc', level: 1, feats: [hold] }
+  const without = { ...c, feats: [] }
+  expect(additionalSkillCount(c, [klass])).toBe(additionalSkillCount(without, [klass]) + 1)
+  expect(skillRankBudget(c, [klass]).trained).toBe(skillRankBudget(without, [klass]).trained + 1)
+  expect(additionalSkillCount({ ...c, level: 0 }, [klass])).toBe(additionalSkillCount({ ...without, level: 0 }, [klass]))
+  expect(additionalSkillCount(c, [])).toBe(additionalSkillCount(without, []))
+  const flexibleClass = entry('class', 'Ranger', { skill_proficiency: 'Trained in a number of additional skills equal to 4 plus your Intelligence modifier' })
+  const trained = { ...c, skillPicks: [skill] }
+  expect(skillRankBudget(trained, [flexibleClass]).trained).toBe(skillRankBudget({ ...trained, feats: [] }, [flexibleClass]).trained + 1)
+})
+
 it('keeps active feat lookups current across level and selection changes', () => {
   const first = { name: 'Shared Feat', type: 'Class Feat', level: 2, slot: 'class:2:0' }
   const future = { name: 'Shared Feat', type: 'Class Feat', level: 6, slot: 'class:6:0' }

@@ -2770,6 +2770,9 @@ export const parryBonus = (c: Character, entries: ContentEntry[]) =>
   Math.max(c.parrying ? parryValue(c, entries) : 0, twinnedDefenseActive(c, entries) ? twinParryValue(c, entries) : 0)
 
 const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
+const HOLD_MARK_SKILLS: Record<string, string> = {
+  'Burning Sun': 'Diplomacy', "Death's Head": 'Survival', 'Defiled Corpse': 'Religion', 'Empty Hand': 'Intimidation',
+}
 
 function researchedTraditionOptions(ranks: Record<string, number>, traditions: string[]) {
   const capacity = 1 + TRADITION_SKILLS.filter(([tradition, skill]) =>
@@ -3557,11 +3560,8 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     if (alternate && warmaskAlternateSkills(c, entries, index).includes(alternate)) trained.push(alternate)
     else trained.push(warmask.skill)
   }
-  const holdMarkSkills: Record<string, string> = {
-    'Burning Sun': 'Diplomacy', "Death's Head": 'Survival', 'Defiled Corpse': 'Religion', 'Empty Hand': 'Intimidation',
-  }
   for (const feat of activeFeatsNamed(c, 'Hold Mark')) {
-    const skill = holdMarkSkills[feat.choice ?? '']
+    const skill = HOLD_MARK_SKILLS[feat.choice ?? '']
     if (skill) trained.push(skill)
   }
   for (const feat of activeFeatsNamed(c, 'Shiny')) {
@@ -7336,6 +7336,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         : feat.name === "Officer's Medical Training" ? ['Medicine']
         : feat.name === 'Rat Retinal HUD' ? ['Computers']
         : feat.name === 'Shiny' ? ['Performance']
+        : feat.name === 'Hold Mark' && HOLD_MARK_SKILLS[feat.choice ?? ''] ? [HOLD_MARK_SKILLS[feat.choice!]]
         : warmask ? [warmask.skill] : [])
       if (!named.length) return total
       const ranks = ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)
