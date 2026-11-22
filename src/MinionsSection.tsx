@@ -33,6 +33,31 @@ const PET_ABILITY_NOTES: Record<string, string> = {
   Scent: 'Imprecise scent within 30 feet.',
   Tough: 'Maximum HP increases by 2 per level.',
 }
+const companionEntryCache = new WeakMap<ContentEntry[], Map<boolean, ContentEntry[]>>()
+const companionTypeCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+
+function companionEntriesFor(entries: ContentEntry[], needsConstructEntry: boolean) {
+  let variants = companionEntryCache.get(entries)
+  if (!variants) companionEntryCache.set(entries, variants = new Map())
+  let result = variants.get(needsConstructEntry)
+  if (!result) {
+    result = needsConstructEntry && !entries.some(entry => entry.id === CONSTRUCT_COMPANION_ENTRY.id)
+      ? [...entries, CONSTRUCT_COMPANION_ENTRY] : entries
+    variants.set(needsConstructEntry, result)
+  }
+  return result
+}
+
+function companionTypes(entries: ContentEntry[]) {
+  let types = companionTypeCache.get(entries)
+  if (!types) {
+    types = entries.filter(entry => entry.kind === 'companion' && !entry.deleted)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    companionTypeCache.set(entries, types)
+  }
+  return types
+}
+
 const UNDEAD_FAMILIAR_TRAIT: ContentEntry = {
   id: 'undead-familiar-trait', systems: ['pf2e'], name: 'Undead', kind: 'trait', source: 'official', level: 0,
   traits: [], description: "Immune to bleed, death effects, disease, mental, and poison. Can't choose familiar abilities that change its trait, such as Construct or Dragon. Can be targeted by spells and abilities that target your thralls. If destroyed, can be raised during next daily preparations.",
@@ -202,10 +227,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
-  const companionEntries = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
-    ? [...entries, ...entries.some(entry => entry.id === CONSTRUCT_COMPANION_ENTRY.id) ? [] : [CONSTRUCT_COMPANION_ENTRY]]
-    : entries
-  const types = companionEntries.filter((e) => e.kind === 'companion' && !e.deleted).sort((a, b) => a.name.localeCompare(b.name))
+  const needsConstructEntry = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
+  const companionEntries = companionEntriesFor(entries, needsConstructEntry)
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
   const hasAlpha = activeFeatsNamed(c, 'Spirit of the Alpha').length > 0
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
@@ -218,6 +241,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       : animalCompanionGrant ? 'Animal Companion' : beastmaster ? 'Beastmaster Dedication' : undefined
   const companionLimit = beastmaster && !getSettings().singleAnimalCompanion ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
     + activeFeatsNamed(c, 'Additional Companion').length) : 1
+  const needsCompanionOptions = companions.length === 0 && !!companionGrant
+    || companions.length > 0 && companions.length < companionLimit
+  const types = needsCompanionOptions ? companionTypes(companionEntries) : []
   const familiarCapacity = familiarSelection(c).dailyAbilityLimit
   const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
   const familiarDefense = familiar || wasp ? (() => {

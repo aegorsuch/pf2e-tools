@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import {
   activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, classDifficultyClass, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown, spellDifficultyClass,
-  equippedWeaponHands, featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponEntry, weaponEquipped,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponEntry, weaponEquipped,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
