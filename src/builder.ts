@@ -5355,9 +5355,28 @@ function selectedShieldCantrip(c: Character, entries: ContentEntry[]) {
   })
 }
 
+function selectedTailwind(c: Character, entries: ContentEntry[]) {
+  const tailwind = entries.filter(entry => entry.kind === 'spell' && entry.name === 'Tailwind' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system)))
+  if (!tailwind.length) return false
+  if (isWitchwarper(c)) return witchwarperRepertoireSlots(c).some(slot => slot.rank > 0
+    && witchwarperSpellOptions(c, tailwind, slot.rank).some(entry => entry.id === slot.value || entry.name === slot.value || entry.name === slot.granted))
+  if (c.className !== 'Druid') return false
+  const slots = classSpellSlots(c)
+  const options = druidSpellList(c, tailwind).filter(entry => spellAccessGranted(c, entry))
+  return Object.entries(c.spellcasting?.prepared ?? {}).some(([key, value]) => {
+    const match = /^(\d+):(\d+)$/.exec(key)
+    if (!match) return false
+    const rank = Number(match[1])
+    return rank > 0 && Number(match[2]) < (slots?.[rank] ?? 0)
+      && options.some(entry => entry.level <= rank && (entry.id === value || entry.name === value))
+  })
+}
+
 export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
   return !!(c.spells?.some((spell) => spell.name === name)
     || name === 'Shield' && selectedShieldCantrip(c, entries)
+    || name === 'Tailwind' && selectedTailwind(c, entries)
     || necromancerGrantedDirgeSpells(c).includes(name)
     || c.feats.some(feat => featTakenLevel(feat) <= c.level && hasWardenChoice(feat) && feat.choice === name)
     || grantedFeatSpells(c, entries).some(grant => grant.entry.name === name)

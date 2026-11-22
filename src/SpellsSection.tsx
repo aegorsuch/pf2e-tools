@@ -484,6 +484,17 @@ function ActiveSpellActions({ name, entry, rank, actions: actionOverride, childr
   </>
 }
 
+export function TailwindActions({ c, save, entry, rank, disabled }: Pick<SectionProps, 'c' | 'save'> & {
+  entry: ContentEntry; rank: number; disabled?: boolean
+}) {
+  const active = !!c.activeSpells?.includes('Tailwind')
+  return <ActiveSpellActions name="Tailwind" entry={entry} rank={rank}
+    actions={typeof entry.data.actions === 'string' ? entry.data.actions : 'Two Actions'}>
+    <label><input type="checkbox" aria-label="Tailwind active" checked={active}
+      disabled={!active && disabled} onChange={event => save(spellActiveChange(c, 'Tailwind', event.target.checked))} /> Active</label>
+  </ActiveSpellActions>
+}
+
 export function FalseVitalityActions({ c, save, entry, rank, actions, disabled }: Pick<SectionProps, 'c' | 'save'> & {
   entry?: ContentEntry; rank: number; actions?: string; disabled?: boolean
 }) {
@@ -856,6 +867,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 ? <BoneShieldActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'False Vitality'
                 ? <FalseVitalityActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : slot.entry.name === 'Tailwind'
+                ? <TailwindActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />)}
             </div>
             <span><small>Duration</small>{metadata.duration}</span>
@@ -1473,6 +1486,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? <BoneShieldActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'False Vitality'
                     ? <FalseVitalityActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
+                    : selectedEntry.name === 'Tailwind'
+                    ? <TailwindActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
                     : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />)}

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createElement } from 'react'
+import { Children, createElement, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { Character, ContentEntry } from './types'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSetup, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
 import { additionalSkillCount, automaticFeatGrants, classSpellcasting, classSpellSlots, focusSpells, speed } from './builder'
 import { mapAonHit } from './aon'
-import { SpellsSection, SpellsSummary } from './SpellsSection'
+import { SpellsSection, SpellsSummary, TailwindActions } from './SpellsSection'
 
 const base: Character = {
   id: 'witchwarper', name: 'Witchwarper', className: 'Witchwarper', subclass: 'Analyst',
@@ -135,6 +135,31 @@ describe('Witchwarper class setup', () => {
     expect(html).toContain('Witchwarper cantrip 6')
     expect(html).toContain('Witchwarper cantrip 7')
     expect(renderToStaticMarkup(createElement(SpellsSummary, { c, entries: [] }))).toContain('5/12 spells')
+  })
+
+  it('opens Tailwind options and applies its speed bonus from a repertoire choice', () => {
+    const tailwind = { ...magic('Tailwind'), data: { tradition: 'Arcane, Primal', actions: 'Two Actions' } }
+    let c: Character = { ...base, spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {},
+      repertoire: { '1:1': tailwind.id } } }
+    const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+    const html = renderToStaticMarkup(createElement(SpellsSection, { c, entries: [tailwind], save }))
+    expect(html).toContain('aria-label="Tailwind options"')
+    expect(html).toContain('aria-label="Two Actions"')
+    expect(html).toContain('aria-label="Tailwind active"')
+    const tree = TailwindActions({ c, save, entry: tailwind, rank: 1 })
+    let toggle: ((event: { target: { checked: boolean } }) => void) | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ children?: ReactNode; onChange?: typeof toggle; 'aria-label'?: string }>(child)) return
+      if (child.props['aria-label'] === 'Tailwind active') toggle = child.props.onChange
+      visit(child.props.children)
+    })
+    visit(tree.props.children)
+    expect(toggle).toBeDefined()
+    toggle!({ target: { checked: true } })
+    expect(speed(c, [tailwind])).toBe(35)
+    toggle!({ target: { checked: false } })
+    expect(speed(c, [tailwind])).toBe(25)
+    expect(speed({ ...c, activeSpells: ['Tailwind'], spellcasting: { ...c.spellcasting!, repertoire: { '1:9': tailwind.id } } }, [tailwind])).toBe(25)
   })
 
   it('limits repertoire options to valid tradition, rank and access without including focus spells', () => {

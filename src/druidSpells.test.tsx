@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
-import { classSpellcasting, classSpellSlots, druidSpellList } from './builder'
+import { classSpellcasting, classSpellSlots, druidSpellList, speed } from './builder'
 import { SelectedSlotSpell, SpellsSection, SpellsSummary } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -19,6 +19,17 @@ const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must not rewrite character data') }} />)
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
+
+it('opens Tailwind options and applies its bonus when prepared directly from the primal list', () => {
+  const tailwind = { ...spell('Tailwind'), data: { tradition: 'Arcane, Primal', actions: 'Two Actions' } }
+  const c: Character = { ...base, spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {},
+    prepared: { '1:0': tailwind.id } }, activeSpells: ['Tailwind'] }
+  const markup = render(c, [tailwind])
+  expect(markup).toContain('aria-label="Tailwind options"')
+  expect(markup).toContain('aria-label="Tailwind active"')
+  expect(speed(c, [tailwind])).toBe(35)
+  expect(speed({ ...c, spellcasting: { ...c.spellcasting!, prepared: { '1:9': tailwind.id } } }, [tailwind])).toBe(25)
+})
 
 it('shows selected and available spell slots until all are filled', () => {
   const summary = (c: Character) => renderToStaticMarkup(<SpellsSummary c={c} entries={[]} />)
