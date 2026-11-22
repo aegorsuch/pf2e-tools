@@ -30,6 +30,36 @@ it('requires a damage-changing instinct for Scouring Rage', () => {
   expect(check(prerequisite, { ...base, subclass: 'Custom' }).manual).toEqual([prerequisite])
 })
 
+it.each([
+  ['Fundamental Understanding', 'analyst paradox', 'Analyst'],
+  ['Warp Wounds', 'anomaly paradox', 'Anomaly'],
+  ['Scrub Psyche', 'Gap influenced paradox', 'Gap Influenced'],
+  ['Predictive Positioning', 'precog paradox', 'Precog'],
+])('checks %s against the selected Witchwarper paradox', (name, prerequisite, subclass) => {
+  const feat: ContentEntry = { ...entry('feat', name, { prerequisite }, 2, ['Witchwarper']), systems: ['sf2e'] }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Witchwarper', subclass, level: 2 }
+  const slot = { key: 'class:2:0', category: 'class' as const, level: 2 }
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  for (const other of [{ ...c, subclass: undefined }, { ...c, subclass: 'Invalid' },
+    { ...c, subclass: subclass === 'Analyst' ? 'Anomaly' : 'Analyst' }, { ...c, className: 'Mystic' },
+    { ...c, systems: ['pf2e'] as Character['systems'] }]) {
+    expect(featPrerequisiteChecker(other, [feat])(feat).missing).toEqual([prerequisite])
+  }
+})
+
+it('requires mastery in another paradox skill for Folded Paradoxes', () => {
+  const prerequisite = 'master in a paradox skill for a paradox other than your chosen paradox'
+  const feat: ContentEntry = { ...entry('feat', 'Folded Paradoxes', { prerequisite }, 12, ['Witchwarper']), systems: ['sf2e'] }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Witchwarper', subclass: 'Analyst', level: 12,
+    rankOverrides: { Computers: 3 } }
+  const checkFeat = (character: Character) => featPrerequisiteChecker(character, [feat])(feat)
+  expect(checkFeat(c).missing).toEqual([prerequisite])
+  expect(checkFeat({ ...c, rankOverrides: { Computers: 3, Deception: 3 } })).toEqual({ missing: [], manual: [] })
+  expect(checkFeat({ ...c, rankOverrides: { Piloting: 2 } }).missing).toEqual([prerequisite])
+  expect(checkFeat({ ...c, subclass: undefined, rankOverrides: { Piloting: 3 } }).missing).toEqual([prerequisite])
+})
+
 it('grants Fury instinct a separate first-level barbarian feat slot', () => {
   const c: Character = { ...base, level: 2, subclass: 'Fury' }
   const slot = plannedSlots(c, []).find(item => item.key === 'class:1:fury-instinct')

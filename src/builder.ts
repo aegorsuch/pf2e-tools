@@ -1068,7 +1068,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
         ancestryTraits: ancestryFeatTraits(character),
-        subclass, additionalSubclasses, fatalMethod: selectedFatalMethod(character), exocortexes: mechanicExocortexes(character),
+        subclass: character.className === 'Witchwarper' ? witchwarperParadox(character)?.name : subclass,
+        additionalSubclasses, fatalMethod: selectedFatalMethod(character), exocortexes: mechanicExocortexes(character),
         witchArmaments: activeFeatsNamed(character, "Witch's Armaments").flatMap(feat => feat.choice ? [feat.choice] : []),
         orders: character.className === 'Druid' ? [
           character.order ?? subclass ?? '',

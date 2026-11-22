@@ -1,6 +1,7 @@
 import type { Character, ContentEntry } from './types'
 import { ancestralUnarmedFeatNames } from './featChoices'
 import { ethnicityKey } from './featAccess'
+import { WITCHWARPER_PARADOXES } from './witchwarper'
 
 export interface PrerequisiteCheck {
   missing: string[]
@@ -83,7 +84,7 @@ const ROLE_CLASSES: Record<string, string> = {
   mystery: 'Oracle', methodology: 'Investigator', innovation: 'Inventor', way: 'Gunslinger',
   'hybrid study': 'Magus', 'conscious mind': 'Psychic', practice: 'Animist', eidolon: 'Summoner', style: 'Swashbuckler',
   "hunter's edge": 'Ranger', edge: 'Ranger',
-  'fatal method': 'Necromancer', 'grim fascination': 'Necromancer',
+  'fatal method': 'Necromancer', 'grim fascination': 'Necromancer', paradox: 'Witchwarper',
 }
 const ROLE_PATTERN = new RegExp(`^(.+?) (${Object.keys(ROLE_CLASSES).sort((a, b) => b.length - a.length).join('|')})$`)
 const rankPrefix = /^(untrained|trained|expert|master|legendary)\s+(?:in|with)\s+/i
@@ -271,6 +272,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (name === 'master in a paradox skill for a paradox other than your chosen paradox') {
+      const selected = WITCHWARPER_PARADOXES.find(paradox => key(paradox.name) === key(facts.subclass ?? ''))
+      const ranks = facts.buildSkillRanks ?? facts.ranks
+      return resultFor(facts.className === 'Witchwarper' && !!selected && WITCHWARPER_PARADOXES.some(paradox =>
+        paradox.name !== selected.name && (ranks[paradox.skill] ?? 0) >= 3), text)
+    }
     if (name === 'an instinct that allows you to change your additional damage from rage to a different damage type') {
       if (facts.className !== 'Barbarian' || !facts.subclass) return missing(text)
       const instinct = key(facts.subclass).replace(/ instinct$/, '')
@@ -464,6 +471,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         : knownEntries(role[1]).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[role[2]])
       if (known || role[2] === 'fatal method' && ['puppeteer', 'reaper'].includes(expected)
         || role[2] === 'grim fascination' && ['blood', 'bone', 'flesh', 'spirit'].includes(expected)
+        || role[2] === 'paradox' && WITCHWARPER_PARADOXES.some(paradox => key(paradox.name) === expected)
         || role[2] === 'cause' && Object.values(CHAMPION_CAUSE_ALIASES).includes(expected)
         || choices.some((choice) => normalize(choice) === expected)) {
         return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === expected), text)
