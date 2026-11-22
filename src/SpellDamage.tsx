@@ -128,6 +128,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Phantom Pain':
+      return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'mental',
+        additional: { label: 'Persistent damage', dice: rank, sides: 4, type: 'persistent mental' } }] : []
     case 'Eldritch Wrath':
       return rank >= 4 ? [{ label: 'Damage', dice: rank - 1, sides: 12, type: 'mental' }] : []
     case 'Slice Reality':

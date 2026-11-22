@@ -12,6 +12,28 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it.each([[1, 2, 1], [5, 10, 5], [10, 20, 10]])(
+  'rolls initial and persistent Phantom Pain damage at rank %i', (rank, initial, persistent) => {
+    const damage = spellDamage('Phantom Pain', rank)[0]
+    expect(damage).toEqual({ label: 'Damage', dice: initial, sides: 4, type: 'mental',
+      additional: { label: 'Persistent damage', dice: persistent, sides: 4, type: 'persistent mental' } })
+    expect(spellDamage('Phantom Pain', 0)).toEqual([])
+    const entry: ContentEntry = { id: 'phantom-pain', name: 'Phantom Pain', systems: ['pf2e', 'sf2e'], kind: 'spell',
+      source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+    const markup = renderToStaticMarkup(<SpellActions name="Phantom Pain" rank={rank} entry={entry} />)
+    expect(markup).toContain(`${initial}d4 mental`)
+    expect(markup).toContain(`${persistent}d4 persistent mental`)
+    const setResult = vi.fn()
+    vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+    const tree = DamageRoll({ name: 'Phantom Pain', damage })
+    const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+    if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing Phantom Pain roll button')
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    button.props.onClick()
+    expect(setResult).toHaveBeenCalledWith({ primary: initial, additional: persistent })
+  },
+)
+
 it('rolls heightened Vindicator mark damage and its dismissal separately', () => {
   expect(spellDamage("Vindicator's Mark", 0)).toEqual([])
   for (const [rank, initial, dismissal] of [[1, 2, 2], [2, 2, 2], [3, 4, 3], [9, 10, 6]]) {
