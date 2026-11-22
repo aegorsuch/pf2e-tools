@@ -49,6 +49,23 @@ it.each([
   expect(ownedWeapons({ ...c, feats: [{ ...feat, choice: undefined }] }, []).some(weapon => weapon.id.startsWith('pf2e:nephilim:'))).toBe(false)
 })
 
+it.each(['Claw', 'Hoof', 'Jaws', 'Tail'])('adds Bestial Brutality to the selected %s attack only', choice => {
+  const manifestation = { name: 'Bestial Manifestation', type: 'Ancestry Feat', level: 1, choice }
+  const brutality = { name: 'Bestial Brutality', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }
+  const c: Character = { ...base, feats: [manifestation, brutality] }
+  const attack = ownedWeapons(c, []).find(weapon => weapon.id === `pf2e:nephilim:${choice.toLowerCase()}`)!
+  expect(weaponAttack(c, [], attack).traits).toContain('Deadly d6')
+  expect(weaponAttack(c, [], attack).criticalSpecialization).toBe(true)
+  expect(weaponAttack({ ...c, level: 4 }, [], attack).traits).not.toContain('Deadly d6')
+  expect(weaponAttack({ ...c, level: 4 }, [], attack).criticalSpecialization).toBe(false)
+  const fist: OwnedWeapon = { id: 'supplemental:fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
+  expect(weaponAttack(c, [], fist).traits).not.toContain('Deadly d6')
+  expect(weaponAttack({ ...c, feats: [brutality] }, [], attack).traits).not.toContain('Deadly d6')
+  for (const displayOnly of [false, true]) {
+    expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly={displayOnly} />)).toContain('Deadly d6')
+  }
+})
+
 it('uses the unpenalized melee attack for Reactive Strike regardless of Rage', () => {
   const weapon: ContentEntry = { id: 'reactive-blade', systems: ['pf2e'], name: 'Reactive Blade', kind: 'weapon',
     source: 'official', level: 0, traits: [], description: '', effects: [], updatedAt: 0,

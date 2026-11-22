@@ -7017,6 +7017,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (entry && bestial && brutality?.attack === w.id && activeFeatsNamed(c, 'Animalistic Brutality').length
     && ANIMAL_BRUTALITY_TRAITS.some(trait => trait === brutality.trait)
     && !entry.traits.includes(brutality.trait)) entry = { ...entry, traits: [...entry.traits, brutality.trait] }
+  const nephilimBrutality = !!entry && c.systems.includes('pf2e')
+    && activeFeatsNamed(c, 'Bestial Brutality').length > 0
+    && nephilimAttacks.some(attack => attack.id === w.id
+      && activeFeatsNamed(c, 'Bestial Manifestation').some(feat => feat.choice === attack.name))
+  if (entry && nephilimBrutality) entry = { ...entry, traits: [...entry.traits, 'Deadly d6'] }
   const form = activeBattleForm(c, entries)
   const formAttack = form?.attacks.find(entry => entry.id === w.id)
   if (formAttack) entry = formAttack
@@ -7352,7 +7357,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(activeFeatsNamed(c, 'Raise Haft').length > 0 && weaponHands(entries, w, c) === 2
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
-    criticalSpecialization: !formAttack && w.id !== venomousVeskJaws.id && (hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
+    criticalSpecialization: !formAttack && w.id !== venomousVeskJaws.id && (nephilimBrutality || hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
       || c.level >= 5 && veskAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Brutal Anatomy').length > 0
