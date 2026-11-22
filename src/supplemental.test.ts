@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
-import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featChoiceOptions, gearPickerEntries, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { FeatSlots } from './FeatSlots'
 import { MinionsContent } from './MinionsSection'
@@ -407,6 +407,7 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
     id: 'homebrew:clawed-gauntlet', name: 'Clawed Gauntlet', source: 'homebrew', updatedAt: 1,
     traits: tekko.traits.filter(trait => trait !== 'Uncommon'), data: { ...tekko.data, rarity: 'common' },
   })
+
   expect(clawed.description).not.toContain('Bastet')
   expect(weaponCategory(clawed)).toBe('Martial')
   const c: Character = {
@@ -427,6 +428,33 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
   expect(c.weapons![0].runes).toEqual(['Wounding'])
   expect(homebrewWeapons([{ ...tekko, deleted: true }])).toEqual([])
   expect(homebrewWeapons([{ ...tekko, id: 'aon:pf2e:weapon-101' }])).toEqual([])
+})
+
+it('provides a martial rapid laser pistol with separate automatically improving grades', () => {
+  const laser: ContentEntry = { ...FIST, id: 'laser', name: 'Laser Pistol', systems: ['sf2e'], source: 'official',
+    kind: 'weapon', level: 0, traits: ['Tech'], data: {
+      weapon_category: 'Simple', weapon_group: 'Laser', weapon_type: 'Ranged', damage: '1d6 F',
+      hands: 1, range: 40, reload: 1, upgrade_slots: 1, weapon_ammunition: '10 charges', url: '/weapons/laser',
+    } }
+  const advanced = { ...laser, id: 'advanced-laser', name: 'Advanced Laser Pistol', level: 4,
+    data: { ...laser.data, damage: '2d6 F', weapon_tracking: 1, upgrade_slots: 2 } }
+  const homebrew = homebrewWeapons([laser, advanced])
+  const rapid = homebrew.find(entry => entry.name === 'Rapid Laser Pistol')!
+  const entries = [laser, advanced, ...homebrew]
+  expect(rapid).toMatchObject({ source: 'homebrew', traits: ['Tech', 'Agile', 'Concealable'], data: {
+    weapon_category: 'Martial', weapon_group: 'Laser', weapon_type: 'Ranged', damage: '1d6 F',
+    hands: 1, range: 40, reload: 1, upgrade_slots: 1, weapon_ammunition: '6 charges',
+  } })
+  expect(rapid.description).toContain('expends 2 charges per shot')
+  expect(gearPickerEntries(entries, 'weapon').map(entry => entry.name)).toEqual(['Laser Pistol', 'Rapid Laser Pistol'])
+  const c: Character = { ...base, level: 4, systems: ['sf2e'], className: 'Witchwarper',
+    feats: [{ name: 'Unconventional Weaponry', type: 'Ancestry Feat', level: 1, choice: rapid.name }] }
+  expect(featChoiceOptions('Unconventional Weaponry', c, entries, '')).toContain(rapid.name)
+  const attack = weaponAttack(c, entries, { id: 'owned', name: rapid.name, potency: 0, striking: 0, runes: [] })
+  expect(attack).toMatchObject({ rank: 1, damage: '2d6 F', item: 1,
+    entry: { name: 'Advanced Rapid Laser Pistol', data: { upgrade_slots: 2, weapon_ammunition: '6 charges' } } })
+  expect(weaponAttack(c, entries, { id: 'other', name: laser.name, potency: 0, striking: 0, runes: [] }).entry?.name)
+    .toBe('Advanced Laser Pistol')
 })
 
 it('provides a default fist until a different unarmed attack is available', () => {

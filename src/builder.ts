@@ -4157,8 +4157,9 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
     const resolved = weaponEntry(entries, value)
     if (/^Shobhad Longrifle(?: \((?:Pathfinder|Starfinder)\))?$/.test(value) && resolved)
       return `Shobhad Longrifle:${resolved.systems.includes('sf2e') ? 'sf2e' : 'pf2e'}`
-    if (resolved?.systems.includes('sf2e') && usesWeaponUpgrades(resolved) && resolved.data.url)
-      return `sf2e:${resolved.data.url}`
+    const family = weaponGradeFamily(resolved)
+    if (resolved?.systems.includes('sf2e') && usesWeaponUpgrades(resolved) && family)
+      return `sf2e:${family}`
     return combinationName(entries, value)
   }
   return activeFeatsNamed(c, 'Unconventional Weaponry').find(feat => !!feat.choice && identity(feat.choice) === identity(name)
@@ -6313,20 +6314,26 @@ export function clanPistolRunes(c: Character, weapon: OwnedWeapon) {
 }
 
 const weaponGradeCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
-function weaponGrades(entries: ContentEntry[], url: string) {
+export function weaponGradeFamily(entry?: ContentEntry) {
+  const family = entry?.data.weapon_grade_family ?? entry?.data.url
+  return typeof family === 'string' ? family : undefined
+}
+
+function weaponGrades(entries: ContentEntry[], family: string) {
   let groups = weaponGradeCache.get(entries)
   if (!groups) {
     groups = new Map()
     for (const entry of entries) {
-      if (entry.kind !== 'weapon' || entry.deleted || !usesWeaponUpgrades(entry) || typeof entry.data.url !== 'string') continue
-      const group = groups.get(entry.data.url) ?? []
+      const key = weaponGradeFamily(entry)
+      if (entry.kind !== 'weapon' || entry.deleted || !usesWeaponUpgrades(entry) || !key) continue
+      const group = groups.get(key) ?? []
       group.push(entry)
-      groups.set(entry.data.url, group)
+      groups.set(key, group)
     }
     for (const group of groups.values()) group.sort((a, b) => b.level - a.level)
     weaponGradeCache.set(entries, groups)
   }
-  return groups.get(url) ?? []
+  return groups.get(family) ?? []
 }
 
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
@@ -6373,11 +6380,11 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
   let entry = weaponEntry(entries, weapon.name, weapon.id)
+  const family = weaponGradeFamily(entry)
   if (c.systems.includes('sf2e') && usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed'
-    && typeof entry?.data.url === 'string') {
+    && entry && family) {
     const current = entry
-    const improved = weaponGrades(entries, entry.data.url)
-      .find(candidate => candidate.level > current.level && candidate.level <= c.level)
+    const improved = weaponGrades(entries, family).find(candidate => candidate.level > current.level && candidate.level <= c.level)
     if (improved) {
       weapon = { ...weapon, name: improved.name }
       entry = improved

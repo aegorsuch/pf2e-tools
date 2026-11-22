@@ -43,6 +43,7 @@ import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { shieldEntry } from './builder'
 import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
 import { armorUpgradeSlots, jetpackSpeed } from './builder'
+import { weaponGradeFamily } from './builder'
 export { armorUpgradeSlots } from './builder'
 
 const POTENCY = [0, 1, 2, 3]
@@ -1140,8 +1141,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         </div>
         const unarmed = weaponCategory(a.entry) === 'Unarmed'
         const upgradeWeapon = usesWeaponUpgrades(a.entry)
-        const gradeOptions = upgradeWeapon && a.entry?.data.url ? entries.filter(entry => entry.kind === 'weapon'
-          && !entry.deleted && entry.systems.includes('sf2e') && entry.data.url === a.entry?.data.url)
+        const family = weaponGradeFamily(a.entry)
+        const gradeOptions = upgradeWeapon && family ? entries.filter(entry => entry.kind === 'weapon'
+          && !entry.deleted && entry.systems.includes('sf2e') && weaponGradeFamily(entry) === family)
           .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)) : []
         const baseGradeName = upgradeWeapon ? baseItems(gradeOptions)[0]?.name : undefined
         const plainName = enhanced.name === SPARK_FIST.name ? FIST.name

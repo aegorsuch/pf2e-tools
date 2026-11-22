@@ -359,6 +359,18 @@ export const ANIMAL_FEATURES = [
 export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const base = entries.find((entry) => entry.id === 'aon:pf2e:weapon-304' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   const flyssa = entries.find((entry) => entry.id === 'aon:pf2e:weapon-285' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
+  const laser = entries.filter(entry => entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted
+    && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Laser Pistol$/.test(entry.name))
+  const rapidLaser = laser.map(entry => {
+    const grade = entry.name.replace(/Laser Pistol$/, '').trim()
+    const { url: _url, ...data } = entry.data
+    return { ...entry, id: `homebrew:rapid-laser-pistol${grade ? `:${grade.toLowerCase()}` : ''}`,
+      name: `${grade ? `${grade} ` : ''}Rapid Laser Pistol`, source: 'homebrew' as const,
+      traits: [...new Set([...entry.traits, 'Agile', 'Concealable'])],
+      description: 'A compact rapid-fire laser pistol. Its battery holds 6 charges and expends 2 charges per shot.',
+      data: { ...data, weapon_category: 'Martial', weapon_ammunition: '6 charges',
+        weapon_grade_family: 'homebrew:rapid-laser-pistol' }, updatedAt: 1 }
+  })
   return [...(base ? [{
     ...base, id: 'homebrew:clawed-gauntlet', source: 'homebrew' as const, name: 'Clawed Gauntlet',
     traits: base.traits.filter(trait => trait.toLowerCase() !== 'uncommon'),
@@ -369,7 +381,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
     description: 'A broad-backed blade with a long cutting edge and a sharp point, carried as both a tool and a close-quarters weapon.',
     updatedAt: 1,
-  }] : [])]
+  }] : []), ...rapidLaser]
 }
 
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {
