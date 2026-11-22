@@ -310,6 +310,7 @@ it.each(['Pulse Gauntlet', 'Crimson Claw'])('inherits fist and claw traits for g
     const attack = weaponAttack(c, allEntries, { ...owned, weaponMode })
     expect(attack.traits).toEqual(expect.arrayContaining(['Parry', 'Trip', 'Versatile B']))
     expect(attack.traits).not.toContain('Unarmed')
+    expect(attack.traits).not.toContain('Nonlethal')
     expect(attack.traits).not.toContain('Sweep')
     expect(attack.damage).toMatch(/^4d4/)
     if (name === 'Crimson Claw') expect(attack.damage).toContain(weaponMode === 'mode-1' ? 'fire' : 'slashing')

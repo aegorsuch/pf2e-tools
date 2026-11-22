@@ -328,7 +328,7 @@ it('derives and locks one gauntlet while eligible armor is worn, preserving inde
   expect(isLockedWeapon(c, gauntlet.name)).toBe(true)
   expect(weaponCategory(GAUNTLET)).toBe('Simple')
   expect(weaponAttack(c, [], gauntlet)).toMatchObject({
-    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Free-Hand', 'Grapple', 'Nonlethal', 'Shove'],
+    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Free-Hand', 'Grapple', 'Shove'],
   })
   const configured = { ...gauntlet, potency: 2, striking: 1, runes: ['Flaming'] }
   const saved = { ...c, weapons: [configured] }
@@ -364,7 +364,8 @@ it('inherits fist and unarmed attack traits for gauntlets', () => {
   const character = { ...base, feats: [iron], weapons: [owned(unarmed.name)] }
   for (const name of ['Gauntlet', 'Spiked Gauntlet']) {
     const attack = weaponAttack(character, entries, owned(name))
-    expect(attack.traits).toEqual(expect.arrayContaining(['Finesse', 'Nonlethal', 'Grapple', 'Trip', 'Shove']))
+    expect(attack.traits).toEqual(expect.arrayContaining(['Finesse', 'Grapple', 'Trip', 'Shove']))
+    expect(attack.traits).not.toContain('Nonlethal')
     expect(attack.traits).not.toContain('Unarmed')
     expect(attack.ability).toBe('dex')
     expect(weaponAttack({ ...character, feats: [] }, entries, owned(name)).traits).not.toContain('Shove')
@@ -373,6 +374,9 @@ it('inherits fist and unarmed attack traits for gauntlets', () => {
   expect(weaponAttack(character, entries, owned('Bladed Gauntlet')).traits)
     .toEqual(expect.arrayContaining(['Agile', 'Finesse', 'Free-Hand', 'Grapple', 'Trip', 'Shove']))
   expect(weaponAttack(character, entries, owned('Gauntlet Bow')).traits).not.toContain('Grapple')
+  const nonlethal = { ...spiked, traits: [...spiked.traits, 'Nonlethal'] }
+  expect(weaponAttack(character, [nonlethal, unarmed], owned(nonlethal.name)).traits).toContain('Nonlethal')
+  expect(weaponAttack(character, entries, owned('Fist')).traits).toContain('Nonlethal')
   const armor = { id: 'plate', name: 'Full Plate', potency: 0, resilient: 0, runes: [], worn: true }
   const wearer = { ...character, armors: [armor] }
   const gauntlet = ownedWeapons(wearer, entries).find(weapon => weapon.name === 'Gauntlet')!
@@ -389,7 +393,7 @@ it('gates gauntlet Finesse behind the Free-Hand rule without removing other or n
   try {
     updateSettings({ freeHandFinesse: false })
     expect(weaponAttack(base, [spiked], owned('Gauntlet')).traits).not.toContain('Finesse')
-    expect(weaponAttack(base, [spiked], owned('Spiked Gauntlet')).traits).toContain('Nonlethal')
+    expect(weaponAttack(base, [spiked], owned('Spiked Gauntlet')).traits).not.toContain('Nonlethal')
     expect(weaponAttack(base, [bladed], owned(bladed.name)).traits).toContain('Finesse')
     updateSettings({ freeHandFinesse: true })
     expect(weaponAttack(base, [spiked], owned('Spiked Gauntlet')).traits).toContain('Finesse')
@@ -422,7 +426,7 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
   expect(isLockedWeapon(c, 'Clawed Gauntlet', [clawed])).toBe(true)
   expect(isLockedWeapon(c, 'Gauntlet', [clawed])).toBe(false)
   expect(weaponAttack(c, [clawed], provided)).toMatchObject({ ability: 'dex', item: 0, damage: '1d4+1 slashing',
-    traits: expect.arrayContaining([...clawed.traits, 'Nonlethal']) })
+    traits: expect.arrayContaining(clawed.traits) })
   const regular: Character = { ...c, armors: c.armors!.map((armor) => ({ ...armor, gauntlet: 'Gauntlet' })) }
   const back = ownedWeapons(regular, [clawed]).find((weapon) => weapon.id === GAUNTLET.id)!
   expect(effectiveWeapon(regular, [clawed], back).runes).toEqual([])
