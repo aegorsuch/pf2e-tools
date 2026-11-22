@@ -342,6 +342,11 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       if (tenets) return missing(text)
       return name === 'tenets of good' && facts.legacyTenetsOfGood ? met() : manual(text)
     }
+    if (/^you (?:are not|aren't) sanctified with the holy or unholy trait$/.test(name)) {
+      if (facts.feats.some(feat => ['the hallowed dead', 'hallowed dead', 'the unholy dead', 'unholy dead'].includes(key(feat.name)))) return missing(text)
+      if (!facts.sanctification) return manual(text)
+      return resultFor(facts.sanctification === 'None', text)
+    }
     const forbiddenSanctification = /^you (?:aren't|are not) (holy|unholy)$/.exec(name)?.[1]
     if (forbiddenSanctification) {
       const forbiddenFeats = forbiddenSanctification === 'holy'

@@ -337,7 +337,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           if (!sanctification.required) save({ sanctification: choice })
         }}>
           {!sanctification.required && <option value="">None</option>}
-          {sanctification.options.map((option) => <option key={option}>{option}</option>)}
+          {sanctification.options.map((option) => <option key={option} disabled={c.feats.some(feat => feat.name === 'Vow of Mortal Defiance')}>{option}</option>)}
         </select>
       </label>}
       {c.className === 'Champion' && c.level >= 1 && !championCauseTenets(c.subclass) && <label>

@@ -384,6 +384,21 @@ it.each([
   expect(featSelectionPrerequisiteChecker(self, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
 })
 
+it('keeps Vow of Mortal Defiance exclusive with sanctification', () => {
+  const vow = entry('feat', 'Vow of Mortal Defiance', { prerequisite: 'You are not sanctified with the holy or unholy trait.' }, 1, ['Exemplar'])
+  const soul = entry('feat', 'Sanctified Soul', {}, 1, ['Exemplar'])
+  const entries = [vow, soul]
+  const slot = { key: 'class:2:0', category: 'class' as const, level: 2 }
+  const c: Character = { ...base, className: 'Exemplar', level: 2, feats: [] }
+  expect(featPrerequisiteChecker(c, entries)(vow)).toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...c, sanctification: 'Holy' }, entries)(vow).missing).toHaveLength(1)
+  expect(featPrerequisiteChecker({ ...c, sanctification: 'Unholy' }, entries)(vow).missing).toHaveLength(1)
+  for (const [chosen, blocked] of [[vow, soul], [soul, vow]]) {
+    const character = { ...c, feats: [{ ...selected(chosen.name), slot: 'class:1:0', choice: chosen === soul ? 'Holy' : undefined }] }
+    expect(eligibleFeats(entries, character, slot, { includeUnmetPrerequisites: true })).not.toContain(blocked)
+  }
+})
+
 it('uses Sanctified Soul variants for sanctification prerequisites', () => {
   const holy = entry('feat', 'Holy Only', { prerequisite: 'You are holy.' }, 1)
   const unholy = entry('feat', 'Unholy Only', { prerequisite: 'You are unholy.' }, 1)

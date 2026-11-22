@@ -1053,7 +1053,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
 const PREREQUISITE_EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed'],
   ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']]
 const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS,
-  ['The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead']]
+  ['The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead'],
+  ['Vow of Mortal Defiance', 'Sanctified Soul', 'The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead']]
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
 const MECHANIC_EXOCORTEXES = ['Drone', 'Mine', 'Turret']
 
