@@ -23,7 +23,7 @@ export interface PrerequisiteFacts {
   exocortexes?: string[]
   witchArmaments?: string[]
   orders: string[]
-  feats: { name: string; level: number; category?: string }[]
+  feats: { name: string; level: number; category?: string; sourceId?: string }[]
   features: string[]
   ranks: Record<string, number>
   buildSkillRanks?: Record<string, number>
@@ -374,6 +374,15 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     }
     if (facts.className === 'Champion' && name === "champion's aura") return resultFor(level >= 1, text)
     if (facts.className === 'Champion' && name === 'devotion spells') return resultFor(level >= 1, text)
+    if (name === 'any nephilim lineage feat') {
+      const selectedSources = facts.feats.map(feat => feat.sourceId
+        ? knownEntries(feat.name).filter(entry => entry.kind === 'feat' && entry.id === feat.sourceId)
+        : featPrerequisiteSources(entries, { ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds }))
+      const lineage = (entry: ContentEntry) => ['nephilim', 'lineage'].every(required =>
+        entry.traits.some(trait => key(trait) === required))
+      if (selectedSources.some(sources => sources.length && sources.every(lineage))) return met()
+      return selectedSources.some(sources => !sources.length || sources.some(lineage)) ? manual(text) : missing(text)
+    }
     if (name === 'any feat with the oath trait') {
       const selectedSources = facts.feats.map(feat => featPrerequisiteSources(entries, {
         ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds,

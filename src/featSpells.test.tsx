@@ -407,13 +407,49 @@ it.each([
   for (const name of names) expect(markup).toContain(name)
 })
 
-it('grants both Fiendish Magic pairs when multiple named fiendish lineages are active', () => {
+it('uses only the first-level lineage for Fiendish Magic', () => {
   const source = feat('Fiendish Magic', 'Choose two spells.', 9)
   const spells = ['Paranoia', 'Shatter', 'False Vitality', 'See the Unseen'].map(name => entry(name, 'spell'))
   const c: Character = { ...base, level: 9, feats: [taken('Pitborn'), taken('Grimspawn', 5), taken(source.name, 9)] }
-  expect(grantedFeatSpells(c, [source, ...spells]).map(grant => grant.entry.name)).toEqual(spells.map(spell => spell.name))
+  expect(grantedFeatSpells(c, [source, ...spells]).map(grant => grant.entry.name)).toEqual(['Paranoia', 'Shatter'])
   expect(grantedFeatSpells({ ...c, feats: c.feats.filter(feat => feat.name !== 'Pitborn') }, [source, ...spells])
-    .map(grant => grant.entry.name)).toEqual(['False Vitality', 'See the Unseen'])
+    .map(grant => grant.entry.name)).toEqual([])
+  const custom: ContentEntry = { ...entry('Custom Lineage', 'feat'), traits: ['Nephilim', 'Lineage'] }
+  const customFirst = { ...c, feats: [taken(custom.name), taken('Pitborn', 5), taken(source.name, 9)] }
+  expect(grantedFeatSpells(customFirst, [source, custom, ...spells])).toEqual([])
+})
+
+it.each([
+  ['Angelkin', ['Clear Mind', 'Humanoid Form']],
+  ['Lawbringer', ['Everlight', 'Share Life']],
+  ['Musetouched', ['Revealing Light', 'Sure Footing']],
+] as const)('grants Celestial Magic spells for first-level %s', (lineage, names) => {
+  const source = feat('Celestial Magic', 'Choose two spells.', 9)
+  const spells = names.map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 9, feats: [taken(lineage), taken(source.name, 9), taken('Pitborn', 5)] }
+  const grants = grantedFeatSpells(c, [source, ...spells])
+  expect(grants.map(grant => grant.entry.name)).toEqual(names)
+  expect(grants).toMatchObject(names.map(name => ({ entry: { name }, rank: 2,
+    rule: { kind: 'innate', tradition: 'divine', frequency: 'once per day' } })))
+  expect(grants.map(grant => dailyInnateUses(c, grant)?.limit)).toEqual([1, 1])
+})
+
+it.each([
+  ['Angelkin', 'Summon Celestial'], ['Lawbringer', 'Summon Celestial'], ['Musetouched', 'Summon Celestial'],
+  ['Grimspawn', 'Summon Fiend'], ['Hellspawn', 'Summon Fiend'], ['Pitborn', 'Summon Fiend'],
+  ['Faultspawn', 'Summon Fiend'], ['Aeonbound', 'Summon Monitor'], ['Battleblooded', 'Summon Monitor'], ['Proteankin', 'Summon Monitor'],
+] as const)('grants %s lineage %s from Summon Nephilim Kin', (lineage, name) => {
+  const source = feat('Summon Nephilim Kin', 'Summon an extraplanar creature.', 13)
+  const spell = { ...entry(name, 'spell'), level: 5 }
+  const c: Character = { ...base, level: 13, feats: [taken(lineage), taken('Pitborn', 5), taken(source.name, 13)] }
+  const grants = grantedFeatSpells(c, [source, spell])
+  expect(grants).toMatchObject([{ entry: { name }, source: source.name, rank: 5,
+    rule: { kind: 'innate', tradition: 'divine', frequency: 'once per day', fixedRank: true } }])
+  expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
+  expect(unresolvedFeatSpells(c, [source]).map(item => item.name)).toEqual([name])
+  expect(featSpellOptions(c, [source, spell], c.feats[2])).toBeUndefined()
+  expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
+  expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [source, spell])).toEqual([])
 })
 
 it.each(['Grimspawn', 'Pitborn', 'Hellspawn'])('allows Fiendish Magic with %s prerequisite', lineage => {

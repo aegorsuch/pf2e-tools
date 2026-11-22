@@ -23,11 +23,33 @@ const FIENDISH_MAGIC_SPELLS: Record<string, string[]> = {
   Pitborn: ['Paranoia', 'Shatter'],
   Hellspawn: ['Invisibility', 'Disguise Magic'],
 }
+const CELESTIAL_MAGIC_SPELLS: Record<string, string[]> = {
+  Angelkin: ['Clear Mind', 'Humanoid Form'],
+  Lawbringer: ['Everlight', 'Share Life'],
+  Musetouched: ['Revealing Light', 'Sure Footing'],
+}
+const NEPHILIM_SUMMONS: Record<string, string> = {
+  Angelkin: 'Summon Celestial', Lawbringer: 'Summon Celestial', Musetouched: 'Summon Celestial',
+  Grimspawn: 'Summon Fiend', Hellspawn: 'Summon Fiend', Pitborn: 'Summon Fiend', Faultspawn: 'Summon Fiend',
+  Aeonbound: 'Summon Monitor', Battleblooded: 'Summon Monitor', Proteankin: 'Summon Monitor',
+}
 
-function fiendishMagicSpells(c: Character) {
-  if (!c.systems.includes('pf2e')) return []
-  return [...new Set(c.feats.filter(feat => featTakenLevel(feat) <= c.level)
-    .flatMap(feat => FIENDISH_MAGIC_SPELLS[feat.name] ?? []))]
+function originalNephilimLineage(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || c.level < 1) return undefined
+  return c.feats.find(feat => {
+    if (featTakenLevel(feat) !== 1) return false
+    const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+    return source ? ['nephilim', 'lineage'].every(required => source.traits.some(trait => trait.toLowerCase() === required))
+      : !feat.sourceId && Object.hasOwn(NEPHILIM_SUMMONS, feat.name)
+  })?.name
+}
+
+function nephilimFeatSpells(c: Character, entries: ContentEntry[], name: string) {
+  const lineage = originalNephilimLineage(c, entries)
+  if (!lineage) return []
+  if (name === 'Fiendish Magic') return FIENDISH_MAGIC_SPELLS[lineage] ?? []
+  if (name === 'Celestial Magic') return CELESTIAL_MAGIC_SPELLS[lineage] ?? []
+  return NEPHILIM_SUMMONS[lineage] ? [NEPHILIM_SUMMONS[lineage]] : []
 }
 
 const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()
@@ -204,6 +226,7 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 }
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
+  if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
   if (feat.name in WITCH_LESSON_RANKS) return witchLessonOptions(c, entries, feat)
   if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e')
@@ -399,12 +422,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 1, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
-    if (feat.name === 'Fiendish Magic') {
-      for (const name of fiendishMagicSpells(c)) {
+    if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) {
+      for (const name of nephilimFeatSpells(c, entries, feat.name)) {
         const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
         if (entry) out.push({ entry, source: feat.name,
           rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'once per day', fixedRank: true },
-          rank: 2, usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
+          rank: feat.name === 'Summon Nephilim Kin' ? 5 : 2,
+          usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
       }
       continue
     }
@@ -782,8 +806,8 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       return c.systems.includes('pf2e') && choice && EXTRAPLANAR_SUPPLICATION_SPELLS.includes(choice)
         && !matchingSpells(entries, choice).some(entry => entry.systems.includes('pf2e')) ? [{ name: choice, source }] : []
     }
-    if (feat.name === 'Fiendish Magic') {
-      return fiendishMagicSpells(c).filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('pf2e')))
+    if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) {
+      return nephilimFeatSpells(c, entries, feat.name).filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('pf2e')))
         .map(name => ({ name, source }))
     }
     const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined

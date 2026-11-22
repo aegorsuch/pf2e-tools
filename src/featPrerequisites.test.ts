@@ -121,6 +121,36 @@ it('requires the Tusks feat for Demonblood Frenzy', () => {
   expect(featPrerequisiteChecker(orc, [], 5)(frenzy).missing).toEqual([prerequisite])
 })
 
+it('checks Summon Nephilim Kin against selected Nephilim lineage feats', () => {
+  const prerequisite = 'any nephilim lineage feat'
+  const summon = entry('feat', 'Summon Nephilim Kin', { prerequisite }, 13, ['Nephilim'])
+  const pitborn = entry('feat', 'Pitborn', {}, 1, ['Nephilim', 'Lineage'])
+  const custom = entry('feat', 'Custom Lineage', {}, 1, ['Nephilim', 'Lineage'])
+  const otherLineage = entry('feat', 'Other Lineage', {}, 1, ['Elf', 'Lineage'])
+  const otherNephilim = entry('feat', 'Nephilim Lore', {}, 1, ['Nephilim'])
+  const entries = [summon, pitborn, custom, otherLineage, otherNephilim]
+  const c: Character = { ...base, level: 13, ancestry: 'Human', heritage: 'Nephilim' }
+  const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
+  const result = (character: Character, content = entries) => featSelectionPrerequisiteChecker(character, content, slot)(summon)
+  expect(result(c)).toEqual({ missing: [prerequisite], manual: [] })
+  expect(eligibleFeats(entries, c, slot)).not.toContain(summon)
+  for (const lineage of [pitborn, custom]) {
+    const withLineage = { ...c, feats: [{ ...selected(lineage.name), type: 'Ancestry Feat', sourceId: lineage.id }] }
+    expect(result(withLineage)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats(entries, withLineage, slot)).toContain(summon)
+  }
+  for (const other of [otherLineage, otherNephilim]) {
+    expect(result({ ...c, feats: [selected(other.name)] })).toEqual({ missing: [prerequisite], manual: [] })
+  }
+  expect(featPrerequisiteChecker({ ...c, feats: [selected('Pitborn', 15)] }, entries, 13)(summon))
+    .toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Pitborn', 15)] })).toEqual({ missing: [], manual: [] })
+  expect(result({ ...c, feats: [selected('Unknown Feat')] })).toEqual({ missing: [], manual: [prerequisite] })
+  const differentSource = { ...otherLineage, id: 'alternate', name: pitborn.name }
+  const selectedOther = { ...c, feats: [{ ...selected(pitborn.name), sourceId: differentSource.id }] }
+  expect(result(selectedOther, [...entries, differentSource])).toEqual({ missing: [prerequisite], manual: [] })
+})
+
 it('requires a damage-changing instinct for Scouring Rage', () => {
   const prerequisite = 'an instinct that allows you to change your additional damage from Rage to a different damage type'
   for (const subclass of ['Dragon', 'Spirit', 'Elemental'])

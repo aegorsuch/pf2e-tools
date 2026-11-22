@@ -1133,6 +1133,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         feats: character.feats.map((feat) => ({
           name: feat.name, level: featTakenLevel(feat),
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
+          sourceId: feat.sourceId,
         })),
         get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
           ...fatalMethodGrants(character).features,
