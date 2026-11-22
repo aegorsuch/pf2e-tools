@@ -334,6 +334,21 @@ it('shows Galloping Launch range only for thrown weapons and an earned feat', ()
     .not.toContain('Galloping Launch')
 })
 
+it.each([false, true])('shows effective thrown range in traits without a separate range (offense %s)', displayOnly => {
+  const javelin = content('weapon', 'Javelin', { weapon_type: 'Melee', weapon_category: 'Simple', thrown_range: 30, damage: '1d6 piercing' }, 0, ['Thrown'])
+  const dart = content('weapon', 'Dart', { weapon_type: 'Ranged', weapon_category: 'Simple', range: 20, damage: '1d4 piercing' }, 0, ['Thrown 20 feet'])
+  const bow = content('weapon', 'Bow', { weapon_type: 'Ranged', weapon_category: 'Martial', range: 60, damage: '1d6 piercing' })
+  const render = (entry: ContentEntry, feats: Character['feats'] = []) => renderToStaticMarkup(<WeaponList
+    c={{ ...base, feats, weapons: [{ ...main, name: entry.name }] }} entries={[entry]} save={() => {}} displayOnly={displayOnly} />)
+  expect(render(javelin)).toContain('>Thrown 30</button>')
+  expect(render(javelin, [feat('Strong Arm', 2)])).toContain('>Thrown 40</button>')
+  expect(render(javelin)).not.toContain('Thrown range')
+  expect(render(dart)).toContain('>Thrown 20</button>')
+  expect(render(dart)).not.toContain('Range</small><b>20 feet')
+  expect(render(dart)).not.toContain('Range 20 feet')
+  expect(render(bow)).toContain(displayOnly ? 'Range 60 feet' : 'Range</small><b>60 feet')
+})
+
 it("shows Cavalier's Charge as a conditional attack bonus", () => {
   const c: Character = { ...base, level: 4, feats: [feat("Cavalier's Charge", 4)], weapons: [main] }
   const attack = weaponAttack(c, [sword], main)
@@ -1799,10 +1814,11 @@ it('imports thrown range and applies Strong Arm to playing card daggers', async 
   expect(weaponAttack(c, [dagger], card)).toMatchObject({ thrownRange: 20, range: 0, ability: 'dex' })
   expect(weaponAttack({ ...c, feats: [c.feats[0]] }, [dagger], card).thrownRange).toBe(10)
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} />)
-  expect(html).toContain('<small>Thrown range</small><b>20 feet</b>')
+  expect(html).toContain('>Thrown 20</button>')
+  expect(html).not.toContain('<small>Thrown range</small>')
   expect(html).not.toContain('+10 feet (Strong Arm)')
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} displayOnly />))
-    .toContain('Thrown range 20 feet')
+    .toContain('>Thrown 20</button>')
   const parameterized = { ...dagger, traits: ['Thrown 30 feet'], data: { ...dagger.data, thrown_range: 0 } }
   expect(weaponAttack(c, [parameterized], card).thrownRange).toBe(40)
 })

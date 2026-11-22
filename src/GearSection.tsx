@@ -1064,6 +1064,17 @@ function GallopingLaunchNote({ c, range }: { c: Character; range: number }) {
     note={`For this Strike, range increment ${range + 15} feet, or ${range + 20} feet if your mount's Speed is at least 40 feet. You must be mounted and your mount must have moved closer to your prey this round.`} />
 }
 
+function WeaponTraits({ c, attack, entries }: { c: Character; attack: ReturnType<typeof weaponAttack>; entries: ContentEntry[] }) {
+  const thrown = attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
+  const range = thrown ? attack.thrownRange || attack.range : 0
+  const traits = range ? attack.traits.map(trait => /^thrown(?:\s|$)/i.test(trait.trim()) ? `Thrown ${range}` : trait) : attack.traits
+  return <>
+    <GearTraits traits={traits} entries={entries} system={attack.entry?.systems[0]} />
+    {range > 0 && <GallopingLaunchNote c={c} range={range} />}
+    {thrown && !range && attack.thrownRangeBonus > 0 && <SourceNote source="Strong Arm" note={`Thrown range increases by ${attack.thrownRangeBonus} feet.`} />}
+  </>
+}
+
 export function WeaponList({ c, entries, save, displayOnly = false, additionalWeapons = [], showAddWeapon = !displayOnly }:
   SectionProps & { displayOnly?: boolean; additionalWeapons?: OwnedWeapon[]; showAddWeapon?: boolean }) {
   const intensified = intensifiedElementDamage(c, entries)
@@ -1471,7 +1482,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
             {summary.form && <small>{summary.form}:</small>}
-            <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
+            <WeaponTraits c={c} attack={summary.attack} entries={entries} />
           </div>)}
           {!upgradeWeapon && !fixed && <Runes
             runes={activeRunes.filter(rune => !activeFreeRunes.some(free => runeName(free.name) === runeName(rune)))}
@@ -1481,12 +1492,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           <AttackUpgrades attack={a} />
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
-          {attackSummaries.map(summary => summary.attack.thrownRange > 0 && <small key={`${summary.form ?? 'weapon'}-thrown-range`}>
-            {summary.form ? `${summary.form} thrown range` : 'Thrown range'} {summary.attack.thrownRange} feet
-            <GallopingLaunchNote c={c} range={summary.attack.thrownRange} /></small>)}
-          {attackSummaries.map(summary => summary.attack.range > 0 && <small key={`${summary.form ?? 'weapon'}-range`}>
-            {summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet
-            {summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait)) && <GallopingLaunchNote c={c} range={summary.attack.range} />}</small>)}
+          {attackSummaries.map(summary => summary.attack.range > 0 && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
+            && <small key={`${summary.form ?? 'weapon'}-range`}>{summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
           {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
         </div>
         return (
@@ -1543,23 +1550,17 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {summary.form && <strong>{summary.form} form</strong>}
               <div className="gear-stats">
                 <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
-                {summary.attack.range > 0 && <span><small>Range</small><b>{summary.attack.range} feet
-                  {summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait)) && <GallopingLaunchNote c={c} range={summary.attack.range} />}
-                  </b></span>}
+                {summary.attack.range > 0 && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
+                  && <span><small>Range</small><b>{summary.attack.range} feet</b></span>}
                 {summary.attack.reach > 0 && <span><small>Reach</small><b>{summary.attack.reach} feet</b></span>}
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
                   DC {area.dc} Reflex, {area.shape}
                   <SourceNote source={summary.attack.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></span>)}
-                {summary.attack.thrownRange > 0 && <span><small>Thrown range</small><b>{summary.attack.thrownRange} feet
-                  <GallopingLaunchNote c={c} range={summary.attack.thrownRange} />
-                  </b></span>}
-                {summary.attack.thrownRangeBonus > 0 && !summary.attack.range && !summary.attack.thrownRange
-                  && <span><small>Thrown range</small>+{summary.attack.thrownRangeBonus} feet (Strong Arm)</span>}
                 <span><small>{summary.attack.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(summary.attack.mod)}</span>
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>
               </div>
-              {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
+              {summary.attack.traits.length > 0 && <WeaponTraits c={c} attack={summary.attack} entries={entries} />}
             </div>)}
             {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
