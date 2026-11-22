@@ -9,6 +9,8 @@ import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
+import { GearSystemFilter } from './GearSystemFilter'
+import type { GearSystem } from './gearSystem'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
@@ -133,6 +135,75 @@ function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search
   if (control?.props['aria-selected'] === false && typeof control.props.onClick === 'function') control.props.onClick()
   return tree
 }
+
+it.each(['weapon', 'armor', 'shield'] as const)('filters %s by system while respecting enabled systems', kind => {
+  const entries: ContentEntry[] = [
+    { ...weapon, kind, id: 'pf', name: 'Pathfinder Gear', systems: ['pf2e'] },
+    { ...weapon, kind, id: 'sf', name: 'Starfinder Gear', systems: ['sf2e'] },
+    { ...weapon, kind, id: 'shared', name: 'Shared Gear', systems: ['pf2e', 'sf2e'] },
+  ]
+  const render = (system: GearSystem, systems: Character['systems']) => {
+    function InspectSearch() {
+      const tree = OpenGearSearch({ c: { ...character([]), systems }, entries, save: () => {}, kind,
+        label: 'Add Gear', onPick: () => {} })
+      const filter = findElement(tree, element => element.type === GearSystemFilter)
+      if (filter && filter.props.value !== system) (filter.props.onChange as (value: GearSystem) => void)(system)
+      return tree
+    }
+    return renderToStaticMarkup(<InspectSearch />)
+  }
+  for (const [system, visible] of [
+    ['both', ['Pathfinder Gear', 'Starfinder Gear', 'Shared Gear']],
+    ['pf2e', ['Pathfinder Gear', 'Shared Gear']],
+    ['sf2e', ['Starfinder Gear', 'Shared Gear']],
+  ] as const) {
+    const markup = render(system, ['pf2e', 'sf2e'])
+    for (const entry of entries) expect(markup.includes(`>${entry.name}</button>`)).toBe(visible.some(name => name === entry.name))
+  }
+  const single = render('both', ['pf2e'])
+  expect(single).toContain('>Pathfinder Gear</button>')
+  expect(single).toContain('>Shared Gear</button>')
+  expect(single).not.toContain('>Starfinder Gear</button>')
+  expect(render('sf2e', ['pf2e'])).toContain(`No ${kind}s match.`)
+})
+
+it('resets gear pagination when the system changes', () => {
+  const entries = Array.from({ length: 125 }, (_, index): ContentEntry => ({
+    ...weapon, id: `armor-system-${index}`, kind: 'armor', systems: ['sf2e'],
+    name: `System Armor ${String(index).padStart(3, '0')}`, data: { armor_category: 'Light', ac: 1 },
+  }))
+  function InspectSearch() {
+    const tree = OpenGearSearch({ c: { ...character([]), systems: ['pf2e', 'sf2e'] }, entries,
+      save: () => {}, kind: 'armor', label: 'Add Armor', onPick: () => {} })
+    const filter = findElement(tree, element => element.type === GearSystemFilter)
+    const more = findElement(tree, element => element.type === 'button'
+      && Array.isArray(element.props.children) && element.props.children[0] === 'Show more (')
+    if (filter?.props.value === 'both' && more) (more.props.onClick as () => void)()
+    else if (filter?.props.value === 'both' && !more) (filter.props.onChange as (value: GearSystem) => void)('sf2e')
+    return tree
+  }
+  const markup = renderToStaticMarkup(<InspectSearch />)
+  expect(markup).toContain('System Armor 099')
+  expect(markup).not.toContain('System Armor 100')
+  expect(markup).toContain('Show more (25 left)')
+})
+
+it('preserves the first saved-by-name gear record when filtering duplicates', () => {
+  const entries: ContentEntry[] = [
+    { ...weapon, name: 'Duplicate', description: 'Pathfinder version' },
+    { ...weapon, id: 'sf-duplicate', name: 'Duplicate', systems: ['sf2e'], description: 'Starfinder version' },
+  ]
+  function InspectSearch() {
+    const tree = OpenGearSearch({ c: { ...character([]), systems: ['pf2e', 'sf2e'] }, entries,
+      save: () => {}, kind: 'weapon', label: 'Add Weapon', onPick: () => {} })
+    const filter = findElement(tree, element => element.type === GearSystemFilter)
+    if (filter?.props.value === 'both') (filter.props.onChange as (value: GearSystem) => void)('sf2e')
+    return tree
+  }
+  const markup = renderToStaticMarkup(<InspectSearch />)
+  expect(markup).not.toContain('Starfinder version')
+  expect(markup).not.toContain('>Duplicate</button>')
+})
 
 it('pages gear results and resets the page when searching', () => {
   const entries = Array.from({ length: 125 }, (_, index): ContentEntry => ({

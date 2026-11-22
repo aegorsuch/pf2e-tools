@@ -12,6 +12,8 @@ import { FeatSlots } from './FeatSlots'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { armorClass, isSpellActive, spellActiveChange, subclassOptions } from './builder'
+import { GearSystemFilter } from './GearSystemFilter'
+import type { GearSystem } from './gearSystem'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -736,6 +738,49 @@ it('reuses equipment group filtering while typing a search', () => {
     expect(markup).not.toContain('Azure Hat')
     expect(fits).toHaveBeenCalledTimes(2)
   } finally { fits.mockRestore() }
+})
+
+it.each([undefined, 'Boots'] as const)('filters equipment by system with category %s', category => {
+  const base: ContentEntry = { id: 'pf', name: 'Azure Pathfinder Boots', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: '', data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [base,
+    { ...base, id: 'sf', name: 'Azure Starfinder Boots', systems: ['sf2e'] },
+    { ...base, id: 'shared', name: 'Azure Shared Boots', systems: ['pf2e', 'sf2e'] },
+    { ...base, id: 'hat', name: 'Azure Pathfinder Hat', data: { usage: 'worn headwear' } },
+    { ...base, id: 'other', name: 'Other Boots' },
+  ]
+  const c: Character = { id: 'systems', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (system: GearSystem, systems: Character['systems']) => {
+    function InspectSearch() {
+      const tree = EquipmentSearch({ c: { ...c, systems }, entries, save: () => {}, category })
+      Children.forEach(tree.props.children, row => {
+        if (!isValidElement<{ children?: ReactNode }>(row)) return
+        Children.forEach(row.props.children, child => {
+          if (!isValidElement<Record<string, unknown>>(child)) return
+          if (child.type === 'input' && child.props.value !== 'azure')
+            (child.props.onChange as (event: unknown) => void)({ target: { value: 'azure' } })
+          if (child.type === GearSystemFilter && child.props.value !== system)
+            (child.props.onChange as (value: GearSystem) => void)(system)
+        })
+      })
+      return tree
+    }
+    return renderToStaticMarkup(<InspectSearch />)
+  }
+  for (const [system, visible] of [
+    ['both', ['Azure Pathfinder Boots', 'Azure Starfinder Boots', 'Azure Shared Boots']],
+    ['pf2e', ['Azure Pathfinder Boots', 'Azure Shared Boots']],
+    ['sf2e', ['Azure Starfinder Boots', 'Azure Shared Boots']],
+  ] as const) {
+    const markup = render(system, c.systems)
+    for (const entry of entries.slice(0, 3)) expect(markup.includes(`aria-label="Add ${entry.name}"`)).toBe(visible.some(name => name === entry.name))
+    expect(markup).not.toContain('Add Other Boots')
+    expect(markup.includes('Add Azure Pathfinder Hat')).toBe(!category && system !== 'sf2e')
+  }
+  expect(render('both', ['pf2e'])).not.toContain('Add Azure Starfinder Boots')
+  expect(render('sf2e', ['pf2e'])).toContain('No matching')
 })
 
 it('lists every tattoo beyond the previous forty-result cutoff', () => {

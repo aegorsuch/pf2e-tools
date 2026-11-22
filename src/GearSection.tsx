@@ -19,6 +19,8 @@ import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
+import { GearSystemFilter } from './GearSystemFilter'
+import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus, isFeatEffectActive } from './builder'
@@ -345,8 +347,10 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   const [picked, setPicked] = useState<Record<string, string>>({})
   const [limit, setLimit] = useState(GEAR_SEARCH_PAGE)
   const [sort, setSort] = useState<PickerSortOrder>('name')
-  const pickerEntries = useMemo(() => !open || kind !== 'weapon' ? entries
-    : entries.filter(entry => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries)), [c, entries, kind, open])
+  const [system, setSystem] = useState<GearSystem>('both')
+  const pickerEntries = useMemo(() => !open ? entries : entries.filter(entry =>
+    matchesGearSystem(entry, 'both', c.systems)
+    && (kind !== 'weapon' || entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries))), [c, entries, kind, open])
   const pool = useMemo(() => open ? gearPickerEntries(pickerEntries, kind).map(entry => {
     const displayName = equipmentDisplayName(specificMagicItemName(entry))
     return {
@@ -365,15 +369,16 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
     const unique = new Map<string, ContentEntry>()
     for (const { entry, searchText } of tabPool) {
       if (query && !searchText.includes(query)) continue
+      if (!matchesGearSystem(entry, system, c.systems)) continue
       if (!FILTERS[kind].every(filter => !picked[filter.label] || filter.values(entry).includes(picked[filter.label]))) continue
       const key = kind === 'weapon' ? combinationName(entries, entry.name) : entry.name
       if (!unique.has(key)) unique.set(key, entry)
     }
     return sortPickerOptions([...unique.values()], sort,
       entry => equipmentDisplayName(specificMagicItemName(entry)), entry => entry.level)
-  }, [entries, kind, picked, query, tabPool, sort])
+  }, [entries, kind, picked, query, tabPool, sort, system, c.systems])
   if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
-  const close = () => { setOpen(false); setQ(''); setPicked({}); setLimit(GEAR_SEARCH_PAGE) }
+  const close = () => { setOpen(false); setQ(''); setPicked({}); setSystem('both'); setLimit(GEAR_SEARCH_PAGE) }
   return (
     <div className="col gear-picker">
       <div className="gear-tabs" role="tablist">
@@ -383,6 +388,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
         ))}
       </div>
       <div className="gear-filters">
+        <GearSystemFilter value={system} onChange={value => { setSystem(value); setLimit(GEAR_SEARCH_PAGE) }} />
         {filters.filter((f) => f.options.length > 0).map((f) => (
           <SearchableSelect key={f.label} aria-label={f.label} value={picked[f.label] ?? ''}
             onChange={(e) => { setPicked({ ...picked, [f.label]: e.target.value }); setLimit(GEAR_SEARCH_PAGE) }}>

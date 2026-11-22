@@ -7,6 +7,8 @@ import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
+import { GearSystemFilter } from './GearSystemFilter'
+import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
@@ -224,6 +226,7 @@ function AncestryDetails({ entry }: { entry: ContentEntry }) {
 export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<PickerSortOrder>('name')
+  const [system, setSystem] = useState<GearSystem>('both')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
   const active = !!query.trim() || !!category
   const candidates = useMemo(() => active ? entries.filter(entry => entry.kind === 'item'
@@ -245,17 +248,19 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
     for (const candidate of candidates) {
       const { entry, key, searchName, searchDisplay } = candidate
       if (q && !searchName.includes(q) && !searchDisplay.includes(q)) continue
+      if (!matchesGearSystem(entry, system, c.systems)) continue
       const previous = unique.get(key)?.entry
       if (!previous || owned.has(entry.name) || !owned.has(previous.name)
         && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, candidate)
     }
     return sortPickerOptions([...unique.values()], sort, candidate => candidate.displayName, candidate => candidate.entry.level)
       .map(candidate => candidate.entry)
-  }, [candidates, query, c.equipment, sort])
+  }, [candidates, query, c.equipment, c.systems, sort, system])
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
         autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
+      <GearSystemFilter value={system} onChange={setSystem} />
       <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`} value={sort} onChange={setSort} />
       {onClose && <button type="button" onClick={onClose}>Cancel</button>}
     </div>
