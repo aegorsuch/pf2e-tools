@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { languageAllowance, languageGroups, migrateAncestralLinguistics, type SectionProps } from './builder'
+import { isCommonStarfinderRegionalLanguage, languageAllowance, languageGroups, migrateAncestralLinguistics, type SectionProps } from './builder'
 
 export function LanguagesSection({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const { locked, slots, sources, commonOnlySlots } = languageAllowance(c, entries)
   const groups = languageGroups(entries, c.systems)
-  const common = new Set((groups.Common ?? []).map(([language]) => language.toLowerCase()))
+  const common = new Set([...groups.Common ?? [], ...groups.Regional.filter(([language]) =>
+    isCommonStarfinderRegionalLanguage(language, c.systems))].map(([language]) => language.toLowerCase()))
   const lockedKeys = new Set(locked.map((l) => l.toLowerCase()))
   const listed = new Set(Object.values(groups).flat().map(([l]) => l.toLowerCase()))
   const migration = migrateAncestralLinguistics(c)
@@ -40,7 +41,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
               const on = isLocked || picked.some((l) => l.toLowerCase() === lang.toLowerCase())
               return (
                 <tr key={lang}><td><label>
-                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && (left <= 0 || category !== 'Common' && unrestrictedLeft <= 0))} onChange={() => toggle(lang)} /> {lang} {sources[lang.toLowerCase()] && <small>({sources[lang.toLowerCase()]})</small>}
+                  <input type="checkbox" checked={on} disabled={isLocked || grantOnly.has(lang.toLowerCase()) || (!on && (left <= 0 || !common.has(lang.toLowerCase()) && unrestrictedLeft <= 0))} onChange={() => toggle(lang)} /> {lang} {sources[lang.toLowerCase()] && <small>({sources[lang.toLowerCase()]})</small>}
                 </label></td><td>{who}</td></tr>
               )
             })}

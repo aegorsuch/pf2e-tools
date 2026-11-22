@@ -7453,7 +7453,10 @@ const RARITY_ORDER = ['Common', 'Uncommon', 'Secret', 'Rare']
 const STARFINDER_LANGUAGES: Record<string, [string, string][]> = {
   Common: [
     ['Common', 'Humans, most citizens of the Pact Worlds'], ['Kasatha', 'Kasathas, inhabitants of Kasath or the Idari'],
-    ['Pahtra', 'Pahtras'], ['Akitonian', 'Akiton (shobhads, ysoki)'],
+    ['Pahtra', 'Pahtras'],
+  ],
+  Regional: [
+    ['Akitonian', 'Akiton (shobhads, ysoki)'],
     ['Brethedan', 'Bretheda, Liavara, and their moons (barathus, kalos, maraquoi)'],
     ['Castrovelian', 'Castrovel (lashuntas and formians)'], ['Diasporan', 'Diaspora (sarcesians)'],
     ['Draconic', 'Triaxus (dragons, dragonkin, ryphorians)'], ['Eoxian', 'Eox (elebrians)'],
@@ -7467,6 +7470,10 @@ const STARFINDER_LANGUAGES: Record<string, [string, string][]> = {
     ['Shadowtongue', 'Netherworld creatures'], ['Sussuran', 'Air elemental creatures, flying creatures'],
     ['Talican', 'Metal elemental creatures'], ['Thalassic', 'Aquatic creatures, water elemental creatures'],
   ],
+}
+
+export function isCommonStarfinderRegionalLanguage(name: string, systems: GameSystem[]) {
+  return systems.includes('sf2e') && STARFINDER_LANGUAGES.Regional.some(([language]) => language.toLowerCase() === name.toLowerCase())
 }
 
 export function languageGroups(entries: ContentEntry[], systems: GameSystem[] = ['pf2e']): Record<string, [string, string][]> {
@@ -7485,7 +7492,7 @@ export function languageGroups(entries: ContentEntry[], systems: GameSystem[] = 
         const index = groups[existingCategory].findIndex(([value]) => value.toLowerCase() === name.toLowerCase())
         const previous = groups[existingCategory][index][1]
         const combined = systems.includes('pf2e') && previous !== speakers ? `${previous}; ${speakers}` : speakers
-        if (!systems.includes('pf2e') && existingCategory !== category) {
+        if (existingCategory !== category && (!systems.includes('pf2e') || category === 'Regional')) {
           groups[existingCategory].splice(index, 1)
           ;(groups[category] ??= []).push([name, combined])
         } else groups[existingCategory][index] = [name, combined]
@@ -7504,7 +7511,7 @@ export function languageGroups(entries: ContentEntry[], systems: GameSystem[] = 
     ;(groups[rarity] ??= []).push([e.name, who])
   }
   for (const list of Object.values(groups)) list.sort((a, b) => a[0].localeCompare(b[0]))
-  const order = ['Common', 'Uncommon', 'Regional', 'Secret', 'Rare']
+  const order = ['Common', 'Regional', 'Uncommon', 'Secret', 'Rare']
   return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => {
     const ai = order.indexOf(a), bi = order.indexOf(b)
     return (ai < 0 ? order.length : ai) - (bi < 0 ? order.length : bi) || a.localeCompare(b)

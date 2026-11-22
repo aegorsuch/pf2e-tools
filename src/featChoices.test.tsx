@@ -367,10 +367,13 @@ it('shows Starfinder speakers and allows common regional languages in common-onl
     feats: [{ name: "Officer's Education", type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
   const markup = renderToStaticMarkup(<LanguagesSection c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Akiton (shobhads, ysoki)')
+  expect(markup).toMatch(/<legend>Regional Languages<\/legend>[\s\S]*?\/> Akitonian/)
   expect(markup).toContain('Kasathas, inhabitants of Kasath or the Idari')
   expect(markup).toMatch(/<input type="checkbox"\/> Akitonian/)
   expect(markup).toMatch(/<input type="checkbox" disabled="".*?\/> Orcish/)
   expect(markup).toContain('>Undead</td>')
+  const chosen = renderToStaticMarkup(<LanguagesSection c={{ ...c, languages: ['Akitonian'] }} entries={[]} save={() => {}} />)
+  expect(chosen).toMatch(/<input type="checkbox"\/> Orcish/)
 })
 
 it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {

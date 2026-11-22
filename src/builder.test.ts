@@ -2182,7 +2182,7 @@ describe('languageAllowance', () => {
 describe('languageGroups', () => {
   it('keeps listed speakers and regional languages while including other synced languages', () => {
     const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' }), entry('language', 'Sussuran', { rarity: 'Secret' }), entry('language', 'Anadi', { rarity: 'Secret' })]
-    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Uncommon', 'Regional', 'Secret', 'Rare'])
+    expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Regional', 'Uncommon', 'Secret', 'Rare'])
     expect(languageGroups(synced).Secret.map(([n]) => n)).toEqual(['Wildsong'])
     expect(languageGroups(synced).Rare.map(([n]) => n)).toEqual(['Anadi'])
     expect(languageGroups(synced).Uncommon).toContainEqual(['Sussuran', 'Air elemental creatures, flying creatures'])
@@ -2201,7 +2201,10 @@ describe('languageGroups', () => {
     const groups = languageGroups(synced, ['sf2e'])
     expect(groups.Common).toEqual(expect.arrayContaining([
       ['Common', 'Humans, most citizens of the Pact Worlds'], ['Kasatha', 'Kasathas, inhabitants of Kasath or the Idari'],
-      ['Pahtra', 'Pahtras'], ['Akitonian', 'Akiton (shobhads, ysoki)'],
+      ['Pahtra', 'Pahtras'],
+    ]))
+    expect(groups.Regional).toEqual(expect.arrayContaining([
+      ['Akitonian', 'Akiton (shobhads, ysoki)'],
       ['Brethedan', 'Bretheda, Liavara, and their moons (barathus, kalos, maraquoi)'],
       ['Castrovelian', 'Castrovel (lashuntas and formians)'], ['Diasporan', 'Diaspora (sarcesians)'],
       ['Draconic', 'Triaxus (dragons, dragonkin, ryphorians)'], ['Eoxian', 'Eox (elebrians)'],
@@ -2215,10 +2218,12 @@ describe('languageGroups', () => {
       ['Shadowtongue', 'Netherworld creatures'], ['Sussuran', 'Air elemental creatures, flying creatures'],
       ['Talican', 'Metal elemental creatures'], ['Thalassic', 'Aquatic creatures, water elemental creatures'],
     ]))
-    expect(groups.Common.filter(([name]) => name === 'Akitonian')).toHaveLength(1)
+    expect(groups.Regional.filter(([name]) => name === 'Akitonian')).toHaveLength(1)
+    expect(groups.Common.some(([name]) => name === 'Akitonian' || name === 'Draconic')).toBe(false)
     expect(groups.Common.some(([name]) => name === 'Orcish')).toBe(false)
     const both = languageGroups(synced, ['pf2e', 'sf2e'])
-    expect(both.Common).toContainEqual(['Draconic', 'Dragons, reptilian humanoids; Triaxus (dragons, dragonkin, ryphorians)'])
+    expect(both.Regional).toContainEqual(['Draconic', 'Dragons, reptilian humanoids; Triaxus (dragons, dragonkin, ryphorians)'])
+    expect(both.Common.some(([name]) => name === 'Draconic')).toBe(false)
     expect(both.Common.filter(([name]) => name === 'Orcish')).toHaveLength(1)
     expect(both.Uncommon.some(([name]) => name === 'Orcish')).toBe(false)
     expect(languageGroups([], ['pf2e']).Common.some(([name]) => name === 'Akitonian')).toBe(false)
