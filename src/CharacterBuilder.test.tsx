@@ -7,6 +7,7 @@ import { fetchAonHits } from './aonQuery'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
+import * as equipmentGroups from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
 import { armorClass, isSpellActive, spellActiveChange, subclassOptions } from './builder'
 
@@ -675,6 +676,38 @@ it('opens item details from saved equipment names without changing the stack', (
     expect(markup).toContain('x2')
     expect(JSON.stringify(c)).toBe(before)
   } finally { content.entries = [] }
+})
+
+it('reuses equipment group filtering while typing a search', () => {
+  const boots: ContentEntry = { id: 'boots', name: 'Azure Boots', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: '', data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }
+  const hat: ContentEntry = { ...boots, id: 'hat', name: 'Azure Hat', data: { usage: 'worn headwear' } }
+  const c: Character = { id: 'equipment-search', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries = [boots, hat]
+  const fits = vi.spyOn(equipmentGroups, 'equipmentFitsGroup')
+  function InspectSearch() {
+    const tree = EquipmentSearch({ c, entries, save: () => {}, category: 'Boots' })
+    const findInput = (node: ReactNode): { value?: string; onChange?: (event: unknown) => void } | undefined => {
+      let found: { value?: string; onChange?: (event: unknown) => void } | undefined
+      Children.forEach(node, child => {
+        if (found || !isValidElement<{ children?: ReactNode; value?: string; onChange?: (event: unknown) => void }>(child)) return
+        found = child.type === 'input' ? child.props : findInput(child.props.children)
+      })
+      return found
+    }
+    const input = findInput(tree)!
+    if (input.value === '') input.onChange!({ target: { value: 'az' } })
+    else if (input.value === 'az') input.onChange!({ target: { value: 'azu' } })
+    return tree
+  }
+  try {
+    const markup = renderToStaticMarkup(<InspectSearch />)
+    expect(markup).toContain('Azure Boots')
+    expect(markup).not.toContain('Azure Hat')
+    expect(fits).toHaveBeenCalledTimes(2)
+  } finally { fits.mockRestore() }
 })
 
 it('lists every tattoo beyond the previous forty-result cutoff', () => {

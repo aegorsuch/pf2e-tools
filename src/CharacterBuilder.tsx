@@ -222,23 +222,32 @@ function AncestryDetails({ entry }: { entry: ContentEntry }) {
 export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
+  const active = !!query.trim() || !!category
+  const candidates = useMemo(() => active ? entries.filter(entry => entry.kind === 'item'
+    && !isCompanionEquipmentItem(entry) && (!category || equipmentFitsGroup(entry, category))).map(entry => {
+    const displayName = equipmentDisplayName(entry.name)
+    return {
+      entry,
+      displayName,
+      searchName: entry.name.replace(/[\u2018\u2019]/g, "'").toLowerCase(),
+      searchDisplay: displayName.toLowerCase(),
+      key: entry.source === 'official' && entry.data.url
+        ? `${entry.systems.join(',')}:${entry.data.url}:${entry.level}:${displayName}` : entry.id,
+    }
+  }) : [], [active, category, entries])
   const matches = useMemo(() => {
     const q = query.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
-    if (!q && !category) return []
-    const candidates = entries.filter(e => e.kind === 'item' && !isCompanionEquipmentItem(e)
-        && (!q || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(e.name)].some(name => name.toLowerCase().includes(q)))
-        && (!category || equipmentFitsGroup(e, category)))
     const owned = new Set(c.equipment.map(item => item.name))
-    const unique = new Map<string, ContentEntry>()
-    for (const entry of candidates) {
-      const key = entry.source === 'official' && entry.data.url
-        ? `${entry.systems.join(',')}:${entry.data.url}:${entry.level}:${equipmentDisplayName(entry.name)}` : entry.id
-      const previous = unique.get(key)
+    const unique = new Map<string, typeof candidates[number]>()
+    for (const candidate of candidates) {
+      const { entry, key, searchName, searchDisplay } = candidate
+      if (q && !searchName.includes(q) && !searchDisplay.includes(q)) continue
+      const previous = unique.get(key)?.entry
       if (!previous || owned.has(entry.name) || !owned.has(previous.name)
-        && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, entry)
+        && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, candidate)
     }
-    return [...unique.values()].sort((a, b) => equipmentDisplayName(a.name).localeCompare(equipmentDisplayName(b.name)))
-  }, [entries, query, category, c.equipment])
+    return [...unique.values()].sort((a, b) => a.displayName.localeCompare(b.displayName)).map(candidate => candidate.entry)
+  }, [candidates, query, c.equipment])
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
