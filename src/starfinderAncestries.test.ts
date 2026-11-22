@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -95,6 +95,34 @@ it('inherits the Vesk tail on a newly added graded Tailblade from the real catal
   expect(weaponAttack(c, allEntries, blade).traits).toEqual(expect.arrayContaining(['Sweep', 'Trip', 'Versatile B']))
   expect(tailbladeInheritance(c, allEntries, blade).replacedTailIds).toContain('sf2e:vesk:tail')
   expect(weaponAttack(c, allEntries, blade).damage).toContain('4d4')
+})
+
+it.each(['Pulse Gauntlet', 'Crimson Claw'])('inherits fist and claw traits for graded %s', name => {
+  const weapons = mapAonHits(hits.filter(hit => new RegExp(`\\b${name}\\b`, 'i').test(String(hit._source?.name))), 'sf2e')
+  const claw: ContentEntry = { id: 'natural-claw', name: 'Natural Claw', kind: 'weapon', systems: ['sf2e'], source: 'official',
+    level: 1, traits: ['Unarmed', 'Parry', 'Trip'], description: '', effects: [], updatedAt: 0,
+    data: { weapon_category: 'Unarmed', weapon_type: 'Melee', damage: '1d6 slashing', granted_by_feat: 'Natural Claw' } }
+  const tail: ContentEntry = { ...claw, id: 'natural-tail', name: 'Natural Tail', traits: ['Unarmed', 'Sweep'],
+    data: { ...claw.data, granted_by_feat: 'Natural Tail' } }
+  const owned: OwnedWeapon = { id: 'weapon', name, potency: 0, striking: 0, runes: [], stowed: true }
+  const c: Character = { ...base, level: 20, className: 'Soldier', weapons: [owned],
+    feats: [{ name: 'Natural Claw', type: 'Ancestry Feat', level: 1 }, { name: 'Natural Tail', type: 'Ancestry Feat', level: 1 }] }
+  const allEntries = [...weapons, claw, tail]
+  for (const weaponMode of name === 'Crimson Claw' ? ['mode-1', 'mode-2'] : [undefined]) {
+    const attack = weaponAttack(c, allEntries, { ...owned, weaponMode })
+    expect(attack.traits).toEqual(expect.arrayContaining(['Parry', 'Trip', 'Versatile B']))
+    expect(attack.traits).not.toContain('Unarmed')
+    expect(attack.traits).not.toContain('Sweep')
+    expect(attack.damage).toMatch(/^4d4/)
+    if (name === 'Crimson Claw') expect(attack.damage).toContain(weaponMode === 'mode-1' ? 'fire' : 'slashing')
+  }
+  expect(hasParryWeapon(c, allEntries)).toBe(true)
+  const withoutClaw = { ...c, feats: [] }
+  expect(weaponAttack(withoutClaw, allEntries, owned).traits).toContain('Versatile B')
+  expect(weaponAttack(withoutClaw, allEntries, owned).traits).not.toContain('Parry')
+  expect(weaponAttack({ ...c, level: 1, feats: [{ name: 'Natural Claw', type: 'Ancestry Feat', level: 5 }] },
+    allEntries, owned).traits).not.toContain('Parry')
+  expect(ownedWeapons(c, allEntries).map(weapon => weapon.name)).toContain('Natural Claw')
 })
 
 it('applies heritage senses and Vesk movement and tail without stacking duplicate tails', () => {
