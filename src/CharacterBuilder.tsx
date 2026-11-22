@@ -688,6 +688,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         <summary className="character-section-summary">
           <strong>Class</strong>
           <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
+          <RageToggle {...section} summary />
         </summary>
         <div className="character-section-content">
           <div className="row">
@@ -872,7 +873,6 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         <summary className="character-section-summary">
           <strong>Offense</strong>
           <span>{weaponCount} Weapons, {handsUsed}/{handLimit} Hands</span>
-          <RageToggle {...section} summary />
         </summary>
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />

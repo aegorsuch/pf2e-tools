@@ -2295,6 +2295,29 @@ const emptyRanger = (): Character => ({
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 })
 
+it.each([
+  ["Giant's Lunge", 14],
+  ['Desperate Wrath', 16],
+  ['Come and Get Me', 10],
+  ["Giant's Stature", 6],
+] as const)('shows %s controls in an action dialog', (name, level) => {
+  const feat: ContentEntry = {
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level,
+    traits: ['Barbarian'], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 1,
+  }
+  const c: Character = {
+    ...emptyRanger(), className: 'Barbarian', level: 20, raging: true,
+    extraSlots: [{ category: 'class', level: 20, count: 1 }],
+    feats: [{ name, type: 'Class Feat', level, slot: 'class:20:0' }],
+  }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} save={() => {}} categories={['class']} />)
+    .replaceAll('&#x27;', "'")
+  expect(markup).toContain(`aria-label="${name} options"`)
+  expect(markup).toContain('<dialog')
+  if (name === "Giant's Stature") expect(markup).toContain('aria-label="Giant\'s Stature size"')
+  else expect(markup).toContain(`aria-label="${name} active"`)
+})
+
 it('preserves dormant Ancestral Paragon choices during edits and removes the child only when its granting feat is removed', () => {
   let c: Character = { ...emptyRanger(), ancestry: 'Elf',
     feats: [

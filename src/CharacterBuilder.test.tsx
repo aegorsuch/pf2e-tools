@@ -525,7 +525,7 @@ it('shows ancestry-specific Lore in Skills and feat-adjusted Bulk limits inside 
   } finally { content.entries = [] }
 })
 
-it('keeps equipment editing separate from offensive attack summaries', () => {
+it('offers weapon creation in both Equipment and Offense sections', () => {
   const c: Character = {
     id: 'equipment', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -540,7 +540,7 @@ it('keeps equipment editing separate from offensive attack summaries', () => {
   for (const name of ['Arrows', 'Bolts', 'Bullets']) expect(equipment).toContain(`<h4>${name}</h4>`)
   expect(offense).toContain('1 Weapon')
   expect(offense).toContain('Fist')
-  expect(offense).not.toContain('Add Weapon')
+  expect(offense).toContain('Add Weapon')
 })
 
 it('shows synced inventory counts and shared hand usage in Equipment and Offense headers', () => {
@@ -571,17 +571,21 @@ it.each([
   { className: 'Ranger', dedicationLevel: 2, visible: true },
   { className: 'Ranger', dedicationLevel: undefined, visible: false },
   { className: 'Ranger', dedicationLevel: 6, visible: false },
-])('puts eligible Rage control in Offense header: $className, dedication $dedicationLevel', ({ className, dedicationLevel, visible }) => {
+])('puts eligible Rage control in Class header: $className, dedication $dedicationLevel', ({ className, dedicationLevel, visible }) => {
   content.entries = []
   const c: Character = { id: 'rage-header', systems: ['pf2e'], name: 'Test', level: 4, className, raging: true,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: dedicationLevel === undefined ? [] : [{ name: 'Barbarian Dedication', type: 'Archetype Feat', level: dedicationLevel }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const classSection = markup.slice(markup.indexOf('<strong>Class</strong>'), markup.indexOf('<strong>Defense</strong>'))
+  const classHeader = classSection.slice(0, classSection.indexOf('</summary>'))
   const offense = markup.slice(markup.indexOf('<strong>Offense</strong>'), markup.indexOf('<strong>Skill Feats</strong>'))
-  const header = offense.slice(0, offense.indexOf('</summary>'))
-  expect(header.includes('aria-label="Rage active" checked=""')).toBe(visible)
-  expect(offense.slice(offense.indexOf('</summary>'))).not.toContain('aria-label="Rage active"')
+  const defense = markup.slice(markup.indexOf('<strong>Defense</strong>'), markup.indexOf('<strong>Deity</strong>'))
+  expect(classHeader.includes('aria-label="Rage active" checked=""')).toBe(visible)
+  expect(classSection.slice(classSection.indexOf('</summary>'))).not.toContain('aria-label="Rage active"')
+  expect(offense).not.toContain('aria-label="Rage active"')
+  expect(defense).not.toContain('aria-label="Rage active"')
 })
 
 it('orders equipment groups alphabetically and separates grafts and tattoos from other equipment', () => {

@@ -16,7 +16,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -5597,9 +5597,10 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>) {
 }
 
 export function armorEntry(c: Character, entries: ContentEntry[], name: string, armorId?: string) {
-  return characterArmorGrants(c, entries).find(entry => entry.name === name && (!armorId || entry.id === armorId))
-    ?? byName(entries, 'armor', name)
-    ?? namedArmorEntries(entries).find(entry => entry.name === name)
+  const resolvedName = name === 'Ancestral Embrace' ? 'Ancestral Embrace Hide Armor' : name
+  return characterArmorGrants(c, entries).find(entry => entry.name === resolvedName && (!armorId || entry.id === armorId))
+    ?? byName(entries, 'armor', resolvedName)
+    ?? namedArmorEntries(entries).find(entry => entry.name === resolvedName)
 }
 
 function characterArmorGrants(c: Character, entries: ContentEntry[]) {
@@ -5635,8 +5636,10 @@ export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[]
     .filter((e): e is ContentEntry => !!e)
     .sort((a, b) => num(b.data.ac) + (namedArmorEnhancements(b)?.potency ?? 0)
       - num(a.data.ac) - (namedArmorEnhancements(a)?.potency ?? 0))[0]
-  const saved = c.armors ?? c.equipment.filter((g) => armorEntry(c, entries, g.name))
-    .map((g) => ({ id: `eq-${g.name}`, name: g.name, potency: 0, resilient: 0, runes: [], worn: g.name === best?.name }))
+  const saved = c.armors ?? c.equipment.flatMap((g) => {
+    const entry = armorEntry(c, entries, g.name)
+    return entry ? [{ id: `eq-${g.name}`, name: entry.name, potency: 0, resilient: 0, runes: [], worn: entry.name === best?.name }] : []
+  })
   const ordinary = saved.filter(armor => !isGrantedArmor(armor.id))
     .map(armor => effectiveArmor(c, entries, canWearWithAttachedArmor(armor, attached) ? armor : { ...armor, worn: false }))
   const generated = grants.map(entry => {
@@ -5684,9 +5687,14 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
         : !automaticRunes.some(automaticRune => runeBaseName(automaticRune) === runeBaseName(rune))), ...automaticRunes] : [] }
   }
   const material = scaledMaterial(isWoodArmor(entries, armor) ? 'Duskwood' : armor.material, c.level, 'Armor')
-  const named = namedArmorEnhancements(armorEntry(c, entries, armor.name, armor.id))
-  if (named) return { ...armor, material, potency: Math.max(armor.potency, named.potency),
-    resilient: Math.max(armor.resilient, named.resilient), runes: [...new Set([...named.runes, ...armor.runes])] }
+  const namedEntry = armorEntry(c, entries, armor.name, armor.id)
+  const named = namedArmorEnhancements(namedEntry)
+  if (named) {
+    const runes = [...new Set([...named.runes, ...armor.runes])]
+    const runeLimit = namedArmorRuneLimit(namedEntry)
+    return { ...armor, material, potency: Math.max(armor.potency, named.potency),
+      resilient: Math.max(armor.resilient, named.resilient), runes: runeLimit === undefined ? runes : runes.slice(0, runeLimit) }
+  }
   return material === armor.material ? armor : { ...armor, material }
 }
 
@@ -6323,6 +6331,19 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
   return (['Light', 'Medium', 'Heavy'] as const).find((cat) => new RegExp(`\\b${cat.toLowerCase()}\\b`).test(text)) ?? (/unarmored/.test(text) || !entry ? 'Unarmored' : 'Light')
 }
 
+function inheritedGauntletTraits(c: Character, entries: ContentEntry[]) {
+  const activeCharacter = { ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= c.level) }
+  const unarmed = [
+    { id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] },
+    ...ownedWeapons(activeCharacter, entries)
+      .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed'),
+  ]
+  return [...new Set(unarmed.flatMap(weapon => {
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
+    return entry?.traits ?? (weapon.id === FIST.id ? FIST.traits : [])
+  }).filter(trait => !/^(?:unarmed|free[- ]hand)$/i.test(trait.trim())))]
+}
+
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean } = {}) {
   const upgrades = installedWeaponUpgrades(c, entries, w)
   w = effectiveWeapon(c, entries, w)
@@ -6401,10 +6422,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const mechanicMods = c.className === 'Mechanic' && c.systems.includes('sf2e') && weaponCategory(entry) !== 'Unarmed'
     ? c.mechanicWeaponMods?.[w.id] : undefined
   if (entry && !isRanged(entry)) {
+    const gauntlet = w.id === GAUNTLET.id || ARMOR_GAUNTLETS.some(name => name === w.name)
     const shield = getSettings().bucklerMeleeFinesse ? shieldAttachmentSource(c, w) : undefined
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
     const added = [
-      ...(getSettings().gauntletFinesse && /^(?:spiked )?gauntlet$/i.test(entry.name.trim()) ? ['Finesse'] : []),
+      ...(gauntlet ? inheritedGauntletTraits(c, entries) : []),
       ...(shield?.attachedWeapon && isBucklerShield(shield.name) ? ['Finesse'] : []),
       ...(/\bgauntlets?\b/i.test(entry.name) && c.feats.some(feat => /^Iron Fists?$/i.test(feat.name)
         && featTakenLevel(feat) <= c.level) ? ['Shove'] : []),

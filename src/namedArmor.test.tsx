@@ -27,6 +27,7 @@ const embrace = item('Ancestral Embrace', [
   '**Activate** <actions string="Two Actions" /> command, Interact; **Frequency** once per day; **Effect** The armor casts avatar; Speed 70 feet.',
   '**Destruction** Six generations.',
 ].join('\n\n'), { resistances: 'negative=25', url: '/Equipment.aspx?ID=1528' })
+const hideEmbraceName = 'Ancestral Embrace Hide Armor'
 const bane = item("Slithermaw's Bane", [
   '**Base Armor** [Chain Shirt](/Armor.aspx?ID=6)', '---',
   'This suit of _[+2 greater resilient ](/Equipment.aspx?ID=2804) [elven chain](/Equipment.aspx?ID=2801)_ grants poison resistance 10.',
@@ -72,20 +73,20 @@ const owned = (name: string): OwnedArmor => ({ id: name, name, potency: 0, resil
 const shield: OwnedShield = { id: 'scale', name: scale.name, hardness: 0, hp: 0, raised: false, damage: 8 }
 
 it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Perception bonus', () => {
-  const c = { ...character, armors: [owned(embrace.name)] }
+  const c = { ...character, armors: [owned(hideEmbraceName)] }
   expect(effectiveArmor(c, entries, c.armors[0]).runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)'])
   expect(perceptionItemBonus(c, entries)).toBe(3)
   expect(perceptionItemBonus({ ...c, armors: [{ ...c.armors[0], worn: false }] }, entries)).toBe(0)
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
-  expect(html).toContain('>Ancestral Embrace Leather Armor</button>')
-  expect(html).toContain('<small>This +4 major resilient leather armor grants negative resistance 25 when invested.</small>')
+  expect(html).toContain('>Ancestral Embrace Hide Armor</button>')
+  expect(html).toContain('major resilient hide armor grants negative resistance 25')
   expect(html).not.toContain('<summary>Summary')
   expect(html).toContain('<summary>Activation')
   expect(html).toContain('Moonweave (Major)')
   expect(html).toContain('Sunweave (Major)')
   expect(html).not.toContain('aria-label="Remove Moonweave (Major) rune"')
   expect(html).not.toContain('aria-label="Remove Sunweave (Major) rune"')
-  expect(c.armors[0].name).toBe('Ancestral Embrace')
+  expect(c.armors[0].name).toBe(hideEmbraceName)
   expect(c.armors[0].runes).toEqual([])
 })
 
@@ -100,12 +101,13 @@ it('shows ordinary armor descriptions without a Summary toggle', () => {
 it('derives named armor bases, fundamental runes, elven construction, and immutable source metadata', () => {
   const before = JSON.stringify(entries)
   expect(gearPickerEntries(entries, 'armor').filter(entry => entry.data.named_armor).map(entry => entry.name))
-    .toEqual([embrace.name, 'Ancestral Embrace Hide Armor', bane.name, artifact.name])
-  expect(armorEntry(character, entries, embrace.name)?.data).toMatchObject({
-    ac: 1, dex_cap: 4, named_armor_potency: 4, named_armor_resilient: 3, url: embrace.data.url, price: '',
+    .toEqual([hideEmbraceName, bane.name, artifact.name])
+  expect(armorEntry(character, entries, hideEmbraceName)?.data).toMatchObject({
+    ac: 3, dex_cap: 2, named_armor_potency: 4, named_armor_resilient: 3,
+    named_armor_rune_limit: 3, url: embrace.data.url, price: '',
   })
 
-  expect(effectiveArmor(character, entries, owned(embrace.name))).toMatchObject({ potency: 4, resilient: 3 })
+  expect(effectiveArmor(character, entries, owned(hideEmbraceName))).toMatchObject({ potency: 4, resilient: 3 })
   expect(effectiveArmor(character, entries, owned(bane.name))).toMatchObject({ potency: 2, resilient: 2 })
   const upgraded = { ...owned(artifact.name), potency: 4, runes: ['Shadow', 'Fortification (Greater)'] }
   expect(effectiveArmor(character, entries, upgraded)).toMatchObject({
@@ -158,7 +160,7 @@ it('automatically applies Great Shield Mastery while eligible shields are raised
 })
 
 it('applies passive armor defenses only while worn, including legacy equipment-only saves', () => {
-  for (const [name, damage, value, resilient] of [[embrace.name, 'Negative', 25, 3], [bane.name, 'Poison', 10, 2], [artifact.name, 'Poison', 15, 3]] as const) {
+  for (const [name, damage, value, resilient] of [[hideEmbraceName, 'Negative', 25, 3], [bane.name, 'Poison', 10, 2], [artifact.name, 'Poison', 15, 3]] as const) {
     const c = { ...character, armors: [owned(name)], equipment: [{ name, qty: 1 }] }
     expect(resistances(c, entries)).toEqual([{ damage, value, source: name }])
     expect(resistances({ ...c, armors: [{ ...owned(name), worn: false }] }, entries)).toEqual([])
@@ -170,11 +172,11 @@ it('applies passive armor defenses only while worn, including legacy equipment-o
     expect(armorClass(legacy, entries)).toBe(armorClass(c, entries))
   }
   const legacy = { ...character, equipment: [{ name: bane.name, qty: 1 }, { name: embrace.name, qty: 1 }] }
-  expect(ownedArmors(legacy, entries).find(armor => armor.worn)?.name).toBe(embrace.name)
+  expect(ownedArmors(legacy, entries).find(armor => armor.worn)?.name).toBe(hideEmbraceName)
 })
 
 it('keeps situational effects manual and exposes source activations in expandable armor, shield, and mask details', () => {
-  const c = { ...character, armors: [owned(embrace.name), { ...owned(artifact.name), worn: false }], shield }
+  const c = { ...character, armors: [owned(hideEmbraceName), { ...owned(artifact.name), worn: false }], shield }
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('Potency <b>+4</b>')
   expect(html).toContain('Built into Slithermaw')
@@ -186,7 +188,7 @@ it('keeps situational effects manual and exposes source activations in expandabl
   expect(html).not.toContain('tracked manually')
   expect(html).toContain('Hardness 20; Hit Points 160; Broken Threshold 80')
   expect(html).toContain('Recover 4 HP (start of wielder’s turn)')
-  expect(namedArmorAbilities(armorEntry(c, entries, embrace.name)).map(ability => ability.actions))
+  expect(namedArmorAbilities(armorEntry(c, entries, hideEmbraceName)).map(ability => ability.actions))
     .toEqual([undefined, 'Free Action', 'Free Action', 'Two Actions', undefined])
   expect(namedArmorAbilities(armorEntry(c, entries, bane.name)).find(ability => ability.name === 'Terrain Adaptation')?.paragraphs.join(' '))
     .toContain('10 minutes')
@@ -215,20 +217,24 @@ it('uses source shield durability and preserves saved base stats without materia
   expect(makeNamedShieldEntry([{ ...scale, description: 'Unavailable rules.' }], scale.name)).toBeUndefined()
 })
 
-it('keeps Ancestral Embrace names fixed, made of Grisantian Hide, with a Hide Armor variant', () => {
+it('keeps only artifact Ancestral Embrace Hide Armor with a three-property-rune cap', () => {
   const armors = makeNamedArmorEntries(entries, [fortification, greaterFortification])
-  const leatherEmbrace = armors.find(a => a.name === 'Ancestral Embrace')!
-  const hideEmbrace = armors.find(a => a.name === 'Ancestral Embrace Hide Armor')!
-  expect(leatherEmbrace.data.named_armor_base).toBe('Leather Armor')
+  expect(armors.filter(a => a.name.includes('Ancestral Embrace')).map(a => a.name)).toEqual([hideEmbraceName])
+  const hideEmbrace = armors.find(a => a.name === hideEmbraceName)!
   expect(hideEmbrace.data.named_armor_base).toBe('Hide Armor')
   expect(hideEmbrace.data.named_armor_material).toBe('Orichalcum')
-  expect(String(hideEmbrace.data.named_armor_runes).split(';')).toContain('Fortification (Greater)')
-  expect(String(leatherEmbrace.data.named_armor_runes)).not.toContain('Fortification')
-  expect(leatherEmbrace.description).not.toMatch(/brightly colored/i)
+  expect(hideEmbrace.traits).toContain('Artifact')
+  expect(String(hideEmbrace.data.named_armor_runes).split(';')).toEqual([
+    'Moonweave (Major)', 'Sunweave (Major)',
+  ])
+  expect(hideEmbrace.description).not.toMatch(/brightly colored/i)
   expect(hideEmbrace.description).not.toMatch(/leather armor|brightly colored/i)
-  const c = { ...character, armors: [{ ...owned('Ancestral Embrace Hide Armor'), material: 'Grisantian Hide' as const }] }
+  const c = { ...character, armors: [{ ...owned(hideEmbraceName), material: 'Grisantian Hide' as const }] }
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
-  expect(html).toContain('>Ancestral Embrace Hide Armor</button>')
+  expect(html).toContain(`>${hideEmbraceName}</button>`)
+  expect(html).toContain('aria-label="Add property rune"')
+  expect(effectiveArmor(c, entries, { ...c.armors[0], runes: ['Shadow', 'Acid Resistant'] }).runes)
+    .toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Shadow'])
 })
 
 it("labels Slithermaw's Bane as an Elven Chain Shirt", () => {

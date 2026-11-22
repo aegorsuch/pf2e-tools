@@ -35,7 +35,7 @@ import { armorModifications, armorModificationOptions, armorModificationSlots, t
 import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
-import { namedArmorEnhancements } from './namedArmor'
+import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { shieldEntry } from './builder'
 import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
@@ -1024,12 +1024,13 @@ function GallopingLaunchNote({ c, range }: { c: Character; range: number }) {
     note={`For this Strike, range increment ${range + 15} feet, or ${range + 20} feet if your mount's Speed is at least 40 feet. You must be mounted and your mount must have moved closer to your prey this round.`} />
 }
 
-export function WeaponList({ c, entries, save, displayOnly = false, additionalWeapons = [] }:
-  SectionProps & { displayOnly?: boolean; additionalWeapons?: OwnedWeapon[] }) {
+export function WeaponList({ c, entries, save, displayOnly = false, additionalWeapons = [], showAddWeapon = !displayOnly }:
+  SectionProps & { displayOnly?: boolean; additionalWeapons?: OwnedWeapon[]; showAddWeapon?: boolean }) {
   const intensified = intensifiedElementDamage(c, entries)
   if (!displayOnly && activeBattleForm(c, entries)) return <WeaponList
     c={withoutBattleForm(c)} entries={entries} save={save} />
-  const weapons = [...ownedWeapons(c, entries), ...additionalWeapons]
+  const savedWeapons = ownedWeapons(c, entries)
+  const weapons = [...savedWeapons, ...additionalWeapons]
   const gauntlet = armorGauntlet(c, entries)
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
   const saveWeapons = (next: OwnedWeapon[], extra?: Partial<Character>) => save({
@@ -1086,8 +1087,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         {unknownHands ? 'Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'
           : `Unequip weapons to use at most ${handLimit} hands in total.`}
       </small>}
-      {!displayOnly && <Search c={c} save={save} entries={entries} kind="weapon" label="Add Weapon"
-        onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
+      {showAddWeapon && <Search c={c} save={save} entries={entries} kind="weapon" label="Add Weapon"
+        onPick={(e) => saveWeapons([...savedWeapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
         const capacity = a.entry?.data.named_weapon_no_ammunition ? 0 : weaponCapacity(a.entry)
@@ -1810,10 +1811,15 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
         const modifications = a.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
         const capacity = modifications.some(mod => mod.name === 'Rune Capacity') ? 1 : 0
-        const runeLimit = (potency: number, material: OwnedArmor['material']) => maxPropertyRunes(potency, material, capacity > 0)
+        const namedRuneLimit = namedArmorRuneLimit(entry)
+        const runeLimit = (potency: number, material: OwnedArmor['material']) => {
+          const limit = maxPropertyRunes(potency, material, capacity > 0)
+          return namedRuneLimit === undefined ? limit : Math.min(limit, namedRuneLimit)
+        }
         const starfinder = granted && sf2eArmor ? entry : undefined
-        const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus) : a.potency
         const named = namedArmorEnhancements(entry)
+        const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus)
+          : namedRuneLimit !== undefined ? Math.max(a.potency, named?.potency ?? 0) : a.potency
         const automaticRunes = automaticArmorPropertyRunes(entry)
         const fixedRunes = [...(named?.runes ?? []), ...automaticRunes]
         const automatic = named ?? (granted ? automaticArmorFundamentals(c.level, entry) : { potency: 0, resilient: 0 })
@@ -1940,7 +1946,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               options={bonyPlates ? [] : propertyRunes(entries, 'Armor').filter(rune => !fixedRunes.includes(rune.name)
                 && (a.id !== ARMIGER_ARMOR_ID || !automaticRunes.some(fixed => runeBaseName(fixed) === runeBaseName(rune.name)))
                 && (a.id !== BONY_PLATES_ID || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune.name))))}
-              limit={bonyPlates ? 0 : runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)}
+              limit={bonyPlates ? 0 : Math.max(0, runeLimit(runePotency, a.material) - (named?.runes.length ?? 0))}
               onChange={bonyPlates ? undefined : (runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} /></>
               : !sf2eArmor && <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${a.name}`} title="Remove"

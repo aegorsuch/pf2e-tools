@@ -10,7 +10,7 @@ import type { Character, OwnedArmor, OwnedShield } from '../src/types'
 const snapshot = join('public', 'data', 'aon-pf2e.json')
 it.skipIf(!existsSync(snapshot))('parses actual canonical armor, shield, and mask sources from the local AoN snapshot', () => {
   const hits = JSON.parse(readFileSync(snapshot, 'utf8')) as Hit[]
-  const wanted = new Set(['armor-41', 'armor-43', 'equipment-2801', 'equipment-2789', 'equipment-2789-2579',
+  const wanted = new Set(['armor-41', 'armor-43', 'armor-44', 'equipment-2801', 'equipment-2789', 'equipment-2789-2579',
     'equipment-1528', 'equipment-3700', 'equipment-3753', 'equipment-2365', 'equipment-1530'])
   const catalog = hits.filter(hit => wanted.has(hit._id!)).map(hit => mapAonHit(hit, 'pf2e')!).filter(Boolean)
   const character: Character = {

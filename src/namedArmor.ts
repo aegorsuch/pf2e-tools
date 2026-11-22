@@ -11,16 +11,15 @@ export function isNamedArmor(name: string) {
   return ARMORS.has(name)
 }
 
-const WEAVE_ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane"])
+const WEAVE_ARMORS = new Set([ANCESTRAL_HIDE, "Slithermaw's Bane"])
 
 function ancestralEmbraceVariants(item: ContentEntry): (ContentEntry & { baseOverride?: string })[] {
-  const leather = { ...item, description: item.description.replace(/\bThis brightly colored\b/, 'This') }
-  const hide = {
-    ...leather, id: `${item.id}:hide`, name: ANCESTRAL_HIDE, baseOverride: 'Hide Armor',
-    description: leather.description.replace(/\bleather armor\b/gi, 'hide armor').replace(/\bBase Armor\s+Leather Armor/i, 'Base Armor Hide Armor')
-      .replace(/^This /, 'Fashioned from thick hide, this ').replace(/\+4 (?=\[?major resilient)/i, '+4 greater fortification '),
-  }
-  return [leather, hide]
+  return [{
+    ...item, id: `${item.id}:hide`, name: ANCESTRAL_HIDE, baseOverride: 'Hide Armor',
+    description: item.description.replace(/\bThis brightly colored\b/, 'This')
+      .replace(/\bleather armor\b/gi, 'hide armor').replace(/\bBase Armor\s+Leather Armor/i, 'Base Armor Hide Armor')
+      .replace(/\n\nThis /, '\n\nFashioned from thick hide, this '),
+  }]
 }
 
 export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: string }[]) {
@@ -63,6 +62,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
           named_armor_resilient: /\bmajor resilient\b/i.test(enchantment[2]) ? 3
             : /\bgreater resilient\b/i.test(enchantment[2]) ? 2 : /\bresilient\b/i.test(enchantment[2]) ? 1 : 0,
           named_armor_runes: fixed.join(';'),
+          ...(item.name === ANCESTRAL_HIDE ? { named_armor_rune_limit: 3 } : {}),
           ...(quiet ? { check_penalty: 0 } : {}),
           ...(thickening ? { bulk: Number(item.data.bulk ?? base.data.bulk) + Number(thickening[1]),
             strength: Number(base.data.strength) + Number(thickening[2]) } : {}),
@@ -81,6 +81,11 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
     resilient: Number(entry.data.named_armor_resilient),
     runes: String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean),
   }
+}
+
+export function namedArmorRuneLimit(entry?: ContentEntry) {
+  const limit = Number(entry?.data.named_armor_rune_limit)
+  return Number.isInteger(limit) && limit >= 0 ? limit : undefined
 }
 
 const shieldCache = new WeakMap<ContentEntry[], Map<string, ContentEntry | null>>()

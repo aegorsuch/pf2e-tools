@@ -695,7 +695,7 @@ it("applies Giant's Lunge to melee weapons and unarmed attacks without reducing 
   expect(weaponAttack({ ...c, level: 13 }, entries, main).reach).toBe(5)
   expect(weaponAttack({ ...c, activeFeatEffects: [] }, entries, main).reach).toBe(5)
   const markup = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="defense" />)
-  expect(markup(c)).toContain(`aria-label="Giant&#x27;s Lunge active" checked=""`)
+  expect(markup(c)).not.toContain(`Giant&#x27;s Lunge active`)
   expect(markup({ ...c, raging: false })).not.toContain(`Giant&#x27;s Lunge active`)
 })
 
@@ -720,7 +720,7 @@ it("applies Giant's and Titan's Stature size, reach, clumsy, and Rage gating", (
   const naturallyLarge = content('ancestry', 'Large Test', { size: 'Large' })
   expect(giantStatureSize({ ...large, ancestry: naturallyLarge.name }, [naturallyLarge])).toBeUndefined()
   const html = renderToStaticMarkup(<SkillsSection c={huge} entries={[sword]} save={() => {}} part="defense" />)
-  expect(html).toContain('aria-label="Giant&#x27;s Stature size" disabled=""')
+  expect(html).not.toContain('aria-label="Giant&#x27;s Stature size"')
   expect(html).toContain('<small>Size</small><b>Huge</b>')
   const transformed = { ...large, ...spellActiveChange(large, 'Untamed Form', true) }
   expect(transformed.giantStature).toBeUndefined()

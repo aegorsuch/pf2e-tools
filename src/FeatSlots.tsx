@@ -1,8 +1,9 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useId, useRef, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
+import { ActionIcon } from './ActionIcon'
 import { PickerDialog } from './PickerDialog'
-import { MASTERMIND_SKILLS, ancestryFeatTraits, automaticFeatGrants, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, homebrewDedication, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -44,6 +45,52 @@ const LABEL: Record<FeatSlotCategory, string> = {
 }
 
 type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; value: string; label: string; disabled?: boolean }
+
+const FEAT_ACTION_CONTROLS = new Set(["Giant's Lunge", 'Desperate Wrath', 'Come and Get Me', "Giant's Stature"])
+const FEAT_ACTION_TITLES: Record<string, string> = {
+  "Giant's Lunge": 'Melee reach becomes at least 10 feet until Rage ends.',
+  'Desperate Wrath': 'Activate when your turn starts at half HP or less; ends above half HP or when Rage ends.',
+  'Come and Get Me': 'While active, you are off-guard and attacks against you gain +2 circumstance damage.',
+}
+
+function FeatActionControls({ c, entries, save, entry }: SectionProps & { entry?: ContentEntry }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const name = entry?.name
+  if (!entry || !name || !FEAT_ACTION_CONTROLS.has(name) || !activeFeatsNamed(c, name).length) return null
+  const actions = typeof entry.data.actions === 'string' ? entry.data.actions : ''
+  const giantStature = name === "Giant's Stature"
+  const canGrow = giantStature && canUseGiantStature(c, entries)
+  const size = giantStature ? giantStatureSize(c, entries) : undefined
+  return <>
+    <button type="button" className="spell-action-button" aria-label={`${name} options`} aria-haspopup="dialog"
+      onClick={() => { dialog.current?.showModal(); dialog.current?.querySelector('h4')?.focus() }}>
+      {actions ? <ActionIcon actions={actions} showOther /> : 'Options'}
+    </button>
+    <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
+      onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
+      <h4 id={titleId} tabIndex={-1}>{name}</h4>
+      {giantStature ? <label>Size{' '}
+        <select aria-label="Giant's Stature size" value={size ?? ''} disabled={!canGrow || !!size}
+          onChange={event => {
+            const value = event.target.value
+            if (!canGrow || size || value !== 'Large' && value !== 'Huge'
+              || value === 'Huge' && !activeFeatsNamed(c, "Titan's Stature").length) return
+            save(giantStatureChange(c, value))
+          }}>
+          <option value="">Normal size</option>
+          <option value="Large">Large</option>
+          {!!activeFeatsNamed(c, "Titan's Stature").length && <option value="Huge">Huge</option>}
+        </select>
+      </label> : <label title={FEAT_ACTION_TITLES[name]}>
+        <input type="checkbox" aria-label={`${name} active`} checked={isFeatEffectActive(c, name)}
+          disabled={!c.raging && !isFeatEffectActive(c, name)}
+          onChange={event => save(featEffectChange(c, name, event.target.checked))} /> {name} active
+      </label>}
+      <form method="dialog"><button autoFocus>Close</button></form>
+    </dialog>
+  </>
+}
 
 export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSearch'>) {
   const [search, setSearch] = useState<Record<string, string>>({})
@@ -360,6 +407,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits({ ...c, level: Math.min(c.level, s.level) }),
           })
           const currentEntry = sources.find(source => source.id === selection?.sourceId) ?? sources[0] ?? featByName(entries).get(current)
+          const showFeatActionControls = !!currentEntry && FEAT_ACTION_CONTROLS.has(currentEntry.name)
+            && !!activeFeatsNamed(c, currentEntry.name).length
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }
@@ -493,12 +542,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {homebrewDedication(s.key) ? (
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
-                current === 'N/A' ? <span>N/A</span> : <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
-                  buttonActions={training?.actions}
-                  descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
-                    : selection?.choice && DOMAIN_FEATS.includes(selection.name)
-                      ? domainSpellDescription(c, entries, selection.name, selection.choice)
-                      : subclassDescription(selection?.name ?? '', selection?.choice)} />
+                current === 'N/A' ? <span>N/A</span> : <>
+                  <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls}
+                    descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
+                      : selection?.choice && DOMAIN_FEATS.includes(selection.name)
+                        ? domainSpellDescription(c, entries, selection.name, selection.choice)
+                        : subclassDescription(selection?.name ?? '', selection?.choice)} />
+                  {showFeatActionControls && <FeatActionControls c={c} entries={entries} save={save} entry={currentEntry} />}
+                </>
               ) : popup ? (
                 <button type="button" className="feat-name feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
                   onClick={() => onSearch?.(`${s.key}:open`, '1')}>

@@ -101,7 +101,6 @@ describe('settings sync', () => {
     expect(settings.getSettings().championFormNoFlight).toBe(true)
     expect(settings.getSettings().rangerCavalier).toBe(true)
     expect(settings.getSettings().orderExplorerSkills).toBe(true)
-    expect(settings.getSettings().gauntletFinesse).toBe(true)
     expect(settings.getSettings().bucklerMeleeFinesse).toBe(true)
     expect(settings.getSettings().unarmedCountsAsWeapons).toBe(true)
     expect(settings.getSettings().barbarianIgnoreAgile).toBe(true)
@@ -115,7 +114,7 @@ describe('settings sync', () => {
     expect(settings.getSettings().innateAutoHeighten).toBe(true)
     expect(settings.getSettings().deityLore).toBe(true)
     expect(settings.getSettings().sf2eDeitySkills).toBe(true)
-    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, gauntletFinesse: false, unarmedCountsAsWeapons: false, barbarianIgnoreAgile: false, adoptedDwarfClanDagger: false, disableAdoptedAncestry: false, singleAdditionalArms: false, exclusiveCyborgHearts: false })
+    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, unarmedCountsAsWeapons: false, barbarianIgnoreAgile: false, adoptedDwarfClanDagger: false, disableAdoptedAncestry: false, singleAdditionalArms: false, exclusiveCyborgHearts: false })
     settings.updateSettings({ bucklerMeleeFinesse: false, rangerCavalier: false, innateAutoHeighten: false, deityLore: false,
       sf2eDeitySkills: false, disableAncientElfMultitalented: false, disableBeastmasterWardenSpells: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
@@ -127,7 +126,6 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().championFormNoFlight).toBe(false)
     expect(reloaded.getSettings().rangerCavalier).toBe(false)
     expect(reloaded.getSettings().orderExplorerSkills).toBe(false)
-    expect(reloaded.getSettings().gauntletFinesse).toBe(false)
     expect(reloaded.getSettings().bucklerMeleeFinesse).toBe(false)
     expect(reloaded.getSettings().innateAutoHeighten).toBe(false)
     expect(reloaded.getSettings().deityLore).toBe(false)
@@ -140,12 +138,11 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().disableBeastmasterWardenSpells).toBe(false)
     expect(reloaded.getSettings().singleAdditionalArms).toBe(false)
     expect(reloaded.getSettings().exclusiveCyborgHearts).toBe(false)
-    reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true, orderExplorerSkills: true, gauntletFinesse: true,
+    reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true, orderExplorerSkills: true,
       disableAdoptedAncestry: false, disableAncientElfMultitalented: false, disableBeastmasterWardenSpells: false }, reloaded.getSettingsUpdatedAt() + 1)
     expect(reloaded.getSettings().singleTrainingFeats).toBe(true)
     expect(reloaded.getSettings().championFormNoFlight).toBe(true)
     expect(reloaded.getSettings().orderExplorerSkills).toBe(true)
-    expect(reloaded.getSettings().gauntletFinesse).toBe(true)
     expect(reloaded.getSettings().deityLore).toBe(true)
     expect(reloaded.getSettings().disableAdoptedAncestry).toBe(false)
     expect(reloaded.getSettings().disableAncientElfMultitalented).toBe(false)

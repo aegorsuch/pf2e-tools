@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, canUseGiantStature, giantStatureSize, giantStatureChange, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
@@ -713,7 +713,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, [name]: event.target.checked } })} />
           {' '}{name} used <SourceNote inlineSource={false} source={name} note="Once per hour. Clear after an hour has passed." />
         </label>)}
-        <WeaponList c={c} entries={weaponEntries} save={save} displayOnly
+        <WeaponList c={c} entries={weaponEntries} save={save} displayOnly showAddWeapon
           additionalWeapons={offensiveDefense ? [offensiveDefense.weapon] : []} />
       </>
     )
@@ -883,7 +883,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {' '}Grandmother's Favorite used <SourceNote inlineSource={false} source="Grandmother's Favorite"
             note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
-        <RageToggle c={c} save={save} />
         {c.raging && !!activeFeatsNamed(c, 'Ghost Wrangler').length && <label>
           <input type="checkbox" aria-label="Ghost Wrangler active" checked={isFeatEffectActive(c, 'Ghost Wrangler')}
             onChange={event => save(featEffectChange(c, 'Ghost Wrangler', event.target.checked))} /> Ghost Wrangler active
@@ -895,25 +894,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {' '}Scars of Steel used <SourceNote source="Scars of Steel"
             note={`Reaction while raging, once per day: gain resistance ${Math.max(0, abilityMod(c.abilities.con) + Math.floor(c.level / 2))} to an opponent's triggering critical hit that deals physical damage.`} />
         </label>}
-        {canUseGiantStature(c, entries) && <label>Giant's Stature{' '}
-          <select aria-label="Giant's Stature size" value={giantStatureSize(c, entries) ?? ''} disabled={!!giantStatureSize(c, entries)}
-            onChange={event => {
-              const value = event.target.value
-              if (giantStatureSize(c, entries) || value !== 'Large' && value !== 'Huge') return
-              if (value === 'Huge' && !activeFeatsNamed(c, "Titan's Stature").length) return
-              save(giantStatureChange(c, value))
-            }}>
-            <option value="">Normal size</option>
-            <option value="Large">Large</option>
-            {!!activeFeatsNamed(c, "Titan's Stature").length && <option value="Huge">Huge</option>}
-          </select>
-        </label>}
-        {c.raging && <FeatEffectToggle c={c} save={save} name="Giant's Lunge" label="Giant's Lunge active"
-          title="Melee reach becomes at least 10 feet until Rage ends." />}
-        {c.raging && <FeatEffectToggle c={c} save={save} name="Desperate Wrath" label="Desperate Wrath active"
-          title="Activate when your turn starts at half HP or less; ends above half HP or when Rage ends." />}
-        {c.raging && <FeatEffectToggle c={c} save={save} name="Come and Get Me" label="Come and Get Me active"
-          title="While active, you are off-guard and attacks against you gain +2 circumstance damage." />}
         {c.raging && <FeatEffectToggle c={c} save={save} name="Spirits' Interference" label="Spirits' Interference active"
           title="One action; ranged attackers must pass a DC 5 flat check until Rage ends." />}
         {c.raging && isFeatEffectActive(c, "Spirits' Interference") && <SourceNote source="Spirits' Interference"
