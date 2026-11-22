@@ -34,6 +34,83 @@ const PET_ABILITY_NOTES: Record<string, string> = {
   Scent: 'Imprecise scent within 30 feet.',
   Tough: 'Maximum HP increases by 2 per level.',
 }
+
+const SUMMONED_CREATURES = {
+  Caypin: {
+    level: 6, traits: ['Large', 'Amphibious', 'Beast'],
+    abilities: [5, 3, 4, -3, -1, -1], hp: 100, ac: 24, saves: [17, 14, 11],
+    perception: 14, senses: 'Darkvision', skills: ['Acrobatics +13', 'Athletics +15', 'Stealth +13'],
+    speed: '40 feet, swim 30 feet',
+    attacks: [{ name: 'Claw', traits: 'agile', bonus: 16, damage: '2d6+8 slashing' },
+      { name: 'Jaws', traits: '', bonus: 16, damage: '2d8+8 piercing' }],
+    specials: [
+      { name: 'Appendage Cluster', description: 'Up to two detached Small minions; each has 30 HP, Speed 20 feet, swim 15 feet, darkvision, and the caypin’s AC, saves, and skills. Jaws +14, 2d4+3 piercing. They share its senses and die if it dies or they move over 100 feet away. Losing both clusters blinds the caypin until one regrows in 3 days.' },
+      { name: 'Aquatic Ambush', actions: 'Single Action', description: 'Aquatic Ambush 40 feet.' },
+      { name: 'Cluster Onslaught', actions: 'Single Action', description: 'The cluster Tumbles Through using Acrobatics; success deals 3d8 piercing, and critical success also deals 4 persistent bleed.' },
+      { name: 'Detach Cluster', actions: 'Single Action', description: 'Detach a cluster into an adjacent square. With both detached, the caypin cannot use its jaws or detach another. An adjacent cluster can reattach with an Interact action.' },
+    ],
+    url: 'https://2e.aonsrd.com/creatures/183-caypin',
+  },
+  Squox: {
+    level: -1, traits: ['Tiny', 'Animal'],
+    abilities: [0, 3, 0, -4, 0, 1], hp: 7, ac: 14, saves: [2, 7, 2],
+    perception: 6, senses: 'Low-light vision, scent (imprecise) 30 feet',
+    skills: ['Acrobatics +6', 'Stealth +6', 'Thievery +6'], speed: '25 feet, climb 20 feet',
+    attacks: [{ name: 'Jaws', traits: 'agile, finesse', bonus: 6, damage: '1d4 piercing' }],
+    specials: [{ name: 'Squox Tricks', description: 'Use Acrobatics to Disarm or Trip with its tail without a free hand. Against off-guard targets, it can attempt either against creatures up to two sizes larger and gains a +2 circumstance bonus.' }],
+    url: 'https://2e.aonsrd.com/creatures/98-squox',
+  },
+  Shotalashu: {
+    level: 2, traits: ['Large', 'Beast'],
+    abilities: [2, 4, 2, -3, 3, 2], hp: 35, ac: 18, saves: [8, 10, 11],
+    perception: 9, senses: 'Darkvision', skills: ['Acrobatics +8', 'Athletics +8', 'Stealth +8', 'Survival +7'],
+    speed: '40 feet', languages: 'Understands Elven and Lashunta; cannot speak',
+    attacks: [{ name: 'Claws', traits: 'agile, finesse', bonus: 10, damage: '1d6+2 slashing plus 1d4 mental' }],
+    specials: [
+      { name: 'Empathic Communication', description: 'Understands simple commands and communicates emotions telepathically to creatures touching it or its linked partner at any distance.' },
+      { name: 'Telepathic Link', description: 'A rider bonds after one week and a DC 21 Occultism check; telepathic capabilities grant +4 circumstance. The link lasts until either dies. The survivor is stupefied 2 for 24 hours and cannot form a new link for at least a month.' },
+      { name: 'Jungle Stride', description: 'Ignores difficult terrain caused by vegetation.' },
+      { name: 'Telepathic Pounce', actions: 'Two Actions', description: 'One creature within 30 feet attempts a DC 18 Will save. Critical success: no effect. Success: –5-foot status penalty to Speed for 1 round. Failure: –10-foot status penalty to Speed for 1 round; the shotalashu can Leap. Critical failure: off-guard and immobilized for 1 round; the shotalashu can Leap.' },
+    ],
+    url: 'https://app.demiplane.com/nexus/starfinder2e/creatures/shotalashu',
+  },
+} satisfies Record<string, {
+  level: number; traits: string[]; abilities: number[]; hp: number; ac: number; saves: number[]
+  perception: number; senses: string; skills: string[]; speed: string; languages?: string
+  attacks: { name: string; traits: string; bonus: number; damage: string }[]
+  specials: { name: string; actions?: string; description: string }[]; url: string
+}>
+
+function SummonedCreature({ name }: { name: keyof typeof SUMMONED_CREATURES }) {
+  const creature: (typeof SUMMONED_CREATURES)[keyof typeof SUMMONED_CREATURES] & { languages?: string } = SUMMONED_CREATURES[name]
+  return <details className="character-subsection" open>
+    <summary><h4>Summoned {name}</h4></summary>
+    <div className="gear-traits"><span>Level {creature.level}</span>{creature.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
+    <div className="gear-stats">{ABILITIES.map((ability, index) =>
+      <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{signed(creature.abilities[index])}</span>)}</div>
+    <section className="companion-actions"><h5>Attacks</h5>
+      {creature.attacks.map(attack => <div key={attack.name} className="companion-action">
+        <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>{attack.name}</b>
+          {attack.traits && <small>({attack.traits})</small>}<span>{signed(attack.bonus)}</span><span>— {attack.damage}</span></div>
+      </div>)}
+    </section>
+    <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
+      <span><small>Hit Points</small><b>{creature.hp}</b></span><span><small>Armor Class</small><b>{creature.ac}</b></span>
+      {['Fortitude', 'Reflex', 'Will'].map((save, index) => <span key={save}><small>{save}</small>{signed(creature.saves[index])}</span>)}
+    </div></section>
+    <section className="companion-actions"><h5>Senses</h5><div><small>Perception</small> <b>{signed(creature.perception)}</b> · {creature.senses}</div></section>
+    <section className="companion-actions"><h5>Skills</h5>{creature.skills.map(skill => <div key={skill}>{skill}</div>)}</section>
+    <section className="companion-actions"><h5>Speed</h5><div>{creature.speed}</div></section>
+    {creature.languages && <section className="companion-actions"><h5>Languages</h5><div>{creature.languages}</div></section>}
+    <section className="companion-actions"><h5>Special</h5>{creature.specials.map(special =>
+      <div key={special.name} className="companion-action">
+        <div className="companion-action-title">{'actions' in special && special.actions && <ActionIcon actions={special.actions} />}<b>{special.name}</b></div>
+        <p className="companion-action-description">{special.description}</p>
+      </div>)}</section>
+    <a href={creature.url} target="_blank" rel="noreferrer">{name} abilities and statistics</a>
+  </details>
+}
+
 const companionEntryCache = new WeakMap<ContentEntry[], Map<boolean, ContentEntry[]>>()
 const companionTypeCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 
@@ -228,6 +305,7 @@ export function MinionsSection(props: SectionProps) {
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
   const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const lashuntaAlly = activeLashuntaAlly(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const needsConstructEntry = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
@@ -275,27 +353,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
   return (
       <div className="character-section-content minions-section-content">
-        {activeCaypinAlly(c) && <details className="character-subsection" open>
-          <summary><h4>Summoned Caypin</h4></summary>
-          <p>Large amphibious beast, level 6. AC 24; HP 100; Fortitude +17, Reflex +14, Will +11.
-            Speed 40 feet, swim 30 feet; darkvision.</p>
-          <p>Claw +16, 2d6+8 slashing (agile); jaws +16, 2d8+8 piercing.</p>
-          <a href="https://2e.aonsrd.com/creatures/183-caypin" target="_blank" rel="noreferrer">Caypin abilities and statistics</a>
-        </details>}
-        {activeLashuntaAlly(c) === 'Squox' && <details className="character-subsection" open>
-          <summary><h4>Summoned Squox</h4></summary>
-          <p>Tiny animal, level -1. AC 14; HP 7; Fortitude +2, Reflex +7, Will +2.
-            Speed 25 feet, climb 20 feet; low-light vision, scent (imprecise) 30 feet.</p>
-          <p>Jaws +6, 1d4 piercing (agile, finesse).</p>
-          <a href="https://2e.aonsrd.com/creatures/98-squox" target="_blank" rel="noreferrer">Squox abilities and statistics</a>
-        </details>}
-        {activeLashuntaAlly(c) === 'Shotalashu' && <details className="character-subsection" open>
-          <summary><h4>Summoned Shotalashu</h4></summary>
-          <p>Large beast, level 2. AC 18; HP unavailable; Fortitude +8, Reflex +10, Will +11.
-            Speed 40 feet; darkvision.</p>
-          <p>Claw +10, 1d6+2 slashing plus 1d4 mental (agile, finesse).</p>
-          <a href="https://app.demiplane.com/nexus/starfinder2e/creatures/shotalashu" target="_blank" rel="noreferrer">Shotalashu abilities and statistics</a>
-        </details>}
+        {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
+        {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
