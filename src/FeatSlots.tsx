@@ -138,7 +138,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
       && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession')
         || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
-    .map(grant => ({ ...grant, choice: grant.choice
+    .map(grant => ({ ...grant, fixedLore: grant.name === 'Additional Lore' && !!grant.choice, choice: grant.choice
       ?? c.automaticFeatChoices?.[grant.choiceKey ?? automaticFeatChoiceKey(grant.source, grant.name)] }))
     .filter((grant, index, all) => {
       if (grant.name !== 'Additional Lore' || !grant.choice) return true
@@ -402,7 +402,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
                   entry={entry} choice={row.kind === 'automatic' ? row.feat.choice : undefined} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
-                {row.kind === 'automatic' && <AutomaticFeatChoice c={c} entries={entries} save={save}
+                {row.kind === 'automatic' && !row.feat.fixedLore && <AutomaticFeatChoice c={c} entries={entries} save={save}
                   name={feat.name} source={row.feat.source} choice={row.feat.choice}
                   choiceKey={row.feat.choiceKey} choiceIndex={row.feat.choiceIndex} />}
                 <button type="button" aria-label={`Add L${String(row.level).padStart(2, '0')} ${LABEL[category]} feat slot`}

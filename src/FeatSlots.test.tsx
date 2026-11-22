@@ -159,6 +159,16 @@ it('shows editable Lore choice for a heritage-granted Additional Lore feat', () 
   expect(markup).toContain('value="Sailing"')
 })
 
+it('omits the subcategory selector for lore fixed by another feat', () => {
+  const c: Character = { ...emptyRanger(), ancestry: 'Orc', level: 1,
+    feats: [{ name: 'Orc Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['skill']} save={() => {}} />)
+
+  expect(markup).toContain('Additional Lore (Orc)')
+  expect(markup).not.toContain('Orc Lore Additional Lore subcategory')
+  expect(ranksAt(c, [])['Orc Lore']).toBeGreaterThan(0)
+})
+
 it('renders two separately saved Damaya Self-Perfection Lore choices', () => {
   let c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 17, ancestry: 'Lashunta',
     heritage: 'Damaya Lashunta', feats: [{ name: 'Damaya Self-Perfection', type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }] }
@@ -222,6 +232,7 @@ it('selects Gnome Obsession Lore in the feat picker and shows both granted feats
   expect(ranksAt(c, [feat])['Circus Lore']).toBe(1)
   const skillFeats = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} categories={['skill']} save={() => {}} />)
   expect(skillFeats).toContain('Additional Lore (Circus)')
+  expect(skillFeats).not.toContain('Gnome Obsession Additional Lore subcategory')
   expect(skillFeats).toContain('Assurance (Circus Lore)')
 })
 
