@@ -4095,6 +4095,11 @@ function groupRanks<G extends string>(c: Character, entries: ContentEntry[], gro
 
 const baseWeaponRanks = (c: Character, entries: ContentEntry[]) => {
   const ranks = groupRanks(c, entries, WEAPON_GROUPS, 'attack_proficiency', (t) => /weapons?|unarmed attacks?/i.test(t))
+  if (isWitchwarper(c)) {
+    for (const category of ['Simple', 'Unarmed'] as const) {
+      ranks[category] = Math.max(ranks[category], c.level >= 11 ? 2 : 1)
+    }
+  }
   if (c.systems.includes('sf2e') && c.className === 'Operative') {
     for (const category of ['Simple', 'Martial', 'Unarmed'] as const) {
       ranks[category] = Math.max(ranks[category], c.level >= 13 ? 2 : 1)
@@ -4204,6 +4209,11 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
 
 function baseArmorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = groupRanks(c, entries, ARMOR_GROUPS, 'defense_proficiency', (t) => /armor|unarmored defense/i.test(t))
+  if (isWitchwarper(c)) {
+    for (const category of ['Light', 'Unarmored'] as const) {
+      ranks[category] = Math.max(ranks[category], c.level >= 13 ? 2 : 1)
+    }
+  }
   ranks.Medium = Math.max(ranks.Medium, fatalMethodGrants(c).mediumArmor)
   const klass = byName(entries, 'class', c.className)
   for (const group of ARMOR_GROUPS) {

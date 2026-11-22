@@ -3,7 +3,7 @@ import { Children, createElement, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { Character, ContentEntry } from './types'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSetup, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
-import { additionalSkillCount, automaticFeatGrants, classSpellcasting, classSpellSlots, focusSpells, speed } from './builder'
+import { additionalSkillCount, armorClass, armorRanks, automaticFeatGrants, classSpellcasting, classSpellSlots, focusSpells, speed, weaponAttack, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
 import { SpellsSection, SpellsSummary, TailwindActions } from './SpellsSection'
 
@@ -43,6 +43,24 @@ describe('Witchwarper class setup', () => {
     expect(witchwarperSpellcasting({ ...base, level: 15 })?.rank).toBe(3)
     expect(witchwarperSpellcasting({ ...base, level: 19 })?.rank).toBe(4)
     expect(witchwarperSpellcasting({ ...base, boosts: { class: 'wis' } })?.ability).toBeUndefined()
+  })
+
+  it.each([
+    [1, 1, 1], [10, 1, 1], [11, 2, 1], [12, 2, 1], [13, 2, 2], [20, 2, 2],
+  ])('advances weapon and armor proficiency at level %i', (level, weaponRank, armorRank) => {
+    const c = { ...base, level }
+    expect(weaponRanks(c, [])).toEqual({ Simple: weaponRank, Martial: 0, Advanced: 0, Unarmed: weaponRank })
+    expect(armorRanks(c, [])).toEqual({ Light: armorRank, Medium: 0, Heavy: 0, Unarmored: armorRank })
+    const fist = { id: 'fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
+    expect(weaponAttack(c, [], fist).rank).toBe(weaponRank)
+    expect(armorClass(c, [])).toBe(10 + level + armorRank * 2)
+  })
+
+  it('does not grant Witchwarper proficiencies to other classes or systems', () => {
+    for (const c of [{ ...base, className: 'Mystic' }, { ...base, systems: ['pf2e'] as Character['systems'] }, { ...base, level: 0 }]) {
+      expect(weaponRanks(c, [])).toEqual({ Simple: 0, Martial: 0, Advanced: 0, Unarmed: 0 })
+      expect(armorRanks(c, [])).toEqual({ Light: 0, Medium: 0, Heavy: 0, Unarmored: 0 })
+    }
   })
 
   it.each([
