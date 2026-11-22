@@ -6480,7 +6480,13 @@ export function canBeWeaponInnovation(c: Character, entries: ContentEntry[], wea
 }
 
 export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  return !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  return c.systems.includes('pf2e') && !!entry?.systems.includes('pf2e')
+      && weaponCategory(entry) !== 'Unarmed' && !usesWeaponUpgrades(entry)
+      && !BATTLE_FORM_WEAPONS.some(form => form.id === weapon.id)
+      && weapon.id !== OVERSIZED_THROW.id && weapon.name !== SHIELD_BASH.name
+      && weapon.name !== HAFT_STRIKER_WEAPON.name
+    || !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
     || weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source === "Hunter's Dawn"
     || weapon.name === 'Bladed Gauntlet' && !!armorGauntlet(c, entries)?.locked
     || deityWeapon(c, entries)?.id === weapon.id

@@ -1296,6 +1296,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
+        const activeFreeRunes = freeRunes.filter((rune, index) =>
+          (!(forms.length || card) || weaponRuneApplies(entries, enhanced, rune.name))
+          && freeRunes.findIndex(other => runeName(other.name) === runeName(rune.name)) === index)
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         const equipControls = <>
             {inventive && <span onClick={event => event.stopPropagation()}>
@@ -1470,10 +1473,11 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {summary.form && <small>{summary.form}:</small>}
             <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />
           </div>)}
-          {!upgradeWeapon && !fixed && unarmed && <Runes
-            runes={enhanced.runes.filter(rune => !freeRunes.some(free => runeName(free.name) === runeName(rune)))}
-            entries={entries} options={[]} limit={0} freeRunes={freeRunes}
-            source={strengthSource ? `Animal Strength: ${strengthSource.name}` : `Inherited from ${handwrapItem.name}`} />}
+          {!upgradeWeapon && !fixed && <Runes
+            runes={activeRunes.filter(rune => !activeFreeRunes.some(free => runeName(free.name) === runeName(rune)))}
+            entries={entries} options={[]} limit={0} freeRunes={activeFreeRunes}
+            source={strengthSource ? `Animal Strength: ${strengthSource.name}`
+              : linkedSource ? `Inherited from ${linkedSource.name}` : unarmed ? `Inherited from ${handwrapItem.name}` : undefined} />}
           <AttackUpgrades attack={a} />
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
@@ -1557,7 +1561,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               </div>
               {summary.attack.traits.length > 0 && <GearTraits traits={summary.attack.traits} entries={entries} system={summary.attack.entry?.systems[0]} />}
             </div>)}
-            {!upgradeWeapon && !fixed && !unarmed && <WeaponFundamentals {...enhanced} entries={entries} />}
             {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
             <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />

@@ -354,7 +354,7 @@ it.each([
   })
   expect(weapon).toMatchObject({ potency: 0, striking: 0, runes: ['Flaming'], material: 'Cold Iron' })
   expect(effectiveWeapon(c, [sword], { ...weapon, osteoArmament: false })).toMatchObject({
-    potency: 0, striking: 0, material: expect.stringContaining('Cold Iron'), runes: ['Flaming'],
+    potency, striking, material: expect.stringContaining('Cold Iron'), runes: ['Flaming'],
   })
 })
 
@@ -364,14 +364,14 @@ it('requires active Osteo training and respects advanced-weapon proficiency with
   const c = { ...base, feats: [feat('Osteo Armaments', 4)] }
   const entries = [advanced, osteoClass]
   expect(canBeOsteoArmament(c, entries, weapon)).toBe(false)
-  expect(effectiveWeapon(c, entries, weapon)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  expect(effectiveWeapon(c, entries, weapon)).toMatchObject({ potency: 2, striking: 1, runes: [] })
   const trained = { ...c, feats: [...c.feats, feat('Weapon Proficiency', 1, advanced.name)] }
   expect(canBeOsteoArmament(trained, entries, weapon)).toBe(true)
   expect(weaponAttack(trained, entries, weapon).rank).toBe(1)
   expect(effectiveWeapon(trained, entries, weapon)).toMatchObject({ potency: 2, striking: 1, runes: ['Decaying'] })
   expect(canBeOsteoArmament(trained, entries, { ...weapon, attachedTo: 'other' })).toBe(false)
   const future = { ...trained, feats: [{ ...trained.feats[0], takenLevel: 12 }, trained.feats[1]] }
-  expect(effectiveWeapon(future, entries, weapon)).toMatchObject({ potency: 0, striking: 0, runes: [] })
+  expect(effectiveWeapon(future, entries, weapon)).toMatchObject({ potency: 2, striking: 1, runes: [] })
 })
 
 it('upgrades free Decaying once, preserves purchased runes, and renders damage without a material control', () => {
@@ -678,7 +678,7 @@ it.each([
   const entries = [blade, klass]
   const before = JSON.stringify(c)
   expect(effectiveWeapon(c, entries, first)).toMatchObject({ size: 'Large', material: 'Orichalcum', potency, striking })
-  expect(effectiveWeapon(c, entries, second)).toEqual(second)
+  expect(effectiveWeapon(c, entries, second)).toEqual({ ...second, potency, striking })
   const specialization = level >= 7 ? level >= 15 ? 4 : 2 : 0
   expect(weaponAttack(c, entries, first)).toMatchObject({ rageDamage: rage, damage: `${1 + striking}d12+${4 + rage + specialization} S` })
   expect(weaponAttack(c, entries, { ...first, handsHeld: 1 }).damage).toBe(`${1 + striking}d8+${4 + rage + specialization} S`)
@@ -936,8 +936,8 @@ it('calculates thrown melee attacks with Dexterity and Raging Thrower damage', (
   expect(thrown.range).toBe(10)
   expect(thrown.reach).toBe(0)
   expect(thrown.rageDamage).toBe(1)
-  expect(thrown.damage).toBe('1d4+5 piercing')
-  expect(weaponAttack({ ...c, feats: [] }, [dagger], weapon, { thrown: true }).damage).toBe('1d4+4 piercing')
+  expect(thrown.damage).toBe('2d4+5 piercing')
+  expect(weaponAttack({ ...c, feats: [] }, [dagger], weapon, { thrown: true }).damage).toBe('2d4+4 piercing')
   const dragon = { ...c, subclass: 'Dragon', barbarianDragon: 'Diabolic' as const, draconicRage: true }
   expect(weaponAttack(dragon, [dagger], weapon, { thrown: true }).additionalDamage)
     .toContainEqual(expect.objectContaining({ source: 'Draconic Rage', value: '2 fire' }))
@@ -945,7 +945,7 @@ it('calculates thrown melee attacks with Dexterity and Raging Thrower damage', (
     .not.toContainEqual(expect.objectContaining({ source: 'Draconic Rage' }))
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} displayOnly />)
   expect(html).toContain('Thrown: Attack')
-  expect(html).toContain('Damage 1d4+5 P')
+  expect(html).toContain('Damage 2d4+5 P')
   const calm = renderToStaticMarkup(<WeaponList c={{ ...c, raging: false }} entries={[dagger]} save={() => {}} displayOnly />)
   expect(calm).not.toContain('Thrown: Attack')
   } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
@@ -1654,7 +1654,7 @@ it('marks one eligible weapon innovation with scaled fundamentals and locked mat
   expect(canBeWeaponInnovation(inventor, [weapon], item)).toBe(true)
   expect(effectiveWeapon(inventor, [weapon], item)).toMatchObject({ material: 'Orichalcum', potency: 2, striking: 1 })
   expect(effectiveWeapon({ ...inventor, subclass: 'Armor' }, [weapon], item)).toMatchObject({
-    material: 'Cold Iron (Standard-Grade)', potency: 0, striking: 0,
+    material: 'Cold Iron (Standard-Grade)', potency: 2, striking: 1,
   })
 
   expect(canBeWeaponInnovation(inventor, [{ ...weapon, level: 1 }], item)).toBe(false)
@@ -1693,6 +1693,9 @@ it('shows only selected combination form with shared runes, modifications, and i
   expect(html).toContain('Omnirange Stabilizers')
   const summary = html.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
   expect(summary).not.toContain('Impossible')
+  const offense = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly />)
+  expect(offense).toContain('>Impossible</button>')
+  expect(offense).not.toContain('>Vorpal</button>')
   expect(combinationForms([melee, { ...ranged, data: { ...ranged.data, url: 'different' } }], melee.name)).toEqual([])
 })
 
@@ -2020,7 +2023,7 @@ it.each([
   ['Cold Iron (Standard-Grade)', 16, 'Cold Iron (High-Grade)'],
 ] as const)('scales ordinary %s weapons at level %i to %s', (material, level, expected) => {
   const weapon = { ...main, material }
-  expect(effectiveWeapon({ ...base, level }, [sword], weapon)).toMatchObject({ material: expected, potency: 3, striking: 1 })
+  expect(effectiveWeapon({ ...base, level }, [sword], weapon)).toMatchObject({ material: expected, potency: 3, striking: level >= 12 ? 2 : 1 })
   expect(weapon.material).toBe(material)
 })
 
@@ -2110,7 +2113,7 @@ it.each([0, 1, 2, 3])('converts armor resilient tier %i directly into its provid
   const gauntlet = ownedWeapons(c, []).find(w => w.id === GAUNTLET.id)!
   expect(effectiveWeapon(c, [], gauntlet)).toMatchObject({ potency: tier, striking: tier, runes: [] })
   expect(weaponAttack(c, [], gauntlet).damage).toMatch(new RegExp(`^${tier + 1}d4`))
-  expect(effectiveWeapon(c, [], { ...gauntlet, id: 'purchased', potency: 0, striking: 0 })).toMatchObject({ potency: 0, striking: 0 })
+  expect(effectiveWeapon(c, [], { ...gauntlet, id: 'purchased', potency: 0, striking: 0 })).toMatchObject({ potency: 2, striking: 1 })
 })
 
 it('keeps favored weapon benefits without forcing Champions, Clerics or Vindicators to own one', () => {
@@ -2159,7 +2162,7 @@ it('preserves a favored Fist alongside armor gauntlets and reuses an already-gra
 it.each(['Living Weapon', 'Verdant Weapon'])('does not activate %s upgrades before the granting feat is acquired', (name) => {
   const weapon = { ...main, potency: 0, striking: 0, livingWeapon: name === 'Living Weapon', verdantWeapon: name === 'Verdant Weapon' }
   const c: Character = { ...base, className: 'Ranger', weapons: [weapon], feats: [{ ...feat(name), slot: 'class:12:0' }] }
-  expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({ potency: 0, striking: 0 })
+  expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({ potency: 2, striking: 1 })
   expect(effectiveWeapon(c, [sword], weapon).material).toBeUndefined()
   expect(effectiveWeapon({ ...c, level: 12 }, [sword], weapon)).toMatchObject({ potency: 2, striking: 2, material: 'Peachwood (Standard-Grade)' })
 })
@@ -3012,6 +3015,23 @@ it.each([[1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1], [12, 2, 2], [16, 3, 2], [1
       expect(effectiveWeapon(c, [], weapon)).toMatchObject({ potency, striking })
       expect(effectiveWeapon(c, [], { ...weapon, potency: 3, striking: 3 })).toMatchObject({ potency: 3, striking: 3 })
     }
+  },
+)
+
+it.each([[1, 0, 0], [2, 1, 0], [4, 1, 1], [10, 2, 1], [12, 2, 2], [16, 3, 2], [19, 3, 3]])(
+  'scales ordinary Pathfinder weapon fundamentals at level %i', (level, potency, striking) => {
+    const sword = content('weapon', 'Sword', { weapon_category: 'Martial', weapon_type: 'Melee', damage: '1d8 slashing' })
+    const weapon: OwnedWeapon = { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }
+    const c: Character = { ...base, level }
+    expect(hasAutomaticWeaponFundamentals(c, [sword], weapon)).toBe(true)
+    expect(effectiveWeapon(c, [sword], weapon)).toMatchObject({ potency, striking })
+    expect(effectiveWeapon(c, [sword], { ...weapon, potency: 3, striking: 3 })).toMatchObject({ potency: 3, striking: 3 })
+    expect(weapon).toMatchObject({ potency: 0, striking: 0 })
+    expect(effectiveWeapon({ ...c, systems: ['sf2e'] }, [{ ...sword, systems: ['sf2e'] }], weapon))
+      .toMatchObject({ potency: 0, striking: 0 })
+    const techSword = { ...sword, systems: ['pf2e', 'sf2e'] as ContentEntry['systems'], traits: ['Tech'] }
+    expect(effectiveWeapon({ ...c, systems: ['pf2e', 'sf2e'] }, [techSword], weapon))
+      .toMatchObject({ potency: 0, striking: 0 })
   },
 )
 

@@ -88,7 +88,7 @@ it.each([
     expect(markup).not.toContain(`aria-label="Remove Peachwood (${grade}-Grade) material"`)
     expect(markup).not.toContain('<label>Potency')
     expect(markup).not.toContain('<label>Striking')
-    expect(markup).toContain('aria-label="Fundamental runes"')
+    expect(markup).not.toContain('aria-label="Fundamental runes"')
     expect(markup).toContain('[Astral](/Equipment.aspx?ID=2832)')
     expect(markup).not.toContain('[speed](/Equipment.aspx?ID=304)')
     expect(JSON.stringify(character)).toBe(before)
@@ -734,9 +734,13 @@ it.each([false, true])('shows named weapon properties, action costs, reactions a
   expect(last).toContain('shatters above DC 20')
   for (const markup of [shadow, sword, gun, last]) expect(markup).not.toContain('Named weapon enhancement details unavailable.')
   if (!displayOnly) {
-    expect(shadow).toContain('Potency <b>+4</b>')
+    expect(shadow).not.toContain('Potency <b>+4</b>')
     expect(shadow).not.toContain('aria-label="Remove Ghost Touch"')
     expect(sword).not.toContain('aria-label="Remove Vorpal"')
+  }
+  if (displayOnly) {
+    expect(shadow).toContain('>Ghost Touch</button>')
+    expect(sword).toContain('>Vorpal</button>')
   }
 })
 

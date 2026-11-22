@@ -127,7 +127,7 @@ it('selects one equipped Giant weapon by id and retains it when stowed or changi
   expect(renderToStaticMarkup(tree())).toContain('not equipped or unavailable')
   c = { ...c, className: 'Fighter' }
   expect(findControl(tree(), 'Giant Instinct weapon')).toBeUndefined()
-  expect(effectiveWeapon(c, [sword], weapon)).toEqual({ ...weapon, material: 'Cold Iron (Standard-Grade)' })
+  expect(effectiveWeapon(c, [sword], weapon)).toEqual({ ...weapon, material: 'Cold Iron (Standard-Grade)', potency: 2, striking: 1 })
   expect(c.giantWeaponId).toBe('first')
   c = { ...c, className: 'Barbarian', level: 8 }
   expect(findControl(tree(), 'Giant Raging Resistance')).toBeUndefined()

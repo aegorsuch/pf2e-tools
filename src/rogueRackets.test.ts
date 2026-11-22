@@ -17,9 +17,9 @@ const dagger: ContentEntry = { id: 'dagger', name: 'Dagger', kind: 'weapon', sou
 
 it('grants primary racket skills and thief damage without adding Dexterity to thrown strikes', () => {
   expect(ranksAt(base, [rogue]).Thievery).toBe(1)
-  expect(weaponAttack(base, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('1d4+4 piercing')
+  expect(weaponAttack(base, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('2d4+4 piercing')
   const thrown = { ...dagger, traits: ['Finesse', 'Thrown'], data: { ...dagger.data, weapon_type: 'Ranged' } }
-  expect(weaponAttack(base, [thrown], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('1d4+1 piercing')
+  expect(weaponAttack(base, [thrown], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('2d4+1 piercing')
 })
 
 it('scales Rogue weapon proficiency at levels 5 and 13 from its class features', () => {
