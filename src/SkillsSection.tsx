@@ -74,6 +74,20 @@ export function SkillsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'
   </summary>
 }
 
+const movementLabel = (movement: { name: string; feet: number }) =>
+  `${movement.name === 'Land' ? '' : `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}${movement.feet} ft.`
+
+export function SensesAndSpeedSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const characterSenses = senses(c, entries)
+  const speeds = movementSpeeds(c, entries)
+  const hover = magneticLevitatorsActive(c, entries)
+  return <summary className="character-section-summary">
+    <strong>Senses and Speed</strong>
+    <span>{characterSenses.map(sense => sense.value).join(', ') || 'No special senses'}; {speeds.map(movement =>
+      `${movementLabel(movement)}${movement.name === 'Land' && hover ? ' (hover)' : ''}`).join('; ')}</span>
+  </summary>
+}
+
 export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' | 'save'> & { summary?: boolean }) {
   if (c.className !== 'Barbarian' && !activeFeatsNamed(c, 'Barbarian Dedication').length) return null
   const toggle = <label><input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
@@ -107,7 +121,7 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
     <small>Speed: {speeds.map((movement, index) => {
       const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
-        {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
+        {index > 0 && '; '}{movementLabel(movement)}
         {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover)'}
         {(movement.source || bonuses.length > 0) && <SourceNote source={`${movement.name} Speed`}
           note={[movement.source, ...(movement.name === 'Land' && form?.source === 'Ancestral Embrace Avatar' ? [form.note] : []),

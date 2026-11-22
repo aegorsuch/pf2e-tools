@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { ArmorProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
 import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, speed, temporaryHpGrant, weaponRanks } from './builder'
 import * as builder from './builder'
@@ -33,6 +33,21 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('summarizes current senses and movement speeds in the section header', () => {
+  const ancestry: ContentEntry = { ...ranger, id: 'elf', kind: 'ancestry', name: 'Elf',
+    data: { vision: 'Low-Light Vision', speed: 25 } }
+  const c: Character = { ...base, ancestry: 'Elf', level: 9,
+    spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }], activeSpells: ['Stormwind Flight'] }
+  const render = (character: Character) => renderToStaticMarkup(<SensesAndSpeedSummary c={character} entries={[ancestry]} />)
+  expect(render(c)).toContain('Low-Light Vision; 25 ft.; Fly 25 ft.')
+  expect(render({ ...c, feats: [{ name: 'Nightvision Adaptation', type: 'Ancestry Feat', level: 1 }] }))
+    .toContain('Darkvision, Low-Light Vision; 25 ft.; Fly 25 ft.')
+  expect(render({ ...c, feats: [{ name: 'Nimble Hooves', type: 'Ancestry Feat', level: 1 }] }))
+    .toContain('Low-Light Vision; 30 ft.; Fly 30 ft.')
+  expect(render({ ...c, activeSpells: [] })).toContain('Low-Light Vision; 25 ft.</span>')
+  expect(render({ ...c, ancestry: undefined })).toContain('No special senses; 25 ft.; Fly 25 ft.')
+})
 
 it('shows professional weapon toolkit bonuses only while held', () => {
   const tool: ContentEntry = { ...mechanic, id: 'tool', kind: 'weapon', name: 'SLARP Rapid Laser Pistol', level: 4,

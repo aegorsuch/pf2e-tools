@@ -2476,6 +2476,9 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
       ? [{ source: 'Briskwander Vesk', feet: 5 }] : []),
     ...(hellknightBenefitActive(c, 'Trailblazing Stride') ? [{ source: 'Trailblazing Stride (circumstance)', feet: 10 }] : []),
     ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
+    ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Nimble Hooves').length
+      && !activeFeatsNamed(c, 'Nimble Elf').length
+      ? [{ source: 'Nimble Feet', feet: 5 }] : []),
     ...(status.feet > 0 ? [status] : []),
     ...(armorPenalty ? [{ source: 'Armor penalty', feet: armorPenalty }] : []),
     ...(fortressShieldPenalty ? [{ source: 'Fortress Shield', feet: fortressShieldPenalty }] : []),

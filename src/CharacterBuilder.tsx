@@ -16,7 +16,7 @@ import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpec
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
@@ -890,7 +890,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         </div>
       </DeferredDetails>
       <DeferredDetails>
-        <summary className="character-section-summary"><strong>Senses and Speed</strong></summary>
+        <SensesAndSpeedSummary {...section} />
         <div className="character-section-content">
           <SensesAndSpeed {...section} />
         </div>

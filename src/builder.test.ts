@@ -692,6 +692,16 @@ it('applies Cyborg frame training, granted feats, and selected resistance', () =
   expect(automaticFeatGrants(pistons, [])).toContainEqual({ name: 'Quick Jump', source: 'Hydraulic Pistons', level: 5 })
 })
 
+it('adds Nimble Feet Speed without stacking other ancestry feat speed increases', () => {
+  const nimble = { name: 'Nimble Hooves', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+  const c: Character = { ...base, level: 5, feats: [nimble] }
+  expect(speed(c, [])).toBe(30)
+  expect(speed({ ...c, level: 4 }, [])).toBe(25)
+  expect(speed({ ...c, feats: [...c.feats, { name: 'Fleet', type: 'General Feat', level: 1 }] }, [])).toBe(35)
+  expect(speed({ ...c, feats: [...c.feats, { name: 'Nimble Elf', type: 'Ancestry Feat', level: 1 }] }, [])).toBe(30)
+  expect(speed({ ...c, feats: [...c.feats, { name: 'Primal Nimbleness', type: 'Class Feat', level: 1 }] }, [])).toBe(35)
+})
+
 it('offers Energized Spark variants and prevents repeated damage types', () => {
   const spark = entry('feat', 'Energized Spark', {}, 1, ['Exemplar'])
   const first = { name: spark.name, type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Air (Slashing)' }
